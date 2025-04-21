@@ -3,10 +3,9 @@
 import React, { Suspense, useRef, useEffect } from 'react';
 import { DemoConfig } from '@/types/demo';
 import { createPortal } from 'react-dom';
-// Assuming files.json is correctly placed relative to this component or imported elsewhere
 import filesJSON from '../../files.json';
 
-// Custom iframe component that renders React components inside
+// Custom iframe component that renders React components inside (Restored Definition)
 function IsolatedFrame({
   demoId,
   children,
@@ -37,11 +36,13 @@ function IsolatedFrame({
           padding: 0;
           height: 100%;
           overflow: auto;
-          font-family: sans-serif;
+          /* Force light theme within demo iframe */
+          color-scheme: light;
         }
         #root {
           min-height: 100%;
           height: 100%;
+          background-color: #fff; /* Explicit light background */
         }
       `;
       iframe.contentDocument.head.appendChild(style);
@@ -51,20 +52,21 @@ function IsolatedFrame({
       root.id = "root";
       iframe.contentDocument.body.appendChild(root);
 
-      // Copy parent styles to iframe
+      // Copy relevant parent styles (e.g., Tailwind) to iframe
+      // Note: This might need refinement depending on how styles are loaded
       const parentStyles = Array.from(
-        document.querySelectorAll('style, link[rel="stylesheet"]')
+        document.querySelectorAll('link[rel="stylesheet"], style')
       );
       parentStyles.forEach((styleNode) => {
-        const clone = styleNode.cloneNode(true);
-        // Ensure head exists before appending
-        if (iframe.contentDocument?.head) {
-          iframe.contentDocument.head.appendChild(clone);
-        }
+          // Avoid copying styles specific to the main app's dark mode if possible
+          // This simple copy might bring dark mode styles; refinement might be needed.
+          const clone = styleNode.cloneNode(true);
+          if (iframe.contentDocument?.head) {
+            iframe.contentDocument.head.appendChild(clone);
+          }
       });
 
       // Apply direct styles from files.json to iframe content
-      // Use the full demoId (framework_agentId) as the key
       const demoStyleContent = (filesJSON as any)[demoId]?.files.find((f: any) => f.name === 'style.css')?.content;
       if (demoStyleContent && iframe.contentDocument?.head) {
         const styleElement = iframe.contentDocument.createElement('style');
@@ -78,7 +80,6 @@ function IsolatedFrame({
 
     iframe.addEventListener("load", handleLoad);
 
-    // If the iframe is already loaded, call handleLoad immediately
     if (iframe.contentDocument?.readyState === "complete") {
       handleLoad();
     }
@@ -86,7 +87,7 @@ function IsolatedFrame({
     return () => {
       iframe.removeEventListener("load", handleLoad);
     };
-  }, [demoId]); // Dependency array includes demoId
+  }, [demoId]);
 
   return (
     <iframe
@@ -94,7 +95,6 @@ function IsolatedFrame({
       className="w-full h-full border-0 bg-background"
       title="Demo Preview"
       sandbox="allow-same-origin allow-scripts allow-forms"
-      // Use srcDoc to ensure a clean initial state and trigger load event reliably
       srcDoc="<!DOCTYPE html><html><head></head><body></body></html>"
     >
       {iframeLoaded && iframeRoot && createPortal(children, iframeRoot)}
@@ -103,26 +103,37 @@ function IsolatedFrame({
 }
 
 export function DemoPreview({ demo }: { demo: DemoConfig }) {
-  const [Component, setComponent] = React.useState<React.ComponentType | null>(
-    null
-  );
   const [error, setError] = React.useState<string>();
+  // State specifically for the dynamically loaded component for non-iframe demos
+  const [DynamicComponent, setDynamicComponent] = React.useState<React.ComponentType | null>(null);
 
   React.useEffect(() => {
-    // Reset component and error state when demo changes
-    setComponent(null);
+    // Reset states only relevant to component loading when demo changes
     setError(undefined);
+    setDynamicComponent(null); 
 
-    // Dynamically import the component using the function from config
-    demo
-      .component() // This calls the import() function in config.ts
-      .then((comp) => setComponent(() => comp))
-      .catch((err) => {
-        console.error("Error loading demo component:", err);
-        setError("Failed to load demo component. Check console for details.");
-      });
+    // If it is an iframe demo, we don't need to load a component.
+    if (demo.iframeUrl) {
+      return; 
+    }
+
+    // If it's not iframe, and component loader exists, load it.
+    if (demo.component) {
+      demo
+        .component()
+        .then((comp) => setDynamicComponent(() => comp)) // Load into specific state
+        .catch((err) => {
+          console.error("Error loading dynamic component:", err);
+          setError("Failed to load dynamic component. Check console for details.");
+        });
+    } else if (!demo.iframeUrl) {
+      // Should not happen if config is correct, but handle it.
+      setError("Demo configuration is missing component function and iframeUrl.");
+    }
+
   }, [demo]); // Rerun when the demo object changes
 
+  // Handle error state first
   if (error) {
     return (
       <div className="flex items-center justify-center h-full text-red-500 p-4 text-center">
@@ -131,28 +142,42 @@ export function DemoPreview({ demo }: { demo: DemoConfig }) {
     );
   }
 
-  if (!Component) {
+  // Handle iframe rendering directly if url exists
+  if (demo.iframeUrl) {
+    return (
+      <iframe
+        key={demo.id} // Add key to ensure iframe instance changes cleanly
+        src={demo.iframeUrl}
+        className="w-full h-full border-0"
+        title={demo.name}
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+      />
+    );
+  }
+
+  // Handle component rendering path (if not iframe)
+  if (!DynamicComponent) {
+    // Component is loading
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
-        Loading demo...
+        Loading Component...
       </div>
     );
   }
 
+  // Component loaded, render inside IsolatedFrame & Suspense
   return (
     <Suspense
       fallback={
         <div className="flex items-center justify-center h-full text-muted-foreground">
-          Loading...
+          Loading Suspense...
         </div>
       }
     >
-      <div className="w-full h-full overflow-hidden">
-        {/* Pass the full demo id (e.g., crewai_agentic_chat) */}
-        <IsolatedFrame demoId={demo.id}>
-          <Component />
-        </IsolatedFrame>
-      </div>
+      {/* Add key here too for consistency */}
+      <IsolatedFrame key={demo.id} demoId={demo.id}>
+         <DynamicComponent />
+      </IsolatedFrame>
     </Suspense>
   );
 } 
