@@ -1,5 +1,13 @@
 # ui
 
+## 1.8.7
+
+### Patch Changes
+
+- Updated dependencies [8b8474f]
+  - @copilotkit/runtime-client-gql@1.8.7
+  - @copilotkit/shared@1.8.7
+
 ## 1.8.7-next.0
 
 ### Patch Changes

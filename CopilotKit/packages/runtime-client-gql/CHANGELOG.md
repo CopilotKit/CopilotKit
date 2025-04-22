@@ -1,5 +1,12 @@
 # @copilotkit/runtime-client-gql
 
+## 1.8.7
+
+### Patch Changes
+
+- 8b8474f: - feat: add image input support with multi-model compatibility, pasting, and UX improvements
+  - @copilotkit/shared@1.8.7
+
 ## 1.8.7-next.0
 
 ### Patch Changes
