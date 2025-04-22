@@ -1,8 +1,13 @@
 ---
-title: "Connect Your React App to MCP Servers"
+title: "Connect to MCP Servers"
 description: "Integrate Model Context Protocol (MCP) servers with your existing React application for enhanced AI capabilities"
 icon: "lucide/Network"
 ---
+
+<Callout type="info" title="Are you new to CopilotKit?">
+  check out our [Quickstart Guide](https://docs.copilotkit.ai/quickstart) for
+  more details.
+</Callout>
 
 ## What is Model Context Protocol (MCP)?
 
@@ -10,11 +15,13 @@ Model Context Protocol (MCP) is a standard that allows AI models to discover and
 
 ## Setup MCP with CopilotKit
 
-Setting up MCP with CopilotKit requires both frontend and backend configuration.
+To set up MCP with CopilotKit, add the `mcpEndpoints` property to your `CopilotKit` component:
 
-### Frontend Setup
-
-Add the `mcpEndpoints` property to your `CopilotKit` component:
+<Callout type="info" title="Get a Public API Key">
+  Sign up for a free{" "}
+  <LinkToCopilotCloud asButton={false}>Copilot Cloud</LinkToCopilotCloud>{" "}
+  account to obtain your public API key for accessing MCP servers.
+</Callout>
 
 ```tsx
 "use client";
@@ -25,10 +32,11 @@ import { CopilotChat } from "@copilotkit/react-ui";
 export default function PageLevelComponent() {
   return (
     <CopilotKit
-      runtimeUrl="/api/copilotkit"
+      // ... existing props
+      publicApiKey="<replace_with_your_own"
       mcpEndpoints={[
         {
-          endpoint: "your_mcp_sse_url",
+          endpoint: "your_mcp_sse_url", // Get a test server from https://mcp.composio.dev/
         },
       ]}
     >
@@ -43,9 +51,147 @@ export default function PageLevelComponent() {
 }
 ```
 
-### Backend Setup
+## Rendering MCP Tool Calls
 
-Configure your backend to handle MCP requests (this example uses Next.js App Router):
+You can visualize MCP tool calls in your UI by using the `useCopilotAction` hook with a catch-all action handler:
+
+```tsx
+"use client";
+
+import {
+  useCopilotAction,
+  CatchAllActionRenderProps,
+} from "@copilotkit/react-core";
+import MCPToolCall from "./MCPToolCall";
+
+export function ToolRenderer() {
+  useCopilotAction({
+    name: "*", // Catch all tool calls
+    render: ({ name, status, args, result }: CatchAllActionRenderProps<[]>) => (
+      <MCPToolCall status={status} name={name} args={args} result={result} />
+    ),
+  });
+  return null;
+}
+```
+
+### Sample MCPToolCall Component
+
+<details>
+<summary>Click to view the MCPToolCall component implementation</summary>
+
+```tsx
+"use client";
+
+import * as React from "react";
+
+interface ToolCallProps {
+  status: "complete" | "inProgress" | "executing";
+  name?: string;
+  args?: any;
+  result?: any;
+}
+
+export default function MCPToolCall({
+  status,
+  name = "",
+  args,
+  result,
+}: ToolCallProps) {
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  // Format string with proper line breaks and quotes
+  const formatContent = (str: string): string => {
+    const text = typeof str !== "string" ? JSON.stringify(str, null, 2) : str;
+    return text
+      .replace(/\\n/g, "\n")
+      .replace(/\\t/g, "\t")
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, "\\");
+  };
+
+  // Format arguments and results
+  const formattedArgs = React.useMemo(() => {
+    if (!args) return "";
+    return formatContent(
+      typeof args === "object" ? JSON.stringify(args, null, 2) : args
+    );
+  }, [args]);
+
+  const formattedResult = React.useMemo(() => {
+    if (!result) return "";
+
+    if (typeof result === "object" && result?.error?.message) {
+      const copy = { ...result };
+      copy.error = { ...copy.error };
+      copy.error.message = formatContent(copy.error.message);
+      return formatContent(JSON.stringify(copy, null, 2));
+    }
+
+    return formatContent(
+      typeof result === "object" ? JSON.stringify(result, null, 2) : result
+    );
+  }, [result]);
+
+  return (
+    <div className="bg-[#1e2738] rounded-lg overflow-hidden w-full">
+      <div
+        className="p-3 flex items-center cursor-pointer"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <div className="min-w-0 flex-grow overflow-hidden">
+          <span className="text-white text-sm">{name || "MCP Tool Call"}</span>
+        </div>
+        <div className="ml-auto">
+          <div
+            className={`w-2 h-2 rounded-full ${
+              status === "complete"
+                ? "bg-green-500"
+                : status === "inProgress" || status === "executing"
+                ? "bg-blue-500 animate-pulse"
+                : ""
+            }`}
+          />
+        </div>
+      </div>
+
+      {isOpen && (
+        <div className="px-4 pb-4 text-gray-300 font-mono text-xs">
+          {args && (
+            <div className="mb-4">
+              <div className="text-gray-400 mb-2">Parameters:</div>
+              <pre className="whitespace-pre-wrap max-h-[200px] overflow-auto bg-transparent">
+                {formattedArgs}
+              </pre>
+            </div>
+          )}
+
+          {status === "complete" && result && (
+            <div>
+              <div className="text-gray-400 mb-2">Result:</div>
+              <pre className="whitespace-pre-wrap max-h-[200px] overflow-auto bg-transparent">
+                {formattedResult}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+</details>
+
+## Self Hosting
+
+<details>
+<summary>Click here to learn how to set up MCP with self-hosting</summary>
+<Callout type="info" title="Self Hosting vs Copilot Cloud">
+  The Copilot Runtime is the back-end component of CopilotKit, handling the communication with LLM, message history, state and more. You may choose to self-host the Copilot Runtime, or use <LinkToCopilotCloud asButton={false}> Copilot Cloud (recommended). </LinkToCopilotCloud> Learn more about self-hosting in our [Self Hosting Guide](/guides/self-hosting).
+</Callout>
+
+Configure your CopilotKit self-hosted runtime to handle MCP server(s) (this example uses Next.js App Router):
 
 ```tsx
 import {
@@ -60,7 +206,6 @@ import { NextRequest } from "next/server";
 const serviceAdapter = new OpenAIAdapter();
 
 const runtime = new CopilotRuntime({
-  // @ts-ignore
   createMCPClient: async (config) => {
     return await experimental_createMCPClient({
       transport: {
@@ -85,43 +230,36 @@ export const POST = async (req: NextRequest) => {
 };
 ```
 
-### Environment Setup
+</details>
 
-Since this example uses `OpenAIAdapter`, you'll need to set up your OpenAI API key in your environment variables:
+## What's Next?
 
-```
-OPENAI_API_KEY=<your_open_ai_key>
-```
+import { Database, Code, Server, Bot } from "lucide-react";
 
-Create a `.env.local` file in your project root:
-
-```
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxx
-```
-
-For production deployments, make sure to set up this environment variable in your hosting platform securely.
-
-## How It Works
-
-Once configured, CopilotKit will:
-
-1. Connect to the specified MCP endpoints
-2. Discover available tools from those endpoints
-3. Make these tools available to the AI assistant during conversations
-4. Automatically route user queries to the appropriate tools when needed
-
-For example, if your MCP server provides a weather tool, users can ask about the weather and the AI will use the MCP tool to fetch and return accurate information.
-
-## Need More Customization?
-
-<Callout>
-  Looking for more advanced setup options, different frameworks, or custom
-  configurations? Check out our [Quickstart Guide](/quickstart) for
-  comprehensive instructions on setting up CopilotKit in various environments
-  with different LLM providers and customization options.
-</Callout>
-
-## Next Steps
-
-- Create your own MCP servers to provide custom tools
-- Combine MCP tools with [Backend Actions](/guides/backend-actions) for a more powerful AI assistant
+<Cards>
+  <Card
+    title="Connect Your Data"
+    href="/guides/connect-your-data/frontend"
+    icon={<Database />}
+  >
+    Learn how to connect your data sources to enhance your AI assistant's
+    capabilities.
+  </Card>
+  <Card
+    title="Frontend Actions"
+    href="/coagents/frontend-actions"
+    icon={<Code />}
+  >
+    Implement client-side actions that your AI assistant can perform.
+  </Card>
+  <Card
+    title="Backend Actions"
+    href="/guides/backend-actions"
+    icon={<Server />}
+  >
+    Create powerful server-side actions for your AI assistant.
+  </Card>
+  <Card title="Bring Your Agent" href="/coagents" icon={<Bot />}>
+    Learn how to integrate your existing agents with CopilotKit.
+  </Card>
+</Cards>
