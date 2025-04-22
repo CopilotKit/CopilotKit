@@ -352,37 +352,60 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
                 {/* Preview content (DemoPreview) will be added later */}
                 {selectedDemo && <DemoPreview demo={selectedDemo} />} 
               </div>
-            ) : activeTab === "readme" && readmeContent ? (
+            ) : activeTab === "readme" ? (
               <div className="flex-1 p-6 overflow-auto bg-background">
-                {/* === Restore Readme Content === */}
-                <div className="max-w-4xl mx-auto">
-                  <div className="prose max-w-none dark:prose-invert">
-                    {compiledMDX ? (
-                      <MDXContent>
-                        <SafeComponent
-                          component={() => (
-                            <MDXRenderer
-                              content={readmeContent}
-                              demoId={selectedDemo?.id || undefined}
-                            />
-                          )}
-                          fallback={
-                            <div className="p-4 border rounded bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300">
-                              Could not render MDX content. Displaying markdown instead.
-                              <ReactMarkdown components={MarkdownComponents}>
-                                {readmeContent || ""}
-                              </ReactMarkdown>
-                            </div>
-                          }
-                        />
-                      </MDXContent>
-                    ) : (
-                      <ReactMarkdown components={MarkdownComponents}>
-                        {readmeContent}
-                      </ReactMarkdown>
-                    )}
+                {selectedDemo?.sourceCodeUrl ? (
+                  // External demo: Show link to external README
+                  <div className="flex-1 flex flex-col items-center justify-center text-center h-full">
+                    <h3 className="text-lg font-semibold mb-3">View Documentation</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      The documentation for this demo is hosted externally.
+                    </p>
+                    <a
+                      href="https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-research-canvas/readme.md"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                    >
+                      View README on GitHub
+                    </a>
                   </div>
-                </div>
+                ) : readmeContent ? (
+                  // Internal demo with readme content: Render it
+                  <div className="max-w-4xl mx-auto">
+                    <div className="prose max-w-none dark:prose-invert">
+                      {compiledMDX ? (
+                        <MDXContent>
+                          <SafeComponent
+                            component={() => (
+                              <MDXRenderer
+                                content={readmeContent}
+                                demoId={selectedDemo?.id || undefined}
+                              />
+                            )}
+                            fallback={
+                              <div className="p-4 border rounded bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300">
+                                Could not render MDX content. Displaying markdown instead.
+                                <ReactMarkdown components={MarkdownComponents}>
+                                  {readmeContent || ""}
+                                </ReactMarkdown>
+                              </div>
+                            }
+                          />
+                        </MDXContent>
+                      ) : (
+                        <ReactMarkdown components={MarkdownComponents}>
+                          {readmeContent}
+                        </ReactMarkdown>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                   // Internal demo without readme content: Show message
+                   <div className="flex items-center justify-center h-full text-muted-foreground">
+                      No README found for this demo.
+                   </div>
+                )}
               </div>
             ) : activeTab === "code" ? (
               <div className="flex-1 flex h-full">
