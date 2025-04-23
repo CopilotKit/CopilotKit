@@ -333,71 +333,86 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
         {/* Main Content Area */}
         {selectedDemo ? (
           <div className="flex-1 flex flex-col overflow-hidden">
-            {/* === Main Content Logic === */}
-            {selectedDemo?.id === RESEARCH_CANVAS_ID ? (
-              // Always show DemoPreview (iframe) if research-canvas is selected
-              <div className="flex-1 h-full">
-                <DemoPreview demo={selectedDemo} />
+            {/* === Restore Active Tab Conditional Logic === */}
+            {activeTab === "preview" ? (
+              <div className="flex-1 h-full"> 
+                {selectedDemo && <DemoPreview demo={selectedDemo} />} 
               </div>
-            ) : activeTab === "preview" ? (
-              // Regular preview logic for other demos
-              <div className="flex-1 h-full">
-                {selectedDemo && <DemoPreview demo={selectedDemo} />}
-              </div>
-            ) : activeTab === "readme" && readmeContent ? (
-               <div className="flex-1 p-6 overflow-auto bg-background">
-                {/* === Restore Readme Content === */}
-                <div className="max-w-4xl mx-auto">
-                  <div className="prose max-w-none dark:prose-invert">
-                    {compiledMDX ? (
-                      <MDXContent>
-                        <SafeComponent
-                          component={() => (
-                            <MDXRenderer
-                              content={readmeContent}
-                              demoId={selectedDemo?.id || undefined}
-                            />
-                          )}
-                          fallback={
-                            <div className="p-4 border rounded bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300">
-                              Could not render MDX content. Displaying markdown instead.
-                              <ReactMarkdown components={MarkdownComponents}>
-                                {readmeContent || ""}
-                              </ReactMarkdown>
-                            </div>
-                          }
-                        />
-                      </MDXContent>
-                    ) : (
-                      <ReactMarkdown components={MarkdownComponents}>
-                        {readmeContent}
-                      </ReactMarkdown>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : activeTab === "code" ? (
-              <div className="flex-1 flex h-full">
+            ) : activeTab === "readme" ? (
+              <div className="flex-1 p-6 overflow-auto bg-background">
                 {selectedDemo?.sourceCodeUrl ? (
-                  // If sourceCodeUrl exists, show a link
-                  <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-background">
-                    <h3 className="text-lg font-semibold mb-3">View Source Code</h3>
+                  // External demo: Show link to external README
+                  <div className="flex-1 flex flex-col items-center justify-center text-center h-full">
+                    <h3 className="text-lg font-semibold mb-3">View Documentation</h3>
                     <p className="text-sm text-muted-foreground mb-4">
-                      The code for this demo is hosted externally.
+                      The documentation for this demo is hosted externally on GitHub.
                     </p>
                     <a
-                      href={selectedDemo.sourceCodeUrl}
+                      href="https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-research-canvas/readme.md" // Specific README URL
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
                     >
-                      View on GitHub
-                      {/* You might want an icon here, e.g., using lucide-react */}
-                      {/* <ExternalLink className="ml-2 h-4 w-4" /> */}
+                      View README on GitHub
+                    </a>
+                  </div>
+                ) : readmeContent ? (
+                  // Internal demo with readme content: Render it (existing logic)
+                  <div className="max-w-4xl mx-auto">
+                    <div className="prose max-w-none dark:prose-invert">
+                      {compiledMDX ? (
+                        <MDXContent>
+                          <SafeComponent
+                            component={() => (
+                              <MDXRenderer
+                                content={readmeContent}
+                                demoId={selectedDemo?.id || undefined}
+                              />
+                            )}
+                            fallback={
+                              <div className="p-4 border rounded bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300">
+                                Could not render MDX content. Displaying markdown instead.
+                                <ReactMarkdown components={MarkdownComponents}>
+                                  {readmeContent || ""}
+                                </ReactMarkdown>
+                              </div>
+                            }
+                          />
+                        </MDXContent>
+                      ) : (
+                        <ReactMarkdown components={MarkdownComponents}>
+                          {readmeContent}
+                        </ReactMarkdown>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                   // Internal demo without readme content: Show message (existing logic)
+                   <div className="flex items-center justify-center h-full text-muted-foreground">
+                      No README found for this demo.
+                   </div>
+                )}
+              </div>
+            ) : activeTab === "code" ? (
+              <div className="flex-1 flex h-full">
+                {selectedDemo?.sourceCodeUrl ? (
+                  // External demo: Show link to GitHub repo
+                  <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-background">
+                    <h3 className="text-lg font-semibold mb-3">View Source Code</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      The source code for this demo is hosted externally on GitHub.
+                    </p>
+                    <a
+                      href={selectedDemo.sourceCodeUrl} // Use the URL from config
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                    >
+                      View Source on GitHub
                     </a>
                   </div>
                 ) : (
-                  // Otherwise, show FileTree and CodeEditor (existing logic)
+                  // Internal demo: show FileTree and CodeEditor (existing logic)
                   <>
                     <div className="w-72 border-r flex flex-col bg-background">
                       <FileTreeNav
