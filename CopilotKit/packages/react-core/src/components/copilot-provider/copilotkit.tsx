@@ -83,7 +83,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     coAgentStateRenders: {},
   });
 
-  const { addElement, removeElement, printTree } = useTree();
+  const { addElement, removeElement, printTree, getAllElements } = useTree();
   const [isLoading, setIsLoading] = useState(false);
   const [chatInstructions, setChatInstructions] = useState("");
   const [authStates, setAuthStates] = useState<Record<string, AuthState>>({});
@@ -164,6 +164,10 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     },
     [removeElement],
   );
+
+  const getAllContext = useCallback(() => {
+    return getAllElements();
+  }, [getAllElements]);
 
   const getFunctionCallHandler = useCallback(
     (customEntryPoints?: Record<string, FrontendAction<any>>) => {
@@ -390,6 +394,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         getContextString,
         addContext,
         removeContext,
+        getAllContext,
         getDocumentsContext,
         addDocumentContext,
         removeDocumentContext,
