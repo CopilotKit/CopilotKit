@@ -11,6 +11,7 @@ import config from "@/config";
 import { LLMProvider } from "@/types/demo";
 import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
+import { useTheme } from "next-themes";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Eye, Code, Book } from "lucide-react";
@@ -49,7 +50,6 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
   const RESEARCH_CANVAS_ID = "research-canvas"; // Define constant for clarity
   
   const [activeTab, setActiveTab] = useState<string>("preview");
-  const [isDarkTheme, setIsDarkTheme] = useState<boolean>(false);
   const [readmeContent, setReadmeContent] = useState<string | null>(null);
   const [compiledMDX, setCompiledMDX] = useState<string | null>(null);
 
@@ -94,21 +94,14 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
     setFileContent(null);
   }, []); // Add dependencies
 
+  const isNavigatingToRootRef = useRef(false);
+  const [mounted, setMounted] = useState(false);
+
+  const { resolvedTheme } = useTheme();
+
+  // Add Effect to set mounted state after client mount
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      setIsDarkTheme(window.matchMedia("(prefers-color-scheme: dark)").matches);
-      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-      const handleChange = (e: MediaQueryListEvent) => setIsDarkTheme(e.matches);
-      mediaQuery.addEventListener("change", handleChange);
-      const observer = new MutationObserver(() => {
-        setIsDarkTheme(document.documentElement.classList.contains("dark"));
-      });
-      observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-      return () => {
-        mediaQuery.removeEventListener("change", handleChange);
-        observer.disconnect();
-      };
-    }
+    setMounted(true);
   }, []);
 
   useEffect(() => {
@@ -269,17 +262,20 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
           <div className="p-4 border-b bg-background">
             <div className="flex items-center justify-between ml-1">
               <div className="flex items-start flex-col">
-                <Image
-                  src={isDarkTheme ? "/logo_light.webp" : "/logo_dark.webp"}
-                  width={120}
-                  height={24}
-                  alt="CopilotKit / Demo Viewer"
-                  className="h-6 w-auto object-contain"
-                />
+                {mounted ? (
+                  <Image
+                    src={resolvedTheme === 'dark' ? "/logo_light.webp" : "/logo_dark.webp"}
+                    width={120}
+                    height={24}
+                    alt="CopilotKit / Demo Viewer"
+                    className="h-6 w-auto object-contain"
+                    priority
+                  />
+                ) : (
+                  <div style={{ width: 120, height: 24 }} />
+                )}
                 <h1
-                  className={`text-lg font-extralight ${
-                    isDarkTheme ? "text-white" : "text-gray-900"
-                  }`}
+                  className="text-lg font-extralight text-foreground"
                 >
                   Interactive Demos
                 </h1>
