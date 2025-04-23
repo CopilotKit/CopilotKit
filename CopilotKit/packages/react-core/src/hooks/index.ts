@@ -13,3 +13,4 @@ export { useCopilotAuthenticatedAction_c } from "./use-copilot-authenticated-act
 export { useLangGraphInterrupt } from "./use-langgraph-interrupt";
 export { useLangGraphInterruptRender } from "./use-langgraph-interrupt-render";
 export { useCopilotAdditionalInstructions } from "./use-copilot-additional-instructions";
+export type { Tree, TreeNode } from "./use-tree";
