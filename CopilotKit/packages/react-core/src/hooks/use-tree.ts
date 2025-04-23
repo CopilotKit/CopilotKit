@@ -18,6 +18,7 @@ export interface UseTreeReturn {
   addElement: (value: string, categories: string[], parentId?: TreeNodeId) => TreeNodeId;
   printTree: (categories: string[]) => string;
   removeElement: (id: TreeNodeId) => void;
+  getAllElements: () => Tree;
 }
 
 const findNode = (nodes: Tree, id: TreeNodeId): TreeNode | undefined => {
@@ -161,6 +162,10 @@ const useTree = (): UseTreeReturn => {
     dispatch({ type: "REMOVE_NODE", id });
   }, []);
 
+  const getAllElements = useCallback(() => {
+    return tree;
+  }, [tree]);
+
   const printTree = useCallback(
     (categories: string[]): string => {
       const categoriesSet = new Set(categories);
@@ -184,7 +189,7 @@ const useTree = (): UseTreeReturn => {
     [tree],
   );
 
-  return { tree, addElement, printTree, removeElement };
+  return { tree, addElement, printTree, removeElement, getAllElements };
 };
 
 export default useTree;
