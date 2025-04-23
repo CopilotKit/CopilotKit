@@ -39,13 +39,14 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
   // Initialize state with defaultDemoId
   const [selectedDemoId, setSelectedDemoId] = useState<string | undefined>(defaultDemoId);
   
-  // Filter demos based on the environment variable OR if they have an iframeUrl
-  const filteredDemos = config.filter(d => 
-    d.iframeUrl || d.id.startsWith(`${currentFramework}_`)
+  // Filter demos based on the environment variable OR if they have an iframeUrl or special ID
+  const filteredDemos = config.filter(d =>
+    d.id === 'research-canvas' || d.iframeUrl || d.id.startsWith(`${currentFramework}_`)
   );
   
   // Find selected demo within the *full* config for its details
   const selectedDemo = config.find((d) => d.id === selectedDemoId);
+  const RESEARCH_CANVAS_ID = "research-canvas"; // Define constant for clarity
   
   const [activeTab, setActiveTab] = useState<string>("preview");
   const [isDarkTheme, setIsDarkTheme] = useState<boolean>(false);
@@ -75,9 +76,6 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const justClickedDemoRef = useRef(false);
-  const isNavigatingToRootRef = useRef(false);
 
   // Add explicit types to handlers
   const handleFileSelect = useCallback((filePath: string | null): void => {
@@ -163,54 +161,42 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
 
   // Implement new handleDemoSelect for URL updates
   const handleDemoSelect = useCallback((fullDemoId: string) => {
-    // Check if already selected (unless navigating back for iframe)
-    if (selectedDemoId === fullDemoId && !isNavigatingToRootRef.current) return; 
+    // Check if already selected
+    if (selectedDemoId === fullDemoId) return;
 
     const demo = config.find(d => d.id === fullDemoId);
     
     // Resetting common state elements that should happen on *any* selection attempt
-    setActiveTab("preview");
+    setActiveTab("preview"); // Default to preview tab
     setSelectedFilePath(null);
     setFileContent(null);
+    setSelectedDemoId(fullDemoId); // Set state immediately
 
-    // --- URL Handling & State Update --- 
-    if (demo?.iframeUrl) {
-       // It's the external iframe demo ("research-canvas")
-       if (pathname.startsWith('/feature/')) {
-           // Set flag, set state *before* navigating
-           isNavigatingToRootRef.current = true; 
-           setSelectedDemoId(fullDemoId); // Set state immediately
-           router.push('/');
-       } else {
-           // Already on root, just set state, ensure flag is false
-           isNavigatingToRootRef.current = false; 
-           setSelectedDemoId(fullDemoId); // Okay to set state directly on root
+    // --- URL Handling ---
+    if (demo?.id === RESEARCH_CANVAS_ID) {
+       // Navigate to the dedicated route for research canvas
+       if (pathname !== '/demo/research-canvas') {
+           router.push('/demo/research-canvas');
        }
-    } else {
+    } else if (demo) {
        // It's a regular internal demo (non-iframe)
-       // Ensure flag is false
-       isNavigatingToRootRef.current = false; 
-       setSelectedDemoId(fullDemoId); // Set state
        const shortId = fullDemoId.substring(fullDemoId.indexOf('_') + 1);
        if (pathname !== `/feature/${shortId}`) {
            router.push(`/feature/${shortId}`);
        }
+    } else {
+        // Handle case where demo is not found? Maybe navigate home?
+        console.warn(`Demo with ID ${fullDemoId} not found in config.`);
+        if (pathname !== '/') {
+             router.push('/');
+        }
     }
     
   }, [selectedDemoId, router, pathname]);
 
-  // Effect 1: Sync state from URL prop (defaultDemoId) OR set state after navigating back to root
+  // Effect 1: Sync state from URL prop (defaultDemoId)
   useEffect(() => {
-    // Check the flag first: If we triggered navigation back to root, reset flag and exit.
-    if (isNavigatingToRootRef.current) {
-      // Reset the flag now that the effect has run (likely due to prop change lagging behind click)
-      isNavigatingToRootRef.current = false;
-      // IMPORTANT: Exit early. Do not sync from defaultDemoId.
-      // The state ('research-canvas') was already set correctly in the handler.
-      return; 
-    }
-
-    // Flag is false, proceed with normal prop sync logic
+    // Simplified: Always sync state from prop if it's different
     if (defaultDemoId) {
       const demoFromProp = config.find(d => d.id === defaultDemoId);
       if (demoFromProp) {
@@ -219,14 +205,19 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
           setSelectedDemoId(defaultDemoId);
         }
       } else {
-        // Prop is invalid
-        if (selectedDemoId) setSelectedDemoId(undefined); // Clear state if invalid prop
+        // Prop is invalid (e.g., from a stale URL)
+        console.warn(`Demo ID "${defaultDemoId}" from prop/URL is invalid.`);
+        // Optionally navigate home or clear state
+        if (selectedDemoId) setSelectedDemoId(undefined);
+        if (pathname !== '/') router.push('/'); // Redirect home if URL points to non-existent demo
       }
     } else {
-      // On '/' (defaultDemoId is null) and not navigating back via ref.
-      // Effect 2 handles loading based on selectedDemoId state.
+      // On root path ('/') or path without defaultDemoId, ensure state reflects this if needed
+      // If current path is not home and there's no defaultDemoId, maybe clear selection?
+      // Example: if (pathname !== '/' && selectedDemoId) setSelectedDemoId(undefined);
+      // Decide based on desired behavior for root path.
     }
-  }, [defaultDemoId, selectedDemoId]); // Rerun only when prop or state changes
+  }, [defaultDemoId, selectedDemoId, pathname, router]); // Rerun when prop, state, or path changes
 
   // Effect 2: Load content based on selectedDemoId state
   useEffect(() => {
@@ -346,14 +337,19 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
         {/* Main Content Area */}
         {selectedDemo ? (
           <div className="flex-1 flex flex-col overflow-hidden">
-            {/* === Restore Active Tab Conditional Logic === */}
-            {activeTab === "preview" ? (
-              <div className="flex-1 h-full"> 
-                {/* Preview content (DemoPreview) will be added later */}
-                {selectedDemo && <DemoPreview demo={selectedDemo} />} 
+            {/* === Main Content Logic === */}
+            {selectedDemo?.id === RESEARCH_CANVAS_ID ? (
+              // Always show DemoPreview (iframe) if research-canvas is selected
+              <div className="flex-1 h-full">
+                <DemoPreview demo={selectedDemo} />
+              </div>
+            ) : activeTab === "preview" ? (
+              // Regular preview logic for other demos
+              <div className="flex-1 h-full">
+                {selectedDemo && <DemoPreview demo={selectedDemo} />}
               </div>
             ) : activeTab === "readme" && readmeContent ? (
-              <div className="flex-1 p-6 overflow-auto bg-background">
+               <div className="flex-1 p-6 overflow-auto bg-background">
                 {/* === Restore Readme Content === */}
                 <div className="max-w-4xl mx-auto">
                   <div className="prose max-w-none dark:prose-invert">
