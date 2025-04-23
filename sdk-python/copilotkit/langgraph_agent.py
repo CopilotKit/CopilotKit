@@ -229,7 +229,7 @@ class LangGraphAgent(Agent):
         self,
         *,
         state: dict,
-        configurable: Optional[dict] = None,
+        config: Optional[dict] = None,
         messages: List[Message],
         thread_id: str,
         actions: Optional[List[ActionDict]] = None,
@@ -240,7 +240,7 @@ class LangGraphAgent(Agent):
 
         return self._stream_events(
             state=state,
-            configurable=configurable,
+            config=config,
             messages=messages,
             actions=actions,
             thread_id=thread_id,
@@ -252,7 +252,7 @@ class LangGraphAgent(Agent):
             self,
             *,
             state: Any,
-            configurable: Optional[dict] = None,
+            config: Optional[dict] = None,
             messages: List[Message],
             thread_id: str,
             actions: Optional[List[ActionDict]] = None,
@@ -260,8 +260,9 @@ class LangGraphAgent(Agent):
             meta_events: Optional[List[MetaEvent]] = None,
         ):
 
-        config = ensure_config(cast(Any, self.langgraph_config.copy()) if self.langgraph_config else {}) # pylint: disable=line-too-long
-        config["configurable"] = {**config.get("configurable", {}), **(configurable or {})}
+        default_config = ensure_config(cast(Any, self.langgraph_config.copy()) if self.langgraph_config else {}) # pylint: disable=line-too-long
+        config = {**default_config, **config}
+        config["configurable"] = {**config.get("configurable", {}), **(config["configurable"] or {})}
         config["configurable"]["thread_id"] = thread_id
 
         agent_state = await self.graph.aget_state(config)

@@ -4,7 +4,10 @@ export interface CoagentState {
   running: boolean;
   active: boolean;
   threadId?: string;
-  configurable?: Record<string, any>;
+  config?: {
+    configurable?: Record<string, any>;
+    [key: string]: any;
+  };
   nodeName?: string;
   runId?: string;
 }

@@ -26,7 +26,10 @@ interface ExecutionArgs extends Omit<LangGraphPlatformEndpoint, "agents"> {
   nodeName: string;
   messages: Message[];
   state: State;
-  configurable?: Record<string, any>;
+  config?: {
+    configurable?: Record<string, any>;
+    [key: string]: any;
+  };
   properties: CopilotRequestContextProperties;
   actions: ExecutionAction[];
   logger: Logger;
@@ -119,7 +122,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     agent,
     nodeName: initialNodeName,
     state: initialState,
-    configurable,
+    config,
     messages,
     actions,
     logger,
@@ -234,11 +237,13 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   const graphInfo = await client.assistants.getGraph(assistantId);
   const graphSchema = await client.assistants.getSchemas(assistantId);
   const schemaKeys = getSchemaKeys(graphSchema);
-  if (configurable) {
+  if (config?.configurable) {
     const filteredConfigurable = schemaKeys?.config
-      ? filterObjectBySchemaKeys(configurable, schemaKeys?.config)
-      : configurable;
-    await client.assistants.update(assistantId, { config: { configurable: filteredConfigurable } });
+      ? filterObjectBySchemaKeys(config?.configurable, schemaKeys?.config)
+      : config?.configurable;
+    await client.assistants.update(assistantId, {
+      config: { ...config, configurable: filteredConfigurable },
+    });
   }
 
   // Do not input keys that are not part of the input schema

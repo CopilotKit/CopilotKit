@@ -327,7 +327,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             agentStates: Object.values(coagentStatesRef.current!).map((state) => ({
               agentName: state.name,
               state: JSON.stringify(state.state),
-              configurable: JSON.stringify(state.configurable ?? {}),
+              config: JSON.stringify(state.config),
             })),
             forwardedParameters: options.forwardedParameters || {},
           },
