@@ -41,8 +41,10 @@ export interface MCPEndpointConfig {
  */
 export function extractParametersFromSchema(toolSchema?: MCPTool["schema"]): Parameter[] {
   const parameters: Parameter[] = [];
-  const properties = toolSchema?.parameters?.properties;
-  const requiredParams = new Set(toolSchema?.parameters?.required || []);
+  const toolParameters =
+    toolSchema?.parameters || toolSchema?.parameters?.jsonSchema;
+  const properties = toolParameters?.properties;
+  const requiredParams = new Set(toolParameters?.required || []);
 
   if (!properties) {
     return parameters;
@@ -80,7 +82,7 @@ export function convertMCPToolsToActions(
   const actions: Action<any>[] = [];
 
   for (const [toolName, tool] of Object.entries(mcpTools)) {
-    const parameters = extractParametersFromSchema(tool.schema);
+    const parameters = extractParametersFromSchema(tool.schema || tool);
 
     const handler = async (params: any): Promise<any> => {
       try {
