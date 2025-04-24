@@ -23,7 +23,13 @@ The Model Context Protocol is an open standard that enables developers to build 
 ## Setup MCP with CopilotKit
 
 <Callout type="info" title="Get a Public API Key (Optional)">
-  Sign up for a free <LinkToCopilotCloud asButton={false}>Copilot Cloud</LinkToCopilotCloud> account to get a public API key, or <Link href="/guides/model-context-protocol#self-hosting">self host the runtime</Link>.
+  Sign up for a free{" "}
+  <LinkToCopilotCloud asButton={false}>Copilot Cloud</LinkToCopilotCloud>{" "}
+  account to get a public API key, or{" "}
+  <Link href="/guides/model-context-protocol#self-hosting">
+    self host the runtime
+  </Link>
+  .
 </Callout>
 
 ### Quick Setup in Existing Next.js App
@@ -185,7 +191,7 @@ interface ToolCallProps {
   result?: any;
 }
 
-export default function McpToolCall({
+export default function MCPToolCall({
   status,
   name = "",
   args,
@@ -193,9 +199,13 @@ export default function McpToolCall({
 }: ToolCallProps) {
   const [isOpen, setIsOpen] = React.useState(false);
 
-  // Format string with proper line breaks and quotes
-  const formatContent = (str: string): string => {
-    const text = typeof str !== "string" ? JSON.stringify(str, null, 2) : str;
+  // Format content for display
+  const format = (content: any): string => {
+    if (!content) return "";
+    const text =
+      typeof content === "object"
+        ? JSON.stringify(content, null, 2)
+        : String(content);
     return text
       .replace(/\\n/g, "\n")
       .replace(/\\t/g, "\t")
@@ -203,46 +213,23 @@ export default function McpToolCall({
       .replace(/\\\\/g, "\\");
   };
 
-  // Format arguments and results
-  const formattedArgs = React.useMemo(() => {
-    if (!args) return "";
-    return formatContent(
-      typeof args === "object" ? JSON.stringify(args, null, 2) : args
-    );
-  }, [args]);
-
-  const formattedResult = React.useMemo(() => {
-    if (!result) return "";
-
-    if (typeof result === "object" && result?.error?.message) {
-      const copy = { ...result };
-      copy.error = { ...copy.error };
-      copy.error.message = formatContent(copy.error.message);
-      return formatContent(JSON.stringify(copy, null, 2));
-    }
-
-    return formatContent(
-      typeof result === "object" ? JSON.stringify(result, null, 2) : result
-    );
-  }, [result]);
-
   return (
     <div className="bg-[#1e2738] rounded-lg overflow-hidden w-full">
       <div
         className="p-3 flex items-center cursor-pointer"
         onClick={() => setIsOpen(!isOpen)}
       >
-        <div className="min-w-0 flex-grow overflow-hidden">
-          <span className="text-white text-sm">{name || "MCP Tool Call"}</span>
-        </div>
+        <span className="text-white text-sm overflow-hidden text-ellipsis">
+          {name || "MCP Tool Call"}
+        </span>
         <div className="ml-auto">
           <div
             className={`w-2 h-2 rounded-full ${
               status === "complete"
-                ? "bg-green-500"
+                ? "bg-gray-300"
                 : status === "inProgress" || status === "executing"
-                ? "bg-blue-500 animate-pulse"
-                : ""
+                ? "bg-gray-500 animate-pulse"
+                : "bg-gray-700"
             }`}
           />
         </div>
@@ -253,8 +240,8 @@ export default function McpToolCall({
           {args && (
             <div className="mb-4">
               <div className="text-gray-400 mb-2">Parameters:</div>
-              <pre className="whitespace-pre-wrap max-h-[200px] overflow-auto bg-transparent">
-                {formattedArgs}
+              <pre className="whitespace-pre-wrap max-h-[200px] overflow-auto">
+                {format(args)}
               </pre>
             </div>
           )}
@@ -262,8 +249,8 @@ export default function McpToolCall({
           {status === "complete" && result && (
             <div>
               <div className="text-gray-400 mb-2">Result:</div>
-              <pre className="whitespace-pre-wrap max-h-[200px] overflow-auto bg-transparent">
-                {formattedResult}
+              <pre className="whitespace-pre-wrap max-h-[200px] overflow-auto">
+                {format(result)}
               </pre>
             </div>
           )}
