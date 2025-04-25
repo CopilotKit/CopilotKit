@@ -276,11 +276,37 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
       const messagesWithContext = [systemMessage, ...(initialMessages || []), ...previousMessages];
 
-      // ----- Add this block: Merge mcpEndpoints into properties -----
+      // ----- Set mcpServers in properties -----
+      // Create a copy of properties to avoid modifying the original object
       const finalProperties = { ...(copilotConfig.properties || {}) };
-      if (copilotConfig.mcpEndpoints && copilotConfig.mcpEndpoints.length > 0) {
-        // Prop takes precedence over any potential mcpEndpoints in properties
-        finalProperties.mcpEndpoints = copilotConfig.mcpEndpoints;
+
+      // Look for mcpServers in either direct property or properties
+      let mcpServersToUse = null;
+
+      // First check direct mcpServers property
+      if (
+        copilotConfig.mcpServers &&
+        Array.isArray(copilotConfig.mcpServers) &&
+        copilotConfig.mcpServers.length > 0
+      ) {
+        mcpServersToUse = copilotConfig.mcpServers;
+      }
+      // Then check mcpServers in properties
+      else if (
+        copilotConfig.properties?.mcpServers &&
+        Array.isArray(copilotConfig.properties.mcpServers) &&
+        copilotConfig.properties.mcpServers.length > 0
+      ) {
+        mcpServersToUse = copilotConfig.properties.mcpServers;
+      }
+
+      // Apply the mcpServers to properties if found
+      if (mcpServersToUse) {
+        // Set in finalProperties
+        finalProperties.mcpServers = mcpServersToUse;
+
+        // Also set in copilotConfig directly for future use
+        copilotConfig.mcpServers = mcpServersToUse;
       }
       // -------------------------------------------------------------
 
