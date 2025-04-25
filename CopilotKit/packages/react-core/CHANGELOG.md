@@ -1,5 +1,14 @@
 # ui
 
+## 1.8.8
+
+### Patch Changes
+
+- dfb67c3: - refactor: rename mcpEndpoints to mcpServers for naming consistency
+  - doc changes
+  - @copilotkit/runtime-client-gql@1.8.8
+  - @copilotkit/shared@1.8.8
+
 ## 1.8.8-next.1
 
 ### Patch Changes
