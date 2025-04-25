@@ -9,8 +9,9 @@ import { FileTreeNav } from "@/components/file-tree/file-tree-nav";
 import { useFs } from "@/hooks/use-fs";
 import config from "@/config";
 import { LLMProvider } from "@/types/demo";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
+import { useTheme } from "next-themes";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Eye, Code, Book } from "lucide-react";
@@ -39,14 +40,16 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
   // Initialize state with defaultDemoId
   const [selectedDemoId, setSelectedDemoId] = useState<string | undefined>(defaultDemoId);
   
-  // Filter demos based on the environment variable
-  const filteredDemos = config.filter(d => d.id.startsWith(`${currentFramework}_`));
+  // Filter demos based on the environment variable OR if they have an iframeUrl or special ID
+  const filteredDemos = config.filter(d =>
+    d.id === 'research-canvas' || d.iframeUrl || d.id.startsWith(`${currentFramework}_`)
+  );
   
   // Find selected demo within the *full* config for its details
   const selectedDemo = config.find((d) => d.id === selectedDemoId);
+  const RESEARCH_CANVAS_ID = "research-canvas"; // Define constant for clarity
   
   const [activeTab, setActiveTab] = useState<string>("preview");
-  const [isDarkTheme, setIsDarkTheme] = useState<boolean>(false);
   const [readmeContent, setReadmeContent] = useState<string | null>(null);
   const [compiledMDX, setCompiledMDX] = useState<string | null>(null);
 
@@ -91,21 +94,14 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
     setFileContent(null);
   }, []); // Add dependencies
 
+  const isNavigatingToRootRef = useRef(false);
+  const [mounted, setMounted] = useState(false);
+
+  const { resolvedTheme } = useTheme();
+
+  // Add Effect to set mounted state after client mount
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      setIsDarkTheme(window.matchMedia("(prefers-color-scheme: dark)").matches);
-      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-      const handleChange = (e: MediaQueryListEvent) => setIsDarkTheme(e.matches);
-      mediaQuery.addEventListener("change", handleChange);
-      const observer = new MutationObserver(() => {
-        setIsDarkTheme(document.documentElement.classList.contains("dark"));
-      });
-      observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-      return () => {
-        mediaQuery.removeEventListener("change", handleChange);
-        observer.disconnect();
-      };
-    }
+    setMounted(true);
   }, []);
 
   useEffect(() => {
@@ -158,62 +154,90 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
 
   // Implement new handleDemoSelect for URL updates
   const handleDemoSelect = useCallback((fullDemoId: string) => {
-    setSelectedDemoId(fullDemoId);
-    // Extract the short ID (e.g., "agentic_chat" from "crewai_agentic_chat")
-    const shortId = fullDemoId.substring(fullDemoId.indexOf('_') + 1); 
+    // Check if already selected
+    if (selectedDemoId === fullDemoId) return;
+
+    const demo = config.find(d => d.id === fullDemoId);
     
-    // Update the URL to /feature/[shortId] without full page reload
-    // Only push if the path is not already the target feature path
-    if (pathname !== `/feature/${shortId}`) {
-        router.push(`/feature/${shortId}`);
-    }
-    // Reset tab to preview when changing demos
-    setActiveTab("preview"); 
-    // Reset file selection state
+    // Resetting common state elements that should happen on *any* selection attempt
+    setActiveTab("preview"); // Default to preview tab
     setSelectedFilePath(null);
     setFileContent(null);
-    setCurrentPath(config.find(d => d.id === fullDemoId)?.path || ""); // Update current path based on new demo
-    loadReadmeContent(fullDemoId); // Load readme for the new demo
-  }, [router, pathname, loadReadmeContent]); // Add dependencies
+    setSelectedDemoId(fullDemoId); // Set state immediately
 
-  // Update useEffect for loading initial demo/readme
-  useEffect(() => {
-    // Prioritize defaultDemoId if provided via props (from URL)
-    const initialDemoId = defaultDemoId || selectedDemoId; 
+    // --- URL Handling ---
+    if (demo?.id === RESEARCH_CANVAS_ID) {
+       // Navigate to the dedicated route for research canvas
+       if (pathname !== '/demo/research-canvas') {
+           router.push('/demo/research-canvas');
+       }
+    } else if (demo) {
+       // It's a regular internal demo (non-iframe)
+       const shortId = fullDemoId.substring(fullDemoId.indexOf('_') + 1);
+       if (pathname !== `/feature/${shortId}`) {
+           router.push(`/feature/${shortId}`);
+       }
+    } else {
+        // Handle case where demo is not found? Maybe navigate home?
+        console.warn(`Demo with ID ${fullDemoId} not found in config.`);
+        if (pathname !== '/') {
+             router.push('/');
+        }
+    }
     
-    if (initialDemoId) {
-      const demoToLoad = config.find(d => d.id === initialDemoId);
-      if (demoToLoad) {
-        // If the demo exists, load its content
-        // We don't need to filter by currentFramework here anymore, 
-        // as FeaturePage already validated it based on AGENT_TYPE
-        setSelectedDemoId(initialDemoId); // Ensure state is synced if defaultDemoId was used
-        setCurrentPath(demoToLoad.path);
-        handleFileSelect(null); 
-        loadReadmeContent(initialDemoId);
+  }, [selectedDemoId, router, pathname]);
+
+  // Effect 1: Sync state from URL prop (defaultDemoId)
+  useEffect(() => {
+    // Simplified: Always sync state from prop if it's different
+    if (defaultDemoId) {
+      const demoFromProp = config.find(d => d.id === defaultDemoId);
+      if (demoFromProp) {
+        if (selectedDemoId !== defaultDemoId) {
+          // Prop is valid and differs from state, sync state
+          setSelectedDemoId(defaultDemoId);
+        }
       } else {
-        // If the initialDemoId is invalid (shouldn't happen if FeaturePage works correctly)
-        // Clear selection and content
-        setSelectedDemoId(undefined);
+        // Prop is invalid (e.g., from a stale URL)
+        console.warn(`Demo ID "${defaultDemoId}" from prop/URL is invalid.`);
+        // Optionally navigate home or clear state
+        if (selectedDemoId) setSelectedDemoId(undefined);
+        if (pathname !== '/') router.push('/'); // Redirect home if URL points to non-existent demo
+      }
+    } else {
+      // On root path ('/') or path without defaultDemoId, ensure state reflects this if needed
+      // If current path is not home and there's no defaultDemoId, maybe clear selection?
+      // Example: if (pathname !== '/' && selectedDemoId) setSelectedDemoId(undefined);
+      // Decide based on desired behavior for root path.
+    }
+  }, [defaultDemoId, selectedDemoId, pathname, router]); // Rerun when prop, state, or path changes
+
+  // Effect 2: Load content based on selectedDemoId state
+  useEffect(() => {
+    if (selectedDemoId) {
+      const demo = config.find(d => d.id === selectedDemoId);
+      if (demo) {
+        // Load readme content
+        loadReadmeContent(selectedDemoId);
+        setCurrentPath(demo.path || "");
+        handleFileSelect(null);
+      } else {
+        // Clear relevant states if ID becomes invalid
+        setCurrentPath("");
         setReadmeContent(null);
         setCompiledMDX(null);
         setSelectedFilePath(null);
         setFileContent(null);
       }
     } else {
-      // If no demo ID is available (neither from prop nor state), clear content
+      // Clear relevant states when no demo is selected
+      setCurrentPath("");
       setReadmeContent(null);
       setCompiledMDX(null);
       setSelectedFilePath(null);
       setFileContent(null);
-      // Optionally select the first demo *of the current framework* if no specific demo requested
-      // const firstDemoForFramework = filteredDemos[0]?.id;
-      // if (firstDemoForFramework) {
-      //    handleDemoSelect(firstDemoForFramework); // Use handleDemoSelect to update URL too
-      // }
     }
-    // Dependencies: defaultDemoId is crucial here. Also include filteredDemos if using the optional fallback.
-  }, [defaultDemoId, loadReadmeContent, handleFileSelect]); // Removed selectedDemoId, selectedDemo as they derive from defaultDemoId or state changes handled by handleDemoSelect
+  }, [selectedDemoId, loadReadmeContent, handleFileSelect]); // Dependencies for content loading
 
   const handleTabChange = useCallback((value: string): void => {
     setActiveTab(value);
@@ -238,17 +262,20 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
           <div className="p-4 border-b bg-background">
             <div className="flex items-center justify-between ml-1">
               <div className="flex items-start flex-col">
-                <Image
-                  src={isDarkTheme ? "/logo_light.webp" : "/logo_dark.webp"}
-                  width={120}
-                  height={24}
-                  alt="CopilotKit / Demo Viewer"
-                  className="h-6 w-auto object-contain"
-                />
+                {mounted ? (
+                  <Image
+                    src={resolvedTheme === 'dark' ? "/logo_light.webp" : "/logo_dark.webp"}
+                    width={120}
+                    height={24}
+                    alt="CopilotKit / Demo Viewer"
+                    className="h-6 w-auto object-contain"
+                    priority
+                  />
+                ) : (
+                  <div style={{ width: 120, height: 24 }} />
+                )}
                 <h1
-                  className={`text-lg font-extralight ${
-                    isDarkTheme ? "text-white" : "text-gray-900"
-                  }`}
+                  className="text-lg font-extralight text-foreground"
                 >
                   Interactive Demos
                 </h1>
@@ -309,80 +336,122 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
             {/* === Restore Active Tab Conditional Logic === */}
             {activeTab === "preview" ? (
               <div className="flex-1 h-full"> 
-                {/* Preview content (DemoPreview) will be added later */}
                 {selectedDemo && <DemoPreview demo={selectedDemo} />} 
               </div>
-            ) : activeTab === "readme" && readmeContent ? (
+            ) : activeTab === "readme" ? (
               <div className="flex-1 p-6 overflow-auto bg-background">
-                {/* === Restore Readme Content === */}
-                <div className="max-w-4xl mx-auto">
-                  <div className="prose max-w-none dark:prose-invert">
-                    {compiledMDX ? (
-                      <MDXContent>
-                        <SafeComponent
-                          component={() => (
-                            <MDXRenderer
-                              content={readmeContent}
-                              demoId={selectedDemo?.id || undefined}
-                            />
-                          )}
-                          fallback={
-                            <div className="p-4 border rounded bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300">
-                              Could not render MDX content. Displaying markdown instead.
-                              <ReactMarkdown components={MarkdownComponents}>
-                                {readmeContent || ""}
-                              </ReactMarkdown>
-                            </div>
-                          }
-                        />
-                      </MDXContent>
-                    ) : (
-                      <ReactMarkdown components={MarkdownComponents}>
-                        {readmeContent}
-                      </ReactMarkdown>
-                    )}
+                {selectedDemo?.sourceCodeUrl ? (
+                  // External demo: Show link to external README
+                  <div className="flex-1 flex flex-col items-center justify-center text-center h-full">
+                    <h3 className="text-lg font-semibold mb-3">View Documentation</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      The documentation for this demo is hosted externally on GitHub.
+                    </p>
+                    <a
+                      href="https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-research-canvas/readme.md" // Specific README URL
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                    >
+                      View README on GitHub
+                    </a>
                   </div>
-                </div>
+                ) : readmeContent ? (
+                  // Internal demo with readme content: Render it (existing logic)
+                  <div className="max-w-4xl mx-auto">
+                    <div className="prose max-w-none dark:prose-invert">
+                      {compiledMDX ? (
+                        <MDXContent>
+                          <SafeComponent
+                            component={() => (
+                              <MDXRenderer
+                                content={readmeContent}
+                                demoId={selectedDemo?.id || undefined}
+                              />
+                            )}
+                            fallback={
+                              <div className="p-4 border rounded bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300">
+                                Could not render MDX content. Displaying markdown instead.
+                                <ReactMarkdown components={MarkdownComponents}>
+                                  {readmeContent || ""}
+                                </ReactMarkdown>
+                              </div>
+                            }
+                          />
+                        </MDXContent>
+                      ) : (
+                        <ReactMarkdown components={MarkdownComponents}>
+                          {readmeContent}
+                        </ReactMarkdown>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                   // Internal demo without readme content: Show message (existing logic)
+                   <div className="flex items-center justify-center h-full text-muted-foreground">
+                      No README found for this demo.
+                   </div>
+                )}
               </div>
             ) : activeTab === "code" ? (
               <div className="flex-1 flex h-full">
-                 {/* === Restore Code View Content === */}
-                 <div className="w-72 border-r flex flex-col bg-background">
-                   <FileTreeNav
-                     path={currentPath}
-                     rootPath={selectedDemo?.path || ""}
-                     onNavigate={handleNavigate}
-                   />
-                   <div className="flex-1 overflow-auto">
-                     <FileTree
-                       basePath={currentPath}
-                       files={demoFiles} 
-                       selectedFile={selectedFilePath || undefined}
-                       onFileSelect={handleFileSelect}
-                     />
-                   </div>
-                   {error && (
-                     <div className="p-2 text-sm text-red-500">{error}</div>
-                   )}
-                 </div>
-                 <div className="flex-1">
-                   {selectedFilePath && fileContent !== null ? (
-                     <div className="h-full">
-                       <CodeEditor
-                         file={{
-                           name: selectedFilePath?.split("/").pop() || "",
-                           path: selectedFilePath || "",
-                           content: fileContent ?? "",
-                           language: (selectedDemoId && (filesJson as FilesJsonType)[selectedDemoId]?.files.find((f:any) => f.path === selectedFilePath)?.language) || 'plaintext',
-                         }}
-                       />
-                     </div>
-                   ) : (
-                      <div className="flex items-center justify-center h-full text-muted-foreground">
-                        Select a file to view its content.
+                {selectedDemo?.sourceCodeUrl ? (
+                  // External demo: Show link to GitHub repo
+                  <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-background">
+                    <h3 className="text-lg font-semibold mb-3">View Source Code</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      The source code for this demo is hosted externally on GitHub.
+                    </p>
+                    <a
+                      href={selectedDemo.sourceCodeUrl} // Use the URL from config
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                    >
+                      View Source on GitHub
+                    </a>
+                  </div>
+                ) : (
+                  // Internal demo: show FileTree and CodeEditor (existing logic)
+                  <>
+                    <div className="w-72 border-r flex flex-col bg-background">
+                      <FileTreeNav
+                        path={currentPath}
+                        rootPath={selectedDemo?.path || ""}
+                        onNavigate={handleNavigate}
+                      />
+                      <div className="flex-1 overflow-auto">
+                        <FileTree
+                          basePath={currentPath}
+                          files={demoFiles} 
+                          selectedFile={selectedFilePath || undefined}
+                          onFileSelect={handleFileSelect}
+                        />
                       </div>
-                   )}
-                 </div>
+                      {error && (
+                        <div className="p-2 text-sm text-red-500">{error}</div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      {selectedFilePath && fileContent !== null ? (
+                        <div className="h-full">
+                          <CodeEditor
+                            file={{
+                              name: selectedFilePath?.split("/").pop() || "",
+                              path: selectedFilePath || "",
+                              content: fileContent ?? "",
+                              language: (selectedDemoId && (filesJson as FilesJsonType)[selectedDemoId]?.files.find((f:any) => f.path === selectedFilePath)?.language) || 'plaintext',
+                            }}
+                          />
+                        </div>
+                      ) : (
+                          <div className="flex items-center justify-center h-full text-muted-foreground">
+                            Select a file to view its content.
+                          </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             ) : null /* Handle potential invalid tab state */} 
           </div>

@@ -131,4 +131,16 @@ const config: DemoConfig[] = [
   // }),
 ];
 
+// Add the external Research Canvas demo
+config.push({
+  id: "research-canvas",
+  name: "Coagents Research Canvas",
+  description: "An external demo showcasing coagents in a research workflow.",
+  path: "/research-canvas",
+  files: [],
+  iframeUrl: "https://examples-coagents-research-canvas-ui.vercel.app/",
+  sourceCodeUrl: "https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-research-canvas",
+  tags: ["Coagents", "Research", "External"],
+});
+
 export default config;
