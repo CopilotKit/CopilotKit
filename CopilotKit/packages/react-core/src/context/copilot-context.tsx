@@ -85,7 +85,7 @@ export interface CopilotApiConfig {
    * This is typically derived from the CopilotKitProps and used internally.
    * @experimental
    */
-  mcpEndpoints?: Array<{ endpoint: string; apiKey?: string }>;
+  mcpServers?: Array<{ endpoint: string; apiKey?: string }>;
 }
 
 export type InChatRenderFunction<TProps = ActionRenderProps<any> | CatchAllActionRenderProps<any>> =

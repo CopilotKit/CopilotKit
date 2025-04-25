@@ -228,19 +228,19 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
    * Requires providing the `createMCPClient` function during instantiation.
    * @experimental
    */
-  mcpEndpoints?: MCPEndpointConfig[];
+  mcpServers?: MCPEndpointConfig[];
 
   /**
    * A function that creates an MCP client instance for a given endpoint configuration.
    * This function is responsible for using the appropriate MCP client library
    * (e.g., `@copilotkit/runtime`, `ai`) to establish a connection.
-   * Required if `mcpEndpoints` is provided.
+   * Required if `mcpServers` is provided.
    *
    * ```typescript
    * import { experimental_createMCPClient } from "ai"; // Import from vercel ai library
    * // ...
    * const runtime = new CopilotRuntime({
-   *   mcpEndpoints: [{ endpoint: "..." }],
+   *   mcpServers: [{ endpoint: "..." }],
    *   async createMCPClient(config) {
    *     return await experimental_createMCPClient({
    *       transport: {
@@ -270,7 +270,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   private availableAgents: Pick<AgentWithEndpoint, "name" | "id">[];
 
   // +++ MCP Properties +++
-  private readonly mcpEndpointsConfig?: MCPEndpointConfig[];
+  private readonly mcpServersConfig?: MCPEndpointConfig[];
   private mcpActionCache = new Map<string, Action<any>[]>();
   // --- MCP Properties ---
 
@@ -303,18 +303,14 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     this.observability = params?.observability_c;
     this.agents = params?.agents ?? {};
     // +++ MCP Initialization +++
-    this.mcpEndpointsConfig = params?.mcpEndpoints;
+    this.mcpServersConfig = params?.mcpServers;
     this.createMCPClientImpl = params?.createMCPClient;
 
-    // Validate: If mcpEndpoints are provided, createMCPClient must also be provided
-    if (
-      this.mcpEndpointsConfig &&
-      this.mcpEndpointsConfig.length > 0 &&
-      !this.createMCPClientImpl
-    ) {
+    // Validate: If mcpServers are provided, createMCPClient must also be provided
+    if (this.mcpServersConfig && this.mcpServersConfig.length > 0 && !this.createMCPClientImpl) {
       throw new CopilotKitMisuseError({
         message:
-          "MCP Integration Error: `mcpEndpoints` were provided, but the `createMCPClient` function was not passed to the CopilotRuntime constructor. " +
+          "MCP Integration Error: `mcpServers` were provided, but the `createMCPClient` function was not passed to the CopilotRuntime constructor. " +
           "Please provide an implementation for `createMCPClient`.",
       });
     }
@@ -323,7 +319,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     if (
       params?.actions &&
       (params?.remoteEndpoints?.some((e) => e.type === EndpointType.LangGraphPlatform) ||
-        this.mcpEndpointsConfig?.length)
+        this.mcpServersConfig?.length)
     ) {
       console.warn(
         "Local 'actions' defined in CopilotRuntime might not be available to remote agents (LangGraph, MCP). Consider defining actions closer to the agent implementation if needed.",
@@ -343,8 +339,16 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       return messages; // No MCP tools for this specific request
     }
 
-    // Filter only MCP actions and format instructions
-    const mcpToolInstructions = mcpActionsForRequest
+    // Create a map to deduplicate tools by name (keeping the last one if duplicates exist)
+    const uniqueMcpTools = new Map<string, Action<any>>();
+
+    // Add all MCP tools to the map with their names as keys
+    mcpActionsForRequest.forEach((action) => {
+      uniqueMcpTools.set(action.name, action);
+    });
+
+    // Format instructions from the unique tools map
+    const mcpToolInstructions = Array.from(uniqueMcpTools.values())
       .map((action) => {
         const paramsString =
           action.parameters && action.parameters.length > 0
@@ -1110,19 +1114,29 @@ please use an LLM adapter instead.`,
     const requestSpecificMCPActions: Action<any>[] = [];
     if (this.createMCPClientImpl) {
       // 1. Determine effective MCP endpoints for this request
-      const baseEndpoints = this.mcpEndpointsConfig || [];
-      // Assuming frontend passes config via properties.mcpEndpoints
-      const requestEndpoints = (graphqlContext.properties?.mcpEndpoints ||
+      const baseEndpoints = this.mcpServersConfig || [];
+      // Assuming frontend passes config via properties.mcpServers
+      const requestEndpoints = (graphqlContext.properties?.mcpServers ||
+        graphqlContext.properties?.mcpEndpoints ||
         []) as MCPEndpointConfig[];
 
       // Merge and deduplicate endpoints based on URL
       const effectiveEndpointsMap = new Map<string, MCPEndpointConfig>();
-      [...baseEndpoints, ...requestEndpoints].forEach((ep) => {
+
+      // First add base endpoints (from runtime configuration)
+      [...baseEndpoints].forEach((ep) => {
         if (ep && ep.endpoint) {
-          // Basic validation
           effectiveEndpointsMap.set(ep.endpoint, ep);
         }
       });
+
+      // Then add request endpoints (from frontend), which will override duplicates
+      [...requestEndpoints].forEach((ep) => {
+        if (ep && ep.endpoint) {
+          effectiveEndpointsMap.set(ep.endpoint, ep);
+        }
+      });
+
       const effectiveEndpoints = Array.from(effectiveEndpointsMap.values());
 
       // 2. Fetch/Cache actions for effective endpoints
@@ -1134,14 +1148,10 @@ please use an LLM adapter instead.`,
           // Not cached, fetch now
           let client: MCPClient | null = null;
           try {
-            console.log(`MCP: Cache miss. Fetching tools for endpoint: ${endpointUrl}`);
             client = await this.createMCPClientImpl(config);
             const tools = await client.tools();
             actionsForEndpoint = convertMCPToolsToActions(tools, endpointUrl);
             this.mcpActionCache.set(endpointUrl, actionsForEndpoint); // Store in cache
-            console.log(
-              `MCP: Fetched and cached ${actionsForEndpoint.length} tools for ${endpointUrl}`,
-            );
           } catch (error) {
             console.error(
               `MCP: Failed to fetch tools from endpoint ${endpointUrl}. Skipping. Error:`,
