@@ -10,6 +10,7 @@ export interface MCPTool {
     parameters?: {
       properties?: Record<string, any>;
       required?: string[];
+      jsonSchema?: Record<string, any>;
     };
   };
   /** The function to call to execute the tool on the MCP server. */
@@ -36,13 +37,21 @@ export interface MCPEndpointConfig {
 
 /**
  * Extracts CopilotKit-compatible parameters from an MCP tool schema.
- * @param toolSchema The schema object from an MCPTool.
+ * @param toolOrSchema The schema object from an MCPTool or the full MCPTool object.
  * @returns An array of Parameter objects.
  */
-export function extractParametersFromSchema(toolSchema?: MCPTool["schema"]): Parameter[] {
+export function extractParametersFromSchema(
+  toolOrSchema?: MCPTool | MCPTool["schema"],
+): Parameter[] {
   const parameters: Parameter[] = [];
-  const toolParameters =
-    toolSchema?.parameters || toolSchema?.parameters?.jsonSchema;
+
+  // Handle either full tool object or just schema
+  const schema =
+    "schema" in (toolOrSchema || {})
+      ? (toolOrSchema as MCPTool).schema
+      : (toolOrSchema as MCPTool["schema"]);
+
+  const toolParameters = schema?.parameters || schema?.parameters?.jsonSchema;
   const properties = toolParameters?.properties;
   const requiredParams = new Set(toolParameters?.required || []);
 
@@ -82,7 +91,7 @@ export function convertMCPToolsToActions(
   const actions: Action<any>[] = [];
 
   for (const [toolName, tool] of Object.entries(mcpTools)) {
-    const parameters = extractParametersFromSchema(tool.schema || tool);
+    const parameters = extractParametersFromSchema(tool);
 
     const handler = async (params: any): Promise<any> => {
       try {
