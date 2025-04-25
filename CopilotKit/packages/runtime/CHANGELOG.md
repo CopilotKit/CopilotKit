@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.8.9-next.0
+
+### Patch Changes
+
+- f81a526: - Fix MCP tool schema structure to match interface requirements
+  - add utils
+  - @copilotkit/shared@1.8.9-next.0
+
 ## 1.8.8
 
 ### Patch Changes
