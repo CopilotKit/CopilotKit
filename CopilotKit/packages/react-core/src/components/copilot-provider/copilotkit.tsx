@@ -219,7 +219,6 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       transcribeAudioUrl: props.transcribeAudioUrl,
       textToSpeechUrl: props.textToSpeechUrl,
       credentials: props.credentials,
-      mcpEndpoints: props.mcpEndpoints,
     };
   }, [
     props.publicApiKey,
@@ -229,7 +228,6 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     props.textToSpeechUrl,
     props.credentials,
     props.cloudRestrictToTopic,
-    props.mcpEndpoints,
     props.guardrails_c,
   ]);
 

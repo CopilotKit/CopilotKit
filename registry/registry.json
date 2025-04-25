@@ -45,8 +45,8 @@
       "name": "standard-starter",
       "type": "registry:block",
       "title": "Standard Starter",
-      "description": "A starter for CopilotKit with a standard runtime.",
-      "dependencies": ["@copilotkit/runtime", "@copilotkit/react-core"],
+      "description": "A starter for CopilotKit with no agent framework.",
+      "dependencies": ["@copilotkit/runtime", "@copilotkit/react-core", "@copilotkit/react-ui"],
       "files": [
         {
           "path": "registry/layout/standard-layout.tsx",
@@ -54,9 +54,9 @@
           "target": "app/copilotkit/layout.tsx"
         },
         {
-          "path": "registry/runtime/standard.ts",
-          "type": "registry:lib",
-          "target": "app/api/copilotkit/route.ts"
+          "path": "registry/quickstarts/no-agent-framework.tsx",
+          "type": "registry:page",
+          "target": "app/copilotkit/page.tsx"
         }
       ]
     },
