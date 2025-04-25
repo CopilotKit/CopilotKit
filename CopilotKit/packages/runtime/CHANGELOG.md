@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.8.8-next.1
+
+### Patch Changes
+
+- 8c26335: - fix: update MCP tool parameter extraction to handle full tool objects
+  - @copilotkit/shared@1.8.8-next.1
+
 ## 1.8.8-next.0
 
 ### Patch Changes
