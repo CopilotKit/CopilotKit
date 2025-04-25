@@ -1,0 +1,18 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "mcp-starter-runtime",
+  "type": "registry:block",
+  "title": "MCP Starter Runtime",
+  "description": "A runtime for CopilotKit with MCP.",
+  "dependencies": [
+    "@copilotkit/runtime"
+  ],
+  "files": [
+    {
+      "path": "registry/quickstarts/mcp-starter/runtime.ts",
+      "content": "import {\n  CopilotRuntime,\n  OpenAIAdapter,\n  copilotRuntimeNextJSAppRouterEndpoint,\n} from \"@copilotkit/runtime\";\nimport { experimental_createMCPClient } from \"ai\";\nimport { NextRequest } from \"next/server\";\n\nconst serviceAdapter = new OpenAIAdapter();\nconst runtime = new CopilotRuntime({\n  // @ts-ignore\n  createMCPClient: async (config) => {\n    return await experimental_createMCPClient({\n      transport: {\n        type: \"sse\",\n        url: config.endpoint,\n        headers: config.apiKey\n          ? { Authorization: `Bearer ${config.apiKey}` }\n          : undefined,\n      },\n    });\n  },\n});\n\nexport const POST = async (req: NextRequest) => {\n  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({\n    runtime,\n    serviceAdapter,\n    endpoint: \"/api/copilotkit\",\n  });\n\n  return handleRequest(req);\n};",
+      "type": "registry:lib",
+      "target": "app/api/copilotkit/route.ts"
+    }
+  ]
+}
