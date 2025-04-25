@@ -71,7 +71,13 @@ import { AbstractAgent } from "@agentwire/client";
 import { MessageRole } from "../../graphql/types/enums";
 
 // +++ MCP Imports +++
-import { MCPClient, MCPEndpointConfig, convertMCPToolsToActions } from "./mcp-tools-utils";
+import {
+  MCPClient,
+  MCPEndpointConfig,
+  MCPTool,
+  convertMCPToolsToActions,
+  generateMcpToolInstructions,
+} from "./mcp-tools-utils";
 // Define the function type alias here or import if defined elsewhere
 type CreateMCPClientFunction = (config: MCPEndpointConfig) => Promise<MCPClient>;
 // --- MCP Imports ---
@@ -348,17 +354,31 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     });
 
     // Format instructions from the unique tools map
-    const mcpToolInstructions = Array.from(uniqueMcpTools.values())
-      .map((action) => {
-        const paramsString =
-          action.parameters && action.parameters.length > 0
-            ? ` Parameters: ${action.parameters
-                .map((p) => `${p.name}${p.required ? "*" : ""}(${p.type})`)
-                .join(", ")}`
-            : "";
-        return `- ${action.name}:${paramsString} ${action.description || ""}`;
-      })
-      .join("\n");
+    // Convert Action objects to MCPTool format for the instruction generator
+    const toolsMap: Record<string, MCPTool> = {};
+    Array.from(uniqueMcpTools.values()).forEach((action) => {
+      toolsMap[action.name] = {
+        description: action.description || "",
+        schema: action.parameters
+          ? {
+              parameters: {
+                properties: action.parameters.reduce(
+                  (acc, p) => ({
+                    ...acc,
+                    [p.name]: { type: p.type, description: p.description },
+                  }),
+                  {},
+                ),
+                required: action.parameters.filter((p) => p.required).map((p) => p.name),
+              },
+            }
+          : {},
+        execute: async () => ({}), // Placeholder, not used for instructions
+      };
+    });
+
+    // Generate instructions using the exported helper
+    const mcpToolInstructions = generateMcpToolInstructions(toolsMap);
 
     if (!mcpToolInstructions) {
       return messages; // No MCP tools to describe
