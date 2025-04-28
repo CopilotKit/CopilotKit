@@ -1,5 +1,37 @@
 # @copilotkit/runtime
 
+## 1.8.9
+
+### Patch Changes
+
+- f81a526: - Fix MCP tool schema structure to match interface requirements
+  - add utils
+  - @copilotkit/shared@1.8.9
+
+## 1.8.9-next.0
+
+### Patch Changes
+
+- f81a526: - Fix MCP tool schema structure to match interface requirements
+  - add utils
+  - @copilotkit/shared@1.8.9-next.0
+
+## 1.8.8
+
+### Patch Changes
+
+- 8c26335: - fix: update MCP tool parameter extraction to handle full tool objects
+- dfb67c3: - refactor: rename mcpEndpoints to mcpServers for naming consistency
+  - doc changes
+  - @copilotkit/shared@1.8.8
+
+## 1.8.8-next.1
+
+### Patch Changes
+
+- 8c26335: - fix: update MCP tool parameter extraction to handle full tool objects
+  - @copilotkit/shared@1.8.8-next.1
+
 ## 1.8.8-next.0
 
 ### Patch Changes

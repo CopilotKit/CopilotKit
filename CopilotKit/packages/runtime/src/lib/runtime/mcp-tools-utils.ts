@@ -10,6 +10,7 @@ export interface MCPTool {
     parameters?: {
       properties?: Record<string, any>;
       required?: string[];
+      jsonSchema?: Record<string, any>;
     };
   };
   /** The function to call to execute the tool on the MCP server. */
@@ -36,13 +37,23 @@ export interface MCPEndpointConfig {
 
 /**
  * Extracts CopilotKit-compatible parameters from an MCP tool schema.
- * @param toolSchema The schema object from an MCPTool.
+ * @param toolOrSchema The schema object from an MCPTool or the full MCPTool object.
  * @returns An array of Parameter objects.
  */
-export function extractParametersFromSchema(toolSchema?: MCPTool["schema"]): Parameter[] {
+export function extractParametersFromSchema(
+  toolOrSchema?: MCPTool | MCPTool["schema"],
+): Parameter[] {
   const parameters: Parameter[] = [];
-  const properties = toolSchema?.parameters?.properties;
-  const requiredParams = new Set(toolSchema?.parameters?.required || []);
+
+  // Handle either full tool object or just schema
+  const schema =
+    "schema" in (toolOrSchema || {})
+      ? (toolOrSchema as MCPTool).schema
+      : (toolOrSchema as MCPTool["schema"]);
+
+  const toolParameters = schema?.parameters || schema?.parameters?.jsonSchema;
+  const properties = toolParameters?.properties;
+  const requiredParams = new Set(toolParameters?.required || []);
 
   if (!properties) {
     return parameters;
@@ -80,7 +91,7 @@ export function convertMCPToolsToActions(
   const actions: Action<any>[] = [];
 
   for (const [toolName, tool] of Object.entries(mcpTools)) {
-    const parameters = extractParametersFromSchema(tool.schema);
+    const parameters = extractParametersFromSchema(tool);
 
     const handler = async (params: any): Promise<any> => {
       try {
@@ -114,4 +125,64 @@ export function convertMCPToolsToActions(
   }
 
   return actions;
+}
+
+/**
+ * Generate better instructions for using MCP tools
+ * This is used to enhance the system prompt with tool documentation
+ */
+export function generateMcpToolInstructions(toolsMap: Record<string, MCPTool>): string {
+  if (!toolsMap || Object.keys(toolsMap).length === 0) {
+    return "";
+  }
+
+  const toolEntries = Object.entries(toolsMap);
+
+  // Generate documentation for each tool
+  const toolsDoc = toolEntries
+    .map(([name, tool]) => {
+      // Extract schema information if available
+      let paramsDoc = "    No parameters required";
+
+      try {
+        if (tool.schema && typeof tool.schema === "object") {
+          const schema = tool.schema as any;
+
+          // Extract parameters from JSON Schema
+          if (schema.properties) {
+            const requiredParams = schema.required || [];
+
+            // Build parameter documentation from properties
+            const paramsList = Object.entries(schema.properties).map(([paramName, propSchema]) => {
+              const propDetails = propSchema as any;
+              const requiredMark = requiredParams.includes(paramName) ? "*" : "";
+              const typeInfo = propDetails.type || "any";
+              const description = propDetails.description ? ` - ${propDetails.description}` : "";
+
+              return `    - ${paramName}${requiredMark} (${typeInfo})${description}`;
+            });
+
+            if (paramsList.length > 0) {
+              paramsDoc = paramsList.join("\n");
+            }
+          }
+        }
+      } catch (e) {
+        console.error(`Error parsing schema for tool ${name}:`, e);
+      }
+
+      return `- ${name}: ${tool.description || ""}
+${paramsDoc}`;
+    })
+    .join("\n\n");
+
+  return `You have access to the following external tools provided by Model Context Protocol (MCP) servers:
+
+${toolsDoc}
+
+When using these tools:
+1. Only provide valid parameters according to their type requirements
+2. Required parameters are marked with *
+3. Format API calls correctly with the expected parameter structure
+4. Always check tool responses to determine your next action`;
 }

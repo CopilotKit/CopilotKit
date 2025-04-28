@@ -61,6 +61,43 @@
       ]
     },
     {
+      "name": "mcp-starter",
+      "type": "registry:block",
+      "title": "MCP Starter",
+      "description": "A starter for CopilotKit with MCP.",
+      "dependencies": ["@copilotkit/react-core", "@copilotkit/react-ui", "ai"],
+      "files": [
+        {
+          "path": "registry/layout/standard-layout.tsx",
+          "type": "registry:page",
+          "target": "app/copilotkit/layout.tsx"
+        },
+        {
+          "path": "registry/quickstarts/mcp-starter/components/default-tool-render.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "registry/quickstarts/mcp-starter/page.tsx",
+          "type": "registry:page",
+          "target": "app/copilotkit/page.tsx"
+        }
+      ]
+    },
+    {
+      "name": "mcp-starter-runtime",
+      "type": "registry:block",
+      "title": "MCP Starter Runtime",
+      "description": "A runtime for CopilotKit with MCP.",
+      "dependencies": ["@copilotkit/runtime"],
+      "files": [
+        {
+          "path": "registry/quickstarts/mcp-starter/runtime.ts",
+          "type": "registry:lib",
+          "target": "app/api/copilotkit/route.ts"
+        }
+      ]
+    },
+    {
       "name": "generic-lg-starter",
       "type": "registry:block",
       "title": "Generic LG Starter",
