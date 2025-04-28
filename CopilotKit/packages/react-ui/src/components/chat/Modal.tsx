@@ -82,6 +82,7 @@ export const CopilotModal = ({
   onThumbsDown,
   onCopy,
   onRegenerate,
+  customMarkdown,
   className,
   children,
 }: CopilotModalProps) => {
@@ -118,6 +119,7 @@ export const CopilotModal = ({
             onThumbsDown={onThumbsDown}
             onCopy={onCopy}
             onRegenerate={onRegenerate}
+            customMarkdown={customMarkdown}
           />
         </Window>
       </div>

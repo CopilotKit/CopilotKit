@@ -1,4 +1,5 @@
 import { Message } from "@copilotkit/runtime-client-gql";
+import { Components } from "react-markdown";
 
 export interface ButtonProps {}
 
@@ -50,6 +51,12 @@ export interface MessagesProps {
    * Callback function for thumbs down feedback
    */
   onThumbsDown?: (message: string) => void;
+
+  /**
+   * A list of markdown components to render in assistant message.
+   * Useful when you want to render custom elements in the message (e.g a reference tag element)
+   */
+  customMarkdown?: Components;
 }
 
 export interface Renderer {
@@ -115,6 +122,12 @@ export interface AssistantMessageProps {
    * Callback function for thumbs down feedback
    */
   onThumbsDown?: (message: string) => void;
+
+  /**
+   * A list of markdown components to render in assistant message.
+   * Useful when you want to render custom elements in the message (e.g a reference tag element)
+   */
+  customMarkdown?: Components;
 }
 
 export interface RenderMessageProps {
@@ -145,6 +158,12 @@ export interface RenderMessageProps {
    * Callback function for thumbs down feedback
    */
   onThumbsDown?: (message: string) => void;
+
+  /**
+   * A list of markdown components to render in assistant message.
+   * Useful when you want to render custom elements in the message (e.g a reference tag element)
+   */
+  customMarkdown?: Components;
 }
 
 export interface InputProps {
