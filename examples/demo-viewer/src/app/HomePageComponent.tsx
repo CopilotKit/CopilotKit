@@ -14,7 +14,7 @@ import Image from "next/image";
 import { useTheme } from "next-themes";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Eye, Code, Book } from "lucide-react";
+import { Eye, Code, Book, GripVertical } from "lucide-react";
 import { CodeEditor } from "@/components/code-editor/code-editor";
 import ReactMarkdown from "react-markdown";
 import { MarkdownComponents } from "@/components/ui/markdown-components";
@@ -23,6 +23,11 @@ import { MDXRenderer, SafeComponent } from "@/utils/mdx-utils";
 import filesJson from "../files.json";
 import { FileEntry } from "@/components/file-tree/file-tree";
 import { useRouter, usePathname } from "next/navigation";
+import {
+  Panel,
+  PanelGroup,
+  PanelResizeHandle,
+} from "react-resizable-panels";
 
 // Define a type for the files.json structure for safety
 type FilesJsonType = Record<string, { files: { name: string; content: string; path: string; language: string; type: string; }[] }>;
@@ -30,10 +35,11 @@ type FilesJsonType = Record<string, { files: { name: string; content: string; pa
 // Define the props expected when rendered by FeaturePage
 interface HomePageProps {
   defaultDemoId?: string; // This comes from FeaturePage, can be undefined
+  isHeadless?: boolean; // Add isHeadless prop
 }
 
 // Use HomePageProps directly in the function signature
-export default function Home({ defaultDemoId }: HomePageProps = {}) {
+export default function Home({ defaultDemoId, isHeadless = false }: HomePageProps) {
   // Get the framework type from environment variable
   const currentFramework = process.env.NEXT_PUBLIC_AGENT_TYPE || 'crewai'; // Default to crewai if not set
   
@@ -240,6 +246,8 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
   }, [selectedDemoId, loadReadmeContent, handleFileSelect]); // Dependencies for content loading
 
   const handleTabChange = useCallback((value: string): void => {
+    // Don't allow tab changes in headless mode
+    if (isHeadless) return;
     setActiveTab(value);
     if (value === "code" && demoFiles.length > 0) {
       const agentPyFile = demoFiles.find(
@@ -251,64 +259,162 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
         handleFileSelect(demoFiles[0]?.path || null);
       }
     }
-  }, [demoFiles, handleFileSelect]); // Add dependencies
+  }, [demoFiles, handleFileSelect, isHeadless]); // Add dependencies
+
+  // Automatically select the 'code' view content (agent.py or first file) when in headless mode or code tab is selected
+  useEffect(() => {
+    if ((activeTab === "code" || isHeadless) && demoFiles.length > 0 && !selectedFilePath) {
+       const agentPyFile = demoFiles.find(
+        (file: FileEntry) => file.name === "agent.py"
+      );
+      if (agentPyFile) {
+        handleFileSelect(agentPyFile.path);
+      } else {
+        handleFileSelect(demoFiles[0]?.path || null);
+      }
+    }
+  }, [activeTab, isHeadless, demoFiles, selectedFilePath, handleFileSelect]);
+
+  // Prepare the Code View component separately for reuse
+  const CodeView = (
+    <div className="flex flex-col h-full">
+      {selectedDemo?.sourceCodeUrl ? (
+         // External demo: Show link to GitHub repo
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-background">
+            <h3 className="text-lg font-semibold mb-3">View Source Code</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              The source code for this demo is hosted externally on GitHub.
+            </p>
+            <a
+              href={selectedDemo.sourceCodeUrl} // Use the URL from config
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+            >
+              View Source on GitHub
+            </a>
+          </div>
+      ) : (
+         // Internal demo: show Code Editor (Resizable Left) and File Tree (Resizable/Collapsible Right)
+          <PanelGroup direction="horizontal" className="flex-1 flex h-full overflow-hidden">
+              {/* Code Editor Pane (Left, Resizable) */}
+              <Panel defaultSizePercentage={70} minSizePercentage={30}>
+                <div className="flex-1 h-full overflow-auto">
+                  {selectedFilePath && fileContent !== null ? (
+                    <div className="h-full">
+                      <CodeEditor
+                        file={{
+                          name: selectedFilePath?.split("/").pop() || "",
+                          path: selectedFilePath || "",
+                          content: fileContent ?? "",
+                          language: (selectedDemoId && (filesJson as FilesJsonType)[selectedDemoId]?.files.find((f:any) => f.path === selectedFilePath)?.language) || 'plaintext',
+                        }}
+                      />
+                    </div>
+                  ) : (
+                      <div className="flex items-center justify-center h-full text-muted-foreground">
+                        Select a file to view its content.
+                      </div>
+                  )}
+                </div>
+              </Panel>
+              {/* Resize Handle for Code/FileTree */}
+              <PanelResizeHandle className="relative flex w-px items-center justify-center bg-border after:absolute after:inset-y-0 after:left-1/2 after:w-1 after:-translate-x-1/2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1">
+                  <div className="z-10 flex h-4 w-3 items-center justify-center rounded-sm border bg-border">
+                    <GripVertical className="h-2.5 w-2.5" />
+                  </div>
+              </PanelResizeHandle>
+              {/* File Tree Pane (Right, Resizable/Collapsible) */}
+              <Panel defaultSizePercentage={0} minSizePercentage={15} collapsible={true}>
+                <div className="w-full h-full flex flex-col bg-background overflow-hidden">
+                  <FileTreeNav
+                    path={currentPath}
+                    rootPath={selectedDemo?.path || ""}
+                    onNavigate={handleNavigate}
+                  />
+                  <div className="flex-1 overflow-auto">
+                    <FileTree
+                      basePath={currentPath}
+                      files={demoFiles}
+                      selectedFile={selectedFilePath || undefined}
+                      onFileSelect={handleFileSelect}
+                    />
+                  </div>
+                  {error && (
+                    <div className="p-2 text-sm text-red-500">{error}</div>
+                  )}
+                </div>
+              </Panel>
+          </PanelGroup>
+      )}
+    </div>
+  );
+
+  // Prepare the Preview View component separately for reuse
+  const PreviewView = (
+    <div className="flex-1 h-full">
+      {selectedDemo && <DemoPreview demo={selectedDemo} />}
+    </div>
+  );
 
   return (
+    // Use a simplified layout container if headless
     <ViewerLayout showFileTree={false} showCodeEditor={false}>
       <div className="flex h-full">
-        {/* Demo List - Left Sidebar */} 
-        <div className="flex flex-col h-full w-80 border-r">
-          {/* === Restore Sidebar Header === */}
-          <div className="p-4 border-b bg-background">
-            <div className="flex items-center justify-between ml-1">
-              <div className="flex items-start flex-col">
-                {mounted ? (
-                  <Image
-                    src={resolvedTheme === 'dark' ? "/logo_light.webp" : "/logo_dark.webp"}
-                    width={120}
-                    height={24}
-                    alt="CopilotKit / Demo Viewer"
-                    className="h-6 w-auto object-contain"
-                    priority
-                  />
-                ) : (
-                  <div style={{ width: 120, height: 24 }} />
-                )}
-                <h1
-                  className="text-lg font-extralight text-foreground"
-                >
-                  Interactive Demos
-                </h1>
+        {/* Demo List - Left Sidebar (Conditionally Rendered) */} 
+        {!isHeadless && (
+          <div className="flex flex-col h-full w-80 border-r">
+            {/* Sidebar Header */}
+            <div className="p-4 border-b bg-background">
+              <div className="flex items-center justify-between ml-1">
+                <div className="flex items-start flex-col">
+                  {mounted ? (
+                    <Image
+                      src={resolvedTheme === 'dark' ? "/logo_light.webp" : "/logo_dark.webp"}
+                      width={120}
+                      height={24}
+                      alt="CopilotKit / Demo Viewer"
+                      className="h-6 w-auto object-contain"
+                      priority
+                    />
+                  ) : (
+                    <div style={{ width: 120, height: 24 }} />
+                  )}
+                  <h1
+                    className="text-lg font-extralight text-foreground"
+                  >
+                    Interactive Demos
+                  </h1>
+                </div>
+                <ThemeToggle />
               </div>
-              <ThemeToggle />
             </div>
-          </div>
-          {/* === Restore Controls Section (Tabs) === */}
-          <div className="p-4 border-b bg-background">
-            <div className="mb-1">
-              <label className="block text-sm font-medium text-muted-foreground mb-2">
-                View
-              </label>
-              <Tabs
-                value={activeTab}
-                onValueChange={handleTabChange}
-                className="w-full"
-              >
-                <TabsList className="w-full h-9 bg-background border shadow-sm rounded-lg p-1">
-                  <TabsTrigger
-                    value="preview"
-                    className="flex-1 h-7 px-2 text-sm font-medium gap-1 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow"
-                  >
-                    <Eye className="h-3 w-3" />
-                    <span>Preview</span>
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="code"
-                    className="flex-1 h-7 px-2 text-sm font-medium gap-1 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow"
-                  >
-                    <Code className="h-3 w-3" />
-                    <span>Code</span>
-                  </TabsTrigger>
+            {/* Controls Section (Tabs) - Only show if not headless */}
+            <div className="p-4 border-b bg-background">
+              <div className="mb-1">
+                <label className="block text-sm font-medium text-muted-foreground mb-2">
+                  View
+                </label>
+                <Tabs
+                  value={activeTab}
+                  onValueChange={handleTabChange}
+                  className="w-full"
+                >
+                  <TabsList className="w-full h-9 bg-background border shadow-sm rounded-lg p-1">
+                    <TabsTrigger
+                      value="preview"
+                      className="flex-1 h-7 px-2 text-sm font-medium gap-1 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow"
+                    >
+                      <Eye className="h-3 w-3" />
+                      <span>Preview</span>
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="code"
+                      className="flex-1 h-7 px-2 text-sm font-medium gap-1 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow"
+                    >
+                      <Code className="h-3 w-3" />
+                      <span>Code</span>
+                    </TabsTrigger>
                     <TabsTrigger
                       value="readme"
                       className="flex-1 h-7 px-2 text-sm font-medium gap-1 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow"
@@ -316,148 +422,116 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
                       <Book className="h-3 w-3" />
                       <span>Docs</span>
                     </TabsTrigger>
-                </TabsList>
-              </Tabs>
+                  </TabsList>
+                </Tabs>
+              </div>
+            </div>
+            {/* Demo List */}
+            <div className="flex-1 overflow-auto">
+              <DemoList
+                demos={filteredDemos} // Pass filtered list based on env var
+                selectedDemo={selectedDemoId}
+                onSelect={handleDemoSelect}
+              />
             </div>
           </div>
-          {/* === Pass Filtered Demos to Demo List === */}
-          <div className="flex-1 overflow-auto">
-            <DemoList
-              demos={filteredDemos} // Pass filtered list based on env var
-              selectedDemo={selectedDemoId}
-              onSelect={handleDemoSelect}
-            />
-          </div>
-        </div>
+        )}
 
         {/* Main Content Area */}
         {selectedDemo ? (
           <div className="flex-1 flex flex-col overflow-hidden">
-            {/* === Restore Active Tab Conditional Logic === */}
-            {activeTab === "preview" ? (
-              <div className="flex-1 h-full"> 
-                {selectedDemo && <DemoPreview demo={selectedDemo} />} 
-              </div>
-            ) : activeTab === "readme" ? (
-              <div className="flex-1 p-6 overflow-auto bg-background">
-                {selectedDemo?.sourceCodeUrl ? (
-                  // External demo: Show link to external README
-                  <div className="flex-1 flex flex-col items-center justify-center text-center h-full">
-                    <h3 className="text-lg font-semibold mb-3">View Documentation</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      The documentation for this demo is hosted externally on GitHub.
-                    </p>
-                    <a
-                      href="https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-research-canvas/readme.md" // Specific README URL
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-                    >
-                      View README on GitHub
-                    </a>
+            {isHeadless ? (
+              // Headless Mode: Side-by-side Preview and Code with Resizable Handle
+              <PanelGroup direction="horizontal" className="flex flex-1 h-full overflow-hidden">
+                {/* Preview Pane (Left) */}
+                <Panel defaultSizePercentage={50} minSizePercentage={20}>
+                  <div className="flex-1 h-full border-r overflow-auto">
+                    {PreviewView}
                   </div>
-                ) : readmeContent ? (
-                  // Internal demo with readme content: Render it (existing logic)
-                  <div className="max-w-4xl mx-auto">
-                    <div className="prose max-w-none dark:prose-invert">
-                      {compiledMDX ? (
-                        <MDXContent>
-                          <SafeComponent
-                            component={() => (
-                              <MDXRenderer
-                                content={readmeContent}
-                                demoId={selectedDemo?.id || undefined}
-                              />
+                </Panel>
+                {/* Use shadcn/ui-like styling for the handle */}
+                <PanelResizeHandle className="relative flex w-px items-center justify-center bg-border after:absolute after:inset-y-0 after:left-1/2 after:w-1 after:-translate-x-1/2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1">
+                  <div className="z-10 flex h-4 w-3 items-center justify-center rounded-sm border bg-border">
+                    <GripVertical className="h-2.5 w-2.5" />
+                  </div>
+                </PanelResizeHandle>
+                {/* Code Pane (Right) */}
+                <Panel defaultSizePercentage={50} minSizePercentage={20}>
+                  <div className="flex-1 h-full overflow-auto">
+                    {CodeView}
+                  </div>
+                </Panel>
+              </PanelGroup>
+            ) : (
+              // Normal Mode: Tabbed View
+              <>
+                {activeTab === "preview" ? (
+                  PreviewView
+                ) : activeTab === "readme" ? (
+                   <div className="flex-1 p-6 overflow-auto bg-background">
+                      {selectedDemo?.sourceCodeUrl ? (
+                        // External demo: Show link to external README
+                        <div className="flex-1 flex flex-col items-center justify-center text-center h-full">
+                          <h3 className="text-lg font-semibold mb-3">View Documentation</h3>
+                          <p className="text-sm text-muted-foreground mb-4">
+                            The documentation for this demo is hosted externally on GitHub.
+                          </p>
+                          <a
+                            href="https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-research-canvas/readme.md" // Specific README URL
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                          >
+                            View README on GitHub
+                          </a>
+                        </div>
+                      ) : readmeContent ? (
+                        // Internal demo with readme content: Render it (existing logic)
+                        <div className="max-w-4xl mx-auto">
+                          <div className="prose max-w-none dark:prose-invert">
+                            {compiledMDX ? (
+                              <MDXContent>
+                                <SafeComponent
+                                  component={() => (
+                                    <MDXRenderer
+                                      content={readmeContent}
+                                      demoId={selectedDemo?.id || undefined}
+                                    />
+                                  )}
+                                  fallback={
+                                    <div className="p-4 border rounded bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300">
+                                      Could not render MDX content. Displaying markdown instead.
+                                      <ReactMarkdown components={MarkdownComponents}>
+                                        {readmeContent || ""}
+                                      </ReactMarkdown>
+                                    </div>
+                                  }
+                                />
+                              </MDXContent>
+                            ) : (
+                              <ReactMarkdown components={MarkdownComponents}>
+                                {readmeContent}
+                              </ReactMarkdown>
                             )}
-                            fallback={
-                              <div className="p-4 border rounded bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300">
-                                Could not render MDX content. Displaying markdown instead.
-                                <ReactMarkdown components={MarkdownComponents}>
-                                  {readmeContent || ""}
-                                </ReactMarkdown>
-                              </div>
-                            }
-                          />
-                        </MDXContent>
-                      ) : (
-                        <ReactMarkdown components={MarkdownComponents}>
-                          {readmeContent}
-                        </ReactMarkdown>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                   // Internal demo without readme content: Show message (existing logic)
-                   <div className="flex items-center justify-center h-full text-muted-foreground">
-                      No README found for this demo.
-                   </div>
-                )}
-              </div>
-            ) : activeTab === "code" ? (
-              <div className="flex-1 flex h-full">
-                {selectedDemo?.sourceCodeUrl ? (
-                  // External demo: Show link to GitHub repo
-                  <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-background">
-                    <h3 className="text-lg font-semibold mb-3">View Source Code</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      The source code for this demo is hosted externally on GitHub.
-                    </p>
-                    <a
-                      href={selectedDemo.sourceCodeUrl} // Use the URL from config
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-                    >
-                      View Source on GitHub
-                    </a>
-                  </div>
-                ) : (
-                  // Internal demo: show FileTree and CodeEditor (existing logic)
-                  <>
-                    <div className="w-72 border-r flex flex-col bg-background">
-                      <FileTreeNav
-                        path={currentPath}
-                        rootPath={selectedDemo?.path || ""}
-                        onNavigate={handleNavigate}
-                      />
-                      <div className="flex-1 overflow-auto">
-                        <FileTree
-                          basePath={currentPath}
-                          files={demoFiles} 
-                          selectedFile={selectedFilePath || undefined}
-                          onFileSelect={handleFileSelect}
-                        />
-                      </div>
-                      {error && (
-                        <div className="p-2 text-sm text-red-500">{error}</div>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      {selectedFilePath && fileContent !== null ? (
-                        <div className="h-full">
-                          <CodeEditor
-                            file={{
-                              name: selectedFilePath?.split("/").pop() || "",
-                              path: selectedFilePath || "",
-                              content: fileContent ?? "",
-                              language: (selectedDemoId && (filesJson as FilesJsonType)[selectedDemoId]?.files.find((f:any) => f.path === selectedFilePath)?.language) || 'plaintext',
-                            }}
-                          />
+                          </div>
                         </div>
                       ) : (
-                          <div className="flex items-center justify-center h-full text-muted-foreground">
-                            Select a file to view its content.
-                          </div>
+                         // Internal demo without readme content: Show message (existing logic)
+                         <div className="flex items-center justify-center h-full text-muted-foreground">
+                            No README found for this demo.
+                         </div>
                       )}
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : null /* Handle potential invalid tab state */} 
+                   </div>
+                ) : activeTab === "code" ? (
+                  CodeView
+                ) : null}
+              </>
+            )}
           </div>
         ) : (
+          // No Demo Selected View
           <div className="flex-1 flex items-center justify-center text-muted-foreground">
-            Select a demo from the list to get started
+             {isHeadless ? "Loading feature..." : "Select a demo from the list to get started"}
           </div>
         )}
       </div>

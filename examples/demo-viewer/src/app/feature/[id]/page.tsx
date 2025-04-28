@@ -1,16 +1,18 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import config from "@/config"; // Assuming config is correctly exported from src/config.ts
 import HomePage from "@/app/HomePageComponent"; // Updated import path
 import { AGENT_TYPE } from "@/config"; // Import AGENT_TYPE
 
 export default function FeaturePage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const shortId = params?.id as string | undefined; // Allow undefined
   const fullDemoId = shortId ? `${AGENT_TYPE}_${shortId}` : undefined;
   const featureExists = fullDemoId ? config.some((feature) => feature.id === fullDemoId) : false;
+  const isHeadless = searchParams.get('headless') === 'true';
 
   // Effect for redirection if the feature doesn't exist
   useEffect(() => {
@@ -35,7 +37,7 @@ export default function FeaturePage() {
     return <div>Loading...</div>; // Or return null;
   }
 
-  // Render HomePage with the validated fullDemoId
+  // Render HomePage with the validated fullDemoId and headless flag
   // This part is reached only if shortId is defined and featureExists is true
-  return <HomePage defaultDemoId={fullDemoId} />;
+  return <HomePage defaultDemoId={fullDemoId} isHeadless={isHeadless} />;
 } 
