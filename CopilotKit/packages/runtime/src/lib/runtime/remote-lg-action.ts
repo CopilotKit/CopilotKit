@@ -122,7 +122,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     agent,
     nodeName: initialNodeName,
     state: initialState,
-    config,
+    config: explicitConfig,
     messages,
     actions,
     logger,
@@ -237,12 +237,16 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   const graphInfo = await client.assistants.getGraph(assistantId);
   const graphSchema = await client.assistants.getSchemas(assistantId);
   const schemaKeys = getSchemaKeys(graphSchema);
-  if (config?.configurable) {
-    const filteredConfigurable = schemaKeys?.config
-      ? filterObjectBySchemaKeys(config?.configurable, schemaKeys?.config)
-      : config?.configurable;
+
+  if (explicitConfig) {
+    let filteredConfigurable = retrievedAssistant.config.configurable ?? {};
+    if (explicitConfig.configurable) {
+      filteredConfigurable = schemaKeys?.config
+        ? filterObjectBySchemaKeys(explicitConfig?.configurable, schemaKeys?.config)
+        : explicitConfig?.configurable;
+    }
     await client.assistants.update(assistantId, {
-      config: { ...config, configurable: filteredConfigurable },
+      config: { ...retrievedAssistant.config, ...explicitConfig, configurable: filteredConfigurable },
     });
   }
 
