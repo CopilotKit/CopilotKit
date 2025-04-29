@@ -6,8 +6,7 @@
   "description": "A starter for CopilotKit with MCP.",
   "dependencies": [
     "@copilotkit/react-core",
-    "@copilotkit/react-ui",
-    "ai"
+    "@copilotkit/react-ui"
   ],
   "files": [
     {
