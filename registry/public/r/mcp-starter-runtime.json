@@ -11,7 +11,7 @@
   "files": [
     {
       "path": "registry/quickstarts/mcp-starter/runtime.ts",
-      "content": "import {\n  CopilotRuntime,\n  OpenAIAdapter,\n  copilotRuntimeNextJSAppRouterEndpoint,\n} from \"@copilotkit/runtime\";\nimport { NextRequest } from \"next/server\";\nimport { MCPClient } from \"./utils/mcp-client\";\n\nconst serviceAdapter = new OpenAIAdapter();\nconst runtime = new CopilotRuntime({\n  createMCPClient: async (config) => {\n    const mcpClient = new MCPClient({\n      serverUrl: config.endpoint,\n    });\n    await mcpClient.connect();\n    return mcpClient;\n  },\n});\n\nexport const POST = async (req: NextRequest) => {\n  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({\n    runtime,\n    serviceAdapter,\n    endpoint: \"/api/copilotkit\",\n  });\n\n  return handleRequest(req);\n};\n",
+      "content": "import {\n  CopilotRuntime,\n  OpenAIAdapter,\n  copilotRuntimeNextJSAppRouterEndpoint,\n} from \"@copilotkit/runtime\";\nimport { NextRequest } from \"next/server\";\nimport { MCPClient } from \"@/registry/quickstarts/mcp-starter/utils/mcp-client\";\n\nconst serviceAdapter = new OpenAIAdapter();\nconst runtime = new CopilotRuntime({\n  createMCPClient: async (config) => {\n    const mcpClient = new MCPClient({\n      serverUrl: config.endpoint,\n    });\n    await mcpClient.connect();\n    return mcpClient;\n  },\n});\n\nexport const POST = async (req: NextRequest) => {\n  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({\n    runtime,\n    serviceAdapter,\n    endpoint: \"/api/copilotkit\",\n  });\n\n  return handleRequest(req);\n};\n",
       "type": "registry:lib",
       "target": "app/api/copilotkit/route.ts"
     },

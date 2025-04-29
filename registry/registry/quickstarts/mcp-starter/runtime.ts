@@ -4,7 +4,7 @@ import {
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 import { NextRequest } from "next/server";
-import { MCPClient } from "./utils/mcp-client";
+import { MCPClient } from "@/registry/quickstarts/mcp-starter/utils/mcp-client";
 
 const serviceAdapter = new OpenAIAdapter();
 const runtime = new CopilotRuntime({
