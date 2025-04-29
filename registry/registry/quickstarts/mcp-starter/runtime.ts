@@ -3,22 +3,17 @@ import {
   OpenAIAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { experimental_createMCPClient } from "ai";
 import { NextRequest } from "next/server";
+import { MCPClient } from "./utils/mcp-client";
 
 const serviceAdapter = new OpenAIAdapter();
 const runtime = new CopilotRuntime({
-  // @ts-ignore
   createMCPClient: async (config) => {
-    return await experimental_createMCPClient({
-      transport: {
-        type: "sse",
-        url: config.endpoint,
-        headers: config.apiKey
-          ? { Authorization: `Bearer ${config.apiKey}` }
-          : undefined,
-      },
+    const mcpClient = new MCPClient({
+      serverUrl: config.endpoint,
     });
+    await mcpClient.connect();
+    return mcpClient;
   },
 });
 
