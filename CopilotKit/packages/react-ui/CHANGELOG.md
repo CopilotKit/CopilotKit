@@ -1,5 +1,14 @@
 # ui
 
+## 1.8.10-next.1
+
+### Patch Changes
+
+- 62b6db1: - fix: allow the chat input to expand on new lines
+  - @copilotkit/react-core@1.8.10-next.1
+  - @copilotkit/runtime-client-gql@1.8.10-next.1
+  - @copilotkit/shared@1.8.10-next.1
+
 ## 1.8.10-next.0
 
 ### Patch Changes
