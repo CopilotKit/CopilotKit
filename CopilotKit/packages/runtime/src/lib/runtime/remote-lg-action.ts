@@ -26,7 +26,10 @@ interface ExecutionArgs extends Omit<LangGraphPlatformEndpoint, "agents"> {
   nodeName: string;
   messages: Message[];
   state: State;
-  configurable?: Record<string, any>;
+  config?: {
+    configurable?: Record<string, any>;
+    [key: string]: any;
+  };
   properties: CopilotRequestContextProperties;
   actions: ExecutionAction[];
   logger: Logger;
@@ -119,7 +122,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     agent,
     nodeName: initialNodeName,
     state: initialState,
-    configurable,
+    config: explicitConfig,
     messages,
     actions,
     logger,
@@ -234,11 +237,40 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   const graphInfo = await client.assistants.getGraph(assistantId);
   const graphSchema = await client.assistants.getSchemas(assistantId);
   const schemaKeys = getSchemaKeys(graphSchema);
-  if (configurable) {
-    const filteredConfigurable = schemaKeys?.config
-      ? filterObjectBySchemaKeys(configurable, schemaKeys?.config)
-      : configurable;
-    await client.assistants.update(assistantId, { config: { configurable: filteredConfigurable } });
+
+  if (explicitConfig) {
+    let filteredConfigurable = retrievedAssistant.config.configurable;
+    if (explicitConfig.configurable) {
+      filteredConfigurable = schemaKeys?.config
+        ? filterObjectBySchemaKeys(explicitConfig?.configurable, schemaKeys?.config)
+        : explicitConfig?.configurable;
+    }
+
+    const newConfig = {
+      ...retrievedAssistant.config,
+      ...explicitConfig,
+      configurable: filteredConfigurable,
+    };
+
+    // LG does not return recursion limit if it's the default, therefore we check: if no recursion limit is currently set, and the user asked for 25, there is no change.
+    const isRecursionLimitSetToDefault =
+      retrievedAssistant.config.recursion_limit == null && explicitConfig.recursion_limit === 25;
+    // Deep compare configs to avoid unnecessary update calls
+    const configsAreDifferent =
+      JSON.stringify(newConfig) !== JSON.stringify(retrievedAssistant.config);
+
+    // Check if the only difference is the recursion_limit being set to default
+    const isOnlyRecursionLimitDifferent =
+      isRecursionLimitSetToDefault &&
+      JSON.stringify({ ...newConfig, recursion_limit: null }) ===
+        JSON.stringify({ ...retrievedAssistant.config, recursion_limit: null });
+
+    // If configs are different, we further check: Is the only diff a request to set the recursion limit to its already default?
+    if (configsAreDifferent && !isOnlyRecursionLimitDifferent) {
+      await client.assistants.update(assistantId, {
+        config: newConfig,
+      });
+    }
   }
 
   // Do not input keys that are not part of the input schema

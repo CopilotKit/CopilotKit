@@ -34,7 +34,7 @@ class Agent(ABC):
         self,
         *,
         state: dict,
-        configurable: Optional[dict] = None,
+        config: Optional[dict] = None,
         messages: List[Message],
         thread_id: str,
         actions: Optional[List[ActionDict]] = None,
