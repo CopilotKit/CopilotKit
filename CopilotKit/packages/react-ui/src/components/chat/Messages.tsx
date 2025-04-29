@@ -19,7 +19,7 @@ export const Messages = ({
   onCopy,
   onThumbsUp,
   onThumbsDown,
-  customMarkdown,
+  markdownTagRenderers,
 }: MessagesProps) => {
   const context = useChatContext();
   const initialMessages = useMemo(
@@ -68,7 +68,7 @@ export const Messages = ({
                 onCopy={onCopy}
                 onThumbsUp={onThumbsUp}
                 onThumbsDown={onThumbsDown}
-                customMarkdown={customMarkdown}
+                markdownTagRenderers={markdownTagRenderers}
               />
             );
           } else if (message.isActionExecutionMessage()) {

@@ -14,7 +14,7 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
     onThumbsUp,
     onThumbsDown,
     isCurrentMessage,
-    customMarkdown,
+    markdownTagRenderers,
   } = props;
   const [copied, setCopied] = useState(false);
 
@@ -55,7 +55,7 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
     <>
       {(message || isLoading) && (
         <div className="copilotKitMessage copilotKitAssistantMessage">
-          {message && <Markdown content={message || ""} components={customMarkdown} />}
+          {message && <Markdown content={message || ""} components={markdownTagRenderers} />}
           {isLoading && <LoadingIcon />}
 
           {message && !isLoading && (

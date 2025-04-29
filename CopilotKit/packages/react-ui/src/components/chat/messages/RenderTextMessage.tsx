@@ -16,7 +16,7 @@ export function RenderTextMessage({
     onCopy,
     onThumbsUp,
     onThumbsDown,
-    customMarkdown,
+    markdownTagRenderers,
   } = props;
 
   if (message.isTextMessage()) {
@@ -43,7 +43,7 @@ export function RenderTextMessage({
           onCopy={onCopy}
           onThumbsUp={onThumbsUp}
           onThumbsDown={onThumbsDown}
-          customMarkdown={customMarkdown}
+          markdownTagRenderers={markdownTagRenderers}
         />
       );
     }
