@@ -3,28 +3,9 @@ import ReactMarkdown, { Options, Components } from "react-markdown";
 import { CodeBlock } from "./CodeBlock";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
+import rehypeRaw from "rehype-raw";
 
-const MemoizedReactMarkdown: FC<Options> = memo(
-  ReactMarkdown,
-  (prevProps, nextProps) =>
-    prevProps.children === nextProps.children && prevProps.className === nextProps.className,
-);
-
-type MarkdownProps = {
-  content: string;
-};
-
-export const Markdown = ({ content }: MarkdownProps) => {
-  return (
-    <div className="copilotKitMarkdown">
-      <MemoizedReactMarkdown components={components} remarkPlugins={[remarkGfm, remarkMath]}>
-        {content}
-      </MemoizedReactMarkdown>
-    </div>
-  );
-};
-
-const components: Components = {
+const defaultComponents: Components = {
   a({ children, ...props }) {
     return (
       <a
@@ -37,8 +18,9 @@ const components: Components = {
       </a>
     );
   },
+  // @ts-expect-error -- inline
   code({ children, className, inline, ...props }) {
-    if (children.length) {
+    if (Array.isArray(children) && children.length) {
       if (children[0] == "▍") {
         return (
           <span
@@ -52,7 +34,7 @@ const components: Components = {
         );
       }
 
-      children[0] = (children[0] as string).replace("`▍`", "▍");
+      children[0] = (children?.[0] as string).replace("`▍`", "▍");
     }
 
     const match = /language-(\w+)/.exec(className || "");
@@ -74,4 +56,29 @@ const components: Components = {
       />
     );
   },
+};
+
+const MemoizedReactMarkdown: FC<Options> = memo(
+  ReactMarkdown,
+  (prevProps, nextProps) =>
+    prevProps.children === nextProps.children && prevProps.components === nextProps.components,
+);
+
+type MarkdownProps = {
+  content: string;
+  components?: Components;
+};
+
+export const Markdown = ({ content, components }: MarkdownProps) => {
+  return (
+    <div className="copilotKitMarkdown">
+      <MemoizedReactMarkdown
+        components={{ ...defaultComponents, ...components }}
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeRaw]}
+      >
+        {content}
+      </MemoizedReactMarkdown>
+    </div>
+  );
 };
