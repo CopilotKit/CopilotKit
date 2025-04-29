@@ -9,7 +9,14 @@ import {
   TailoredContentOption,
 } from "@/components/react/tailored-content.tsx";
 import Link from "next/link";
-import { Database, Code, Server, Bot, SquareTerminal, SquareChartGantt } from "lucide-react";
+import {
+  Database,
+  Code,
+  Server,
+  Bot,
+  SquareTerminal,
+  SquareChartGantt,
+} from "lucide-react";
 
 ## Introduction
 
@@ -37,6 +44,7 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
         </p>
       </Accordion>
     </Accordions>
+
   </Step>
   <TailoredContent
     className="step"
@@ -207,6 +215,7 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
         ```
       </Step>
     </TailoredContentOption>
+
   </TailoredContent>
 </Steps>
 
@@ -313,7 +322,17 @@ export default function MCPToolCall({
   (recommended). Learn more in our [Self-Hosting Guide](/guides/self-hosting).
 </Callout>
 
-Configure your self-hosted runtime with MCP servers (Next.js App Router example):
+To configure your self-hosted runtime with MCP servers, you'll need to implement the `createMCPClient` function that matches this interface:
+
+```typescript
+type CreateMCPClientFunction = (
+  config: MCPEndpointConfig
+) => Promise<MCPClient>;
+```
+
+For detailed implementation guidance, refer to the [official MCP SDK documentation](https://github.com/modelcontextprotocol/typescript-sdk?tab=readme-ov-file#writing-mcp-clients).
+
+Here's a basic example of configuring the runtime:
 
 ```tsx
 import {
@@ -321,27 +340,14 @@ import {
   OpenAIAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { experimental_createMCPClient } from "ai";
 import { NextRequest } from "next/server";
 
 const serviceAdapter = new OpenAIAdapter();
 
 const runtime = new CopilotRuntime({
-  mcpServers: [
-    {
-      endpoint: "your_mcp_sse_url", // Try https://mcp.composio.dev/
-    },
-  ],
   createMCPClient: async (config) => {
-    return await experimental_createMCPClient({
-      transport: {
-        type: "sse",
-        url: config.endpoint,
-        headers: config.apiKey
-          ? { Authorization: `Bearer ${config.apiKey}` }
-          : undefined,
-      },
-    });
+    // Implement your MCP client creation logic here
+    // See the MCP SDK docs for implementation details
   },
 });
 
@@ -357,4 +363,3 @@ export const POST = async (req: NextRequest) => {
 ```
 
 </details>
-
