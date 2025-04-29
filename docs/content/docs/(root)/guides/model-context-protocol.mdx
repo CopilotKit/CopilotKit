@@ -1,18 +1,17 @@
 ---
 title: "Connect to MCP Servers"
-description: "Integrate Model Context Protocol (MCP) servers with your existing React application for enhanced AI capabilities"
+description: "Integrate Model Context Protocol (MCP) servers into React applications"
 icon: "lucide/Network"
 ---
 
+import {
+  TailoredContent,
+  TailoredContentOption,
+} from "@/components/react/tailored-content.tsx";
 import Link from "next/link";
-import { Database, Code, Server, Bot } from "lucide-react";
+import { Database, Code, Server, Bot, SquareTerminal, SquareChartGantt } from "lucide-react";
 
-<Callout type="info" title="Are you new to CopilotKit?">
-  Check out our [Quickstart Guide](https://docs.copilotkit.ai/quickstart) for
-  more details.
-</Callout>
-
-## What is Model Context Protocol (MCP)?
+## Introduction
 
 The Model Context Protocol is an open standard that enables developers to build secure, two-way connections between their data sources and AI-powered tools. With MCP, you can:
 
@@ -20,161 +19,200 @@ The Model Context Protocol is an open standard that enables developers to build 
 - Enable AI tools to access and utilize your data securely
 - Build AI-powered features that have context about your application
 
-## Setup MCP with CopilotKit
+For further reading, check out the [Model Context Protocol](https://modelcontextprotocol.io/introduction) website.
 
-<Callout type="info" title="Get a Public API Key (Optional)">
-  Sign up for a free{" "}
-  <LinkToCopilotCloud asButton={false}>Copilot Cloud</LinkToCopilotCloud>{" "}
-  account to get a public API key, or{" "}
-  <Link href="/guides/model-context-protocol#self-hosting">
-    self host the runtime
-  </Link>
-  .
-</Callout>
+## Quickstart with CopilotKit
 
-### Quick Setup in Existing Next.js App
+<Steps>
+  <Step>
+    ### Get an MCP Server
+    First, we need to make sure we have an MCP server to connect to. You can use any MCP SSE endpoint you have configured.
 
-The fastest way to add MCP support to an existing Next.js application is by using the CopilotKit CLI:
+    <Accordions className="shadow-lg ring-1 ring-indigo-400 selected bg-gradient-to-r from-indigo-100/80 to-purple-200 dark:from-indigo-900/30 dark:to-purple-900/50">
+      <Accordion title="Get an MCP Server from Composio">
+        <p>
+          Composio provides a registry of ready-to-use MCP servers with simple authentication and setup.
 
-```bash
-npx cpk init --agentFramework MCP
-```
+          To get started, go to [Composio](https://mcp.composio.dev/), find a server the suits your needs and copy the SSE URL before continuing here.
+        </p>
+      </Accordion>
+    </Accordions>
+  </Step>
+  <TailoredContent
+    className="step"
+    id="cli"
+    header={
+        <div>
+            <p className="text-xl font-semibold">Use the CopilotKit CLI</p>
+        </div>
+    }
+  >
+    <TailoredContentOption
+      id="use-cli"
+      title="Use the CopilotKit CLI"
+      description="I have a Next.js application and want to get started quickly."
+      icon={<SquareTerminal />}
+    >
+      <Step>
+        ### Run the CLI
+        Just run this following command in your Next.js application to get started!
 
-This command will:
+        <Accordions>
+            <Accordion title="Don't have a Next.js application?">
+                No problem! Just use `create-next-app` to make one quickly.
+                ```bash
+                npx create-next-app@latest
+                ```
+            </Accordion>
+        </Accordions>
 
-- Add necessary CopilotKit dependencies
-- Set up MCP integration
-- Create basic components to get you started
+        ```bash
+        npx copilotkit@latest init --agentFramework MCP
+        ```
+      </Step>
+    </TailoredContentOption>
+    <TailoredContentOption
+        id="do-it-manually"
+        title="Code along"
+        description="I want to deeply understand what's happening under the hood or don't have a Next.js application."
+        icon={<SquareChartGantt />}
+    >
+      <Step>
+        #### Set up the CopilotKit Provider
 
-### Manual Setup: Step by Step
+        Wrap your application with the `CopilotKit` provider:
 
-For more control over the integration, follow these steps:
+        ```tsx
+        "use client";
 
-#### Step 1: Set up the CopilotKit Provider
+        import { CopilotKit } from "@copilotkit/react-core";
 
-Wrap your application with the `CopilotKit` provider:
+        export default function App() {
+          return (
+            <CopilotKit publicApiKey="<replace_with_your_own>">
+              {/* Your app content */}
+            </CopilotKit>
+          );
+        }
+        ```
+      </Step>
+      <Step>
+        #### Connect to MCP Servers
 
-```tsx
-"use client";
+        Create a component to manage MCP server connections:
 
-import { CopilotKit } from "@copilotkit/react-core";
+        ```tsx
+        "use client";
 
-export default function App() {
-  return (
-    <CopilotKit publicApiKey="<replace_with_your_own>">
-      {/* Your app content */}
-    </CopilotKit>
-  );
-}
-```
+        import { useCopilotChat } from "@copilotkit/react-ui";
+        import { useEffect } from "react";
 
-#### Step 2: Connect to MCP Servers
+        function McpServerManager() {
+          const { setMcpServers } = useCopilotChat();
 
-Create a component to manage MCP server connections:
+          useEffect(() => {
+            setMcpServers([
+              {
+                // Try a sample MCP server at https://mcp.composio.dev/
+                endpoint: "your_mcp_sse_url",
+              },
+            ]);
+          }, [setMcpServers]);
 
-```tsx
-"use client";
+          return null;
+        }
 
-import { useCopilotChat } from "@copilotkit/react-ui";
-import { useEffect } from "react";
+        export default McpServerManager;
+        ```
+      </Step>
+      <Step>
+        #### Add the Chat Interface
 
-function McpServerManager() {
-  const { setMcpServers } = useCopilotChat();
+        Add the `CopilotChat` component to your page:
 
-  useEffect(() => {
-    setMcpServers([
-      {
-        // Try a sample MCP server at https://mcp.composio.dev/
-        endpoint: "your_mcp_sse_url",
-      },
-    ]);
-  }, [setMcpServers]);
+        ```tsx
+        "use client";
 
-  return null;
-}
+        import { CopilotChat } from "@copilotkit/react-ui";
+        import McpServerManager from "./McpServerManager";
 
-export default McpServerManager;
-```
+        export default function ChatInterface() {
+          return (
+            <div className="flex h-screen p-4">
+              <McpServerManager />
+              <CopilotChat
+                instructions="You are a helpful assistant with access to MCP servers."
+                className="flex-grow rounded-lg w-full"
+              />
+            </div>
+          );
+        }
+        ```
+      </Step>
+      <Step>
+        #### Visualize MCP Tool Calls (Optional)
 
-#### Step 3: Add the Chat Interface
+        Create a component to display MCP tool calls in your UI:
 
-Add the `CopilotChat` component to your page:
+        ```tsx
+        "use client";
 
-```tsx
-"use client";
+        import {
+          useCopilotAction,
+          CatchAllActionRenderProps,
+        } from "@copilotkit/react-core";
+        import McpToolCall from "./McpToolCall";
 
-import { CopilotChat } from "@copilotkit/react-ui";
-import McpServerManager from "./McpServerManager";
+        export function ToolRenderer() {
+          useCopilotAction({
+            /**
+             * The asterisk (*) matches all tool calls
+             */
+            name: "*",
+            render: ({ name, status, args, result }: CatchAllActionRenderProps<[]>) => (
+              <McpToolCall status={status} name={name} args={args} result={result} />
+            ),
+          });
+          return null;
+        }
+        ```
+      </Step>
+      <Step>
+        #### Complete Implementation
 
-export default function ChatInterface() {
-  return (
-    <div className="flex h-screen p-4">
-      <McpServerManager />
-      <CopilotChat
-        instructions="You are a helpful assistant with access to MCP servers."
-        className="flex-grow rounded-lg w-full"
-      />
-    </div>
-  );
-}
-```
+        Combine all components together:
 
-#### Step 4: Visualize MCP Tool Calls (Optional)
+        ```tsx
+        "use client";
 
-Create a component to display MCP tool calls in your UI:
+        import { CopilotKit } from "@copilotkit/react-core";
+        import { CopilotChat } from "@copilotkit/react-ui";
+        import McpServerManager from "./McpServerManager";
+        import { ToolRenderer } from "./ToolRenderer";
 
-```tsx
-"use client";
+        export default function Page() {
+          return (
+            <CopilotKit publicApiKey="<replace_with_your_own>">
+              <div className="flex h-screen p-4">
+                <McpServerManager />
+                <CopilotChat
+                  instructions="You are a helpful assistant with access to MCP servers."
+                  className="flex-grow rounded-lg w-full"
+                />
+                <ToolRenderer />
+              </div>
+            </CopilotKit>
+          );
+        }
+        ```
+      </Step>
+    </TailoredContentOption>
+  </TailoredContent>
+</Steps>
 
-import {
-  useCopilotAction,
-  CatchAllActionRenderProps,
-} from "@copilotkit/react-core";
-import McpToolCall from "./McpToolCall";
+## Advanced Usage
 
-export function ToolRenderer() {
-  useCopilotAction({
-    /**
-     * The asterisk (*) matches all tool calls
-     */
-    name: "*",
-    render: ({ name, status, args, result }: CatchAllActionRenderProps<[]>) => (
-      <McpToolCall status={status} name={name} args={args} result={result} />
-    ),
-  });
-  return null;
-}
-```
-
-#### Step 5: Complete Implementation
-
-Combine all components together:
-
-```tsx
-"use client";
-
-import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotChat } from "@copilotkit/react-ui";
-import McpServerManager from "./McpServerManager";
-import { ToolRenderer } from "./ToolRenderer";
-
-export default function Page() {
-  return (
-    <CopilotKit publicApiKey="<replace_with_your_own>">
-      <div className="flex h-screen p-4">
-        <McpServerManager />
-        <CopilotChat
-          instructions="You are a helpful assistant with access to MCP servers."
-          className="flex-grow rounded-lg w-full"
-        />
-        <ToolRenderer />
-      </div>
-    </CopilotKit>
-  );
-}
-```
-
-## Implementing the McpToolCall Component
+### Implementing the McpToolCall Component
 
 <details>
 <summary>Click to see the McpToolCall component implementation</summary>
@@ -263,7 +301,7 @@ export default function MCPToolCall({
 
 </details>
 
-## Self-Hosting Option
+### Self-Hosting Option
 
 <details>
 <summary>Click here to learn how to use MCP with self-hosted runtime</summary>
@@ -320,31 +358,3 @@ export const POST = async (req: NextRequest) => {
 
 </details>
 
-## What's Next?
-
-<Cards>
-  <Card
-    title="Connect Your Data"
-    href="/guides/connect-your-data/frontend"
-    icon={<Database />}
-  >
-    Learn how to connect your data sources to enhance your AI assistant.
-  </Card>
-  <Card
-    title="Frontend Actions"
-    href="/coagents/frontend-actions"
-    icon={<Code />}
-  >
-    Implement client-side actions for your AI assistant.
-  </Card>
-  <Card
-    title="Backend Actions"
-    href="/guides/backend-actions"
-    icon={<Server />}
-  >
-    Create powerful server-side actions.
-  </Card>
-  <Card title="Bring Your Agent" href="/coagents" icon={<Bot />}>
-    Integrate your existing agents with CopilotKit.
-  </Card>
-</Cards>
