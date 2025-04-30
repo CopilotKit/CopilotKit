@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.8.10-next.2
+
+### Patch Changes
+
+- f3a0a33: - updates ag-ui deps
+  - @copilotkit/shared@1.8.10-next.2
+
 ## 1.8.10-next.1
 
 ### Patch Changes
