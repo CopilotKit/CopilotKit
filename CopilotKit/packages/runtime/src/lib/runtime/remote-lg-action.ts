@@ -1,4 +1,9 @@
-import { Client as LangGraphClient, EventsStreamEvent, GraphSchema, StreamMode } from "@langchain/langgraph-sdk";
+import {
+  Client as LangGraphClient,
+  EventsStreamEvent,
+  GraphSchema,
+  StreamMode,
+} from "@langchain/langgraph-sdk";
 import { createHash } from "node:crypto";
 import { isValidUUID, randomUUID } from "@copilotkit/shared";
 import { parse as parsePartialJson } from "partial-json";
@@ -307,13 +312,13 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
 
       // Force event type, as data is not properly defined on the LG side.
       type EventsChunkData = {
-        __interrupt__?: any,
-        metadata: Record<string, any>,
-        event: string,
-        data: any,
-        [key: string]: unknown
-      }
-      const chunk = streamResponseChunk as (EventsStreamEvent & { data: EventsChunkData });
+        __interrupt__?: any;
+        metadata: Record<string, any>;
+        event: string;
+        data: any;
+        [key: string]: unknown;
+      };
+      const chunk = streamResponseChunk as EventsStreamEvent & { data: EventsChunkData };
 
       const interruptEvents = chunk.data.__interrupt__;
       if (interruptEvents?.length) {
