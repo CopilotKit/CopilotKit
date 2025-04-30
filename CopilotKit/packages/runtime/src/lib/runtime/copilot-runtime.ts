@@ -67,7 +67,7 @@ import {
   LLMResponseData,
   LLMErrorData,
 } from "../observability";
-import { AbstractAgent } from "@agentwire/client";
+import { AbstractAgent } from "@ag-ui/client";
 import { MessageRole } from "../../graphql/types/enums";
 
 // +++ MCP Imports +++
