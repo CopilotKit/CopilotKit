@@ -17,7 +17,7 @@ import {
   CopilotKitError,
 } from "@copilotkit/shared";
 import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
-import { AbstractAgent } from "@agentwire/client";
+import { AbstractAgent } from "@ag-ui/client";
 import { constructAgentWireRemoteAction } from "./agentwire-action";
 
 export type EndpointDefinition = CopilotKitEndpoint | LangGraphPlatformEndpoint;
