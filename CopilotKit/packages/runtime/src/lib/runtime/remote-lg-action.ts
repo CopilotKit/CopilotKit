@@ -1,4 +1,4 @@
-import { AssistantGraph, Client as LangGraphClient, GraphSchema } from "@langchain/langgraph-sdk";
+import { Client as LangGraphClient, EventsStreamEvent, GraphSchema, StreamMode } from "@langchain/langgraph-sdk";
 import { createHash } from "node:crypto";
 import { isValidUUID, randomUUID } from "@copilotkit/shared";
 import { parse as parsePartialJson } from "partial-json";
@@ -12,7 +12,6 @@ import { CustomEventNames, LangGraphEventTypes } from "../../agents/langgraph/ev
 import telemetry from "../telemetry-client";
 import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 import { MetaEventName } from "../../graphql/types/meta-events.type";
-import { RunsStreamPayload } from "@langchain/langgraph-sdk/dist/types";
 import { parseJson, CopilotKitMisuseError } from "@copilotkit/shared";
 import { RemoveMessage } from "@langchain/core/messages";
 
@@ -184,9 +183,9 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
 
   const streamInput = mode === "start" ? state : null;
 
-  const payload: RunsStreamPayload = {
+  const payload = {
     input: streamInput,
-    streamMode: ["events", "values", "updates"],
+    streamMode: ["events", "values", "updates"] satisfies StreamMode[],
     command: undefined,
   };
 
@@ -299,14 +298,24 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     telemetry.capture("oss.runtime.agent_execution_stream_started", {
       hashedLgcKey: streamInfo.hashedLgcKey,
     });
-    for await (const chunk of streamResponse) {
-      if (!["events", "values", "error", "updates"].includes(chunk.event)) continue;
+    for await (let streamResponseChunk of streamResponse) {
+      if (!["events", "values", "error", "updates"].includes(streamResponseChunk.event)) continue;
 
-      if (chunk.event === "error") {
-        throw new Error(`Error event thrown: ${chunk.data.message}`);
+      if (streamResponseChunk.event === "error") {
+        throw new Error(`Error event thrown: ${streamResponseChunk.data.message}`);
       }
 
-      const interruptEvents = chunk.data?.__interrupt__;
+      // Force event type, as data is not properly defined on the LG side.
+      type EventsChunkData = {
+        __interrupt__?: any,
+        metadata: Record<string, any>,
+        event: string,
+        data: any,
+        [key: string]: unknown
+      }
+      const chunk = streamResponseChunk as (EventsStreamEvent & { data: EventsChunkData });
+
+      const interruptEvents = chunk.data.__interrupt__;
       if (interruptEvents?.length) {
         activeInterruptEvent = true;
         const interruptValue = interruptEvents?.[0].value;
@@ -337,22 +346,21 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
         }
         continue;
       }
-      if (chunk.event === "updates") continue;
+      if (streamResponseChunk.event === "updates") continue;
 
-      if (chunk.event === "values") {
+      if (streamResponseChunk.event === "values") {
         latestStateValues = chunk.data;
         continue;
       }
 
-      const event = chunk.data;
-      const currentNodeName = event.metadata.langgraph_node;
-      const eventType = event.event;
-      const runId = event.metadata.run_id;
+      const chunkData = chunk.data;
+      const currentNodeName = chunkData.metadata.langgraph_node;
+      const eventType = chunkData.event;
+      const runId = chunkData.metadata.run_id;
       externalRunId = runId;
-      const metadata = event.metadata;
-
-      if (event.data?.output?.model != null && event.data?.output?.model != "") {
-        streamInfo.provider = event.data?.output?.model;
+      const metadata = chunkData.metadata;
+      if (chunkData.data?.output?.model != null && chunkData.data?.output?.model != "") {
+        streamInfo.provider = chunkData.data?.output?.model;
       }
       if (metadata.langgraph_host != null && metadata.langgraph_host != "") {
         streamInfo.langGraphHost = metadata.langgraph_host;
@@ -364,12 +372,12 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       shouldExit =
         shouldExit ||
         (eventType === LangGraphEventTypes.OnCustomEvent &&
-          event.name === CustomEventNames.CopilotKitExit);
+          chunkData.name === CustomEventNames.CopilotKitExit);
 
       const emitIntermediateState = metadata["copilotkit:emit-intermediate-state"];
       const manuallyEmitIntermediateState =
         eventType === LangGraphEventTypes.OnCustomEvent &&
-        event.name === CustomEventNames.CopilotKitManuallyEmitIntermediateState;
+        chunkData.name === CustomEventNames.CopilotKitManuallyEmitIntermediateState;
 
       const exitingNode =
         nodeName === currentNodeName && eventType === LangGraphEventTypes.OnChainEnd;
@@ -393,7 +401,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
 
       if (manuallyEmitIntermediateState) {
         // See manuallyEmittedState for explanation
-        manuallyEmittedState = event.data;
+        manuallyEmittedState = chunkData.data;
         emit(
           getStateSyncEvent({
             threadId,
@@ -419,7 +427,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       }
 
       if (emitIntermediateState && eventType === LangGraphEventTypes.OnChatModelStream) {
-        streamingStateExtractor.bufferToolCalls(event);
+        streamingStateExtractor.bufferToolCalls(chunkData);
       }
 
       if (emitIntermediateStateUntilEnd !== null) {
@@ -459,7 +467,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
         );
       }
 
-      emit(JSON.stringify(event) + "\n");
+      emit(JSON.stringify(chunkData) + "\n");
     }
 
     state = await client.threads.getState(threadId);
