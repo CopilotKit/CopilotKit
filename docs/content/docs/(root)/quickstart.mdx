@@ -16,6 +16,25 @@ import {
 } from "@/components/react/tailored-content.tsx";
 import { FaCloud, FaServer } from "react-icons/fa";
 
+## Using the CLI
+If you have a **NextJS** application, you can use our CLI to automatically bootstrap your application for use with CopilotKit.
+
+```bash
+npx copilotkit@latest init
+```
+
+<Accordions>
+  <Accordion title="Starting from scratch?">
+    No problem! Just use `create-next-app` to make a new NextJS application quickly.
+    ```bash
+    npx create-next-app@latest
+    ```
+  </Accordion>
+</Accordions>
+
+## Code-along
+If you don't have a NextJS application or just want to code-along, you can follow the steps below.
+
 <TailoredContent id="copilot-hosting">
 <TailoredContentOption
   id="copilot-cloud"
@@ -26,7 +45,7 @@ import { FaCloud, FaServer } from "react-icons/fa";
 
 <Steps>
 <Step>
-## Install CopilotKit
+### Install CopilotKit
 
 First, install the latest packages for CopilotKit.
 
@@ -36,11 +55,11 @@ npm install @copilotkit/react-ui @copilotkit/react-core
 
 </Step>
 <Step>
-## Get a Copilot Cloud Public API Key
+### Get a Copilot Cloud Public API Key
 Navigate to [Copilot Cloud](https://cloud.copilotkit.ai) and follow the instructions to get a public API key - it's free!
 </Step>
 <Step>
-## Setup the CopilotKit Provider
+### Setup the CopilotKit Provider
 
 The [`<CopilotKit>`](/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases, 
 it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
@@ -49,7 +68,7 @@ it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in 
 
 </Step>
 <Step>
-## Choose a Copilot UI
+### Choose a Copilot UI
 
 You are almost there! Now it's time to setup your Copilot UI.
 
@@ -67,7 +86,7 @@ You are almost there! Now it's time to setup your Copilot UI.
 
 <Steps>
 <Step>
-## Install CopilotKit
+### Install CopilotKit
 First, install the latest packages for CopilotKit.
 
 ```package-install
@@ -75,12 +94,12 @@ npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime
 ```
 </Step>
 <Step>
-## Set up a Copilot Runtime Endpoint
+### Set up a Copilot Runtime Endpoint
 
 <SelfHostingCopilotRuntimeCreateEndpoint components={props.components} />
 </Step>
 <Step>
-## Configure the CopilotKit Provider
+### Configure the CopilotKit Provider
 
 <SelfHostingCopilotRuntimeConfigureCopilotKitProvider
   components={props.components}
@@ -88,7 +107,7 @@ npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime
 
 </Step>
 <Step>
-## Choose a Copilot UI
+### Choose a Copilot UI
 
 You are almost there! Now it's time to setup your Copilot UI.
 
