@@ -69,7 +69,6 @@ async def start_flow(state: Dict[str, Any], config: RunnableConfig):
     if "steps" not in state:
         state["steps"] = []
 
-    print("Node: start_flow");
     
     return Command(
         goto="chat_node",
@@ -87,11 +86,9 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
     """
     system_prompt = """
     You are a helpful assistant that can perform any task.
-    You MUST call the `generate_task_steps` function when the user asks you to perform a task. If its a casual conversation, you can skip the function call.
+    You MUST call the `generate_task_steps` function when the user asks you to perform a task.
     Always make sure you will provide tasks based on the user query
     """
-
-    print("Node: chat_node");
 
     # Define the model
     model = ChatOpenAI(model="gpt-4o-mini")
@@ -132,7 +129,6 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
     # Handle tool calls
     if hasattr(response, "tool_calls") and response.tool_calls and len(response.tool_calls) > 0:
         tool_call = response.tool_calls[0]
-        print("Tool call: ", tool_call)
         # Extract tool call information
         if hasattr(tool_call, "id"):
             tool_call_id = tool_call.id
