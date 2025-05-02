@@ -18,6 +18,10 @@
   #nd-sidebar > div.overflow-hidden.flex-1 > div{
     @apply px-4;
   }
+  #model-context-protocol-banner > button {
+    @apply text-white hover:text-black dark:text-white dark:hover:bg-white dark:hover:text-black;
+  }
+
   :root {
     --fd-sidebar-width: 330px !important;
     --background: 0 0% 100%;
