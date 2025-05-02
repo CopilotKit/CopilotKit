@@ -128,11 +128,12 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
 
     # Update messages with the response
     messages = state["messages"] + [response]
+
+    print("Messages: ", response)
     
     # Handle tool calls
     if hasattr(response, "tool_calls") and response.tool_calls and len(response.tool_calls) > 0:
         tool_call = response.tool_calls[0]
-        print("Tool call: ", tool_call)
         # Extract tool call information
         if hasattr(tool_call, "id"):
             tool_call_id = tool_call.id
