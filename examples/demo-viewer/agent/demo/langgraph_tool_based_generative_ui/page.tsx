@@ -22,7 +22,8 @@ const VALID_IMAGE_NAMES = [
 export default function AgenticChat() {
   return (
     <CopilotKit
-      publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_API_KEY}
+      // publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_API_KEY}
+      runtimeUrl="/api/copilotkit"
       showDevConsole={false}
       agent="tool_based_generative_ui"
     >

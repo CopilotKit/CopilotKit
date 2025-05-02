@@ -21,7 +21,8 @@ const extensions = [StarterKit];
 export default function PredictiveStateUpdates() {
   return (
     <CopilotKit
-      publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_API_KEY}
+      // publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_API_KEY}
+      runtimeUrl="/api/copilotkit"
       showDevConsole={false}
       agent="predictive_state_updates"
     >
