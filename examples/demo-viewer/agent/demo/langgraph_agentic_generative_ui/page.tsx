@@ -3,8 +3,8 @@ import React from "react";
 import "@copilotkit/react-ui/styles.css";
 import "./style.css";
 import { CopilotKit, useCoAgentStateRender } from "@copilotkit/react-core";
-import { CopilotChat } from "@copilotkit/react-ui";
-
+import { CopilotChat, useCopilotChatSuggestions } from "@copilotkit/react-ui";
+import { initialPrompt, chatSuggestions } from "@/lib/prompts";  
 const AgenticGenerativeUI: React.FC = () => {
   return (
     <CopilotKit
@@ -70,13 +70,15 @@ const Chat = () => {
       );
     },
   });
-
+  useCopilotChatSuggestions({
+    instructions: chatSuggestions.agenticGenerativeUI,
+  })
   return (
     <div className="flex justify-center items-center h-screen w-screen">
       <div className="w-8/10 h-8/10">
         <CopilotChat
           className="h-full rounded-lg"
-          labels={{ initial: "Hi, I'm an agent. I can do anything, just ask!" }}
+          labels={{ initial: initialPrompt.agenticGenerativeUI }}
         />
       </div>
     </div>

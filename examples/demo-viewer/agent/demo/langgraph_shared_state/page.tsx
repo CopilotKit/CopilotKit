@@ -1,11 +1,11 @@
 "use client";
 import { CopilotKit, useCoAgent, useCopilotChat } from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
+import { CopilotKitCSSProperties, CopilotSidebar, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { useState, useEffect, useRef } from "react";
 import { Role, TextMessage } from "@copilotkit/runtime-client-gql";
 import "@copilotkit/react-ui/styles.css";
 import "./style.css";
-
+import { initialPrompt, chatSuggestions  } from "@/lib/prompts";
 enum SkillLevel {
   BEGINNER = "Beginner",
   INTERMEDIATE = "Intermediate",
@@ -73,7 +73,7 @@ export default function SharedState() {
             defaultOpen={true}
             labels={{
               title: "AI Recipe Assistant",
-              initial: "Hi 👋 How can I help with your recipe?",
+              initial: initialPrompt.sharedState,
             }}
             clickOutsideToClose={false}
           />
@@ -123,6 +123,10 @@ function Recipe() {
       name: "shared_state",
       initialState: INITIAL_STATE,
     });
+
+  useCopilotChatSuggestions({
+    instructions: chatSuggestions.sharedState,
+  })
 
   const [recipe, setRecipe] = useState(INITIAL_STATE.recipe);
   const { appendMessage, isLoading } = useCopilotChat();

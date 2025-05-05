@@ -3,8 +3,8 @@ import React, { useState } from "react";
 import "@copilotkit/react-ui/styles.css";
 import "./style.css";
 import { CopilotKit, useCopilotAction } from "@copilotkit/react-core";
-import { CopilotChat } from "@copilotkit/react-ui";
-
+import { CopilotChat, useCopilotChatSuggestions } from "@copilotkit/react-ui";
+import { chatSuggestions, initialPrompt } from "@/lib/prompts";
 const AgenticChat: React.FC = () => {
   return (
     <CopilotKit
@@ -37,6 +37,10 @@ const Chat = () => {
     },
   });
 
+  useCopilotChatSuggestions({
+    instructions: chatSuggestions.agenticChat,
+  })
+
   return (
     <div
       className="flex justify-center items-center h-full w-full"
@@ -45,7 +49,7 @@ const Chat = () => {
       <div className="w-8/10 h-8/10 rounded-lg">
         <CopilotChat
           className="h-full rounded-lg"
-          labels={{ initial: "Hi, I'm an agent. Want to chat?" }}
+          labels={{ initial: initialPrompt.agenticChat }}
         />
       </div>
     </div>
