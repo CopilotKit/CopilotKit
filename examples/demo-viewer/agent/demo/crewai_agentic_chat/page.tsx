@@ -39,6 +39,7 @@ const Chat = () => {
 
   useCopilotChatSuggestions({
     instructions: chatSuggestions.agenticChat,
+    // className : "bg-gray-100"
   })
 
 
@@ -47,7 +48,7 @@ const Chat = () => {
       className="flex justify-center items-center h-full w-full"
       style={{ background }}
     >
-      <div className="w-8/10 h-8/10 rounded-lg">
+      <div className="w-8/10 h-8/10 rounded-lg ">
         <CopilotChat
           className="h-full w-full rounded-2xl py-6"
           labels={{ initial: initialPrompt.agenticChat }}
