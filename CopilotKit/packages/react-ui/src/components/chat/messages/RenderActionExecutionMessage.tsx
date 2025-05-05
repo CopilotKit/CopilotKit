@@ -57,6 +57,7 @@ export function RenderActionExecutionMessage({
             args,
             result: actionResult,
             name: message.name,
+            rawData: message,
           });
           // No result and complete: stay silent
           if (!toRender && status === "complete") {

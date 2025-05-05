@@ -142,6 +142,21 @@ import {
   FrontendAction,
 } from "../types/frontend-action";
 import { useToast } from "../components/toast/toast-provider";
+import { ResultMessage, MessageStatusCode } from "@copilotkit/runtime-client-gql";
+import { useCopilotMessagesContext } from "../context/copilot-messages-context";
+import { ActionExecutionMessage } from "@copilotkit/runtime-client-gql";
+
+// Enhanced interface for our internal tracking
+interface RenderAndWaitForResponse {
+  promise: Promise<any>;
+  resolve: (result: any) => void;
+  reject: (error: any) => void;
+  messageId: string;
+  actionName: string;
+  isHandlerPromise?: boolean;
+  isUIPromise?: boolean;
+  handlerResolveCallback?: (result: any) => void;
+}
 
 // We implement useCopilotAction dependency handling so that
 // the developer has the option to not provide any dependencies.
@@ -157,8 +172,10 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
   dependencies?: any[],
 ): void {
   const { setAction, removeAction, actions, chatComponentsCache } = useCopilotContext();
+  const { messages, setMessages } = useCopilotMessagesContext();
   const idRef = useRef<string>(randomId());
-  const renderAndWaitRef = useRef<RenderAndWaitForResponse | null>(null);
+  // Use a map to store multiple promises by message ID
+  const renderAndWaitMapRef = useRef<Map<string, RenderAndWaitForResponse>>(new Map());
   const { addToast } = useToast();
 
   // clone the action to avoid mutating the original object
@@ -177,7 +194,16 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
     action.renderAndWait = undefined;
     action.renderAndWaitForResponse = undefined;
     // add a handler that will be called when the action is executed
-    action.handler = useAsyncCallback(async () => {
+    action.handler = useAsyncCallback(async (args, messageId) => {
+      console.log(`[${action.name}] renderAndWaitForResponse handler called with messageId:`, messageId);
+      
+      // Look for existing handler for this messageId if it exists
+      if (messageId && renderAndWaitMapRef.current.has(messageId)) {
+        console.log(`[${action.name}] Found existing handler for messageId: ${messageId}`);
+        const existingPromise = renderAndWaitMapRef.current.get(messageId);
+        return existingPromise?.promise;
+      }
+      
       // we create a new promise when the handler is called
       let resolve: (result: any) => void;
       let reject: (error: any) => void;
@@ -185,27 +211,235 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
         resolve = resolvePromise;
         reject = rejectPromise;
       });
-      renderAndWaitRef.current = { promise, resolve: resolve!, reject: reject! };
-      // then we await the promise (it will be resolved in the original renderAndWait function)
-      return await promise;
+      
+      // Use the messageId as the key if available, or generate a fallback ID
+      const promiseId = messageId || `fallback-${randomId()}`;
+      
+      // Store the promise, resolve, and reject functions in the map
+      const handler = { 
+        promise, 
+        resolve: resolve!, 
+        reject: reject!,
+        messageId: promiseId,
+        actionName: action.name,
+        isHandlerPromise: true, // Mark this as the handler promise
+        handlerResolveCallback: (result: any) => {
+          console.log(`[${action.name}] Handler promise resolved for ${promiseId} with:`, result);
+          resolve(result);
+        }
+      };
+      
+      renderAndWaitMapRef.current.set(promiseId, handler);
+      
+      console.log(`[${action.name}] Stored promise for messageId: ${promiseId}`);
+      console.log(`[${action.name}] Map now contains ${renderAndWaitMapRef.current.size} entries`);
+      
+      try {
+        // await the promise (it will be resolved in the renderAndWait function)
+        console.log(`[${action.name}] Awaiting promise resolution for messageId: ${promiseId}`);
+        const result = await promise;
+        console.log(`[${action.name}] Promise resolved for messageId: ${promiseId} with result:`, result);
+        
+        // Clean up the map entry after resolution
+        renderAndWaitMapRef.current.delete(promiseId);
+        console.log(`[${action.name}] Cleaned up promise for messageId: ${promiseId}`);
+        console.log(`[${action.name}] Map now contains ${renderAndWaitMapRef.current.size} entries`);
+        
+        return result;
+      } catch (error) {
+        console.error(`[${action.name}] Promise rejected for messageId: ${promiseId}`, error);
+        // Clean up the map entry after rejection
+        renderAndWaitMapRef.current.delete(promiseId);
+        console.log(`[${action.name}] Cleaned up rejected promise for messageId: ${promiseId}`);
+        throw error;
+      }
     }, []) as any;
 
     // add a render function that will be called when the action is rendered
-    action.render = ((props: ActionRenderProps<T>): React.ReactElement => {
-      // Specifically for renderAndWaitForResponse the executing state is set too early, causing a race condition
-      // To fit it: we will wait for the handler to be ready
-      let status = props.status;
-      if (props.status === "executing" && !renderAndWaitRef.current) {
-        status = "inProgress";
+    action.render = ((props: any): React.ReactElement => {
+      // Get the message ID from props.rawData (which should contain the message object)
+      const rawData = props.rawData;
+      const messageId = rawData?.id;
+      
+      if (messageId) {
+        console.log(`[${action.name}] Render called for messageId: ${messageId}`);
+      } else {
+        console.log(`[${action.name}] Render called with NO messageId`);
       }
-      // Create type safe waitProps based on whether T extends empty array or not
+      
+      // Determine the current status
+      let status = props.status;
+      
+      // Check if there's a result message for this action execution message
+      if (messageId && status !== "complete") {
+        const hasResultMessage = messages.some(msg => 
+          msg.isResultMessage() && 
+          msg.actionExecutionId === messageId &&
+          msg.actionName === action.name
+        );
+        
+        if (hasResultMessage) {
+          console.log(`[${action.name}] Found result message for ${messageId}, setting status to complete`);
+          status = "complete";
+        }
+      }
+      
+      // This is a key improvement - we check for the existence of a specific promise 
+      // in the map for this message ID
+      if (props.status === "executing" && messageId) {
+        // If we don't have a handler for this message ID yet, try to register one
+        if (!renderAndWaitMapRef.current.has(messageId)) {
+          console.log(`[${action.name}] Status is executing but no handler found for messageId: ${messageId}, creating one now`);
+          
+          // Create a new promise for this message
+          let resolve: (result: any) => void;
+          let reject: (error: any) => void;
+          const promise = new Promise<any>((resolvePromise, rejectPromise) => {
+            resolve = resolvePromise;
+            reject = rejectPromise;
+          });
+          
+          // Check if there's a fallback handler promise we need to link to
+          const fallbackHandlers = Array.from(renderAndWaitMapRef.current.entries())
+            .filter(([key, value]) => 
+              key.startsWith('fallback-') && 
+              value.actionName === action.name && 
+              value.isHandlerPromise);
+          
+          const customResolve = (result: any) => {
+            // Resolve this promise
+            resolve(result);
+            
+            // If we have a fallback handler, also resolve that one
+            if (fallbackHandlers.length > 0) {
+              const [fallbackKey, fallbackHandler] = fallbackHandlers[0];
+              console.log(`[${action.name}] Also resolving fallback handler for ${fallbackKey}`);
+              if (fallbackHandler.handlerResolveCallback) {
+                fallbackHandler.handlerResolveCallback(result);
+              } else {
+                console.warn(`[${action.name}] No handlerResolveCallback for ${fallbackKey}`);
+              }
+            }
+            
+            // Create and add a result message to the chat messages
+            if (messageId) {
+              // First check if a result message already exists for this action
+              const existingResultMessage = messages.find(msg => 
+                msg.isResultMessage() && 
+                msg.actionExecutionId === messageId &&
+                msg.actionName === action.name
+              );
+              
+              if (!existingResultMessage) {
+                const resultMessage = new ResultMessage({
+                  id: randomId(),
+                  actionExecutionId: messageId,
+                  actionName: action.name,
+                  result: typeof result === 'string' ? result : JSON.stringify(result),
+                  status: { code: MessageStatusCode.Success }
+                });
+                
+                console.log(`[${action.name}] Adding result message for ${messageId}:`, resultMessage);
+                
+                // Add the result message to the messages array
+                setMessages((prevMessages) => {
+                  // Find the index of the action execution message
+                  const actionIndex = prevMessages.findIndex(msg => msg.id === messageId);
+                  if (actionIndex !== -1) {
+                    // Insert result message right after action execution message
+                    const newMessages = [...prevMessages];
+                    newMessages.splice(actionIndex + 1, 0, resultMessage);
+                    return newMessages;
+                  }
+                  return [...prevMessages, resultMessage];
+                });
+              } else {
+                console.log(`[${action.name}] Result message already exists for ${messageId}, skipping`);
+              }
+              
+              // Also update the action execution message status
+              setMessages((prevMessages) => {
+                return prevMessages.map(msg => {
+                  if (msg.id === messageId) {
+                    // We need to create a proper copy that maintains the message methods
+                    // Instead of modifying the status directly, create a new ActionExecutionMessage
+                    if (msg.isActionExecutionMessage()) {
+                      return new ActionExecutionMessage({
+                        ...msg,
+                        id: msg.id,
+                        name: msg.name,
+                        arguments: msg.arguments,
+                        parentMessageId: msg.parentMessageId,
+                        createdAt: msg.createdAt,
+                        status: { code: MessageStatusCode.Success }
+                      });
+                    }
+                  }
+                  return msg;
+                });
+              });
+            }
+            
+            // Clean up this promise from the map
+            renderAndWaitMapRef.current.delete(messageId);
+            console.log(`[${action.name}] Cleaned up UI promise for ${messageId}`);
+            console.log(`[${action.name}] Map now contains ${renderAndWaitMapRef.current.size} entries`);
+          };
+          
+          renderAndWaitMapRef.current.set(messageId, {
+            promise,
+            resolve: customResolve,
+            reject: reject!,
+            messageId: messageId,
+            actionName: action.name,
+            isUIPromise: true // Mark this as a UI promise
+          });
+          
+          // If we found a fallback handler, log that we linked them
+          if (fallbackHandlers.length > 0) {
+            const [fallbackKey] = fallbackHandlers[0];
+            console.log(`[${action.name}] Linked UI promise ${messageId} to fallback handler ${fallbackKey}`);
+          }
+          
+          console.log(`[${action.name}] Created new promise for messageId: ${messageId}`);
+          console.log(`[${action.name}] Map now contains ${renderAndWaitMapRef.current.size} entries`);
+        } else {
+          console.log(`[${action.name}] Found existing handler for messageId: ${messageId}`);
+        }
+      }
+      
+      // Log all promises in the map for debugging
+      if (renderAndWaitMapRef.current.size > 0) {
+        console.log(`[${action.name}] Current promises in map:`);
+        renderAndWaitMapRef.current.forEach((value, key) => {
+          console.log(`- ${key} (${value.actionName})${value.isHandlerPromise ? ' [HANDLER]' : ''}${value.isUIPromise ? ' [UI]' : ''}`);
+        });
+      }
+      
+      // Create waitProps with message-specific resolve function
       const waitProps = {
         status,
         args: props.args,
         result: props.result,
-        handler: status === "executing" ? renderAndWaitRef.current!.resolve : undefined,
-        respond: status === "executing" ? renderAndWaitRef.current!.resolve : undefined,
-      } as T extends [] ? ActionRenderPropsNoArgsWait<T> : ActionRenderPropsWait<T>;
+        rawData, // Pass the raw message data through
+        // Use the specific message's resolve function if we have it
+        handler: status === "executing" && messageId ? 
+          renderAndWaitMapRef.current.get(messageId)?.resolve : undefined,
+        respond: status === "executing" && messageId ? 
+          renderAndWaitMapRef.current.get(messageId)?.resolve : undefined
+      };
+      
+      if (status === "executing" && messageId) {
+        console.log(`[${action.name}] Providing resolve function for messageId: ${messageId}`);
+      } else if (status === "complete" && messageId) {
+        console.log(`[${action.name}] Status is complete for messageId: ${messageId}`);
+      }
+      
+      // Ensure we remove any promises for completed actions
+      if (status === "complete" && messageId && renderAndWaitMapRef.current.has(messageId)) {
+        console.log(`[${action.name}] Cleaning up promise for completed action ${messageId}`);
+        renderAndWaitMapRef.current.delete(messageId);
+      }
 
       // Type guard to check if renderAndWait is for no args case
       const isNoArgsRenderWait = (
@@ -219,9 +453,9 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
       // Safely call renderAndWait with correct props type
       if (renderAndWait) {
         if (isNoArgsRenderWait(renderAndWait)) {
-          return renderAndWait(waitProps as ActionRenderPropsNoArgsWait<T>);
+          return renderAndWait(waitProps as unknown as ActionRenderPropsNoArgsWait<T>);
         } else {
-          return renderAndWait(waitProps as ActionRenderPropsWait<T>);
+          return renderAndWait(waitProps as unknown as ActionRenderPropsWait<T>);
         }
       }
 
@@ -296,10 +530,4 @@ function isFrontendAction<T extends Parameter[]>(
   action: FrontendAction<T> | CatchAllFrontendAction,
 ): action is FrontendAction<T> {
   return action.name !== "*";
-}
-
-interface RenderAndWaitForResponse {
-  promise: Promise<any>;
-  resolve: (result: any) => void;
-  reject: (error: any) => void;
 }
