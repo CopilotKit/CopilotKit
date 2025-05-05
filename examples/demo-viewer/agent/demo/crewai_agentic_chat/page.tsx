@@ -8,10 +8,9 @@ import { chatSuggestions, initialPrompt } from "@/lib/prompts";
 const AgenticChat: React.FC = () => {
   return (
     <CopilotKit
-      publicApiKey="ck_pub_66bda706b0d8a540e96fcd9c043fe86f"
-      // runtimeUrl="/api/copilotkit"
+      runtimeUrl="/api/copilotkit"
       showDevConsole={false}
-      // agent="agentic_chat"
+      agent="agentic_chat"
     >
       <Chat />
     </CopilotKit>
