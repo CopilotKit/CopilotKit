@@ -3,8 +3,8 @@ import React, { useState, useEffect } from "react";
 import "@copilotkit/react-ui/styles.css";
 import "./style.css";
 import { CopilotKit, useLangGraphInterrupt } from "@copilotkit/react-core";
-import { CopilotChat } from "@copilotkit/react-ui";
-
+import { CopilotChat, useCopilotChatSuggestions } from "@copilotkit/react-ui";
+import { initialPrompt, chatSuggestions } from "@/lib/prompts";  
 const HumanInTheLoop: React.FC = () => {
   return (
     <CopilotKit
@@ -88,13 +88,15 @@ const Chat = () => {
       );
     },
   });
-
+  useCopilotChatSuggestions({
+    instructions: chatSuggestions.humanInTheLoop,
+  })
   return (
     <div className="flex justify-center items-center h-screen w-screen">
       <div className="w-8/10 h-8/10">
         <CopilotChat
           className="h-full rounded-lg"
-          labels={{ initial: "Hi, I'm an agent. I can do anything, just ask!" }}
+          labels={{ initial: initialPrompt.humanInTheLoop }}
         />
       </div>
     </div>

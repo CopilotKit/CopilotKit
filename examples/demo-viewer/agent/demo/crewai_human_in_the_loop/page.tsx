@@ -3,12 +3,13 @@ import React, { useState, useEffect } from "react";
 import "@copilotkit/react-ui/styles.css";
 import "./style.css";
 import { CopilotKit, useCopilotAction } from "@copilotkit/react-core";
-import { CopilotChat } from "@copilotkit/react-ui";
-
+import { CopilotChat, useCopilotChatSuggestions } from "@copilotkit/react-ui";
+import { chatSuggestions, initialPrompt } from "@/lib/prompts";
 const HumanInTheLoop: React.FC = () => {
   return (
     <CopilotKit
       runtimeUrl="/api/copilotkit"
+      // publicApiKey="ck_pub_66bda706b0d8a540e96fcd9c043fe86f"
       showDevConsole={false}
       agent="human_in_the_loop"
     >
@@ -43,12 +44,17 @@ const Chat = () => {
     },
   });
 
+
+  useCopilotChatSuggestions({
+    instructions: chatSuggestions.humanInTheLoop,
+  })  
+
   return (
     <div className="flex justify-center items-center h-full w-full">
       <div className="w-8/10 h-8/10 rounded-lg">
         <CopilotChat
           className="h-full rounded-2xl"
-          labels={{ initial: "Hi, I'm an agent specialized in helping you with your tasks. How can I help you?" }}
+          labels={{ initial: initialPrompt.humanInTheLoop }}
         />
       </div>
     </div>

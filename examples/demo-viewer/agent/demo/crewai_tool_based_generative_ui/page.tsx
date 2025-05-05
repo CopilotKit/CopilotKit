@@ -1,10 +1,10 @@
 "use client";
 import { CopilotKit, useCopilotAction } from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
+import { CopilotKitCSSProperties, CopilotSidebar, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { useState, useEffect } from "react";
 import "@copilotkit/react-ui/styles.css";
 import "./style.css";
-
+import { chatSuggestions, initialPrompt } from "@/lib/prompts";
 // List of known valid image filenames (should match agent.py)
 const VALID_IMAGE_NAMES = [
   "Osaka_Castle_Turret_Stone_Wall_Pine_Trees_Daytime.jpg",
@@ -40,7 +40,7 @@ export default function AgenticChat() {
           defaultOpen={true}
           labels={{
             title: "Haiku Generator",
-            initial: "I\'m a haiku generator 👋. How can I help you?",
+            initial: initialPrompt.toolCallingGenerativeUI,
           }}
           clickOutsideToClose={false}
         />
@@ -189,6 +189,11 @@ function Haiku() {
       );
     },
   });
+  
+  useCopilotChatSuggestions({
+    instructions: chatSuggestions.toolCallingGenerativeUI,
+  })
+
   return (
     <>
       <div className={`haiku-card animated-fade-in ${isJustApplied ? 'applied-flash' : ''}`}>

@@ -2,15 +2,16 @@
 import React, { useState } from "react";
 import "@copilotkit/react-ui/styles.css";
 import "./style.css";
-import { CopilotKit, useCopilotAction } from "@copilotkit/react-core";
-import { CopilotChat } from "@copilotkit/react-ui";
-
+import { CopilotKit, useCopilotAction, useCopilotChat } from "@copilotkit/react-core";
+import { CopilotChat, useCopilotChatSuggestions } from "@copilotkit/react-ui";
+import { chatSuggestions, initialPrompt } from "@/lib/prompts";
 const AgenticChat: React.FC = () => {
   return (
     <CopilotKit
-      runtimeUrl="/api/copilotkit"
+      publicApiKey="ck_pub_66bda706b0d8a540e96fcd9c043fe86f"
+      // runtimeUrl="/api/copilotkit"
       showDevConsole={false}
-      agent="agentic_chat"
+      // agent="agentic_chat"
     >
       <Chat />
     </CopilotKit>
@@ -37,6 +38,11 @@ const Chat = () => {
     },
   });
 
+  useCopilotChatSuggestions({
+    instructions: chatSuggestions.agenticChat,
+  })
+
+
   return (
     <div
       className="flex justify-center items-center h-full w-full"
@@ -44,8 +50,8 @@ const Chat = () => {
     >
       <div className="w-8/10 h-8/10 rounded-lg">
         <CopilotChat
-          className="h-full rounded-2xl"
-          labels={{ initial: "Hi, I'm an agent. Want to chat?" }}
+          className="h-full w-full rounded-2xl py-6"
+          labels={{ initial: initialPrompt.agenticChat }}
         />
       </div>
     </div>
