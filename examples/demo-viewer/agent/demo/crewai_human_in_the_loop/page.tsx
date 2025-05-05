@@ -9,7 +9,6 @@ const HumanInTheLoop: React.FC = () => {
   return (
     <CopilotKit
       runtimeUrl="/api/copilotkit"
-      // publicApiKey="ck_pub_66bda706b0d8a540e96fcd9c043fe86f"
       showDevConsole={false}
       agent="human_in_the_loop"
     >
