@@ -4,9 +4,6 @@
   "pages": [
     "terminology",
     "agentic-copilots",
-    "ag2",
-    "message-management",
-    "state",
-    "copilotkit-stream"
+    "ag2"
   ]
 }
