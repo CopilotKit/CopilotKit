@@ -1,6 +1,0 @@
-{
-    "python.analysis.extraPaths": [
-        "./sdk-python/copilotkit/integrations",
-        "./sdk-python"
-    ]
-}
