@@ -106,6 +106,7 @@
   /* 2. Explicitly override the top border immediately after */
   border-top: 10px solid #ff6f61 !important; /* Orange top - Added !important */
   /* === End Explicit Border Override Attempt === */
+  /* padding: 2.5rem 3rem; */
   
   padding: 2.5rem 3rem; 
   border-radius: 20px; 
@@ -114,10 +115,10 @@
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.07), 
               inset 0 1px 2px rgba(0, 0, 0, 0.01), 
               0 0 15px rgba(255, 111, 97, 0.25); 
-  text-align: left;
-  max-width: 745px; 
+  text-align: center;
+  max-width: 555px; 
   margin: 3rem auto;
-  min-width: 600px;
+  min-width: 555px;
   
   /* Transition */
   transition: transform 0.35s ease, box-shadow 0.35s ease, border-top-width 0.35s ease, border-top-color 0.35s ease;
@@ -188,6 +189,23 @@
   /* Added shadow for suggestion images */
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1),
               0 2px 4px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.suggestion-card-image-focus {
+  width: 6.5rem; /* Increased slightly (w-20) */
+  height: 6.5rem; /* Increased slightly (h-20) */
+  border-radius: 1rem; /* Equivalent to rounded-md */
+  border-radius: 1rem; /* Equivalent to rounded-md */
+  object-fit: cover;
+  border: 2px solid #10B981; /* Tailwind green-500 */
+  /* box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2); */
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1),
+              0 2px 4px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
+
 }
 
 /* Styling for the suggestion card container in the sidebar */
