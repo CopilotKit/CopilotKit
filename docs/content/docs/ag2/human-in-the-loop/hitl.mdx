@@ -314,7 +314,13 @@ def hitl_workflow(ui: UI, params: dict[str, Any]) -> str:
     return ui.process(response)
 
 # Set up FastAPI with the AWP adapter
-adapter = AWPAdapter(provider=wf)
+def without_student_messages(message: Any) -> bool:
+    return not (message.type == "text" and message.content.sender == "customer")
+
+
+adapter = AWPAdapter(
+    provider=wf, wf_name="hitl_workflow", filter=without_student_messages
+)
 app = FastAPI()
 app.include_router(adapter.router)
 ```
@@ -362,6 +368,9 @@ When you interact with your travel agent:
 - After approval, the agent generates and displays your personalized itinerary
 
 This approach ensures sensitive operations like accessing customer data and creating itineraries only happen with explicit human approval.
+
+<img src="/images/coagents/ag2/hitl-1.png" className="rounded-lg shadow-xl"/>
+<img src="/images/coagents/ag2/hitl-2.png" className="rounded-lg shadow-xl"/>
 
 ## Conclusion
 
