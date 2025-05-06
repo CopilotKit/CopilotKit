@@ -1,5 +1,14 @@
 # ui
 
+## 1.8.10-next.3
+
+### Patch Changes
+
+- 98c09dd: - fix: fix colors on chat ui dark mode
+  - @copilotkit/react-core@1.8.10-next.3
+  - @copilotkit/runtime-client-gql@1.8.10-next.3
+  - @copilotkit/shared@1.8.10-next.3
+
 ## 1.8.10-next.2
 
 ### Patch Changes
