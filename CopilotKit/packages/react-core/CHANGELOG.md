@@ -1,5 +1,14 @@
 # ui
 
+## 1.8.10
+
+### Patch Changes
+
+- 742efbb: - feat: enable setting langgraph config from ui
+  - chore: document usage of new config
+  - @copilotkit/runtime-client-gql@1.8.10
+  - @copilotkit/shared@1.8.10
+
 ## 1.8.10-next.3
 
 ### Patch Changes

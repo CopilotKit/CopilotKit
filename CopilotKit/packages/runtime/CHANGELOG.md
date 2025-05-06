@@ -1,5 +1,14 @@
 # @copilotkit/runtime
 
+## 1.8.10
+
+### Patch Changes
+
+- f3a0a33: - updates ag-ui deps
+- 742efbb: - feat: enable setting langgraph config from ui
+  - chore: document usage of new config
+  - @copilotkit/shared@1.8.10
+
 ## 1.8.10-next.3
 
 ### Patch Changes

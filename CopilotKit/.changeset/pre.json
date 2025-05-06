@@ -1,26 +1,21 @@
 {
-  "mode": "exit",
+  "mode": "pre",
   "tag": "next",
   "initialVersions": {
     "next-openai": "1.4.6",
     "next-pages-router": "1.4.6",
     "node-express": "1.4.6",
     "node-http": "1.4.6",
-    "@copilotkit/react-core": "1.8.9",
-    "@copilotkit/react-textarea": "1.8.9",
-    "@copilotkit/react-ui": "1.8.9",
-    "@copilotkit/runtime": "1.8.9",
-    "@copilotkit/runtime-client-gql": "1.8.9",
-    "@copilotkit/sdk-js": "1.8.9",
-    "@copilotkit/shared": "1.8.9",
+    "@copilotkit/react-core": "1.8.10",
+    "@copilotkit/react-textarea": "1.8.10",
+    "@copilotkit/react-ui": "1.8.10",
+    "@copilotkit/runtime": "1.8.10",
+    "@copilotkit/runtime-client-gql": "1.8.10",
+    "@copilotkit/sdk-js": "1.8.10",
+    "@copilotkit/shared": "1.8.10",
     "eslint-config-custom": "1.4.6",
     "tailwind-config": "1.4.6",
     "tsconfig": "1.4.6"
   },
-  "changesets": [
-    "healthy-spoons-ring",
-    "khaki-laws-juggle",
-    "modern-colts-trade",
-    "thin-houses-count"
-  ]
+  "changesets": []
 }
