@@ -188,6 +188,22 @@
   /* Added shadow for suggestion images */
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1),
               0 2px 4px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease-in-out; /* Added for smooth deselection */
+}
+
+/* Styling for the focused suggestion card image */
+.suggestion-card-image-focus {
+  width: 6.5rem; 
+  height: 6.5rem; 
+  object-fit: cover;
+  border-radius: 1rem; 
+  margin-top: 0.5rem;
+  /* Highlight styles */
+  border: 2px solid #ff6f61; /* Thicker, themed border */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1), /* Base shadow for depth */
+              0 0 12px rgba(255, 111, 97, 0.6); /* Orange glow */
+  transform: scale(1.05); /* Slightly scale up */
+  transition: all 0.2s ease-in-out; /* Smooth transition for focus */
 }
 
 /* Styling for the suggestion card container in the sidebar */

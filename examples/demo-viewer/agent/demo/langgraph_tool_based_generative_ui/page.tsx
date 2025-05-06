@@ -155,10 +155,10 @@ function Haiku() {
     instructions: chatSuggestions.toolCallingGenerativeUI,
   });
   return (
-    <div className="flex h-screen">
+    <div className="flex h-screen w-full">
       
       {/* Thumbnail List */}
-      <div className="w-28 p-2 border-r border-gray-200">
+      <div className="w-40 p-4 border-r border-gray-200 overflow-y-auto">
         {haikus.filter((haiku) => haiku.english[0] !== "A placeholder verse—").map((haiku, index) => (
           <div
             key={index}
@@ -204,7 +204,8 @@ function Haiku() {
       </div>
 
       {/* Main Display */}
-      <div className="flex-1 p-8 flex items-center justify-center">
+      {/* Add a margin to the left of margin-left: -48px; */}
+      <div className="flex-1 p-8 flex items-center justify-center " style={{ marginLeft: '-48px' }}>
         <div className="haiku-stack">
           {haikus.filter((_haiku: Haiku, index: number) => {
             if (haikus.length == 1) return true;
