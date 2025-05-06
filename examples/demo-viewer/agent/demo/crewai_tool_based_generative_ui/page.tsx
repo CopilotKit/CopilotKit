@@ -187,8 +187,8 @@ function Haiku() {
                 {haiku.image_names.map((imageName, imgIndex) => (
                   <img
                     style={{
-                      width: '100px',
-                      height: '100px',
+                      width: '110px',
+                      height: '110px',
                       objectFit: 'cover',
                     }}
                     key={imageName}
@@ -237,8 +237,8 @@ function Haiku() {
                       src={`/images/${imageName}`}
                       alt={imageName || ""}
                       style={{
-                        width: '110px',
-                        height: '110px',
+                        width: '130px',
+                        height: '130px',
                         objectFit: 'cover',
                       }}
                       className={(haiku.selectedImage === imageName) ? `suggestion-card-image-focus` : `haiku-card-image`}
