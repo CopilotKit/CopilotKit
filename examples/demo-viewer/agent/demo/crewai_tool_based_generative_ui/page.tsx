@@ -158,7 +158,7 @@ function Haiku() {
     <div className="flex h-screen w-full">
       
       {/* Thumbnail List */}
-      <div className="w-40 p-4 border-r border-gray-200 overflow-y-auto">
+      <div className="w-40 p-4 border-r border-gray-200 overflow-y-auto overflow-x-hidden">
         {haikus.filter((haiku) => haiku.english[0] !== "A placeholder verse—").map((haiku, index) => (
           <div
             key={index}
