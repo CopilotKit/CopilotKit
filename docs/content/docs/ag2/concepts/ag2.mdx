@@ -6,52 +6,25 @@ icon: custom/langchain
 
 <Frame>
   <img
-    src="/images/coagents/coagents-highlevel-overview.png"
-    alt="CoAgents High Level Overview"
+    src="/images/coagents/ag2/AG2-CopilotKit.png"
+    alt="AG2 CopilotKit"
     className="mb-10"
   />
 </Frame>
 
-AG2 is an agentic framework for building LLM applications that can be used with Copilotkit. AG2 Agents allow developers
-to combine and coordinate coding tasks efficiently, providing a robust framework for building sophisticated AI automations.
+AG2 is an agentic framework for building LLM applications that can be used with CopilotKit. This integration allows developers to combine and coordinate AI tasks efficiently, providing a robust framework for building sophisticated AI applications.
 
-## CoAgents and AG2
+## AG2 as CoAgents
 
-How do CoAgents extend AG2? Let's read about the concept of Flows to understand.
+CopilotKit now integrates with AG2, bringing together AG2's multi-agent orchestration capabilities with CopilotKit's React UI components. This integration creates a more seamless development experience for building AI-powered applications.
+At its core, CopilotKit is a set of tools that make it easy to let your users work alongside Large Language Models (LLMs) to accomplish generative tasks directly in your application. Instead of just using the LLM to generate content, you can let it take direct action alongside your users.
+Key features of the AG2 and CopilotKit integration include:
 
-> Flows allow you to create structured, event-driven workflows. They provide a seamless way to connect multiple tasks, manage state, and control the flow of execution in your AI applications.
+- **Multi-Agent Orchestration**: AG2 enables sophisticated agent workflows and orchestration patterns
+- **Human-in-the-Loop**: Human in the Loop (HITL) is a powerful pattern that enables your AG2 agents to collaborate with humans during their workflow. Instead of making all decisions independently, agents can check with human operators at critical decision points, combining AI efficiency with human judgment.
 
-Let's break down some key terms and understand how they relate to and are implemented by CoAgents.
+For a detailed guide on setting up AG2 CoAgents with CopilotKit, check out our [quickstart guide](/ag2/quickstart/ag2). 
 
-- ** manage state**: CoAgents have bi-directional state sharing with the agent and UI. This allows for the agent to remember
-  information from previous messages and the UI to update the agent with new information. Read more about how state sharing works
-  [here](/ag2/shared-state).
-- **Multi-actor**: CoAgents allow for multiple agents to interact with each other. Copilotkit acts as the "ground-truth"
-  when transitioning between agents. Read more about how multi-actor workflows work [here](/ag2/multi-agent-flows)
-  and how messages are managed [here](/ag2/concepts/message-management).
-- **LLMs**: CoAgents use large language models to generate responses. This is useful for building applications that need to
-  generate natural language responses.
+## Learn More
 
-Some additional functionality not mentioned here is:
-
-- **Human in the loop**: CoAgents enabled human review and approval of generated responses. Read more about how this works
-  [here](/ag2/human-in-the-loop).
-- **Tool calling**: Tool calling is a fundamental building block for agentic workflows. They allow for greater control over what
-  the agent can do and can be used to interact with external systems. CoAgents allow you to easily render in-progress
-  tool calls in the UI so your users know what's happening. Read more about streaming tool calls [here](/ag2/shared-state/predictive-state-updates).
-
-## Building with Python
-
-You can build AG2 applications using Python. Check out the [AG2 docs](https://docs.ag2.ai/introduction) for more information.
-
-## AG2 Enterprise
-
-Turn any application into an API within seconds
-Connect to your apps using hooks, REST, gRPC and more
-Get access to templates, custom tools and early UI
-Get business support, SLA, private VPC
-
-AG2 enterprise is a platform for deploying and monitoring AG2 applications. Read more about it on the
-[AG2 website](https://www.ag2.ai/enterprise).
-
-If you want to take the next step to deploy your AG2 application as an CoAgent, check out our [quickstart guide](/ag2/quickstart/ag2). 
+For more information about AG2, check out the [AG2 documentation](https://docs.ag2.ai).
