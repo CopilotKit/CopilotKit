@@ -25,6 +25,7 @@
 }
 
 .poweredBy {
+  background: var(--copilot-kit-background-color) !important;
   visibility: visible !important;
   display: block !important;
   position: static !important;
