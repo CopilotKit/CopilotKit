@@ -1,5 +1,17 @@
 # ui
 
+## 1.8.11-next.0
+
+### Patch Changes
+
+- b9dd397: - fix(react-ui): fix scrolling into view issue
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+  - @copilotkit/react-core@1.8.11-next.0
+  - @copilotkit/runtime-client-gql@1.8.11-next.0
+  - @copilotkit/shared@1.8.11-next.0
+
 ## 1.8.10
 
 ### Patch Changes
