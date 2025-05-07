@@ -1,6 +1,6 @@
 ---
 title: Quickstart AG2 Agents
-description: Turn your AG2 Agents into an agent-native application in 10 minutes.
+description: Turn your AG2 Agents into an agent-native application in 5 minutes.
 icon: "custom/ag2"
 ---
 
@@ -41,223 +41,75 @@ import CopilotUI from "@/snippets/copilot-ui.mdx";
   muted
 />
 
+## Introduction
+
+This quickstart guide shows how to create a simple **Personalized Travel Planner** using AG2 and CopilotKit. In just minutes, you'll build an application that collects user travel preferences and generates custom day-by-day itineraries tailored to their destination, budget, and interests.
+
 ## Prerequisites
 
 Before you begin, you'll need the following:
 
-- [**OpenAI API key**](https://platform.openai.com/api-keys)
+- **Python 3.9** or newer for running the AG2 backend
+- <a href="https://nodejs.org/en/download" target="_blank">Node.js</a> 18.18.0 or newer (specifically: ^18.18.0 || ^19.8.0 || >= 20.0.0)
+- <a href="https://pnpm.io/installation" target="_blank">pnpm</a> (for package management)
+- <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI API key</a>
 
 ## Getting started
 
 <Steps>
     <Step>
-        ### Install CopilotKit
-        First, install the latest packages for CopilotKit into your frontend.
-        ```package-install
-        npm install @copilotkit/react-ui @copilotkit/react-core
-        ```
-    </Step>
-    <TailoredContent
-        className="step"
-        id="agent"
-        header={
-            <div>
-                <p className="text-xl font-semibold">Do you already have a AG2 Agent?</p>
-                <p className="text-base">
-                    You will need a AG2 Agent to get started!
-                </p>
-                <p className="text-base">
-                    Either bring your own or feel free to use our starter repo.
-                </p>
-            </div>
-        }
-    >
-        <TailoredContentOption
-            id="bring-your-own"
-            title="Bring your own AG2 Agent"
-            description="I already have a AG2 Agent and want to use it with CopilotKit."
-            icon={<img src="/images/ag2-logo.svg" alt="Your Framework Logo" width={20} height={20} />}
-        />
-        <TailoredContentOption
-            id="coagents-starter"
-            title="Use the CoAgents Starter repo"
-            description="I don't have a AG2 Agent yet, but want to get started quickly."
-            icon={<img src="/images/copilotkit-logo.svg" alt="CopilotKit Logo" width={20} height={20} />}
-        >
-            <Step>
-                ### Clone the `coagents-starter` repo
+        ### Clone the Starter Repository
 
-                <Tabs groupId="language" items={["Python"]}>
-                    <Tab value="Python">
-                        ```bash
-                        git clone https://github.com/CopilotKit/CopilotKit
-                        cd CopilotKit/examples/coagents-starter-ag2/agent-py
-                        ```
-                    </Tab>
-                </Tabs>
-            </Step>
-            <Step>
-                ### Create a `.env` file
-
+        <Tabs groupId="language" items={["Python"]}>
+            <Tab value="Python">
                 ```bash
-                touch .env
+                git clone https://github.com/ag2ai/ag2-copilotkit-starter.git
+                cd ag2-copilotkit-starter
                 ```
-            </Step>
-            <Step>
-                ### Add your API keys
-
-                Then add your **OpenAI API key** to the `.env` file.
-
-                ```plaintext title=".env"
-                OPENAI_API_KEY=your_openai_api_key
-                ```
-            </Step>
-        </TailoredContentOption>
-    </TailoredContent>
-    <Step>
-        ### Launch your local agent
-
-        Start your local AG2 Agent:
-
-        ```bash
-        # your code goes here...
-        ```
-        This will start a local agent server that you can connect to.
+            </Tab>
+        </Tabs>
     </Step>
-
-    <TailoredContent
-        className="step"
-        id="copilot-hosting"
-        header={
-            <div>
-                <p className="text-xl font-semibold">Choose your connection method</p>
-                <p className="text-base">
-                    Now you need to connect your AG2 Agent to CopilotKit.
-                </p>
-            </div>
-        }
-    >
-        <TailoredContentOption
-            id="copilot-cloud"
-            title="Copilot Cloud (Recommended)"
-            description="I want to host my Copilot on Copilot Cloud"
-            icon={<FaCloud />}
-        >
-            <Step>
-                ### Add a remote endpoint for your AG2 Agent
-                Using Copilot Cloud, you need to connect a remote endpoint that will connect to your AG2 Agent.
-                <Tabs groupId="lg-deployment-type" items={['Self hosted (FastAPI)', 'AG2 Enterprise']}>
-                    <Tab value="Self hosted (FastAPI)">
-                        **Running your FastAPI server in production**
-
-                        Head over to [Copilot Cloud](https://cloud.copilotkit.ai) sign up and setup a remote endpoint with the following information:
-                        - OpenAI API key
-                        - Your FastAPI server URL
-
-                        **Running your FastAPI server locally**
-
-                        If you're running your FastAPI server locally, you can open a tunnel to it so Copilot Cloud can connect to it.
-
-                        ```bash
-                        npx copilotkit@latest dev --port 8000
-                        ```
-                    </Tab>
-                    <Tab value="AG2 Enterprise">
-                        Coming soon!
-                    </Tab>
-                </Tabs>
-            </Step>
-            <Step>
-                ### Setup your CopilotKit provider
-                The [`<CopilotKit>`](/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
-                it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
-
-                <CloudCopilotKitProvider components={props.components} />
-
-                <Callout type="info">
-                    Looking for a way to run multiple AG2 Agents? Check out our [Multi-Agent](/ag2/multi-agent-flows) guide.
-                </Callout>
-            </Step>
-        </TailoredContentOption>
-        <TailoredContentOption
-            id="self-hosted"
-            title="Self-Hosted Copilot Runtime"
-            description="I want to self-host the Copilot Runtime"
-            icon={<ServerIcon />}
-        >
-            <Step>
-                ### Install Copilot Runtime
-                Copilot Runtime is a production-ready proxy for your AG2 Agents. In your frontend, go ahead and install it.
-
-                ```package-install
-                @copilotkit/runtime
-                ```
-            </Step>
-            <Step>
-                ### Setup a Copilot Runtime Endpoint
-                Now we need to setup a Copilot Runtime endpoint and point your frontend to it.
-                <SelfHostingCopilotRuntimeStarter components={props.components}/>
-            </Step>
-            <Step>
-                ### Add your AG2 Agent deployment to Copilot Runtime
-                Now we need to add your AG2 Agent deployment to Copilot Runtime. This will make it
-                so your frontend can find your AG2 Agents correctly.
-                ```ts
-                import {
-                CopilotRuntime,
-                // ...
-                } from "@copilotkit/runtime";
-                // ...
-                const runtime = new CopilotRuntime({
-                remoteEndpoints: [
-                    // [!code highlight:3]
-                    // Our FastAPI endpoint URL
-                    { url: "http://localhost:8000/copilotkit" },
-                ],
-                });
-                // ...
-                ```
-            </Step>
-            <Step>
-                ### Configure the CopilotKit Provider
-                The [`<CopilotKit>`](/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
-                it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
-                <SelfHostingCopilotRuntimeConfigureCopilotKitProvider components={props.components}/>
-                <Callout type="info">
-                    Looking for a way to run multiple AG2 Agents? Check out our [Multi-Agent](/ag2/multi-agent-flows) guide.
-                </Callout>
-            </Step>
-        </TailoredContentOption>
-    </TailoredContent>
     <Step>
-        ### Setup the Copilot UI
-        The last step is to use CopilotKit's UI components to render the chat interaction with your agent. In most situations,
-        this is done alongside your core page components, e.g. in your `page.tsx` file.
-
-        ```tsx title="page.tsx"
-        // [!code highlight:3]
-        import "@copilotkit/react-ui/styles.css";
-        import { CopilotPopup } from "@copilotkit/react-ui";
-
-        export function YourApp() {
-          return (
-            <main>
-              <h1>Your main content</h1>
-              // [!code highlight:7]
-              <CopilotPopup
-                labels={{
-                    title: "Popup Assistant",
-                    initial: "Hi! I'm connected to an agent. How can I help?",
-                }}
-              />
-            </main>
-          );
-        }
-        ```
+        ### Set Up the AG2 Backend
 
         <Callout type="info">
-            Looking for other chat component options? Check out our [Agentic Chat UI](/ag2/agentic-chat-ui) guide.
+            We recommend using a virtual environment for your project to keep your packages contained. See <a href="https://docs.python.org/3/library/venv.html" target="_blank">venv</a>.
         </Callout>
+
+        #### Install the dependencies and set your `OPENAI_API_KEY`:
+
+        ```bash
+        cd agent-py
+        pip install -r requirements.txt
+        ```
+
+        #### Set up your `OPENAI_API_KEY`:
+
+        ```sh
+        export OPENAI_API_KEY="your_openai_api_key"
+        ```
+
+        #### Launch your AG2 agent:
+
+        ```bash
+        uvicorn simple_workflow:app --port 8008 --reload
+        ```
+        The backend server will start at http://localhost:8008.
+    </Step>
+    <Step>
+        ### Set Up the CopilotKit UI
+        
+        The last step is to use CopilotKit's UI components to render the chat interaction with your agent.
+
+        In a new terminal:
+
+        ```bash
+        cd ui
+        pnpm i
+        pnpm run dev
+        ```
+
+        The frontend application will start at http://localhost:3000.
     </Step>
     <Step>
         ### 🎉 Talk to your agent!
@@ -265,24 +117,19 @@ Before you begin, you'll need the following:
         Congrats! You've successfully integrated a AG2 Agent chatbot to your application. To start, try asking a few questions to your agent.
 
         ```
-        Can you tell me a joke?
+        I plan to visit the USA for 4 days on a budget.
         ```
 
         ```
-        Can you help me understand AI?
+        I want to plan a trip to Paris for 5 days. I have a mid-range budget and I'm interested in art, history, and food.
         ```
 
         ```
-        What do you think about React?
+        I'd like a luxury weekend in New York with focus on Broadway shows and fine dining.
         ```
 
-        <video src="/images/coagents/chat-example.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
-
-        <Accordions className="mb-4">
-            <Accordion title="Having trouble?">
-                - Try changing the host to `0.0.0.0` or `127.0.0.1` instead of `localhost`.
-            </Accordion>
-        </Accordions>
+        <img src="/images/coagents/ag2/quick-start-1.png" className="rounded-lg shadow-xl"/>
+        <img src="/images/coagents/ag2/quick-start-2.png" className="rounded-lg shadow-xl"/>
     </Step>
 
 </Steps>
@@ -291,8 +138,7 @@ Before you begin, you'll need the following:
 
 ## What's next?
 
-You've now got a AG2 Agent running in CopilotKit! Now you can start exploring the various ways that CopilotKit
-can help you build power agent native applications.
+You've now got a simple Personalized Travel Planner running with CopilotKit! This demonstrates how quickly you can build practical AI applications by combining AG2's conversational capabilities with CopilotKit's user interface components.
 
 <Cards>
   <Card
@@ -301,22 +147,4 @@ can help you build power agent native applications.
     href="/ag2/human-in-the-loop"
     icon={<UserIcon />}
   />
-  <Card
-    title="Utilize the Shared State"
-    description="Learn how to synchronize your agent's state with your UI's state, and vice versa."
-    href="/ag2/shared-state"
-    icon={<RepeatIcon />}
-  />
-  <Card
-    title="Add some generative UI"
-    description="Render your agent's progress and output in the UI."
-    href="/ag2/generative-ui"
-    icon={<PaintbrushIcon />}
-  />
-  <Card
-    title="Setup frontend actions"
-    description="Give your agent the ability to call frontend tools, directly updating your application."
-    href="/ag2/frontend-actions"
-    icon={<WrenchIcon />}
-  />
-</Cards> 
+</Cards>
