@@ -103,41 +103,40 @@ import { useToast } from "../components/toast/toast-provider";
 import { useCopilotRuntimeClient } from "./use-copilot-runtime-client";
 import { parseJson } from "@copilotkit/shared";
 
-interface WithInternalStateManagementAndInitial<T> {
+interface UseCoagentOptionsBase {
   /**
    * The name of the agent being used.
    */
   name: string;
+  /**
+   * @deprecated - use "config.configurable"
+   * Config to pass to a LangGraph Agent
+   */
+  configurable?: Record<string, any>;
+  /**
+   * Config to pass to a LangGraph Agent
+   */
+  config?: {
+    configurable?: Record<string, any>;
+    [key: string]: any;
+  };
+}
+
+interface WithInternalStateManagementAndInitial<T> extends UseCoagentOptionsBase {
   /**
    * The initial state of the agent.
    */
   initialState: T;
-  /**
-   * Config to pass to a LangGraph Agent
-   */
-  configurable?: Record<string, any>;
 }
 
-interface WithInternalStateManagement {
-  /**
-   * The name of the agent being used.
-   */
-  name: string;
+interface WithInternalStateManagement extends UseCoagentOptionsBase {
   /**
    * Optional initialState with default type any
    */
   initialState?: any;
-  /**
-   * Config to pass to a LangGraph Agent
-   */
-  configurable?: Record<string, any>;
 }
 
-interface WithExternalStateManagement<T> {
-  /**
-   * The name of the agent being used.
-   */
-  name: string;
+interface WithExternalStateManagement<T> extends UseCoagentOptionsBase {
   /**
    * The current state of the agent.
    */
@@ -146,10 +145,6 @@ interface WithExternalStateManagement<T> {
    * A function to update the state of the agent.
    */
   setState: (newState: T | ((prevState: T | undefined) => T)) => void;
-  /**
-   * Config to pass to a LangGraph Agent
-   */
-  configurable?: Record<string, any>;
 }
 
 type UseCoagentOptions<T> =
@@ -416,7 +411,11 @@ const getCoagentState = <T>({
     return {
       name,
       state: isInternalStateManagementWithInitial<T>(options) ? options.initialState : {},
-      configurable: options.configurable ?? {},
+      config: options.config
+        ? options.config
+        : options.configurable
+          ? { configurable: options.configurable }
+          : {},
       running: false,
       active: false,
       threadId: undefined,

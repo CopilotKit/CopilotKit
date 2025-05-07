@@ -1,10 +1,11 @@
 "use client";
 import { CopilotKit, useCopilotAction } from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
+import { CopilotKitCSSProperties, CopilotSidebar, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { useState, useEffect } from "react";
 import "@copilotkit/react-ui/styles.css";
 import "./style.css";
-
+import { chatSuggestions, initialPrompt } from "@/lib/prompts";
+import HaikuCard from "./HaikuCard";
 // List of known valid image filenames (should match agent.py)
 const VALID_IMAGE_NAMES = [
   "Osaka_Castle_Turret_Stone_Wall_Pine_Trees_Daytime.jpg",
@@ -22,7 +23,7 @@ const VALID_IMAGE_NAMES = [
 export default function AgenticChat() {
   return (
     <CopilotKit
-      publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_API_KEY}
+      runtimeUrl="/api/copilotkit"
       showDevConsole={false}
       agent="tool_based_generative_ui"
     >
@@ -40,7 +41,7 @@ export default function AgenticChat() {
           defaultOpen={true}
           labels={{
             title: "Haiku Generator",
-            initial: "I'm a haiku generator 👋. How can I help you?",
+            initial: initialPrompt.toolCallingGenerativeUI,
           }}
           clickOutsideToClose={false}
         />
@@ -49,12 +50,16 @@ export default function AgenticChat() {
   );
 }
 
+interface Haiku { 
+  japanese: string[];
+  english: string[];
+  image_names: string[];
+  selectedImage: string | null;
+}
+
+
 function Haiku() {
-  const [haiku, setHaiku] = useState<{
-    japanese: string[];
-    english: string[];
-    image_names: string[];
-  }>({
+  const [haikus, setHaikus] = useState<Haiku[]>([{
     japanese: ["仮の句よ", "まっさらながら", "花を呼ぶ"],
     english: [
       "A placeholder verse—",
@@ -62,7 +67,9 @@ function Haiku() {
       "it beckons flowers.",
     ],
     image_names: [],
-  });
+    selectedImage: null,
+  }])
+  const [activeIndex, setActiveIndex] = useState(0);
   const [isJustApplied, setIsJustApplied] = useState(false);
 
   const validateAndCorrectImageNames = (rawNames: string[] | undefined): string[] | null => {
@@ -97,8 +104,8 @@ function Haiku() {
     }
 
     while (correctedNames.length < 3 && VALID_IMAGE_NAMES.length > 0) {
-        const fallbackName = VALID_IMAGE_NAMES[Math.floor(Math.random() * VALID_IMAGE_NAMES.length)];
-        correctedNames.push(fallbackName);
+      const fallbackName = VALID_IMAGE_NAMES[Math.floor(Math.random() * VALID_IMAGE_NAMES.length)];
+      correctedNames.push(fallbackName);
     }
 
     return correctedNames.slice(0, 3);
@@ -122,110 +129,128 @@ function Haiku() {
       },
     ],
     followUp: false,
-    handler: async () => {
+    handler: async ({ japanese, english, image_names }) => {
+      const finalCorrectedImages = validateAndCorrectImageNames(image_names);
+      const newHaiku = {
+        japanese: japanese || [],
+        english: english || [],
+        image_names: finalCorrectedImages || [],
+        selectedImage: finalCorrectedImages?.[0] || null,
+      };
+      console.log(finalCorrectedImages, "finalCorrectedImages");
+      setHaikus(prev => [...prev, newHaiku]);
+      setActiveIndex(haikus.length - 1);
+      setIsJustApplied(true);
+      setTimeout(() => setIsJustApplied(false), 600);
       return "Haiku generated.";
     },
-    render: ({ args: generatedHaiku, result, status }) => {
-      const [isAppliedLocally, setIsAppliedLocally] = useState(false);
-
-      let finalCorrectedImages: string[] | null = null;
-      if (status === 'complete') {
-        finalCorrectedImages = validateAndCorrectImageNames(generatedHaiku?.image_names);
-      }
-
-      // if (
-      //   !generatedHaiku ||
-      //   !generatedHaiku.japanese ||
-      //   !generatedHaiku.japanese.length ||
-      //   !generatedHaiku.english ||
-      //   generatedHaiku.english.length !== 3
-      // ) {
-      //   return <></>;
-      // }
-
+    render: ({ args: generatedHaiku }) => {
       return (
-        <div className="suggestion-card text-left rounded-md p-4 mt-4 mb-4 flex flex-col bg-gray-100">
+        <HaikuCard generatedHaiku={generatedHaiku} setHaikus={setHaikus} haikus={haikus} />
+      );
+    },
+  }, [haikus]);
+
+  useCopilotChatSuggestions({
+    instructions: chatSuggestions.toolCallingGenerativeUI,
+  });
+  return (
+    <div className="flex h-screen w-full">
+      
+      {/* Thumbnail List */}
+      <div className="w-40 p-4 border-r border-gray-200 overflow-y-auto overflow-x-hidden">
+        {haikus.filter((haiku) => haiku.english[0] !== "A placeholder verse—").map((haiku, index) => (
           <div
-            className={"border-b border-gray-300 mb-4 pb-4"}
+            key={index}
+            className={`haiku-card animated-fade-in mb-4 cursor-pointer ${index === activeIndex ? 'active' : ''}`}
+            style={{
+              width: '80px',
+              transform: 'scale(0.2)',
+              transformOrigin: 'top left',
+              marginBottom: '-340px',
+              opacity: index === activeIndex ? 1 : 0.5,
+              transition: 'opacity 0.2s',
+            }}
+            onClick={() => setActiveIndex(index)}
           >
-            {generatedHaiku?.japanese?.map((line, index) => (
-              <div className="flex items-center gap-3 mb-2" key={index}>
-                <p className="text-lg font-bold">{line}</p>
-                <p className="text-sm font-light">
-                  {generatedHaiku.english?.[index]}
-                </p>
+            {haiku.japanese.map((line, lineIndex) => (
+              <div
+                className="flex items-start gap-2 mb-2 haiku-line"
+                key={lineIndex}
+              >
+                <p className="text-2xl font-bold text-gray-600 w-auto">{line}</p>
+                <p className="text-xs font-light text-gray-500 w-auto">{haiku.english?.[lineIndex]}</p>
               </div>
             ))}
-            {generatedHaiku?.japanese && generatedHaiku.japanese.length >= 2 && (
-              <div className="mt-3 flex gap-2 justify-between w-full suggestion-image-container">
-                {finalCorrectedImages && finalCorrectedImages.map((imageName, imgIndex) => (
+            {haiku.image_names && haiku.image_names.length === 3 && (
+              <div className="mt-2 flex gap-2 justify-center">
+                {haiku.image_names.map((imageName, imgIndex) => (
                   <img
-                    key={imgIndex}
+                    style={{
+                      width: '110px',
+                      height: '110px',
+                      objectFit: 'cover',
+                    }}
+                    key={imageName}
                     src={`/images/${imageName}`}
-                    alt={imageName}
-                    className="suggestion-card-image"
+                    alt={imageName || ""}
+                    className="haiku-card-image w-12 h-12 object-cover"
                   />
                 ))}
-                {(!finalCorrectedImages || finalCorrectedImages.length === 0) && (
-                  <>
-                    {[0, 1, 2].map((index) => (
-                      <div
-                        key={index}
-                        className="suggestion-card-image bg-gray-200 animate-pulse"
-                      >
-                      </div>
-                    ))}
-                  </>
-                )}
               </div>
             )}
           </div>
-            <button
-              onClick={() => {
-                setHaiku({
-                  japanese: generatedHaiku.japanese || [],
-                  english: generatedHaiku.english || [],
-                  image_names: finalCorrectedImages || []
-                });
-                setIsAppliedLocally(true);
-                setIsJustApplied(true);
-                setTimeout(() => setIsJustApplied(false), 600);
-              }}
-              className="ml-auto px-3 py-1 bg-white text-black text-sm rounded cursor-pointer font-sm border "
-            >
-              {finalCorrectedImages && finalCorrectedImages.length > 0 ? isAppliedLocally ? "Applied ✓" : "Apply" : "..."}
-            </button>
-        </div>
-      );
-    },
-  });
-  return (
-    <>
-      <div className={`haiku-card animated-fade-in ${isJustApplied ? 'applied-flash' : ''}`}>
-        {haiku?.japanese.map((line, index) => (
-          <div
-            className="flex items-start gap-4 mb-4 haiku-line"
-            key={index}
-            style={{ animationDelay: `${index * 0.1}s` }}
-          >
-            <p className="text-4xl font-bold text-gray-600 w-auto">{line}</p>
-            <p className="text-base font-light text-gray-500 w-auto">{haiku?.english?.[index]}</p>
-          </div>
         ))}
-        {haiku.image_names && haiku.image_names.length === 3 && (
-          <div className="mt-6 flex gap-4 justify-center">
-            {haiku.image_names.map((imageName, imgIndex) => (
-              <img
-                key={imgIndex}
-                src={`/images/${imageName}`}
-                alt={imageName}
-                className="haiku-card-image"
-                style={{ animationDelay: `${(haiku.japanese.length + imgIndex) * 0.1}s` }}
-              />
-            ))}
-          </div>
-        )}
       </div>
-    </>
+
+      {/* Main Display */}
+      {/* Add a margin to the left of margin-left: -48px; */}
+      <div className="flex-1 p-8 flex items-center justify-center " style={{ marginLeft: '-48px' }}>
+        <div className="haiku-stack">
+          {haikus.filter((_haiku: Haiku, index: number) => {
+            if (haikus.length == 1) return true;
+            else return index == activeIndex + 1;
+          }).map((haiku, index) => (
+            <div
+              key={index}
+              className={`haiku-card animated-fade-in ${isJustApplied && index === activeIndex ? 'applied-flash' : ''} ${index === activeIndex ? 'active' : ''}`}
+              style={{
+                zIndex: index === activeIndex ? haikus.length : index,
+                transform: `translateY(${index === activeIndex ? '0' : `${(index - activeIndex) * 20}px`}) scale(${index === activeIndex ? '1' : '0.95'})`,
+              }}
+            // onClick={() => setActiveIndex(index)}
+            >
+              {haiku.japanese.map((line, lineIndex) => (
+                <div
+                  className="flex items-start gap-4 mb-4 haiku-line"
+                  key={lineIndex}
+                  style={{ animationDelay: `${lineIndex * 0.1}s` }}
+                >
+                  <p className="text-4xl font-bold text-gray-600 w-auto">{line}</p>
+                  <p className="text-base font-light text-gray-500 w-auto">{haiku.english?.[lineIndex]}</p>
+                </div>
+              ))}
+              {haiku.image_names && haiku.image_names.length === 3 && (
+                <div className="mt-6 flex gap-4 justify-center">
+                  {haiku.image_names.map((imageName, imgIndex) => (
+                    <img
+                      key={imageName}
+                      src={`/images/${imageName}`}
+                      alt={imageName || ""}
+                      style={{
+                        width: '130px',
+                        height: '130px',
+                        objectFit: 'cover',
+                      }}
+                      className={(haiku.selectedImage === imageName) ? `suggestion-card-image-focus` : `haiku-card-image`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }

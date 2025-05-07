@@ -83,6 +83,8 @@ When generating a haiku using the 'generate_haiku' tool, you MUST also select ex
 
 Available images:
 {image_list_str}
+
+Dont provide the relavent image names in your final response to the user.
 """
 
     # Define the model

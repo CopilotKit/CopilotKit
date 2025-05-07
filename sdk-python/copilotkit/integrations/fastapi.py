@@ -193,7 +193,7 @@ async def handler_v1(
     if method == 'POST' and path == 'agents/execute':
         thread_id = body.get("threadId")
         node_name = body.get("nodeName")
-        configurable = body.get("configurable")
+        config = body.get("config")
 
         name = body_get_or_raise(body, "name")
         state = body_get_or_raise(body, "state")
@@ -208,7 +208,7 @@ async def handler_v1(
             node_name=node_name,
             name=name,
             state=state,
-            configurable=configurable,
+            config=config,
             messages=messages,
             actions=actions,
             meta_events=meta_events,
@@ -273,7 +273,7 @@ def handle_execute_agent( # pylint: disable=too-many-arguments
         thread_id: str,
         name: str,
         state: dict,
-        configurable: Optional[dict] = None,
+        config: Optional[dict] = None,
         messages: List[Message],
         actions: List[ActionDict],
         node_name: str,
@@ -287,7 +287,7 @@ def handle_execute_agent( # pylint: disable=too-many-arguments
             name=name,
             node_name=node_name,
             state=state,
-            configurable=configurable,
+            config=config,
             messages=messages,
             actions=actions,
             meta_events=meta_events,

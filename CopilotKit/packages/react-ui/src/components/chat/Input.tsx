@@ -5,6 +5,8 @@ import AutoResizingTextarea from "./Textarea";
 import { usePushToTalk } from "../../hooks/use-push-to-talk";
 import { useCopilotContext } from "@copilotkit/react-core";
 
+const MAX_NEWLINES = 6;
+
 export const Input = ({ inProgress, onSend, isVisible = false, onStop, onUpload }: InputProps) => {
   const context = useChatContext();
   const copilotContext = useCopilotContext();
@@ -76,7 +78,7 @@ export const Input = ({ inProgress, onSend, isVisible = false, onStop, onUpload 
           ref={textareaRef}
           placeholder={context.labels.placeholder}
           autoFocus={true}
-          maxRows={5}
+          maxRows={MAX_NEWLINES}
           value={text}
           onChange={(event) => setText(event.target.value)}
           onKeyDown={(event) => {

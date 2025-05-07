@@ -1,21 +1,19 @@
-import { createHash } from "node:crypto";
-import { CopilotKitEndpoint, RemoteAgentHandlerParams } from "./remote-actions";
-import { GraphQLContext } from "../integrations";
 import { Logger } from "pino";
-import { Message } from "../../graphql/types/converted";
-import { AgentStateInput } from "../../graphql/inputs/agent-state.input";
 import { Observable } from "rxjs";
+import { AgentStateInput } from "../../graphql/inputs/agent-state.input";
+import { Message } from "../../graphql/types/converted";
 import { RuntimeEvent } from "../../service-adapters/events";
 import telemetry from "../telemetry-client";
+import { RemoteAgentHandlerParams } from "./remote-actions";
 
-import { ToolCall } from "@agentwire/client";
 import {
-  Message as AgentWireMessage,
   AssistantMessage as AgentWireAssistantMessage,
-} from "@agentwire/client";
+  Message as AgentWireMessage,
+  ToolCall,
+} from "@ag-ui/client";
 
+import { AbstractAgent } from "@ag-ui/client";
 import { parseJson } from "@copilotkit/shared";
-import { AbstractAgent } from "@agentwire/client";
 
 export function constructAgentWireRemoteAction({
   logger,

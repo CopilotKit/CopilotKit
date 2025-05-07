@@ -1,4 +1,5 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+.vscode
 
 # misc
 .DS_Store
@@ -23,3 +24,4 @@ test-run-comment.md
 __pycache__/
 *.env
 *.next
+.venv

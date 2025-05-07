@@ -31,9 +31,12 @@ function YourMainContent() {
 
   useCoAgent<AgentState>({
     name: "sample_agent",
-    // [!code highlight:4]
-    configurable: {
-      authToken: 'example-token'
+    // [!code highlight:7]
+    config: {
+      configurable: {
+        authToken: 'example-token'
+      },
+      recursion_limit: 50,
     }
   })
 

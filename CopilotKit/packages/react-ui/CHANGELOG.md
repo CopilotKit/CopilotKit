@@ -1,5 +1,51 @@
 # ui
 
+## 1.8.10
+
+### Patch Changes
+
+- 62b6db1: - fix: allow the chat input to expand on new lines
+- 98c09dd: - fix: fix colors on chat ui dark mode
+- Updated dependencies [742efbb]
+  - @copilotkit/react-core@1.8.10
+  - @copilotkit/runtime-client-gql@1.8.10
+  - @copilotkit/shared@1.8.10
+
+## 1.8.10-next.3
+
+### Patch Changes
+
+- 98c09dd: - fix: fix colors on chat ui dark mode
+  - @copilotkit/react-core@1.8.10-next.3
+  - @copilotkit/runtime-client-gql@1.8.10-next.3
+  - @copilotkit/shared@1.8.10-next.3
+
+## 1.8.10-next.2
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.10-next.2
+- @copilotkit/react-core@1.8.10-next.2
+- @copilotkit/shared@1.8.10-next.2
+
+## 1.8.10-next.1
+
+### Patch Changes
+
+- 62b6db1: - fix: allow the chat input to expand on new lines
+  - @copilotkit/react-core@1.8.10-next.1
+  - @copilotkit/runtime-client-gql@1.8.10-next.1
+  - @copilotkit/shared@1.8.10-next.1
+
+## 1.8.10-next.0
+
+### Patch Changes
+
+- Updated dependencies [742efbb]
+  - @copilotkit/react-core@1.8.10-next.0
+  - @copilotkit/runtime-client-gql@1.8.10-next.0
+  - @copilotkit/shared@1.8.10-next.0
+
 ## 1.8.9
 
 ### Patch Changes

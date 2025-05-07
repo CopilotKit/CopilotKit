@@ -139,3 +139,6 @@
     @apply bg-background text-foreground;
   }
 }
+.copilotKitMessagesFooter {
+  width: 94% !important;
+}

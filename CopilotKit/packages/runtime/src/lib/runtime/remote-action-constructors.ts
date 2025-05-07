@@ -57,12 +57,12 @@ export function constructLGCRemoteAction({
       });
 
       let state = {};
-      let configurable = {};
+      let config = {};
       if (agentStates) {
         const jsonState = agentStates.find((state) => state.agentName === name);
         if (jsonState) {
           state = parseJson(jsonState.state, {});
-          configurable = parseJson(jsonState.configurable, {});
+          config = parseJson(jsonState.config, {});
         }
       }
 
@@ -76,7 +76,7 @@ export function constructLGCRemoteAction({
           nodeName,
           messages: [...messages, ...additionalMessages],
           state,
-          configurable,
+          config,
           properties: graphqlContext.properties,
           actions: tryMap(actionInputsWithoutAgents, (action: ActionInput) => ({
             name: action.name,
@@ -206,12 +206,12 @@ export function constructRemoteActions({
           });
 
           let state = {};
-          let configurable = {};
+          let config = {};
           if (agentStates) {
             const jsonState = agentStates.find((state) => state.agentName === name);
             if (jsonState) {
               state = parseJson(jsonState.state, {});
-              configurable = parseJson(jsonState.configurable, {});
+              config = parseJson(jsonState.config, {});
             }
           }
 
@@ -226,7 +226,7 @@ export function constructRemoteActions({
                 nodeName,
                 messages: [...messages, ...additionalMessages],
                 state,
-                configurable,
+                config,
                 properties: graphqlContext.properties,
                 actions: tryMap(actionInputsWithoutAgents, (action: ActionInput) => ({
                   name: action.name,

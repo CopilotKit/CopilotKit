@@ -48,13 +48,16 @@ Before you begin, you'll need the following:
         id="cli"
         header={
             <div>
-                <p className="text-xl font-semibold">Use the CopilotKit CLI</p>
+                <p className="text-xl font-semibold">How do you want to get started?</p>
+                <p className="text-base">
+                    Bootstrap with the new <span className="text-indigo-500 dark:text-indigo-400">CopilotKit CLI (Beta)</span> or code along with us to get started.
+                </p>
             </div>
         }
     >
         <TailoredContentOption
             id="use-cli"
-            title="Use the CopilotKit CLI"
+            title="Use the CopilotKit CLI (NextJS only)"
             description="I have a Next.js application and want to get started quickly."
             icon={<SquareTerminal />}
         >
@@ -72,7 +75,7 @@ Before you begin, you'll need the following:
                 </Accordions>
 
                 ```bash
-                npx copilotkit@latest init
+                npx copilotkit@latest init -m CrewAI --crew-type Crews
                 ```
             </Step>
 

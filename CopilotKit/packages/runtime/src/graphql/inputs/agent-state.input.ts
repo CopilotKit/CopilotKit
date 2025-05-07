@@ -9,5 +9,5 @@ export class AgentStateInput {
   state: string;
 
   @Field(() => String, { nullable: true })
-  configurable?: string;
+  config?: string;
 }
