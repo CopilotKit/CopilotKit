@@ -18,7 +18,7 @@ import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
 />
 
 <Callout type="info">
-The illustration above is from the [Coagent Starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter), included here for demonstration purposes.
+The illustration above is from the [Coagent Starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter), included here for demonstration purposes.
 </Callout>
 
 ## What is Human-in-the-Loop?
@@ -100,9 +100,11 @@ llm_config = LLMConfig(
 wf = Workflow()
 
 # Initial message to user
-INITIAL_MESSAGE = """
-I'm your AI Travel Agent. I can help create a personalized travel itinerary just for you!
-Let's start by getting to know you a bit better. Could you please provide your membership ID?
+INITIAL_MESSAGE = """Hi there! 👋 I'm your personal Travel Guide, here to help you plan an unforgettable trip.
+
+To get started, could you please share your membership ID? This will help me tailor recommendations based on your preferences and travel style.
+
+(Hint: You can try using one of these IDs: P12345, P67890, S12345, S67890. And when the agent is asking your permission to execute the function, please say "continue" to proceed.)
 """
 ```
 
