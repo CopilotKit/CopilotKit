@@ -140,3 +140,11 @@ li.copilotKitMarkdownElement {
 .copilotKitCodeBlockToolbarButton:hover {
   background-color: rgb(55, 55, 58);
 }
+
+.copilotKitInlineCode {
+  background-color: var(--copilot-kit-input-background-color);
+  border: 1px solid var(--copilot-kit-separator-color);
+  border-radius: 0.375rem;
+  padding: 0.05rem 0.4rem;
+  font-size: 15px;
+}

@@ -1,18 +1,13 @@
 import { useEffect, useMemo, useRef } from "react";
 import { MessagesProps } from "./props";
 import { useChatContext } from "./ChatContext";
-import { Message, ResultMessage, TextMessage, Role } from "@copilotkit/runtime-client-gql";
-import { useLangGraphInterruptRender } from "@copilotkit/react-core";
+import { Message, Role } from "@copilotkit/shared";
+import { useCopilotChat } from "@copilotkit/react-core";
 
 export const Messages = ({
-  messages,
   inProgress,
   children,
-  RenderTextMessage,
-  RenderActionExecutionMessage,
-  RenderAgentStateMessage,
-  RenderResultMessage,
-  RenderImageMessage,
+  RenderMessage,
   AssistantMessage,
   UserMessage,
   onRegenerate,
@@ -21,110 +16,33 @@ export const Messages = ({
   onThumbsDown,
   markdownTagRenderers,
 }: MessagesProps) => {
-  const context = useChatContext();
-  const initialMessages = useMemo(
-    () => makeInitialMessages(context.labels.initial),
-    [context.labels.initial],
-  );
-
-  messages = [...initialMessages, ...messages];
-
-  const actionResults: Record<string, string> = {};
-
-  for (let i = 0; i < messages.length; i++) {
-    if (messages[i].isActionExecutionMessage()) {
-      const id = messages[i].id;
-      const resultMessage: ResultMessage | undefined = messages.find(
-        (message) => message.isResultMessage() && message.actionExecutionId === id,
-      ) as ResultMessage | undefined;
-
-      if (resultMessage) {
-        actionResults[id] = ResultMessage.decodeResult(resultMessage.result || "");
-      }
-    }
-  }
-
+  const { labels } = useChatContext();
+  const { visibleMessages, interrupt } = useCopilotChat();
+  const initialMessages = useMemo(() => makeInitialMessages(labels.initial), [labels.initial]);
+  const messages = [...initialMessages, ...visibleMessages];
   const { messagesContainerRef, messagesEndRef } = useScrollToBottom(messages);
-
-  const interrupt = useLangGraphInterruptRender();
 
   return (
     <div className="copilotKitMessages" ref={messagesContainerRef}>
       <div className="copilotKitMessagesContainer">
         {messages.map((message, index) => {
           const isCurrentMessage = index === messages.length - 1;
-
-          if (message.isTextMessage()) {
-            return (
-              <RenderTextMessage
-                key={index}
-                message={message}
-                inProgress={inProgress}
-                index={index}
-                isCurrentMessage={isCurrentMessage}
-                AssistantMessage={AssistantMessage}
-                UserMessage={UserMessage}
-                onRegenerate={onRegenerate}
-                onCopy={onCopy}
-                onThumbsUp={onThumbsUp}
-                onThumbsDown={onThumbsDown}
-                markdownTagRenderers={markdownTagRenderers}
-              />
-            );
-          } else if (message.isActionExecutionMessage()) {
-            return (
-              <RenderActionExecutionMessage
-                key={index}
-                message={message}
-                inProgress={inProgress}
-                index={index}
-                isCurrentMessage={isCurrentMessage}
-                actionResult={actionResults[message.id]}
-                AssistantMessage={AssistantMessage}
-                UserMessage={UserMessage}
-              />
-            );
-          } else if (message.isAgentStateMessage()) {
-            return (
-              <RenderAgentStateMessage
-                key={index}
-                message={message}
-                inProgress={inProgress}
-                index={index}
-                isCurrentMessage={isCurrentMessage}
-                AssistantMessage={AssistantMessage}
-                UserMessage={UserMessage}
-              />
-            );
-          } else if (message.isResultMessage()) {
-            return (
-              <RenderResultMessage
-                key={index}
-                message={message}
-                inProgress={inProgress}
-                index={index}
-                isCurrentMessage={isCurrentMessage}
-                AssistantMessage={AssistantMessage}
-                UserMessage={UserMessage}
-              />
-            );
-          } else if (message.isImageMessage && message.isImageMessage()) {
-            return (
-              <RenderImageMessage
-                key={index}
-                message={message}
-                inProgress={inProgress}
-                index={index}
-                isCurrentMessage={isCurrentMessage}
-                AssistantMessage={AssistantMessage}
-                UserMessage={UserMessage}
-                onRegenerate={onRegenerate}
-                onCopy={onCopy}
-                onThumbsUp={onThumbsUp}
-                onThumbsDown={onThumbsDown}
-              />
-            );
-          }
+          return (
+            <RenderMessage
+              key={index}
+              message={message}
+              inProgress={inProgress}
+              index={index}
+              isCurrentMessage={isCurrentMessage}
+              AssistantMessage={AssistantMessage}
+              UserMessage={UserMessage}
+              onRegenerate={onRegenerate}
+              onCopy={onCopy}
+              onThumbsUp={onThumbsUp}
+              onThumbsDown={onThumbsDown}
+              markdownTagRenderers={markdownTagRenderers}
+            />
+          );
         })}
         {interrupt}
       </div>
@@ -135,26 +53,29 @@ export const Messages = ({
   );
 };
 
-function makeInitialMessages(initial?: string | string[]): Message[] {
-  let initialArray: string[] = [];
-  if (initial) {
-    if (Array.isArray(initial)) {
-      initialArray.push(...initial);
-    } else {
-      initialArray.push(initial);
-    }
+function makeInitialMessages(initial: string | string[] | undefined): Message[] {
+  if (!initial) return [];
+
+  if (Array.isArray(initial)) {
+    return initial.map((message) => {
+      return {
+        id: message,
+        role: "assistant",
+        content: message,
+      };
+    });
   }
 
-  return initialArray.map(
-    (message) =>
-      new TextMessage({
-        role: Role.Assistant,
-        content: message,
-      }),
-  );
+  return [
+    {
+      id: initial,
+      role: "system",
+      content: initial,
+    },
+  ];
 }
 
-export function useScrollToBottom(messages: any[]) {
+export function useScrollToBottom(messages: Message[]) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const isProgrammaticScrollRef = useRef(false);
@@ -217,7 +138,7 @@ export function useScrollToBottom(messages: any[]) {
   useEffect(() => {
     isUserScrollUpRef.current = false;
     scrollToBottom();
-  }, [messages.filter((m) => m.isTextMessage() && m.role === Role.User).length]);
+  }, [messages.filter((m) => m.role === "user").length]);
 
   return { messagesEndRef, messagesContainerRef };
 }

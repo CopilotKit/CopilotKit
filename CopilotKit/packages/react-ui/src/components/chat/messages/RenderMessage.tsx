@@ -1,10 +1,12 @@
 import { RenderMessageProps } from "../props";
 import { UserMessage as DefaultUserMessage } from "./UserMessage";
 import { AssistantMessage as DefaultAssistantMessage } from "./AssistantMessage";
+import { ImageRenderer as DefaultImageRenderer } from "./ImageRenderer";
 
-export function RenderImageMessage({
+export function RenderMessage({
   UserMessage = DefaultUserMessage,
   AssistantMessage = DefaultAssistantMessage,
+  ImageRenderer = DefaultImageRenderer,
   ...props
 }: RenderMessageProps) {
   const {
@@ -16,49 +18,35 @@ export function RenderImageMessage({
     onCopy,
     onThumbsUp,
     onThumbsDown,
+    markdownTagRenderers,
   } = props;
 
-  if (message.isImageMessage()) {
-    const imageData = `data:${message.format};base64,${message.bytes}`;
-    const imageComponent = (
-      <div className="copilotKitImage">
-        <img
-          src={imageData}
-          alt="User uploaded image"
-          style={{ maxWidth: "100%", maxHeight: "300px", borderRadius: "8px" }}
-        />
-      </div>
-    );
-
-    if (message.role === "user") {
+  switch (message.role) {
+    case "user":
       return (
         <UserMessage
           key={index}
           data-message-role="user"
-          message=""
-          rawData={message}
-          subComponent={imageComponent}
+          message={message}
+          ImageRenderer={ImageRenderer}
         />
       );
-    } else if (message.role === "assistant") {
+    case "assistant":
       return (
         <AssistantMessage
           key={index}
           data-message-role="assistant"
-          message=""
-          rawData={message}
-          subComponent={imageComponent}
-          isLoading={inProgress && isCurrentMessage && !message.bytes}
-          isGenerating={inProgress && isCurrentMessage && !!message.bytes}
+          message={message}
+          isLoading={inProgress && isCurrentMessage && !message.content}
+          isGenerating={inProgress && isCurrentMessage && !!message.content}
           isCurrentMessage={isCurrentMessage}
           onRegenerate={() => onRegenerate?.(message.id)}
           onCopy={onCopy}
           onThumbsUp={onThumbsUp}
           onThumbsDown={onThumbsDown}
+          markdownTagRenderers={markdownTagRenderers}
+          ImageRenderer={ImageRenderer}
         />
       );
-    }
   }
-
-  return null;
 }

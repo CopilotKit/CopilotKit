@@ -1,13 +1,5 @@
-import {
-  CopilotContextParams,
-  extract,
-  CopilotChatSuggestionConfiguration,
-  CopilotMessagesContextParams,
-} from "@copilotkit/react-core";
+import { useCopilotChat } from "@copilotkit/react-core";
 import { SmallSpinnerIcon } from "./Icons";
-import { CopilotChatSuggestion } from "../../types/suggestions";
-import { actionParametersToJsonSchema } from "@copilotkit/shared";
-import { CopilotRequestType } from "@copilotkit/runtime-client-gql";
 
 interface SuggestionsProps {
   title: string;
@@ -18,9 +10,12 @@ interface SuggestionsProps {
 }
 
 export function Suggestion({ title, onClick, partial, className }: SuggestionsProps) {
+  if (!title) return null;
+  const { isLoading } = useCopilotChat();
+
   return (
     <button
-      disabled={partial}
+      disabled={partial || isLoading}
       onClick={(e) => {
         e.preventDefault();
         onClick();
@@ -32,101 +27,3 @@ export function Suggestion({ title, onClick, partial, className }: SuggestionsPr
     </button>
   );
 }
-
-export const reloadSuggestions = async (
-  context: CopilotContextParams & CopilotMessagesContextParams,
-  chatSuggestionConfiguration: { [key: string]: CopilotChatSuggestionConfiguration },
-  setCurrentSuggestions: (suggestions: { title: string; message: string }[]) => void,
-  abortControllerRef: React.MutableRefObject<AbortController | null>,
-) => {
-  const abortController = abortControllerRef.current;
-
-  const tools = JSON.stringify(
-    Object.values(context.actions).map((action) => ({
-      name: action.name,
-      description: action.description,
-      jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters)),
-    })),
-  );
-
-  const allSuggestions: CopilotChatSuggestion[] = [];
-
-  for (const config of Object.values(chatSuggestionConfiguration)) {
-    try {
-      const numOfSuggestionsInstructions =
-        config.minSuggestions === 0
-          ? `Produce up to ${config.maxSuggestions} suggestions. ` +
-            `If there are no highly relevant suggestions you can think of, provide an empty array.`
-          : `Produce between ${config.minSuggestions} and ${config.maxSuggestions} suggestions.`;
-
-      const result = await extract({
-        context,
-        instructions:
-          "Suggest what the user could say next. Provide clear, highly relevant suggestions. Do not literally suggest function calls. ",
-        data:
-          config.instructions +
-          "\n\n" +
-          numOfSuggestionsInstructions +
-          "\n\n" +
-          "Available tools: " +
-          tools +
-          "\n\n",
-        requestType: CopilotRequestType.Task,
-        parameters: [
-          {
-            name: "suggestions",
-            type: "object[]",
-            attributes: [
-              {
-                name: "title",
-                description:
-                  "The title of the suggestion. This is shown as a button and should be short.",
-                type: "string",
-              },
-              {
-                name: "message",
-                description:
-                  "The message to send when the suggestion is clicked. This should be a clear, complete sentence and will be sent as an instruction to the AI.",
-                type: "string",
-              },
-            ],
-          },
-        ],
-        include: {
-          messages: true,
-          readable: true,
-        },
-        abortSignal: abortController?.signal,
-        stream: ({ status, args }) => {
-          const suggestions = args.suggestions || [];
-          const newSuggestions: CopilotChatSuggestion[] = [];
-          for (let i = 0; i < suggestions.length; i++) {
-            // if GPT provides too many suggestions, limit the number of suggestions
-            if (config.maxSuggestions !== undefined && i >= config.maxSuggestions) {
-              break;
-            }
-            const { title, message } = suggestions[i];
-
-            // If this is the last suggestion and the status is not complete, mark it as partial
-            const partial = i == suggestions.length - 1 && status !== "complete";
-
-            newSuggestions.push({
-              title,
-              message,
-              partial,
-              className: config.className,
-            });
-          }
-          setCurrentSuggestions([...allSuggestions, ...newSuggestions]);
-        },
-      });
-      allSuggestions.push(...result.suggestions);
-    } catch (error) {
-      console.error("Error loading suggestions", error);
-    }
-  }
-
-  if (abortControllerRef.current === abortController) {
-    abortControllerRef.current = null;
-  }
-};
