@@ -7,6 +7,7 @@ import { TerminalIcon, RocketIcon } from "lucide-react";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
 import { TopBar } from "@/components/layout/top-bar";
 import { SiLangchain } from "react-icons/si";
+import { AG2Icon } from "@/lib/icons/custom-icons";
 
 export default function Layout({ children }: { children: ReactNode }) {
   return (
@@ -61,6 +62,15 @@ export default function Layout({ children }: { children: ReactNode }) {
                       bgGradient:
                         "bg-gradient-to-b from-[#FA694C] to-[#FE8A71] text-white",
                       selectedStyle: "ring-[#FA694C]/70 ring-2 rounded-sm",
+                    },
+                    {
+                      title: "CoAgents (AG2)",
+                      description: "Documentation for CoAgents with AG2",
+                      url: "/ag2",
+                      icon: <AG2Icon className="w-4 h-4 text-bold" />,
+                      bgGradient:
+                        "bg-gradient-to-b from-indigo-700 to-indigo-400 text-indigo-100",
+                      selectedStyle: "ring-indigo-500/70 ring-2 rounded-sm",
                     },
                   ],
                 },
