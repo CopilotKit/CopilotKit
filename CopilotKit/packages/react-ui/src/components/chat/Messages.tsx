@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { MessagesProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import { Message, ResultMessage, TextMessage, Role } from "@copilotkit/runtime-client-gql";
@@ -43,7 +43,7 @@ export const Messages = ({
     }
   }
 
-  const { messagesEndRef, messagesContainerRef } = useScrollToBottom(messages);
+  const { messagesContainerRef, messagesEndRef } = useScrollToBottom(messages);
 
   const interrupt = useLangGraphInterruptRender();
 
@@ -151,6 +151,7 @@ function makeInitialMessages(initial?: string | string[]): Message[] {
       }),
   );
 }
+
 export function useScrollToBottom(messages: any[]) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
@@ -158,11 +159,9 @@ export function useScrollToBottom(messages: any[]) {
   const isUserScrollUpRef = useRef(false);
 
   const scrollToBottom = () => {
-    if (messagesEndRef.current) {
+    if (messagesContainerRef.current && messagesEndRef.current) {
       isProgrammaticScrollRef.current = true;
-      messagesEndRef.current.scrollIntoView({
-        behavior: "auto",
-      });
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
   };
 
