@@ -29,6 +29,8 @@ Human-in-the-Loop (HITL) adds a layer of human oversight to your AI agents. It a
 
 In this guide, we'll enhance our travel agent from the [Quick Start](/ag2/quickstart/ag2) guide with HITL functionality. The best part? We only need to modify the AG2 backend, no changes to the CopilotKit frontend are required!
 
+You can find the complete code for this example in the [AG2-CopilotKit starter](https://github.com/ag2ai/ag2-copilotkit-starter/blob/main/agent-py/hitl_workflow.py) repository.
+
 **Our travel agent will:**
 
 - Ask for a member ID
@@ -75,7 +77,7 @@ First, we need to set up our project environment:
 - **Reuse the Quick Start project**: This guide builds directly on the [Quick Start](/ag2/quickstart/ag2) example. Begin by completing that setup if you haven't already.
 - **No CopilotKit changes needed**: The HITL implementation only requires changes to the AG2 backend. Your existing CopilotKit frontend will automatically handle the approval UI without any modifications.
 
-Let's start by importing the necessary libraries and setting up the basic structure:
+Let's start by importing the necessary libraries and setting up the basic structure. You can either create the `agent-py/hitl_workflow.py` file from scratch if you wish to follow along, or you can copy the code from the [AG2-CopilotKit starter](https://github.com/ag2ai/ag2-copilotkit-starter/blob/main/agent-py/hitl_workflow.py) repository.
 
 ```python title="agent-py/hitl_workflow.py"
 import os
@@ -314,12 +316,12 @@ def hitl_workflow(ui: UI, params: dict[str, Any]) -> str:
     return ui.process(response)
 
 # Set up FastAPI with the AWP adapter
-def without_student_messages(message: Any) -> bool:
+def without_customer_messages(message: Any) -> bool:
     return not (message.type == "text" and message.content.sender == "customer")
 
 
 adapter = AWPAdapter(
-    provider=wf, wf_name="hitl_workflow", filter=without_student_messages
+    provider=wf, wf_name="hitl_workflow", filter=without_customer_messages
 )
 app = FastAPI()
 app.include_router(adapter.router)
@@ -369,14 +371,23 @@ When you interact with your travel agent:
 
 This approach ensures sensitive operations like accessing customer data and creating itineraries only happen with explicit human approval.
 
+<Callout type="info">
+Whenever the `travel_agent` wants to call a function, it will send a message in the chat window for approval, For example:
+
+**AG2 wants to invoke tool: lookup_member**
+
+**Replying as `customer`. Provide feedback to `travel_agent`. Answer continue to skip and use auto-reply, or type 'exit' to end the conversation:**
+
+
+In such cases, you can type **continue** to approve the function call or **exit** to end the conversation.
+</Callout>
+
 <img src="/images/coagents/ag2/hitl-1.png" className="rounded-lg shadow-xl"/>
 <img src="/images/coagents/ag2/hitl-2.png" className="rounded-lg shadow-xl"/>
 
 ## Conclusion
 
 You've successfully enhanced your travel agent with Human-in-the-Loop functionality! By requiring human approval for sensitive operations, you've created a more secure and transparent AI application.
-
-The complete code for this example is available in the [AG2-CopilotKit starter](https://github.com/ag2ai/ag2-copilotkit-starter/blob/main/agent-py/hitl_workflow.py) repository.
 
 ## Next Steps
 
