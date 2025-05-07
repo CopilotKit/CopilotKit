@@ -1,0 +1,150 @@
+---
+title: Quickstart AG2 Agents
+description: Turn your AG2 Agents into an agent-native application in 5 minutes.
+icon: "custom/ag2"
+---
+
+import {
+  TailoredContent,
+  TailoredContentOption,
+} from "@/components/react/tailored-content.tsx";
+import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
+import { CoAgentsDiagram } from "@/components/react/coagents/coagents-diagram.tsx";
+import { FaPython, FaJs, FaCloud } from "react-icons/fa";
+import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
+import CopilotCloudConfigureRemoteEndpointLangGraph from "@/snippets/copilot-cloud-configure-remote-endpoint-langgraph.mdx";
+import CopilotKitCloudCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
+import LangGraphPlatformDeploymentTabs from "@/snippets/langgraph-platform-deployment-tabs.mdx";
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import FindYourCopilotRuntime from "@/snippets/find-your-copilot-runtime.mdx";
+import CloudCopilotKitProvider from "@/snippets/coagents/cloud-configure-copilotkit-provider.mdx";
+import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/coagents/self-host-configure-copilotkit-provider.mdx";
+import SelfHostingCopilotRuntimeLangGraphEndpoint from "@/snippets/self-hosting-copilot-runtime-langgraph-endpoint.mdx";
+import SelfHostingCopilotRuntimeStarter from "@/snippets/self-hosting-copilot-runtime-starter.mdx";
+import SelfHostingRemoteEndpoints from "@/snippets/self-hosting-remote-endpoints.mdx";
+import {
+  UserIcon,
+  PaintbrushIcon,
+  WrenchIcon,
+  RepeatIcon,
+  ServerIcon,
+} from "lucide-react";
+import CopilotUI from "@/snippets/copilot-ui.mdx";
+
+<video
+  src="/images/coagents/chat-example.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
+
+## Introduction
+
+This quickstart guide shows how to create a simple **Personalized Travel Planner** using AG2 and CopilotKit. In just minutes, you'll build an application that collects user travel preferences and generates custom day-by-day itineraries tailored to their destination, budget, and interests.
+
+## Prerequisites
+
+Before you begin, you'll need the following:
+
+- **Python 3.9** or newer for running the AG2 backend
+- <a href="https://nodejs.org/en/download" target="_blank">Node.js</a> 18.18.0 or newer (specifically: ^18.18.0 || ^19.8.0 || >= 20.0.0)
+- <a href="https://pnpm.io/installation" target="_blank">pnpm</a> (for package management)
+- <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI API key</a>
+
+## Getting started
+
+<Steps>
+    <Step>
+        ### Clone the Starter Repository
+
+        <Tabs groupId="language" items={["Python"]}>
+            <Tab value="Python">
+                ```bash
+                git clone https://github.com/ag2ai/ag2-copilotkit-starter.git
+                cd ag2-copilotkit-starter
+                ```
+            </Tab>
+        </Tabs>
+    </Step>
+    <Step>
+        ### Set Up the AG2 Backend
+
+        <Callout type="info">
+            We recommend using a virtual environment for your project to keep your packages contained. See <a href="https://docs.python.org/3/library/venv.html" target="_blank">venv</a>.
+        </Callout>
+
+        #### Install the dependencies and set your `OPENAI_API_KEY`:
+
+        ```bash
+        cd agent-py
+        pip install -r requirements.txt
+        ```
+
+        #### Set up your `OPENAI_API_KEY`:
+
+        ```sh
+        export OPENAI_API_KEY="your_openai_api_key"
+        ```
+
+        #### Launch your AG2 agent:
+
+        ```bash
+        uvicorn simple_workflow:app --port 8008 --reload
+        ```
+        The backend server will start at http://localhost:8008.
+    </Step>
+    <Step>
+        ### Set Up the CopilotKit UI
+        
+        The last step is to use CopilotKit's UI components to render the chat interaction with your agent.
+
+        In a new terminal:
+
+        ```bash
+        cd ui
+        pnpm i
+        pnpm run dev
+        ```
+
+        The frontend application will start at http://localhost:3000.
+    </Step>
+    <Step>
+        ### 🎉 Talk to your agent!
+
+        Congrats! You've successfully integrated a AG2 Agent chatbot to your application. To start, try asking a few questions to your agent.
+
+        ```
+        I plan to visit the USA for 4 days on a budget.
+        ```
+
+        ```
+        I want to plan a trip to Paris for 5 days. I have a mid-range budget and I'm interested in art, history, and food.
+        ```
+
+        ```
+        I'd like a luxury weekend in New York with focus on Broadway shows and fine dining.
+        ```
+
+        <img src="/images/coagents/ag2/quick-start-1.png" className="rounded-lg shadow-xl"/>
+        <img src="/images/coagents/ag2/quick-start-2.png" className="rounded-lg shadow-xl"/>
+    </Step>
+
+</Steps>
+
+---
+
+## What's next?
+
+You've now got a simple Personalized Travel Planner running with CopilotKit! This demonstrates how quickly you can build practical AI applications by combining AG2's conversational capabilities with CopilotKit's user interface components.
+
+<Cards>
+  <Card
+    title="Implement Human in the Loop"
+    description="Allow your users and agents to collaborate together on tasks."
+    href="/ag2/human-in-the-loop"
+    icon={<UserIcon />}
+  />
+</Cards>
