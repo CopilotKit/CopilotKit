@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.8.11-next.1
+
+### Patch Changes
+
+- 52d0bb5: - fix: do not attempt to hash lgc key if it doesnt exist
+  - fix: accept null on langsmith api key
+  - @copilotkit/shared@1.8.11-next.1
+
 ## 1.8.11-next.0
 
 ### Patch Changes

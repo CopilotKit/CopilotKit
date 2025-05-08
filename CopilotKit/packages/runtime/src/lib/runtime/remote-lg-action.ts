@@ -214,9 +214,11 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     provider?: string;
     langGraphHost?: string;
     langGraphVersion?: string;
-    hashedLgcKey: string;
+    hashedLgcKey?: string | null;
   } = {
-    hashedLgcKey: createHash("sha256").update(langsmithApiKey).digest("hex"),
+    hashedLgcKey: langsmithApiKey
+      ? createHash("sha256").update(langsmithApiKey).digest("hex")
+      : null,
   };
 
   const assistants = await client.assistants.search();
