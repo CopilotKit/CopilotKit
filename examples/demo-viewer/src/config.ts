@@ -6,7 +6,7 @@ import { ComponentType } from "react";
 type FilesJsonType = Record<string, { files: { name: string; content: string; path: string; language: string; type: string; }[] }>;
 
 export const AGENT_TYPE = process.env.NEXT_PUBLIC_AGENT_TYPE || 'crewai';
-
+export const APP_TYPE = process.env.NEXT_PUBLIC_APP_TYPE || 'specific';
 // A helper method to creating a config
 function createDemoConfig({
   id,
@@ -122,6 +122,12 @@ const config: DemoConfig[] = [
       "Use collaboration to edit a document in real time with your Copilot",
     tags: ["State", "Streaming", "Tools"],
   }),
+  createDemoConfig({
+    id: "standard_agentic_chat",
+    name: "Agentic Chat",
+    description: "Chat with your Copilot and call frontend tools",
+    tags: ["Chat", "Tools", "Streaming"],
+  })
   // TODO: Re-enable after revisiting demo
   // createDemoConfig({
   //     id: 'multi_agent_flows',
