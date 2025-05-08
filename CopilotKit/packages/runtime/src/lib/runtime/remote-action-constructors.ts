@@ -53,7 +53,9 @@ export function constructLGCRemoteAction({
         agentExecution: true,
         type: "langgraph-platform",
         agentsAmount: endpoint.agents.length,
-        hashedLgcKey: createHash("sha256").update(endpoint.langsmithApiKey).digest("hex"),
+        hashedLgcKey: endpoint.langsmithApiKey
+          ? createHash("sha256").update(endpoint.langsmithApiKey).digest("hex")
+          : null,
       });
 
       let state = {};

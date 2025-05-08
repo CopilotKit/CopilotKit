@@ -14,14 +14,15 @@ import {
   useCopilotAction,
   useCopilotChat,
 } from "@copilotkit/react-core";
-import { CopilotSidebar } from "@copilotkit/react-ui";
-
+import { CopilotSidebar, useCopilotChatSuggestions } from "@copilotkit/react-ui";
+import { initialPrompt, chatSuggestions } from "@/lib/prompts";
 const extensions = [StarterKit];
 
 export default function PredictiveStateUpdates() {
   return (
     <CopilotKit
-      publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_API_KEY}
+      // publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_API_KEY}
+      runtimeUrl="/api/copilotkit"
       showDevConsole={false}
       agent="predictive_state_updates"
     >
@@ -38,7 +39,7 @@ export default function PredictiveStateUpdates() {
           defaultOpen={true}
           labels={{
             title: "AI Document Editor",
-            initial: "Hi 👋 How can I help with your document?",
+            initial: initialPrompt.predictiveStateUpdates,
           }}
           clickOutsideToClose={false}
         >
@@ -187,6 +188,10 @@ const DocumentEditor = () => {
       );
     },
   });
+
+  useCopilotChatSuggestions({
+    instructions: chatSuggestions.predictiveStateUpdates,
+  })
 
   return (
     <div className="relative min-h-screen w-full">
