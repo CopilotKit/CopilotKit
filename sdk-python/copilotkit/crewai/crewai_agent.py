@@ -5,9 +5,9 @@ CrewAI Agent
 import uuid
 import json
 from copy import deepcopy
-from pydantic import BaseModel
 from typing import Optional, List, Callable
 from typing_extensions import TypedDict, NotRequired, Any, Dict, cast
+from pydantic import BaseModel
 from crewai import Crew, Flow
 from crewai.flow import start
 from crewai.cli.crew_chat import (
@@ -25,7 +25,7 @@ from copilotkit.protocol import (
   emit_runtime_events,
   agent_state_message,
 )
-from .crewai_sdk import (
+from copilotkit.crewai.crewai_sdk import (
   copilotkit_messages_to_crewai_flow,
   crewai_flow_messages_to_copilotkit,
   crewai_flow_async_runner,
