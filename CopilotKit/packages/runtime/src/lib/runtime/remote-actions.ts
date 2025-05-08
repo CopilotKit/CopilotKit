@@ -47,7 +47,7 @@ export interface LangGraphPlatformAgent {
 export interface LangGraphPlatformEndpoint
   extends BaseEndpointDefinition<EndpointType.LangGraphPlatform> {
   deploymentUrl: string;
-  langsmithApiKey?: string;
+  langsmithApiKey?: string | null;
   agents: LangGraphPlatformAgent[];
 }
 
