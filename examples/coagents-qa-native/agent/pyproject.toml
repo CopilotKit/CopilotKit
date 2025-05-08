@@ -16,7 +16,8 @@ dependencies = [
   "langchain",
   "openai",
   "langchain-community",
-  "copilotkit==0.1.35a3"
+  "copilotkit==0.1.44",
+  "crewai>=0.114.0"
 ]
 
 [build-system]
@@ -27,7 +28,7 @@ build-backend = "setuptools.build_meta"
 python = ">=3.12,<3.13"
 langchain-openai = "0.2.3"
 langchain-anthropic = "0.2.3"
-langchain-google-genai = "2.0.0"
+langchain-google-genai = "2.0.5"
 langchain = "0.3.4"
 openai = "^1.52.1"
 langchain-community = "^0.3.1"
@@ -37,7 +38,7 @@ uvicorn = "^0.31.0"
 python-dotenv = "^1.0.1"
 langchain-core = "^0.3.25"
 langgraph-cli = {extras = ["inmem"], version = "^0.1.64"}
-crewai = {extras = ["tools"], version = "^0.102.0"}
+crewai = {extras = ["tools"], version = "^0.114.0"}
 
 [tool.poetry.scripts]
 demo = "email_agent.demo:main"
