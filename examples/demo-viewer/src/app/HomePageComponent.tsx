@@ -36,7 +36,6 @@ interface HomePageProps {
 export default function Home({ defaultDemoId }: HomePageProps = {}) {
   // Get the framework type from environment variable
   const params = useParams();
-  console.log("params : ", params);
   const currentFramework = params.framework || 'crewai'; // Default to crewai if not set
   // Initialize state with defaultDemoId
   const [selectedDemoId, setSelectedDemoId] = useState<string | undefined>(defaultDemoId);

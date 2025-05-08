@@ -127,7 +127,14 @@ const config: DemoConfig[] = [
     name: "Agentic Chat",
     description: "Chat with your Copilot and call frontend tools",
     tags: ["Chat", "Tools", "Streaming"],
-  })
+  }),
+  createDemoConfig({
+    id: "standard_predictive_state_updates",
+    name: "Predictive State Updates",
+    description:
+      "Use collaboration to edit a document in real time with your Copilot",
+    tags: ["State", "Streaming", "Tools"],
+  }),
   // TODO: Re-enable after revisiting demo
   // createDemoConfig({
   //     id: 'multi_agent_flows',
