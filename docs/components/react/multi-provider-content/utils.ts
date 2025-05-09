@@ -25,7 +25,12 @@ export const quickStartProviders: ProvidersConfig = {
         extraImports: `
             import OpenAI from 'openai';
         `,
-        clientSetup: `const openai = new OpenAI({
+        clientSetup: `
+const apiKey = process.env["AZURE_OPENAI_API_KEY"];
+if (!apiKey) {
+  throw new Error("The AZURE_OPENAI_API_KEY environment variable is missing or empty.");
+}
+const openai = new OpenAI({
   apiKey: process.env.AZURE_OPENAI_API_KEY,
   baseURL: 'https://<your instance name>.openai.azure.com/openai/deployments/<your model>',
   defaultQuery: { "api-version": "2024-04-01-preview" },
