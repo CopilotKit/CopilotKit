@@ -5,10 +5,9 @@ It defines the workflow graph, state, tools, nodes and edges.
 
 import json
 from typing_extensions import Literal
-from typing import Any, Dict, Optional, Union, List
+from typing import Any, Dict, Optional, Union
 from pydantic import BaseModel
 from litellm import completion
-from crewai import LLM
 from crewai.flow.flow import Flow, start, router, listen
 from crewai.flow.persistence import persist
 from crewai.flow.persistence.base import FlowPersistence
@@ -363,41 +362,6 @@ class SampleAgentFlow(Flow[AgentState]):
         """
         system_prompt = f"You are a helpful assistant. Talk in {self.state.language}."
 
-        llm = LLM(
-             # 1.1 Specify the model to use
-            model="openai/gpt-4o",
-
-            # 1.2 Disable parallel tool calls to avoid race conditions,
-            #     enable this for faster performance if you want to manage
-            #     the complexity of running tool calls in parallel.
-            parallel_tool_calls=False,
-
-            # 1.3 Stream the response
-            stream=True
-        )
-
-        # response_llm_call = llm.call(
-        #     messages=[
-        #         {
-        #             "role": "system", 
-        #             "content": system_prompt
-        #         },
-        #         *self.state.messages
-        #     ],
-
-        #     # 1.4 Bind the tools to the model
-        #     tools=[
-        #         *self.state.copilotkit.actions,
-        #         GET_WEATHER_TOOL
-        #     ]
-        # )
-
-        # print("Response LLM Call: ", type(response_llm_call))
-
-
-        # 1. Run the model and stream the response
-        #    Note: In order to stream the response, wrap the completion call in
-        #    copilotkit_stream and set stream=True.
         response = await copilotkit_stream(
             completion(
 

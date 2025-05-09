@@ -14,7 +14,7 @@ dependencies = [
     "langchain",
     "openai",
     "langchain-community",
-    "copilotkit",
+    "copilotkit @ file:///Users/suhasdeshpande/code/CopilotKit/sdk-python",
     "uvicorn",
     "python-dotenv",
     "langchain-core",
@@ -38,6 +38,7 @@ python-dotenv = "^1.0.1"
 langchain-core = "^0.3.25"
 langgraph-cli = {extras = ["inmem"], version = "^0.1.64"}
 crewai = "^0.118.0"
+copilotkit = {develop = true}
 
 [tool.poetry.scripts]
 demo = "sample_agent.demo:main"
