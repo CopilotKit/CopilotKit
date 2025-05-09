@@ -220,7 +220,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   let prevNodeName = null;
   let emitIntermediateStateUntilEnd = null;
   let shouldExit = false;
-  let externalRunId = null;
+  let runId = null;
   let latestStateValues = {};
   let updatedState = state;
   // If a manual emittance happens, it is the ultimate source of truth of state, unless a node has exited.
@@ -252,34 +252,11 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       const interruptEvents = chunk.data.__interrupt__;
       if (interruptEvents?.length) {
         activeInterruptEvent = true;
-        const interruptValue = interruptEvents?.[0].value;
-        if (
-          typeof interruptValue != "string" &&
-          "__copilotkit_interrupt_value__" in interruptValue
-        ) {
-          const evValue = interruptValue.__copilotkit_interrupt_value__;
-          emit(
-            JSON.stringify({
-              event: LangGraphEventTypes.OnCopilotKitInterrupt,
-              data: {
-                value: typeof evValue === "string" ? evValue : JSON.stringify(evValue),
-                messages: langchainMessagesToCopilotKit(interruptValue.__copilotkit_messages__),
-              },
-            }) + "\n",
-          );
-        } else {
-          emit(
-            JSON.stringify({
-              event: LangGraphEventTypes.OnInterrupt,
-              value:
-                typeof interruptValue === "string"
-                  ? interruptValue
-                  : JSON.stringify(interruptValue),
-            }) + "\n",
-          );
-        }
+        const emittableInterruptEvent = getEmittableInterruptEvent(interruptEvents);
+        emit(JSON.stringify(emittableInterruptEvent) + "\n");
         continue;
       }
+
       if (streamResponseChunk.event === "updates") continue;
 
       if (streamResponseChunk.event === "values") {
@@ -290,9 +267,9 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       const chunkData = chunk.data;
       const currentNodeName = chunkData.metadata.langgraph_node;
       const eventType = chunkData.event;
-      const runId = chunkData.metadata.run_id;
-      externalRunId = runId;
       const metadata = chunkData.metadata;
+      runId = chunkData.metadata.run_id;
+
       if (chunkData.data?.output?.model != null && chunkData.data?.output?.model != "") {
         streamInfo.provider = chunkData.data?.output?.model;
       }
@@ -309,9 +286,6 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
           chunkData.name === CustomEventNames.CopilotKitExit);
 
       const emitIntermediateState = metadata["copilotkit:emit-intermediate-state"];
-      const manuallyEmitIntermediateState =
-        eventType === LangGraphEventTypes.OnCustomEvent &&
-        chunkData.name === CustomEventNames.CopilotKitManuallyEmitIntermediateState;
 
       const exitingNode =
         nodeName === currentNodeName && eventType === LangGraphEventTypes.OnChainEnd;
@@ -333,7 +307,10 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
         continue;
       }
 
-      if (manuallyEmitIntermediateState) {
+      if (
+        eventType === LangGraphEventTypes.OnCustomEvent &&
+        chunkData.name === CustomEventNames.CopilotKitManuallyEmitIntermediateState
+      ) {
         // See manuallyEmittedState for explanation
         manuallyEmittedState = chunkData.data;
         emit(
@@ -414,7 +391,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     emit(
       getStateSyncEvent({
         threadId,
-        runId: externalRunId,
+        runId,
         agentName: agent.name,
         nodeName: isEndNode ? "__end__" : nodeName,
         state: state.values,
@@ -961,4 +938,23 @@ async function mergeConfigs({
       config: newConfig,
     });
   }
+}
+
+function getEmittableInterruptEvent(interruptEvents: { value: any }[]) {
+  const interruptValue = interruptEvents[0].value;
+  if (typeof interruptValue != "string" && "__copilotkit_interrupt_value__" in interruptValue) {
+    const evValue = interruptValue.__copilotkit_interrupt_value__;
+    return {
+      event: LangGraphEventTypes.OnCopilotKitInterrupt,
+      data: {
+        value: typeof evValue === "string" ? evValue : JSON.stringify(evValue),
+        messages: langchainMessagesToCopilotKit(interruptValue.__copilotkit_messages__),
+      },
+    };
+  }
+
+  return {
+    event: LangGraphEventTypes.OnInterrupt,
+    value: typeof interruptValue === "string" ? interruptValue : JSON.stringify(interruptValue),
+  };
 }
