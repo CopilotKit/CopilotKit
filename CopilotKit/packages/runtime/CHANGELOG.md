@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.8.12-next.1
+
+### Patch Changes
+
+- 54838cb: - feat: allow keeping system role for openai adapters
+  - @copilotkit/shared@1.8.12-next.1
+
 ## 1.8.12-next.0
 
 ### Patch Changes
