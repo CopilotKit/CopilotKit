@@ -9,11 +9,11 @@ This example contains a simple starter project.
 First, install the dependencies:
 
 ```sh
-cd agent
+cd agent-py
 poetry install
 ```
 
-Then, create a `.env` file inside `./agent` with the following:
+Then, create a `.env` file inside `./agent-py` with the following:
 
 ```
 OPENAI_API_KEY=...
@@ -58,4 +58,4 @@ Navigate to [http://localhost:3000](http://localhost:3000).
 A few things to try if you are running into trouble:
 
 1. Make sure there is no other local application server running on the 8000 port.
-2. Under `/agent/greeter/demo.py`, change `0.0.0.0` to `127.0.0.1` or to `localhost`
+2. Under `/agent-py/research/demo.py`, change `0.0.0.0` to `127.0.0.1` or to `localhost`
