@@ -31,7 +31,7 @@ import {
 
 import { randomId, randomUUID } from "@copilotkit/shared";
 
-const DEFAULT_MODEL = "claude-3-sonnet-20240229";
+const DEFAULT_MODEL = "claude-3-5-sonnet-latest";
 
 export interface AnthropicAdapterParams {
   /**
