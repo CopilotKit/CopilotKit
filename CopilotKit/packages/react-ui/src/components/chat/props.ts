@@ -123,8 +123,8 @@ export interface RenderMessageProps {
   index: number;
   isCurrentMessage: boolean;
   actionResult?: string;
-  AssistantMessage?: React.ComponentType<AssistantMessageProps>;
-  UserMessage?: React.ComponentType<UserMessageProps>;
+  AssistantMessage: React.ComponentType<AssistantMessageProps>;
+  UserMessage: React.ComponentType<UserMessageProps>;
 
   /**
    * Callback function to regenerate the assistant's response

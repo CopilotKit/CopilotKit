@@ -1,13 +1,9 @@
 import { RenderMessageProps } from "../props";
 import { CoagentInChatRenderFunction, useCopilotContext } from "@copilotkit/react-core";
-import { AssistantMessage as DefaultAssistantMessage } from "./AssistantMessage";
 
-export function RenderAgentStateMessage({
-  AssistantMessage = DefaultAssistantMessage,
-  ...props
-}: RenderMessageProps) {
+export function RenderAgentStateMessage(props: RenderMessageProps) {
   const { chatComponentsCache } = useCopilotContext();
-  const { message, inProgress, index, isCurrentMessage } = props;
+  const { message, inProgress, index, isCurrentMessage, AssistantMessage } = props;
 
   if (message.isAgentStateMessage()) {
     let render: string | CoagentInChatRenderFunction | undefined;

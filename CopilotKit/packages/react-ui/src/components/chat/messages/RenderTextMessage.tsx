@@ -1,17 +1,13 @@
 import { RenderMessageProps } from "../props";
-import { UserMessage as DefaultUserMessage } from "./UserMessage";
-import { AssistantMessage as DefaultAssistantMessage } from "./AssistantMessage";
 
-export function RenderTextMessage({
-  UserMessage = DefaultUserMessage,
-  AssistantMessage = DefaultAssistantMessage,
-  ...props
-}: RenderMessageProps) {
+export function RenderTextMessage(props: RenderMessageProps) {
   const {
     message,
     inProgress,
     index,
     isCurrentMessage,
+    UserMessage,
+    AssistantMessage,
     onRegenerate,
     onCopy,
     onThumbsUp,
