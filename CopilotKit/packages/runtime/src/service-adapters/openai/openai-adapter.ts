@@ -84,6 +84,14 @@ export interface OpenAIAdapterParams {
    * @default false
    */
   disableParallelToolCalls?: boolean;
+
+  /**
+   * Whether to keep the role in system messages as "System".
+   * By default, it is converted to "developer", which is used by newer OpenAI models
+   *
+   * @default false
+   */
+  keepSystemRole?: boolean;
 }
 
 export class OpenAIAdapter implements CopilotServiceAdapter {
@@ -91,6 +99,8 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
 
   private disableParallelToolCalls: boolean = false;
   private _openai: OpenAI;
+  private keepSystemRole: boolean = false;
+
   public get openai(): OpenAI {
     return this._openai;
   }
@@ -101,6 +111,7 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
       this.model = params.model;
     }
     this.disableParallelToolCalls = params?.disableParallelToolCalls || false;
+    this.keepSystemRole = params?.keepSystemRole ?? false;
   }
 
   async process(
@@ -117,7 +128,9 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
     const tools = actions.map(convertActionInputToOpenAITool);
     const threadId = threadIdFromRequest ?? randomUUID();
 
-    let openaiMessages = messages.map((m) => convertMessageToOpenAIMessage(m));
+    let openaiMessages = messages.map((m) =>
+      convertMessageToOpenAIMessage(m, { keepSystemRole: this.keepSystemRole }),
+    );
     openaiMessages = limitMessagesToTokenCount(openaiMessages, tools, model);
 
     let toolChoice: any = forwardedParameters?.toolChoice;
