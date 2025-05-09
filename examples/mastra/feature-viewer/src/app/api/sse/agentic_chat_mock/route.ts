@@ -13,8 +13,8 @@ import {
   ToolCallArgsEvent,
   MessagesSnapshotEvent,
   Message,
-} from "@agentwire/core";
-import { EventEncoder } from "@agentwire/encoder";
+} from "@ag-ui/core";
+import { EventEncoder } from "@ag-ui/encoder";
 
 // Mock BaseEvent stream for demonstrative purposes
 export async function POST(req: Request) {

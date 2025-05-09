@@ -6,8 +6,8 @@ import {
   RunFinishedEvent,
   StateSnapshotEvent,
   StateDeltaEvent,
-} from "@agentwire/core";
-import { EventEncoder } from "@agentwire/encoder";
+} from "@ag-ui/core";
+import { EventEncoder } from "@ag-ui/encoder";
 import * as jsonPatch from "fast-json-patch";
 
 // Mock BaseEvent stream for demonstrative purposes
