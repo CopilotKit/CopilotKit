@@ -94,7 +94,7 @@ export const quickStartProviders: ProvidersConfig = {
 });
         `,
         adapterSetup: `
-        new OpenAIAssistantAdapter({
+        const serviceAdapter = new OpenAIAssistantAdapter({
   openai,
   assistantId: "<your-assistant-id>",
   codeInterpreterEnabled: true,
