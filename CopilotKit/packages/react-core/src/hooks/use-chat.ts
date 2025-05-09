@@ -556,8 +556,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               message.status.code !== MessageStatusCode.Pending
             ) {
               lastMessages.unshift(message);
-            } else if (!message.isAgentStateMessage()) {
-              break;
             }
           }
 
