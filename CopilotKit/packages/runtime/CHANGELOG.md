@@ -1,5 +1,14 @@
 # @copilotkit/runtime
 
+## 1.8.12-next.0
+
+### Patch Changes
+
+- 2b89ad7: - fix: use latest claude 3.5 as default model instead of specific
+  - chore: add missing variable assignment in llm provider docs
+  - chore: add missing call to fetch azure api key in docs
+  - @copilotkit/shared@1.8.12-next.0
+
 ## 1.8.11
 
 ### Patch Changes
