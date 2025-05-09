@@ -3,7 +3,7 @@
   inset: 0px;
   transform-origin: bottom;
   border-color: rgb(229 231 235);
-  background-color: rgb(255 255 255);
+  background-color: var(--copilot-kit-background-color);
   border-radius: 0.75rem;
   box-shadow: rgba(0, 0, 0, 0.16) 0px 5px 40px;
   flex-direction: column;
