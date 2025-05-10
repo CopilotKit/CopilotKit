@@ -157,7 +157,7 @@ class LangGraphAgent(Agent):
         if agent is not None:
             logger.warning("Warning: agent is deprecated, use graph instead")
 
-        if merge_state is None:
+        if merge_state is not None:
             logger.warning("Warning: merge_state is deprecated, use copilotkit_config instead")
 
         if graph is None and agent is None:
