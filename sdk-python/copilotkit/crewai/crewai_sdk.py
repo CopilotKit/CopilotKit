@@ -16,13 +16,15 @@ from litellm.types.utils import (
 )
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from crewai.flow.flow import FlowState, Flow
-from crewai.flow.flow_events import (
-  Event as CrewAIFlowEvent,
-  FlowStartedEvent,
-  MethodExecutionStartedEvent,
-  MethodExecutionFinishedEvent,
-  FlowFinishedEvent,
+from crewai.utilities.events.flow_events import (
+    FlowEvent as CrewAIFlowEvent,
+    FlowStartedEvent,
+    MethodExecutionStartedEvent,
+    MethodExecutionFinishedEvent,
+    FlowFinishedEvent,
 )
+from crewai.utilities.events import crewai_event_bus as _crewai_event_bus
+
 from copilotkit.types import Message
 from copilotkit.logging import get_logger
 from copilotkit.runloop import queue_put, get_context_execution
@@ -86,23 +88,18 @@ async def crewai_flow_async_runner(flow: Flow, inputs: Dict[str, Any]):
                 state=flow.state
             ), priority=True)
 
-    def crewai_flow_event_subscriber_sync(flow: Any, event: CrewAIFlowEvent):
+    
+    def _global_event_listener(_sender: Any, _event: CrewAIFlowEvent, **_kw):  # noqa: D401
+        # Forward to the async handler inside the flow's loop
         loop = asyncio.get_running_loop()
-        loop.call_soon(lambda: asyncio.create_task(crewai_flow_event_subscriber(flow, event)))
+        loop.call_soon(lambda: asyncio.create_task(crewai_flow_event_subscriber(flow, _event)))
 
-    flow.event_emitter.connect(crewai_flow_event_subscriber_sync)
+    # Register for the specific event classes we care about to avoid noise
+    for _ev_cls in (FlowStartedEvent, MethodExecutionStartedEvent, MethodExecutionFinishedEvent, FlowFinishedEvent):
+            _crewai_event_bus.on(_ev_cls)(_global_event_listener)  # type: ignore
 
     try:
-        flow.event_emitter.send(
-            flow,
-            event=FlowStartedEvent(
-                type="flow_started",
-                flow_name=flow.__class__.__name__,
-            ),
-        )
-
-        flow._initialize_state(inputs) # pylint: disable=protected-access
-        await flow.kickoff_async()
+        await flow.kickoff_async(inputs=inputs)
     except Exception as e: # pylint: disable=broad-except
         await queue_put(RunError(
             type=RuntimeEventTypes.RUN_ERROR,

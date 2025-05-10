@@ -3,7 +3,10 @@ The search node is responsible for searching the internet for information.
 """
 
 import os
-from typing import cast, List
+import json
+import asyncio
+import aiohttp
+from typing import cast, List, Dict, Any
 from pydantic import BaseModel, Field
 from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import AIMessage, ToolMessage, SystemMessage
@@ -23,7 +26,27 @@ class ResourceInput(BaseModel):
 def ExtractResources(resources: List[ResourceInput]): # pylint: disable=invalid-name,unused-argument
     """Extract the 3-5 most relevant resources from a search result."""
 
-tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
+# Initialize Tavily API key
+tavily_api_key = os.getenv("TAVILY_API_KEY")
+tavily_client = TavilyClient(api_key=tavily_api_key)
+
+# Async version of Tavily search that runs the synchronous client in a thread pool
+async def async_tavily_search(query: str) -> Dict[str, Any]:
+    """Asynchronous wrapper for Tavily search API"""
+    loop = asyncio.get_event_loop()
+    try:
+        # Run the synchronous tavily_client.search in a thread pool
+        return await loop.run_in_executor(
+            None, 
+            lambda: tavily_client.search(
+                query=query,
+                search_depth="advanced",
+                include_answer=True,
+                max_results=10
+            )
+        )
+    except Exception as e:
+        raise Exception(f"Tavily search failed: {str(e)}")
 
 async def search_node(state: AgentState, config: RunnableConfig):
     """
@@ -46,9 +69,17 @@ async def search_node(state: AgentState, config: RunnableConfig):
 
     search_results = []
 
-    for i, query in enumerate(queries):
-        response = tavily_client.search(query)
-        search_results.append(response)
+    # Use asyncio.gather to run multiple searches in parallel
+    tasks = [async_tavily_search(query) for query in queries]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    for i, result in enumerate(results):
+        if isinstance(result, Exception):
+            # Handle exceptions
+            search_results.append({"error": str(result)})
+        else:
+            search_results.append(result)
+        
         state["logs"][i]["done"] = True
         await copilotkit_emit_state(config, state)
 

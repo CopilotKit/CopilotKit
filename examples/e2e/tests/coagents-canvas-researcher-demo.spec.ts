@@ -44,7 +44,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
 
           if (config.lgcPythonDeploymentUrl) {
             groups["LGC Python in-memory"] = nonCloudVariants
-              .filter(v => v.name !== "CrewAI")
+              .filter((v) => v.name !== "CrewAI")
               .map((variant) => ({
                 ...variant,
                 name: `${variant.name} (LGC Python in-memory)`,
@@ -54,7 +54,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
 
           if (config.lgcJSDeploymentUrl) {
             groups["LGC JS in-memory"] = nonCloudVariants
-              .filter(v => v.name !== "CrewAI")
+              .filter((v) => v.name !== "CrewAI")
               .map((variant) => ({
                 ...variant,
                 name: `${variant.name} (LGC JS in-memory)`,

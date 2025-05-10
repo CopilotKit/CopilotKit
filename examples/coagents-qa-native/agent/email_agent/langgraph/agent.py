@@ -1,9 +1,9 @@
 """Test Q&A Agent"""
 
 from typing import Any, cast
+import os
 
 from langgraph.graph import StateGraph, END # pylint: disable=no-name-in-module, import-error
-from langgraph.checkpoint.memory import MemorySaver # pylint: disable=no-name-in-module, import-error
 from langgraph.types import interrupt # pylint: disable=no-name-in-module, import-error
 from langchain_core.runnables import RunnableConfig 
 from langchain_core.messages import HumanMessage, ToolMessage, AIMessage
@@ -97,5 +97,18 @@ workflow.add_node("send_email_node", send_email_node)
 workflow.set_entry_point("email_node")
 workflow.add_edge("email_node", "send_email_node")
 workflow.add_edge("send_email_node", END)
-memory = MemorySaver()
-graph = workflow.compile(checkpointer=memory, interrupt_after=["email_node"])
+
+# Conditionally use a checkpointer based on the environment
+# This allows compatibility with both LangGraph API and CopilotKit
+compile_kwargs = {"interrupt_after": ["email_node"]}
+
+# Check if we're running in LangGraph API mode
+if os.environ.get("LANGGRAPH_API", "false").lower() == "true":
+    # When running in LangGraph API, don't use a custom checkpointer
+    graph = workflow.compile(**compile_kwargs)
+else:
+    # For CopilotKit and other contexts, use MemorySaver
+    from langgraph.checkpoint.memory import MemorySaver
+    memory = MemorySaver()
+    compile_kwargs["checkpointer"] = memory
+    graph = workflow.compile(**compile_kwargs)
