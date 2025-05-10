@@ -243,11 +243,11 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
         initialValue={initialValue}
         onChange={(value) => {
           const newEditorState = getTextAroundCollapsedCursor(editor);
-          
+
           const fullEditorText = newEditorState
-          ? newEditorState.textBeforeCursor + newEditorState.textAfterCursor
-          : getFullEditorTextWithNewlines(editor);
-          
+            ? newEditorState.textBeforeCursor + newEditorState.textAfterCursor
+            : getFullEditorTextWithNewlines(editor); // we don't double-parse the editor. When `newEditorState` is null, we didn't parse the editor yet.
+
           setLastKnownFullEditorText((prev) => {
             if (prev !== fullEditorText) {
               setCursorMovedSinceLastTextChange(false);

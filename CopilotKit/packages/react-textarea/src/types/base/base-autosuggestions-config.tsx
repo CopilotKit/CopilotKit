@@ -1,5 +1,6 @@
 import { BaseCopilotTextareaApiConfig } from "./autosuggestions-bare-function";
 import { defaultCopilotContextCategories } from "@copilotkit/react-core";
+import { isMacOS } from "@copilotkit/shared";
 
 /**
  * @interface BaseAutosuggestionsConfig
@@ -79,8 +80,7 @@ const defaultShouldToggleHoveringEditorOnKeyPress = (
   event: React.KeyboardEvent<HTMLDivElement>,
   shortcut: string,
 ) => {
-  const isMac = navigator.userAgent.includes("Mac");  
-  const isMetaKey = isMac ? event.metaKey : event.ctrlKey;
+  const isMetaKey = isMacOS() ? event.metaKey : event.ctrlKey;
   
   // if command-k, toggle the hovering editor
   return event.key === shortcut && isMetaKey;
