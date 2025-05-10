@@ -1,5 +1,14 @@
 # ui
 
+## 1.8.12-next.2
+
+### Patch Changes
+
+- 33ba021: - partial revert of potentially breaking check
+  - wip
+  - @copilotkit/runtime-client-gql@1.8.12-next.2
+  - @copilotkit/shared@1.8.12-next.2
+
 ## 1.8.12-next.1
 
 ### Patch Changes
