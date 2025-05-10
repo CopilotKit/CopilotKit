@@ -177,9 +177,6 @@ export const HoveringInsertionPromptBoxCore = ({
             } else if (e.key === "Enter") {
               e.preventDefault();
               beginGeneratingAdjustment();
-            } else if (e.key == "Escape") {
-              e.preventDefault();
-              setIsDisplayed(false);
             }
           }}
           placeholder={placeholder}

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Editor, Location, Transforms } from "slate";
-import { useSlate, useSlateSelection } from "slate-react";
+import { useSlate, useSlateSelection, ReactEditor } from "slate-react";
 import { HoveringInsertionPromptBox } from "./text-insertion-prompt-box";
 import { Menu, Portal } from "./hovering-toolbar-components";
 import { useHoveringEditorContext } from "./hovering-editor-provider";
@@ -86,18 +86,38 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
     el.style.left = `${left}px`;
   });
 
+  // Close the window when clicking outside or pressing escape
   useEffect(() => {
+    const doc = ref.current?.ownerDocument;
+
+    if (!doc || !isDisplayed) {
+      return;
+    }
+
     const handleClickOutside = (event: MouseEvent) => {
       if (ref.current && !ref.current.contains(event.target as Node)) {
+        // Restore focus to the editor when closing
+        ReactEditor.focus(editor);
         setIsDisplayed(false);
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        ReactEditor.focus(editor);
+        setIsDisplayed(false);
+      }
     };
-  }, [ref, setIsDisplayed]);
+
+    doc.addEventListener("mousedown", handleClickOutside);
+    doc.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      doc.removeEventListener("mousedown", handleClickOutside);
+      doc.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [ref, setIsDisplayed, isDisplayed, editor]);
 
   if (!isClient) {
     return null;
@@ -114,25 +134,22 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
         }
         data-testid="hovering-toolbar"
       >
-        {isDisplayed && selection && (
-          <HoveringInsertionPromptBox
-            editorState={editorState(editor, selection)}
-            apiConfig={props.apiConfig}
-            closeWindow={() => {
-              setIsDisplayed(false);
-            }}
-            performInsertion={(insertedText) => {
-              // replace the selection with the inserted text
-              Transforms.delete(editor, { at: selection });
-              Transforms.insertText(editor, insertedText, {
-                at: selection,
-              });
-              setIsDisplayed(false);
-            }}
-            contextCategories={props.contextCategories}
-          />
-        )}
-      </Menu>
+      { isDisplayed && selection ? (
+        <HoveringInsertionPromptBox
+          editorState={editorState(editor, selection)}
+          apiConfig={props.apiConfig}
+          performInsertion={(insertedText) => {
+            // replace the selection with the inserted text
+            Transforms.delete(editor, { at: selection });
+            Transforms.insertText(editor, insertedText, {
+              at: selection,
+            });
+            setIsDisplayed(false);
+          }}
+          contextCategories={props.contextCategories}
+        />
+      ) : null}
+    </Menu>
     </Portal>
   );
 };
