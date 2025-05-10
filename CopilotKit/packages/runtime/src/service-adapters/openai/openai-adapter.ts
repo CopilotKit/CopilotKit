@@ -128,7 +128,39 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
     const tools = actions.map(convertActionInputToOpenAITool);
     const threadId = threadIdFromRequest ?? randomUUID();
 
-    let openaiMessages = messages.map((m) =>
+    // WHITELIST APPROACH: Only include tool_result messages that correspond to valid tool_calls
+    // Step 1: Extract valid tool_call IDs
+    const validToolUseIds = new Set<string>();
+
+    for (const message of messages) {
+      if (message.isActionExecutionMessage()) {
+        validToolUseIds.add(message.id);
+      }
+    }
+
+    console.log(`[OpenAI] Found ${validToolUseIds.size} valid tool_call IDs`);
+
+    // Step 2: Filter messages, keeping only those with valid tool_call IDs
+    const filteredMessages = messages.filter((message) => {
+      if (message.isResultMessage()) {
+        // Skip if there's no corresponding tool_call
+        if (!validToolUseIds.has(message.actionExecutionId)) {
+          console.log(
+            `[OpenAI] Skipping tool_result with invalid tool_call_id: ${message.actionExecutionId}`,
+          );
+          return false;
+        }
+
+        // Remove this ID from valid IDs so we don't process duplicates
+        validToolUseIds.delete(message.actionExecutionId);
+        return true;
+      }
+
+      // Keep all non-tool-result messages
+      return true;
+    });
+
+    let openaiMessages = filteredMessages.map((m) =>
       convertMessageToOpenAIMessage(m, { keepSystemRole: this.keepSystemRole }),
     );
     openaiMessages = limitMessagesToTokenCount(openaiMessages, tools, model);
@@ -141,81 +173,94 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
       };
     }
 
-    const stream = this.openai.beta.chat.completions.stream({
-      model: model,
-      stream: true,
-      messages: openaiMessages,
-      ...(tools.length > 0 && { tools }),
-      ...(forwardedParameters?.maxTokens && { max_tokens: forwardedParameters.maxTokens }),
-      ...(forwardedParameters?.stop && { stop: forwardedParameters.stop }),
-      ...(toolChoice && { tool_choice: toolChoice }),
-      ...(this.disableParallelToolCalls && { parallel_tool_calls: false }),
-      ...(forwardedParameters?.temperature && { temperature: forwardedParameters.temperature }),
-    });
+    try {
+      console.log(`[OpenAI] Sending ${openaiMessages.length} messages to API`);
 
-    eventSource.stream(async (eventStream$) => {
-      let mode: "function" | "message" | null = null;
-      let currentMessageId: string;
-      let currentToolCallId: string;
-      for await (const chunk of stream) {
-        if (chunk.choices.length === 0) {
-          continue;
-        }
+      const stream = this.openai.beta.chat.completions.stream({
+        model: model,
+        stream: true,
+        messages: openaiMessages,
+        ...(tools.length > 0 && { tools }),
+        ...(forwardedParameters?.maxTokens && { max_tokens: forwardedParameters.maxTokens }),
+        ...(forwardedParameters?.stop && { stop: forwardedParameters.stop }),
+        ...(toolChoice && { tool_choice: toolChoice }),
+        ...(this.disableParallelToolCalls && { parallel_tool_calls: false }),
+        ...(forwardedParameters?.temperature && { temperature: forwardedParameters.temperature }),
+      });
 
-        const toolCall = chunk.choices[0].delta.tool_calls?.[0];
-        const content = chunk.choices[0].delta.content;
+      eventSource.stream(async (eventStream$) => {
+        let mode: "function" | "message" | null = null;
+        let currentMessageId: string;
+        let currentToolCallId: string;
 
-        // When switching from message to function or vice versa,
-        // send the respective end event.
-        // If toolCall?.id is defined, it means a new tool call starts.
-        if (mode === "message" && toolCall?.id) {
-          mode = null;
-          eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
-        } else if (mode === "function" && (toolCall === undefined || toolCall?.id)) {
-          mode = null;
-          eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
-        }
+        try {
+          for await (const chunk of stream) {
+            if (chunk.choices.length === 0) {
+              continue;
+            }
 
-        // If we send a new message type, send the appropriate start event.
-        if (mode === null) {
-          if (toolCall?.id) {
-            mode = "function";
-            currentToolCallId = toolCall!.id;
-            eventStream$.sendActionExecutionStart({
-              actionExecutionId: currentToolCallId,
-              parentMessageId: chunk.id,
-              actionName: toolCall!.function!.name,
-            });
-          } else if (content) {
-            mode = "message";
-            currentMessageId = chunk.id;
-            eventStream$.sendTextMessageStart({ messageId: currentMessageId });
+            const toolCall = chunk.choices[0].delta.tool_calls?.[0];
+            const content = chunk.choices[0].delta.content;
+
+            // When switching from message to function or vice versa,
+            // send the respective end event.
+            // If toolCall?.id is defined, it means a new tool call starts.
+            if (mode === "message" && toolCall?.id) {
+              mode = null;
+              eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
+            } else if (mode === "function" && (toolCall === undefined || toolCall?.id)) {
+              mode = null;
+              eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
+            }
+
+            // If we send a new message type, send the appropriate start event.
+            if (mode === null) {
+              if (toolCall?.id) {
+                mode = "function";
+                currentToolCallId = toolCall!.id;
+                eventStream$.sendActionExecutionStart({
+                  actionExecutionId: currentToolCallId,
+                  parentMessageId: chunk.id,
+                  actionName: toolCall!.function!.name,
+                });
+              } else if (content) {
+                mode = "message";
+                currentMessageId = chunk.id;
+                eventStream$.sendTextMessageStart({ messageId: currentMessageId });
+              }
+            }
+
+            // send the content events
+            if (mode === "message" && content) {
+              eventStream$.sendTextMessageContent({
+                messageId: currentMessageId,
+                content: content,
+              });
+            } else if (mode === "function" && toolCall?.function?.arguments) {
+              eventStream$.sendActionExecutionArgs({
+                actionExecutionId: currentToolCallId,
+                args: toolCall.function.arguments,
+              });
+            }
           }
+
+          // send the end events
+          if (mode === "message") {
+            eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
+          } else if (mode === "function") {
+            eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
+          }
+        } catch (error) {
+          console.error("[OpenAI] Error processing stream:", error);
+          throw error;
         }
 
-        // send the content events
-        if (mode === "message" && content) {
-          eventStream$.sendTextMessageContent({
-            messageId: currentMessageId,
-            content: content,
-          });
-        } else if (mode === "function" && toolCall?.function?.arguments) {
-          eventStream$.sendActionExecutionArgs({
-            actionExecutionId: currentToolCallId,
-            args: toolCall.function.arguments,
-          });
-        }
-      }
-
-      // send the end events
-      if (mode === "message") {
-        eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
-      } else if (mode === "function") {
-        eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
-      }
-
-      eventStream$.complete();
-    });
+        eventStream$.complete();
+      });
+    } catch (error) {
+      console.error("[OpenAI] Error during API call:", error);
+      throw error;
+    }
 
     return {
       threadId,
