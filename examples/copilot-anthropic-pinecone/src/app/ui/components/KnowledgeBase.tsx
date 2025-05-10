@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import { useState, useEffect } from "react";
 import {
@@ -50,13 +50,8 @@ export default function KnowledgeBase() {
         required: true,
       },
     ],
-
-      handler: async ({ query }: { query: string }) => {
-        console.log(query)
-      },   
-       render: "Getting relevant answers to your query...",
+    render: "Getting relevant answers to your query...",
   });
-
 
   const handlePostClick = (post: Post) => {
     setSelectedPost(post);
@@ -126,9 +121,16 @@ export default function KnowledgeBase() {
         <Group justify="center" style={{ width: "100%" }}>
           <Box style={{ flex: 1, maxWidth: "350px" }}>
             <CopilotSidebar
-              instructions="Help the user get the right knowledge base articles for their query"
+              instructions={`You are a helpful assistant for CopilotKit. When users ask about CopilotKit features or usage:
+1. ALWAYS use the FetchKnowledgebaseArticles action immediately to retrieve information
+2. Read the content_summary in the response - this contains formatted information about CopilotKit
+3. Base your answers directly on the retrieved information 
+4. Present the information clearly with specific examples from the knowledge base
+5. Always mention specific CopilotKit features and how to use them based on the retrieved data
+Never respond with "I couldn't retrieve specific details" as the knowledge base contains comprehensive information about CopilotKit features.`}
               labels={{
-                initial: "Welcome! Describe the query you need assistance with.",
+                initial:
+                  "Welcome! I'm your CopilotKit assistant. Ask me anything about CopilotKit features or how to use it!",
               }}
               defaultOpen={true}
               clickOutsideToClose={false}
