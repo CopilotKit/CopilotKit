@@ -28,7 +28,7 @@ RUN pip install "pydantic>=2.7.4,<3.0.0"
 # Now install langchain packages
 RUN pip install "langchain>=0.3.4,<0.4.0" \
                 "langchain-openai>=0.2.3,<0.3.0" \
-                "langchain-anthropic>=0.2.3,<0.3.0" \
+                "langchain-anthropic==0.2.3" \
                 "langchain-google-genai>=2.0.5,<3.0.0" \
                 "langchain-community>=0.3.1,<0.4.0" \
                 "langchain-core>=0.3.25,<0.4.0"
