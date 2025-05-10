@@ -79,11 +79,11 @@ const defaultShouldToggleHoveringEditorOnKeyPress = (
   event: React.KeyboardEvent<HTMLDivElement>,
   shortcut: string,
 ) => {
+  const isMac = navigator.userAgent.includes("Mac");  
+  const isMetaKey = isMac ? event.metaKey : event.ctrlKey;
+  
   // if command-k, toggle the hovering editor
-  if (event.key === shortcut && event.metaKey) {
-    return true;
-  }
-  return false;
+  return event.key === shortcut && isMetaKey;
 };
 
 const defaultShouldAcceptAutosuggestionOnKeyPress = (
