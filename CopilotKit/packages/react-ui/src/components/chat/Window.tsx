@@ -2,6 +2,7 @@ import React, { useCallback, useEffect } from "react";
 import { WindowProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import { useCopilotContext } from "@copilotkit/react-core";
+import { isMacOS } from "@copilotkit/shared";
 
 export const Window = ({
   children,
@@ -149,7 +150,3 @@ const preventScroll = (event: TouchEvent): void => {
     event.preventDefault();
   }
 };
-
-function isMacOS() {
-  return /Mac|iMac|Macintosh/i.test(navigator.userAgent);
-}

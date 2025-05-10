@@ -45,21 +45,26 @@ git clone https://github.com/<your-GitHub-username>/CopilotKit
 ## Step 3: Prepare the development environment
 
 ### 1)Install Prerequisites
+
 - Node.js 20.x or later
 - pnpm v9.x installed globally (npm i -g pnpm@^9)
 - Turborepo v2.x installed globally (npm i -g turbo@2)
 
 ### 2)Install Dependencies
+
 To install the dependencies using pnpm
 Go inside project folder and run :
 
 ```jsx
 pnpm install
 ```
+
 ### 3)Build Packages
+
 To make sure everything works, let’s build all packages once:
 
 ```jsx
+cd CopilotKit
 turbo run build
 ```
 
@@ -85,7 +90,7 @@ Now that everything is set up and works as expected, you can get start developin
 ```jsx
 # To start all packages in development mode
 turbo run dev
- 
+
 # Start a specific package in development mode
 turbo run dev --filter="@copilotkit/package-name"
 ```
