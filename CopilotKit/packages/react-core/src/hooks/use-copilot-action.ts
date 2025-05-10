@@ -143,6 +143,34 @@ import {
 } from "../types/frontend-action";
 import { useToast } from "../components/toast/toast-provider";
 
+// Define a data structure to hold the current active renderAndWait action
+// Using a shared singleton pattern that works across component instances
+interface RenderAndWaitForResponse {
+  promise: Promise<any>;
+  resolve: (result: any) => void;
+  reject: (error: any) => void;
+  actionName: string;
+  args: any;
+  actionId: string;
+}
+
+// Static reference for the current active renderAndWait action
+// This will be null when no action is awaiting resolution
+let activeRenderAndWait: RenderAndWaitForResponse | null = null;
+
+// Keep a list of pending actions to process sequentially
+let pendingRenderAndWaitActions: string[] = [];
+
+// Add a helper function to check if the global state is available for a new action
+function isGlobalStateAvailable(): boolean {
+  return activeRenderAndWait === null;
+}
+
+// Check if an action is next in line to be executed
+function isNextInLine(actionId: string): boolean {
+  return pendingRenderAndWaitActions.length === 0 || pendingRenderAndWaitActions[0] === actionId;
+}
+
 // We implement useCopilotAction dependency handling so that
 // the developer has the option to not provide any dependencies.
 // In this case, we assume they want to update the handler on each rerender.
@@ -158,8 +186,27 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
 ): void {
   const { setAction, removeAction, actions, chatComponentsCache } = useCopilotContext();
   const idRef = useRef<string>(randomId());
-  const renderAndWaitRef = useRef<RenderAndWaitForResponse | null>(null);
   const { addToast } = useToast();
+
+  // Set up a listener for processing the next action in queue
+  useEffect(() => {
+    const processNextAction = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { nextActionId } = customEvent.detail || {};
+      
+      // Check if this action is the next one to be processed
+      if (nextActionId === idRef.current && isGlobalStateAvailable()) {
+        // Remove this action from the queue if it's there
+        pendingRenderAndWaitActions = pendingRenderAndWaitActions.filter(id => id !== idRef.current);
+      }
+    };
+    
+    document.addEventListener('copilotkit:process-next-action', processNextAction);
+    
+    return () => {
+      document.removeEventListener('copilotkit:process-next-action', processNextAction);
+    };
+  }, []);
 
   // clone the action to avoid mutating the original object
   action = { ...action };
@@ -177,7 +224,23 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
     action.renderAndWait = undefined;
     action.renderAndWaitForResponse = undefined;
     // add a handler that will be called when the action is executed
-    action.handler = useAsyncCallback(async () => {
+    action.handler = useAsyncCallback(async (args: any) => {
+      // Check if there's already an active renderAndWait action
+      if (!isGlobalStateAvailable()) {
+        // Add this action to the pending queue if not already there
+        if (!pendingRenderAndWaitActions.includes(idRef.current)) {
+          pendingRenderAndWaitActions.push(idRef.current);
+        }
+        
+        return Promise.reject(
+          new Error(`Cannot execute multiple renderAndWait actions simultaneously. Action "${activeRenderAndWait?.actionName}" is already active.`)
+        );
+      }
+      
+      // If we're here, we can execute this action
+      // Remove it from the queue if it's there
+      pendingRenderAndWaitActions = pendingRenderAndWaitActions.filter(id => id !== idRef.current);
+      
       // we create a new promise when the handler is called
       let resolve: (result: any) => void;
       let reject: (error: any) => void;
@@ -185,26 +248,95 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
         resolve = resolvePromise;
         reject = rejectPromise;
       });
-      renderAndWaitRef.current = { promise, resolve: resolve!, reject: reject! };
-      // then we await the promise (it will be resolved in the original renderAndWait function)
-      return await promise;
+      
+      // Store the action and resolver in the static variable
+      activeRenderAndWait = { 
+        promise, 
+        resolve: (result: any) => {
+          // When this action resolves, activate the next one in the queue if available
+          resolve!(result);
+          activeRenderAndWait = null;
+          
+          // Process the next queued action after a small delay
+          if (pendingRenderAndWaitActions.length > 0) {
+            const nextActionId = pendingRenderAndWaitActions[0];
+            
+            // Small delay to ensure state is updated before processing next action
+            setTimeout(() => {
+              // The next action in queue will be processed when its handler is called again
+              document.dispatchEvent(new CustomEvent('copilotkit:process-next-action', { 
+                detail: { nextActionId } 
+              }));
+            }, 50);
+          }
+        }, 
+        reject: (error: any) => {
+          // Handle rejection and advance queue
+          reject!(error);
+          activeRenderAndWait = null;
+          
+          // Process the next queued action after a small delay
+          if (pendingRenderAndWaitActions.length > 0) {
+            const nextActionId = pendingRenderAndWaitActions[0];
+            
+            // Small delay to ensure state is updated before processing next action
+            setTimeout(() => {
+              // The next action in queue will be processed when its handler is called again
+              document.dispatchEvent(new CustomEvent('copilotkit:process-next-action', { 
+                detail: { nextActionId } 
+              }));
+            }, 50);
+          }
+        },
+        actionName: action.name,
+        args,
+        actionId: idRef.current 
+      };
+      
+      try {
+        // await the promise (it will be resolved in the original renderAndWait function)
+        const result = await promise;
+        // Clear the global reference when done
+        if (activeRenderAndWait?.actionId === idRef.current) {
+          activeRenderAndWait = null;
+        }
+        return result;
+      } catch (error) {
+        // Clear the global reference on error too
+        if (activeRenderAndWait?.actionId === idRef.current) {
+          activeRenderAndWait = null;
+        }
+        throw error;
+      }
     }, []) as any;
 
     // add a render function that will be called when the action is rendered
     action.render = ((props: ActionRenderProps<T>): React.ReactElement => {
-      // Specifically for renderAndWaitForResponse the executing state is set too early, causing a race condition
-      // To fit it: we will wait for the handler to be ready
+      // Check if this specific action instance is awaiting resolution
+      const isActiveAction = activeRenderAndWait?.actionId === idRef.current;
+      
+      // Get the position in queue (0 = active, 1 = next in line, etc.)
+      const queuePosition = isActiveAction ? 0 : pendingRenderAndWaitActions.indexOf(idRef.current) + 1;
+      
+      // If this action is executing but not the active one, don't render it at all
+      // This is critical to prevent multiple HITL actions from appearing at once
+      if (props.status === "executing" && !isActiveAction) {
+        return createElement(Fragment);
+      }
+      
+      // Only show executing state if this action is the active one
       let status = props.status;
-      if (props.status === "executing" && !renderAndWaitRef.current) {
+      if (props.status === "executing" && !isActiveAction) {
         status = "inProgress";
       }
+      
       // Create type safe waitProps based on whether T extends empty array or not
       const waitProps = {
         status,
         args: props.args,
         result: props.result,
-        handler: status === "executing" ? renderAndWaitRef.current!.resolve : undefined,
-        respond: status === "executing" ? renderAndWaitRef.current!.resolve : undefined,
+        handler: status === "executing" && isActiveAction ? activeRenderAndWait?.resolve : undefined,
+        respond: status === "executing" && isActiveAction ? activeRenderAndWait?.resolve : undefined,
       } as T extends [] ? ActionRenderPropsNoArgsWait<T> : ActionRenderPropsWait<T>;
 
       // Type guard to check if renderAndWait is for no args case
@@ -296,10 +428,4 @@ function isFrontendAction<T extends Parameter[]>(
   action: FrontendAction<T> | CatchAllFrontendAction,
 ): action is FrontendAction<T> {
   return action.name !== "*";
-}
-
-interface RenderAndWaitForResponse {
-  promise: Promise<any>;
-  resolve: (result: any) => void;
-  reject: (error: any) => void;
 }

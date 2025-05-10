@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from "react";
+import React, { useCallback, useRef, useEffect } from "react";
 import {
   FunctionCallHandler,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
@@ -216,6 +216,17 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   } = options;
   const runChatCompletionRef = useRef<(previousMessages: Message[]) => Promise<Message[]>>();
   const addErrorToast = useErrorToast();
+  
+  // Add a function execution state tracker
+  const [functionExecutionState, setFunctionExecutionState] = React.useState<{
+    [key: string]: {
+      status: "executing" | "completed" | "error";
+      name: string;
+      args?: any;
+      result?: any;
+      error?: string;
+    };
+  }>({});
   // We need to keep a ref of coagent states and session because of renderAndWait - making sure
   // the latest state is sent to the API
   // This is a workaround and needs to be addressed in the future
@@ -543,92 +554,114 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         );
 
         let didExecuteAction = false;
+        let followUp = false;
 
-        // execute regular action executions that are specific to the frontend (last actions)
-        if (onFunctionCall) {
-          // Find consecutive action execution messages at the end
-          const lastMessages = [];
+        // Find consecutive action execution messages at the end
+        const lastMessages = [];
 
-          for (let i = finalMessages.length - 1; i >= 0; i--) {
-            const message = finalMessages[i];
-            if (
-              (message.isActionExecutionMessage() || message.isResultMessage()) &&
-              message.status.code !== MessageStatusCode.Pending
-            ) {
-              lastMessages.unshift(message);
-            } else if (!message.isAgentStateMessage()) {
-              break;
-            }
+        for (let i = finalMessages.length - 1; i >= 0; i--) {
+          const message = finalMessages[i];
+          if (
+            (message.isActionExecutionMessage() || message.isResultMessage()) &&
+            message.status.code !== MessageStatusCode.Pending
+          ) {
+            lastMessages.unshift(message);
+          } else if (!message.isAgentStateMessage()) {
+            break;
           }
+        }
 
-          for (const message of lastMessages) {
-            // We update the message state before calling the handler so that the render
-            // function can be called with `executing` state
+        // Process actions sequentially, one at a time
+        if (onFunctionCall) {
+          // Sort actions - put renderAndWait actions first if needed
+          const sortedMessages = [...lastMessages];
+          
+          // Execute all action messages, our queue system in use-copilot-action.ts
+          // will ensure only one is active at a time
+          for (let i = 0; i < sortedMessages.length; i++) {
+            const message = sortedMessages[i];
+            
+            // Important: Set messages to show the current state
             setMessages(finalMessages);
-
+            
             const action = actions.find(
-              (action) => action.name === (message as ActionExecutionMessage).name,
+              (action) => action.name === (message.isActionExecutionMessage() ? message.name : undefined),
             );
-            const currentResultMessagePairedFeAction = message.isResultMessage()
-              ? getPairedFeAction(actions, message)
-              : null;
 
-            const executeActionFromMessage = async (
+            // Define a helper function that will execute one action at a time
+            const executeOneAction = async (
               action: FrontendAction<any>,
               message: ActionExecutionMessage,
             ) => {
               const isInterruptAction = interruptMessages.find((m) => m.id === message.id);
               followUp = action?.followUp || !isInterruptAction;
-              const resultMessage = await executeAction({
-                onFunctionCall,
-                previousMessages,
-                message,
-                chatAbortControllerRef,
-                onError: (error: Error) => {
-                  addErrorToast([error]);
-                  console.error(`Failed to execute action ${message.name}: ${error}`);
-                },
-              });
-              didExecuteAction = true;
-              const messageIndex = finalMessages.findIndex((msg) => msg.id === message.id);
-              finalMessages.splice(messageIndex + 1, 0, resultMessage);
-
-              return resultMessage;
+              
+              // Check if this is a renderAndWait action
+              const isRenderAndWaitAction = 
+                (action.renderAndWait !== undefined || 
+                action.renderAndWaitForResponse !== undefined);
+              
+              // Set this action as executing in our state tracker
+              setFunctionExecutionState((prevState) => ({
+                ...prevState,
+                [message.id]: {
+                  status: "executing",
+                  name: action.name,
+                  args: message.arguments,
+                }
+              }));
+              
+              try {
+                // Execute the action handler
+                const resultMessage = await executeAction({
+                  onFunctionCall,
+                  previousMessages,
+                  message,
+                  chatAbortControllerRef,
+                  onError: (error: Error) => {
+                    // Update with error state
+                    setFunctionExecutionState((prevState) => ({
+                      ...prevState,
+                      [message.id]: {
+                        ...prevState[message.id],
+                        status: "error",
+                        error: error.message,
+                      }
+                    }));
+                    
+                    addErrorToast([error]);
+                  },
+                });
+                
+                // Update with completed state
+                setFunctionExecutionState((prevState) => ({
+                  ...prevState,
+                  [message.id]: {
+                    ...prevState[message.id],
+                    status: "completed",
+                    result: resultMessage.result,
+                  }
+                }));
+                
+                const messageIndex = finalMessages.findIndex((msg) => msg.id === message.id);
+                finalMessages.splice(messageIndex + 1, 0, resultMessage);
+                
+                // Important: Update the messages after each action execution
+                setMessages([...finalMessages]);
+                
+                return resultMessage;
+              } catch (error) {
+                // We continue execution even if one action fails
+                return null;
+              }
             };
 
-            // execution message which has an action registered with the hook (remote availability):
-            // execute that action first, and then the "paired FE action"
+            // Execute the action
             if (action && message.isActionExecutionMessage()) {
-              const resultMessage = await executeActionFromMessage(action, message);
-              const pairedFeAction = getPairedFeAction(actions, resultMessage);
-
-              if (pairedFeAction) {
-                const newExecutionMessage = new ActionExecutionMessage({
-                  name: pairedFeAction.name,
-                  arguments: parseJson(resultMessage.result, resultMessage.result),
-                  status: message.status,
-                  createdAt: message.createdAt,
-                  parentMessageId: message.parentMessageId,
-                });
-                await executeActionFromMessage(pairedFeAction, newExecutionMessage);
-              }
-            } else if (message.isResultMessage() && currentResultMessagePairedFeAction) {
-              // Actions which are set up in runtime actions array: Grab the result, executed paired FE action with it as args.
-              const newExecutionMessage = new ActionExecutionMessage({
-                name: currentResultMessagePairedFeAction.name,
-                arguments: parseJson(message.result, message.result),
-                status: message.status,
-                createdAt: message.createdAt,
-              });
-              finalMessages.push(newExecutionMessage);
-              await executeActionFromMessage(
-                currentResultMessagePairedFeAction,
-                newExecutionMessage,
-              );
+              didExecuteAction = true;
+              await executeOneAction(action, message as ActionExecutionMessage);
             }
           }
-
-          setMessages(finalMessages);
         }
 
         if (
@@ -791,6 +824,24 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   const stop = (): void => {
     chatAbortControllerRef.current?.abort("Stop was called");
   };
+
+  // Add a listener for processing the next action
+  useEffect(() => {
+    const processNextAction = (event: CustomEvent) => {
+      const { nextActionId } = event.detail || {};
+      
+      if (nextActionId && !isLoading) {
+        // Trigger a re-run to process any pending actions
+        runChatCompletionRef.current?.(messages);
+      }
+    };
+    
+    document.addEventListener('copilotkit:process-next-action', processNextAction as EventListener);
+    
+    return () => {
+      document.removeEventListener('copilotkit:process-next-action', processNextAction as EventListener);
+    };
+  }, [messages, isLoading]);
 
   return {
     append,
