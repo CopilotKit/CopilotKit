@@ -37,7 +37,7 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
     const el = ref.current;
     const { selection } = editor;
 
-    if (!el) {
+    if (!el || !isShown) {
       return;
     }
 
@@ -93,42 +93,23 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
     el.style.left = `${left}px`;
   }, [isShown]);
 
-  // Close the window when clicking outside or pressing escape
   useEffect(() => {
-    const doc = ref.current?.ownerDocument;
-
-    if (!doc || !isShown) {
-      return;
-    }
-
     const handleClickOutside = (event: MouseEvent) => {
       if (ref.current && !ref.current.contains(event.target as Node)) {
-        // Restore focus to the editor when closing
-        ReactEditor.focus(editor);
         setIsDisplayed(false);
       }
     };
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        ReactEditor.focus(editor);
-        setIsDisplayed(false);
-      }
-    };
-
-    doc.addEventListener("mousedown", handleClickOutside);
-    doc.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("mousedown", handleClickOutside);
 
     return () => {
-      doc.removeEventListener("mousedown", handleClickOutside);
-      doc.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [ref, isShown, editor, setIsDisplayed]);
+  }, [ref, setIsDisplayed]);
 
-  // if (!isShown) {
-    // return null;
-  // }
+  if (!isShown) {
+    return null;
+  }
 
   return (
     <Portal>
@@ -141,7 +122,6 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
         }
         data-testid="hovering-toolbar"
       >
-      {isShown && (
         <HoveringInsertionPromptBox
           editorState={editorState(editor, selection)}
           apiConfig={props.apiConfig}
@@ -155,7 +135,6 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
           }}
           contextCategories={props.contextCategories}
         />
-      )}
     </Menu>
     </Portal>
   );
