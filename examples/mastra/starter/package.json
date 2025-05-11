@@ -15,7 +15,7 @@
     "@copilotkit/react-ui": "1.8.11",
     "@copilotkit/runtime": "1.8.11",
     "@mastra/client-js": "0.1.21",
-    "@mastra/core": "0.9.3",
+    "@mastra/core": "0.9.2",
     "mastra": "0.6.2",
     "next": "15.3.2",
     "react": "^19.0.0",
