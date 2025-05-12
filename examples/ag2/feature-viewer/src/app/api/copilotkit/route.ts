@@ -8,14 +8,15 @@ import {
 
 import { NextRequest } from "next/server";
 
-const BASE_URL = "http://localhost:3000";
+const AGENTIC_CHAT_AGENT_URL = process.env.AGENTIC_CHAT_AGENT_URL;
+const HUMAN_IN_THE_LOOP_AGENT_URL = process.env.HUMAN_IN_THE_LOOP_AGENT_URL;
 
 const agenticChatAgent = new HttpAgent({
-  url: "https://copilotkit-dojo.ag2.ai:8000/fastagency/awp",
+  url: AGENTIC_CHAT_AGENT_URL!, // "https://copilotkit-dojo.ag2.ai:8000/fastagency/awp",
 });
 
 const humanInTheLoopAgent = new HttpAgent({
-  url: "https://copilotkit-dojo.ag2.ai:8008/fastagency/awp",
+  url: HUMAN_IN_THE_LOOP_AGENT_URL!, // "https://copilotkit-dojo.ag2.ai:8008/fastagency/awp",
 });
 
 const runtime = new CopilotRuntime({
