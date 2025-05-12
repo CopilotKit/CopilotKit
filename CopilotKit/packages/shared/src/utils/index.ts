@@ -36,3 +36,11 @@ export function tryMap<TItem, TMapped>(
     return acc;
   }, []);
 }
+
+/**
+ * Checks if the current environment is macOS
+ * @returns {boolean} True if running on macOS, false otherwise
+ */
+export function isMacOS(): boolean {
+  return /Mac|iMac|Macintosh/i.test(navigator.userAgent);
+}
