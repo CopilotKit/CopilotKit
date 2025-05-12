@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "jest"],
+    "esModuleInterop": true,
+    "noEmit": true,
+    "allowJs": true
+  },
+  "include": ["./**/*.ts"]
+}

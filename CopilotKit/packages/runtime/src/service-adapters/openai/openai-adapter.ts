@@ -128,7 +128,7 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
     const tools = actions.map(convertActionInputToOpenAITool);
     const threadId = threadIdFromRequest ?? randomUUID();
 
-    // WHITELIST APPROACH: Only include tool_result messages that correspond to valid tool_calls
+    // ALLOWLIST APPROACH: Only include tool_result messages that correspond to valid tool_calls
     // Step 1: Extract valid tool_call IDs
     const validToolUseIds = new Set<string>();
 

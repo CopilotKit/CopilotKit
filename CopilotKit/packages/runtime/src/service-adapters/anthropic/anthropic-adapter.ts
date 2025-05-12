@@ -79,7 +79,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
     const instructionsMessage = messages.shift();
     const instructions = instructionsMessage.isTextMessage() ? instructionsMessage.content : "";
 
-    // COMPLETELY DIFFERENT APPROACH:
+    // ALLOWLIST APPROACH:
     // 1. First, identify all valid tool_use calls (from assistant)
     // 2. Then, only keep tool_result blocks that correspond to these valid tool_use IDs
     // 3. Discard any other tool_result blocks
