@@ -14,7 +14,7 @@ dependencies = [
     "langchain",
     "openai",
     "langchain-community",
-    "copilotkit @ file:///Users/suhasdeshpande/code/CopilotKit/sdk-python",
+    "copilotkit",
     "uvicorn",
     "python-dotenv",
     "langchain-core",
