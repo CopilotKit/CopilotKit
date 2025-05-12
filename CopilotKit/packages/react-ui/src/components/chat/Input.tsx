@@ -84,7 +84,7 @@ export const Input = ({ inProgress, onSend, isVisible = false, onStop, onUpload 
   const sendDisabled = !canSend();
 
   return (
-    <div className={`copilotKitInputContainer ${showPoweredBy ? 'poweredByContainer' : ''}`}>
+    <div className={`copilotKitInputContainer ${showPoweredBy ? "poweredByContainer" : ""}`}>
       <div className="copilotKitInput" onClick={handleDivClick}>
         <AutoResizingTextarea
           ref={textareaRef}

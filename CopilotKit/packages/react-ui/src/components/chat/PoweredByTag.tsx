@@ -4,7 +4,6 @@ import { useDarkMode } from "../../hooks/use-dark-mode";
 export function PoweredByTag({ showPoweredBy = true }: { showPoweredBy?: boolean }) {
   const isDark = useDarkMode();
 
-
   if (!showPoweredBy) {
     return null;
   }
@@ -26,5 +25,5 @@ export function PoweredByTag({ showPoweredBy = true }: { showPoweredBy?: boolean
         Powered by CopilotKit
       </p>
     </div>
-  )
+  );
 }

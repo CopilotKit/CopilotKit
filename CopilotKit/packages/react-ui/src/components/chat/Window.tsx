@@ -124,10 +124,7 @@ export const Window = ({
   }, [adjustForMobile, handleClickOutside, handleKeyDown]);
 
   return (
-    <div
-      className={`copilotKitWindow ${open ? " open" : ""}`}
-      ref={windowRef}
-    >
+    <div className={`copilotKitWindow ${open ? " open" : ""}`} ref={windowRef}>
       {children}
     </div>
   );
