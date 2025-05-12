@@ -30,14 +30,14 @@ importers:
         specifier: 1.8.11
         version: 1.8.11
       '@mastra/client-js':
-        specifier: 0.0.0-agui-20250501191909
-        version: 0.0.0-agui-20250501191909(openapi-types@12.1.3)(react@19.0.0)(zod@3.24.4)
+        specifier: 0.1.21
+        version: 0.1.21(openapi-types@12.1.3)(react@19.0.0)(zod@3.24.4)
       '@mastra/core':
-        specifier: 0.0.0-agui-20250501191909
-        version: 0.0.0-agui-20250501191909(openapi-types@12.1.3)(react@19.0.0)(zod@3.24.4)
+        specifier: 0.9.2
+        version: 0.9.2(openapi-types@12.1.3)(react@19.0.0)(zod@3.24.4)
       '@mastra/memory':
-        specifier: 0.0.0-agui-20250501191909
-        version: 0.0.0-agui-20250501191909(openapi-types@12.1.3)(react@19.0.0)
+        specifier: 0.3.3
+        version: 0.3.3(openapi-types@12.1.3)(react@19.0.0)
       '@mdx-js/loader':
         specifier: ^3.1.0
         version: 3.1.0(acorn@8.14.1)
@@ -1440,8 +1440,8 @@ packages:
     resolution: {integrity: sha512-qC72D4+CDdjGqJvkFMMEAtancHUQ7/d/tAiHf64z8MopFDmcrtbcJuerDtFceuAfQJ2pDSfCKCtbqoGBNnwg0w==}
     engines: {node: '>=8'}
 
-  '@mastra/client-js@0.0.0-agui-20250501191909':
-    resolution: {integrity: sha512-hd5IzaY+yIRW9yeQAPKjWtP4tSTYvglqzGw9rd+AmSoe7pe3VnZzBAeIYaSZdJ60f8t/SqaM3n2XUxwPzOSjNQ==}
+  '@mastra/client-js@0.1.21':
+    resolution: {integrity: sha512-BUQ1bgP9BijZO9fOqCx9dXbj5hRUeMwZma357It5bH1HicK7SBjrpWIDyY7wB9CRL4mddtQIjdftQnh/fGrlsA==}
     peerDependencies:
       zod: ^3.24.2
 
@@ -1451,8 +1451,14 @@ packages:
     peerDependencies:
       zod: ^3.24.0
 
-  '@mastra/core@0.0.0-agui-20250501191909':
-    resolution: {integrity: sha512-8Q331HWxOVuMXniAmYTOwn+VVAsJRKxYZTUchRZ5vB9wXnzux8EAXdvr99q/rgfP4U/ggiuapp+veW3kEcAtzw==}
+  '@mastra/core@0.9.2':
+    resolution: {integrity: sha512-Ez9LCUUVJAHWe7h8KcOWVniqIy7VJG+6YCM6sjYIu/b8mG5DgtT3A7S4qE7tKZBmdjXNgiIag+pgxEKDkemk+Q==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      zod: ^3.24.0
+
+  '@mastra/core@0.9.3':
+    resolution: {integrity: sha512-YqUb9Wh1rWb4kLZWY/quzDzwG1fCLwwTJ0awe/JG4l71rOS6+6rKWkbetZuspT0Tw7+DwAUD3BSaJGPFlsChpg==}
     engines: {node: '>=20'}
     peerDependencies:
       zod: ^3.24.0
@@ -1460,8 +1466,8 @@ packages:
   '@mastra/deployer@0.0.0-agui-20250501182100':
     resolution: {integrity: sha512-YIe4f50re8kmrcJG8jIq/P55jKwMqyLWhpy0DxF7Wu08SSjyNFUIYHmzFpr/bEfB/JM1qEiwSu8ZbMUcZm1eXw==}
 
-  '@mastra/memory@0.0.0-agui-20250501191909':
-    resolution: {integrity: sha512-40hipw7wzZtWZTWj2bPEpRUm0XEXL9O2ZXxLmgt7AGBceg/oqiKbDbCEpqR4Q6T683DHDJwJUfN5pse227dJIA==}
+  '@mastra/memory@0.3.3':
+    resolution: {integrity: sha512-ZwnxvpTs5VmDJchw86qo/RzKrFdpbW7S8rhfdb46gHzZuGzPpTFbYhON6Af1Z1Y5ICECDc1guau5qUGRShc7Xw==}
 
   '@mastra/server@0.0.0-agui-20250501182100':
     resolution: {integrity: sha512-HtPsOY0Fh1k+73eR9AFQYKBzTsQ7T7oLicfKmvV+rvoMbKXxpUp+kZBotuwR4aq66dJVhiOVWBVyndIOwC3CAg==}
@@ -8500,11 +8506,11 @@ snapshots:
     dependencies:
       '@lukeed/csprng': 1.1.0
 
-  '@mastra/client-js@0.0.0-agui-20250501191909(openapi-types@12.1.3)(react@19.0.0)(zod@3.24.4)':
+  '@mastra/client-js@0.1.21(openapi-types@12.1.3)(react@19.0.0)(zod@3.24.4)':
     dependencies:
       '@ag-ui/client': 0.0.27
       '@ai-sdk/ui-utils': 1.2.10(zod@3.24.4)
-      '@mastra/core': 0.0.0-agui-20250501191909(openapi-types@12.1.3)(react@19.0.0)(zod@3.24.4)
+      '@mastra/core': 0.9.3(openapi-types@12.1.3)(react@19.0.0)(zod@3.24.4)
       json-schema: 0.4.0
       rxjs: 7.8.1
       zod: 3.24.4
@@ -8580,7 +8586,7 @@ snapshots:
       - valibot
       - zod-openapi
 
-  '@mastra/core@0.0.0-agui-20250501191909(openapi-types@12.1.3)(react@19.0.0)(zod@3.24.4)':
+  '@mastra/core@0.9.2(openapi-types@12.1.3)(react@19.0.0)(zod@3.24.4)':
     dependencies:
       '@libsql/client': 0.14.0
       '@opentelemetry/api': 1.9.0
@@ -8611,6 +8617,58 @@ snapshots:
       sift: 17.1.3
       xstate: 5.19.2
       zod: 3.24.4
+    transitivePeerDependencies:
+      - '@hono/arktype-validator'
+      - '@hono/effect-validator'
+      - '@hono/typebox-validator'
+      - '@hono/valibot-validator'
+      - '@hono/zod-validator'
+      - '@sinclair/typebox'
+      - '@valibot/to-json-schema'
+      - arktype
+      - aws-crt
+      - bufferutil
+      - effect
+      - encoding
+      - openapi-types
+      - react
+      - supports-color
+      - utf-8-validate
+      - valibot
+      - zod-openapi
+
+  '@mastra/core@0.9.3(openapi-types@12.1.3)(react@19.0.0)(zod@3.24.4)':
+    dependencies:
+      '@libsql/client': 0.14.0
+      '@opentelemetry/api': 1.9.0
+      '@opentelemetry/auto-instrumentations-node': 0.56.1(@opentelemetry/api@1.9.0)
+      '@opentelemetry/core': 1.30.1(@opentelemetry/api@1.9.0)
+      '@opentelemetry/exporter-trace-otlp-grpc': 0.57.2(@opentelemetry/api@1.9.0)
+      '@opentelemetry/exporter-trace-otlp-http': 0.57.2(@opentelemetry/api@1.9.0)
+      '@opentelemetry/otlp-exporter-base': 0.57.2(@opentelemetry/api@1.9.0)
+      '@opentelemetry/otlp-transformer': 0.57.2(@opentelemetry/api@1.9.0)
+      '@opentelemetry/resources': 1.30.1(@opentelemetry/api@1.9.0)
+      '@opentelemetry/sdk-metrics': 1.30.1(@opentelemetry/api@1.9.0)
+      '@opentelemetry/sdk-node': 0.57.2(@opentelemetry/api@1.9.0)
+      '@opentelemetry/sdk-trace-base': 1.30.1(@opentelemetry/api@1.9.0)
+      '@opentelemetry/sdk-trace-node': 1.30.1(@opentelemetry/api@1.9.0)
+      '@opentelemetry/semantic-conventions': 1.32.0
+      ai: 4.3.13(react@19.0.0)(zod@3.24.4)
+      cohere-ai: 7.17.1
+      date-fns: 3.6.0
+      dotenv: 16.4.7
+      fastembed: 1.14.4
+      hono: 4.7.8
+      hono-openapi: 0.4.8(hono@4.7.8)(openapi-types@12.1.3)(zod@3.24.4)
+      json-schema: 0.4.0
+      json-schema-to-zod: 2.6.1
+      pino: 9.6.0
+      pino-pretty: 13.0.0
+      radash: 12.1.0
+      sift: 17.1.3
+      xstate: 5.19.2
+      zod: 3.24.4
+      zod-to-json-schema: 3.24.5(zod@3.24.4)
     transitivePeerDependencies:
       - '@hono/arktype-validator'
       - '@hono/effect-validator'
@@ -8678,9 +8736,9 @@ snapshots:
       - valibot
       - zod-openapi
 
-  '@mastra/memory@0.0.0-agui-20250501191909(openapi-types@12.1.3)(react@19.0.0)':
+  '@mastra/memory@0.3.3(openapi-types@12.1.3)(react@19.0.0)':
     dependencies:
-      '@mastra/core': 0.0.0-agui-20250501191909(openapi-types@12.1.3)(react@19.0.0)(zod@3.24.4)
+      '@mastra/core': 0.9.3(openapi-types@12.1.3)(react@19.0.0)(zod@3.24.4)
       '@upstash/redis': 1.34.8
       ai: 4.3.13(react@19.0.0)(zod@3.24.4)
       js-tiktoken: 1.0.19
