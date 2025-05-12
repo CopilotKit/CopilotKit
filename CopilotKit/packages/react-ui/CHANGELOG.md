@@ -1,5 +1,14 @@
 # ui
 
+## 1.8.12-next.3
+
+### Patch Changes
+
+- 89873ca: - fix: use set background color on the entire window
+  - @copilotkit/react-core@1.8.12-next.3
+  - @copilotkit/runtime-client-gql@1.8.12-next.3
+  - @copilotkit/shared@1.8.12-next.3
+
 ## 1.8.12-next.2
 
 ### Patch Changes
