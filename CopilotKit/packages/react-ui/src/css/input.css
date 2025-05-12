@@ -13,6 +13,7 @@
 .copilotKitInputContainer {
   width: 100%;
   padding: 0;
+  padding-bottom: 15px;
   background: var(--copilot-kit-background-color);
   border-bottom-left-radius: 0.75rem;
   border-bottom-right-radius: 0.75rem;
@@ -123,3 +124,29 @@
 .copilotKitInput textarea::-webkit-scrollbar-thumb:hover {
   background-color: color-mix(in srgb, rgb(200 200 200) 80%, black); /* Darker color on hover */
 }
+
+.poweredByContainer {
+  padding: 0;
+}
+
+.poweredBy {
+  background: var(--copilot-kit-background-color) !important;
+  visibility: visible !important;
+  display: block !important;
+  position: static !important;
+  text-align: center !important;
+  font-size: 12px !important;
+  padding: 3px 0 !important;
+  color: rgb(214, 214, 214) !important;
+  margin: 0 !important;
+}
+
+.dark,
+html.dark,
+body.dark,
+[data-theme="dark"],
+html[style*="color-scheme: dark"],
+body[style*="color-scheme: dark"] .poweredBy {
+  color: rgb(69, 69, 69) !important;
+}
+
