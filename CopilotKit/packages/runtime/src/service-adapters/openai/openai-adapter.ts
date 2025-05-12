@@ -138,16 +138,11 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
       }
     }
 
-    console.log(`[OpenAI] Found ${validToolUseIds.size} valid tool_call IDs`);
-
     // Step 2: Filter messages, keeping only those with valid tool_call IDs
     const filteredMessages = messages.filter((message) => {
       if (message.isResultMessage()) {
         // Skip if there's no corresponding tool_call
         if (!validToolUseIds.has(message.actionExecutionId)) {
-          console.log(
-            `[OpenAI] Skipping tool_result with invalid tool_call_id: ${message.actionExecutionId}`,
-          );
           return false;
         }
 
@@ -174,8 +169,6 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
     }
 
     try {
-      console.log(`[OpenAI] Sending ${openaiMessages.length} messages to API`);
-
       const stream = this.openai.beta.chat.completions.stream({
         model: model,
         stream: true,

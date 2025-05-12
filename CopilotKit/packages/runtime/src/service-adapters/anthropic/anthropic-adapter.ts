@@ -25,7 +25,6 @@ import {
 import {
   convertActionInputToAnthropicTool,
   convertMessageToAnthropicMessage,
-  groupAnthropicMessagesByRole,
   limitMessagesToTokenCount,
 } from "./utils";
 
@@ -94,8 +93,6 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
       }
     }
 
-    console.log(`[Anthropic] Found ${validToolUseIds.size} valid tool_use IDs`);
-
     // Step 2: Map each message to an Anthropic message, eliminating invalid tool_results
     const anthropicMessages = messages
       .map((message) => {
@@ -103,9 +100,6 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
         if (message.isResultMessage()) {
           // Skip if there's no corresponding tool_use
           if (!validToolUseIds.has(message.actionExecutionId)) {
-            console.log(
-              `[Anthropic] Skipping tool_result with invalid tool_use_id: ${message.actionExecutionId}`,
-            );
             return null; // Will be filtered out later
           }
 
@@ -143,9 +137,6 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
     }
 
     try {
-      // Log what we're sending to Anthropic
-      console.log(`[Anthropic] Sending ${limitedMessages.length} messages to API`);
-
       const createParams = {
         system: instructions,
         model: this.model,
@@ -158,9 +149,6 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
         ...(toolChoice && { tool_choice: toolChoice }),
         stream: true,
       };
-
-      // Optional: Uncomment to log full payload for debugging
-      // console.log('[Anthropic] Request payload:', JSON.stringify(createParams));
 
       const stream = await this.anthropic.messages.create(createParams);
 
