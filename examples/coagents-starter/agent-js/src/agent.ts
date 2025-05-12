@@ -19,8 +19,8 @@ import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
 // 2. Define our agent state, which includes CopilotKit state to
 //    provide actions to the state.
 export const AgentStateAnnotation = Annotation.Root({
-    language: Annotation<"english" | "spanish">,
-    ...CopilotKitStateAnnotation.spec,
+  proverbs: Annotation<string[]>,
+  ...CopilotKitStateAnnotation.spec,
 });
 
 // 3. Define the type for our agent state
