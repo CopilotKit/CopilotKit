@@ -155,22 +155,3 @@ export function convertMessageToAnthropicMessage(
     };
   }
 }
-
-export function groupAnthropicMessagesByRole(
-  messageParams: Anthropic.Messages.MessageParam[],
-): Anthropic.Messages.MessageParam[] {
-  return messageParams.reduce((acc, message) => {
-    const lastGroup = acc[acc.length - 1];
-
-    if (lastGroup && lastGroup.role === message.role) {
-      lastGroup.content = lastGroup.content.concat(message.content as any);
-    } else {
-      acc.push({
-        role: message.role,
-        content: [...(message.content as any)],
-      });
-    }
-
-    return acc;
-  }, [] as Anthropic.Messages.MessageParam[]);
-}
