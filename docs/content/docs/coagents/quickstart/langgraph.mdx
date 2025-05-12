@@ -249,8 +249,10 @@ Before you begin, you'll need the following:
                                     <Accordion title="Having trouble?">
                                       If you encounter issues while tunneling on Windows, try the following solutions:
                                         - Make sure the following lines are uncommented in your `hosts` file:  
-                                            `127.0.0.1 localhost`  
-                                            `::1       localhost`  
+                                        ```bash  
+                                        127.0.0.1 localhost  
+                                        ::1       localhost
+                                        ```  
                                         - Try starting the langgraph server using
                                         ```bash
                                         langgraph dev --host :: --port 8000
@@ -281,9 +283,11 @@ Before you begin, you'll need the following:
                                 <Accordions className="mb-4">
                                     <Accordion title="Having trouble?">
                                       If you encounter issues while tunneling on Windows, try the following solutions:
-                                        - Make sure the following lines are uncommented in your `hosts` file:  
-                                            `127.0.0.1 localhost`  
-                                            `::1       localhost`  
+                                        - Make sure the following lines are uncommented in your `hosts` file:
+                                        ```bash  
+                                        127.0.0.1 localhost  
+                                        ::1       localhost
+                                        ```  
                                         - In the `demo.py` file, use `::` as the host to enable IPv6 binding.
                                     </Accordion>
                                 </Accordions>
