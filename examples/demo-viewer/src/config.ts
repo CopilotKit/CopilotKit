@@ -141,6 +141,13 @@ const config: DemoConfig[] = [
     description: "Haiku generator that uses tool based generative UI.",
     tags: ["Generative ui (action)", "Tools"],
   }),
+  createDemoConfig({
+    id: "standard_agentic_generative_ui",
+    name: "Agentic Generative UI",
+    description:
+      "Assign a long running task to your Copilot and see how it performs!",
+    tags: ["Generative ui (agent)", "Long running task"],
+  }),
   // TODO: Re-enable after revisiting demo
   // createDemoConfig({
   //     id: 'multi_agent_flows',
