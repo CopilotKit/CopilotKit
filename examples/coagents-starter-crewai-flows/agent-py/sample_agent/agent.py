@@ -5,7 +5,7 @@ It defines the workflow graph, state, tools, nodes and edges.
 
 import json
 from typing_extensions import Literal
-from typing import Any, Dict, Optional, Union, List
+from typing import Any, Dict, Optional, Union
 from pydantic import BaseModel
 from litellm import completion
 from crewai.flow.flow import Flow, start, router, listen
@@ -362,9 +362,6 @@ class SampleAgentFlow(Flow[AgentState]):
         """
         system_prompt = f"You are a helpful assistant. Talk in {self.state.language}."
 
-        # 1. Run the model and stream the response
-        #    Note: In order to stream the response, wrap the completion call in
-        #    copilotkit_stream and set stream=True.
         response = await copilotkit_stream(
             completion(
 

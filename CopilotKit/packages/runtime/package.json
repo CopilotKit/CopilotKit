@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.8.12-next.3",
+  "version": "1.8.12-next.4",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -29,6 +29,7 @@
     "unlink:global": "pnpm unlink --global"
   },
   "devDependencies": {
+    "@jest/globals": "^29.7.0",
     "@swc/core": "1.5.28",
     "@types/express": "^4.17.21",
     "@types/jest": "^29.5.12",

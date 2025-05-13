@@ -8,6 +8,6 @@
     "strict": false,
     "resolveJsonModule": true
   },
-  "include": ["./src/**/*.ts", "./src/**/*.test.ts", "./src/**/__tests__/*"],
+  "include": ["./src/**/*.ts", "./src/**/*.test.ts", "./src/**/__tests__/*", "./tests/**/*.ts"],
   "exclude": ["dist", "build", "node_modules"]
 }

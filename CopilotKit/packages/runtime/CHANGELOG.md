@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.8.12-next.4
+
+### Patch Changes
+
+- f419d99: - fix: Implement allowlist approach to prevent duplicate tool_result blocks in API calls to OpenAI and Anthropic
+  - @copilotkit/shared@1.8.12-next.4
+
 ## 1.8.12-next.3
 
 ### Patch Changes
