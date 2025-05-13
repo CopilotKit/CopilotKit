@@ -232,10 +232,14 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
   const { coagentStates, coagentStatesRef, setCoagentStatesWithRef, threadId, copilotApiConfig } =
     context;
   const { appendMessage, runChatCompletion } = useCopilotChat();
+  const headers = {
+    ...(copilotApiConfig.headers || {}),
+  };
 
   const runtimeClient = useCopilotRuntimeClient({
     url: copilotApiConfig.chatApiEndpoint,
     publicApiKey: copilotApiConfig.publicApiKey,
+    headers,
     credentials: copilotApiConfig.credentials,
   });
 
