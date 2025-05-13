@@ -77,3 +77,8 @@ Whether to disable parallel tool calls.
   introduced by one tool call are visible to the next tool call. (i.e. new actions or readables)
 </PropertyReference>
 
+<PropertyReference name="keepSystemRole" type="boolean"  default="false"> 
+Whether to keep the role in system messages as "System".
+  By default, it is converted to "developer", which is used by newer OpenAI models
+</PropertyReference>
+

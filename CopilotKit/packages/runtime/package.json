@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.8.9",
+  "version": "1.8.12-next.3",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -46,17 +46,17 @@
     "zod-to-json-schema": "^3.23.5"
   },
   "dependencies": {
-    "@agentwire/client": "0.0.26",
-    "@agentwire/proto": "0.0.26",
-    "@agentwire/core": "0.0.26",
-    "@agentwire/encoder": "0.0.26",
+    "@ag-ui/client": "^0.0.27",
+    "@ag-ui/core": "^0.0.27",
+    "@ag-ui/encoder": "^0.0.27",
+    "@ag-ui/proto": "^0.0.27",
     "@anthropic-ai/sdk": "^0.27.3",
     "@copilotkit/shared": "workspace:*",
     "@graphql-yoga/plugin-defer-stream": "^3.3.1",
     "@langchain/community": "^0.3.29",
     "@langchain/core": "^0.3.38",
     "@langchain/google-gauth": "^0.1.0",
-    "@langchain/langgraph-sdk": "^0.0.36",
+    "@langchain/langgraph-sdk": "^0.0.70",
     "@langchain/openai": "^0.4.2",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",

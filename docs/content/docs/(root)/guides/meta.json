@@ -6,6 +6,7 @@
     "generative-ui",
     "frontend-actions",
     "backend-actions",
+    "model-context-protocol",
     "custom-ai-assistant-behavior",
     "frontend-backend-action-pairing",
     "authenticated-actions",
@@ -14,7 +15,6 @@
     "bring-your-own-llm",
     "copilot-textarea",
     "self-hosting",
-    "messages-localstorage",
-    "model-context-protocol"
+    "messages-localstorage"
   ]
 }

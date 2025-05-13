@@ -1,4 +1,9 @@
-import { AssistantGraph, Client as LangGraphClient, GraphSchema } from "@langchain/langgraph-sdk";
+import {
+  Client as LangGraphClient,
+  EventsStreamEvent,
+  GraphSchema,
+  StreamMode,
+} from "@langchain/langgraph-sdk";
 import { createHash } from "node:crypto";
 import { isValidUUID, randomUUID } from "@copilotkit/shared";
 import { parse as parsePartialJson } from "partial-json";
@@ -12,7 +17,6 @@ import { CustomEventNames, LangGraphEventTypes } from "../../agents/langgraph/ev
 import telemetry from "../telemetry-client";
 import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 import { MetaEventName } from "../../graphql/types/meta-events.type";
-import { RunsStreamPayload } from "@langchain/langgraph-sdk/dist/types";
 import { parseJson, CopilotKitMisuseError } from "@copilotkit/shared";
 import { RemoveMessage } from "@langchain/core/messages";
 
@@ -26,7 +30,10 @@ interface ExecutionArgs extends Omit<LangGraphPlatformEndpoint, "agents"> {
   nodeName: string;
   messages: Message[];
   state: State;
-  configurable?: Record<string, any>;
+  config?: {
+    configurable?: Record<string, any>;
+    [key: string]: any;
+  };
   properties: CopilotRequestContextProperties;
   actions: ExecutionAction[];
   logger: Logger;
@@ -119,7 +126,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     agent,
     nodeName: initialNodeName,
     state: initialState,
-    configurable,
+    config: explicitConfig,
     messages,
     actions,
     logger,
@@ -181,9 +188,9 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
 
   const streamInput = mode === "start" ? state : null;
 
-  const payload: RunsStreamPayload = {
+  const payload = {
     input: streamInput,
-    streamMode: ["events", "values", "updates"],
+    streamMode: ["events", "values", "updates"] satisfies StreamMode[],
     command: undefined,
   };
 
@@ -207,9 +214,11 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     provider?: string;
     langGraphHost?: string;
     langGraphVersion?: string;
-    hashedLgcKey: string;
+    hashedLgcKey?: string | null;
   } = {
-    hashedLgcKey: createHash("sha256").update(langsmithApiKey).digest("hex"),
+    hashedLgcKey: langsmithApiKey
+      ? createHash("sha256").update(langsmithApiKey).digest("hex")
+      : null,
   };
 
   const assistants = await client.assistants.search();
@@ -234,11 +243,40 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   const graphInfo = await client.assistants.getGraph(assistantId);
   const graphSchema = await client.assistants.getSchemas(assistantId);
   const schemaKeys = getSchemaKeys(graphSchema);
-  if (configurable) {
-    const filteredConfigurable = schemaKeys?.config
-      ? filterObjectBySchemaKeys(configurable, schemaKeys?.config)
-      : configurable;
-    await client.assistants.update(assistantId, { config: { configurable: filteredConfigurable } });
+
+  if (explicitConfig) {
+    let filteredConfigurable = retrievedAssistant.config.configurable;
+    if (explicitConfig.configurable) {
+      filteredConfigurable = schemaKeys?.config
+        ? filterObjectBySchemaKeys(explicitConfig?.configurable, schemaKeys?.config)
+        : explicitConfig?.configurable;
+    }
+
+    const newConfig = {
+      ...retrievedAssistant.config,
+      ...explicitConfig,
+      configurable: filteredConfigurable,
+    };
+
+    // LG does not return recursion limit if it's the default, therefore we check: if no recursion limit is currently set, and the user asked for 25, there is no change.
+    const isRecursionLimitSetToDefault =
+      retrievedAssistant.config.recursion_limit == null && explicitConfig.recursion_limit === 25;
+    // Deep compare configs to avoid unnecessary update calls
+    const configsAreDifferent =
+      JSON.stringify(newConfig) !== JSON.stringify(retrievedAssistant.config);
+
+    // Check if the only difference is the recursion_limit being set to default
+    const isOnlyRecursionLimitDifferent =
+      isRecursionLimitSetToDefault &&
+      JSON.stringify({ ...newConfig, recursion_limit: null }) ===
+        JSON.stringify({ ...retrievedAssistant.config, recursion_limit: null });
+
+    // If configs are different, we further check: Is the only diff a request to set the recursion limit to its already default?
+    if (configsAreDifferent && !isOnlyRecursionLimitDifferent) {
+      await client.assistants.update(assistantId, {
+        config: newConfig,
+      });
+    }
   }
 
   // Do not input keys that are not part of the input schema
@@ -267,14 +305,24 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     telemetry.capture("oss.runtime.agent_execution_stream_started", {
       hashedLgcKey: streamInfo.hashedLgcKey,
     });
-    for await (const chunk of streamResponse) {
-      if (!["events", "values", "error", "updates"].includes(chunk.event)) continue;
+    for await (let streamResponseChunk of streamResponse) {
+      if (!["events", "values", "error", "updates"].includes(streamResponseChunk.event)) continue;
 
-      if (chunk.event === "error") {
-        throw new Error(`Error event thrown: ${chunk.data.message}`);
+      if (streamResponseChunk.event === "error") {
+        throw new Error(`Error event thrown: ${streamResponseChunk.data.message}`);
       }
 
-      const interruptEvents = chunk.data?.__interrupt__;
+      // Force event type, as data is not properly defined on the LG side.
+      type EventsChunkData = {
+        __interrupt__?: any;
+        metadata: Record<string, any>;
+        event: string;
+        data: any;
+        [key: string]: unknown;
+      };
+      const chunk = streamResponseChunk as EventsStreamEvent & { data: EventsChunkData };
+
+      const interruptEvents = chunk.data.__interrupt__;
       if (interruptEvents?.length) {
         activeInterruptEvent = true;
         const interruptValue = interruptEvents?.[0].value;
@@ -305,22 +353,21 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
         }
         continue;
       }
-      if (chunk.event === "updates") continue;
+      if (streamResponseChunk.event === "updates") continue;
 
-      if (chunk.event === "values") {
+      if (streamResponseChunk.event === "values") {
         latestStateValues = chunk.data;
         continue;
       }
 
-      const event = chunk.data;
-      const currentNodeName = event.metadata.langgraph_node;
-      const eventType = event.event;
-      const runId = event.metadata.run_id;
+      const chunkData = chunk.data;
+      const currentNodeName = chunkData.metadata.langgraph_node;
+      const eventType = chunkData.event;
+      const runId = chunkData.metadata.run_id;
       externalRunId = runId;
-      const metadata = event.metadata;
-
-      if (event.data?.output?.model != null && event.data?.output?.model != "") {
-        streamInfo.provider = event.data?.output?.model;
+      const metadata = chunkData.metadata;
+      if (chunkData.data?.output?.model != null && chunkData.data?.output?.model != "") {
+        streamInfo.provider = chunkData.data?.output?.model;
       }
       if (metadata.langgraph_host != null && metadata.langgraph_host != "") {
         streamInfo.langGraphHost = metadata.langgraph_host;
@@ -332,12 +379,12 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       shouldExit =
         shouldExit ||
         (eventType === LangGraphEventTypes.OnCustomEvent &&
-          event.name === CustomEventNames.CopilotKitExit);
+          chunkData.name === CustomEventNames.CopilotKitExit);
 
       const emitIntermediateState = metadata["copilotkit:emit-intermediate-state"];
       const manuallyEmitIntermediateState =
         eventType === LangGraphEventTypes.OnCustomEvent &&
-        event.name === CustomEventNames.CopilotKitManuallyEmitIntermediateState;
+        chunkData.name === CustomEventNames.CopilotKitManuallyEmitIntermediateState;
 
       const exitingNode =
         nodeName === currentNodeName && eventType === LangGraphEventTypes.OnChainEnd;
@@ -361,7 +408,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
 
       if (manuallyEmitIntermediateState) {
         // See manuallyEmittedState for explanation
-        manuallyEmittedState = event.data;
+        manuallyEmittedState = chunkData.data;
         emit(
           getStateSyncEvent({
             threadId,
@@ -387,7 +434,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       }
 
       if (emitIntermediateState && eventType === LangGraphEventTypes.OnChatModelStream) {
-        streamingStateExtractor.bufferToolCalls(event);
+        streamingStateExtractor.bufferToolCalls(chunkData);
       }
 
       if (emitIntermediateStateUntilEnd !== null) {
@@ -427,7 +474,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
         );
       }
 
-      emit(JSON.stringify(event) + "\n");
+      emit(JSON.stringify(chunkData) + "\n");
     }
 
     state = await client.threads.getState(threadId);

@@ -68,6 +68,7 @@ async def start_flow(state: Dict[str, Any], config: RunnableConfig):
     # Initialize steps list if not exists
     if "steps" not in state:
         state["steps"] = []
+
     
     return Command(
         goto="chat_node",
@@ -86,12 +87,11 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
     system_prompt = """
     You are a helpful assistant that can perform any task.
     You MUST call the `generate_task_steps` function when the user asks you to perform a task.
-    When the function `generate_task_steps` is called, the user will decide to enable or disable steps.
     Always make sure you will provide tasks based on the user query
     """
 
     # Define the model
-    model = ChatOpenAI(model="gpt-4o")
+    model = ChatOpenAI(model="gpt-4o-mini")
     
     # Define config for the model
     if config is None:
@@ -110,7 +110,7 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
     # Bind the tools to the model
     model_with_tools = model.bind_tools(
         [
-            # *state["copilotkit"]["actions"],
+            *state["copilotkit"]["actions"],
             DEFINE_TASK_TOOL
         ],
         # Disable parallel tool calls to avoid race conditions
@@ -129,7 +129,6 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
     # Handle tool calls
     if hasattr(response, "tool_calls") and response.tool_calls and len(response.tool_calls) > 0:
         tool_call = response.tool_calls[0]
-        
         # Extract tool call information
         if hasattr(tool_call, "id"):
             tool_call_id = tool_call.id
@@ -162,10 +161,16 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
                             "status": "enabled"
                         })
             
-            # If no steps were processed correctly, create some dummy steps for debugging
+            # If no steps were processed correctly, return to END with the updated messages
             if not steps_data:
-                steps_data = []
-            
+                await copilotkit_exit(config)
+                return Command(
+                    goto=END,
+                    update={
+                        "messages": messages,
+                        "steps": state["steps"],
+                    }
+                )
             # Update steps in state and emit to frontend
             state["steps"] = steps_data
             
@@ -258,9 +263,25 @@ workflow.add_node("process_steps_node", process_steps_node)
 workflow.set_entry_point("start_flow")
 workflow.add_edge(START, "start_flow")
 workflow.add_edge("start_flow", "chat_node")
-workflow.add_edge("chat_node", "process_steps_node")
-workflow.add_edge("chat_node", END)
+# workflow.add_edge("chat_node", "process_steps_node") # Removed unconditional edge
 workflow.add_edge("process_steps_node", END)
+# workflow.add_edge("chat_node", END)                 # Removed unconditional edge
+
+# Add conditional edges from chat_node
+def should_continue(command: Command):
+    if command.goto == "process_steps_node":
+        return "process_steps_node"
+    else:
+        return END
+
+workflow.add_conditional_edges(
+    "chat_node",
+    should_continue,
+    {
+        "process_steps_node": "process_steps_node",
+        END: END,
+    },
+)
 
 # Compile the graph
 human_in_the_loop_graph = workflow.compile(checkpointer=MemorySaver())

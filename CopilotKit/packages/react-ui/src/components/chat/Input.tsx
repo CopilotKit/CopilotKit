@@ -5,6 +5,8 @@ import AutoResizingTextarea from "./Textarea";
 import { usePushToTalk } from "../../hooks/use-push-to-talk";
 import { useCopilotContext } from "@copilotkit/react-core";
 
+const MAX_NEWLINES = 6;
+
 export const Input = ({ inProgress, onSend, isVisible = false, onStop, onUpload }: InputProps) => {
   const context = useChatContext();
   const copilotContext = useCopilotContext();
@@ -37,11 +39,20 @@ export const Input = ({ inProgress, onSend, isVisible = false, onStop, onUpload 
     textareaRef.current?.focus();
   };
 
-  useEffect(() => {
-    if (isVisible) {
-      textareaRef.current?.focus();
-    }
-  }, [isVisible]);
+  // tylerslaton:
+  //
+  // This scrolls CopilotKit into view always. Reading the commit history, it was likely
+  // added to fix a bug but it is causing issues now.
+  //
+  // For the future, if we want this behavior again, we will need to find a way to do it without
+  // forcing CopilotKit to always be in view. This code causes this because focusing an element
+  // in most browsers will scroll that element into view.
+  //
+  // useEffect(() => {
+  //   if (isVisible) {
+  //     textareaRef.current?.focus();
+  //   }
+  // }, [isVisible]);
 
   const { pushToTalkState, setPushToTalkState } = usePushToTalk({
     sendFunction: onSend,
@@ -75,8 +86,8 @@ export const Input = ({ inProgress, onSend, isVisible = false, onStop, onUpload 
         <AutoResizingTextarea
           ref={textareaRef}
           placeholder={context.labels.placeholder}
-          autoFocus={true}
-          maxRows={5}
+          autoFocus={false}
+          maxRows={MAX_NEWLINES}
           value={text}
           onChange={(event) => setText(event.target.value)}
           onKeyDown={(event) => {

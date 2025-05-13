@@ -1,5 +1,77 @@
 # @copilotkit/sdk-js
 
+## 1.8.12-next.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.12-next.3
+
+## 1.8.12-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.12-next.2
+
+## 1.8.12-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.12-next.1
+
+## 1.8.12-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.12-next.0
+
+## 1.8.11
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.11
+
+## 1.8.11-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.11-next.1
+
+## 1.8.11-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.11-next.0
+
+## 1.8.10
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.10
+
+## 1.8.10-next.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.10-next.3
+
+## 1.8.10-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.10-next.2
+
+## 1.8.10-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.10-next.1
+
+## 1.8.10-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.10-next.0
+
 ## 1.8.9
 
 ### Patch Changes

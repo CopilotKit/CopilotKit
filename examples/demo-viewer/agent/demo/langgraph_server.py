@@ -22,8 +22,9 @@ from demo.langgraph_agentic_generative_ui.agent import graph
 
 app = FastAPI()
 # Use CopilotKitSDK instead of CopilotKitRemoteEndpoint
-sdk = CopilotKitSDK(
-    agents=[
+
+def create_agents(context):
+    return [
         # Register the LangGraph agent using the LangGraphAgent class
         LangGraphAgent(
             name="agentic_chat",
@@ -59,7 +60,10 @@ sdk = CopilotKitSDK(
             description="An example for a predictive state updates flow.",
             graph=predictive_state_updates_graph,
         )
-    ],
+    ]
+    
+sdk = CopilotKitSDK(
+    agents=create_agents
 )
 
 add_fastapi_endpoint(app, sdk, "/copilotkit")

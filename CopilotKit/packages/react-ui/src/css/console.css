@@ -64,7 +64,6 @@
   align-items: center;
   justify-content: center;
   outline: none;
-  color: var(--copilot-kit-dev-console-text);
 }
 
 .copilotKitDebugMenuTriggerButton.compact {
@@ -77,6 +76,7 @@
 
 .copilotKitDevConsole .copilotKitDebugMenuTriggerButton:hover {
   background-color: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 85%, black);
+  color: var(--copilot-kit-dev-console-text);
 }
 
 .dark,

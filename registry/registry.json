@@ -46,7 +46,11 @@
       "type": "registry:block",
       "title": "Standard Starter",
       "description": "A starter for CopilotKit with no agent framework.",
-      "dependencies": ["@copilotkit/runtime", "@copilotkit/react-core", "@copilotkit/react-ui"],
+      "dependencies": [
+        "@copilotkit/runtime",
+        "@copilotkit/react-core",
+        "@copilotkit/react-ui"
+      ],
       "files": [
         {
           "path": "registry/layout/standard-layout.tsx",
@@ -65,7 +69,7 @@
       "type": "registry:block",
       "title": "MCP Starter",
       "description": "A starter for CopilotKit with MCP.",
-      "dependencies": ["@copilotkit/react-core", "@copilotkit/react-ui", "ai"],
+      "dependencies": ["@copilotkit/react-core", "@copilotkit/react-ui"],
       "files": [
         {
           "path": "registry/layout/standard-layout.tsx",
@@ -88,12 +92,17 @@
       "type": "registry:block",
       "title": "MCP Starter Runtime",
       "description": "A runtime for CopilotKit with MCP.",
-      "dependencies": ["@copilotkit/runtime"],
+      "dependencies": ["@copilotkit/runtime", "@modelcontextprotocol/sdk"],
       "files": [
         {
           "path": "registry/quickstarts/mcp-starter/runtime.ts",
           "type": "registry:lib",
           "target": "app/api/copilotkit/route.ts"
+        },
+        {
+          "path": "registry/quickstarts/mcp-starter/utils/mcp-client.ts",
+          "type": "registry:lib",
+          "target": "app/utils/mcp-client.ts"
         }
       ]
     },
@@ -102,11 +111,8 @@
       "type": "registry:block",
       "title": "Generic LG Starter",
       "description": "A starter for CopilotKit with any LangGraph agent.",
-      "registryDependencies": [ "tooltip" ],
-      "dependencies": [
-        "@copilotkit/react-core",
-        "@copilotkit/react-ui"
-      ],
+      "registryDependencies": ["tooltip"],
+      "dependencies": ["@copilotkit/react-core", "@copilotkit/react-ui"],
       "files": [
         {
           "path": "registry/quickstarts/coagents-generic-lg/page.tsx",
