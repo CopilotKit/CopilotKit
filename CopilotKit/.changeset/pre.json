@@ -18,6 +18,7 @@
     "tsconfig": "1.4.6"
   },
   "changesets": [
+    "clever-tables-tap",
     "curly-peas-confess",
     "itchy-apes-compete",
     "orange-drinks-do",

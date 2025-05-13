@@ -1,5 +1,14 @@
 # ui
 
+## 1.8.12-next.5
+
+### Patch Changes
+
+- 9b2e9e6: - fix: move powered by tag to input and fix padding on full chat
+  - @copilotkit/react-core@1.8.12-next.5
+  - @copilotkit/runtime-client-gql@1.8.12-next.5
+  - @copilotkit/shared@1.8.12-next.5
+
 ## 1.8.12-next.4
 
 ### Patch Changes
