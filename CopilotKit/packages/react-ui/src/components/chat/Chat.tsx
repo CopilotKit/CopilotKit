@@ -539,7 +539,7 @@ export function WrappedCopilotChat({
   if (!chatContext) {
     return (
       <ChatContextProvider icons={icons} labels={labels} open={true} setOpen={() => {}}>
-        <div className={`copilotKitChat ${className}`}>{children}</div>
+        <div className={`copilotKitChat ${className ?? ""}`}>{children}</div>
       </ChatContextProvider>
     );
   }
