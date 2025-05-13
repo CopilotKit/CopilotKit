@@ -7,7 +7,7 @@ import { TerminalIcon, RocketIcon } from "lucide-react";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
 import { TopBar } from "@/components/layout/top-bar";
 import { SiLangchain } from "react-icons/si";
-import { AG2Icon } from "@/lib/icons/custom-icons";
+import { AG2Icon, MastraIcon } from "@/lib/icons/custom-icons";
 
 export default function Layout({ children }: { children: ReactNode }) {
   return (
@@ -62,6 +62,15 @@ export default function Layout({ children }: { children: ReactNode }) {
                       bgGradient:
                         "bg-gradient-to-b from-[#FA694C] to-[#FE8A71] text-white",
                       selectedStyle: "ring-[#FA694C]/70 ring-2 rounded-sm",
+                    },
+                    {
+                      title: "CoAgents (Mastra)",
+                      description: "Documentation for CoAgents with Mastra",
+                      url: "/mastra",
+                      icon: <MastraIcon className="w-4 h-4 text-bold" />,
+                      bgGradient:
+                        "bg-gradient-to-b from-black to-zinc-800 text-white",
+                      selectedStyle: "ring-indigo-500/70 ring-2 rounded-sm",
                     },
                     {
                       title: "CoAgents (AG2)",

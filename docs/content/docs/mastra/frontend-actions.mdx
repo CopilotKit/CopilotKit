@@ -1,0 +1,104 @@
+---
+title: Frontend Actions
+icon: "lucide/Wrench"
+description: Create frontend actions and use them within your agent.
+---
+
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
+
+<video
+  src="/images/frontend-actions-demo.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
+<Callout>
+  This video shows the [coagents
+  starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-mastra)
+  repo with the [implementation](#implementation) section applied to it!
+</Callout>
+
+## What is this?
+
+Frontend actions are powerful tools that allow your AI agents to directly interact with and update your application's user interface. Think of them as bridges that connect your agent's decision-making capabilities with your frontend's interactive elements.
+
+## When should I use this?
+
+Frontend actions are essential when you want to create truly interactive AI applications where your agent needs to:
+
+- Dynamically update UI elements
+- Trigger frontend animations or transitions
+- Show alerts or notifications
+- Modify application state
+- Handle user interactions programmatically
+
+Without frontend actions, agents are limited to just processing and returning data. By implementing frontend actions, you can create rich, interactive experiences where your agent actively drives the user interface.
+
+## Implementation
+
+<Steps>
+    <Step>
+        ### Setup CopilotKit
+
+        To use frontend actions, you'll need to setup CopilotKit first. For the sake of brevity, we won't cover it here.
+
+        Check out our [getting started guide](/mastra/quickstart/mastra) and come back here when you're setup!
+    </Step>
+
+    <Step>
+        ### Create a frontend action
+
+        First, you'll need to create a frontend action using the [useCopilotAction](/reference/hooks/useCopilotAction) hook. Here's a simple one to get you started
+        that says hello to the user.
+
+        ```tsx title="page.tsx"
+        import { useCopilotAction } from "@copilotkit/react-core" // [!code highlight]
+
+        export function Page() {
+          // ...
+
+          // [!code highlight:16]
+          useCopilotAction({
+            name: "sayHello",
+            description: "Say hello to the user",
+            available: "remote", // optional, makes it so the action is *only* available to the agent
+            parameters: [
+              {
+                name: "name",
+                type: "string",
+                description: "The name of the user to say hello to",
+                required: true,
+              },
+            ],
+            handler: async ({ name }) => {
+              alert(`Hello, ${name}!`);
+            },
+          });
+
+          // ...
+        }
+        ```
+    </Step>
+    <Step>
+        ###  Modify your agent
+        Now, we'll need to modify the agent to access these frontend actions. Open up for your agent's folder and continue from there!
+    </Step>
+    <Step>
+        ### Install the CopilotKit SDK
+        <InstallSDKSnippet components={props.components}/>
+    </Step>
+    <Step>
+        ### Accessing Frontend Actions
+
+        Since Mastra includes native support for the AG-UI protocol, frontend actions are automatically available to the agent as
+        tools.
+    </Step>
+    <Step>
+        ### Give it a try!
+        You've now given your agent the ability to directly call any CopilotActions you've defined. These actions will be available as tools to the agent where they can be used as needed.
+    </Step>
+
+</Steps> 

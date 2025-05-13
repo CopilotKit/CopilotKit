@@ -1,0 +1,18 @@
+{
+  "title": "CoAgents",
+  "root": true,
+  "pages": [
+    "index",
+    "[lucide/Telescope][Feature Viewer](https://copilotkit-mastra-feature-viewer.vercel.app/)",
+    "---Quickstart---",
+    "...quickstart",
+    "---Guides---",
+    "agentic-chat-ui",
+    "generative-ui",
+    "human-in-the-loop",
+    "frontend-actions",
+    "multi-agent-flows",
+    "---Learn---",
+    "...concepts"
+  ]
+}
