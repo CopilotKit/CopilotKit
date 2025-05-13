@@ -158,8 +158,13 @@ const DocumentEditor = () => {
       }
     ],
     handler: async ({ document }) => {
-      // setCurrentDocument(document);
-      editor?.commands.setContent(fromMarkdown(document));
+      setCurrentDocument(document);
+      if(currentDocument == ""){
+        editor?.commands.setContent(fromMarkdown(document));
+        return
+      }
+      let diff = diffPartialText(currentDocument,document)
+      editor?.commands.setContent(fromMarkdown(diff));
     }
   })
 
