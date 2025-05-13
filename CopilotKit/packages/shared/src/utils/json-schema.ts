@@ -80,7 +80,7 @@ export function jsonSchemaToActionParameters(jsonSchema: JSONSchema): Parameter[
 function convertJsonSchemaToParameter(
   name: string,
   schema: JSONSchema,
-  isRequired: boolean
+  isRequired: boolean,
 ): Parameter {
   const baseParameter: Parameter = {
     name,
@@ -111,7 +111,7 @@ function convertJsonSchemaToParameter(
 
         for (const [propName, propSchema] of Object.entries(schema.properties)) {
           attributes.push(
-            convertJsonSchemaToParameter(propName, propSchema, requiredFields.includes(propName))
+            convertJsonSchemaToParameter(propName, propSchema, requiredFields.includes(propName)),
           );
         }
 
@@ -132,7 +132,7 @@ function convertJsonSchemaToParameter(
 
         for (const [propName, propSchema] of Object.entries(schema.items.properties || {})) {
           attributes.push(
-            convertJsonSchemaToParameter(propName, propSchema, requiredFields.includes(propName))
+            convertJsonSchemaToParameter(propName, propSchema, requiredFields.includes(propName)),
           );
         }
 

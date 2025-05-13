@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { 
-  convertJsonSchemaToZodSchema, 
-  actionParametersToJsonSchema, 
-  jsonSchemaToActionParameters, 
-  JSONSchema 
+import {
+  convertJsonSchemaToZodSchema,
+  actionParametersToJsonSchema,
+  jsonSchemaToActionParameters,
+  JSONSchema,
 } from "../utils/json-schema";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { Parameter } from "../types";
@@ -337,7 +337,7 @@ describe("jsonSchemaToActionParameters", () => {
           type: "array",
           items: {
             type: "array",
-            items: { type: "string" }
+            items: { type: "string" },
           },
           description: "Matrix of strings",
         },
@@ -345,7 +345,9 @@ describe("jsonSchemaToActionParameters", () => {
       required: ["nestedArray"],
     };
 
-    expect(() => jsonSchemaToActionParameters(jsonSchema)).toThrow("Nested arrays are not supported");
+    expect(() => jsonSchemaToActionParameters(jsonSchema)).toThrow(
+      "Nested arrays are not supported",
+    );
   });
 
   it("should ensure round-trip conversion works", () => {
