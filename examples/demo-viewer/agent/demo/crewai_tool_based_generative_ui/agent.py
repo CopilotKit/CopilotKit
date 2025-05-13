@@ -55,7 +55,7 @@ class ToolBasedGenerativeUIFlow(Flow[CopilotKitState]):
         """
         The main function handling chat and tool calls.
         """
-        system_prompt = "You assist the user in generating a haiku."
+        system_prompt = "You assist the user in generating a haiku. When generating a haiku using the 'generate_haiku' tool, you MUST also select exactly 3 image filenames from the following list that are most relevant to the haiku's content or theme. Return the filenames in the 'image_names' parameter. Dont provide the relavent image names in your final response to the user. "
 
 
         # 1. Run the model and stream the response

@@ -73,6 +73,14 @@ export interface OpenAIAssistantAdapterParams {
    * @default false
    */
   disableParallelToolCalls?: boolean;
+
+  /**
+   * Whether to keep the role in system messages as "System".
+   * By default, it is converted to "developer", which is used by newer OpenAI models
+   *
+   * @default false
+   */
+  keepSystemRole?: boolean;
 }
 
 export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
@@ -81,6 +89,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
   private assistantId: string;
   private fileSearchEnabled: boolean;
   private disableParallelToolCalls: boolean;
+  private keepSystemRole: boolean = false;
 
   constructor(params: OpenAIAssistantAdapterParams) {
     this.openai = params.openai || new OpenAI({});
@@ -88,6 +97,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
     this.fileSearchEnabled = params.fileSearchEnabled === false || true;
     this.assistantId = params.assistantId;
     this.disableParallelToolCalls = params?.disableParallelToolCalls || false;
+    this.keepSystemRole = params?.keepSystemRole ?? false;
   }
 
   async process(
@@ -198,7 +208,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
 
     // get the latest user message
     const userMessage = messages
-      .map((m) => convertMessageToOpenAIMessage(m))
+      .map((m) => convertMessageToOpenAIMessage(m, { keepSystemRole: this.keepSystemRole }))
       .map(convertSystemMessageToAssistantAPI)
       .at(-1);
 

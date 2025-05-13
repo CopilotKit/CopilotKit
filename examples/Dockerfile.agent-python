@@ -6,22 +6,44 @@ ARG WITH_LOCAL_DEPS
 
 ENV POETRY_VIRTUALENVS_CREATE=false
 
-# Install poetry and configure it
-RUN pip install poetry==1.7.1 && \
-    poetry config virtualenvs.create false
+# Install Poetry
+RUN pip install poetry
 
-# Copy only poetry files first
-COPY ${APP_DIR}/pyproject.toml ${APP_DIR}/poetry.lock ./
-
-# Copy SDK and install dependencies
+# Copy SDK and install dependencies first
 COPY sdk-python/ /opt/sdk-python
-WORKDIR /asset
-RUN poetry install --no-interaction --no-ansi
-RUN if [ "$WITH_LOCAL_DEPS" = "true" ]; then pip install --no-build-isolation /opt/sdk-python; fi
+WORKDIR /opt/sdk-python
+RUN pip install -e .
 
-# Copy application code last
+# Create working directory
+WORKDIR /asset
+
+# Copy entire agent directory
 COPY ${APP_DIR}/ ./
 
-RUN mkdir .langgraph_api
+# Install dependencies step by step to avoid conflicts
+RUN pip install -U "langgraph-cli[inmem]>=0.1.64"
+RUN pip install "crewai==0.118.0" "crewai-tools>=0.42.2" --force-reinstall
+# Install pydantic first since langchain depends on specific versions
+RUN pip install "pydantic>=2.7.4,<3.0.0"
+# Now install langchain packages
+RUN pip install "langchain>=0.3.4,<0.4.0" \
+                "langchain-openai>=0.2.5,<0.3.0" \
+                "langchain-anthropic>=0.3.3,<0.4.0" \
+                "langchain-google-genai>=2.0.5,<3.0.0" \
+                "langchain-community>=0.3.1,<0.4.0" \
+                "langchain-core>=0.3.25,<0.4.0"
+# Install remaining dependencies
+RUN pip install "openai>=1.52.1,<2.0.0" \
+                "python-dotenv>=1.0.1,<2.0.0" \
+                requests \
+                "fastapi>=0.110.0,<0.111.0" \
+                "uvicorn>=0.31.0,<0.32.0" \
+                pandas \
+                typing-extensions \
+                tavily-python \
+                html2text
 
+RUN mkdir -p .langgraph_api
+
+# Use poetry run for compatibility with example projects
 CMD ["poetry", "run", "demo"]

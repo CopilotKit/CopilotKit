@@ -1,5 +1,77 @@
 # @copilotkit/runtime
 
+## 1.8.12-next.4
+
+### Patch Changes
+
+- f419d99: - fix: Implement allowlist approach to prevent duplicate tool_result blocks in API calls to OpenAI and Anthropic
+  - @copilotkit/shared@1.8.12-next.4
+
+## 1.8.12-next.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.12-next.3
+
+## 1.8.12-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.12-next.2
+
+## 1.8.12-next.1
+
+### Patch Changes
+
+- 54838cb: - feat: allow keeping system role for openai adapters
+  - @copilotkit/shared@1.8.12-next.1
+
+## 1.8.12-next.0
+
+### Patch Changes
+
+- 2b89ad7: - fix: use latest claude 3.5 as default model instead of specific
+  - chore: add missing variable assignment in llm provider docs
+  - chore: add missing call to fetch azure api key in docs
+  - @copilotkit/shared@1.8.12-next.0
+
+## 1.8.11
+
+### Patch Changes
+
+- 52d0bb5: - fix: do not attempt to hash lgc key if it doesnt exist
+  - fix: accept null on langsmith api key
+  - @copilotkit/shared@1.8.11
+
+## 1.8.11-next.1
+
+### Patch Changes
+
+- 52d0bb5: - fix: do not attempt to hash lgc key if it doesnt exist
+  - fix: accept null on langsmith api key
+  - @copilotkit/shared@1.8.11-next.1
+
+## 1.8.11-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.11-next.0
+
+## 1.8.10
+
+### Patch Changes
+
+- f3a0a33: - updates ag-ui deps
+- 742efbb: - feat: enable setting langgraph config from ui
+  - chore: document usage of new config
+  - @copilotkit/shared@1.8.10
+
+## 1.8.10-next.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.10-next.3
+
 ## 1.8.10-next.2
 
 ### Patch Changes

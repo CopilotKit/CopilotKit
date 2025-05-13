@@ -1,0 +1,110 @@
+---
+title: Introduction
+icon: "lucide/Sparkles"
+description: Build Agent-Native Applications (ANAs) powered by CopilotKit and AG2 Agents.
+---
+
+import { BiSolidMessage as TextIcon } from "react-icons/bi";
+import { VscJson as JsonIcon } from "react-icons/vsc";
+import { FaDiscord } from "react-icons/fa";
+import Link from "next/link";
+import { YouTubeVideo } from "@/components/react/youtube-video";
+import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
+import {
+  CoAgentsFeatureToggle,
+  CoAgentsFeatureRender,
+} from "@/components/react/coagents/coagents-features.tsx";
+import { DynamicContentWrapper } from "@/components/react/dynamic-content-wrapper";
+import { ExamplesCarousel } from "@/components/react/examples-carousel";
+import {
+  LuPlane,
+  LuBookOpen,
+  LuLightbulb,
+  LuLayoutTemplate,
+  LuBrainCog,
+  LuUserCog,
+  LuWand2,
+  LuPlay,
+  LuMessageSquare,
+  LuWrench,
+} from "react-icons/lu";
+import { CoAgentsExamples } from "@/components/react/examples-carousel";
+import { CTACards } from "@/components/react/cta-cards";
+import { FaSync } from "react-icons/fa";
+import { Socials } from "@/components/react/socials";
+
+# Copilot Infrastructure for AG2 Agents
+
+Full user-interaction infrastructure for your agents, to turn your agents into Copilot Agents (CoAgents).
+
+
+<div className="w-full border rounded-lg h-[550px] p-1 pb-6 my-10 shadow-lg flex flex-col items-center">
+  <div className="w-full flex flex-col items-center border-b pb-4">
+    <h2 className="text-xl font-semibold mb-2 text-center">Travel Planner Demo</h2>
+    <h3 className="text-center text-sm text-gray-500 dark:text-gray-400 font-normal mb-4">Play around with a simple "travel agent" application built with AG2 Agents below.</h3>
+  </div>
+  <iframe src="https://ag2-starter.vercel.app/" className="w-full h-full" />
+</div> 
+
+## Ready to get started?
+
+Get started with CoAgents in as little as 5 minutes with one of our guides or tutorials.
+
+<CTACards
+  columns={1}
+  cards={[
+    {
+      icon: LuPlay,
+      title: "Quickstart",
+      description: "Learn how to build your first CoAgent in 5 minutes.",
+      href: "/ag2/quickstart/ag2",
+    },
+  ]}
+/>
+{/* TODO: Add example tutorials for AG2 Agents */}
+
+## Building blocks of a CoAgent
+
+Everything you need to build Agent-Native Applications (ANAs), right out of the box.
+
+<CTACards
+  columns={2}
+  cards={[
+    {
+      icon: LuMessageSquare,
+      title: "Agentic Chat UI",
+      description: "In-app chat powered by your agent.",
+      href: "/ag2/agentic-chat-ui",
+    },
+    {
+      icon: LuUserCog,
+      title: "Human-in-the-Loop",
+      description: "Set smart checkpoints where humans can guide your agents.",
+      href: "/ag2/human-in-the-loop",
+    },
+  ]}
+/>
+
+{/* TODO: Add CoAgents in action section for AG2 Agents */}
+
+## Common Questions
+
+Have a question about CoAgents? You're in the right place!
+
+<Accordions>
+<Accordion title="Can you explain what a CoAgent is in more detail?">
+Sure! CoAgents are what we call "agentic copilots". Well, what's an agentic copilot then?
+
+Think of a Copilot as a simple and fully LLM controlled assistant that has relatively limited capabilities. An Agentic Copilot then is a copilot
+that has been enhanced with the ability to use AG2 agents to perform more complex tasks. This is an extremely powerful way to build AI
+powered applications because it gives you, the developer, the ability to control the agent's behavior in a deterministic way while still letting
+the agent do its magic.
+
+</Accordion>
+<Accordion title="Can I attach to an existing thread?">
+Development of CoAgents is ongoing. One part of this is the ability to attach to an existing thread which is a high priority on our roadmap.
+
+Stay tuned for updates!
+
+</Accordion>
+</Accordions> 

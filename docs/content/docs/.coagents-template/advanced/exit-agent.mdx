@@ -1,0 +1,37 @@
+---
+title: "Exiting the agent loop"
+icon: "lucide/DoorOpen"
+---
+
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
+
+After your agent has finished a workflow, you'll usually want to explicitly end that loop by calling the `copilotkit_exit()` method in your Python code.
+
+Exiting the agent has different effects depending on mode:
+
+- **Router Mode**: Exiting the agent hands responsibility for handling input back to the router, which can initiate chat, call actions, other agents, etc. The router can return to this agent later (starting a new loop) to satisfy a user request.
+
+- **Agent Lock Mode**: Exiting the agent restarts the workflow loop for the current agent.
+
+In this example from [our email-sending app](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-qa), the `send_email` node explicitly exits, then manually sends a response back to the user as a `ToolMessage`:
+
+<Steps>
+    <Step>
+        ### Install the CopilotKit SDK
+        <InstallSDKSnippet components={props.components}/>
+    </Step>
+
+    <Step>
+        ### Exit the agent loop
+        This will exit the agent session as soon as the current --YOUR-FRAMEWORK-- run is finished, either by a breakpoint or by reaching the `END` node.
+
+        <Tabs groupId="language" items={['Python']} default="Python">
+            <Tab value="Python">
+                ```python
+                # your code goes here...
+                ```
+            </Tab>
+        </Tabs>
+    </Step>
+
+</Steps> 

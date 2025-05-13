@@ -9,7 +9,8 @@ license = "MIT"
 name = "research_canvas"
 version = "0.0.1"
 dependencies = [
-    "copilotkit[crewai]>=0.1.41",
+    "copilotkit>=0.1.44",
+    "crewai==0.118.0",
     "langchain-openai>=0.2.3",
     "langchain-community>=0.3.1",
     "langchain-anthropic>=0.3.1",
@@ -34,7 +35,8 @@ build-backend = "setuptools.build_meta"
 
 [tool.poetry.dependencies]
 python = ">=3.12,<3.13"
-copilotkit = {extras = ["crewai"], version = "^0.1.41"}
+copilotkit = "^0.1.44"
+crewai = "0.118.0"
 langchain-openai = "0.2.3"
 langchain-community = "^0.3.1"
 langchain-anthropic = "0.3.1"

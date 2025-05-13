@@ -1,0 +1,34 @@
+---
+title: "Disabling state streaming"
+icon: "lucide/Cog"
+description: "Granularly control what is streamed to the frontend."
+---
+
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
+
+## What is this?
+
+By default, CopilotKit will stream both your state and tool calls to the frontend.
+You can disable this by using CopilotKit's custom `RunnableConfig`.
+
+## When should I use this?
+
+Occasionally, you'll want to disable streaming temporarily — for example, the LLM may be
+doing something the current user should not see, like emitting tool calls or questions
+pertaining to other employees in an HR system.
+
+## Implementation
+
+### Disable all streaming
+
+You can decide wether to stream messages or tool calls by selectively wrapping calls to `completion`
+with `copilotkit_stream`.
+
+<Tabs groupId="language" items={['Python']} default="Python">
+    <Tab value="Python">
+        ```python
+        # your code goes here...
+        ```
+    </Tab>
+
+</Tabs> 

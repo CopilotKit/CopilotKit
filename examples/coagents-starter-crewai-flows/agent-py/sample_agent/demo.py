@@ -120,6 +120,13 @@ def main():
         host="0.0.0.0",
         port=port,
         reload=True,
+        reload_dirs=(
+            ["."] +
+            (["../../../sdk-python/copilotkit"]
+             if os.path.exists("../../../sdk-python/copilotkit")
+             else []
+             )
+        )
     )
     
 if __name__ == "__main__":

@@ -25,13 +25,12 @@ import {
 import {
   convertActionInputToAnthropicTool,
   convertMessageToAnthropicMessage,
-  groupAnthropicMessagesByRole,
   limitMessagesToTokenCount,
 } from "./utils";
 
 import { randomId, randomUUID } from "@copilotkit/shared";
 
-const DEFAULT_MODEL = "claude-3-sonnet-20240229";
+const DEFAULT_MODEL = "claude-3-5-sonnet-latest";
 
 export interface AnthropicAdapterParams {
   /**
@@ -80,9 +79,54 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
     const instructionsMessage = messages.shift();
     const instructions = instructionsMessage.isTextMessage() ? instructionsMessage.content : "";
 
-    let anthropicMessages = messages.map(convertMessageToAnthropicMessage);
-    anthropicMessages = limitMessagesToTokenCount(anthropicMessages, tools, model);
-    anthropicMessages = groupAnthropicMessagesByRole(anthropicMessages);
+    // ALLOWLIST APPROACH:
+    // 1. First, identify all valid tool_use calls (from assistant)
+    // 2. Then, only keep tool_result blocks that correspond to these valid tool_use IDs
+    // 3. Discard any other tool_result blocks
+
+    // Step 1: Extract valid tool_use IDs
+    const validToolUseIds = new Set<string>();
+
+    for (const message of messages) {
+      if (message.isActionExecutionMessage()) {
+        validToolUseIds.add(message.id);
+      }
+    }
+
+    // Step 2: Map each message to an Anthropic message, eliminating invalid tool_results
+    const anthropicMessages = messages
+      .map((message) => {
+        // For tool results, only include if they match a valid tool_use ID
+        if (message.isResultMessage()) {
+          // Skip if there's no corresponding tool_use
+          if (!validToolUseIds.has(message.actionExecutionId)) {
+            return null; // Will be filtered out later
+          }
+
+          // Remove this ID from valid IDs so we don't process duplicates
+          validToolUseIds.delete(message.actionExecutionId);
+
+          return {
+            role: "user",
+            content: [
+              {
+                type: "tool_result",
+                content: message.result,
+                tool_use_id: message.actionExecutionId,
+              },
+            ],
+          };
+        }
+
+        // For non-tool-result messages, convert normally
+        return convertMessageToAnthropicMessage(message);
+      })
+      .filter(Boolean) as Anthropic.Messages.MessageParam[]; // Explicitly cast after filtering nulls
+
+    // Apply token limits
+    const limitedMessages = limitMessagesToTokenCount(anthropicMessages, tools, model);
+
+    // We skip grouping by role since we've already ensured uniqueness of tool_results
 
     let toolChoice: any = forwardedParameters?.toolChoice;
     if (forwardedParameters?.toolChoice === "function") {
@@ -92,73 +136,87 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
       };
     }
 
-    const stream = this.anthropic.messages.create({
-      system: instructions,
-      model: this.model,
-      messages: anthropicMessages,
-      max_tokens: forwardedParameters?.maxTokens || 1024,
-      ...(forwardedParameters?.temperature ? { temperature: forwardedParameters.temperature } : {}),
-      ...(tools.length > 0 && { tools }),
-      ...(toolChoice && { tool_choice: toolChoice }),
-      stream: true,
-    });
+    try {
+      const createParams = {
+        system: instructions,
+        model: this.model,
+        messages: limitedMessages,
+        max_tokens: forwardedParameters?.maxTokens || 1024,
+        ...(forwardedParameters?.temperature
+          ? { temperature: forwardedParameters.temperature }
+          : {}),
+        ...(tools.length > 0 && { tools }),
+        ...(toolChoice && { tool_choice: toolChoice }),
+        stream: true,
+      };
 
-    eventSource.stream(async (eventStream$) => {
-      let mode: "function" | "message" | null = null;
-      let didOutputText = false;
-      let currentMessageId = randomId();
-      let currentToolCallId = randomId();
-      let filterThinkingTextBuffer = new FilterThinkingTextBuffer();
+      const stream = await this.anthropic.messages.create(createParams);
 
-      for await (const chunk of await stream) {
-        if (chunk.type === "message_start") {
-          currentMessageId = chunk.message.id;
-        } else if (chunk.type === "content_block_start") {
-          if (chunk.content_block.type === "text") {
-            didOutputText = false;
-            filterThinkingTextBuffer.reset();
-            mode = "message";
-          } else if (chunk.content_block.type === "tool_use") {
-            currentToolCallId = chunk.content_block.id;
-            eventStream$.sendActionExecutionStart({
-              actionExecutionId: currentToolCallId,
-              actionName: chunk.content_block.name,
-              parentMessageId: currentMessageId,
-            });
-            mode = "function";
-          }
-        } else if (chunk.type === "content_block_delta") {
-          if (chunk.delta.type === "text_delta") {
-            const text = filterThinkingTextBuffer.onTextChunk(chunk.delta.text);
-            if (text.length > 0) {
-              if (!didOutputText) {
-                eventStream$.sendTextMessageStart({ messageId: currentMessageId });
-                didOutputText = true;
+      eventSource.stream(async (eventStream$) => {
+        let mode: "function" | "message" | null = null;
+        let didOutputText = false;
+        let currentMessageId = randomId();
+        let currentToolCallId = randomId();
+        let filterThinkingTextBuffer = new FilterThinkingTextBuffer();
+
+        try {
+          for await (const chunk of stream as AsyncIterable<any>) {
+            if (chunk.type === "message_start") {
+              currentMessageId = chunk.message.id;
+            } else if (chunk.type === "content_block_start") {
+              if (chunk.content_block.type === "text") {
+                didOutputText = false;
+                filterThinkingTextBuffer.reset();
+                mode = "message";
+              } else if (chunk.content_block.type === "tool_use") {
+                currentToolCallId = chunk.content_block.id;
+                eventStream$.sendActionExecutionStart({
+                  actionExecutionId: currentToolCallId,
+                  actionName: chunk.content_block.name,
+                  parentMessageId: currentMessageId,
+                });
+                mode = "function";
               }
-              eventStream$.sendTextMessageContent({
-                messageId: currentMessageId,
-                content: text,
-              });
+            } else if (chunk.type === "content_block_delta") {
+              if (chunk.delta.type === "text_delta") {
+                const text = filterThinkingTextBuffer.onTextChunk(chunk.delta.text);
+                if (text.length > 0) {
+                  if (!didOutputText) {
+                    eventStream$.sendTextMessageStart({ messageId: currentMessageId });
+                    didOutputText = true;
+                  }
+                  eventStream$.sendTextMessageContent({
+                    messageId: currentMessageId,
+                    content: text,
+                  });
+                }
+              } else if (chunk.delta.type === "input_json_delta") {
+                eventStream$.sendActionExecutionArgs({
+                  actionExecutionId: currentToolCallId,
+                  args: chunk.delta.partial_json,
+                });
+              }
+            } else if (chunk.type === "content_block_stop") {
+              if (mode === "message") {
+                if (didOutputText) {
+                  eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
+                }
+              } else if (mode === "function") {
+                eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
+              }
             }
-          } else if (chunk.delta.type === "input_json_delta") {
-            eventStream$.sendActionExecutionArgs({
-              actionExecutionId: currentToolCallId,
-              args: chunk.delta.partial_json,
-            });
           }
-        } else if (chunk.type === "content_block_stop") {
-          if (mode === "message") {
-            if (didOutputText) {
-              eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
-            }
-          } else if (mode === "function") {
-            eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
-          }
+        } catch (error) {
+          console.error("[Anthropic] Error processing stream:", error);
+          throw error;
         }
-      }
 
-      eventStream$.complete();
-    });
+        eventStream$.complete();
+      });
+    } catch (error) {
+      console.error("[Anthropic] Error during API call:", error);
+      throw error;
+    }
 
     return {
       threadId: threadId || randomUUID(),

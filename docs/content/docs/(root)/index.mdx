@@ -11,6 +11,7 @@ import { YouTubeVideo } from "@/components/react/youtube-video";
 import { MdMessage } from "react-icons/md";
 import { TbSparkles } from "react-icons/tb";
 import { SiLangchain } from "react-icons/si";
+import { AG2Icon } from "@/lib/icons/custom-icons";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
 import { FileSpreadsheet, Banknote, Plane, BookOpen, Telescope, Play } from "lucide-react";
 
@@ -64,9 +65,16 @@ When you need **complete control** over the agentic runloop, you can use **CoAge
   <Card 
     className="p-6 rounded-xl text-base"
     title="CrewAI Flows"
-    description="Build multi-agent workflows with CrewAI."
+    description="User-interactive agents with CrewAI."
     href="/crewai-flows"
     icon={<SiCrewai className="text-indigo-500 dark:text-indigo-300" />}
+  />
+  <Card 
+    className="p-6 rounded-xl text-base"
+    title="AG2"
+    description="Autonomous, collaborative AI agents with AG2."
+    href="/ag2"
+    icon={<AG2Icon className="text-indigo-500 dark:text-indigo-300 h-6 w-6" />}
   />
 </Cards>
 
