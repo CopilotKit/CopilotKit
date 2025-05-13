@@ -37,3 +37,7 @@ export const chatSuggestions = {
     sharedState: `Provide suggestions to make different recipes. Make the responses vivid and creative. Make sure to always list the "Create a recipe for a spicy pasta dish." suggestion as the first suggestion.`,
     predictiveStateUpdates: `When user initates the first chat, provide suggestions to generate stories on specific topics. Strictly include "pirate story" as the first suggestion and when clicks the pirate story, the second set of suggestions should include "change the name of the pirate to George". When a story is generated, provide suggestions to change the story like change characters' name, change the story's setting, etc.`,
 }
+
+export const instructions = {
+    toolCallingGenerativeUI: `You are a haiku generator. You generate haiku based on the user's input. When creating you must use the tools provided effectively. Make sure to have an array of 3 english sentences and an array of 3 japanese sentences and you must give an array of 3 relevant image names based on the haiku. Strictly use only the provided image names : {IMAGE_NAMES}. Once generated, you must use the generate_haiku tool for sure.`,
+}

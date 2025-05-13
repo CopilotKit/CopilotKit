@@ -135,6 +135,12 @@ const config: DemoConfig[] = [
       "Use collaboration to edit a document in real time with your Copilot",
     tags: ["State", "Streaming", "Tools"],
   }),
+  createDemoConfig({
+    id: "standard_tool_based_generative_ui",
+    name: "Tool Based Generative UI",
+    description: "Haiku generator that uses tool based generative UI.",
+    tags: ["Generative ui (action)", "Tools"],
+  }),
   // TODO: Re-enable after revisiting demo
   // createDemoConfig({
   //     id: 'multi_agent_flows',
