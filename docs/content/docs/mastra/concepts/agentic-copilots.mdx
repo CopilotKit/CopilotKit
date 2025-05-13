@@ -10,7 +10,6 @@ import {
 } from "@/components/react/tailored-content";
 import { BsFillCloudHaze2Fill as CloudIcon } from "react-icons/bs";
 import { FaServer as SelfHostIcon } from "react-icons/fa6";
-import { SiLangchain } from "react-icons/si";
 import { LinkIcon } from "lucide-react";
 import {
   RocketIcon,
@@ -18,6 +17,8 @@ import {
   CodeIcon,
   VideoIcon,
 } from "lucide-react";
+import { AG2Icon, MastraIcon } from "@/lib/icons/custom-icons";
+
 
 Before we dive into what agentic copilots are, help us help you by telling us your level of experience with Mastra. We'll explain things in a way that best suits your experience level.
 
@@ -79,7 +80,7 @@ Before we dive into what agentic copilots are, help us help you by telling us yo
             <Card
                 title="Build your first CoAgent"
                 description="Follow a step-by-step tutorial to build a travel app supercharged with CoAgents."
-                href="/mastra/quickstart/your-framework"
+                href="/mastra/quickstart/mastra"
                 icon={<RocketIcon />}
             />
             <Card
@@ -91,14 +92,8 @@ Before we dive into what agentic copilots are, help us help you by telling us yo
             <Card
                 title="Read the reference documentation"
                 description="Just here for some reference? Checkout the reference documentation for more details."
-                href="/mastra/reference"
+                href="/reference"
                 icon={<CodeIcon />}
-            />
-            <Card
-                title="See examples of CoAgents in action"
-                description="Checkout our video examples of CoAgents in action."
-                href="/mastra/videos/research-canvas"
-                icon={<VideoIcon />}
             />
         </Cards>
     </TailoredContentOption>
@@ -106,16 +101,8 @@ Before we dive into what agentic copilots are, help us help you by telling us yo
         id="intermediate"
         title="I'm already using Mastra"
         description="Help me understand what agentic copilots are, what Copilotkit does to integrate with Mastra, and how to get started."
-        icon={<SiLangchain />}
+        icon={<MastraIcon />}
     >
-
-        <Frame className="mt-0 mb-12">
-            <img
-                src="/images/CoAgents.gif"
-                alt="CoAgents demonstration"
-                className="w-auto"
-            />
-        </Frame>
 
         Mastra is a framework for building deeply customizable AI agents.
 
@@ -123,7 +110,6 @@ Before we dive into what agentic copilots are, help us help you by telling us yo
 
         Any Mastra-based agent can be transformed into an Agentic Copilot with a minimal amount
         of effort to get industry leading agentic UX such as:
-        - Shared state between the agent and the application.
         - Intermediate result and state progress streaming
         - Human-in-the-loop collaboration
         - Agentic generative UI
@@ -141,27 +127,15 @@ Before we dive into what agentic copilots are, help us help you by telling us yo
             <Card
                 title="Quickstart"
                 description="Integrate your Mastra agent with CopilotKit in a few minutes."
-                href="/mastra/quickstart/your-framework"
+                href="/mastra/quickstart/mastra"
                 icon={<RocketIcon />}
-            />
-            <Card
-                title="Tutorial: AI Travel App"
-                description="Follow a step-by-step tutorial to build a travel app supercharged with CoAgents."
-                href="/mastra/tutorials/ai-travel-app/overview"
-                icon={<GraduationCapIcon />}
             />
             <Card
                 title="Reference"
                 description="Learn more about the terms used to talk about CoAgents and how to use them."
                 href="/reference"
                 icon={<CodeIcon />}
-            />
-            <Card
-                title="Examples"
-                description="Checkout our video examples of CoAgents in action."
-                href="/mastra/videos/research-canvas"
-                icon={<VideoIcon />}
-            />
+            />           
         </Cards>
     </TailoredContentOption>
 

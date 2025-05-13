@@ -1,7 +1,7 @@
 ---
 title: Quickstart Mastra Agents
 description: Turn your Mastra Agents into an agent-native application in 10 minutes.
-icon: "custom/your-framework"
+icon: "custom/mastra"
 ---
 
 import {
@@ -76,7 +76,7 @@ Before you begin, you'll need the following:
             id="bring-your-own"
             title="Bring your own Mastra Agent"
             description="I already have a Mastra Agent and want to use it with CopilotKit."
-            icon={<img src="/images/your-framework-logo.svg" alt="Your Framework Logo" width={20} height={20} />}
+            icon={<img src="/images/copilotkit-logo.svg" alt="CopilotKit Logo" width={20} height={20} />}
         />
         <TailoredContentOption
             id="coagents-starter"
@@ -85,16 +85,12 @@ Before you begin, you'll need the following:
             icon={<img src="/images/copilotkit-logo.svg" alt="CopilotKit Logo" width={20} height={20} />}
         >
             <Step>
-                ### Clone the `coagents-starter` repo
+                ### Clone the `mastra/starter` repo
 
-                <Tabs groupId="language" items={["Python"]}>
-                    <Tab value="Python">
-                        ```bash
-                        git clone https://github.com/CopilotKit/CopilotKit
-                        cd CopilotKit/examples/coagents-starter-mastra/agent-py
-                        ```
-                    </Tab>
-                </Tabs>
+                ```bash
+                git clone https://github.com/CopilotKit/CopilotKit
+                cd CopilotKit/examples/mastra/starter
+                ```
             </Step>
             <Step>
                 ### Create a `.env` file
@@ -120,115 +116,77 @@ Before you begin, you'll need the following:
         Start your local Mastra Agent:
 
         ```bash
-        # your code goes here...
+        mastra dev
         ```
         This will start a local agent server that you can connect to.
     </Step>
+    <Step>
+        ### Install Copilot Runtime
+        Copilot Runtime is a production-ready proxy for your Mastra Agents. In your frontend, go ahead and install it.
 
-    <TailoredContent
-        className="step"
-        id="copilot-hosting"
-        header={
-            <div>
-                <p className="text-xl font-semibold">Choose your connection method</p>
-                <p className="text-base">
-                    Now you need to connect your Mastra Agent to CopilotKit.
-                </p>
-            </div>
-        }
-    >
-        <TailoredContentOption
-            id="copilot-cloud"
-            title="Copilot Cloud (Recommended)"
-            description="I want to host my Copilot on Copilot Cloud"
-            icon={<FaCloud />}
-        >
-            <Step>
-                ### Add a remote endpoint for your Mastra Agent
-                Using Copilot Cloud, you need to connect a remote endpoint that will connect to your Mastra Agent.
-                <Tabs groupId="lg-deployment-type" items={['Self hosted (FastAPI)', 'Mastra Enterprise']}>
-                    <Tab value="Self hosted (FastAPI)">
-                        **Running your FastAPI server in production**
-
-                        Head over to [Copilot Cloud](https://cloud.copilotkit.ai) sign up and setup a remote endpoint with the following information:
-                        - OpenAI API key
-                        - Your FastAPI server URL
-
-                        **Running your FastAPI server locally**
-
-                        If you're running your FastAPI server locally, you can open a tunnel to it so Copilot Cloud can connect to it.
-
-                        ```bash
-                        npx copilotkit@latest dev --port 8000
-                        ```
-                    </Tab>
-                    <Tab value="Mastra Enterprise">
-                        Coming soon!
-                    </Tab>
-                </Tabs>
-            </Step>
-            <Step>
-                ### Setup your CopilotKit provider
-                The [`<CopilotKit>`](/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
-                it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
-
-                <CloudCopilotKitProvider components={props.components} />
-
-                <Callout type="info">
-                    Looking for a way to run multiple Mastra Agents? Check out our [Multi-Agent](/mastra/multi-agent-flows) guide.
-                </Callout>
-            </Step>
-        </TailoredContentOption>
-        <TailoredContentOption
-            id="self-hosted"
-            title="Self-Hosted Copilot Runtime"
-            description="I want to self-host the Copilot Runtime"
-            icon={<ServerIcon />}
-        >
-            <Step>
-                ### Install Copilot Runtime
-                Copilot Runtime is a production-ready proxy for your Mastra Agents. In your frontend, go ahead and install it.
-
-                ```package-install
-                @copilotkit/runtime
-                ```
-            </Step>
-            <Step>
-                ### Setup a Copilot Runtime Endpoint
-                Now we need to setup a Copilot Runtime endpoint and point your frontend to it.
-                <SelfHostingCopilotRuntimeStarter components={props.components}/>
-            </Step>
-            <Step>
-                ### Add your Mastra Agent deployment to Copilot Runtime
-                Now we need to add your Mastra Agent deployment to Copilot Runtime. This will make it
-                so your frontend can find your Mastra Agents correctly.
-                ```ts
-                import {
-                CopilotRuntime,
-                // ...
-                } from "@copilotkit/runtime";
-                // ...
-                const runtime = new CopilotRuntime({
-                remoteEndpoints: [
-                    // [!code highlight:3]
-                    // Our FastAPI endpoint URL
-                    { url: "http://localhost:8000/copilotkit" },
-                ],
-                });
-                // ...
-                ```
-            </Step>
-            <Step>
-                ### Configure the CopilotKit Provider
-                The [`<CopilotKit>`](/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
-                it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
-                <SelfHostingCopilotRuntimeConfigureCopilotKitProvider components={props.components}/>
-                <Callout type="info">
-                    Looking for a way to run multiple Mastra Agents? Check out our [Multi-Agent](/mastra/multi-agent-flows) guide.
-                </Callout>
-            </Step>
-        </TailoredContentOption>
-    </TailoredContent>
+        ```package-install
+        @copilotkit/runtime
+        ```
+    </Step>
+    <Step>
+        ### Setup a Copilot Runtime Endpoint
+        Now we need to setup a Copilot Runtime endpoint and point your frontend to it.
+        ```ts
+        import {
+            CopilotRuntime,
+            ExperimentalEmptyAdapter,
+            copilotRuntimeNextJSAppRouterEndpoint,
+            langGraphPlatformEndpoint
+        } from "@copilotkit/runtime";;
+        import { NextRequest } from "next/server";
+        
+        // You can use any service adapter here for multi-agent support.
+        const serviceAdapter = new ExperimentalEmptyAdapter();
+        
+        const runtime = new CopilotRuntime({
+            agents: {
+                // added in next step...
+            },
+        });
+        
+        export const POST = async (req: NextRequest) => {
+        const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+            runtime,
+            serviceAdapter,
+            endpoint: "/api/copilotkit",
+        });
+        
+        return handleRequest(req);
+        };
+        ```
+    </Step>
+    <Step>
+        ### Add your Mastra Agent deployment to Copilot Runtime
+        Now we need to add your Mastra Agent deployment to Copilot Runtime. This will make it
+        so your frontend can find your Mastra Agents correctly.
+        ```ts
+        // ...
+        import { MastraClient } from "@mastra/client-js";
+        // ...
+        const mastra = new MastraClient({
+            "http://localhost:4111",
+        });
+        const mastraAgents = await mastra.getAGUI();
+        const runtime = new CopilotRuntime({
+            agents: mastraAgents,
+        });
+        // ...
+        ```
+    </Step>
+    <Step>
+        ### Configure the CopilotKit Provider
+        The [`<CopilotKit>`](/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
+        it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
+        <SelfHostingCopilotRuntimeConfigureCopilotKitProvider components={props.components}/>
+        <Callout type="info">
+            Looking for a way to run multiple Mastra Agents? Check out our [Multi-Agent](/mastra/multi-agent-flows) guide.
+        </Callout>
+    </Step>
     <Step>
         ### Setup the Copilot UI
         The last step is to use CopilotKit's UI components to render the chat interaction with your agent. In most situations,
@@ -300,12 +258,6 @@ can help you build power agent native applications.
     description="Allow your users and agents to collaborate together on tasks."
     href="/mastra/human-in-the-loop"
     icon={<UserIcon />}
-  />
-  <Card
-    title="Utilize the Shared State"
-    description="Learn how to synchronize your agent's state with your UI's state, and vice versa."
-    href="/mastra/shared-state"
-    icon={<RepeatIcon />}
   />
   <Card
     title="Add some generative UI"

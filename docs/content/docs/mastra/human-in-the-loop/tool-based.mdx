@@ -1,5 +1,5 @@
 ---
-title: Mastra Agents
+title: Tool-based
 description: Learn how to implement Human-in-the-Loop (HITL) using Mastra Agents.
 icon: lucide/Share2
 ---
@@ -25,8 +25,6 @@ import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
 
 ## What is this?
 
-[Flow based agents](https://docs.mastra.ai/workflows) are stateful agents that can be interrupted and resumed
-to allow for user input.
 
 CopilotKit lets you to add custom UI to take user input and then pass it back to the agent upon completion.
 
@@ -35,9 +33,6 @@ CopilotKit lets you to add custom UI to take user input and then pass it back to
 Human-in-the-loop is a powerful way to implement complex workflows that are production ready. By having a human in the loop,
 you can ensure that the agent is always making the right decisions and ultimately is being steered in the right direction.
 
-Flow based agents are a great way to implement HITL for more complex workflows where you want to ensure the agent is aware
-of everything that has happened during a HITL interaction.
-
 ## Implementation
 
 <Steps>
@@ -45,9 +40,9 @@ of everything that has happened during a HITL interaction.
         ### Run and connect your agent
 
         You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
-        you can follow the instructions in the [Getting Started](/mastra/quickstart/your-framework) guide.
+        you can follow the instructions in the [Getting Started](/mastra/quickstart/mastra) guide.
 
-        If you don't already have an agent, you can use the [coagent starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-Mastra) as a starting point
+        If you don't already have an agent, you can use the [coagent starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/mastra/starter) as a starting point
         as this guide uses it as a starting point.
     </Step>
 
@@ -108,22 +103,8 @@ of everything that has happened during a HITL interaction.
 
     <Step>
     ### Setup the Mastra Agent
-    Now we'll setup the Mastra agent. The flow is hard to understand without a complete example, so below
-    is the complete implementation of the agent with explanations.
-
-    Some main things to note:
-    - The agent's state inherits from `CopilotKitState` to bring in the CopilotKit actions.
-    - CopilotKit's actions are bound to the model as tools.
-    - If the `writeEssay` action is found in the model's response, the agent will pass control back to the frontend
-      to get user feedback.
-
-    <Tabs groupId="language" items={["Python"]}>
-      <Tab value="Python">
-        ```python title="agent/sample_agent/agent.py"
-        # your code goes here...
-        ```
-      </Tab>
-    </Tabs>
+    On the agent side, we are already done! Mastra natively supports the AG-UI protocol and will automatically
+    pass control back to the frontend when the `writeEssay` action is found in the model's response.
     </Step>
     <Step>
         ### Give it a try!

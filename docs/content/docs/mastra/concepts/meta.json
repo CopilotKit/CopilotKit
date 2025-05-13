@@ -1,12 +1,5 @@
 {
   "title": "Concepts",
   "root": true,
-  "pages": [
-    "terminology",
-    "agentic-copilots",
-    "your-framework",
-    "message-management",
-    "state",
-    "copilotkit-stream"
-  ]
+  "pages": ["terminology", "agentic-copilots", "mastra"]
 }

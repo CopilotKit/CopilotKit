@@ -39,7 +39,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 ### Run and connect your agent
 
 You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
-you can follow the instructions in the [Getting Started](/mastra/quickstart/your-framework) guide.
+you can follow the instructions in the [Getting Started](/mastra/quickstart/mastra) guide.
 
 If you don't already have an agent, you can use the [coagent starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-Mastra) as a starting point
 as this guide uses it as a starting point.
@@ -48,14 +48,44 @@ as this guide uses it as a starting point.
 <Step>
 ### Give your agent a tool to call
 
-<Tabs groupId="language" items={['Python']} default="Python">
-    <Tab value="Python">
-        ```python title="agent/sample_agent/agent.py"
-        # your code goes here...
-        ```
-    </Tab>
+Add a new tool definition:
 
-</Tabs>
+```ts title="src/mastra/tools/weatherInfo.ts"
+import { createTool } from "@mastra/core/tools";
+import { z } from "zod";
+ 
+export const weatherInfo = createTool({
+  id: "weatherInfo",
+  inputSchema: z.object({
+    city: z.string(),
+  }),
+  description: `Fetches the current weather information for a given city`,
+  execute: async ({ context: { city } }) => {
+    // Tool logic here (e.g., API call)
+    console.log("Using tool to fetch weather information for", city);
+    return { temperature: 20, conditions: "Sunny" }; // Example return
+  },
+});
+```
+
+Then, pass the tool to the agent:
+
+```ts title="src/mastra/agents/weatherAgent.ts"
+import { Agent } from "@mastra/core/agent";
+import { openai } from "@ai-sdk/openai";
+import { weatherInfo } from "../tools/weatherInfo";
+ 
+export const weatherAgent = new Agent({
+  name: "Weather Agent",
+  instructions:
+    "You are a helpful assistant that provides current weather information. When asked about the weather, use the weather information tool to fetch the data.",
+  model: openai("gpt-4o-mini"),
+  tools: {
+    weatherInfo,
+  },
+});
+```
+    
 </Step>
 <Step>
 ### Render the tool call in your frontend
@@ -76,7 +106,7 @@ const YourMainContent = () => {
   // ...
   // [!code highlight:13]
   useCopilotAction({
-    name: "get_weather",
+    name: "weatherInfo",
     available: "disabled", // Don't allow the agent or UI to call this tool as its only for rendering
     render: ({ status, args }) => {
       return (

@@ -45,7 +45,7 @@ Without frontend actions, agents are limited to just processing and returning da
 
         To use frontend actions, you'll need to setup CopilotKit first. For the sake of brevity, we won't cover it here.
 
-        Check out our [getting started guide](/mastra/quickstart/your-framework) and come back here when you're setup!
+        Check out our [getting started guide](/mastra/quickstart/mastra) and come back here when you're setup!
     </Step>
 
     <Step>
@@ -91,36 +91,10 @@ Without frontend actions, agents are limited to just processing and returning da
         <InstallSDKSnippet components={props.components}/>
     </Step>
     <Step>
-        ### Inheriting from CopilotKitState
-
-        To access the frontend actions provided by CopilotKit, you can inherit from CopilotKitState in your agent's state definition:
-
-        <Tabs groupId="language" items={['Python']} default="Python">
-            <Tab value="Python">
-                ```python title="agent-py/sample_agent/agent.py"
-                # your code goes here...
-                ```
-            </Tab>
-        </Tabs>
-
-        By doing this, your agent's state will include the `copilotkit` property, which contains the frontend actions that can be accessed and invoked.
-    </Step>
-    <Step>
         ### Accessing Frontend Actions
 
-        Once your agent's state includes the `copilotkit` property, you can access the frontend actions and utilize them within your agent's logic.
-
-        Here's how you can call a frontend action from your agent:
-
-        <Tabs groupId="language" items={['Python']} default="Python">
-            <Tab value="Python">
-                ```python title="agent-py/sample_agent/agent.py"
-                # your code goes here...
-                ```
-            </Tab>
-        </Tabs>
-
-        These actions are automatically populated by CopilotKit and are compatible with LiteLLM's tool call definitions, making it straightforward to integrate them into your agent's workflow.
+        Since Mastra includes native support for the AG-UI protocol, frontend actions are automatically available to the agent as
+        tools.
     </Step>
     <Step>
         ### Give it a try!
