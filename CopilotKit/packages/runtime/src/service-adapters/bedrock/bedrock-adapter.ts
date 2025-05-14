@@ -9,7 +9,7 @@
  * const copilotKit = new CopilotRuntime();
  *
  * return new BedrockAdapter({
- *   model: "anthropic.claude-3-sonnet-20240229-v1:0",
+ *   model: "amazon.nova-lite-v1:0",
  *   region: "us-east-1",
  *   credentials: {
  *     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -25,7 +25,7 @@ import { LangChainAdapter } from "../langchain/langchain-adapter";
 export interface BedrockAdapterParams {
   /**
    * AWS Bedrock model ID to use.
-   * @default "anthropic.claude-3-haiku-20240307-v1:0"
+   * @default "amazon.nova-lite-v1:0"
    */
   model?: string;
 
@@ -49,7 +49,7 @@ export class BedrockAdapter extends LangChainAdapter {
     super({
       chainFn: async ({ messages, tools, threadId }) => {
         const model = new ChatBedrockConverse({
-          model: options?.model ?? "anthropic.claude-3-haiku-20240307-v1:0",
+          model: options?.model ?? "amazon.nova-lite-v1:0",
           region: options?.region ?? "us-east-1",
           credentials: options?.credentials
             ? {
