@@ -1,0 +1,261 @@
+---
+title: Implementing Human-in-the-Loop with CrewAI
+description: Implement human-in-the-loop workflows with CrewAI Crews and CopilotKit.
+icon: lucide/Users
+---
+
+import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
+
+<video
+  src="/images/coagents/node-hitl.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
+
+<Callout type="info">
+  Pictured above is the
+  [coagents-starter-crewai-crews](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter-crewai-crews)
+  example with the implementation described below!
+</Callout>
+
+## What is Human-in-the-Loop with CrewAI?
+
+CrewAI's [Crews](https://docs.crewai.com/concepts/crews) provide a powerful framework for coordinating multiple AI agents to accomplish complex tasks. With CopilotKit, you can integrate human input directly into this workflow, allowing users to:
+
+- Provide initial parameters for CrewAI Crews
+- Review agent outputs
+- Modify agent behavior during execution
+- Make final decisions on AI-generated content
+
+This creates a collaborative workflow where AI agents do the heavy lifting while humans maintain control over the process.
+
+## How It Works
+
+The integration between CrewAI and CopilotKit for HITL works through these key components:
+
+1. **CrewAI Agent Definition**: You define your Crew structure in Python using the CrewAI framework
+2. **CopilotKit Bridge**: The `CrewAIAgent` class from CopilotKit connects your Crew to the frontend
+3. **React UI Components**: `useCopilotAction` and `useCoAgent` hooks enable interaction with the Crew
+
+## Implementation
+
+<Steps>
+
+    <Step>
+      ### Install the CopilotKit Python SDK
+      <InstallSDKSnippet components={props.components}/>
+    </Step>
+
+    <Step>
+        ### Define your CrewAI Crew
+
+        First, define your CrewAI Crew with agents and tasks. This is standard CrewAI implementation.
+
+        ```python title="agent-py/research/crew.py"
+        from crewai import Agent, Crew, Process, Task
+        from crewai.project import CrewBase, agent, crew, task
+
+        @CrewBase
+        class ResearchCrew():
+            """Research crew"""
+
+            # Config files for agents and tasks
+            agents_config = 'config/agents.yaml'
+            tasks_config = 'config/tasks.yaml'
+
+            @agent
+            def researcher(self) -> Agent:
+                """Researcher agent"""
+                return Agent(
+                  config=self.agents_config['researcher'],
+                  verbose=True
+                )
+
+            @agent
+            def reporting_analyst(self) -> Agent:
+                """Reporting analyst agent"""
+                return Agent(
+                  config=self.agents_config['reporting_analyst'],
+                  verbose=True
+                )
+
+            @task
+            def research_task(self) -> Task:
+                """Research task"""
+                return Task(
+                  config=self.tasks_config['research_task'],
+                )
+
+            @task
+            def reporting_task(self) -> Task:
+                """Reporting task"""
+                return Task(
+                  config=self.tasks_config['reporting_task'],
+                  output_file='report.md'
+                )
+
+            @crew
+            def crew(self) -> Crew:
+                """Creates the Research crew"""
+                return Crew(
+                  agents=self.agents,
+                  tasks=self.tasks,
+                  process=Process.sequential,
+                  verbose=True,
+                  chat_llm="gpt-4o"
+                )
+        ```
+    </Step>
+
+    <Step>
+        ### Connect CrewAI with CopilotKit
+
+        Use the CopilotKit SDK to connect your CrewAI Crew to the frontend.
+
+        ```python title="agent-py/research/demo.py"
+        from fastapi import FastAPI
+        import uvicorn
+        from copilotkit.integrations.fastapi import add_fastapi_endpoint
+        from copilotkit import CopilotKitRemoteEndpoint
+        from copilotkit.crewai import CrewAIAgent
+
+        from research.crew import ResearchCrew
+
+        app = FastAPI()
+        sdk = CopilotKitRemoteEndpoint(
+            agents=[
+                CrewAIAgent(
+                    name="research_crew",
+                    description="Research agent",
+                    crew=ResearchCrew(),
+                ),
+            ],
+        )
+
+        add_fastapi_endpoint(app, sdk, "/copilotkit")
+        ```
+
+        This creates an API endpoint that your frontend can connect to. The `CrewAIAgent` wrapper makes your Crew available as a CopilotKit agent.
+    </Step>
+
+    <Step>
+        ### Create the frontend UI with human input
+
+        Use the `useCoAgent` hook to manage state and `useCopilotAction` to interact with your CrewAI Crew.
+
+        ```tsx title="ui/app/page.tsx"
+        import { useCoAgent, useCopilotAction } from "@copilotkit/react-core";
+
+        function MainContent() {
+          // Manage state for the agent interaction
+          const { state, setState } = useCoAgent({
+            name: "research_crew",
+            initialState: {
+              inputs: {
+                topic: "",
+                current_year: "2025",
+              },
+              outputs: "Report will appear here",
+            },
+          });
+
+          // Define the action that connects to your CrewAI agent
+          useCopilotAction({
+            name: "research_crew",
+            parameters: [
+              {
+                name: "topic",
+              },
+              {
+                name: "current_year",
+              },
+            ],
+            render({ args, status }) {
+              return (
+                <div className="m-4 p-4 bg-gray-100 rounded shadow">
+                  <h1 className="text-center text-sm">
+                    Researching {args.topic} in {args.current_year}{" "}
+                    {status == "complete" ? "✅" : "⏳"}
+                  </h1>
+                </div>
+              );
+            },
+          });
+
+          // Your UI for human input
+          return (
+            <div className="h-screen w-screen flex justify-center items-start">
+              <form className="space-y-4 max-w-lg w-full mx-auto">
+                {/* Input fields for topic and year */}
+                <div>
+                  <label htmlFor="topic" className="block text-sm font-medium">
+                    Topic
+                  </label>
+                  <input
+                    type="text"
+                    id="topic"
+                    value={state.inputs.topic}
+                    onChange={(e) =>
+                      setState({
+                        ...state,
+                        inputs: { ...state.inputs, topic: e.target.value },
+                      })
+                    }
+                    className="mt-1 block w-full px-3 py-2 border rounded-md"
+                  />
+                </div>
+
+                {/* Display the output from the CrewAI agents */}
+                <div>
+                  <label htmlFor="result" className="block text-sm font-medium">
+                    Result
+                  </label>
+                  <div id="result" className="mt-1 w-full p-3 border rounded-md bg-white">
+                    {state.outputs}
+                  </div>
+                </div>
+              </form>
+            </div>
+          );
+        }
+        ```
+
+        This creates a UI where:
+        1. Users can input parameters (topic and year)
+        2. The CrewAI agents process this input
+        3. Results are displayed back to the user
+    </Step>
+
+    <Step>
+        ### Run your HITL workflow
+
+        1. Start your backend server with the CrewAI integration
+        2. Launch your frontend application
+        3. Input your parameters
+        4. Watch as the CrewAI Crew processes your request
+        5. Review and interact with the results
+
+        This creates a seamless workflow where AI agents handle complex tasks while humans maintain control over the process.
+    </Step>
+
+</Steps>
+
+## Best Practices
+
+1. **Determine appropriate intervention points**: Identify where human input adds the most value in your workflow
+2. **Provide context**: Give humans enough information to make informed decisions
+3. **Clear UI design**: Make it obvious what actions humans can take and their consequences
+4. **Error handling**: Gracefully handle cases where humans reject AI outputs or provide unexpected inputs
+5. **State management**: Ensure your application maintains state across HITL interactions
+
+## Next Steps
+
+To learn more about advanced HITL patterns with CrewAI, check out:
+
+- [CrewAI Documentation](https://docs.crewai.com)
+- [CopilotKit CrewAI Integration](/crewai-crews/quickstart/crewai)
