@@ -154,7 +154,7 @@ const Chat = () => {
           ))}
           <button
             className="mt-4 bg-gradient-to-r from-purple-400 to-purple-600 text-white py-2 px-4 rounded cursor-pointer w-48 font-bold"
-            disabled={!respond}
+            hidden={!respond}
             onClick={() => {
               if (respond) {
                 console.log(`The user has selected the following steps: ${localSteps.filter((step) => step.status === "enabled").map((step) => step.description).join(", ")}`)
