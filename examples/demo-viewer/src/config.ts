@@ -129,6 +129,13 @@ const config: DemoConfig[] = [
     tags: ["Chat", "Tools", "Streaming"],
   }),
   createDemoConfig({
+    id: "standard_human_in_the_loop",
+    name: "Human in the loop",
+    description:
+      "Plan a task together and direct the Copilot to take the right steps",
+    tags: ["HITL", "Interactivity"],
+  }),
+  createDemoConfig({
     id: "standard_agentic_generative_ui",
     name: "Agentic Generative UI",
     description:
