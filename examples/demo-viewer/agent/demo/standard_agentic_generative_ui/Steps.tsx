@@ -1,17 +1,10 @@
-import { useCopilotChat } from "@copilotkit/react-core"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Spinner } from "./page"
 
-export const Steps = ({ status, args }: any) => {
-    console.log(status, args, "STATUS AND ARGS")
+export const Steps = ({ status, args, respond }: any) => {
     const [steps, setSteps] = useState(args?.steps)
 
-
-    const {} = useCopilotChat()
-
-    useEffect(() => {
-        if (status !== "complete") return;
-
+    if (respond) {
         (async () => {
             for (let i = 0; i < steps.length; i++) {
                 debugger
@@ -22,19 +15,11 @@ export const Steps = ({ status, args }: any) => {
                     )
                 );
             }
+            respond("The steps are completed successfully")
         })();
-    }, [status, args.steps]);
-
-    async function updateStep(index: number) {
-        debugger
-        await delay(2000)
-        let updatedStep = steps
-        updatedStep[index].status = "completed"
-        setSteps(updatedStep)
     }
+
     return (
-        // (status == 'complete') ? args?.steps?.map((step: any, index: number) => {
-        //     return (
         <div className="flex">
             <div className="bg-gray-100 rounded-lg w-[500px] p-4 text-black space-y-2">
                 {steps.map((step: any, index: number) => {
@@ -68,8 +53,6 @@ export const Steps = ({ status, args }: any) => {
                 })}
             </div>
         </div>
-        //     )
-        // }) : null
     )
 }
 
