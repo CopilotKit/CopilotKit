@@ -29,6 +29,7 @@ import {
   CopilotKitLangGraphInterruptEvent,
   LangGraphInterruptEvent,
   MetaEventInput,
+  AgentStateInput,
 } from "@copilotkit/runtime-client-gql";
 
 import { CopilotApiConfig } from "../context";
@@ -350,11 +351,18 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                   agentSession: agentSessionRef.current,
                 }
               : {}),
-            agentStates: Object.values(coagentStatesRef.current!).map((state) => ({
-              agentName: state.name,
-              state: JSON.stringify(state.state),
-              config: JSON.stringify(state.config ?? {}),
-            })),
+            agentStates: Object.values(coagentStatesRef.current!).map((state) => {
+              const stateObject: AgentStateInput = {
+                agentName: state.name,
+                state: JSON.stringify(state.state),
+              };
+
+              if (state.config !== undefined) {
+                stateObject.config = JSON.stringify(state.config);
+              }
+
+              return stateObject;
+            }),
             forwardedParameters: options.forwardedParameters || {},
           },
           properties: finalProperties,
@@ -556,7 +564,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               message.status.code !== MessageStatusCode.Pending
             ) {
               lastMessages.unshift(message);
-            } else {
+            } else if (!message.isAgentStateMessage()) {
               break;
             }
           }
