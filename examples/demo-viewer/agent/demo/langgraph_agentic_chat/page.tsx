@@ -48,7 +48,7 @@ const Chat = () => {
     >
       <div className="w-8/10 h-8/10 rounded-lg">
         <CopilotChat
-          className="h-full rounded-lg"
+          className="h-full w-full rounded-lg py-6"
           labels={{ initial: initialPrompt.agenticChat }}
         />
       </div>

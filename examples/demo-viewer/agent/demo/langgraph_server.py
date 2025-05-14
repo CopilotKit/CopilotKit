@@ -29,36 +29,42 @@ def create_agents(context):
         LangGraphAgent(
             name="agentic_chat",
             description="An example for an agentic chat flow using LangGraph.",
-            graph=agentic_chat_graph
+            graph=agentic_chat_graph,
+            config={"recursion_limit": 25}
         ),
         # Register the remaining CrewAI agents
         LangGraphAgent(
             name="tool_based_generative_ui",
             description="An example for a tool-based generative UI flow.",
             graph=tool_based_generative_ui_graph,
+            config={"recursion_limit": 25}
         ),
 
         LangGraphAgent(
             name="agentic_generative_ui",
             description="An example for an agentic generative UI flow.",
             graph=graph,
+            config={"recursion_limit": 25}
         ),
 
         LangGraphAgent(
             name="human_in_the_loop",
             description="An example for a human in the loop flow.",
             graph=human_in_the_loop_graph,
+            config={"recursion_limit": 25}
         ),
 
         LangGraphAgent(
             name="shared_state",
             description="An example for a shared state flow.",
             graph=shared_state_graph,
+            config={"recursion_limit": 25}
         ),
         LangGraphAgent(
             name="predictive_state_updates",
             description="An example for a predictive state updates flow.",
             graph=predictive_state_updates_graph,
+            config={"recursion_limit": 25}
         )
     ]
     

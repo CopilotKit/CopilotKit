@@ -39,7 +39,7 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
   const currentFramework = params.framework || 'crewai'; // Default to crewai if not set
   // Initialize state with defaultDemoId
   const [selectedDemoId, setSelectedDemoId] = useState<string | undefined>(defaultDemoId);
-  const [selectedFramework, setSelectedFramework] = useState<string>(params?.agent as string || "crewai");
+  const [selectedFramework, setSelectedFramework] = useState<string>(params?.agent as string || (AGENT_TYPE == "general" ? "crewai" : AGENT_TYPE));
 
   // Filter demos based on the selected framework OR if they have an iframeUrl or special ID
   const filteredDemos = config.filter(d =>
@@ -79,7 +79,7 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
+  console.log("AGENT_TYPEAGENT_TYPEAGENT_TYPE : ", AGENT_TYPE);
   // Add explicit types to handlers
   const handleFileSelect = useCallback((filePath: string | null): void => {
     setSelectedFilePath(filePath);

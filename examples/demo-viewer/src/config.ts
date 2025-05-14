@@ -6,6 +6,7 @@ import { ComponentType } from "react";
 type FilesJsonType = Record<string, { files: { name: string; content: string; path: string; language: string; type: string; }[] }>;
 
 export const AGENT_TYPE = process.env.NEXT_PUBLIC_AGENT_TYPE || 'crewai';
+// export const AGENT_TYPE : string = "crewai";
 export const APP_TYPE = process.env.NEXT_PUBLIC_APP_TYPE || 'specific';
 // A helper method to creating a config
 function createDemoConfig({
