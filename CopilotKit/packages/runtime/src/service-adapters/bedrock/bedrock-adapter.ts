@@ -25,7 +25,7 @@ import { LangChainAdapter } from "../langchain/langchain-adapter";
 export interface BedrockAdapterParams {
   /**
    * AWS Bedrock model ID to use.
-   * @default "anthropic.claude-v2"
+   * @default "anthropic.claude-3-haiku-20240307-v1:0"
    */
   model?: string;
 
