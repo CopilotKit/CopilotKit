@@ -128,3 +128,23 @@
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
+.copilotKitHeader {
+  border-top-left-radius: 5px !important;
+  background-color: #fff;
+  color: #000;
+  border-bottom: 0px;
+}
+
+.copilot-content {
+  margin-right: 0;
+}
+
+/* When sidebar is open */
+.copilot-sidebar-visible .copilot-content {
+  margin-right: 400px; /* Adjust this value based on your sidebar width */
+}
+
+/* Add smooth transition */
+.copilot-content {
+  transition: margin-right 0.3s ease-in-out;
+}

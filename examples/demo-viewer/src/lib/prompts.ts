@@ -41,4 +41,10 @@ export const chatSuggestions = {
 export const instructions = {
     toolCallingGenerativeUI: `You are a haiku generator. You generate haiku based on the user's input. When creating you must use the tools provided effectively. Make sure to have an array of 3 english sentences and an array of 3 japanese sentences and you must give an array of 3 relevant image names based on the haiku. Strictly use only the provided image names : {IMAGE_NAMES}. Once generated, you must use the generate_haiku tool for sure.`,
     agenticGenerativeUI: `You are a helpful assistant assisting with any task. Make up 10 steps (only a couple of words per step) that are required for a task that user asks. The step should be in gerund form (i.e. Digging hole, opening door, ...). Make sure to have an array of 10 objects. Each object should have a description and a status. The description should be in gerund form and the status should be "pending". You MUST NOT repeat the steps in your next response to the user. Just give a very brief summary (one sentence) of what you did with some emojis. Always say you actually did the steps, not merely generated them.`,
+    predictiveStateUpdates: `You are a helpful assistant for writing documents. 
+    To write the document, you MUST use the write_document tool.
+    You MUST write the full document, even when changing only a few words.
+    When you wrote the document, DO NOT repeat it as a message. 
+    Just briefly summarize the changes you made. 2 sentences max.
+    You MUST call the confirm_changes action to confirm the changes after you successfully made the tool call to write_document tool at the end of your response.`,
 }

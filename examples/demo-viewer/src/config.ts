@@ -129,11 +129,11 @@ const config: DemoConfig[] = [
     tags: ["Chat", "Tools", "Streaming"],
   }),
   createDemoConfig({
-    id: "standard_predictive_state_updates",
-    name: "Predictive State Updates",
+    id: "standard_agentic_generative_ui",
+    name: "Agentic Generative UI",
     description:
-      "Use collaboration to edit a document in real time with your Copilot",
-    tags: ["State", "Streaming", "Tools"],
+      "Assign a long running task to your Copilot and see how it performs!",
+    tags: ["Generative ui (agent)", "Long running task"],
   }),
   createDemoConfig({
     id: "standard_tool_based_generative_ui",
@@ -142,17 +142,17 @@ const config: DemoConfig[] = [
     tags: ["Generative ui (action)", "Tools"],
   }),
   createDemoConfig({
-    id: "standard_agentic_generative_ui",
-    name: "Agentic Generative UI",
-    description:
-      "Assign a long running task to your Copilot and see how it performs!",
-    tags: ["Generative ui (agent)", "Long running task"],
-  }),
-  createDemoConfig({
     id: "standard_shared_state",
     name: "Shared State",
     description: "A recipe Copilot which reads and updates collaboratively",
     tags: ["Agent State", "Collaborating"],
+  }),
+  createDemoConfig({
+    id: "standard_predictive_state_updates",
+    name: "Predictive State Updates",
+    description:
+      "Use collaboration to edit a document in real time with your Copilot",
+    tags: ["State", "Streaming", "Tools"],
   }),
   // TODO: Re-enable after revisiting demo
   // createDemoConfig({

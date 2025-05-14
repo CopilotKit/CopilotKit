@@ -15,7 +15,7 @@ import {
   useCopilotChat,
 } from "@copilotkit/react-core";
 import { CopilotSidebar, useCopilotChatSuggestions } from "@copilotkit/react-ui";
-import { chatSuggestions, initialPrompt } from "@/lib/prompts";
+import { chatSuggestions, initialPrompt, instructions } from "@/lib/prompts";
 const extensions = [StarterKit];
 
 export default function PredictiveStateUpdates() {
@@ -23,8 +23,7 @@ export default function PredictiveStateUpdates() {
   return (
     <CopilotKit
       runtimeUrl="/api/copilotkit?standard=true"
-      showDevConsole={false}
-    // agent="predictive_state_updates"
+      showDevConsole
     >
       <div
         className="min-h-screen w-full"
@@ -41,9 +40,7 @@ export default function PredictiveStateUpdates() {
             title: "AI Document Editor",
             initial: initialPrompt.predictiveStateUpdates,
           }}
-          // instructions="You are an AI Document Editor. You can write and edit documents. You can also confirm or reject changes. 
-          //               When you create or edit documents. Make sure to always call the confirm_changes action to confirm the changes. 
-          //               When accepted or rejected, the document should be updated accordingly."
+          instructions={instructions.predictiveStateUpdates}
           clickOutsideToClose={false}
         >
           <DocumentEditor />
@@ -67,132 +64,48 @@ const DocumentEditor = () => {
   });
   const [placeholderVisible, setPlaceholderVisible] = useState(false);
   const [currentDocument, setCurrentDocument] = useState("");
-  const { isLoading } = useCopilotChat();
-
-  // const {
-  //   state: agentState,
-  //   setState: setAgentState,
-  //   nodeName,
-  // } = useCoAgent<AgentState>({
-  //   name: "predictive_state_updates",
-  //   initialState: {
-  //     document: "",
-  //   },
-  // });
-
-  // useEffect(() => {
-  //   if (isLoading) {
-  //     setCurrentDocument(editor?.getText() || "");
-  //   }
-  //   editor?.setEditable(!isLoading);
-  // }, [isLoading]);
-
-  // useEffect(() => {
-  //   if (nodeName == "end") {
-  //     // set the text one final time when loading is done
-  //     if (
-  //       currentDocument.trim().length > 0 &&
-  //       currentDocument !== agentState?.document
-  //     ) {
-  //       const newDocument = agentState?.document || "";
-  //       const diff = diffPartialText(currentDocument, newDocument, true);
-  //       const markdown = fromMarkdown(diff);
-  //       editor?.commands.setContent(markdown);
-  //     }
-  //   }
-  // }, [nodeName]);
-
-  // useEffect(() => {
-  //   if (isLoading) {
-  //     if (currentDocument.trim().length > 0) {
-  //       const newDocument = agentState?.document || "";
-  //       const diff = diffPartialText(currentDocument, newDocument);
-  //       const markdown = fromMarkdown(diff);
-  //       editor?.commands.setContent(markdown);
-  //     } else {
-  //       const markdown = fromMarkdown(agentState?.document || "");
-  //       editor?.commands.setContent(markdown);
-  //     }
-  //   }
-  // }, [agentState?.document]);
-
-  const text = editor?.getText() || "";
-
-  // useEffect(() => {
-  //   setPlaceholderVisible(text.length === 0);
-
-  //   if (!isLoading) {
-  //     setCurrentDocument(text);
-  //     setAgentState({
-  //       document: text,
-  //     });
-  //   }
-  // }, [text]);
-
-  const chat = useCopilotChat();
-
-  // useEffect(() => {
-  //   debugger
-  //   let actionMessage = chat.visibleMessages.reverse().find(m => m.isActionExecutionMessage());
-  //   if (actionMessage) {
-  //     console.log(actionMessage);
-  //     editor?.commands.setContent(fromMarkdown(actionMessage?.args?.document || ""));
-  //   }
-  // }, [chat]);
 
   useCopilotAction({
     name: "write_document",
-    description: `
-      Write a document. Use markdown formatting to format the document.
-      It's good to format the document extensively so it's easy to read.
-      You can use all kinds of markdown.
-      However, do not use italic or strike-through formatting, it's reserved for another purpose.
-      You MUST write the full document, even when changing only a few words.
-      When making edits to the document, try to make them minimal - do not change every word.
-      Keep stories SHORT!
-      `,
+    description: `Write a document. Use markdown formatting to format the document.
+            It's good to format the document extensively so it's easy to read.
+            You can use all kinds of markdown.
+            However, do not use italic or strike-through formatting, it's reserved for another purpose.
+            You MUST write the full document, even when changing only a few words.
+            When making edits to the document, try to make them minimal - do not change every word.
+            When you are done writing the document, provide a summary of the changes you made.
+            Keep stories SHORT! If user rejects the changes, Send messages like "Would you like to re-generate the document?"`,
     parameters: [
       {
         type: "string",
         name: "document",
+        description: "The document to write"
       }
     ],
-    handler: async ({ document }) => {
-      setCurrentDocument(document);
-      if(currentDocument == ""){
-        editor?.commands.setContent(fromMarkdown(document));
-        return
-      }
-      let diff = diffPartialText(currentDocument,document)
-      editor?.commands.setContent(fromMarkdown(diff));
-    }
-  })
-
-
-  useCopilotAction({
-    name: "confirm_changes",
-    description: "Confirm or reject the changes to the document.",
-    available : "frontend",
-    parameters: [],
     renderAndWaitForResponse: ({ args, respond, status }) => {
-      return (<ConfirmChanges
+      console.log(args, respond, status)
+      return <ConfirmChanges
+        editor={editor}
+        currentDocument={currentDocument}
+        setCurrentDocument={setCurrentDocument}
         args={args}
         respond={respond}
         status={status}
         onReject={() => {
-          editor?.commands.setContent(fromMarkdown(currentDocument));
-          // setAgentState({ document: currentDocument });
+          if (currentDocument != "") {
+            editor?.commands.setContent(fromMarkdown(currentDocument));
+          }
+          else {
+            editor?.commands.setContent("");
+          }
         }}
         onConfirm={() => {
           editor?.commands.setContent(fromMarkdown(args.document || ""));
-          // setCurrentDocument(agentState?.document || "");
-          // setAgentState({ document: agentState?.document || "", });
         }}
-      />)
-    },
-    
-
+      />
+    }
   })
+
   useCopilotChatSuggestions({
     instructions: chatSuggestions.predictiveStateUpdates,
   })
@@ -215,58 +128,78 @@ interface ConfirmChangesProps {
   status: any;
   onReject: () => void;
   onConfirm: () => void;
+  editor: any;
+  currentDocument: string;
+  setCurrentDocument: (document: string) => void;
 }
 
-function ConfirmChanges({ args, respond, status, onReject, onConfirm }: ConfirmChangesProps) {
-  console.log(status, "statusstatusstatusstatus");
+function ConfirmChanges({ args, respond, status, onReject, onConfirm, editor, currentDocument, setCurrentDocument }: ConfirmChangesProps) {
+  useEffect(() => {
+    console.log(args?.document, "statusstatusstatusstatus");
+    if (currentDocument == "") {
+      editor?.commands.setContent(fromMarkdown(args?.document || ""));
+    }
+    else {
+      let diff = diffPartialText(currentDocument, args?.document || "");
+      editor?.commands.setContent(fromMarkdown(diff));
+    }
+  }, [args?.document])
 
   const [accepted, setAccepted] = useState<boolean | null>(null);
-  return (
-    <div className="bg-white p-6 rounded shadow-lg border border-gray-200 mt-5 mb-5">
-      <h2 className="text-lg font-bold mb-4">Confirm Changes</h2>
-      <p className="mb-6">Do you want to accept the changes?</p>
-      {accepted === null && (
-        <div className="flex justify-end space-x-4">
-          <button
-            className={`bg-gray-200 text-black py-2 px-4 rounded disabled:opacity-50 ${status === "executing" ? "cursor-pointer" : "cursor-default"
-              }`}
-            disabled={status !== "executing"}
-            onClick={() => {
-              debugger
-              if (respond) {
-                setAccepted(false);
-                onReject();
-                respond("Changes rejected");
-              }
-            }}
-          >
-            Reject
-          </button>
-          <button
-            className={`bg-black text-white py-2 px-4 rounded disabled:opacity-50 ${status === "executing" ? "cursor-pointer" : "cursor-default"
-              }`}
-            disabled={status !== "executing"}
-            onClick={() => {
-              if (respond) {
-                setAccepted(true);
-                onConfirm();
-                respond("Changes accepted");
-              }
-            }}
-          >
-            Confirm
-          </button>
-        </div>
-      )}
-      {accepted !== null && (
-        <div className="flex justify-end">
-          <div className="mt-4 bg-gray-200 text-black py-2 px-4 rounded inline-block">
-            {accepted ? "✓ Accepted" : "✗ Rejected"}
+  if (status != 'inProgress') {
+    return (
+      <div className="bg-white p-6 rounded shadow-lg border border-gray-200 mt-5 mb-5">
+        <h2 className="text-lg font-bold mb-4">Confirm Changes</h2>
+        <p className="mb-6">Do you want to accept the changes?</p>
+        {accepted === null && (
+          <div className="flex justify-end space-x-4">
+            <button
+              className={`bg-gray-200 text-black py-2 px-4 rounded disabled:opacity-50 ${status === "executing" ? "cursor-pointer" : "cursor-default"
+                }`}
+              disabled={status !== "executing"}
+              onClick={() => {
+                debugger
+                if (respond) {
+                  setCurrentDocument(currentDocument);
+                  setAccepted(false);
+                  onReject();
+                  respond("Changes rejected");
+                }
+              }}
+            >
+              Reject
+            </button>
+            <button
+              className={`bg-black text-white py-2 px-4 rounded disabled:opacity-50 ${status === "executing" ? "cursor-pointer" : "cursor-default"
+                }`}
+              disabled={status !== "executing"}
+              onClick={() => {
+                debugger
+                if (respond) {
+                  setCurrentDocument(args?.document || "");
+                  setAccepted(true);
+                  onConfirm();
+                  respond("Changes accepted");
+                }
+              }}
+            >
+              Confirm
+            </button>
           </div>
-        </div>
-      )}
-    </div>
-  );
+        )}
+        {accepted !== null && (
+          <div className="flex justify-end">
+            <div className="mt-4 bg-gray-200 text-black py-2 px-4 rounded inline-block">
+              {accepted ? "✓ Accepted" : "✗ Rejected"}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+  else {
+    return null;
+  }
 }
 
 function fromMarkdown(text: string) {
