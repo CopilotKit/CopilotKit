@@ -29,6 +29,7 @@ export function ServiceAdapterSelector() {
           <option value="langchain_openai">LangChain (OpenAI)</option>
           <option value="langchain_anthropic">LangChain (Anthropic)</option>
           <option value="groq">Groq</option>
+          <option value="bedrock">Amazon Bedrock</option>
         </select>
       </div>
     </div>
