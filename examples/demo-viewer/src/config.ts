@@ -148,6 +148,12 @@ const config: DemoConfig[] = [
       "Assign a long running task to your Copilot and see how it performs!",
     tags: ["Generative ui (agent)", "Long running task"],
   }),
+  createDemoConfig({
+    id: "standard_shared_state",
+    name: "Shared State",
+    description: "A recipe Copilot which reads and updates collaboratively",
+    tags: ["Agent State", "Collaborating"],
+  }),
   // TODO: Re-enable after revisiting demo
   // createDemoConfig({
   //     id: 'multi_agent_flows',

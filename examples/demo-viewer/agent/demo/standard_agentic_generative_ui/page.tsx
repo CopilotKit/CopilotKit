@@ -105,14 +105,14 @@ const Chat = () => {
         return <></>
       }
       },
-      handler: async ({ steps }) => {
-        for (let i = 0; i < steps.length; i++) {
-          await delay(1000);
+      // handler: async ({ steps }) => {
+        // for (let i = 0; i < steps.length; i++) {
+        //   await delay(1000);
           // steps[i].status = "completed";
         // Optionally update agent state here for UI
-      }
-      return { steps };
-    }
+      // }
+      // return { steps };
+    // }
   })
 
 
