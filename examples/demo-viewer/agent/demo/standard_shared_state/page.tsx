@@ -41,10 +41,8 @@ export default function SharedState() {
   return (
 
     <CopilotKit
-      // publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_API_KEY}
       runtimeUrl="/api/copilotkit?standard=true"
-      showDevConsole={true}
-    // agent="shared_state"
+      showDevConsole={false}
     >
       <div
         className="app-container"
@@ -187,16 +185,18 @@ function Recipe() {
         ]
       }
     ],
-    handler : async ({recipe}) => {
-      console.log(recipe,"recipe")
-      updateRecipe(recipe)
+    render : ({args}) =>{
+      useEffect(() => {
+        console.log(args, "args.recipe")
+        updateRecipe(args?.recipe || {})
+      }, [args.recipe])
+      return <></>
     }
   })
 
   const [recipe, setRecipe] = useState(INITIAL_STATE.recipe);
   const { appendMessage, isLoading } = useCopilotChat();
   const [editingInstructionIndex, setEditingInstructionIndex] = useState<number | null>(null);
-  const newInstructionRef = useRef<HTMLTextAreaElement>(null);
 
   const updateRecipe = (partialRecipe: Partial<Recipe>) => {
     setAgentState({

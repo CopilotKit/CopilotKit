@@ -23,7 +23,7 @@ export default function PredictiveStateUpdates() {
   return (
     <CopilotKit
       runtimeUrl="/api/copilotkit?standard=true"
-      showDevConsole
+      showDevConsole = {false}
     >
       <div
         className="min-h-screen w-full"
