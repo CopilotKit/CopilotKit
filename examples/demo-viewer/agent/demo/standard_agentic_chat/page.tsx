@@ -2,16 +2,15 @@
 import React, { useState } from "react";
 import "@copilotkit/react-ui/styles.css";
 import "./style.css";
-import { CopilotKit, useCopilotAction } from "@copilotkit/react-core";
+import { CopilotKit, useCopilotAction, useCopilotChat } from "@copilotkit/react-core";
 import { CopilotChat, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { chatSuggestions, initialPrompt } from "@/lib/prompts";
 const AgenticChat: React.FC = () => {
   return (
     <CopilotKit
-      // publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_API_KEY}
-      runtimeUrl="/api/copilotkit"
+      runtimeUrl="/api/copilotkit?standard=true"
       showDevConsole={false}
-      agent="agentic_chat"
+      // agent="agentic_chat"
     >
       <Chat />
     </CopilotKit>
@@ -19,7 +18,7 @@ const AgenticChat: React.FC = () => {
 };
 
 const Chat = () => {
-  const [background, setBackground] = useState<string>("#fefefe");
+  const [background, setBackground] = useState<string>("--copilot-kit-background-color");
 
   useCopilotAction({
     name: "change_background",
@@ -33,22 +32,25 @@ const Chat = () => {
       },
     ],
     handler: ({ background }) => {
+      console.log("background", background);
       setBackground(background);
     },
   });
 
   useCopilotChatSuggestions({
     instructions: chatSuggestions.agenticChat,
+    // className : "bg-gray-100"
   })
+
 
   return (
     <div
       className="flex justify-center items-center h-full w-full"
       style={{ background }}
     >
-      <div className="w-8/10 h-8/10 rounded-lg">
+      <div className="w-8/10 h-8/10 rounded-lg ">
         <CopilotChat
-          className="h-full w-full rounded-lg py-6"
+          className="h-full w-full rounded-2xl py-6"
           labels={{ initial: initialPrompt.agenticChat }}
         />
       </div>

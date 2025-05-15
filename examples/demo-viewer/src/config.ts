@@ -6,7 +6,8 @@ import { ComponentType } from "react";
 type FilesJsonType = Record<string, { files: { name: string; content: string; path: string; language: string; type: string; }[] }>;
 
 export const AGENT_TYPE = process.env.NEXT_PUBLIC_AGENT_TYPE || 'crewai';
-
+// export const AGENT_TYPE : string = "crewai";
+export const APP_TYPE = process.env.NEXT_PUBLIC_APP_TYPE || 'specific';
 // A helper method to creating a config
 function createDemoConfig({
   id,
@@ -117,6 +118,45 @@ const config: DemoConfig[] = [
   }),
   createDemoConfig({
     id: "langgraph_predictive_state_updates",
+    name: "Predictive State Updates",
+    description:
+      "Use collaboration to edit a document in real time with your Copilot",
+    tags: ["State", "Streaming", "Tools"],
+  }),
+  createDemoConfig({
+    id: "standard_agentic_chat",
+    name: "Agentic Chat",
+    description: "Chat with your Copilot and call frontend tools",
+    tags: ["Chat", "Tools", "Streaming"],
+  }),
+  createDemoConfig({
+    id: "standard_human_in_the_loop",
+    name: "Human in the loop",
+    description:
+      "Plan a task together and direct the Copilot to take the right steps",
+    tags: ["HITL", "Interactivity"],
+  }),
+  createDemoConfig({
+    id: "standard_agentic_generative_ui",
+    name: "Agentic Generative UI",
+    description:
+      "Assign a long running task to your Copilot and see how it performs!",
+    tags: ["Generative ui (agent)", "Long running task"],
+  }),
+  createDemoConfig({
+    id: "standard_tool_based_generative_ui",
+    name: "Tool Based Generative UI",
+    description: "Haiku generator that uses tool based generative UI.",
+    tags: ["Generative ui (action)", "Tools"],
+  }),
+  createDemoConfig({
+    id: "standard_shared_state",
+    name: "Shared State",
+    description: "A recipe Copilot which reads and updates collaboratively",
+    tags: ["Agent State", "Collaborating"],
+  }),
+  createDemoConfig({
+    id: "standard_predictive_state_updates",
     name: "Predictive State Updates",
     description:
       "Use collaboration to edit a document in real time with your Copilot",

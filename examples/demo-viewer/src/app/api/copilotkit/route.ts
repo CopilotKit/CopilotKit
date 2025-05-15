@@ -7,15 +7,24 @@ import {
 import { NextRequest } from "next/server";
 
 const serviceAdapter = new OpenAIAdapter();
-const runtime = new CopilotRuntime({
-  remoteEndpoints: [
-    {
-      url: process.env.REMOTE_ACTION_URL || "http://localhost:8000/copilotkit",
-    },
-  ],
-});
+
 
 export const POST = async (req: NextRequest) => {
+  let runtime
+  if (req.url.endsWith("?standard=true")) {
+    console.log("standard")
+    runtime = new CopilotRuntime();
+  }
+  else{
+    runtime = new CopilotRuntime({
+      remoteEndpoints: [
+        {
+          url: process.env.REMOTE_ACTION_URL || "http://localhost:8000/copilotkit",
+        },
+      ],
+    });
+  }
+
   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
     runtime,
     serviceAdapter,
