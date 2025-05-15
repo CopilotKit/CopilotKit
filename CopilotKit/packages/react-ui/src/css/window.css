@@ -14,35 +14,6 @@
   transform: scale(0.95) translateY(20px);
   display: flex;
   pointer-events: none;
-  padding-bottom: 15px;
-}
-
-.poweredByContainer {
-  padding: 0;
-  visibility: visible !important;
-  display: flex !important;
-  position: fixed !important;
-}
-
-.poweredBy {
-  background: var(--copilot-kit-background-color) !important;
-  visibility: visible !important;
-  display: block !important;
-  position: static !important;
-  text-align: center !important;
-  font-size: 12px !important;
-  padding: 3px 0 !important;
-  color: rgb(214, 214, 214) !important;
-  margin: 0 !important;
-}
-
-.dark,
-html.dark,
-body.dark,
-[data-theme="dark"],
-html[style*="color-scheme: dark"],
-body[style*="color-scheme: dark"] .poweredBy {
-  color: rgb(69, 69, 69) !important;
 }
 
 .copilotKitSidebar .copilotKitWindow {

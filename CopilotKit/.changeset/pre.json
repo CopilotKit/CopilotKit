@@ -18,6 +18,8 @@
     "tsconfig": "1.4.6"
   },
   "changesets": [
+    "chatty-planes-join",
+    "clever-tables-tap",
     "curly-peas-confess",
     "itchy-apes-compete",
     "orange-drinks-do",

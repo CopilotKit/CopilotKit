@@ -1,6 +1,5 @@
 import { openai } from "@ai-sdk/openai";
 import { Agent } from "@mastra/core/agent";
-import { Memory } from "@mastra/memory";
 
 export const agenticChatAgent = new Agent({
   name: "Agentic Chat Agent",
@@ -9,16 +8,6 @@ export const agenticChatAgent = new Agent({
       You MUST call the 'changeBackgroundTool' function when the user asks you to change the background color of the chat window.
 `,
   model: openai("gpt-4o"),
-  memory: new Memory({
-    options: {
-      workingMemory: {
-        enabled: true,
-        template: `
-                    This is a scratchpad for you to keep track of what the user has asked you to remember.
-                `,
-      },
-    },
-  }),
 });
 
 export const humanInTheLoopAgent = new Agent({
@@ -34,16 +23,6 @@ export const humanInTheLoopAgent = new Agent({
         Don't just repeat a list of steps, come up with a creative but short description (3 sentences max) of how you are performing the task.
   `,
   model: openai("gpt-4o"),
-  memory: new Memory({
-    options: {
-      workingMemory: {
-        enabled: true,
-        template: `
-                    This is a scratchpad for you to keep track of what the user has asked you to remember.
-                `,
-      },
-    },
-  }),
 });
 
 export const toolBasedGenerativeUiAgent = new Agent({
@@ -52,14 +31,4 @@ export const toolBasedGenerativeUiAgent = new Agent({
       You assist the user in generating a haiku. When generating a haiku use the 'generateHaiku' tool.
   `,
   model: openai("gpt-4o"),
-  memory: new Memory({
-    options: {
-      workingMemory: {
-        enabled: true,
-        template: `
-                    This is a scratchpad for you to keep track of what the user has asked you to remember.
-                `,
-      },
-    },
-  }),
 });

@@ -1,0 +1,115 @@
+---
+title: Tool-based
+description: Learn how to implement Human-in-the-Loop (HITL) using Mastra Agents.
+icon: lucide/Share2
+---
+
+import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
+
+<video
+  src="/images/coagents/node-hitl.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
+
+<Callout type="info">
+  Pictured above is the [coagent
+  starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter)
+  with the implementation below applied!
+</Callout>
+
+## What is this?
+
+
+CopilotKit lets you to add custom UI to take user input and then pass it back to the agent upon completion.
+
+## Why should I use this?
+
+Human-in-the-loop is a powerful way to implement complex workflows that are production ready. By having a human in the loop,
+you can ensure that the agent is always making the right decisions and ultimately is being steered in the right direction.
+
+## Implementation
+
+<Steps>
+    <Step>
+        ### Run and connect your agent
+
+        You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
+        you can follow the instructions in the [Getting Started](/mastra/quickstart/mastra) guide.
+
+        If you don't already have an agent, you can use the [coagent starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/mastra/starter) as a starting point
+        as this guide uses it as a starting point.
+    </Step>
+
+    <Step>
+      ### Install the CopilotKit SDK
+      <InstallSDKSnippet components={props.components}/>
+    </Step>
+
+    <Step>
+        ### Add a `useCopilotAction` to your Frontend
+        First, we'll create a component that renders the agent's essay draft and waits for user approval.
+
+        ```tsx title="ui/app/page.tsx"
+        import { useCopilotAction } from "@copilotkit/react-core"
+        import { Markdown } from "@copilotkit/react-ui"
+
+        function YourMainContent() {
+          // ...
+
+          useCopilotAction({
+            name: "writeEssay",
+            available: "remote",
+            description: "Writes an essay and takes the draft as an argument.",
+            parameters: [
+              { name: "draft", type: "string", description: "The draft of the essay", required: true },
+            ],
+            // [!code highlight:25]
+            renderAndWaitForResponse: ({ args, respond, status }) => {
+              return (
+                <div>
+                  <Markdown content={args.draft || 'Preparing your draft...'} />
+
+                  <div className={`flex gap-4 pt-4 ${status !== "executing" ? "hidden" : ""}`}>
+                    <button
+                      onClick={() => respond?.("CANCEL")}
+                      disabled={status !== "executing"}
+                      className="border p-2 rounded-xl w-full"
+                    >
+                      Try Again
+                    </button>
+                    <button
+                      onClick={() => respond?.("SEND")}
+                      disabled={status !== "executing"}
+                      className="bg-blue-500 text-white p-2 rounded-xl w-full"
+                    >
+                      Approve Draft
+                    </button>
+                  </div>
+                </div>
+              );
+            },
+          });
+
+          // ...
+        }
+        ```
+    </Step>
+
+    <Step>
+    ### Setup the Mastra Agent
+    On the agent side, we are already done! Mastra natively supports the AG-UI protocol and will automatically
+    pass control back to the frontend when the `writeEssay` action is found in the model's response.
+    </Step>
+    <Step>
+        ### Give it a try!
+        Try asking your agent to write an essay about the benefits of AI. You'll see that it will generate an essay,
+        stream the progress and eventually ask you to review it.
+    </Step>
+
+</Steps> 

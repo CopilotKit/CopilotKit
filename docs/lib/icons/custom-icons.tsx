@@ -28,6 +28,43 @@ export const AG2Icon = (props: IconBaseProps) => (
   </svg>
 );
 
+export const MastraIcon = (props: IconBaseProps) => (
+  <svg
+    width="17"
+    height="17"
+    viewBox="0 0 34 34"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <circle
+      cx="16.6532"
+      cy="16.9999"
+      r="14.0966"
+      stroke="currentColor"
+      strokeWidth="1.16026"
+    />
+    <ellipse
+      cx="16.6533"
+      cy="17"
+      rx="14.0966"
+      ry="9.45478"
+      transform="rotate(45 16.6533 17)"
+      stroke="currentColor"
+      strokeWidth="1.16026"
+    />
+    <path
+      d="M10.8984 17.0508H22.483"
+      stroke="currentColor"
+      strokeWidth="1.16026"
+    />
+    <path
+      d="M13.748 19.9932L19.6339 14.1074"
+      stroke="currentColor"
+      strokeWidth="1.16026"
+    />
+  </svg>
+);
+
 export const customIcons = {
   react: FaReact,
   server: HiOutlineServerStack,
@@ -40,4 +77,5 @@ export const customIcons = {
   crewai: SiCrewai,
   component: LuLayoutTemplate,
   ag2: AG2Icon,
+  mastra: MastraIcon,
 };
