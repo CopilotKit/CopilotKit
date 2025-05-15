@@ -18,7 +18,7 @@ function createDemoConfig({
   const files = (filesJSON as FilesJsonType)[id]?.files || [];
   const [framework, ...agentIdParts] = id.split('_');
   const agentId = agentIdParts.join('_');
-  
+
   return {
     id,
     name,
@@ -26,10 +26,10 @@ function createDemoConfig({
     path: `agent/demo/${id}`,
     component: () =>
       import(`../agent/demo/${id}/page`).then((mod) => {
-          if (!mod.default) {
-              throw new Error(`Demo component for ${id} failed to load. Check export default in ${id}/page.tsx`);
-          }
-          return mod.default as ComponentType;
+        if (!mod.default) {
+          throw new Error(`Demo component for ${id} failed to load. Check export default in ${id}/page.tsx`);
+        }
+        return mod.default as ComponentType;
       }),
     defaultLLMProvider: "openai",
     tags,
@@ -125,10 +125,10 @@ const config: DemoConfig[] = [
   }),
   createDemoConfig({
     id: "langgraph_no_chat",
-    name: "No Chat",
+    name: "No Chat Example",
     description:
-      "A Demo to demonstrate the backend architecture of CoAgents",
-    tags: ["State", "Streaming", "Tools"],
+      "A Demo to demonstrate the CoAgents with no chat interface",
+    tags: ["No Chat", "Agent State"],
   }),
   createDemoConfig({
     id: "standard_agentic_chat",
