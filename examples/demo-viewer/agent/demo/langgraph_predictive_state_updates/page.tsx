@@ -16,13 +16,13 @@ import {
 } from "@copilotkit/react-core";
 import { CopilotSidebar, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { initialPrompt, chatSuggestions } from "@/lib/prompts";
+import { AGENT_TYPE } from "@/config";
 const extensions = [StarterKit];
 
 export default function PredictiveStateUpdates() {
   return (
     <CopilotKit
-      // publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_API_KEY}
-      runtimeUrl="/api/copilotkit"
+      runtimeUrl={AGENT_TYPE == "general" ? "/api/copilotkit?langgraph=true" : "/api/copilotkit"}
       showDevConsole={false}
       agent="predictive_state_updates"
     >

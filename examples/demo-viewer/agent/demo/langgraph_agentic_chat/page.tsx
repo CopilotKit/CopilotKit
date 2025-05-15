@@ -5,12 +5,12 @@ import "./style.css";
 import { CopilotKit, useCopilotAction } from "@copilotkit/react-core";
 import { CopilotChat, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { chatSuggestions, initialPrompt } from "@/lib/prompts";
+import { AGENT_TYPE } from "@/config";
 const AgenticChat: React.FC = () => {
   return (
     <CopilotKit
-      // publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_API_KEY}
-      runtimeUrl="/api/copilotkit"
-      showDevConsole={false}
+    runtimeUrl={AGENT_TYPE == "general" ? "/api/copilotkit?langgraph=true" : "/api/copilotkit"}
+    showDevConsole={false}
       agent="agentic_chat"
     >
       <Chat />

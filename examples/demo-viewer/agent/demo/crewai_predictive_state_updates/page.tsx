@@ -16,13 +16,14 @@ import {
 } from "@copilotkit/react-core";
 import { CopilotSidebar, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { chatSuggestions, initialPrompt } from "@/lib/prompts";
+import { AGENT_TYPE } from "@/config";
 const extensions = [StarterKit];
 
 export default function PredictiveStateUpdates() {
-  
+
   return (
     <CopilotKit
-      runtimeUrl="/api/copilotkit"
+      runtimeUrl={AGENT_TYPE == "general" ? "/api/copilotkit?crewai=true" : "/api/copilotkit"}
       showDevConsole={false}
       agent="predictive_state_updates"
     >
@@ -128,19 +129,19 @@ const DocumentEditor = () => {
 
   useCopilotAction({
     name: "confirm_changes",
-    renderAndWaitForResponse: ({ args, respond, status }) => 
-      <ConfirmChanges 
-        args={args} 
-        respond={respond} 
-        status={status} 
+    renderAndWaitForResponse: ({ args, respond, status }) =>
+      <ConfirmChanges
+        args={args}
+        respond={respond}
+        status={status}
         onReject={() => {
           editor?.commands.setContent(fromMarkdown(currentDocument));
           setAgentState({ document: currentDocument });
-        }} 
+        }}
         onConfirm={() => {
           editor?.commands.setContent(fromMarkdown(agentState?.document || ""));
           setCurrentDocument(agentState?.document || "");
-          setAgentState({document: agentState?.document || "",});
+          setAgentState({ document: agentState?.document || "", });
         }}
       />
   });
@@ -177,9 +178,8 @@ function ConfirmChanges({ args, respond, status, onReject, onConfirm }: ConfirmC
       {accepted === null && (
         <div className="flex justify-end space-x-4">
           <button
-            className={`bg-gray-200 text-black py-2 px-4 rounded disabled:opacity-50 ${
-              status === "executing" ? "cursor-pointer" : "cursor-default"
-            }`}
+            className={`bg-gray-200 text-black py-2 px-4 rounded disabled:opacity-50 ${status === "executing" ? "cursor-pointer" : "cursor-default"
+              }`}
             disabled={status !== "executing"}
             onClick={() => {
               if (respond) {
@@ -192,9 +192,8 @@ function ConfirmChanges({ args, respond, status, onReject, onConfirm }: ConfirmC
             Reject
           </button>
           <button
-            className={`bg-black text-white py-2 px-4 rounded disabled:opacity-50 ${
-              status === "executing" ? "cursor-pointer" : "cursor-default"
-            }`}
+            className={`bg-black text-white py-2 px-4 rounded disabled:opacity-50 ${status === "executing" ? "cursor-pointer" : "cursor-default"
+              }`}
             disabled={status !== "executing"}
             onClick={() => {
               if (respond) {

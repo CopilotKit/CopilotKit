@@ -14,6 +14,24 @@ export const POST = async (req: NextRequest) => {
   if (req.url.endsWith("?standard=true")) {
     runtime = new CopilotRuntime();
   }
+  else if (req.url.endsWith("?langgraph=true")) {
+    runtime = new CopilotRuntime({
+      remoteEndpoints: [
+        {
+          url: process.env.REMOTE_ACTION_URL || process.env.REMOTE_ACTION_URL_LANGGRAPH || "http://localhost:8000/copilotkit",
+        },
+      ],
+    });
+  }
+  else if (req.url.endsWith("?crewai=true")) {
+    runtime = new CopilotRuntime({
+      remoteEndpoints: [
+        {
+          url: process.env.REMOTE_ACTION_URL || process.env.REMOTE_ACTION_URL_CREWAI || "http://localhost:8000/copilotkit",
+        },
+      ],
+    });
+  }
   else{
     runtime = new CopilotRuntime({
       remoteEndpoints: [

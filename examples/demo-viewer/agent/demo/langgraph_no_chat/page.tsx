@@ -10,10 +10,11 @@ import { useTheme } from "next-themes";
 import { AnimatePresence, motion } from "framer-motion"
 import { samplePrompts } from "./samplePrompts";
 import Loader from "./Loader";
+import { AGENT_TYPE } from "@/config";
 const AgenticChat: React.FC = () => {
   return (
     <CopilotKit
-      runtimeUrl="/api/copilotkit"
+      runtimeUrl={AGENT_TYPE == "general" ? "/api/copilotkit?langgraph=true" : "/api/copilotkit"}
       showDevConsole={true}
       agent="no_chat"
     >

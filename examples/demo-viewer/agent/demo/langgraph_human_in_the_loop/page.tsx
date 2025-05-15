@@ -5,11 +5,11 @@ import "./style.css";
 import { CopilotKit, useLangGraphInterrupt } from "@copilotkit/react-core";
 import { CopilotChat, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { initialPrompt, chatSuggestions } from "@/lib/prompts";
+import { AGENT_TYPE } from "@/config";
 const HumanInTheLoop: React.FC = () => {
   return (
     <CopilotKit
-      // publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_API_KEY}
-      runtimeUrl="/api/copilotkit"
+      runtimeUrl={AGENT_TYPE == "general" ? "/api/copilotkit?langgraph=true" : "/api/copilotkit"}
       showDevConsole={false}
       agent="human_in_the_loop"
     >
