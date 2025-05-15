@@ -1,5 +1,16 @@
 # @copilotkit/runtime
 
+## 1.8.12
+
+### Patch Changes
+
+- 54838cb: - feat: allow keeping system role for openai adapters
+- 2b89ad7: - fix: use latest claude 3.5 as default model instead of specific
+  - chore: add missing variable assignment in llm provider docs
+  - chore: add missing call to fetch azure api key in docs
+- f419d99: - fix: Implement allowlist approach to prevent duplicate tool_result blocks in API calls to OpenAI and Anthropic
+  - @copilotkit/shared@1.8.12
+
 ## 1.8.12-next.6
 
 ### Patch Changes
