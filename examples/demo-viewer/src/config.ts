@@ -124,6 +124,13 @@ const config: DemoConfig[] = [
     tags: ["State", "Streaming", "Tools"],
   }),
   createDemoConfig({
+    id: "langgraph_no_chat",
+    name: "No Chat",
+    description:
+      "A Demo to demonstrate the backend architecture of CoAgents",
+    tags: ["State", "Streaming", "Tools"],
+  }),
+  createDemoConfig({
     id: "standard_agentic_chat",
     name: "Agentic Chat",
     description: "Chat with your Copilot and call frontend tools",

@@ -31,6 +31,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "diff": "^7.0.0",
+    "framer-motion": "^12.11.3",
     "lucide-react": "^0.477.0",
     "markdown-it": "^14.1.0",
     "markdown-it-ins": "^4.0.0",
