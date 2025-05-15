@@ -12,7 +12,6 @@ const serviceAdapter = new OpenAIAdapter();
 export const POST = async (req: NextRequest) => {
   let runtime
   if (req.url.endsWith("?standard=true")) {
-    console.log("standard")
     runtime = new CopilotRuntime();
   }
   else{
