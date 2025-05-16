@@ -1,5 +1,15 @@
 # ui
 
+## 1.8.12
+
+### Patch Changes
+
+- 3e09584: - fix: stop passing config if not exists
+- 33ba021: - partial revert of potentially breaking check
+  - wip
+  - @copilotkit/runtime-client-gql@1.8.12
+  - @copilotkit/shared@1.8.12
+
 ## 1.8.12-next.6
 
 ### Patch Changes

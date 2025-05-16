@@ -1,5 +1,17 @@
 # ui
 
+## 1.8.12
+
+### Patch Changes
+
+- 9b2e9e6: - fix: move powered by tag to input and fix padding on full chat
+- 89873ca: - fix: use set background color on the entire window
+- Updated dependencies [3e09584]
+- Updated dependencies [33ba021]
+  - @copilotkit/react-core@1.8.12
+  - @copilotkit/runtime-client-gql@1.8.12
+  - @copilotkit/shared@1.8.12
+
 ## 1.8.12-next.6
 
 ### Patch Changes
