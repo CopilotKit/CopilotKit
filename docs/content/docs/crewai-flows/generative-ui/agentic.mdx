@@ -75,7 +75,7 @@ is a situation where a user and an agent are working together to solve a problem
         from crewai.flow.flow import start
         from litellm import completion
         from copilotkit import CopilotKitState
-        from copilotkit.langgraph import copilotkit_emit_state
+        from copilotkit.crewai import copilotkit_stream, CopilotKitState, copilotkit_emit_state
         import asyncio
         from typing import TypedDict
 
@@ -88,18 +88,18 @@ is a situation where a user and an agent are working together to solve a problem
 
         @start
         async def chat(self):
-            self.state["searches"] = [
+            self.state.searches = [
                 {"query": "Initial research", "done": False},
                 {"query": "Retrieving sources", "done": False},
                 {"query": "Forming an answer", "done": False},
             ]
-            await copilotkit_emit_state(state)
+            await copilotkit_emit_state(self.state)
 
             # Simulate state updates # [!code highlight:5]
-            for search in self.state["searches"]:
+            for search in self.state.searches:
                 await asyncio.sleep(1)
                 search["done"] = True
-                await copilotkit_emit_state(state)
+                await copilotkit_emit_state(self.state)
 
             # Run the model to generate a response
             response = await copilotkit_stream(
