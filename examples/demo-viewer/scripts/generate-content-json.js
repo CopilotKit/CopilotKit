@@ -30,6 +30,14 @@ const config = {
   langgraph_tool_based_generative_ui: ["agent.py", "page.tsx", "style.css", "README.mdx"],
   langgraph_shared_state: ["README.md","agent.py", "page.tsx", "style.css", "README.mdx"],
   langgraph_predictive_state_updates: ["agent.py", "page.tsx", "style.css", "README.mdx"],
+  langgraph_no_chat: ["agent.py", "page.tsx", "style.css", "README.mdx"],
+
+  standard_agentic_chat: ["page.tsx", "style.css", "README.mdx"],
+  standard_human_in_the_loop: ["page.tsx", "style.css", "README.mdx"],
+  standard_agentic_generative_ui: ["page.tsx", "style.css", "README.mdx"],
+  standard_tool_based_generative_ui: ["page.tsx", "style.css", "README.mdx"],
+  standard_shared_state: ["page.tsx", "style.css", "README.mdx"],
+  standard_predictive_state_updates: ["page.tsx", "style.css", "README.mdx"],
 };
 
 const result = {};

@@ -39,7 +39,7 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
   const currentFramework = params.framework || 'crewai'; // Default to crewai if not set
   // Initialize state with defaultDemoId
   const [selectedDemoId, setSelectedDemoId] = useState<string | undefined>(defaultDemoId);
-  const [selectedFramework, setSelectedFramework] = useState<string>(params?.agent as string || (AGENT_TYPE == "general" ? "crewai" : AGENT_TYPE));
+  const [selectedFramework, setSelectedFramework] = useState<string>(params?.agent as string || (AGENT_TYPE == "general" ? localStorage.getItem("frameworkz") || "crewai" : AGENT_TYPE));
 
   // Filter demos based on the selected framework OR if they have an iframeUrl or special ID
   const filteredDemos = config.filter(d =>
@@ -179,10 +179,10 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
       // It's a regular internal demo (non-iframe)
       const shortId = fullDemoId.substring(fullDemoId.indexOf('_') + 1);
       if (pathname !== `/${selectedFramework}/feature/${shortId}`) {
-        if(AGENT_TYPE === "general"){
+        if (AGENT_TYPE === "general") {
           router.push(`/${fullDemoId.split("_")[0]}/feature/${fullDemoId}`);
         }
-        else{
+        else {
           router.push(`/feature/${shortId}`);
         }
       }
@@ -262,6 +262,23 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
     }
   }, [demoFiles, handleFileSelect]); // Add dependencies
 
+  const handleFrameworkSelect = (framework: string) => {
+    try {
+      setSelectedFramework(framework);
+      if (selectedDemoId) {
+        let splittedArr: any = selectedDemoId?.split("_");
+        if (splittedArr) {
+          splittedArr[0] = framework;
+          splittedArr = splittedArr.join("_");
+        }
+        router.push(`/${framework}/feature/${splittedArr}`);
+        localStorage.setItem("frameworkz", framework);
+      }
+    } catch (error) {
+      console.error("Error handling framework selection:", error);
+    }
+  }
+
   return (
     <ViewerLayout showFileTree={false} showCodeEditor={false}>
       <div className="flex h-full">
@@ -300,30 +317,30 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
               </label>
               <div className="flex flex-wrap gap-1.5">
                 <button
-                  onClick={() => setSelectedFramework("crewai")}
+                  onClick={() => handleFrameworkSelect("crewai")}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${selectedFramework === "crewai"
-                      ? "bg-primary/10 text-primary border border-primary/20"
-                      : "bg-background border hover:bg-accent/50 hover:text-accent-foreground"
+                    ? "bg-primary/10 text-primary border border-primary/20"
+                    : "bg-background border hover:bg-accent/50 hover:text-accent-foreground"
                     }`}
                 >
                   <Network className="h-3 w-3" />
                   <span>CrewAI</span>
                 </button>
                 <button
-                  onClick={() => setSelectedFramework("langgraph")}
+                  onClick={() => handleFrameworkSelect("langgraph")}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${selectedFramework === "langgraph"
-                      ? "bg-primary/10 text-primary border border-primary/20"
-                      : "bg-background border hover:bg-accent/50 hover:text-accent-foreground"
+                    ? "bg-primary/10 text-primary border border-primary/20"
+                    : "bg-background border hover:bg-accent/50 hover:text-accent-foreground"
                     }`}
                 >
                   <Bot className="h-3 w-3" />
                   <span>LangGraph</span>
                 </button>
                 <button
-                  onClick={() => setSelectedFramework("standard")}
+                  onClick={() => handleFrameworkSelect("standard")}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${selectedFramework === "standard"
-                      ? "bg-primary/10 text-primary border border-primary/20"
-                      : "bg-background border hover:bg-accent/50 hover:text-accent-foreground"
+                    ? "bg-primary/10 text-primary border border-primary/20"
+                    : "bg-background border hover:bg-accent/50 hover:text-accent-foreground"
                     }`}
                 >
                   <Sparkles className="h-3 w-3" />
