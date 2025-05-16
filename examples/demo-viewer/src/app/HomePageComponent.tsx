@@ -39,7 +39,7 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
   const currentFramework = params.framework || 'crewai'; // Default to crewai if not set
   // Initialize state with defaultDemoId
   const [selectedDemoId, setSelectedDemoId] = useState<string | undefined>(defaultDemoId);
-  const [selectedFramework, setSelectedFramework] = useState<string>(params?.agent as string || (AGENT_TYPE == "general" ? localStorage.getItem("frameworkz") || "crewai" : AGENT_TYPE));
+  const [selectedFramework, setSelectedFramework] = useState<string>(params?.agent as string || "crewai");
   const [toDelete, setToDelete] = useState<boolean>(false);
   // Filter demos based on the selected framework OR if they have an iframeUrl or special ID
   const filteredDemos = config.filter(d =>
@@ -105,10 +105,6 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
   // Add Effect to set mounted state after client mount
   useEffect(() => {
     setMounted(true);
-    return () => {
-      debugger
-      // if (!toDelete) localStorage.removeItem("frameworkz");
-    }
   }, []);;
 
   useEffect(() => {
