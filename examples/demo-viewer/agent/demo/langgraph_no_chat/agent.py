@@ -31,7 +31,7 @@ async def start_flow(state: AgentState, config: RunnableConfig):
     This is the entry point for the flow.
     """
     
-    await asyncio.sleep(5)
+    await asyncio.sleep(1)
     return Command(
         goto="buffer_node",
         update={
@@ -47,7 +47,7 @@ async def buffer_node(state: AgentState, config: RunnableConfig):
     system_prompt = """
     You are a helpful assistant that answers user's questions. Make sure the response is concise and to the point. The response format should strictly be in markdown format.
     """
-    await asyncio.sleep(5)
+    await asyncio.sleep(0)
 
     # Define the model
     model = ChatOpenAI(model="gpt-4o-mini")
@@ -91,7 +91,7 @@ async def confirming_response_node(state: AgentState, config: RunnableConfig):
     This is a buffer node as well. Just the name is
     """
     
-    await asyncio.sleep(5)
+    await asyncio.sleep(1)
     await copilotkit_exit(config)
     return Command(
         goto="reporting_node",
@@ -107,7 +107,7 @@ async def reporting_node(state: AgentState, config: RunnableConfig):
     This node handles the user interrupt for step customization and generates the final response.
     """
 
-    await asyncio.sleep(5)
+    await asyncio.sleep(1)
     await copilotkit_exit(config)
     return Command(
         goto=END,
