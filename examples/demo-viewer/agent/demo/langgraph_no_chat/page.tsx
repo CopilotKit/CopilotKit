@@ -14,7 +14,7 @@ import { AGENT_TYPE } from "@/config";
 const AgenticChat: React.FC = () => {
   return (
     <CopilotKit
-      runtimeUrl={AGENT_TYPE == "general" ? "/api/copilotkit?langgraph=true" : "/api/copilotkit"}
+      runtimeUrl={"/api/copilotkit?langgraph=true"}
       showDevConsole={true}
       agent="no_chat"
     >
@@ -37,6 +37,8 @@ const Chat = () => {
   })
 
   useEffect(() => {
+    console.log(state,"state");
+    
     if (nodeName && nodeName != "start_flow" && nodeName != "__end__") {
       setStep(step + 1);
     }
