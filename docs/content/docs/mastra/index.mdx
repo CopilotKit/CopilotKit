@@ -8,6 +8,7 @@ import { BiSolidMessage as TextIcon } from "react-icons/bi";
 import { VscJson as JsonIcon } from "react-icons/vsc";
 import { FaDiscord } from "react-icons/fa";
 import Link from "next/link";
+import { TelescopeIcon } from "lucide-react";
 import { YouTubeVideo } from "@/components/react/youtube-video";
 import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
 import {
@@ -42,61 +43,66 @@ Full user-interaction infrastructure for your agents, to turn your agents into C
 
 Everything you need to build Agent-Native Applications (ANAs), right out of the box.
 
-<CTACards
-  columns={2}
-  cards={[
-    {
-      icon: LuMessageSquare,
-      title: "Agentic Chat UI",
-      description: "In-app chat powered by your agent.",
-      href: "/mastra/agentic-chat-ui",
-    },
-    {
-      icon: LuLayoutTemplate,
-      title: "Generative UI",
-      description: "UI that updates in real-time based on your agent's state.",
-      href: "/mastra/generative-ui",
-    },
-    {
-      icon: LuWand2,
-      title: "Frontend Tools",
-      description:
-        "Give your agent the ability to take action in your application.",
-      href: "/mastra/frontend-actions",
-    },
-    {
-      icon: LuWand2,
-      title: "Multi-Agent Coordination",
-      description:
-        "Route your agent to the right agent based on the user's request.",
-      href: "/mastra/multi-agent-flows",
-    },
-    {
-      icon: LuUserCog,
-      title: "Human-in-the-Loop",
-      description: "Set smart checkpoints where humans can guide your agents.",
-      href: "/mastra/human-in-the-loop",
-    },
-  ]}
-/>
-
-{/* TODO: Add CoAgents in action section for Mastra Agents */}
+<Cards className="gap-6">
+  <Card
+    className="p-6 rounded-xl text-base border-black dark:border-white"
+    icon={<LuMessageSquare />}
+    title="Agentic Chat UI"
+    description="In-app chat powered by your agent."
+    href="/mastra/agentic-chat-ui"
+  />
+  <Card
+    className="p-6 rounded-xl text-base border-black dark:border-white"
+    icon={<LuLayoutTemplate />}
+    title="Generative UI"
+    description="UI that updates in real-time based on your agent's state."
+    href="/mastra/generative-ui"
+  />
+  <Card
+    className="p-6 rounded-xl text-base border-black dark:border-white"
+    icon={<LuWand2 />}
+    title="Frontend Tools"
+    description="Give your agent the ability to take action in your application."
+    href="/mastra/frontend-actions"
+  />
+  <Card
+    className="p-6 rounded-xl text-base border-black dark:border-white"
+    icon={<LuWand2 />}
+    title="Multi-Agent Coordination"
+    description="Route your agent to the right agent based on the user's request."
+    href="/mastra/multi-agent-flows"
+  />
+  <Card
+    className="p-6 rounded-xl text-base border-black dark:border-white"
+    icon={<LuUserCog />}
+    title="Human-in-the-Loop"
+    description="Set smart checkpoints where humans can guide your agents."
+    href="/mastra/human-in-the-loop"
+  />
+</Cards>
 
 ## Ready to get started?
 
 Get started with CoAgents in as little as 5 minutes with one of our guides or tutorials.
 
-<CTACards
-  columns={1}
-  cards={[
-    {
-      icon: LuPlay,
-      title: "Quickstart",
-      description: "Learn how to build your first CoAgent in 10 minutes.",
-      href: "/mastra/quickstart/mastra",
-    },
-  ]}
-/>
+<Cards className="gap-6">
+  <Card
+    className="p-6 rounded-xl text-base border-black dark:border-white"
+    icon={<LuPlay />}
+    title="Quickstart"
+    description="Learn how to build your first CoAgent in 10 minutes."
+    href="/mastra/quickstart"
+  />
+  <Card
+    className="p-6 rounded-xl text-base border-black dark:border-white"
+    icon={<TelescopeIcon />}
+    title="Feature Overview"
+    description="Try the key features of CoAgents powered by Mastra Agents."
+    href="https://copilotkit-mastra-feature-viewer.vercel.app/"
+    target="_blank"
+  />
+</Cards>
+
 {/* TODO: Add example tutorials for Mastra Agents */}
 
 ## Common Questions
@@ -113,12 +119,6 @@ powered applications because it gives you, the developer, the ability to control
 the agent do its magic.
 
 For more on this topic, checkout our [agentic copilot](/mastra/concepts/agentic-copilots) concept page.
-
-</Accordion>
-<Accordion title="Can I attach to an existing thread?">
-Development of CoAgents is ongoing. One part of this is the ability to attach to an existing thread which is a high priority on our roadmap.
-
-Stay tuned for updates!
 
 </Accordion>
 </Accordions> 
