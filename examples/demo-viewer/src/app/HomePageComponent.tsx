@@ -283,7 +283,7 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
     <ViewerLayout showFileTree={false} showCodeEditor={false}>
       <div className="flex h-full">
         {/* Demo List - Left Sidebar */}
-        <div style={{ width: "325px" }} className="flex flex-col h-full w-80 border-r">
+        <div className="flex flex-col h-full w-82 border-r">
           {/* === Restore Sidebar Header === */}
           <div className="p-4 border-b bg-background">
             <div className="flex items-center justify-between ml-1">
