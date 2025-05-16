@@ -40,7 +40,7 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
   // Initialize state with defaultDemoId
   const [selectedDemoId, setSelectedDemoId] = useState<string | undefined>(defaultDemoId);
   const [selectedFramework, setSelectedFramework] = useState<string>(params?.agent as string || (AGENT_TYPE == "general" ? localStorage.getItem("frameworkz") || "crewai" : AGENT_TYPE));
-
+  const [toDelete, setToDelete] = useState<boolean>(false);
   // Filter demos based on the selected framework OR if they have an iframeUrl or special ID
   const filteredDemos = config.filter(d =>
     d.id === 'research-canvas' || d.iframeUrl || d.id.startsWith(`${selectedFramework}_`)
@@ -105,7 +105,11 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
   // Add Effect to set mounted state after client mount
   useEffect(() => {
     setMounted(true);
-  }, []);
+    return () => {
+      debugger
+      // if (!toDelete) localStorage.removeItem("frameworkz");
+    }
+  }, []);;
 
   useEffect(() => {
     if (selectedDemo?.defaultLLMProvider) {
@@ -264,16 +268,10 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
 
   const handleFrameworkSelect = (framework: string) => {
     try {
+      debugger
+      setToDelete(true);
       setSelectedFramework(framework);
-      if (selectedDemoId) {
-        let splittedArr: any = selectedDemoId?.split("_");
-        if (splittedArr) {
-          splittedArr[0] = framework;
-          splittedArr = splittedArr.join("_");
-        }
-        router.push(`/${framework}/feature/${splittedArr}`);
-        localStorage.setItem("frameworkz", framework);
-      }
+      router.push(`/${framework}`);
     } catch (error) {
       console.error("Error handling framework selection:", error);
     }
