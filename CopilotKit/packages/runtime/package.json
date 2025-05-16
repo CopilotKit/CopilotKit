@@ -47,10 +47,10 @@
     "zod-to-json-schema": "^3.23.5"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.28-alpha.2",
-    "@ag-ui/core": "0.0.28-alpha.2",
-    "@ag-ui/encoder": "0.0.28-alpha.2",
-    "@ag-ui/proto": "0.0.28-alpha.2",
+    "@ag-ui/client": "0.0.28-alpha.3",
+    "@ag-ui/core": "0.0.28-alpha.3",
+    "@ag-ui/encoder": "0.0.28-alpha.3",
+    "@ag-ui/proto": "0.0.28-alpha.3",
     "@anthropic-ai/sdk": "^0.27.3",
     "@copilotkit/shared": "workspace:*",
     "@graphql-yoga/plugin-defer-stream": "^3.3.1",
