@@ -18,7 +18,7 @@ from demo.langgraph_shared_state.agent import shared_state_graph
 from demo.langgraph_tool_based_generative_ui.agent import tool_based_generative_ui_graph
 from demo.langgraph_agentic_chat.agent import agentic_chat_graph
 from demo.langgraph_agentic_generative_ui.agent import graph
-
+from demo.langgraph_no_chat.agent import no_chat
 
 app = FastAPI()
 # Use CopilotKitSDK instead of CopilotKitRemoteEndpoint
@@ -59,6 +59,11 @@ def create_agents(context):
             name="predictive_state_updates",
             description="An example for a predictive state updates flow.",
             graph=predictive_state_updates_graph,
+        ),
+        LangGraphAgent(
+            name="no_chat",
+            description="An example for a no chat flow.",
+            graph=no_chat,
         )
     ]
     

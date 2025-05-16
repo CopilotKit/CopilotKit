@@ -14,7 +14,7 @@ import Image from "next/image";
 import { useTheme } from "next-themes";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Eye, Code, Book } from "lucide-react";
+import { Eye, Code, Book, Network, Bot, Sparkles } from "lucide-react";
 import { CodeEditor } from "@/components/code-editor/code-editor";
 import ReactMarkdown from "react-markdown";
 import { MarkdownComponents } from "@/components/ui/markdown-components";
@@ -22,8 +22,8 @@ import { MDXContent } from "@/components/ui/mdx-components";
 import { MDXRenderer, SafeComponent } from "@/utils/mdx-utils";
 import filesJson from "../files.json";
 import { FileEntry } from "@/components/file-tree/file-tree";
-import { useRouter, usePathname } from "next/navigation";
-
+import { useRouter, usePathname, useParams } from "next/navigation";
+import { AGENT_TYPE } from "@/config";
 // Define a type for the files.json structure for safety
 type FilesJsonType = Record<string, { files: { name: string; content: string; path: string; language: string; type: string; }[] }>;
 
@@ -35,20 +35,23 @@ interface HomePageProps {
 // Use HomePageProps directly in the function signature
 export default function Home({ defaultDemoId }: HomePageProps = {}) {
   // Get the framework type from environment variable
-  const currentFramework = process.env.NEXT_PUBLIC_AGENT_TYPE || 'crewai'; // Default to crewai if not set
-  
+  const params = useParams();
+  const currentFramework = params.framework || 'crewai'; // Default to crewai if not set
   // Initialize state with defaultDemoId
   const [selectedDemoId, setSelectedDemoId] = useState<string | undefined>(defaultDemoId);
-  
-  // Filter demos based on the environment variable OR if they have an iframeUrl or special ID
+  const [selectedFramework, setSelectedFramework] = useState<string>(params?.agent as string || "crewai");
+  const [toDelete, setToDelete] = useState<boolean>(false);
+  // Filter demos based on the selected framework OR if they have an iframeUrl or special ID
   const filteredDemos = config.filter(d =>
-    d.id === 'research-canvas' || d.iframeUrl || d.id.startsWith(`${currentFramework}_`)
+    d.id === 'research-canvas' || d.iframeUrl || d.id.startsWith(`${selectedFramework}_`)
   );
-  
+
+  // console.log("filteredDemos : ", filteredDemos);
+  // console.log("config : ", config);
   // Find selected demo within the *full* config for its details
   const selectedDemo = config.find((d) => d.id === selectedDemoId);
   const RESEARCH_CANVAS_ID = "research-canvas"; // Define constant for clarity
-  
+
   const [activeTab, setActiveTab] = useState<string>("preview");
   const [readmeContent, setReadmeContent] = useState<string | null>(null);
   const [compiledMDX, setCompiledMDX] = useState<string | null>(null);
@@ -66,17 +69,17 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
     ? (filesJson as FilesJsonType)[selectedDemoId].files
     : []
   ).map(file => ({ // Ensure the mapped type matches FileEntry
-      ...file,
-      type: file.type as "file" | "directory", // Explicitly cast type
-      content: file.content ?? "",
-      children: undefined // Explicitly add undefined children if needed by FileEntry 
+    ...file,
+    type: file.type as "file" | "directory", // Explicitly cast type
+    content: file.content ?? "",
+    children: undefined // Explicitly add undefined children if needed by FileEntry 
   }));
-  
+
   const [currentPath, setCurrentPath] = useState<string>(selectedDemo?.path || "");
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
+  console.log("AGENT_TYPEAGENT_TYPEAGENT_TYPE : ", AGENT_TYPE);
   // Add explicit types to handlers
   const handleFileSelect = useCallback((filePath: string | null): void => {
     setSelectedFilePath(filePath);
@@ -102,7 +105,7 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
   // Add Effect to set mounted state after client mount
   useEffect(() => {
     setMounted(true);
-  }, []);
+  }, []);;
 
   useEffect(() => {
     if (selectedDemo?.defaultLLMProvider) {
@@ -125,7 +128,7 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
       console.warn(`No README found for ${demoId} in files.json`);
       return;
     }
-    
+
     setReadmeContent(readmeFile.content);
 
     if (readmeFile.name.endsWith('.mdx')) {
@@ -155,10 +158,11 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
   // Implement new handleDemoSelect for URL updates
   const handleDemoSelect = useCallback((fullDemoId: string) => {
     // Check if already selected
+    debugger
     if (selectedDemoId === fullDemoId) return;
 
     const demo = config.find(d => d.id === fullDemoId);
-    
+
     // Resetting common state elements that should happen on *any* selection attempt
     setActiveTab("preview"); // Default to preview tab
     setSelectedFilePath(null);
@@ -167,24 +171,29 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
 
     // --- URL Handling ---
     if (demo?.id === RESEARCH_CANVAS_ID) {
-       // Navigate to the dedicated route for research canvas
-       if (pathname !== '/demo/research-canvas') {
-           router.push('/demo/research-canvas');
-       }
+      // Navigate to the dedicated route for research canvas
+      if (pathname !== '/demo/research-canvas') {
+        router.push('/demo/research-canvas');
+      }
     } else if (demo) {
-       // It's a regular internal demo (non-iframe)
-       const shortId = fullDemoId.substring(fullDemoId.indexOf('_') + 1);
-       if (pathname !== `/feature/${shortId}`) {
-           router.push(`/feature/${shortId}`);
-       }
-    } else {
-        // Handle case where demo is not found? Maybe navigate home?
-        console.warn(`Demo with ID ${fullDemoId} not found in config.`);
-        if (pathname !== '/') {
-             router.push('/');
+      // It's a regular internal demo (non-iframe)
+      const shortId = fullDemoId.substring(fullDemoId.indexOf('_') + 1);
+      if (pathname !== `/${selectedFramework}/feature/${shortId}`) {
+        if (AGENT_TYPE === "general") {
+          router.push(`/${fullDemoId.split("_")[0]}/feature/${fullDemoId}`);
         }
+        else {
+          router.push(`/feature/${shortId}`);
+        }
+      }
+    } else {
+      // Handle case where demo is not found? Maybe navigate home?
+      console.warn(`Demo with ID ${fullDemoId} not found in config.`);
+      if (pathname !== '/') {
+        router.push('/');
+      }
     }
-    
+
   }, [selectedDemoId, router, pathname]);
 
   // Effect 1: Sync state from URL prop (defaultDemoId)
@@ -253,11 +262,22 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
     }
   }, [demoFiles, handleFileSelect]); // Add dependencies
 
+  const handleFrameworkSelect = (framework: string) => {
+    try {
+      debugger
+      setToDelete(true);
+      setSelectedFramework(framework);
+      router.push(`/${framework}`);
+    } catch (error) {
+      console.error("Error handling framework selection:", error);
+    }
+  }
+
   return (
     <ViewerLayout showFileTree={false} showCodeEditor={false}>
       <div className="flex h-full">
-        {/* Demo List - Left Sidebar */} 
-        <div className="flex flex-col h-full w-80 border-r">
+        {/* Demo List - Left Sidebar */}
+        <div className="flex flex-col h-full w-82 border-r">
           {/* === Restore Sidebar Header === */}
           <div className="p-4 border-b bg-background">
             <div className="flex items-center justify-between ml-1">
@@ -284,6 +304,45 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
             </div>
           </div>
           {/* === Restore Controls Section (Tabs) === */}
+          {AGENT_TYPE === "general" && <div className="p-4 border-b bg-background">
+            <div className="mb-1">
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                Agent Framework
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  onClick={() => handleFrameworkSelect("crewai")}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${selectedFramework === "crewai"
+                    ? "bg-primary/10 text-primary border border-primary/20"
+                    : "bg-background border hover:bg-accent/50 hover:text-accent-foreground"
+                    }`}
+                >
+                  <Network className="h-3 w-3" />
+                  <span>CrewAI</span>
+                </button>
+                <button
+                  onClick={() => handleFrameworkSelect("langgraph")}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${selectedFramework === "langgraph"
+                    ? "bg-primary/10 text-primary border border-primary/20"
+                    : "bg-background border hover:bg-accent/50 hover:text-accent-foreground"
+                    }`}
+                >
+                  <Bot className="h-3 w-3" />
+                  <span>LangGraph</span>
+                </button>
+                <button
+                  onClick={() => handleFrameworkSelect("standard")}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${selectedFramework === "standard"
+                    ? "bg-primary/10 text-primary border border-primary/20"
+                    : "bg-background border hover:bg-accent/50 hover:text-accent-foreground"
+                    }`}
+                >
+                  <Sparkles className="h-3 w-3" />
+                  <span>Standard</span>
+                </button>
+              </div>
+            </div>
+          </div>}
           <div className="p-4 border-b bg-background">
             <div className="mb-1">
               <label className="block text-sm font-medium text-muted-foreground mb-2">
@@ -309,17 +368,18 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
                     <Code className="h-3 w-3" />
                     <span>Code</span>
                   </TabsTrigger>
-                    <TabsTrigger
-                      value="readme"
-                      className="flex-1 h-7 px-2 text-sm font-medium gap-1 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow"
-                    >
-                      <Book className="h-3 w-3" />
-                      <span>Docs</span>
-                    </TabsTrigger>
+                  <TabsTrigger
+                    value="readme"
+                    className="flex-1 h-7 px-2 text-sm font-medium gap-1 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow"
+                  >
+                    <Book className="h-3 w-3" />
+                    <span>Docs</span>
+                  </TabsTrigger>
                 </TabsList>
               </Tabs>
             </div>
           </div>
+
           {/* === Pass Filtered Demos to Demo List === */}
           <div className="flex-1 overflow-auto">
             <DemoList
@@ -335,8 +395,8 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* === Restore Active Tab Conditional Logic === */}
             {activeTab === "preview" ? (
-              <div className="flex-1 h-full"> 
-                {selectedDemo && <DemoPreview demo={selectedDemo} />} 
+              <div className="flex-1 h-full">
+                {selectedDemo && <DemoPreview demo={selectedDemo} />}
               </div>
             ) : activeTab === "readme" ? (
               <div className="flex-1 p-6 overflow-auto bg-background">
@@ -387,10 +447,10 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
                     </div>
                   </div>
                 ) : (
-                   // Internal demo without readme content: Show message (existing logic)
-                   <div className="flex items-center justify-center h-full text-muted-foreground">
-                      No README found for this demo.
-                   </div>
+                  // Internal demo without readme content: Show message (existing logic)
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    No README found for this demo.
+                  </div>
                 )}
               </div>
             ) : activeTab === "code" ? (
@@ -423,7 +483,7 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
                       <div className="flex-1 overflow-auto">
                         <FileTree
                           basePath={currentPath}
-                          files={demoFiles} 
+                          files={demoFiles}
                           selectedFile={selectedFilePath || undefined}
                           onFileSelect={handleFileSelect}
                         />
@@ -440,20 +500,20 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
                               name: selectedFilePath?.split("/").pop() || "",
                               path: selectedFilePath || "",
                               content: fileContent ?? "",
-                              language: (selectedDemoId && (filesJson as FilesJsonType)[selectedDemoId]?.files.find((f:any) => f.path === selectedFilePath)?.language) || 'plaintext',
+                              language: (selectedDemoId && (filesJson as FilesJsonType)[selectedDemoId]?.files.find((f: any) => f.path === selectedFilePath)?.language) || 'plaintext',
                             }}
                           />
                         </div>
                       ) : (
-                          <div className="flex items-center justify-center h-full text-muted-foreground">
-                            Select a file to view its content.
-                          </div>
+                        <div className="flex items-center justify-center h-full text-muted-foreground">
+                          Select a file to view its content.
+                        </div>
                       )}
                     </div>
                   </>
                 )}
               </div>
-            ) : null /* Handle potential invalid tab state */} 
+            ) : null /* Handle potential invalid tab state */}
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center text-muted-foreground">
@@ -461,6 +521,6 @@ export default function Home({ defaultDemoId }: HomePageProps = {}) {
           </div>
         )}
       </div>
-     </ViewerLayout>
+    </ViewerLayout>
   );
 }

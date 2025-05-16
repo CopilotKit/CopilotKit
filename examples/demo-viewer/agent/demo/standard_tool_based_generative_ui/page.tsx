@@ -4,9 +4,8 @@ import { CopilotKitCSSProperties, CopilotSidebar, useCopilotChatSuggestions } fr
 import { useState, useEffect } from "react";
 import "@copilotkit/react-ui/styles.css";
 import "./style.css";
-import { chatSuggestions, initialPrompt } from "@/lib/prompts";
+import { chatSuggestions, initialPrompt, instructions } from "@/lib/prompts";
 import HaikuCard from "./HaikuCard";
-import { AGENT_TYPE } from "@/config";
 // List of known valid image filenames (should match agent.py)
 const VALID_IMAGE_NAMES = [
   "Osaka_Castle_Turret_Stone_Wall_Pine_Trees_Daytime.jpg",
@@ -24,9 +23,9 @@ const VALID_IMAGE_NAMES = [
 export default function AgenticChat() {
   return (
     <CopilotKit
+      runtimeUrl="/api/copilotkit?standard=true"
       showDevConsole={false}
-      runtimeUrl={AGENT_TYPE == "general" ? "/api/copilotkit?crewai=true" : "/api/copilotkit"}
-      agent="tool_based_generative_ui"
+      // agent="tool_based_generative_ui"
     >
       <div
         className="min-h-screen w-full flex items-center justify-center page-background"
@@ -40,6 +39,7 @@ export default function AgenticChat() {
         <Haiku />
         <CopilotSidebar
           defaultOpen={true}
+          instructions={instructions.toolCallingGenerativeUI.replace("{IMAGE_NAMES}", VALID_IMAGE_NAMES.join(", "))}
           labels={{
             title: "Haiku Generator",
             initial: initialPrompt.toolCallingGenerativeUI,
@@ -51,7 +51,7 @@ export default function AgenticChat() {
   );
 }
 
-interface Haiku {
+interface Haiku { 
   japanese: string[];
   english: string[];
   image_names: string[];
@@ -73,6 +73,9 @@ function Haiku() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isJustApplied, setIsJustApplied] = useState(false);
 
+  useEffect(() => {
+    console.log(instructions.toolCallingGenerativeUI.replace("{IMAGE_NAMES}", VALID_IMAGE_NAMES.join(", ")), "INSTTTT");
+  }, []);
   const validateAndCorrectImageNames = (rawNames: string[] | undefined): string[] | null => {
     if (!rawNames || rawNames.length !== 3) {
       return null;
@@ -131,6 +134,7 @@ function Haiku() {
     ],
     followUp: false,
     handler: async ({ japanese, english, image_names }) => {
+      debugger
       const finalCorrectedImages = validateAndCorrectImageNames(image_names);
       const newHaiku = {
         japanese: japanese || [],
@@ -157,7 +161,7 @@ function Haiku() {
   });
   return (
     <div className="flex h-screen w-full">
-
+      
       {/* Thumbnail List */}
       <div className="w-40 p-4 border-r border-gray-200 overflow-y-auto overflow-x-hidden">
         {haikus.filter((haiku) => haiku.english[0] !== "A placeholder verse—").map((haiku, index) => (

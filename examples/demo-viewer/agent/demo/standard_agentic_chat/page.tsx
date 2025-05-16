@@ -5,13 +5,12 @@ import "./style.css";
 import { CopilotKit, useCopilotAction, useCopilotChat } from "@copilotkit/react-core";
 import { CopilotChat, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { chatSuggestions, initialPrompt } from "@/lib/prompts";
-import { AGENT_TYPE } from "../../../src/config"
 const AgenticChat: React.FC = () => {
   return (
     <CopilotKit
-      runtimeUrl={AGENT_TYPE == "general" ? "/api/copilotkit?crewai=true" : "/api/copilotkit"}
+      runtimeUrl="/api/copilotkit?standard=true"
       showDevConsole={false}
-      agent="agentic_chat"
+      // agent="agentic_chat"
     >
       <Chat />
     </CopilotKit>

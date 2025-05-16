@@ -1,12 +1,11 @@
 "use client";
-import { CopilotKit, useCoAgent, useCopilotChat } from "@copilotkit/react-core";
+import { CopilotKit, useCoAgent, useCopilotAction, useCopilotChat } from "@copilotkit/react-core";
 import { CopilotKitCSSProperties, CopilotSidebar, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { useState, useEffect, useRef } from "react";
 import { Role, TextMessage } from "@copilotkit/runtime-client-gql";
 import "@copilotkit/react-ui/styles.css";
 import "./style.css";
-import { initialPrompt, chatSuggestions  } from "@/lib/prompts";
-import { AGENT_TYPE } from "@/config";
+import { initialPrompt, chatSuggestions } from "@/lib/prompts";
 enum SkillLevel {
   BEGINNER = "Beginner",
   INTERMEDIATE = "Intermediate",
@@ -40,45 +39,44 @@ const dietaryOptions = [
 
 export default function SharedState() {
   return (
-    
-      <CopilotKit
-        runtimeUrl={AGENT_TYPE == "general" ? "/api/copilotkit?langgraph=true" : "/api/copilotkit"}
-        showDevConsole={false}
-        agent="shared_state"
+
+    <CopilotKit
+      runtimeUrl="/api/copilotkit?standard=true"
+      showDevConsole={false}
+    >
+      <div
+        className="app-container"
+        style={{
+          backgroundImage: "url('./shared_state_background.png')",
+          backgroundAttachment: "fixed",
+          backgroundSize: "cover",
+          position: "relative",
+        }}
       >
         <div
-          className="app-container"
           style={{
-            backgroundImage: "url('./shared_state_background.png')",
-            backgroundAttachment: "fixed",
-            backgroundSize: "cover",
-            position: "relative",
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.4)",
+            backdropFilter: "blur(5px)",
+            zIndex: 0,
           }}
-        >
-          <div 
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: "rgba(0, 0, 0, 0.4)",
-              backdropFilter: "blur(5px)",
-              zIndex: 0,
-            }}
-          />
-            <Recipe />
-          {/* </div> */}
-          <CopilotSidebar
-            defaultOpen={true}
-            labels={{
-              title: "AI Recipe Assistant",
-              initial: initialPrompt.sharedState,
-            }}
-            clickOutsideToClose={false}
-          />
-        </div>
-      </CopilotKit>
+        />
+        <Recipe />
+        {/* </div> */}
+        <CopilotSidebar
+          defaultOpen={true}
+          labels={{
+            title: "AI Recipe Assistant",
+            initial: initialPrompt.sharedState,
+          }}
+          clickOutsideToClose={false}
+        />
+      </div>
+    </CopilotKit>
   );
 }
 
@@ -128,10 +126,77 @@ function Recipe() {
     instructions: chatSuggestions.sharedState,
   })
 
+  useCopilotAction({
+    name: "generate_recipe",
+    description: `Generate a recipe based on the user's input based on the ingredients and instructions, proceed with the recipe to finish it. The existing ingredients and instructions are provided to you as context: ${JSON.stringify(agentState)}. If you have just created or modified the recipe, just answer in one sentence what you did. dont describe the recipe, just say what you did`,
+    parameters : [
+      {
+        name : "recipe",
+        type : "object",
+        attributes : [
+          {
+            name : "title",
+            type : "string",
+            description : "The title of the recipe"
+          },
+          {
+            name : "skill_level",
+            type : "string",
+            description : "The skill level of the recipe",
+            enum : Object.values(SkillLevel)
+          },
+          {
+            name : "cooking_time",
+            type : "string",
+            description : "The cooking time of the recipe",
+            enum : Object.values(CookingTime)
+          },
+          {
+            name : "dietary_preferences",
+            type : "string[]",
+            enum : dietaryOptions
+          },
+          {
+            name : "ingredients",
+            type : "object[]",
+            attributes : [
+              {
+                name : "icon",
+                type : "string",
+                description : "The icon of the ingredient"
+              },
+              {
+                name : "name",
+                type : "string",
+                description : "The name of the ingredient"
+              },
+              {
+                name : "amount",
+                type : "string",
+                description : "The amount of the ingredient"
+              }
+            ]
+          },
+          {
+            name : "instructions",
+            type : "string[]",
+            description : "The instructions of the recipe"
+          }
+        ]
+      }
+    ],
+    render : ({args}) =>{
+      useEffect(() => {
+        console.log(args, "args.recipe")
+        updateRecipe(args?.recipe || {})
+      }, [args.recipe])
+      return <></>
+    }
+  })
+
   const [recipe, setRecipe] = useState(INITIAL_STATE.recipe);
   const { appendMessage, isLoading } = useCopilotChat();
   const [editingInstructionIndex, setEditingInstructionIndex] = useState<number | null>(null);
-  const newInstructionRef = useRef<HTMLTextAreaElement>(null);
 
   const updateRecipe = (partialRecipe: Partial<Recipe>) => {
     setAgentState({
@@ -219,7 +284,7 @@ function Recipe() {
     });
   };
 
-  
+
   const addIngredient = () => {
     // Pick a random food emoji from our valid list
     updateRecipe({
@@ -249,7 +314,7 @@ function Recipe() {
     });
     // Set the new instruction as the editing one
     setEditingInstructionIndex(newIndex);
-    
+
     // Focus the new instruction after render
     setTimeout(() => {
       const textareas = document.querySelectorAll('.instructions-container textarea');
@@ -278,7 +343,7 @@ function Recipe() {
     if (!icon) {
       return "🍴";
     }
-    
+
     return icon;
   };
 
@@ -292,7 +357,7 @@ function Recipe() {
           onChange={handleTitleChange}
           className="recipe-title-input"
         />
-        
+
         <div className="recipe-meta">
           <div className="meta-item">
             <span className="meta-icon">🕒</span>
@@ -316,7 +381,7 @@ function Recipe() {
               ))}
             </select>
           </div>
-          
+
           <div className="meta-item">
             <span className="meta-icon">🏆</span>
             <select
@@ -365,8 +430,8 @@ function Recipe() {
         {changedKeysRef.current.includes("ingredients") && <Ping />}
         <div className="section-header">
           <h2 className="section-title">Ingredients</h2>
-          <button 
-            type="button" 
+          <button
+            type="button"
             className="add-button"
             onClick={addIngredient}
           >
@@ -393,9 +458,9 @@ function Recipe() {
                   className="ingredient-amount-input"
                 />
               </div>
-              <button 
-                type="button" 
-                className="remove-button" 
+              <button
+                type="button"
+                className="remove-button"
                 onClick={() => removeIngredient(index)}
                 aria-label="Remove ingredient"
               >
@@ -411,8 +476,8 @@ function Recipe() {
         {changedKeysRef.current.includes("instructions") && <Ping />}
         <div className="section-header">
           <h2 className="section-title">Instructions</h2>
-          <button 
-            type="button" 
+          <button
+            type="button"
             className="add-step-button"
             onClick={addInstruction}
           >
@@ -426,19 +491,18 @@ function Recipe() {
               <div className="instruction-number">
                 {index + 1}
               </div>
-              
+
               {/* Vertical Line */}
               {index < recipe.instructions.length - 1 && (
                 <div className="instruction-line" />
               )}
-              
+
               {/* Instruction Content */}
-              <div 
-                className={`instruction-content ${
-                  editingInstructionIndex === index 
-                    ? 'instruction-content-editing' 
+              <div
+                className={`instruction-content ${editingInstructionIndex === index
+                    ? 'instruction-content-editing'
                     : 'instruction-content-default'
-                }`}
+                  }`}
                 onClick={() => setEditingInstructionIndex(index)}
               >
                 <textarea
@@ -454,15 +518,14 @@ function Recipe() {
                     }
                   }}
                 />
-                
+
                 {/* Delete Button (only visible on hover) */}
-                <button 
+                <button
                   type="button"
-                  className={`instruction-delete-btn ${
-                    editingInstructionIndex === index 
-                      ? 'instruction-delete-btn-editing' 
+                  className={`instruction-delete-btn ${editingInstructionIndex === index
+                      ? 'instruction-delete-btn-editing'
                       : 'instruction-delete-btn-default'
-                  } remove-button`}
+                    } remove-button`}
                   onClick={(e) => {
                     e.stopPropagation(); // Prevent triggering parent onClick
                     removeInstruction(index);

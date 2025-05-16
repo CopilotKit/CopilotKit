@@ -10,10 +10,10 @@
     "generate-content-json": "node scripts/generate-content-json.js"
   },
   "dependencies": {
-    "@copilotkit/react-core": "^1.7.1",
-    "@copilotkit/react-ui": "^1.7.1",
-    "@copilotkit/runtime": "^1.7.1",
-    "@copilotkit/runtime-client-gql": "^1.7.1",
+    "@copilotkit/react-core": "^1.8.11",
+    "@copilotkit/react-ui": "^1.8.11",
+    "@copilotkit/runtime": "^1.8.11",
+    "@copilotkit/runtime-client-gql": "^1.8.11",
     "@mdx-js/loader": "^3.1.0",
     "@mdx-js/mdx": "^3.1.0",
     "@mdx-js/react": "^3.1.0",
@@ -31,6 +31,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "diff": "^7.0.0",
+    "framer-motion": "^12.11.3",
     "lucide-react": "^0.477.0",
     "markdown-it": "^14.1.0",
     "markdown-it-ins": "^4.0.0",
