@@ -100,10 +100,11 @@ included in the function's final returned state. Otherwise, they will be overwri
                         ```python title="agent-py/sample_agent/agent.py"
                         from copilotkit.crewai import copilotkit_emit_state # [!code highlight]
                         from crewai.flow.flow import Flow, start
+                        import asyncio
 
                         class MyFlow(Flow):
                             # ...
-                            @start
+                            @start()
                             async def start_flow(self):
                                 # ...
 
