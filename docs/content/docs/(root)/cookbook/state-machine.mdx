@@ -90,7 +90,7 @@ standard deterministic update (button clicks), and sometimes through LLM-driven 
       // Add an action to the assistant that transitions to the next stage if this stage is active
       useCopilotAction({
         name: "transitionToNextStage",
-        description: "Moves to the next stage, only call is the user's name is not in the list of other names",
+        description: "Moves to the next stage, only called when the user's name is not in the list of other names",
         available: stage === "one" ? "available" : "disabled", // [!code highlight]
         parameters: [
           { name: "name", type: "string", description: "The name of the user", required: true },
@@ -118,7 +118,7 @@ standard deterministic update (button clicks), and sometimes through LLM-driven 
 
     // ...
 
-    function useStageTwo(stage: string) => void) {
+    function useStageTwo(stage: string): void {
       // Add stage-specific instructions - only available in stage "two"
       useCopilotAdditionalInstructions({
         instructions: "Talk to the user about their name and refer to them like a pirate would.",
