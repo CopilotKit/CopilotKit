@@ -19,9 +19,36 @@ export default {
     'xl:col-span-2',
     'xl:col-span-3',
     'xl:col-span-4',
+    'prose',
+    'prose-headings',
+    'prose-lead',
+    'prose-p',
+    'prose-blockquote',
+    'prose-figure',
+    'prose-figcaption',
+    'prose-strong',
+    'prose-em',
+    'prose-code',
+    'prose-pre',
+    'prose-ol',
+    'prose-ul',
+    'prose-li',
+    'prose-table',
+    'prose-thead',
+    'prose-tr',
+    'prose-th',
+    'prose-td',
+    'prose-img',
+    'prose-video',
+    'prose-hr',
+    'prose-a',
+    'dark:prose-invert'
   ],
   presets: [createPreset()],
-    plugins: [require("tailwindcss-animate")],
+    plugins: [
+      require("tailwindcss-animate"),
+      require("@tailwindcss/typography"),
+    ],
     theme: {
     	extend: {
     		borderRadius: {
@@ -118,7 +145,14 @@ export default {
     		animation: {
     			'accordion-down': 'accordion-down 0.2s ease-out',
     			'accordion-up': 'accordion-up 0.2s ease-out'
-    		}
+    		},
+        typography: {
+          DEFAULT: {
+            css: {
+              maxWidth: 'none',
+            },
+          },
+        },
     	}
     }
 };

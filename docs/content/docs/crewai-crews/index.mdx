@@ -6,6 +6,7 @@ description: Build Agent-Native Applications (ANAs) powered by CopilotKit and Cr
 
 import { BiSolidMessage as TextIcon } from "react-icons/bi";
 import { VscJson as JsonIcon } from "react-icons/vsc";
+import { TelescopeIcon } from "lucide-react";
 import { FaDiscord } from "react-icons/fa";
 import Link from "next/link";
 import { YouTubeVideo } from "@/components/react/youtube-video";
@@ -35,77 +36,79 @@ import { Socials } from "@/components/react/socials";
 
 # Copilot Infrastructure for CrewAI Crews
 
-Full user-interaction infrastructure for your agents, to turn your agents into Copilot Agents (CoAgents).
-
-{/* TODO-DOCS-CREWAI-FLOWS: Add a GIF of this animation for CrewAI Flows */}
+Full user-interaction and rendering infrastructure for your [Crews](https://docs.crewai.com/), right out of the box. Allow your 
+Crew's thoughts, progress, and results to be rendered in and take control of your application's UI.
 
 ## Building blocks of a CoAgent
 
-Everything you need to build Agent-Native Applications (ANAs), right out of the box.
+All of the features you'll need to deeply integrate your Crews into your application.
 
-<CTACards
-  columns={2}
-  cards={[
-    {
-      icon: LuMessageSquare,
-      title: "Agentic Chat UI",
-      description: "In-app chat powered by your agent.",
-      href: "/crewai-crews/agentic-chat-ui",
-    },
-    {
-      icon: FaSync,
-      title: "Shared State",
-      description: "Your agent can see everything in your app, and vice versa.",
-      href: "/crewai-crews/shared-state",
-    },
-    {
-      icon: LuLayoutTemplate,
-      title: "Generative UI",
-      description: "UI that updates in real-time based on your agent's state.",
-      href: "/crewai-crews/generative-ui",
-    },
-    {
-      icon: LuWand2,
-      title: "Frontend Tools",
-      description:
-        "Give your agent the ability to take action in your application.",
-      href: "/crewai-crews/frontend-actions",
-    },
-    {
-      icon: LuWand2,
-      title: "Multi-Agent Coordination",
-      description:
-        "Route your agent to the right agent based on the user's request.",
-      href: "/crewai-crews/multi-agent-flows",
-    },
-    {
-      icon: LuUserCog,
-      title: "Human-in-the-Loop",
-      description: "Set smart checkpoints where humans can guide your agents.",
-      href: "/crewai-crews/human-in-the-loop",
-    },
-  ]}
-/>
-
-{/* TODO-DOCS-CREWAI-FLOWS: Add CoAgents in action section for CrewAI Flows */}
+<Cards className="gap-6">
+  <Card
+    className="p-6 rounded-xl text-base"
+    icon={<LuMessageSquare className="text-orange-500 dark:text-orange-300" />}
+    title="Crew-based Chat"
+    description="In-app chat to kickoff, render and analyze the result of your Crews."
+    href="/crewai-crews/agentic-chat-ui"
+  />
+  <Card
+    className="p-6 rounded-xl text-base"
+    icon={<FaSync className="text-orange-500 dark:text-orange-300" />}
+    title="Shared State"
+    description="Render your Crew's thoughts, progress, and results in real-time."
+    href="/crewai-crews/shared-state"
+  />
+  <Card
+    className="p-6 rounded-xl text-base"
+    icon={<LuLayoutTemplate className="text-orange-500 dark:text-orange-300" />}
+    title="Generative UI"
+    description="UI based on what your Crew is thinking and doing."
+    href="/crewai-crews/generative-ui"
+  />
+  <Card
+    className="p-6 rounded-xl text-base"
+    icon={<LuWand2 className="text-orange-500 dark:text-orange-300" />}
+    title="Frontend Tools"
+    description="Give your Crew the ability to take action directly in your application."
+    href="/crewai-crews/frontend-actions"
+  />
+  <Card
+    className="p-6 rounded-xl text-base"
+    icon={<LuUserCog className="text-orange-500 dark:text-orange-300" />}
+    title="Multi-Agent Coordination"
+    description="Use AI to route between multiple Crews or agents based on the user's request."
+    href="/crewai-crews/multi-agent-flows"
+  />
+  <Card
+    className="p-6 rounded-xl text-base"
+    icon={<LuUserCog className="text-orange-500 dark:text-orange-300" />}
+    title="Human-in-the-Loop"
+    description="Set smart checkpoints where humans can guide your Crews."
+    href="/crewai-crews/human-in-the-loop"
+  />
+</Cards>
 
 ## Ready to get started?
 
 Get started with CoAgents in as little as 5 minutes with one of our guides or tutorials.
 
-<CTACards
-  columns={1}
-  cards={[
-    {
-      icon: LuPlay,
-      title: "Quickstart",
-      description: "Learn how to build your first CoAgent in 10 minutes.",
-      href: "/crewai-crews/quickstart/crewai",
-    },
-  ]}
-/>
-
-{/* TODO-DOCS-CREWAI-FLOWS: Add Travel Agent tutorial for CrewAI Flows */}
+<Cards className="gap-6">
+  <Card
+    className="p-6 rounded-xl text-base"
+    icon={<LuPlay className="text-orange-500 dark:text-orange-300" />}
+    title="Quickstart"
+    description="Learn how to build your first CoAgent in 10 minutes."
+    href="/crewai-crews/quickstart/crewai"
+  />
+  <Card
+    className="p-6 rounded-xl text-base"
+    icon={<TelescopeIcon className="text-orange-500 dark:text-orange-300" />}
+    title="Feature Overview"
+    description="Try the key features of CoAgents powered by CrewAI Crews."
+    href="https://demo-viewer-five.vercel.app/"
+    target="_blank"
+  />
+</Cards>
 
 ## Common Questions
 

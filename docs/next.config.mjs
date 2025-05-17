@@ -53,11 +53,6 @@ const config = {
         permanent: true,
       },
       {
-        source: "/coagents/quickstart",
-        destination: "/coagents/quickstart/langgraph",
-        permanent: true,
-      },
-      {
         source: "/coagents/chat-ui/render-agent-state",
         destination: "/coagents/generative-ui/agentic",
         permanent: true,
@@ -145,6 +140,31 @@ const config = {
       {
         source: "/coagents/concepts/multi-agent-flows",
         destination: "/coagents/multi-agent-flows",
+        permanent: true,
+      },
+      {
+        source: "/coagents/quickstart/langgraph",
+        destination: "/coagents/quickstart",
+        permanent: true,
+      },
+      {
+        source: "/crewai-crews/quickstart/crewai",
+        destination: "/crewai-crews/quickstart",
+        permanent: true,
+      },
+      {
+        source: "/crewai-flows/quickstart/crewai",
+        destination: "/crewai-flows/quickstart",
+        permanent: true,
+      },
+      {
+        source: "/mastra/quickstart/mastra",
+        destination: "/mastra/quickstart",
+        permanent: true,
+      },
+      {
+        source: "/ag2/quickstart/ag2",
+        destination: "/ag2/quickstart",
         permanent: true,
       },
     ];

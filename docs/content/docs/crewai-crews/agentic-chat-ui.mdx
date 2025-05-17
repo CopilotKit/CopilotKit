@@ -1,7 +1,7 @@
 ---
-title: Chat with an Agent
+title: Crew-based Chat
 icon: "lucide/SendHorizontal"
-description: Chat with an agent using CopilotKit's UI components.
+description: Create interactive chat experiences with CrewAI crews.
 ---
 
 import ConnectCopilotUI from "@/snippets/copilot-ui.mdx";
@@ -27,16 +27,28 @@ import { UserIcon, PaintbrushIcon, WrenchIcon, RepeatIcon } from "lucide-react";
 </Callout>
 
 ## What is this?
+CopilotKit allows you to chat with an LLM that has the ability to kick off your crews. This is a great way to enable natural conversations that flow
+in and out of your crews. In addition to this, this chat serves as a shared communication channel for your executing crews to report their thoughts,
+progress, and results.
 
-Agentic chat UIs are ways for your users to interact with your agent. CopilotKit provides a variety of different components to choose from, each
-with their own unique use cases.
+If you've gone through the [getting started guide](/crewai-crews/quickstart/crewai) **you've already got this working**!
 
-If you've gone through the [getting started guide](/crewai-crews/quickstart/crewai) **you already have a agentic chat UI setup**! Nothing else is needed
-to get started.
+## How does this work?
+CopilotKit provides a *"llm-in-the-middle"* chat that will communicate with your user to determine which Crew to kick off and gather the necessary input data
+in order to kick off the Crew.
+
+Once the Crew is kicked-off, CopilotKit will handle streaming thoughts, progress, interrupts, and results back to the user.
 
 ## When should I use this?
+The crew-based chat interface is ideal when you need to:
 
-CopilotKit provides a variety of different batteries-included components to choose from to create agent native applications. They scale
-from simple chat UIs to completely custom applications.
+- **Enable natural conversations with complex crews** - Let users interact with multiple specialized Crews through a single chat interface
+- **Support long-running crew tasks** - Provide real-time feedback during research, analysis, and other time-intensive operations
+- **Create guided experiences** - Allow your CrewAI crew to ask for inputs, provide outputs, and maintain context throughout an interaction
+
+## Implementation
+
+CopilotKit provides a variety of different batteries-included components to choose from when creating Crew-enabled applications. They scale
+from simple chat UIs to completely custom interfaces.
 
 <ComponentExamples components={props.components} />
