@@ -121,6 +121,10 @@ export function useCoAgentStateRender<T = any>(
         ? `Found multiple state renders for agent ${action.name} and node ${action.nodeName}. State renders might get overridden`
         : `Found multiple state renders for agent ${action.name}. State renders might get overridden`;
 
+      console.warn(
+        `CoAgentStateRender for ${action.name}:${action.nodeName ?? ""} with ID ${idRef.current} registered. Check below stack to see call location`,
+      );
+
       addToast({
         type: "warning",
         message,
