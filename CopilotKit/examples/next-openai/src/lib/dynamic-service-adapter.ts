@@ -14,6 +14,8 @@ export async function getServiceAdapter(name: string) {
       return getLangChainOpenAIAdapter();
     case "langchain_anthropic":
       return getLangChainAnthropicAdapter();
+    case "bedrock":
+      return getBedrockAdapter();
     default:
       throw new Error(`Service adapter "${name}" not found`);
   }
@@ -73,4 +75,9 @@ async function getLangChainAnthropicAdapter() {
       return model.stream(messages, { tools, metadata: { conversation_id: threadId } });
     },
   });
+}
+
+async function getBedrockAdapter() {
+  const { BedrockAdapter } = await import("@copilotkit/runtime");
+  return new BedrockAdapter();
 }
