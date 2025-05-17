@@ -15,6 +15,8 @@ export const POST = async (req: NextRequest) => {
     runtime = new CopilotRuntime();
   }
   else if (req.url.endsWith("?langgraph=true")) {
+    let url = process.env.REMOTE_ACTION_URL || process.env.REMOTE_ACTION_URL_LANGGRAPH
+    console.log(url,"url");
     runtime = new CopilotRuntime({
       remoteEndpoints: [
         {
