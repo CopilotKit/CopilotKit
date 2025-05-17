@@ -38,113 +38,118 @@ const config = {
   async redirects() {
     return [
       {
+        source: "/coagents",
+        destination: "/coagents-home",
+        permanent: true,
+      },
+      {
         source: "/coagents/tutorials/ai-travel-app/overview",
-        destination: "/coagents/tutorials/ai-travel-app",
+        destination: "/langgraph/tutorials/ai-travel-app",
         permanent: true,
       },
       {
         source: "/coagents/chat-ui/hitl/json-hitl",
-        destination: "/coagents/chat-ui/hitl",
+        destination: "/langgraph/chat-ui/hitl",
         permanent: true,
       },
       {
         source: "/coagents/react-ui/frontend-functions",
-        destination: "/coagents/react-ui/hitl",
+        destination: "/langgraph/react-ui/hitl",
         permanent: true,
       },
       {
         source: "/coagents/chat-ui/render-agent-state",
-        destination: "/coagents/generative-ui/agentic",
+        destination: "/langgraph/generative-ui/agentic",
         permanent: true,
       },
       {
         source: "/coagents/chat-ui/hitl",
-        destination: "/coagents/human-in-the-loop/node-flow",
+        destination: "/langgraph/human-in-the-loop/node-flow",
         permanent: true,
       },
       {
         source: "/coagents/chat-ui/hitl/interrupt-flow",
-        destination: "/coagents/human-in-the-loop/interrupt-flow",
+        destination: "/langgraph/human-in-the-loop/interrupt-flow",
         permanent: true,
       },
       {
         source: "/coagents/chat-ui/loading-message-history",
-        destination: "/coagents/persistence/loading-message-history",
+        destination: "/langgraph/persistence/loading-message-history",
         permanent: true,
       },
       {
         source: "/coagents/react-ui/in-app-agent-read",
-        destination: "/coagents/shared-state/in-app-agent-read",
+        destination: "/langgraph/shared-state/in-app-agent-read",
         permanent: true,
       },
       {
         source: "/coagents/react-ui/in-app-agent-write",
-        destination: "/coagents/shared-state/in-app-agent-write",
+        destination: "/langgraph/shared-state/in-app-agent-write",
         permanent: true,
       },
       {
         source: "/coagents/react-ui/hitl",
-        destination: "/coagents/human-in-the-loop/node-flow",
+        destination: "/langgraph/human-in-the-loop/node-flow",
         permanent: true,
       },
       {
         source: "/coagents/advanced/router-mode-agent-lock",
-        destination: "/coagents/multi-agent-flows",
+        destination: "/langgraph/multi-agent-flows",
         permanent: true,
       },
       {
         source: "/coagents/advanced/intermediate-state-streaming",
-        destination: "/coagents/shared-state/predictive-state-updates",
+        destination: "/langgraph/shared-state/predictive-state-updates",
         permanent: true,
       },
       {
         source: "/coagents/advanced/manually-emitting-messages",
-        destination: "/coagents/advanced/emit-messages",
+        destination: "/langgraph/advanced/emit-messages",
         permanent: true,
       },
       {
         source: "/coagents/advanced/state-streaming",
-        destination: "/coagents/shared-state",
+        destination: "/langgraph/shared-state",
         permanent: true,
       },
       {
         source: "/coagents/advanced/copilotkit-state",
-        destination: "/coagents/frontend-actions",
+        destination: "/langgraph/frontend-actions",
         permanent: true,
       },
       {
         source: "/coagents/advanced/message-persistence",
-        destination: "/coagents/persistence/message-persistence",
+        destination: "/langgraph/persistence/message-persistence",
         permanent: true,
       },
       {
         source: "/coagents/advanced/loading-message-history",
-        destination: "/coagents/persistence/loading-message-history",
+        destination: "/langgraph/persistence/loading-message-history",
         permanent: true,
       },
       {
         source: "/coagents/advanced/loading-agent-state",
-        destination: "/coagents/persistence/loading-agent-state",
+        destination: "/langgraph/persistence/loading-agent-state",
         permanent: true,
       },
       {
         source: "/coagents/concepts/state",
-        destination: "/coagents/shared-state",
+        destination: "/langgraph/shared-state",
         permanent: true,
       },
       {
         source: "/coagents/concepts/human-in-the-loop",
-        destination: "/coagents/human-in-the-loop",
+        destination: "/langgraph/human-in-the-loop",
         permanent: true,
       },
       {
         source: "/coagents/concepts/multi-agent-flows",
-        destination: "/coagents/multi-agent-flows",
+        destination: "/langgraph/multi-agent-flows",
         permanent: true,
       },
       {
         source: "/coagents/quickstart/langgraph",
-        destination: "/coagents/quickstart",
+        destination: "/langgraph/quickstart",
         permanent: true,
       },
       {
@@ -165,6 +170,11 @@ const config = {
       {
         source: "/ag2/quickstart/ag2",
         destination: "/ag2/quickstart",
+        permanent: true,
+      },
+      {
+        source: "/coagents/:path*",
+        destination: "/langgraph/:path*",
         permanent: true,
       },
     ];
