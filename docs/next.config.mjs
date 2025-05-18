@@ -39,7 +39,7 @@ const config = {
     return [
       {
         source: "/coagents",
-        destination: "/coagents-home",
+        destination: "/coagents-hub",
         permanent: true,
       },
       {
