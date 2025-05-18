@@ -143,7 +143,7 @@ function SubdocsMenuItem({
         >
           {item.icon}
         </div>
-        <div className="font-medium">{item.title}</div>
+        <div className="font-medium whitespace-pre-line">{item.title}</div>
       </Link>
     );
   } else if (isOptionDropdown(item)) {
@@ -199,7 +199,7 @@ function SubdocsMenuItemAgentFramework({
       >
         {showOption.icon}
       </div>
-      <div className="font-medium">{showOption.title}</div>
+      <div className="font-medium whitespace-pre-line">{showOption.title}</div>
     </Link>
   );
 }
@@ -261,7 +261,7 @@ function SubdocsMenuItemDropdown({
                     />
                   )}
                 </div>
-                <div className="font-medium">{item.title}</div>
+                <div className="font-medium whitespace-pre-line">{item.title}</div>
               </div>
             }
           />
@@ -277,7 +277,7 @@ function SubdocsMenuItemDropdown({
                 <div className={cn("rounded-sm p-1.5 mr-2", option.bgGradient)}>
                   {option.icon}
                 </div>
-                <span className="font-medium">{option.title}</span>
+                <span className="font-medium whitespace-pre-line">{option.title}</span>
               </div>
             </SelectItem>
           ))}

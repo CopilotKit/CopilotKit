@@ -33,13 +33,13 @@ export default function Layout({ children }: { children: ReactNode }) {
                 },
 
                 {
-                  title: "CoAgents",
+                  title: "CoAgents (LangGraph, CrewAI, Mastra, AG2)",
                   options: [
                     {
                       title: "What are CoAgents?",
                       description:
                         "CoAgents allow you to build AI-powered agents that can execute tasks and make decisions on your behalf.",
-                      url: "/coagents-hub",
+                      url: "/coagents-home",
                       icon: <UserCog className="w-4 h-4" />,
                       bgGradient:
                         "bg-gradient-to-b from-yellow-500 to-yellow-300 text-yellow-900",
