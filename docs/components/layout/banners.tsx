@@ -7,7 +7,7 @@ import { SiCrewai } from "@icons-pack/react-simple-icons";
 export function Banners() {
   return (
     <>
-      <ModelContextProtocolBanner />
+      <AGUIBanner />
     </>
   )
 }
@@ -37,6 +37,16 @@ export function ModelContextProtocolBanner() {
     <Banner className="w-full text-white bg-indigo-500 dark:bg-indigo-900 h-24 sm:h-14 !important" variant="rainbow" id="model-context-protocol-banner">
       <p className="w-3/4">
         <PiGraph className="w-5 h-5 inline mr-2" /> Model Context Protocol (MCP) support is here! Try it out <Link href="/guides/model-context-protocol" className="underline">here</Link>. Register to our<Link href="https://go.copilotkit.ai/webinarMastra" target="_blank" className="underline ml-1">webinar</Link> for a walkthrough.
+      </p>
+    </Banner>
+  )
+}
+
+export function AGUIBanner() {
+  return (
+    <Banner className="w-full text-white bg-indigo-500 dark:bg-indigo-900 h-24 sm:h-14 !important" variant="rainbow" id="agui-banner">
+      <p className="w-3/4">
+        We're officially launching AG-UI, the protocol for agent and user interactivity! <Link href="https://ag-ui.com" target="_blank" className="underline">Learn more</Link>.
       </p>
     </Banner>
   )

@@ -1,12 +1,13 @@
 "use client";
 import { SearchIcon } from "lucide-react";
-import { Socials } from "@/components/react/socials";
+import { LinkToCopilotCloud } from "@/components/react/link-to-copilot-cloud";
 
 export function TopBar() {
   return (
     <>
       <div className="p-2 h-[70px] hidden lg:block absolute w-[calc(100vw-var(--fd-sidebar-width)-20px)] ml-[var(--fd-sidebar-width)]">
           <div className="flex justify-end items-center gap-2">
+            <LinkToCopilotCloud />
             <SearchToggle />
         </div>
       </div>
