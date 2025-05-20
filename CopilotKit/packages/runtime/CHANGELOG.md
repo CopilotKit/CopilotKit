@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.8.13-next.0
+
+### Patch Changes
+
+- 6ed54f4: - AG-UI 0.0.28
+  - @copilotkit/shared@1.8.13-next.0
+
 ## 1.8.12
 
 ### Patch Changes
