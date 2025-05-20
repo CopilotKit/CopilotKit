@@ -100,7 +100,7 @@ importers:
         version: 0.5.0(encoding@0.1.13)
       langchain:
         specifier: ^0.3.3
-        version: 0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(encoding@0.1.13))(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(zod@3.23.8))(axios@1.7.9)(encoding@0.1.13)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(ws@8.18.1)
+        version: 0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(encoding@0.1.13))(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(zod@3.23.8))(axios@1.7.9(debug@4.4.0))(encoding@0.1.13)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(ws@8.18.1)
       next:
         specifier: ^15.0.2
         version: 15.0.2(@playwright/test@1.50.1)(react-dom@19.0.0-rc-0bc30748-20241028(react@19.0.0-rc-0bc30748-20241028))(react@19.0.0-rc-0bc30748-20241028)
@@ -568,17 +568,17 @@ importers:
   packages/runtime:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.28-alpha.3
-        version: 0.0.28-alpha.3
+        specifier: 0.0.28-alpha.4
+        version: 0.0.28-alpha.4
       '@ag-ui/core':
-        specifier: 0.0.28-alpha.3
-        version: 0.0.28-alpha.3
+        specifier: 0.0.28-alpha.4
+        version: 0.0.28-alpha.4
       '@ag-ui/encoder':
-        specifier: 0.0.28-alpha.3
-        version: 0.0.28-alpha.3
+        specifier: 0.0.28-alpha.4
+        version: 0.0.28-alpha.4
       '@ag-ui/proto':
-        specifier: 0.0.28-alpha.3
-        version: 0.0.28-alpha.3
+        specifier: 0.0.28-alpha.4
+        version: 0.0.28-alpha.4
       '@anthropic-ai/sdk':
         specifier: ^0.27.3
         version: 0.27.3(encoding@0.1.13)
@@ -926,17 +926,17 @@ packages:
       graphql:
         optional: true
 
-  '@ag-ui/client@0.0.28-alpha.3':
-    resolution: {integrity: sha512-4oefNX9RlCx1Lb7Hy4smUYDZHu3i2BgIEOxs2zBAUvDR6OZvbQ1TCAz72E6i8y08QsizVU8Hp06uLgwMRCdfiw==}
+  '@ag-ui/client@0.0.28-alpha.4':
+    resolution: {integrity: sha512-G67emw2dOrhyV+aSHaKoVJ/xDLV7/7W8xyxCKbZa7Fv9SnbdVDGXffZ4txzbPxVoLo9sRvTAMlNXPDK8l0Yz9w==}
 
-  '@ag-ui/core@0.0.28-alpha.3':
-    resolution: {integrity: sha512-NNFpoRyXvgK45bB/QOKans/I89wiaN79TNQvx6D2IHkw8uvyJyae/SydEe2F71QkBGGul3NUdBdAM58uFAPKoQ==}
+  '@ag-ui/core@0.0.28-alpha.4':
+    resolution: {integrity: sha512-sq5F7r2de+0kILRMN9xFKD485UjLj0QlSPPlNGBmO+JwoboGWI4t4if9slaTAmBdV++fbfqIp8leO4Jb2KaqZg==}
 
-  '@ag-ui/encoder@0.0.28-alpha.3':
-    resolution: {integrity: sha512-CHtcAr2jnQrd1gufSVlWiLKdjlXHZJQhF9Q5tU4Q8Rd30S0px2Kq1gfY7PJIGZYSnz9imRGjMdkCuyN3MqKquA==}
+  '@ag-ui/encoder@0.0.28-alpha.4':
+    resolution: {integrity: sha512-mUShYB3tKDckJtNF4cnl1DveZnPo6Xjm4uFMv7gyZK0g9/wc74E4QK9bB9rIhMwEHb/ohJf9T0h1jCH4aZbS2Q==}
 
-  '@ag-ui/proto@0.0.28-alpha.3':
-    resolution: {integrity: sha512-8xY/pIRyx1sQKkU9EXPZ6ycZHxUfmpITHwwlXBh4sR1+czcCcxACqNIVJTTnBHOXFRIxAcqgwXtfJ9/m6UcK3A==}
+  '@ag-ui/proto@0.0.28-alpha.4':
+    resolution: {integrity: sha512-2E1reGUPr1krH98826wIKIkqm3QrowllnASKswCg1B/jQSmbq/BthvZ8Ccr4/er8yJCg9AyAwTTZow48fFjQhg==}
 
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
@@ -8748,11 +8748,11 @@ snapshots:
     optionalDependencies:
       graphql: 16.9.0
 
-  '@ag-ui/client@0.0.28-alpha.3':
+  '@ag-ui/client@0.0.28-alpha.4':
     dependencies:
-      '@ag-ui/core': 0.0.28-alpha.3
-      '@ag-ui/encoder': 0.0.28-alpha.3
-      '@ag-ui/proto': 0.0.28-alpha.3
+      '@ag-ui/core': 0.0.28-alpha.4
+      '@ag-ui/encoder': 0.0.28-alpha.4
+      '@ag-ui/proto': 0.0.28-alpha.4
       '@types/uuid': 10.0.0
       fast-json-patch: 3.1.1
       rxjs: 7.8.1
@@ -8760,19 +8760,19 @@ snapshots:
       uuid: 11.1.0
       zod: 3.23.8
 
-  '@ag-ui/core@0.0.28-alpha.3':
+  '@ag-ui/core@0.0.28-alpha.4':
     dependencies:
       rxjs: 7.8.1
       zod: 3.23.8
 
-  '@ag-ui/encoder@0.0.28-alpha.3':
+  '@ag-ui/encoder@0.0.28-alpha.4':
     dependencies:
-      '@ag-ui/core': 0.0.28-alpha.3
-      '@ag-ui/proto': 0.0.28-alpha.3
+      '@ag-ui/core': 0.0.28-alpha.4
+      '@ag-ui/proto': 0.0.28-alpha.4
 
-  '@ag-ui/proto@0.0.28-alpha.3':
+  '@ag-ui/proto@0.0.28-alpha.4':
     dependencies:
-      '@ag-ui/core': 0.0.28-alpha.3
+      '@ag-ui/core': 0.0.28-alpha.4
       '@bufbuild/protobuf': 2.2.5
 
   '@alloc/quick-lru@5.2.0': {}
@@ -15116,7 +15116,7 @@ snapshots:
       - openai
       - ws
 
-  langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(encoding@0.1.13))(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(zod@3.23.8))(axios@1.7.9)(encoding@0.1.13)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(ws@8.18.1):
+  langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(encoding@0.1.13))(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(zod@3.23.8))(axios@1.7.9(debug@4.4.0))(encoding@0.1.13)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(ws@8.18.1):
     dependencies:
       '@langchain/core': 0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))
       '@langchain/openai': 0.3.11(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(encoding@0.1.13)(ws@8.18.1)
