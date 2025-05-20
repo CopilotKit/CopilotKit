@@ -7,11 +7,14 @@ When rendering an assistant message, CopilotKit uses [`react-markdown`](https://
 This allows us to render rich text with links, headers and other UI components.
 
 If you wish to modify this behavior, you can either enrich and override the individual markdown components, or replace the entire `<AssistantMessage />` entirely.
+This is useful for displaying elements within the assistant answer text, such as source citing, reasoning steps etc.
 Here's how it can be done:
 
 ## Replacing/Providing the markdown components with your own
 We will be adding a chip component. Similar to the one available with ChatGPT when sources are cited.
 
+<Step>
+<Step>
 First, let's create a chip component 
 ```tsx
 import { CopilotKit } from "@copilotkit/react-core";
@@ -65,7 +68,8 @@ function YourComponent() {
     )
 }
 ```
-
+</Step>
+<Step>
 Now, let's add styles to the component
 ```css
 .reference-chip {
@@ -85,7 +89,8 @@ Now, let's add styles to the component
     box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 ```
-
+</Step>
+</Steps>
 ## Replacing the entire markdown renderer
 
 If you wish to avoid the markdown renderer altogether, you can replace the `<AssistantMessage />` component, which is the one to use it.
