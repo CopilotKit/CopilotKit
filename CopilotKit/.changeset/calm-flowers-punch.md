@@ -2,4 +2,4 @@
 "@copilotkit/runtime": patch
 ---
 
-- ag-ui 0.0.28
+- AG-UI 0.0.28
