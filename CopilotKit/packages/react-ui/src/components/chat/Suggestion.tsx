@@ -4,19 +4,26 @@ import {
   CopilotChatSuggestionConfiguration,
   CopilotMessagesContextParams,
 } from "@copilotkit/react-core";
-import { SuggestionsProps } from "./props";
 import { SmallSpinnerIcon } from "./Icons";
 import { CopilotChatSuggestion } from "../../types/suggestions";
 import { actionParametersToJsonSchema } from "@copilotkit/shared";
 import { CopilotRequestType } from "@copilotkit/runtime-client-gql";
 
-export function Suggestion({ title, message, onClick, partial, className }: SuggestionsProps) {
+interface SuggestionsProps {
+  title: string;
+  message: string;
+  partial?: boolean;
+  className?: string;
+  onClick: () => void;
+}
+
+export function Suggestion({ title, onClick, partial, className }: SuggestionsProps) {
   return (
     <button
       disabled={partial}
       onClick={(e) => {
         e.preventDefault();
-        onClick(message);
+        onClick();
       }}
       className={className || (partial ? "suggestion loading" : "suggestion")}
       data-test-id="suggestion"
