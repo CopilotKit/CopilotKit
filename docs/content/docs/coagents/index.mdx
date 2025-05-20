@@ -7,6 +7,7 @@ description: Build Agent-Native Applications (ANAs) powered by CopilotKit and La
 import { BiSolidMessage as TextIcon } from "react-icons/bi";
 import { VscJson as JsonIcon } from "react-icons/vsc";
 import { FaDiscord } from "react-icons/fa";
+import {TelescopeIcon} from "lucide-react"
 import Link from "next/link";
 import { YouTubeVideo } from "@/components/react/youtube-video";
 import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
@@ -33,11 +34,21 @@ import { CTACards } from "@/components/react/cta-cards";
 import { FaSync } from "react-icons/fa";
 import { Socials } from "@/components/react/socials";
 
+<div className="p-4 mb-6 rounded-lg bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-800">
+  <div className="flex items-center gap-2 mb-2">
+    <TelescopeIcon className="h-5 w-5 text-indigo-500 dark:text-indigo-300" />
+    <h3 className="text-lg font-semibold text-indigo-700 dark:text-indigo-300">LangGraph Overview</h3>
+  </div>
+  <p className="text-indigo-700 dark:text-indigo-300">
+    Visit the <a href="https://v0-langgraph-land.vercel.app/" target="_blank" rel="noopener noreferrer" className="font-medium underline underline-offset-4 decoration-indigo-400 dark:decoration-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-200">LangGraph Overview Page</a> to learn more about LangGraph's capabilities and features.
+  </p>
+</div>
+
 # Copilot Infrastructure for LangGraph Agents
 
 Full user-interaction infrastructure for your agents, to turn your agents into Copilot Agents (CoAgents).
 
-<Frame className="mt-0 mb-6">
+<Frame className="mt-0 mb-6 rounded-lg">
   <img
     src="/images/CoAgents.gif"
     alt="CoAgents demonstration"
@@ -49,85 +60,102 @@ Full user-interaction infrastructure for your agents, to turn your agents into C
 
 Everything you need to build Agent-Native Applications (ANAs), right out of the box.
 
-<CTACards
-  columns={2}
-  cards={[
-    {
-      icon: LuMessageSquare,
-      title: "Agentic Chat UI",
-      description: "In-app chat powered by your agent.",
-      href: "/coagents/agentic-chat-ui",
-    },
-    {
-      icon: FaSync,
-      title: "Shared State",
-      description: "Your agent can see everything in your app, and vice versa.",
-      href: "/coagents/shared-state",
-    },
-    {
-      icon: LuLayoutTemplate,
-      title: "Generative UI",
-      description: "UI that updates in real-time based on your agent's state.",
-      href: "/coagents/generative-ui",
-    },
-    {
-      icon: LuWand2,
-      title: "Frontend Tools",
-      description:
-        "Give your agent the ability to take action in your application.",
-      href: "/coagents/frontend-actions",
-    },
-    {
-      icon: LuWand2,
-      title: "Multi-Agent Coordination",
-      description:
-        "Route your agent to the right agent based on the user's request.",
-      href: "/coagents/multi-agent-flows",
-    },
-    {
-      icon: LuUserCog,
-      title: "Human-in-the-Loop",
-      description: "Set smart checkpoints where humans can guide your agents.",
-      href: "/coagents/human-in-the-loop",
-    },
-  ]}
-/>
+<Cards className="gap-6">
+  <Card
+    className="p-6 rounded-xl text-base"
+    icon={<LuMessageSquare className="text-indigo-500 dark:text-indigo-300" />}
+    title="Agentic Chat UI"
+    description="In-app chat powered by your agent."
+    href="/coagents/agentic-chat-ui"
+  />
+  <Card
+    className="p-6 rounded-xl text-base"
+    icon={<FaSync className="text-indigo-500 dark:text-indigo-300" />}
+    title="Shared State"
+    description="Your agent can see everything in your app, and vice versa."
+    href="/coagents/shared-state"
+  />
+  <Card
+    className="p-6 rounded-xl text-base"
+    icon={<LuLayoutTemplate className="text-indigo-500 dark:text-indigo-300" />}
+    title="Generative UI"
+    description="UI that updates in real-time based on your agent's state."
+    href="/coagents/generative-ui"
+  />
+  <Card
+    className="p-6 rounded-xl text-base"
+    icon={<LuWand2 className="text-indigo-500 dark:text-indigo-300" />}
+    title="Frontend Tools"
+    description="Give your agent the ability to take action in your application."
+    href="/coagents/frontend-actions"
+  />
+  <Card
+    className="p-6 rounded-xl text-base"
+    icon={<LuUserCog className="text-indigo-500 dark:text-indigo-300" />}
+    title="Human-in-the-Loop"
+    description="Set smart checkpoints where humans can guide your agents."
+    href="/coagents/human-in-the-loop"
+  />
+  <Card
+    className="p-6 rounded-xl text-base"
+    icon={<LuWand2 className="text-indigo-500 dark:text-indigo-300" />}
+    title="Multi-Agent Coordination"
+    description="Route your agent to the right agent based on the user's request."
+    href="/coagents/multi-agent-flows"
+  />
+</Cards>
 
 ## CoAgents in action
+In this example, we've built an agentic travel assistant that can you help you plan your next trip. It uses LangGraph
+to coordinate chat and task execution.
 
-See **CoAgents** in action with some videos and examples we've made to demonstrate their power.
+<div className="flex justify-center mb-10">
+<iframe src="https://examples-coagents-ai-travel-app.vercel.app/" className="w-[600px] h-[600px] rounded-xl border" />
+</div>
 
-<ExamplesCarousel examples={CoAgentsExamples} />
+<Accordions>
+<Accordion title="Looking for more examples?">
+We've made a lot!
+- Checkout our [Use cases](https://copilotkit.ai/examples) page for more interactive examples
+- Checkout our [examples](https://github.com/CopilotKit/CopilotKit/tree/main/examples) folder for every example we've made.
+</Accordion>
+</Accordions>
 
 ## Ready to get started?
 
 Get started with CoAgents in as little as 5 minutes with one of our guides or tutorials.
 
-<CTACards
-  columns={3}
-  cards={[
-    {
-      icon: LuPlay,
-      title: "Quickstart",
-      description: "Learn how to build your first CoAgent in 10 minutes.",
-      href: "/coagents/quickstart/langgraph",
-    },
-    {
-      icon: LuPlane,
-      title: "Travel Agent",
-      description:
-        "Learn how to build an agent-native travel app with CopilotKit & LangGraph.",
-      href: "/coagents/tutorials/ai-travel-app",
-    },
-    {
-      icon: LuBookOpen,
-      title: "Researcher Agent",
-      description:
-        "Learn how to build an agent-native researcher with CopilotKit & LangGraph.",
-      href: "/coagents/videos/research-canvas",
-    },
-  ]}
-/>
+<Cards className="gap-6">
+  <Card
+    className="p-6 rounded-xl text-base"
+    icon={<LuPlay className="text-indigo-500 dark:text-indigo-300" />}
+    title="Quickstart"
+    description="Learn how to build your first CoAgent in 10 minutes."
+    href="/coagents/quickstart/langgraph"
+  />
+  <Card
+    className="p-6 rounded-xl text-base"
+    icon={<LuPlay className="text-indigo-500 dark:text-indigo-300" />}
+    title="Feature Overview"
+    description="Try the key features of CoAgents powered by CopilotKit & LangGraph."
+    href="https://feature-viewer-langgraph.vercel.app/"
+    target="_blank"
+  />
+  <Card
+    className="p-6 rounded-xl text-base"
+    icon={<LuPlane className="text-indigo-500 dark:text-indigo-300" />}
+    title="Travel Agent"
+    description="Learn how to build an agent-native travel app with CopilotKit & LangGraph."
+    href="/coagents/tutorials/ai-travel-app"
+  />
+  <Card
+    className="p-6 rounded-xl text-base"
+    icon={<LuBookOpen className="text-indigo-500 dark:text-indigo-300" />}
+    title="Researcher Agent"
+    description="Learn how to build an agent-native researcher with CopilotKit & LangGraph."
+    href="/coagents/videos/research-canvas"
+  />
+</Cards>
 
 ## Common Questions
 
@@ -153,9 +181,7 @@ Yes, check out our [Guide on Threads](/coagents/persistence/loading-message-hist
 
 CopilotKit is a complete framework for building AI-powered applications and can be used standalone.
 
-If you want to integrate with an agent framework, we currently support [LangGraph](/coagents/quickstart/langgraph) and [CrewAI](/crewai-flows/quickstart/crewai).
-
-Checkout our [CopilotKit Overview](/) for more information!
+If you want to integrate with an agent framework, we currently support a variety of frameworks. Check in the top left bar for more information!
 
 </Accordion>
 </Accordions>

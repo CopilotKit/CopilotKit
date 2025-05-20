@@ -70,7 +70,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                       icon: <MastraIcon className="w-4 h-4 text-bold" />,
                       bgGradient:
                         "bg-gradient-to-b from-black to-zinc-800 text-white",
-                      selectedStyle: "ring-indigo-500/70 ring-2 rounded-sm",
+                      selectedStyle: "ring-zinc-800 dark:ring-white ring-2 rounded-sm",
                     },
                     {
                       title: "CoAgents (AG2)",

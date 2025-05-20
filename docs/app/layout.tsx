@@ -17,7 +17,7 @@ export default async function Layout({ children }: { children: ReactNode }) {
         <Script
           id="hubspot-script"
           type="text/javascript"
-          src="//js.hs-scripts.com/45532593.js"
+          src="https://js.hs-scripts.com/45532593.js"
           async
           defer
         />

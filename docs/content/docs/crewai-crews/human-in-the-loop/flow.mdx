@@ -4,8 +4,8 @@ description: Learn how to implement Human-in-the-Loop (HITL) using CrewAI Crews.
 icon: lucide/Share2
 ---
 
-import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
+import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";  
+import InstallSDKSnippet from "@/snippets/install-python-sdk-crew.mdx";
 
 <video
   src="/images/coagents/node-hitl.mp4"
@@ -17,114 +17,95 @@ import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
   muted
 />
 
-<Callout type="info">
-  Pictured above is the [coagent
-  starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter-crewai-crews)
-  with the implementation below applied!
+<Callout type="info">  
+  Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter-crewai-crews)  
+  with the implementation below applied!  
 </Callout>
 
 ## What is this?
 
-[Crew based agents](https://docs.crewai.com/concepts/crews) are stateful agents that can be interrupted and resumed to allow for user input.
+[Crew-based agents](https://docs.crewai.com/concepts/crews) are stateful agents that support interruption and resumption, enabling user input mid-execution.
 
-CopilotKit lets you to add custom UI to take user input and then pass it back to the agent upon completion.
+CopilotKit provides custom UI hooks to capture that input and feed it back into the agent—making it easy to implement Human-in-the-Loop (HITL) workflows.
+
+> **Important**  
+> To implement HITL with CrewAI, you'll need:
+> - [CrewAI](https://www.crewai.com/) for managing and orchestrating the agents  
+> - [CopilotKit Cloud](https://cloud.copilotkit.ai/) to handle UI workflows and communication
 
 ## Why should I use this?
 
-Human-in-the-loop is a powerful way to implement complex workflows that are production ready. By having a human in the loop, you can ensure that the agent is always making the right decisions and ultimately is being steered in the right direction.
+Human-in-the-loop ensures your agent stays on track by letting users approve or modify actions during execution. This is especially useful for production-grade workflows that need more control, auditing, or fine-tuning.
 
-Crew based agents are a great way to implement HITL for more complex workflows where you want to ensure the agent is aware of everything that has happened during a HITL interaction.
+Crew-based agents are ideal for HITL because they preserve execution state and context, even when paused for human input.
 
 ## Implementation
 
 <Steps>
-    <Step>
-        ### Run and connect your agent
+  <Step>
+    ### Run and connect your agent
 
-        You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already, you can follow the instructions in the [Getting Started](/crewai-crews/quickstart/crewai) guide.
+    Make sure your agent is running and connected to CopilotKit. If you haven’t set this up, start with the [Getting Started guide](/crewai-crews/quickstart/crewai).
 
-        If you don't already have an agent, you can use the [coagent starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-crewai-crews) as a starting point
-        as this guide uses it as a starting point.
-    </Step>
+  </Step>
 
-    <Step>
-      ### Install the CopilotKit SDK
-      <InstallSDKSnippet components={props.components}/>
-    </Step>
 
-    <Step>
-        ### Add a `useCopilotAction` to your Frontend
-        First, we'll create a component that displays the arguments of the crew and waits for user approval.
+  <Step>
+    ### Add a `useCopilotAction` to your frontend
 
-        ```tsx title="ui/app/page.tsx"
-        import { useCopilotAction } from "@copilotkit/react-core"
-        import { Markdown } from "@copilotkit/react-ui"
+    Create a component that displays the crew’s output and asks the user for approval before proceeding.
 
-        function YourMainContent() {
-          // ...
+    ```tsx title="ui/app/page.tsx"
+    import { useCopilotAction } from "@copilotkit/react-core";
+    import { Markdown } from "@copilotkit/react-ui";
 
-          useCopilotAction({
-            name: "confirmKickoffCrew",
-            available: "remote",
-            description: "Confirm the kickoff of the crew. You MUST call this tool before the crew can continue.",
-            parameters: [
-              { name: "jsonArguments", type: "string", description: "The JSON input to the crew", required: true },
-            ],
-            // [!code highlight:25]
-            renderAndWaitForResponse: ({ args, respond, status }) => {
-              return (
-                <div>
-                  <pre>{args.jsonArguments}</pre>
+    function YourMainContent() {
+      useCopilotAction({
+        name: "crew_requesting_feedback",
+        description: "Request feedback from the user on the crew's output",
+        renderAndWaitForResponse: ({ args, respond, status }) => (
+          <div>
+            <pre>{args}</pre>
+            <div className={`flex gap-4 pt-4 ${status !== "executing" ? "hidden" : ""}`}>
+              <button
+                onClick={() => respond?.("Reject")}
+                disabled={status !== "executing"}
+                className="border p-2 rounded-xl w-full"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => respond?.("Approve")}
+                disabled={status !== "executing"}
+                className="bg-blue-500 text-white p-2 rounded-xl w-full"
+              >
+                Approve Kickoff
+              </button>
+            </div>
+          </div>
+        ),
+      });
+    }
+    ```
+  </Step>
 
-                  <div className={`flex gap-4 pt-4 ${status !== "executing" ? "hidden" : ""}`}>
-                    <button
-                      onClick={() => respond?.("CANCEL")}
-                      disabled={status !== "executing"}
-                      className="border p-2 rounded-xl w-full"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={() => respond?.("KICKOFF")}
-                      disabled={status !== "executing"}
-                      className="bg-blue-500 text-white p-2 rounded-xl w-full"
-                    >
-                      Approve Kickoff
-                    </button>
-                  </div>
-                </div>
-              );
-            },
-          });
+  <Step>
+    ### Set up HITL on your Crew
 
-          // ...
-        }
-        ```
-    </Step>
+    You’ll need to configure your CrewAI Crew to pause and wait for human input before continuing.
 
-    <Step>
-    ### Setup the CrewAI Agent
-    Now we'll setup the CrewAI agent. The actions defined on the frontend are made automatically available to the agent.
+    - Follow this CrewAI guide: [Human Input on Execution](https://docs.crewai.com/how-to/human-input-on-execution)  
+    - Reference this working example: [restaurant-finder-crew with HITL](https://github.com/suhasdeshpande/restaurant-finder-crew/tree/main/src/similar_company_finder_template)
 
-    <Tabs groupId="language" items={["Python"]}>
-      <Tab value="Python">
-        ```python title="agent/sample_agent/agent.py"
-        sdk = CopilotKitRemoteEndpoint(
-            agents=[
-                CrewAIAgent(
-                    name="research_crew",
-                    description="Research agent",
-                    crew=ResearchCrew(),
-                ),
-            ],
-        )
-        ```
-      </Tab>
-    </Tabs>
-    </Step>
-    <Step>
-        ### Give it a try!
-        Try giving the crew enough information to complete the task, i.e. "Research the state of AI in 2025". You should see the custom UI component that allows you to approve or cancel the kickoff of the crew.
-    </Step>
+    > Reminder: To make this work end-to-end, you must run your crew on [CrewAI](https://www.crewai.com/) and connect it to [CopilotKit Cloud](https://cloud.copilotkit.ai/). These hosted solutions take care of message passing, HITL state syncing, and UI orchestration.
+  </Step>
 
+  <Step>
+    ### Try it out!
+
+    Run a test prompt like:  
+    **"Research the state of AI in 2025."**
+
+    You’ll see your custom UI appear, giving you the chance to approve or cancel the crew’s execution before it continues.
+  </Step>
 </Steps>

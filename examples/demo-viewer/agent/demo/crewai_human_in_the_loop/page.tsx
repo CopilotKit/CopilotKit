@@ -5,10 +5,11 @@ import "./style.css";
 import { CopilotKit, useCopilotAction } from "@copilotkit/react-core";
 import { CopilotChat, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { chatSuggestions, initialPrompt } from "@/lib/prompts";
+import { AGENT_TYPE } from "@/config";
 const HumanInTheLoop: React.FC = () => {
   return (
     <CopilotKit
-      runtimeUrl="/api/copilotkit"
+      runtimeUrl={AGENT_TYPE == "general" ? "/api/copilotkit?crewai=true" : "/api/copilotkit"}
       showDevConsole={false}
       agent="human_in_the_loop"
     >
@@ -46,7 +47,7 @@ const Chat = () => {
 
   useCopilotChatSuggestions({
     instructions: chatSuggestions.humanInTheLoop,
-  })  
+  })
 
   return (
     <div className="flex justify-center items-center h-full w-full">
@@ -85,9 +86,9 @@ const StepsFeedback = ({ args, respond, status }: { args: any, respond: any, sta
       prevSteps.map((step, i) =>
         i === index
           ? {
-              ...step,
-              status: step.status === "enabled" ? "disabled" : "enabled",
-            }
+            ...step,
+            status: step.status === "enabled" ? "disabled" : "enabled",
+          }
           : step
       )
     );
@@ -99,21 +100,27 @@ const StepsFeedback = ({ args, respond, status }: { args: any, respond: any, sta
         <h2 className="text-lg font-bold mb-4">Select Steps</h2>
         {steps.map((step: any, index: any) => (
           <div key={index} className="text-sm flex items-center">
-            <input
-              type="checkbox"
-              checked={step.status === "enabled"}
-              onChange={() => handleCheckboxChange(index)}
-              className="mr-2"
-            />
-            <span
-              className={
-                step.status !== "enabled" && status != "inProgress"
-                  ? "line-through"
-                  : ""
-              }
-            >
-              {step.description}
-            </span>
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={step.status === "enabled"}
+                onChange={() => {
+                  if (respond) {
+                    handleCheckboxChange(index)
+                  }
+                }}
+                className="mr-2"
+              />
+              <span
+                className={
+                  step.status !== "enabled" && status != "inProgress"
+                    ? "line-through"
+                    : ""
+                }
+              >
+                {step.description}
+              </span>
+            </label>
           </div>
         ))}
         {status === "executing" && (
@@ -125,7 +132,7 @@ const StepsFeedback = ({ args, respond, status }: { args: any, respond: any, sta
                 .map((step) => step.description);
               respond(
                 "The user selected the following steps: " +
-                  selectedSteps.join(", ")
+                selectedSteps.join(", ")
               );
             }}
           >

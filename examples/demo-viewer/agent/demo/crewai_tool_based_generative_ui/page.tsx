@@ -6,6 +6,7 @@ import "@copilotkit/react-ui/styles.css";
 import "./style.css";
 import { chatSuggestions, initialPrompt } from "@/lib/prompts";
 import HaikuCard from "./HaikuCard";
+import { AGENT_TYPE } from "@/config";
 // List of known valid image filenames (should match agent.py)
 const VALID_IMAGE_NAMES = [
   "Osaka_Castle_Turret_Stone_Wall_Pine_Trees_Daytime.jpg",
@@ -23,8 +24,8 @@ const VALID_IMAGE_NAMES = [
 export default function AgenticChat() {
   return (
     <CopilotKit
-      runtimeUrl="/api/copilotkit"
       showDevConsole={false}
+      runtimeUrl={AGENT_TYPE == "general" ? "/api/copilotkit?crewai=true" : "/api/copilotkit"}
       agent="tool_based_generative_ui"
     >
       <div
@@ -50,7 +51,7 @@ export default function AgenticChat() {
   );
 }
 
-interface Haiku { 
+interface Haiku {
   japanese: string[];
   english: string[];
   image_names: string[];
@@ -156,7 +157,7 @@ function Haiku() {
   });
   return (
     <div className="flex h-screen w-full">
-      
+
       {/* Thumbnail List */}
       <div className="w-40 p-4 border-r border-gray-200 overflow-y-auto overflow-x-hidden">
         {haikus.filter((haiku) => haiku.english[0] !== "A placeholder verse—").map((haiku, index) => (

@@ -5,7 +5,7 @@ icon: lucide/Share2
 ---
 
 import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
+import InstallSDKSnippet from "@/snippets/install-python-sdk-crew.mdx";
 
 <video
   src="/images/coagents/node-hitl.mp4"
@@ -120,69 +120,76 @@ of everything that has happened during a HITL interaction.
     <Tabs groupId="language" items={["Python"]}>
       <Tab value="Python">
         ```python title="agent/sample_agent/agent.py"
-        from typing_extensions import Literal
+        from typing import Any, cast
         from crewai.flow.flow import Flow, start, listen
         from copilotkit import CopilotKitState
         from copilotkit.crewai import copilotkit_stream
+        from litellm import completion
 
-        # 1. Define our agent's state and inherit from CopilotKitState, this brings in the CopilotKit actions
-        class AgentState(CopilotKitState): # [!code highlight]
-            # 1.1 Define any other state variables
+
+        class AgentState(CopilotKitState):
             pass
 
-        class EmailAgentFlow(Flow[AgentState]):
 
-            @start
+        class SampleAgentFlow(Flow[AgentState]):
+
+            @start()
             async def check_for_user_feedback(self):
-                # Check if the user has provided feedback
-                if len(self.state.get("messages", [])) > 0:
-                    last_message = self.state["messages"][-1]
-                    if last_message.role == "tool" and last_message.content == "SEND":
+                if not self.state.get("messages"):
+                    return
 
-                    if self.state["messages"][-1].content != "SEND":
+                last_message = cast(Any, self.state["messages"][-1])
+
+                # Expecting the result of a CopilotKit tool call (SEND/CANCEL)
+                if last_message["role"] == "tool":
+                    user_response = last_message.get("content")
+
+                    if user_response == "SEND":
                         self.state["messages"].append({
-                          "role": "system",
-                          "content": "The user declined they essay, please ask them how they'd like to improve it"
+                            "role": "assistant",
+                            "content": "✅ Great! Sending your essay via email.",
                         })
-                    else:
-                      self.state["messages"].append({
-                        "role": "system",
-                        "content": "The user approved the essay, ask them if they'd like anything else"
-                      })
+                        return
 
-            # 2. Define the chat function, this will be where the agent will talk to user and
-            #    decide if it needs to call the writeEssay tool
+                    if user_response == "CANCEL":
+                        self.state["messages"].append({
+                            "role": "assistant",
+                            "content": "❌ Okay, we can improve the draft. What would you like to change?",
+                        })
+                        return
+
+                # If no tool result yet, or it's a user message, prompt next step
+                if last_message.get("role") == "user":
+                    self.state["messages"].append({
+                        "role": "system",
+                        "content": (
+                            "You write essays. Use your tools to write an essay; "
+                            "don’t just write it in plain text."
+                        )
+                    })
+
             @listen(check_for_user_feedback)
-            async def chat():
-                # 2.1 Define the system message
+            async def chat(self):
+                messages = self.state.get("messages", [])
+
                 system_message = {
                     "role": "system",
-                    "content": "You write essays. Use your tools to write an essay, don't just write it in plain text."
+                    "content": (
+                        "You write essays. Use your tools to write an essay; "
+                        "don’t just write it in plain text."
+                    )
                 }
 
-                # 2.2 Run the model to generate a response
                 response = await copilotkit_stream(
                     completion(
                         model="openai/gpt-4o",
-                        messages=[
-                            system_message,
-                            *self.state.get("messages", [])
-                        ],
-                        # 2.3 Use CopilotKit's actions as tools
-                        tools=self.state["copilotkit"]["actions"], # [!code highlight]
+                        messages=[system_message, *messages],
+                        tools=self.state["copilotkit"]["actions"],
                         stream=True
                     )
                 )
 
-
-                # Now control is returned to the frontend to get user feedback
-                # It will be either:
-                # 1. A text message from the AI, to which the user can respond by chatting
-                # 2. A tool call to writeEssay, in which case CopilotKit will call the frontend
-                #    action `writeEssay`
-
-                self.state["messages"].append(response.choices[0].message)
-                return
+                self.state["messages"].append(response.choices[0].message)  
         ```
       </Tab>
     </Tabs>

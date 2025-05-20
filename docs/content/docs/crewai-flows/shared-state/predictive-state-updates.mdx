@@ -9,7 +9,7 @@ import {
   TailoredContentOption,
 } from "@/components/react/tailored-content.tsx";
 import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
+import InstallSDKSnippet from "@/snippets/install-python-sdk-crew.mdx";
 import { FaWrench } from "react-icons/fa";
 import { FaArrowUp } from "react-icons/fa";
 
@@ -100,10 +100,11 @@ included in the function's final returned state. Otherwise, they will be overwri
                         ```python title="agent-py/sample_agent/agent.py"
                         from copilotkit.crewai import copilotkit_emit_state # [!code highlight]
                         from crewai.flow.flow import Flow, start
+                        import asyncio
 
-                        class MyFlow(Flow):
+                        class SampleAgentFlow(Flow):
                             # ...
-                            @start
+                            @start()
                             async def start_flow(self):
                                 # ...
 
@@ -139,7 +140,7 @@ included in the function's final returned state. Otherwise, they will be overwri
                         from copilotkit.crewai import copilotkit_predict_state
                         from crewai.flow.flow import Flow, start
 
-                        class MyFlow(Flow):
+                        class SampleAgentFlow(Flow):
 
                             @start
                             async def start_flow(self):

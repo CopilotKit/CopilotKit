@@ -3,9 +3,8 @@
   "root": true,
   "pages": [
     "index",
+    "quickstart",
     "[lucide/Telescope][Feature Viewer](https://feature-viewer-langgraph.vercel.app/)",
-    "---Quickstart---",
-    "...quickstart",
     "---Guides---",
     "custom-look-and-feel",
     "agentic-chat-ui",

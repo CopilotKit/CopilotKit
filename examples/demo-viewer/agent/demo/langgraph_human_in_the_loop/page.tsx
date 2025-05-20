@@ -4,12 +4,12 @@ import "@copilotkit/react-ui/styles.css";
 import "./style.css";
 import { CopilotKit, useLangGraphInterrupt } from "@copilotkit/react-core";
 import { CopilotChat, useCopilotChatSuggestions } from "@copilotkit/react-ui";
-import { initialPrompt, chatSuggestions } from "@/lib/prompts";  
+import { initialPrompt, chatSuggestions } from "@/lib/prompts";
+import { AGENT_TYPE } from "@/config";
 const HumanInTheLoop: React.FC = () => {
   return (
     <CopilotKit
-      // publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_API_KEY}
-      runtimeUrl="/api/copilotkit"
+      runtimeUrl={AGENT_TYPE == "general" ? "/api/copilotkit?langgraph=true" : "/api/copilotkit"}
       showDevConsole={false}
       agent="human_in_the_loop"
     >
@@ -21,7 +21,7 @@ const HumanInTheLoop: React.FC = () => {
 const Chat = () => {
   useLangGraphInterrupt({
     render: ({ event, resolve }) => {
-      
+
       // Ensure we have valid steps data
       let initialSteps = [];
       if (event.value && event.value.steps && Array.isArray(event.value.steps)) {
@@ -30,7 +30,7 @@ const Chat = () => {
           status: (typeof step === 'object' && step.status) ? step.status : 'enabled'
         }));
       }
-      
+
       const [localSteps, setLocalSteps] = useState<
         {
           description: string;
@@ -43,9 +43,9 @@ const Chat = () => {
           prevSteps.map((step, i) =>
             i === index
               ? {
-                  ...step,
-                  status: step.status === "enabled" ? "disabled" : "enabled",
-                }
+                ...step,
+                status: step.status === "enabled" ? "disabled" : "enabled",
+              }
               : step
           )
         );
@@ -57,19 +57,21 @@ const Chat = () => {
             <h2 className="text-lg font-bold mb-4">Select Steps</h2>
             {localSteps.map((step, index) => (
               <div key={index} className="text-sm flex items-center">
-                <input
-                  type="checkbox"
-                  checked={step.status === "enabled"}
-                  onChange={() => handleCheckboxChange(index)}
-                  className="mr-2"
-                />
-                <span
-                  className={
-                    step.status !== "enabled" ? "line-through" : ""
-                  }
-                >
-                  {step.description}
-                </span>
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={step.status === "enabled"}
+                    onChange={() => handleCheckboxChange(index)}
+                    className="mr-2"
+                  />
+                  <span
+                    className={
+                      step.status !== "enabled" ? "line-through" : ""
+                    }
+                  >
+                    {step.description}
+                  </span>
+                </label>
               </div>
             ))}
             <button

@@ -6,6 +6,7 @@ import { Role, TextMessage } from "@copilotkit/runtime-client-gql";
 import "@copilotkit/react-ui/styles.css";
 import "./style.css";
 import { chatSuggestions, initialPrompt } from "@/lib/prompts";
+import { AGENT_TYPE } from "@/config";
 enum SkillLevel {
   BEGINNER = "Beginner",
   INTERMEDIATE = "Intermediate",
@@ -41,7 +42,7 @@ export default function SharedState() {
   return (
     
       <CopilotKit
-        runtimeUrl="/api/copilotkit"
+        runtimeUrl={AGENT_TYPE == "general" ? "/api/copilotkit?crewai=true" : "/api/copilotkit"}
         showDevConsole={false}
         agent="shared_state"
       >
