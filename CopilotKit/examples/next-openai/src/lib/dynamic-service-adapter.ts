@@ -21,7 +21,7 @@ export async function getServiceAdapter(name: string) {
 
 async function getOpenAIAdapter() {
   const { OpenAIAdapter } = await import("@copilotkit/runtime");
-  return new OpenAIAdapter();
+  return new OpenAIAdapter({disableParallelToolCalls: false});
 }
 
 async function getAzureOpenAIAdapter() {

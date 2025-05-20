@@ -43,6 +43,39 @@ import {
   LangGraphInterruptActionSetter,
 } from "../types/interrupt-action";
 
+// Global execution state tracker - updated with better synchronization
+let isExecutingAction = false;
+let executionQueue: Array<() => Promise<void>> = [];
+let currentExecutingActionName: string | null = null;
+let currentExecutingMessageId: string | null = null;
+let didExecuteActionGlobal = false; // Track if any action was executed during this completion
+
+// Function to process the queue with better synchronization
+async function processNextActionInQueue() {
+  if (executionQueue.length === 0 || isExecutingAction) {
+    return;
+  }
+  
+  isExecutingAction = true;
+  
+  const nextAction = executionQueue.shift();
+  try {
+    await nextAction!();
+  } catch (e) {
+    console.error(`Error executing queued action:`, e);
+  } finally {
+    // Always reset the executing flag to prevent deadlocks
+    isExecutingAction = false;
+    currentExecutingActionName = null;
+    currentExecutingMessageId = null;
+    
+    // Add a delay between processing queue items to ensure UI updates
+    if (executionQueue.length > 0) {
+      setTimeout(() => processNextActionInQueue(), 250); // Increased delay to ensure UI updates
+    }
+  }
+}
+
 export type UseChatOptions = {
   /**
    * System messages of the chat. Defaults to an empty array.
@@ -581,33 +614,21 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               ? getPairedFeAction(actions, message)
               : null;
 
-            const executeActionFromMessage = async (
-              action: FrontendAction<any>,
-              message: ActionExecutionMessage,
-            ) => {
-              const isInterruptAction = interruptMessages.find((m) => m.id === message.id);
-              followUp = action?.followUp || !isInterruptAction;
-              const resultMessage = await executeAction({
-                onFunctionCall,
-                previousMessages,
-                message,
-                chatAbortControllerRef,
-                onError: (error: Error) => {
-                  addErrorToast([error]);
-                  console.error(`Failed to execute action ${message.name}: ${error}`);
-                },
-              });
-              didExecuteAction = true;
-              const messageIndex = finalMessages.findIndex((msg) => msg.id === message.id);
-              finalMessages.splice(messageIndex + 1, 0, resultMessage);
-
-              return resultMessage;
-            };
-
             // execution message which has an action registered with the hook (remote availability):
             // execute that action first, and then the "paired FE action"
             if (action && message.isActionExecutionMessage()) {
-              const resultMessage = await executeActionFromMessage(action, message);
+              const resultMessage = await executeActionFromMessage(
+                action, 
+                message, 
+                onFunctionCall, 
+                previousMessages, 
+                chatAbortControllerRef, 
+                (error: Error) => addErrorToast([error]), 
+                actions, 
+                setMessages, 
+                finalMessages
+              );
+              
               const pairedFeAction = getPairedFeAction(actions, resultMessage);
 
               if (pairedFeAction) {
@@ -618,7 +639,18 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                   createdAt: message.createdAt,
                   parentMessageId: message.parentMessageId,
                 });
-                await executeActionFromMessage(pairedFeAction, newExecutionMessage);
+                
+                await executeActionFromMessage(
+                  pairedFeAction, 
+                  newExecutionMessage, 
+                  onFunctionCall, 
+                  previousMessages, 
+                  chatAbortControllerRef, 
+                  (error: Error) => addErrorToast([error]), 
+                  actions, 
+                  setMessages, 
+                  finalMessages
+                );
               }
             } else if (message.isResultMessage() && currentResultMessagePairedFeAction) {
               // Actions which are set up in runtime actions array: Grab the result, executed paired FE action with it as args.
@@ -629,9 +661,17 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 createdAt: message.createdAt,
               });
               finalMessages.push(newExecutionMessage);
+              
               await executeActionFromMessage(
-                currentResultMessagePairedFeAction,
-                newExecutionMessage,
+                currentResultMessagePairedFeAction, 
+                newExecutionMessage, 
+                onFunctionCall, 
+                previousMessages, 
+                chatAbortControllerRef, 
+                (error: Error) => addErrorToast([error]), 
+                actions, 
+                setMessages, 
+                finalMessages
               );
             }
           }
@@ -639,11 +679,37 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           setMessages(finalMessages);
         }
 
+        // Check for any "stuck" action execution messages that are in executing state without result
+        const executingMessages = finalMessages.filter(msg => 
+          msg.isActionExecutionMessage() && 
+          msg.status.code === MessageStatusCode.Success &&
+          !finalMessages.find(resultMsg => 
+            resultMsg.isResultMessage() && 
+            resultMsg.actionExecutionId === msg.id
+          )
+        );
+
+        if (executingMessages.length > 0) {
+          // Force reset of execution state 
+          isExecutingAction = false;
+          currentExecutingActionName = null;
+          currentExecutingMessageId = null;
+          
+          // Clean up global state
+          (window as any).__COPILOT_CURRENT_ACTION_MESSAGE_ID__ = undefined;
+          (window as any).__COPILOT_CURRENT_ACTION_NAME__ = undefined;
+          
+          // If we've been waiting for a while with executing messages, force follow-up
+          if (!didExecuteAction && !didExecuteActionGlobal) {
+            didExecuteActionGlobal = true;
+          }
+        }
+
         if (
           // if followUp is not explicitly false
           followUp !== false &&
-          // and we executed an action
-          (didExecuteAction ||
+          // and we executed an action OR the global flag indicates an action was executed
+          (didExecuteAction || didExecuteActionGlobal ||
             // the last message is a server side result
             (!isAgentRun &&
               finalMessages.length &&
@@ -651,12 +717,30 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           // the user did not stop generation
           !chatAbortControllerRef.current?.signal.aborted
         ) {
-          // run the completion again and return the result
-
-          // wait for next tick to make sure all the react state updates
-          // - tried using react-dom's flushSync, but it did not work
-          await new Promise((resolve) => setTimeout(resolve, 10));
-
+          // Clean up any lingering UI state
+          (window as any).__COPILOT_CURRENT_ACTION_MESSAGE_ID__ = undefined;
+          (window as any).__COPILOT_CURRENT_ACTION_NAME__ = undefined;
+          
+          // Reset action execution tracking
+          didExecuteActionGlobal = false;
+          
+          // Add a longer delay before running the next completion to ensure UI is fully updated
+          await new Promise((resolve) => setTimeout(resolve, 300));
+          
+          // Clear any pending queue items for safety
+          if (executionQueue.length > 0) {
+            executionQueue = [];
+          }
+          
+          // Make sure execution state is reset
+          isExecutingAction = false;
+          currentExecutingActionName = null;
+          currentExecutingMessageId = null;
+          
+          // Force React to flush any pending updates first
+          setMessages([...finalMessages]);
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          
           return await runChatCompletionRef.current!(finalMessages);
         } else if (chatAbortControllerRef.current?.signal.aborted) {
           // filter out all the action execution messages that do not have a consecutive matching result message
@@ -843,38 +927,111 @@ async function executeAction({
   message,
   chatAbortControllerRef,
   onError,
+  currentAction,
+  allActions,
 }: {
   onFunctionCall: FunctionCallHandler;
   previousMessages: Message[];
   message: ActionExecutionMessage;
   chatAbortControllerRef: React.MutableRefObject<AbortController | null>;
   onError: (error: Error) => void;
+  currentAction?: FrontendAction<any>;
+  allActions?: FrontendAction<any>[];
 }) {
+  // Clear any previous global state
+  if ((window as any).__COPILOT_CURRENT_ACTION_MESSAGE_ID__ !== message.id ||
+      (window as any).__COPILOT_CURRENT_ACTION_NAME__ !== message.name) {
+    (window as any).__COPILOT_CURRENT_ACTION_MESSAGE_ID__ = undefined;
+    (window as any).__COPILOT_CURRENT_ACTION_NAME__ = undefined;
+    
+    // Force a state refresh to clear any lingering UI state
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+
+  // Before executing the action, make this message ID globally available
+  // This is a workaround for timing issues with HITL actions
+  // The global variable will be used in the HITL action handler to immediately
+  // associate the promise with this message ID
+  (window as any).__COPILOT_CURRENT_ACTION_MESSAGE_ID__ = message.id;
+  (window as any).__COPILOT_CURRENT_ACTION_NAME__ = message.name;
+  
+  // Track the current executing action
+  currentExecutingActionName = message.name;
+  currentExecutingMessageId = message.id;
+  
+  // Set a flag to track if this is a HITL action - use the passed action if available
+  // otherwise fall back to searching through all actions
+  const isHitlAction = currentAction 
+    ? currentAction.renderAndWait || currentAction.renderAndWaitForResponse
+    : allActions?.find(a => a.name === message.name)?.renderAndWait || 
+      allActions?.find(a => a.name === message.name)?.renderAndWaitForResponse;
+  
+  // For HITL actions, force a UI refresh before executing to ensure components are ready
+  if (isHitlAction) {
+    await new Promise(resolve => setTimeout(resolve, 150));
+  }
+  
   let result: any;
   let error: Error | null = null;
   try {
+    // Set a longer timeout for HITL actions to allow user interaction
+    const timeoutPromise = new Promise((_, reject) => {
+      // Much longer timeout for human-in-the-loop actions (10 minutes)
+      // Regular actions should resolve much faster
+      const timeoutId = setTimeout(() => {
+        reject(new Error(`Action ${message.name} timed out after 10 minutes`));
+      }, 10 * 60 * 1000);
+      
+      // Clear the timeout if the chat is aborted
+      chatAbortControllerRef.current?.signal.addEventListener("abort", () => {
+        clearTimeout(timeoutId);
+      });
+    });
+    
     result = await Promise.race([
+      // Run the action handler
       onFunctionCall({
         messages: previousMessages,
         name: message.name,
         args: message.arguments,
       }),
+      // Abort if the user stops the generation
       new Promise((resolve) =>
-        chatAbortControllerRef.current?.signal.addEventListener("abort", () =>
-          resolve("Operation was aborted by the user"),
-        ),
+        chatAbortControllerRef.current?.signal.addEventListener("abort", () => {
+          resolve("Operation was aborted by the user");
+        }),
       ),
-      // if the user stopped generation, we also abort consecutive actions
+      // Check if already aborted
       new Promise((resolve) => {
         if (chatAbortControllerRef.current?.signal.aborted) {
           resolve("Operation was aborted by the user");
         }
       }),
+      // Timeout for safety
+      timeoutPromise,
     ]);
   } catch (e) {
+    error = e as Error;
     onError(e as Error);
+  } finally {
+    // Ensure all UI updates are complete before clearing globals
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
+    // Clean up the global variable
+    (window as any).__COPILOT_CURRENT_ACTION_MESSAGE_ID__ = undefined;
+    (window as any).__COPILOT_CURRENT_ACTION_NAME__ = undefined;
+    
+    // Reset the current executing action
+    currentExecutingActionName = null;
+    currentExecutingMessageId = null;
+    
+    // For HITL actions, ensure all related promises are properly cleaned up
+    if (isHitlAction) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
   }
-  return new ResultMessage({
+  
+  const resultMessage = new ResultMessage({
     id: "result-" + message.id,
     result: ResultMessage.encodeResult(
       error
@@ -886,6 +1043,139 @@ async function executeAction({
     ),
     actionExecutionId: message.id,
     actionName: message.name,
+  });
+  
+  // Track that we executed an action
+  didExecuteActionGlobal = true;
+  
+  return resultMessage;
+}
+
+// Improved helper function to execute actions from messages with better sequencing
+async function executeActionFromMessage(
+  action: FrontendAction<any>,
+  message: ActionExecutionMessage,
+  onFunctionCall: FunctionCallHandler,
+  previousMessages: Message[],
+  chatAbortControllerRef: React.MutableRefObject<AbortController | null>,
+  onErrorCallback: (error: Error) => void,
+  allActions: FrontendAction<any>[],
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>,
+  finalMessages: Message[]
+): Promise<ResultMessage> {
+  // Determine if this is an interrupt action by looking at the action properties
+  // instead of trying to access message properties that might not exist
+  const isInterruptAction = action?.followUp === false;
+  const followUp = action?.followUp !== false;
+  
+  // Identify if this is a HITL action
+  const isHitlAction = action.renderAndWait || action.renderAndWaitForResponse;
+  
+  return new Promise<ResultMessage>((resolve) => {
+    const actionExecution = async () => {
+      // If another HITL action is already running for this action type, add additional delay
+      if (isHitlAction && currentExecutingActionName === message.name && currentExecutingMessageId !== message.id) {
+        await new Promise(r => setTimeout(r, 500));
+      }
+      
+      // Clear any lingering promises for this action message
+      if (isHitlAction) {
+        const clearHitlGlobals = () => {
+          if ((window as any).__COPILOT_CURRENT_ACTION_MESSAGE_ID__ !== message.id) {
+            (window as any).__COPILOT_CURRENT_ACTION_MESSAGE_ID__ = undefined;
+            (window as any).__COPILOT_CURRENT_ACTION_NAME__ = undefined;
+          }
+        };
+        
+        clearHitlGlobals();
+      }
+      
+      // Make sure there's a small delay between executing actions
+      // This allows the UI to update and React to re-render between actions
+      await new Promise(r => setTimeout(r, 100));
+      
+      // Force any pending UI updates by flushing the React queue
+      await new Promise(r => setTimeout(r, 0));
+      
+      // Update the messages state before executing to ensure render components have latest state
+      setMessages([...finalMessages]);
+      
+      // Add special handling for HITL actions to ensure they're fully processed
+      if (isHitlAction) {
+        // Give extra time for the UI to update and be ready for user interaction
+        await new Promise(r => setTimeout(r, 200)); // Increased from 150 to 200ms
+      }
+      
+      try {
+        const resultMessage = await executeAction({
+          onFunctionCall,
+          previousMessages,
+          message,
+          chatAbortControllerRef,
+          onError: (error: Error) => {
+            onErrorCallback(error);
+            console.error(`Failed to execute action ${message.name}: ${error}`);
+          },
+          currentAction: action,
+          allActions,
+        });
+        
+        // Set the global flag to indicate an action was executed
+        didExecuteActionGlobal = true;
+        
+        const messageIndex = finalMessages.findIndex((msg) => msg.id === message.id);
+        
+        // Immediately insert the result message after the action message
+        if (messageIndex !== -1) {
+          finalMessages.splice(messageIndex + 1, 0, resultMessage);
+        } else {
+          // If for some reason the action message isn't found, add the result to the end
+          finalMessages.push(resultMessage);
+        }
+        
+        // Update messages to show the result immediately
+        setMessages([...finalMessages]);
+        
+        // For HITL actions, add additional cleanup delay
+        if (isHitlAction) {
+          await new Promise(r => setTimeout(r, 300)); // Increased from 200 to 300ms
+        }
+        
+        // Add a general cleanup delay for all actions to ensure proper state updates
+        await new Promise(r => setTimeout(r, 150)); // Increased from 100 to 150ms
+        
+        // Always ensure HITL globals are cleared
+        (window as any).__COPILOT_CURRENT_ACTION_MESSAGE_ID__ = undefined;
+        (window as any).__COPILOT_CURRENT_ACTION_NAME__ = undefined;
+        
+        resolve(resultMessage);
+      } catch (error) {
+        // Create a default result message on error
+        const errorResultMessage = new ResultMessage({
+          id: "result-" + message.id,
+          result: ResultMessage.encodeResult({
+            content: null,
+            error: JSON.parse(JSON.stringify(error, Object.getOwnPropertyNames(error))),
+          }),
+          actionExecutionId: message.id,
+          actionName: message.name,
+        });
+        
+        // Always ensure HITL globals are cleared
+        (window as any).__COPILOT_CURRENT_ACTION_MESSAGE_ID__ = undefined;
+        (window as any).__COPILOT_CURRENT_ACTION_NAME__ = undefined;
+        
+        resolve(errorResultMessage);
+      }
+    };
+    
+    // Add this action to the execution queue
+    executionQueue.push(actionExecution);
+    
+    // Start processing the queue if not already running
+    if (!isExecutingAction) {
+      processNextActionInQueue();
+    }
   });
 }
 

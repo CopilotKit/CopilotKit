@@ -7,6 +7,19 @@ import {
 } from "@copilotkit/shared";
 import React from "react";
 
+// Define RenderFunctionStatus as a standalone type first
+export type RenderFunctionStatus = "inProgress" | "executing" | "complete";
+
+// Define the interface first to avoid duplicate declaration
+export interface ActionRenderPropsBase<T extends Parameter[] = []> {
+  status: RenderFunctionStatus;
+  args: MappedParameterTypes<T>;
+  result?: any;
+  name?: string;
+  actionId?: string;
+}
+
+// Define state types
 interface InProgressState<T extends Parameter[] | [] = []> {
   status: "inProgress";
   args: Partial<MappedParameterTypes<T>>;
@@ -96,6 +109,7 @@ interface CompleteStateNoArgsWait<T extends Parameter[] | [] = []> {
   respond: undefined;
 }
 
+// Now use the ActionRenderPropsBase interface for the exported type
 export type ActionRenderProps<T extends Parameter[] | [] = []> =
   | CompleteState<T>
   | ExecutingState<T>
@@ -169,8 +183,6 @@ export type CatchAllFrontendAction = {
   name: "*";
   render: (props: CatchAllActionRenderProps<any>) => React.ReactElement;
 };
-
-export type RenderFunctionStatus = ActionRenderProps<any>["status"];
 
 export function processActionsForRuntimeRequest(actions: FrontendAction<any>[]) {
   const filteredActions = actions

@@ -143,6 +143,87 @@ import {
 } from "../types/frontend-action";
 import { useToast } from "../components/toast/toast-provider";
 
+// Better tracking for in-progress actions
+const pendingHitlPromises = new Map<string, RenderAndWaitForResponse>();
+const messageIdToActionIdMap = new Map<string, string>();
+const actionNameToActiveMessageIds = new Map<string, Set<string>>();
+const completedMessageIds = new Set<string>(); // Track message IDs that have completed execution
+
+// Add a method to clean up stale promises
+function cleanupStalePromises() {
+  const now = Date.now();
+  const staleTimeout = 5 * 60 * 1000; // 5 minutes
+  
+  for (const [id, promise] of pendingHitlPromises.entries()) {
+    if (promise.timestamp && now - promise.timestamp > staleTimeout) {
+      // Clean up any message ID mappings for this action ID
+      for (const [msgId, actId] of messageIdToActionIdMap.entries()) {
+        if (actId === id) {
+          messageIdToActionIdMap.delete(msgId);
+        }
+      }
+      
+      // Remove from action name tracking
+      if (promise.actionName) {
+        const activeMessages = actionNameToActiveMessageIds.get(promise.actionName);
+        if (activeMessages) {
+          for (const msgId of activeMessages) {
+            if (messageIdToActionIdMap.get(msgId) === id) {
+              activeMessages.delete(msgId);
+            }
+          }
+          if (activeMessages.size === 0) {
+            actionNameToActiveMessageIds.delete(promise.actionName);
+          }
+        }
+      }
+      
+      // Remove the promise itself
+      pendingHitlPromises.delete(id);
+    }
+  }
+}
+
+// Add a function to clean up promises for a specific message ID
+function cleanupPromiseByMessageId(messageId: string) {
+  if (!messageId) return;
+  
+  // Mark this message as completed
+  completedMessageIds.add(messageId);
+  
+  const actionExecutionId = messageIdToActionIdMap.get(messageId);
+  if (actionExecutionId) {
+    const promise = pendingHitlPromises.get(actionExecutionId);
+    
+    if (promise) {
+      // Get the action name for action name tracking cleanup
+      const actionName = promise.actionName;
+      
+      // Delete the promise from the map
+      pendingHitlPromises.delete(actionExecutionId);
+      
+      // Clear the message ID mapping
+      messageIdToActionIdMap.delete(messageId);
+      
+      // Clean up from action name tracking
+      if (actionName) {
+        const activeMessages = actionNameToActiveMessageIds.get(actionName);
+        if (activeMessages) {
+          activeMessages.delete(messageId);
+          if (activeMessages.size === 0) {
+            actionNameToActiveMessageIds.delete(actionName);
+          }
+        }
+      }
+    }
+  }
+}
+
+// Periodically clean up stale promises (every minute)
+if (typeof window !== 'undefined') {
+  setInterval(cleanupStalePromises, 60 * 1000);
+}
+
 // We implement useCopilotAction dependency handling so that
 // the developer has the option to not provide any dependencies.
 // In this case, we assume they want to update the handler on each rerender.
@@ -158,7 +239,6 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
 ): void {
   const { setAction, removeAction, actions, chatComponentsCache } = useCopilotContext();
   const idRef = useRef<string>(randomId());
-  const renderAndWaitRef = useRef<RenderAndWaitForResponse | null>(null);
   const { addToast } = useToast();
 
   // clone the action to avoid mutating the original object
@@ -177,7 +257,37 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
     action.renderAndWait = undefined;
     action.renderAndWaitForResponse = undefined;
     // add a handler that will be called when the action is executed
-    action.handler = useAsyncCallback(async () => {
+    action.handler = useAsyncCallback(async (...args: any[]) => {
+      // Clean up any stale promises first
+      cleanupStalePromises();
+      
+      // Generate a unique ID for this specific action execution instance
+      const actionExecutionId = `${action.name}-${randomId()}`;
+      
+      // Check for current action message ID from the global variable
+      // This is populated by the executeAction function in use-chat.ts
+      const currentActionMessageId = (window as any).__COPILOT_CURRENT_ACTION_MESSAGE_ID__;
+      const currentActionName = (window as any).__COPILOT_CURRENT_ACTION_NAME__;
+      
+      // Check for existing promises for this exact message ID
+      let existingPromiseId = messageIdToActionIdMap.get(currentActionMessageId || "");
+      let existingPromise = existingPromiseId ? pendingHitlPromises.get(existingPromiseId) : undefined;
+      
+      if (existingPromise && existingPromise.actionName === action.name) {
+        // Return the existing promise - this prevents duplicate executions
+        return existingPromise.promise;
+      }
+      
+      // Check for any existing promises for this action that might be in conflict
+      const existingPromises = Array.from(pendingHitlPromises.values())
+        .filter(p => p.actionName === action.name);
+        
+      // First check if this message has already been completed
+      if (currentActionMessageId && completedMessageIds.has(currentActionMessageId)) {
+        // Return a resolved promise to prevent hanging
+        return Promise.resolve("");
+      }
+      
       // we create a new promise when the handler is called
       let resolve: (result: any) => void;
       let reject: (error: any) => void;
@@ -185,26 +295,337 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
         resolve = resolvePromise;
         reject = rejectPromise;
       });
-      renderAndWaitRef.current = { promise, resolve: resolve!, reject: reject! };
+      
+      // Store the promise in the global map using the generated ID
+      pendingHitlPromises.set(actionExecutionId, { 
+        promise, 
+        resolve: resolve!, 
+        reject: reject!,
+        actionName: action.name,
+        actionExecutionId,
+        timestamp: Date.now(),
+        messageId: currentActionMessageId 
+      });
+      
+      // Track this message ID for this action name
+      if (currentActionMessageId) {
+        let activeMessages = actionNameToActiveMessageIds.get(action.name);
+        if (!activeMessages) {
+          activeMessages = new Set();
+          actionNameToActiveMessageIds.set(action.name, activeMessages);
+        }
+        activeMessages.add(currentActionMessageId);
+      }
+      
+      // Add better handling for promise resolution
+      const safeResolve = (result: any) => {
+        // First check if this promise is still tracked in the global map
+        if (pendingHitlPromises.has(actionExecutionId)) {
+          resolve!(result);
+          
+          // Clean up after a small delay to ensure all render cycles complete
+          setTimeout(() => {
+            if (pendingHitlPromises.has(actionExecutionId)) {
+              pendingHitlPromises.delete(actionExecutionId);
+              
+              // Also clean up any message ID mapping to this action ID
+              for (const [msgId, actId] of messageIdToActionIdMap.entries()) {
+                if (actId === actionExecutionId) {
+                  messageIdToActionIdMap.delete(msgId);
+                  
+                  // Clean up from action name tracking
+                  const activeMessages = actionNameToActiveMessageIds.get(action.name);
+                  if (activeMessages) {
+                    activeMessages.delete(msgId);
+                    if (activeMessages.size === 0) {
+                      actionNameToActiveMessageIds.delete(action.name);
+                    }
+                  }
+                  
+                  // Mark this message as completed
+                  if (msgId) {
+                    completedMessageIds.add(msgId);
+                  }
+                }
+              }
+            }
+          }, 100);
+        } else {
+          resolve!(result);
+        }
+      };
+      
+      // Replace the original resolve with our safe version
+      pendingHitlPromises.get(actionExecutionId)!.resolve = safeResolve;
+      
+      // Immediately map the message ID to this action execution ID
+      // This is critical for async handling when multiple HITL actions are executed together
+      if (currentActionMessageId) {
+        messageIdToActionIdMap.set(currentActionMessageId, actionExecutionId);
+      } else {
+        // Try to directly map this execution ID to a message ID
+        try {
+          // Find a message in the DOM with this action name that has 'executing' status
+          const actionMessages = document.querySelectorAll(`[data-message-role="action-render"]`);
+          let messageId = null;
+          
+          for (const msgElement of Array.from(actionMessages)) {
+            // Check for data attribute or other indicators that this is our action
+            const actionName = msgElement.getAttribute('data-action-name');
+            const messageIdAttr = msgElement.getAttribute('data-message-id');
+            const statusAttr = msgElement.getAttribute('data-status');
+            
+            if (actionName === action.name && messageIdAttr && statusAttr === 'executing') {
+              messageId = messageIdAttr;
+              break;
+            }
+          }
+          
+          if (messageId && !messageIdToActionIdMap.has(messageId)) {
+            messageIdToActionIdMap.set(messageId, actionExecutionId);
+            
+            // Update our promise with this message ID
+            const promise = pendingHitlPromises.get(actionExecutionId);
+            if (promise) {
+              promise.messageId = messageId;
+            }
+            
+            // Track this message ID for this action name
+            let activeMessages = actionNameToActiveMessageIds.get(action.name);
+            if (!activeMessages) {
+              activeMessages = new Set();
+              actionNameToActiveMessageIds.set(action.name, activeMessages);
+            }
+            activeMessages.add(messageId);
+          }
+        } catch (e) {
+          // Ignore errors in this fallback logic
+        }
+      }
+      
       // then we await the promise (it will be resolved in the original renderAndWait function)
-      return await promise;
+      try {
+        const result = await promise;
+        
+        // Mark the message as completed
+        if (currentActionMessageId) {
+          completedMessageIds.add(currentActionMessageId);
+        }
+        
+        return result;
+      } catch (error) {
+        throw error;
+      } finally {
+        // Clear the references after the promise is resolved or rejected
+        // Note: This might already be cleared by safeResolve, but we do it again as a safety measure
+        if (pendingHitlPromises.has(actionExecutionId)) {
+          pendingHitlPromises.delete(actionExecutionId);
+          
+          // Also clean up any message ID mapping to this action ID
+          const msgIdToCleanup = [];
+          for (const [msgId, actId] of messageIdToActionIdMap.entries()) {
+            if (actId === actionExecutionId) {
+              msgIdToCleanup.push(msgId);
+            }
+          }
+          
+          // Clean up after collecting to avoid modifying while iterating
+          for (const msgId of msgIdToCleanup) {
+            messageIdToActionIdMap.delete(msgId);
+            
+            // Clean up from action name tracking
+            const activeMessages = actionNameToActiveMessageIds.get(action.name);
+            if (activeMessages) {
+              activeMessages.delete(msgId);
+              if (activeMessages.size === 0) {
+                actionNameToActiveMessageIds.delete(action.name);
+              }
+            }
+            
+            // Mark this message as completed
+            if (msgId) {
+              completedMessageIds.add(msgId);
+            }
+          }
+        }
+      }
     }, []) as any;
 
     // add a render function that will be called when the action is rendered
     action.render = ((props: ActionRenderProps<T>): React.ReactElement => {
+      // Find the appropriate promise for this action execution
+      // In RenderActionExecutionMessage, we pass the message.id as actionId
+      const messageId = (props as any).actionId;
+      
+      // Find the corresponding pending promise for this specific execution
+      let pendingPromise: RenderAndWaitForResponse | undefined;
+      
+      // First check if we have a mapping from this message ID to an action execution ID
+      if (messageId) {
+        const actionExecutionId = messageIdToActionIdMap.get(messageId);
+        if (actionExecutionId) {
+          pendingPromise = pendingHitlPromises.get(actionExecutionId);
+           
+          if (!pendingPromise) {
+            // If we're in complete or inProgress state, we can safely remove the stale mapping
+            if (props.status !== "executing") {
+              messageIdToActionIdMap.delete(messageId);
+              
+              // Clean up from action name tracking
+              const activeMessages = actionNameToActiveMessageIds.get(action.name);
+              if (activeMessages) {
+                activeMessages.delete(messageId);
+                if (activeMessages.size === 0) {
+                  actionNameToActiveMessageIds.delete(action.name);
+                }
+              }
+            }
+          } else {
+            // If we found a promise, ensure it's the correct type
+            if (pendingPromise.actionName !== action.name) {
+              pendingPromise = undefined;
+            }
+          }
+        }
+      }
+      
+      // If we don't have a mapping or the promise was not found, try to find by action name and status
+      if (!pendingPromise && props.status === "executing") {
+        // Look for any promises for this action where the message ID matches or isn't set
+        const matchingPromises = Array.from(pendingHitlPromises.values())
+          .filter(p => p.actionName === action.name && (!p.messageId || p.messageId === messageId));
+          
+        if (matchingPromises.length > 0) {
+          // Sort by timestamp (oldest first) and take the first one
+          matchingPromises.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+          pendingPromise = matchingPromises[0];
+          
+          // Update the message ID association if needed
+          if (messageId && pendingPromise.actionExecutionId && !pendingPromise.messageId) {
+            pendingPromise.messageId = messageId;
+            messageIdToActionIdMap.set(messageId, pendingPromise.actionExecutionId);
+            
+            // Track this message ID for this action name
+            let activeMessages = actionNameToActiveMessageIds.get(action.name);
+            if (!activeMessages) {
+              activeMessages = new Set();
+              actionNameToActiveMessageIds.set(action.name, activeMessages);
+            }
+            activeMessages.add(messageId);
+          }
+        } else if (messageId) {
+          // Special case: If we're in executing state but no promise is found,
+          // we might need to create a new promise for this message
+          const newActionExecutionId = `${action.name}-${randomId()}`;
+          
+          let resolve: (result: any) => void;
+          let reject: (error: any) => void;
+          const promise = new Promise<any>((resolvePromise, rejectPromise) => {
+            resolve = resolvePromise;
+            reject = rejectPromise;
+          });
+          
+          // Add the safe resolve function
+          const safeResolve = (result: any) => {
+            if (pendingHitlPromises.has(newActionExecutionId)) {
+              resolve!(result);
+              
+              // Cleanup after a small delay
+              setTimeout(() => {
+                if (pendingHitlPromises.has(newActionExecutionId)) {
+                  pendingHitlPromises.delete(newActionExecutionId);
+                  
+                  for (const [msgId, actId] of messageIdToActionIdMap.entries()) {
+                    if (actId === newActionExecutionId) {
+                      messageIdToActionIdMap.delete(msgId);
+                      
+                      // Clean up from action name tracking
+                      const activeMessages = actionNameToActiveMessageIds.get(action.name);
+                      if (activeMessages) {
+                        activeMessages.delete(msgId);
+                        if (activeMessages.size === 0) {
+                          actionNameToActiveMessageIds.delete(action.name);
+                        }
+                      }
+                    }
+                  }
+                }
+              }, 100);
+            } else {
+              resolve!(result);
+            }
+          };
+          
+          pendingPromise = {
+            promise,
+            resolve: safeResolve,
+            reject: reject!,
+            actionName: action.name,
+            actionExecutionId: newActionExecutionId,
+            timestamp: Date.now(),
+            messageId
+          };
+          
+          pendingHitlPromises.set(newActionExecutionId, pendingPromise);
+          messageIdToActionIdMap.set(messageId, newActionExecutionId);
+          
+          // Track this message ID for this action name
+          let activeMessages = actionNameToActiveMessageIds.get(action.name);
+          if (!activeMessages) {
+            activeMessages = new Set();
+            actionNameToActiveMessageIds.set(action.name, activeMessages);
+          }
+          activeMessages.add(messageId);
+        }
+      }
+      
+      // Add this check to detect stale executing states for regular actions
+      // specifically targeting non-HITL actions that might still show executing status
+      // but actually have a result
+      if (props.status === "executing" && props.result !== undefined) {
+        // Use type assertion to update the status while maintaining TypeScript compatibility
+        (props as any).status = "complete";
+      }
+      
       // Specifically for renderAndWaitForResponse the executing state is set too early, causing a race condition
-      // To fit it: we will wait for the handler to be ready
+      // To fix it: we will wait for a promise to be ready for this specific action execution
       let status = props.status;
-      if (props.status === "executing" && !renderAndWaitRef.current) {
+      if (props.status === "executing" && !pendingPromise) {
         status = "inProgress";
       }
+       
+      // If we're in complete state, make sure to clean up any lingering promises for this action/message
+      if (props.status === "complete" && messageId) {
+        // Mark this message as completed so we don't create new promises for it
+        completedMessageIds.add(messageId);
+        
+        // Do the normal cleanup
+        const actionExecutionId = messageIdToActionIdMap.get(messageId);
+        if (actionExecutionId && pendingHitlPromises.has(actionExecutionId)) {
+          // Clean up the promise and mappings
+          cleanupPromiseByMessageId(messageId);
+        } else if (actionExecutionId) {
+          // Promise is already gone but mapping still exists
+          messageIdToActionIdMap.delete(messageId);
+          
+          // Clean up from action name tracking
+          const activeMessages = actionNameToActiveMessageIds.get(action.name);
+          if (activeMessages) {
+            activeMessages.delete(messageId);
+            if (activeMessages.size === 0) {
+              actionNameToActiveMessageIds.delete(action.name);
+            }
+          }
+        }
+      }
+      
       // Create type safe waitProps based on whether T extends empty array or not
       const waitProps = {
         status,
         args: props.args,
         result: props.result,
-        handler: status === "executing" ? renderAndWaitRef.current!.resolve : undefined,
-        respond: status === "executing" ? renderAndWaitRef.current!.resolve : undefined,
+        handler: status === "executing" && pendingPromise ? pendingPromise.resolve : undefined,
+        respond: status === "executing" && pendingPromise ? pendingPromise.resolve : undefined,
       } as T extends [] ? ActionRenderPropsNoArgsWait<T> : ActionRenderPropsWait<T>;
 
       // Type guard to check if renderAndWait is for no args case
@@ -302,4 +723,8 @@ interface RenderAndWaitForResponse {
   promise: Promise<any>;
   resolve: (result: any) => void;
   reject: (error: any) => void;
+  actionName?: string;
+  actionExecutionId?: string;
+  timestamp?: number;
+  messageId?: string;
 }
