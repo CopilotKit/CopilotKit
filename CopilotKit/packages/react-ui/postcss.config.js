@@ -11,7 +11,7 @@ module.exports = {
         if (didCreateInterface) return;
 
         const filename = path.basename(root.source.input.file);
-        if (filename === "colors.css") {
+        if (filename === "vars.css") {
           const variables = {};
 
           root.walkDecls((decl) => {

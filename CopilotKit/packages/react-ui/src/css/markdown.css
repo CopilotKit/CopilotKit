@@ -103,7 +103,7 @@
   color: rgb(228, 228, 228);
   border-top-left-radius: 0.375rem;
   border-top-right-radius: 0.375rem;
-  font-family: sans-serif;
+  font-family: var(--copilot-kit-font-family);
 }
 
 .copilotKitCodeBlockToolbarLanguage {
