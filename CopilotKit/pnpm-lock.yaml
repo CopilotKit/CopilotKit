@@ -100,7 +100,7 @@ importers:
         version: 0.5.0(encoding@0.1.13)
       langchain:
         specifier: ^0.3.3
-        version: 0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(encoding@0.1.13))(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(zod@3.23.8))(axios@1.7.9(debug@4.4.0))(encoding@0.1.13)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(ws@8.18.1)
+        version: 0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(encoding@0.1.13))(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(zod@3.23.8))(axios@1.7.9)(encoding@0.1.13)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(ws@8.18.1)
       next:
         specifier: ^15.0.2
         version: 15.0.2(@playwright/test@1.50.1)(react-dom@19.0.0-rc-0bc30748-20241028(react@19.0.0-rc-0bc30748-20241028))(react@19.0.0-rc-0bc30748-20241028)
@@ -363,7 +363,7 @@ importers:
         version: 18.3.1
       ts-jest:
         specifier: ^29.1.1
-        version: 29.2.3(@babel/core@7.24.9)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.24.9))(esbuild@0.17.19)(jest@29.7.0(@types/node@20.14.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.5.28)(@types/node@20.14.12)(typescript@5.5.4)))(typescript@5.5.4)
+        version: 29.2.3(@babel/core@7.24.9)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.24.9))(esbuild@0.23.0)(jest@29.7.0(@types/node@20.14.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.5.28)(@types/node@20.14.12)(typescript@5.5.4)))(typescript@5.5.4)
       tsconfig:
         specifier: workspace:*
         version: link:../../utilities/tsconfig
@@ -484,7 +484,7 @@ importers:
         version: 3.4.6(ts-node@10.9.2(@swc/core@1.5.28)(@types/node@20.14.12)(typescript@5.5.4))
       ts-jest:
         specifier: ^29.1.1
-        version: 29.2.3(@babel/core@7.24.9)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.24.9))(esbuild@0.23.0)(jest@29.7.0(@types/node@20.14.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.5.28)(@types/node@20.14.12)(typescript@5.5.4)))(typescript@5.5.4)
+        version: 29.2.3(@babel/core@7.24.9)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.24.9))(esbuild@0.17.19)(jest@29.7.0(@types/node@20.14.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.5.28)(@types/node@20.14.12)(typescript@5.5.4)))(typescript@5.5.4)
       tsconfig:
         specifier: workspace:*
         version: link:../../utilities/tsconfig
@@ -568,17 +568,17 @@ importers:
   packages/runtime:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.28-alpha.5
-        version: 0.0.28-alpha.5
+        specifier: 0.0.28-alpha.6
+        version: 0.0.28-alpha.6
       '@ag-ui/core':
-        specifier: 0.0.28-alpha.5
-        version: 0.0.28-alpha.5
+        specifier: 0.0.28-alpha.6
+        version: 0.0.28-alpha.6
       '@ag-ui/encoder':
-        specifier: 0.0.28-alpha.5
-        version: 0.0.28-alpha.5
+        specifier: 0.0.28-alpha.6
+        version: 0.0.28-alpha.6
       '@ag-ui/proto':
-        specifier: 0.0.28-alpha.5
-        version: 0.0.28-alpha.5
+        specifier: 0.0.28-alpha.6
+        version: 0.0.28-alpha.6
       '@anthropic-ai/sdk':
         specifier: ^0.27.3
         version: 0.27.3(encoding@0.1.13)
@@ -926,17 +926,17 @@ packages:
       graphql:
         optional: true
 
-  '@ag-ui/client@0.0.28-alpha.5':
-    resolution: {integrity: sha512-9dU7G8jSEM4v5f5gUjzRCSXVzYAZN8/lnYm6THVgKfjoEvyvLXe3/inT2A2FfbTdjOPM36Gyr3QQ/KjKPHY3XQ==}
+  '@ag-ui/client@0.0.28-alpha.6':
+    resolution: {integrity: sha512-JTDnyjNxH0K+Gu+NaconVxeNS7oHvsR/t1NVcQ+kOpl1DxSbfNOVr5VBqnHlcXLLasgUJWyGa4TahSLqBJU4yw==}
 
-  '@ag-ui/core@0.0.28-alpha.5':
-    resolution: {integrity: sha512-EYbTVXBDqNNcIdVlKIxqb5NoECiuXpz14UPiMIgNdOcwl5Jsdnx+ZjFEKKr79WBAt9ocGdMQwelxenh3I72kVw==}
+  '@ag-ui/core@0.0.28-alpha.6':
+    resolution: {integrity: sha512-oZCTKjCyA9QYlSD0lnY5ytq1Ja0UwHrXN/N8nwi6rHWrqki/3xsCjbClT4/itktM+yW7k2E/zshxxvR8ge8zbQ==}
 
-  '@ag-ui/encoder@0.0.28-alpha.5':
-    resolution: {integrity: sha512-1VmDu13828cTEDgPH32aiDI3/C0R/zYYBMIhhYFS/ipOnrYTP29HJ8D6JUWJKE96k092ZNtNFyRk4uM27weJWA==}
+  '@ag-ui/encoder@0.0.28-alpha.6':
+    resolution: {integrity: sha512-+BaKtIpdmBmxvKAK8k+WogRa1SI2jGwlC/GtCYqNj2TIvYYVhqoYigwBqQ8AxsQNJh2A4lQF+oy4B7tYHMj18g==}
 
-  '@ag-ui/proto@0.0.28-alpha.5':
-    resolution: {integrity: sha512-e42rTNCM4fV6A1e6lxfVjB7JUX2bQvs1OeRl5tO9gla7RNFr7vh1Jo6/HRo8Hv69T6qrnDjnTCPLXKEs7AGSEQ==}
+  '@ag-ui/proto@0.0.28-alpha.6':
+    resolution: {integrity: sha512-n4GMQG9lVSo4s1fwc7kbaj+k14H05fCFa5qRpvC6Uj3++9aYoK0Xua25UkZFo6RPh25/NYCTYrSkUpnkDoJ5hw==}
 
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
@@ -8748,11 +8748,11 @@ snapshots:
     optionalDependencies:
       graphql: 16.9.0
 
-  '@ag-ui/client@0.0.28-alpha.5':
+  '@ag-ui/client@0.0.28-alpha.6':
     dependencies:
-      '@ag-ui/core': 0.0.28-alpha.5
-      '@ag-ui/encoder': 0.0.28-alpha.5
-      '@ag-ui/proto': 0.0.28-alpha.5
+      '@ag-ui/core': 0.0.28-alpha.6
+      '@ag-ui/encoder': 0.0.28-alpha.6
+      '@ag-ui/proto': 0.0.28-alpha.6
       '@types/uuid': 10.0.0
       fast-json-patch: 3.1.1
       rxjs: 7.8.1
@@ -8760,19 +8760,19 @@ snapshots:
       uuid: 11.1.0
       zod: 3.23.8
 
-  '@ag-ui/core@0.0.28-alpha.5':
+  '@ag-ui/core@0.0.28-alpha.6':
     dependencies:
       rxjs: 7.8.1
       zod: 3.23.8
 
-  '@ag-ui/encoder@0.0.28-alpha.5':
+  '@ag-ui/encoder@0.0.28-alpha.6':
     dependencies:
-      '@ag-ui/core': 0.0.28-alpha.5
-      '@ag-ui/proto': 0.0.28-alpha.5
+      '@ag-ui/core': 0.0.28-alpha.6
+      '@ag-ui/proto': 0.0.28-alpha.6
 
-  '@ag-ui/proto@0.0.28-alpha.5':
+  '@ag-ui/proto@0.0.28-alpha.6':
     dependencies:
-      '@ag-ui/core': 0.0.28-alpha.5
+      '@ag-ui/core': 0.0.28-alpha.6
       '@bufbuild/protobuf': 2.2.5
 
   '@alloc/quick-lru@5.2.0': {}
@@ -15116,7 +15116,7 @@ snapshots:
       - openai
       - ws
 
-  langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(encoding@0.1.13))(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(zod@3.23.8))(axios@1.7.9(debug@4.4.0))(encoding@0.1.13)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(ws@8.18.1):
+  langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(encoding@0.1.13))(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(zod@3.23.8))(axios@1.7.9)(encoding@0.1.13)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(ws@8.18.1):
     dependencies:
       '@langchain/core': 0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))
       '@langchain/openai': 0.3.11(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(encoding@0.1.13)(ws@8.18.1)
