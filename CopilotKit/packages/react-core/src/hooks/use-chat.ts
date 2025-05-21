@@ -586,7 +586,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               message: ActionExecutionMessage,
             ) => {
               const isInterruptAction = interruptMessages.find((m) => m.id === message.id);
-              followUp = action?.followUp || !isInterruptAction;
+              followUp = action?.followUp ?? !isInterruptAction;
               const resultMessage = await executeAction({
                 onFunctionCall,
                 previousMessages,
