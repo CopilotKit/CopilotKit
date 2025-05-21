@@ -74,6 +74,7 @@ import { Message, Role, TextMessage, ImageMessage } from "@copilotkit/runtime-cl
 import { randomId } from "@copilotkit/shared";
 import {
   AssistantMessageProps,
+  ComponentsMap,
   InputProps,
   MessagesProps,
   RenderMessageProps,
@@ -142,7 +143,7 @@ export interface CopilotChatProps {
    * A list of markdown components to render in assistant message.
    * Useful when you want to render custom elements in the message (e.g a reference tag element)
    */
-  markdownTagRenderers?: Components;
+  markdownTagRenderers?: ComponentsMap;
 
   /**
    * Icons can be used to set custom icons for the chat window.
