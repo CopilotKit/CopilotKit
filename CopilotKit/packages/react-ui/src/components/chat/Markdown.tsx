@@ -8,12 +8,7 @@ import rehypeRaw from "rehype-raw";
 const defaultComponents: Components = {
   a({ children, ...props }) {
     return (
-      <a
-        className="copilotKitMarkdownElement"
-        {...props}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
+      <a className="copilotKitMarkdownElement" {...props} target="_blank" rel="noopener noreferrer">
         {children}
       </a>
     );
@@ -72,28 +67,44 @@ const defaultComponents: Components = {
     </h3>
   ),
   h4: ({ children, ...props }) => (
-    <h4 className="copilotKitMarkdownElement" {...props}>{children}</h4>
+    <h4 className="copilotKitMarkdownElement" {...props}>
+      {children}
+    </h4>
   ),
   h5: ({ children, ...props }) => (
-    <h5 className="copilotKitMarkdownElement" {...props}>{children}</h5>
+    <h5 className="copilotKitMarkdownElement" {...props}>
+      {children}
+    </h5>
   ),
   h6: ({ children, ...props }) => (
-    <h6 className="copilotKitMarkdownElement" {...props}>{children}</h6>
+    <h6 className="copilotKitMarkdownElement" {...props}>
+      {children}
+    </h6>
   ),
   p: ({ children, ...props }) => (
-    <p className="copilotKitMarkdownElement" {...props}>{children}</p>
+    <p className="copilotKitMarkdownElement" {...props}>
+      {children}
+    </p>
   ),
   pre: ({ children, ...props }) => (
-    <pre className="copilotKitMarkdownElement" {...props}>{children}</pre>
+    <pre className="copilotKitMarkdownElement" {...props}>
+      {children}
+    </pre>
   ),
   blockquote: ({ children, ...props }) => (
-    <blockquote className="copilotKitMarkdownElement" {...props}>{children}</blockquote>
+    <blockquote className="copilotKitMarkdownElement" {...props}>
+      {children}
+    </blockquote>
   ),
   ul: ({ children, ...props }) => (
-    <ul className="copilotKitMarkdownElement" {...props}>{children}</ul>
+    <ul className="copilotKitMarkdownElement" {...props}>
+      {children}
+    </ul>
   ),
   li: ({ children, ...props }) => (
-    <li className="copilotKitMarkdownElement" {...props}>{children}</li>
+    <li className="copilotKitMarkdownElement" {...props}>
+      {children}
+    </li>
   ),
 };
 
