@@ -17,5 +17,10 @@
     "tailwind-config": "1.4.6",
     "tsconfig": "1.4.6"
   },
-  "changesets": []
+  "changesets": [
+    "afraid-bottles-dress",
+    "calm-flowers-punch",
+    "nice-dancers-clean",
+    "shaggy-moles-speak"
+  ]
 }

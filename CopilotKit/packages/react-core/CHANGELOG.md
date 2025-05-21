@@ -1,5 +1,34 @@
 # ui
 
+## 1.8.13-next.3
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.13-next.3
+- @copilotkit/shared@1.8.13-next.3
+
+## 1.8.13-next.2
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.13-next.2
+- @copilotkit/shared@1.8.13-next.2
+
+## 1.8.13-next.1
+
+### Patch Changes
+
+- 7fcf5c4: - fix followUp check
+  - @copilotkit/runtime-client-gql@1.8.13-next.1
+  - @copilotkit/shared@1.8.13-next.1
+
+## 1.8.13-next.0
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.13-next.0
+- @copilotkit/shared@1.8.13-next.0
+
 ## 1.8.12
 
 ### Patch Changes

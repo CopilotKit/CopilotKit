@@ -82,8 +82,10 @@ export const CopilotModal = ({
   onThumbsDown,
   onCopy,
   onRegenerate,
+  markdownTagRenderers,
   className,
   children,
+  ...props
 }: CopilotModalProps) => {
   const [openState, setOpenState] = React.useState(defaultOpen);
 
@@ -104,6 +106,7 @@ export const CopilotModal = ({
         >
           <Header />
           <CopilotChat
+            {...props}
             instructions={instructions}
             onSubmitMessage={onSubmitMessage}
             onStopGeneration={onStopGeneration}
@@ -118,6 +121,7 @@ export const CopilotModal = ({
             onThumbsDown={onThumbsDown}
             onCopy={onCopy}
             onRegenerate={onRegenerate}
+            markdownTagRenderers={markdownTagRenderers}
           />
         </Window>
       </div>

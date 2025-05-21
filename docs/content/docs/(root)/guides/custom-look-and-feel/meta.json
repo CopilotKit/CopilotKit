@@ -5,6 +5,7 @@
     "built-in-ui-components",
     "customize-built-in-ui-components",
     "bring-your-own-components",
+    "markdown-rendering",
     "headless-ui"
   ]
 }
