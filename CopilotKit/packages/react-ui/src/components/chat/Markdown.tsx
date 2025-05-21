@@ -9,7 +9,7 @@ const defaultComponents: Components = {
   a({ children, ...props }) {
     return (
       <a
-        style={{ color: "blue", textDecoration: "underline" }}
+        className="copilotKitMarkdownElement"
         {...props}
         target="_blank"
         rel="noopener noreferrer"
@@ -56,6 +56,45 @@ const defaultComponents: Components = {
       />
     );
   },
+  h1: ({ children, ...props }) => (
+    <h1 className="copilotKitMarkdownElement" {...props}>
+      {children}
+    </h1>
+  ),
+  h2: ({ children, ...props }) => (
+    <h2 className="copilotKitMarkdownElement" {...props}>
+      {children}
+    </h2>
+  ),
+  h3: ({ children, ...props }) => (
+    <h3 className="copilotKitMarkdownElement" {...props}>
+      {children}
+    </h3>
+  ),
+  h4: ({ children, ...props }) => (
+    <h4 className="copilotKitMarkdownElement" {...props}>{children}</h4>
+  ),
+  h5: ({ children, ...props }) => (
+    <h5 className="copilotKitMarkdownElement" {...props}>{children}</h5>
+  ),
+  h6: ({ children, ...props }) => (
+    <h6 className="copilotKitMarkdownElement" {...props}>{children}</h6>
+  ),
+  p: ({ children, ...props }) => (
+    <p className="copilotKitMarkdownElement" {...props}>{children}</p>
+  ),
+  pre: ({ children, ...props }) => (
+    <pre className="copilotKitMarkdownElement" {...props}>{children}</pre>
+  ),
+  blockquote: ({ children, ...props }) => (
+    <blockquote className="copilotKitMarkdownElement" {...props}>{children}</blockquote>
+  ),
+  ul: ({ children, ...props }) => (
+    <ul className="copilotKitMarkdownElement" {...props}>{children}</ul>
+  ),
+  li: ({ children, ...props }) => (
+    <li className="copilotKitMarkdownElement" {...props}>{children}</li>
+  ),
 };
 
 const MemoizedReactMarkdown: FC<Options> = memo(
