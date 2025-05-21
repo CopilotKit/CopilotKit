@@ -18,9 +18,9 @@ export function DataTable({ columns, data }: DataTableProps) {
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
 
   // Get all possible keys from data (assuming all rows have same keys)
-  const allKeys = data.length > 0 ? Object.keys(data[0]) : [];
-  const mainKeys = columns.map(col => col.accessorKey);
-  const extraKeys = allKeys.filter(key => !mainKeys.includes(key));
+  // const allKeys = data.length > 0 ? Object.keys(data[0]) : [];
+  // const mainKeys = columns.map(col => col.accessorKey);
+  // const extraKeys = allKeys.filter(key => !mainKeys.includes(key));
 
   const handleRowClick = (rowIndex: number) => {
     setExpandedRow(expandedRow === rowIndex ? null : rowIndex);
@@ -53,7 +53,7 @@ export function DataTable({ columns, data }: DataTableProps) {
                   </TableCell>
                 ))}
               </TableRow>
-              {expandedRow === rowIndex && extraKeys.length > 0 && (
+              {expandedRow === rowIndex && (
                 <TableRow>
                   <TableCell colSpan={columns.length} className="bg-gray-50 dark:bg-[#181f2a] p-0 border-t-0">
                     <div
