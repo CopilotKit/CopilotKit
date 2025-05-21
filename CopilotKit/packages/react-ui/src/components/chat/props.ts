@@ -1,4 +1,5 @@
 import { Message } from "@copilotkit/runtime-client-gql";
+import { CopilotChatSuggestion } from "../../types/suggestions";
 import { ReactNode } from "react";
 
 export interface ButtonProps {}
@@ -176,4 +177,9 @@ export interface InputProps {
   isVisible?: boolean;
   onStop?: () => void;
   onUpload?: () => void;
+}
+
+export interface RenderSuggestionsListProps {
+  suggestions: CopilotChatSuggestion[];
+  onSuggestionClick: (message: string) => void;
 }
