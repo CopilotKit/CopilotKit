@@ -13,4 +13,5 @@ export * from "./unify/unify-adapter";
 export * from "./groq/groq-adapter";
 export * from "./anthropic/anthropic-adapter";
 export * from "./experimental/ollama/ollama-adapter";
+export * from "./bedrock/bedrock-adapter";
 export * from "./empty/empty-adapter";
