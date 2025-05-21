@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@ag-ui/client':
-        specifier: ^0.0.27
-        version: 0.0.27
+        specifier: 0.0.28
+        version: 0.0.28
       '@ai-sdk/openai':
         specifier: ^1.3.21
         version: 1.3.21(zod@3.24.4)
@@ -191,14 +191,26 @@ packages:
   '@ag-ui/client@0.0.27':
     resolution: {integrity: sha512-W7PX/C40dxeCdf/j9lSL6TI8IEpWct/Fn9JkZdX3zXFf5rPN+RpckRKhYTC0ZstMi909oTww7SHVsVm7exPReg==}
 
+  '@ag-ui/client@0.0.28':
+    resolution: {integrity: sha512-B09Yp2Czol9Y8AoiiMW/SF2PCAdUMePzW6JtGIqmb7Q05QHi+GXPKIXKpoOasQvFgMqwJDW0g6RGozUlD45dxA==}
+
   '@ag-ui/core@0.0.27':
     resolution: {integrity: sha512-I8i0qsamIVaOhPZ11bz7a+JQ7DIwIhLCon2EYWHikgcLiWzfZNBJhlVBR6Fn29tv3Ost4p6wYWQy84WzAhjJ+Q==}
+
+  '@ag-ui/core@0.0.28':
+    resolution: {integrity: sha512-2Vjuxl0gE8E2RFjFccGZNczDw3Xqxve/EfoYRVAFNX3+rY7z64Mj0OWDw5p9L+X8UG0/+t0xYIquQpw7B4NdHA==}
 
   '@ag-ui/encoder@0.0.27':
     resolution: {integrity: sha512-GO42BDdi9pmNsfhPlMQeSxGFfMJJg/Jvgng/N/5elHEfEOjGVtOCkDPpN4lirkuBoXEh/hW6gIgYAXDu/HuZJA==}
 
+  '@ag-ui/encoder@0.0.28':
+    resolution: {integrity: sha512-A7N7QE6P70rBQ9k5kcm1xQUAq4K6Dhg7y/hapkL6oJG/zQabRKS5wSePO34wfLtg4KKIPIqiUGqVdy8qk2a3Ng==}
+
   '@ag-ui/proto@0.0.27':
     resolution: {integrity: sha512-bgF2DGqU+DvcNKF3gOlT97kZmhHNB0lWfjkJQ6ONxMtmWlSVYAE97LCtdTIjXEhnHyqi3QQBQ0BEXJ74q7QMcg==}
+
+  '@ag-ui/proto@0.0.28':
+    resolution: {integrity: sha512-jgvUT81n4K5TldkrpVxM5eLRNOq5tV5BKNi079NGCDnK1mc2ElORsHcCd6fjAOpUPpfirS8RuQr9MvoMXE42aQ==}
 
   '@ai-sdk/openai@1.3.21':
     resolution: {integrity: sha512-ipAhkRKUd2YaMmn7DAklX3N7Ywx/rCsJHVyb0V/lKRqPcc612qAFVbjg+Uve8QYJlbPxgfsM4s9JmCFp6PSdYw==}
@@ -7050,7 +7062,24 @@ snapshots:
       uuid: 11.1.0
       zod: 3.24.4
 
+  '@ag-ui/client@0.0.28':
+    dependencies:
+      '@ag-ui/core': 0.0.28
+      '@ag-ui/encoder': 0.0.28
+      '@ag-ui/proto': 0.0.28
+      '@types/uuid': 10.0.0
+      fast-json-patch: 3.1.1
+      rxjs: 7.8.1
+      untruncate-json: 0.0.1
+      uuid: 11.1.0
+      zod: 3.24.4
+
   '@ag-ui/core@0.0.27':
+    dependencies:
+      rxjs: 7.8.1
+      zod: 3.24.4
+
+  '@ag-ui/core@0.0.28':
     dependencies:
       rxjs: 7.8.1
       zod: 3.24.4
@@ -7060,9 +7089,19 @@ snapshots:
       '@ag-ui/core': 0.0.27
       '@ag-ui/proto': 0.0.27
 
+  '@ag-ui/encoder@0.0.28':
+    dependencies:
+      '@ag-ui/core': 0.0.28
+      '@ag-ui/proto': 0.0.28
+
   '@ag-ui/proto@0.0.27':
     dependencies:
       '@ag-ui/core': 0.0.27
+      '@bufbuild/protobuf': 2.2.5
+
+  '@ag-ui/proto@0.0.28':
+    dependencies:
+      '@ag-ui/core': 0.0.28
       '@bufbuild/protobuf': 2.2.5
 
   '@ai-sdk/openai@1.3.21(zod@3.24.4)':
