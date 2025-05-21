@@ -74,6 +74,7 @@ import { Message, Role, TextMessage, ImageMessage } from "@copilotkit/runtime-cl
 import { randomId } from "@copilotkit/shared";
 import {
   AssistantMessageProps,
+  ComponentsMap,
   InputProps,
   MessagesProps,
   RenderMessageProps,
@@ -82,6 +83,7 @@ import {
 
 import { HintFunction, runAgent, stopAgent } from "@copilotkit/react-core";
 import { ImageUploadQueue } from "./ImageUploadQueue";
+import { Components } from "react-markdown";
 
 /**
  * Props for CopilotChat component.
@@ -136,6 +138,12 @@ export interface CopilotChatProps {
    * A callback function for thumbs down feedback
    */
   onThumbsDown?: (message: string) => void;
+
+  /**
+   * A list of markdown components to render in assistant message.
+   * Useful when you want to render custom elements in the message (e.g a reference tag element)
+   */
+  markdownTagRenderers?: ComponentsMap;
 
   /**
    * Icons can be used to set custom icons for the chat window.
@@ -291,6 +299,7 @@ export function CopilotChat({
   onCopy,
   onThumbsUp,
   onThumbsDown,
+  markdownTagRenderers,
   Messages = DefaultMessages,
   RenderTextMessage = DefaultRenderTextMessage,
   RenderActionExecutionMessage = DefaultRenderActionExecutionMessage,
@@ -482,6 +491,7 @@ export function CopilotChat({
         onCopy={handleCopy}
         onThumbsUp={onThumbsUp}
         onThumbsDown={onThumbsDown}
+        markdownTagRenderers={markdownTagRenderers}
       >
         {currentSuggestions.length > 0 && (
           <div className="suggestions">

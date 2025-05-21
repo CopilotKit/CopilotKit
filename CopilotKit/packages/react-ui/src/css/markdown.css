@@ -1,63 +1,68 @@
-.copilotKitMarkdown h1,
-.copilotKitMarkdown h2,
-.copilotKitMarkdown h3,
-.copilotKitMarkdown h4,
-.copilotKitMarkdown h5,
-.copilotKitMarkdown h6 {
+h1.copilotKitMarkdownElement,
+h2.copilotKitMarkdownElement,
+h3.copilotKitMarkdownElement,
+h4.copilotKitMarkdownElement,
+h5.copilotKitMarkdownElement,
+h6.copilotKitMarkdownElement {
   font-weight: bold;
   line-height: 1.2;
 }
 
-.copilotKitMarkdown h1:not(:last-child),
-.copilotKitMarkdown h2:not(:last-child),
-.copilotKitMarkdown h3:not(:last-child),
-.copilotKitMarkdown h4:not(:last-child),
-.copilotKitMarkdown h5:not(:last-child),
-.copilotKitMarkdown h6:not(:last-child) {
+h1.copilotKitMarkdownElement:not(:last-child),
+h2.copilotKitMarkdownElement:not(:last-child),
+h3.copilotKitMarkdownElement:not(:last-child),
+h4.copilotKitMarkdownElement:not(:last-child),
+h5.copilotKitMarkdownElement:not(:last-child),
+h6.copilotKitMarkdownElement:not(:last-child) {
   margin-bottom: 1rem;
 }
 
-.copilotKitMarkdown h1 {
+h1.copilotKitMarkdownElement {
   font-size: 1.5em;
 }
 
-.copilotKitMarkdown h2 {
+h2.copilotKitMarkdownElement {
   font-size: 1.25em;
   font-weight: 600;
 }
 
-.copilotKitMarkdown h3 {
+h3.copilotKitMarkdownElement {
   font-size: 1.1em;
 }
 
-.copilotKitMarkdown h4 {
+h4.copilotKitMarkdownElement {
   font-size: 1em;
 }
 
-.copilotKitMarkdown h5 {
+h5.copilotKitMarkdownElement {
   font-size: 0.9em;
 }
 
-.copilotKitMarkdown h6 {
+h6.copilotKitMarkdownElement {
   font-size: 0.8em;
 }
 
-.copilotKitMarkdown p {
+a.copilotKitMarkdownElement {
+  color: blue;
+  text-decoration: underline;
+}
+
+p.copilotKitMarkdownElement {
   padding: 0px;
   margin: 0px;
   line-height: 1.75;
   font-size: 1rem;
 }
 
-.copilotKitMarkdown p:not(:last-child),
-.copilotKitMarkdown pre:not(:last-child),
-.copilotKitMarkdown ol:not(:last-child),
-.copilotKitMarkdown ul:not(:last-child),
-.copilotKitMarkdown blockquote:not(:last-child) {
+p.copilotKitMarkdownElement:not(:last-child),
+pre.copilotKitMarkdownElement:not(:last-child),
+ol.copilotKitMarkdownElement:not(:last-child),
+ul.copilotKitMarkdownElement:not(:last-child),
+blockquote.copilotKitMarkdownElement:not(:last-child) {
   margin-bottom: 1.25em;
 }
 
-.copilotKitMarkdown blockquote {
+blockquote.copilotKitMarkdownElement {
   border-color: rgb(142, 142, 160);
   border-left-width: 2px;
   border-left-style: solid;
@@ -65,17 +70,17 @@
   padding-left: 10px;
 }
 
-.copilotKitMarkdown blockquote p {
+blockquote.copilotKitMarkdownElement p {
   padding: 0.7em 0;
 }
 
-.copilotKitMarkdown ul {
+ul.copilotKitMarkdownElement {
   list-style-type: disc;
   padding-left: 20px;
   overflow: visible;
 }
 
-.copilotKitMarkdown li {
+li.copilotKitMarkdownElement {
   list-style-type: inherit;
   list-style-position: outside;
   margin-left: 0;

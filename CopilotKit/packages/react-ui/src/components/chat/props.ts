@@ -1,4 +1,5 @@
 import { Message } from "@copilotkit/runtime-client-gql";
+import { ReactNode } from "react";
 
 export interface ButtonProps {}
 
@@ -18,6 +19,10 @@ export interface SuggestionsProps {
   className?: string;
   onClick: (message: string) => void;
 }
+
+export type ComponentsMap<T extends Record<string, object> = Record<string, object>> = {
+  [K in keyof T]: React.FC<{ children?: ReactNode } & T[K]>;
+};
 
 export interface MessagesProps {
   messages: Message[];
@@ -50,6 +55,12 @@ export interface MessagesProps {
    * Callback function for thumbs down feedback
    */
   onThumbsDown?: (message: string) => void;
+
+  /**
+   * A list of markdown components to render in assistant message.
+   * Useful when you want to render custom elements in the message (e.g a reference tag element)
+   */
+  markdownTagRenderers?: ComponentsMap;
 }
 
 export interface Renderer {
@@ -115,6 +126,12 @@ export interface AssistantMessageProps {
    * Callback function for thumbs down feedback
    */
   onThumbsDown?: (message: string) => void;
+
+  /**
+   * A list of markdown components to render in assistant message.
+   * Useful when you want to render custom elements in the message (e.g a reference tag element)
+   */
+  markdownTagRenderers?: ComponentsMap;
 }
 
 export interface RenderMessageProps {
@@ -145,6 +162,12 @@ export interface RenderMessageProps {
    * Callback function for thumbs down feedback
    */
   onThumbsDown?: (message: string) => void;
+
+  /**
+   * A list of markdown components to render in assistant message.
+   * Useful when you want to render custom elements in the message (e.g a reference tag element)
+   */
+  markdownTagRenderers?: ComponentsMap;
 }
 
 export interface InputProps {
