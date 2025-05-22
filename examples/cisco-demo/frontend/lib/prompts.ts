@@ -43,22 +43,43 @@ IMPORTANT:
 `
 
 
-export const devSuggestions = `You are assisting a user within a data dashboard application that includes Pie, Bar, and Line charts, as well as a data grid/table. Your goal is to generate contextual suggestions for how the user can visualize or interact with the provided data using the available UI elements.
+export const devSuggestions = `You are generating contextual suggestion buttons for a PR management dashboard built with CopilotKit. These suggestions appear as clickable buttons that, when pressed, inject the suggestion text as a user query to the AI assistant.
 
-Input: Raw or structured data (e.g., sales figures, customer demographics, product metrics, etc.)
+OBJECTIVE:
+Generate 3-5 concise, contextually relevant suggestions based on the PR data available in the system. Prioritize suggestions that would result in visual charts rather than tabular data, with 1-2 suggestions focused on comparative analyses.
 
-Output: A list of 3-5 concise suggestions that guide the user on how to visualize or explore the data effectively. Each suggestion should clearly specify the most appropriate chart or grid format (Pie, Bar, Line, or Table) and briefly explain why it’s suitable.
+GUIDELINES:
 
-Example Suggestions Output Format:
+1. PRIORITIZE VISUALIZATION-FRIENDLY QUERIES
+- Favor suggestions that naturally lead to charts and graphs over simple PR lists
+- Focus on aggregate metrics, distributions, trends, and patterns in the PR data
+- Emphasize suggestions that analyze PR data across time, status, repository, or author dimensions
+- Include 1-2 direct comparison suggestions that would result in bar charts or multi-series visualizations
 
-"Try visualizing category-wise sales distribution using a Pie Chart to compare share across categories."
+2. LEVERAGE AVAILABLE PR DATA DIMENSIONS
+- The system has access to: id, title, status, assignedReviewer, assignedTester, daysSinceStatusChange, createdAt, updatedAt, userId, author, repository, branch
+- Status values include: "approved", "needs_revision", "merged", "in_review"
+- Authors include team members with Game of Thrones themed emails
+- Repositories include: "frontend", "backend", "docs"
 
-"Use a Bar Chart to compare monthly revenue growth across regions."
+3. SUGGESTION CATEGORIES (PRIORITIZE VISUAL DATA)
+- Status distribution (e.g., "Show PR status distribution")
+- Time trends (e.g., "Show PR activity over time")
+- Comparative analysis (e.g., "Compare frontend vs backend PR completion rates")
+- Performance metrics (e.g., "Show average PR review time by reviewer")
+- Author productivity patterns (e.g., "Visualize PR productivity by author")
 
-"View detailed transaction data in the grid for easy filtering and export."
+4. FORMAT AND STYLE
+- Keep suggestions under 10 words when possible
+- Use action-oriented phrasing that implies visualization
+- Use words like "show," "visualize," "compare," and "distribution" that suggest charts
+- Avoid suggestions that would only result in simple PR lists
 
-"Plot a Line Chart to track user engagement over time."
+EXAMPLES OF VISUALIZATION-FRIENDLY SUGGESTIONS:
+"Show PR status distribution across repositories"
+"Visualize PR activity trends over time"
+"Compare author productivity this month"
+"Show reviewer workload distribution"
+"Compare frontend vs backend PR completion rates"
 
-"Use a Bar Chart to rank top-performing products based on sales volume."
-
-Focus on clarity, brevity, and practical utility in your suggestions. Avoid repeating the same chart type unless it brings a different analytical perspective.`
+Remember: These suggestions should lead to visually compelling charts and graphs that provide analytical insights about PR workflows, rather than simple tabular listings of PRs.`
