@@ -174,7 +174,7 @@ function TravelPlanner() {
             appendMessage(
               new TextMessage({
                 role: MessageRole.User,
-                content: "Add a message",
+                content: "Add a message, you choose",
               }),
             )
           }
