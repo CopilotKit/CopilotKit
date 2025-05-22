@@ -74,16 +74,39 @@ export function DeveloperDashboard() {
         required: true,
         items: {
           type: "object",
-          properties: {
-            name: { type: "string", description: "Name of the item", required: true },
-            shortName: { type: "string", description: "Short Name of the item", required: true },
-            value: { type: "number", description: "Value of the item", required: true },
-            color: { type: "string", description: "Color of the item", required: true }
-          }
+          attributes: [
+            {
+              name: "name",
+              type: "string",
+              description: "Name of the item",
+              required: true
+            },
+            {
+              name: "shortName",
+              type: "string",
+              description: "Short Name of the item",
+              required: true
+            },
+            {
+              name: "value",
+              type: "number",
+              description: "Value of the item",
+              required: true
+            },
+            {
+              name: "color",
+              type: "string",
+              description: "Color of the item",
+              required: true
+            }
+          ]
         }
       }
     ],
     render: ({ args }: any) => {
+      useEffect(() => {
+        console.log(args, "args")
+      }, [args])
       return <PRPieData args={args} />
 
 
@@ -101,11 +124,20 @@ export function DeveloperDashboard() {
         required: true,
         items: {
           type: "object",
-          properties: {
-            name: { type: "string", description: "Name of the item", required: true },
-            value: { type: "number", description: "Value of the item", required: true },
-            // color: { type: "string", description: "Color of the item", required: true }
-          }
+          attributes: [
+            {
+              name: "name",
+              type: "string",
+              description: "Name of the item",
+              required: true
+            },
+            {
+              name: "value",
+              type: "number",
+              description: "Value of the item",
+              required: true
+            }
+          ]
         }
       }
     ],
@@ -126,9 +158,20 @@ export function DeveloperDashboard() {
         required: true,
         items: {
           type: "object",
-          properties: {
-            name: { type: "string", description: "The name of the item", required: true },
-          }
+          attributes: [
+            {
+              name: "name",
+              type: "string",
+              description: "The name of the item",
+              required: true
+            },
+            {
+              name: "value",
+              type: "number",
+              description: "The value of the item",
+              required: true
+            }
+          ]
         }
       }
     ],
