@@ -141,12 +141,13 @@
   margin: 0 !important;
 }
 
-.dark,
-html.dark,
-body.dark,
-[data-theme="dark"],
-html[style*="color-scheme: dark"],
-body[style*="color-scheme: dark"] .poweredBy {
+.copilotKitWindow.dark .poweredBy,
+.dark .copilotKitWindow .poweredBy,
+html.dark .copilotKitWindow .poweredBy,
+body.dark .copilotKitWindow .poweredBy,
+[data-theme="dark"] .copilotKitWindow .poweredBy,
+html[style*="color-scheme: dark"] .copilotKitWindow .poweredBy,
+body[style*="color-scheme: dark"] .copilotKitWindow .poweredBy {
   color: rgb(69, 69, 69) !important;
 }
 

@@ -4,7 +4,7 @@ WHEN MAKING ANY CHANGE, MAKE SURE TO INCLUDE IT IN ALL DUPLICATIONS.
 */
 
 /* BASE LIGHT THEME */
-:root {
+.copilotKitWindow {
   /* Semantic color tokens */
   /* Main brand/action color - used for buttons, interactive elements */
   --copilot-kit-primary-color: rgb(28, 28, 28);
@@ -36,12 +36,13 @@ WHEN MAKING ANY CHANGE, MAKE SURE TO INCLUDE IT IN ALL DUPLICATIONS.
 }
 
 /* BASE DARK THEME */
-.dark,
-html.dark,
-body.dark,
-[data-theme="dark"],
-html[style*="color-scheme: dark"],
-body[style*="color-scheme: dark"] :root {
+.copilotKitWindow.dark,
+.dark .copilotKitWindow,
+html.dark .copilotKitWindow,
+body.dark .copilotKitWindow,
+[data-theme="dark"] .copilotKitWindow,
+html[style*="color-scheme: dark"] .copilotKitWindow,
+body[style*="color-scheme: dark"] .copilotKitWindow {
   /* Main brand/action color - used for buttons, interactive elements */
   --copilot-kit-primary-color: rgb(255, 255, 255);
   /* Color that contrasts with primary - used for text on primary elements */
