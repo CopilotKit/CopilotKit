@@ -12,7 +12,7 @@ interface PieDataItem {
 
 interface PieDataProps {
     args: {
-        data: PieDataItem[];
+        items: PieDataItem[];
         title?: string;
     };
 }
@@ -22,11 +22,11 @@ export function PRPieData({ args }: PieDataProps) {
     useEffect(() => {
         console.log(JSON.stringify(args), "argsarhs");
 
-        if (args.data) {
+        if (args?.items) {
             debugger
-            setChartData(args.data);
+            setChartData(args?.items);
         }
-    }, [args.data]);
+    }, [args?.items]);
 
     return (
         <div className="flex-1 p-4 rounded-2xl shadow-lg flex flex-col items-center min-w-[250px] max-w-[350px]">
