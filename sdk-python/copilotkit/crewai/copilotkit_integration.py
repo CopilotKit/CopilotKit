@@ -8,6 +8,7 @@ import logging
 from crewai.utilities.events.base_events import BaseEvent
 from pydantic import Field
 from typing import TypeVar
+from pydantic import BaseModel
 
 # Define a generic type variable for the state
 S = TypeVar('S')
@@ -16,6 +17,13 @@ logger = logging.getLogger(__name__)
 
 # Tool calls log for tracking
 tool_calls_log = []
+
+class FlowInputState(BaseModel):
+    """Defines the expected input state for the AgenticChatFlow."""
+    messages: List[Dict[str, str]] = [] # Current message(s) from the user
+    tools: List[Dict[str, Any]] = [] # CopilotKit tool format: name, description, parameters
+    conversation_history: List[Dict[str, str]] = [] # Full conversation history (persisted between runs)
+
 
 class CopilotKitToolCallEvent(BaseEvent):
     """Event emitted when a tool call is made through CopilotKit"""
