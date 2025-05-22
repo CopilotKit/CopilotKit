@@ -8,7 +8,7 @@ import React, { useEffect, useState } from "react"
 import { Button } from "./ui/button"
 import { codeSnippets } from "@/public/snippets"
 import { Checkbox } from "./ui/checkbox"
-import { useCopilotAction, ActionRenderPropsWait } from "@copilotkit/react-core"
+import { useCopilotAction, ActionRenderPropsWait, useCoAgentStateRender } from "@copilotkit/react-core"
 import { PlayCircle, Loader2, CheckCircle2, XCircle } from "lucide-react"
 import { ChatGrid } from "./data-chat-grid"
 
@@ -18,109 +18,34 @@ interface DataTableProps {
     header: string
   }[]
   data: TestsData[],
-  onToggle: (testSuite: TestsData[]) => void
+  onToggle: (testSuite: TestsData[]) => void,
+  setTestsData: (testsData: TestsData[]) => void,
+  testsData: TestsData[]
 }
 
-export function DataTable({ columns, data, onToggle }: DataTableProps) {
+export function DataTable({ columns, data, onToggle, setTestsData, testsData }: DataTableProps) {
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
-  const [selectedRows, setSelectedRows] = useState<number[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [testSuite, setTestSuite] = useState<TestsData[]>(data || [])
   const [testStatus, setTestStatus] = useState<{ [key: number]: 'idle' | 'running' | 'passed' | 'failed' }>({});
   const [testCaseStatus, setTestCaseStatus] = useState<{ [rowIndex: number]: string[] }>({});
-
+  const [snippetsHandler, setSnippetsHandler] = useState<TestsData[]>([])
   // Get all possible keys from data (assuming all rows have same keys)
   const allKeys = data.length > 0 ? Object.keys(data[0]) : [];
   const mainKeys = columns.map(col => col.accessorKey);
   const extraKeys = allKeys.filter(key => !mainKeys.includes(key));
 
-
-  useCopilotAction({
-    name: "renderGridWithTestCases",
-    description: "Render the grid with the test cases",
-    parameters: [
-      {
-        name: "testSuites",
-        description: "The test suites to render",
-        type: "object[]",
-        attributes: [
-          {
-            name: "testId",
-            type: "string",
-            description: "Unique identifier for the test suite"
-          },
-          {
-            name: "prId",
-            type: "string",
-            description: "Pull request identifier"
-          },
-          {
-            name: "title",
-            type: "string",
-            description: "Title of the test suite"
-          },
-          {
-            name: "status",
-            type: "string",
-            description: "Current status of the test suite",
-            enum: ["passed", "failed", "yet_to_start"]
-          },
-          {
-            name: "shortDescription",
-            type: "string",
-            description: "Brief description of the test suite"
-          },
-          {
-            name: "testCases",
-            type: "object[]",
-            description: "List of test cases in the suite",
-            attributes: [
-              {
-                name: "id",
-                type: "string",
-                description: "Test case identifier"
-              },
-              {
-                name: "name",
-                type: "string",
-                description: "Name of the test case"
-              },
-              {
-                name: "status",
-                type: "string",
-                description: "Current status of the test case",
-                enum: ["passed", "failed", "yet_to_start", "pending"]
-              },
-              {
-                name: "testSteps",
-                type: "string[]",
-                description: "List of steps in the test case"
-              }
-            ]
-          }
-        ]
-      }
-    ],
-    handler: (args: any) => {
-      console.log(args, "argsfromhand")
-    },
-    // @ts-ignore
-    renderAndWaitForResponse: (props: ActionRenderPropsWait<any>) => {
-      useEffect(() => {
-        console.log(props.args, props.status, "args")
-      }, [props.args, props.status])
-
-      return <ChatGrid status={props.status} state={props.args.testSuites} respond={props.respond} onToggle={onToggle} testSuite={testSuite} setTestSuite={setTestSuite} testCaseStatus={testCaseStatus} setTestCaseStatus={setTestCaseStatus} />
+  useCoAgentStateRender({
+    name: "testing_agent",
+    // nodeName : "chat_node",
+    render: (props) => {
+      return <ChatGrid status={props.status} state={props.state} testSuite={testSuite} setTestSuite={setTestSuite} testCaseStatus={testCaseStatus} setTestCaseStatus={setTestCaseStatus} />
     }
-  });
-
-  // useEffect(() => {
-  //   if (status === "complete" && nodeName === "__end__") {
-  //     setTestSuite(state?.testScripts?.testSuites || []);
-  //   }
-  // }, [status, nodeName, state]);
+  })
 
   useEffect(() => {
     console.log(testSuite, "testSuite");
+    // setTestSuite(testSuite)
   }, [testSuite])
 
 
@@ -128,11 +53,15 @@ export function DataTable({ columns, data, onToggle }: DataTableProps) {
     setExpandedRow(expandedRow === rowIndex ? null : rowIndex);
   };
 
+  // useEffect(() => {
+  //   setTestSuite([...testSuite.filter((_, idx) => idx !== selectedIndex)])
+  // }, [testStatus])
+
+
   // Handler for play icon
-  const runTest = (rowIndex: number) => {
+  const runTest = (rowIndex: number, row: TestsData) => {
     if (testStatus[rowIndex] === 'running') return;
     setTestStatus(prev => ({ ...prev, [rowIndex]: 'running' }));
-    // Set all test cases to running (optional)
     setTestCaseStatus(prev => ({
       ...prev,
       [rowIndex]: testSuite[rowIndex]?.testCases.map(() => 'running')
@@ -144,8 +73,44 @@ export function DataTable({ columns, data, onToggle }: DataTableProps) {
         ...prev,
         [rowIndex]: testSuite[rowIndex]?.testCases.map(() => isPassed ? 'passed' : 'failed')
       }));
+
+      // setTestSuite(prevSuite => {
+      // debugger
+      const suiteToMove = testSuite[rowIndex];
+      if (suiteToMove) {
+        onToggle([...testSuite.filter((_, idx) => idx !== rowIndex)])
+        console.log(suiteToMove, "suiteToMove");
+        suiteToMove.testCases.forEach(element => {
+          element.status = isPassed ? 'passed' : 'failed'
+        });
+        suiteToMove.status = isPassed ? 'passed' : 'failed'
+        setTestsData([...testsData, {
+          title: suiteToMove.title,
+          status: suiteToMove.status,
+          shortDescription: suiteToMove.shortDescription,
+          testCases: suiteToMove.testCases,
+          testId: suiteToMove.testId,
+          prId: suiteToMove.prId,
+          failedTestCases: suiteToMove.failedTestCases,
+          passedTestCases: suiteToMove.passedTestCases,
+          skippedTestCases: suiteToMove.skippedTestCases,
+          totalTestCases: suiteToMove.totalTestCases,
+          codeSnippet: suiteToMove.codeSnippet,
+          executedBy: suiteToMove.executedBy,
+          coverage: suiteToMove.coverage,
+          createdAt: suiteToMove.createdAt,
+          updatedAt: suiteToMove.updatedAt,
+        }]);
+      }
+
+      // const newSuite = prevSuite.filter((item, idx) => item.testId !== row.testId);
+      // setSelectedIndex(rowIndex)
+      // return newSuite;
+      // });
     }, 3000);
   };
+
+  const hasCompleted = testSuite.some(suite => suite.status === 'passed' || suite.status === 'failed');
 
   return (
     <div className="rounded-md border">
@@ -202,7 +167,7 @@ export function DataTable({ columns, data, onToggle }: DataTableProps) {
                               className="w-5 h-5 text-blue-600 hover:text-blue-700 cursor-pointer"
                               onClick={e => {
                                 e.stopPropagation();
-                                runTest(rowIndex);
+                                runTest(rowIndex, row);
                               }}
                             />
                           )}
@@ -247,6 +212,22 @@ export function DataTable({ columns, data, onToggle }: DataTableProps) {
           )}
         </TableBody>
       </Table>
+      <div className="flex justify-center my-4">
+        <Button
+          className="mt-4"
+          disabled={!hasCompleted}
+          onClick={() => {
+            setTestSuite(prevSuite => {
+              const completed = prevSuite.filter(suite => suite.status === 'passed' || suite.status === 'failed');
+              const remaining = prevSuite.filter(suite => suite.status !== 'passed' && suite.status !== 'failed');
+              setTestsData([...testsData, ...completed]);
+              return remaining;
+            });
+          }}
+        >
+          Move Completed Tests to Results
+        </Button>
+      </div>
     </div>
   )
 }
@@ -276,3 +257,4 @@ function StatusBadge({ status }: { status: string }) {
     </Badge>
   )
 }
+

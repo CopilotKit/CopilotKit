@@ -1,4 +1,5 @@
-"""
+export function DataCode() {
+    const pythonCode = `"""
 A LangGraph implementation for the testing agent.
 """
 from fastapi import FastAPI
@@ -122,11 +123,9 @@ async def start_flow(state: Dict[str, Any], config: RunnableConfig):
     """
     This is the entry point for the flow.
     """
-
     # Initialize steps list if not exists
     if "testScripts" not in state:
         state["testScripts"] = []
-
     
     return Command(
         goto="chat_node",
@@ -136,7 +135,6 @@ async def start_flow(state: Dict[str, Any], config: RunnableConfig):
         }
     )
 
-
 async def chat_node(state: Dict[str, Any], config: RunnableConfig):
     """
     Standard chat node where the agent processes messages and generates responses.
@@ -144,7 +142,7 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
     """
     system_prompt = """
     You are a helpful assistant that can perform any task related to software testing and PR validation.
-    You MUST call the `generate_test_scripts` function when the user asks you to perform a task.
+    You MUST call the \`generate_test_scripts\` function when the user asks you to perform a task.
     Once generated with the test scripts, provide a summary of it in maximum 5 sentences. Dont list the entire thing in detail. Also prompt user that you can add the script to your testing list.
 
     For every agent request, YOU MUST ALWAYS GENERATE 4 DIFFERENT TEST SUITES, each as a separate object in the array. Each test suite should be relevant to the context which is the CopilotKitReadables or PR provided by the user, and should have unique test cases and details. All the data which involves the user emails should be referred from the CopilotKitReadables.
@@ -178,15 +176,8 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
 
     When generating or reasoning about test scripts, always use this schema and ensure your output is relevant to the PR and test context provided by the user.
     """
-
     # Define the model
-    
-    try:
-        model = ChatOpenAI(model="gpt-4o-mini")
-    except Exception as e:
-        print(e)
-        model = ChatOpenAI(model="gpt-4o")
-    
+    model = ChatOpenAI(model="gpt-4o-mini")
     # Define config for the model
     if config is None:
         config = RunnableConfig(recursion_limit=25)
@@ -215,7 +206,6 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
         SystemMessage(content=system_prompt),
         *state["messages"],
     ], config)
-
     
     # Update messages with the response
     messages = state["messages"] + [response]
@@ -244,18 +234,6 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
                 "content": "Test scripts generated. Allow user to select the test suites they want to run.",
                 "tool_call_id": tool_call_id
             }
-            # render_grid_tool_call = {
-            #     "role": "assistant",
-            #     "content": "",
-            #     "tool_calls": [{
-            #         "id": tool_call_id,
-            #         "type": "function",
-            #         "function": {
-            #             "name": "renderGridWithTestCases",
-            #             "arguments": json.dumps(tool_call_args)
-            #         }
-            #     }]
-            # }
             messages = messages + [tool_response]
             await copilotkit_exit(config)
             return Command(
@@ -265,49 +243,7 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
                     "testScripts": state["testScripts"],
                 }
             )
-            testScripts_raw = tool_call_args.get("testSuites", [])
-            print(testScripts_raw)
-            # Set initial status to "enabled" for all steps
-            testScripts_data = []
             
-            # Handle different potential formats of steps data
-            if isinstance(testScripts_raw, list):
-                for testScript in testScripts_raw:
-                    if isinstance(testScript, dict) and "testId" in testScript:
-                        testScripts_data.append({
-                            "testId": testScript["testId"],
-                            "status": "enabled"
-                        })
-                    elif isinstance(testScript, str):
-                        testScripts_data.append({
-                            "testId": testScript,
-                            "status": "enabled"
-                        })
-            state["testScripts"] = tool_call_args
-            
-            # Generate a UUID for the tool call
-            tool_call_uuid = str(uuid.uuid4())
-
-            # Insert the assistant message with the tool call
-            
-
-            # Now insert the tool response referencing the same tool_call_id
-            tool_response = {
-                "role": "tool",
-                "content": "Task steps generated.",
-                "tool_call_id": tool_call_uuid
-            }
-            messages = messages + [tool_response]
-
-            # Move to the process_steps_node which will handle the interrupt and final response
-            return Command(
-                goto="process_steps_node",
-                update={
-                    "messages": messages,
-                    "testScripts": state["testScripts"],
-                }
-            )
-    
     # If no tool calls or not generate_task_steps, return to END with the updated messages
     await copilotkit_exit(config)
     return Command(
@@ -318,92 +254,23 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
         }
     )
 
-
-# async def process_steps_node(state: Dict[str, Any], config: RunnableConfig):
-#     """
-#     This node handles the user interrupt for step customization and generates the final response.
-#     """
-
-#     # Check if we already have a user_response in the state
-#     # This happens when the node restarts after an interrupt
-#     if "user_response" in state and state["user_response"]:
-#         user_response = state["user_response"]
-#     else:
-#         # Use LangGraph interrupt to get user input on steps
-#         # This will pause execution and wait for user input in the frontend
-#         user_response = interrupt({"steps": state["steps"]})
-#         # Store the user response in state for when the node restarts
-#         state["user_response"] = user_response
-    
-#     # Generate the creative completion response
-#     final_prompt = """
-#     Provide a textual description of how you are performing the task.
-#     If the user has disabled a step, you are not allowed to perform that step.
-#     However, you should find a creative workaround to perform the task, and if an essential step is disabled, you can even use
-#     some humor in the description of how you are performing the task.
-#     Don't just repeat a list of steps, come up with a creative but short description (3 sentences max) of how you are performing the task.
-#     """
-    
-#     final_response = await ChatOpenAI(model="gpt-4o").ainvoke([
-#         SystemMessage(content=final_prompt),
-#         {"role": "user", "content": user_response}
-#     ], config)
-
-#     # Add the final response to messages
-#     messages = state["messages"] + [final_response]
-    
-#     # Clear the user_response from state to prepare for future interactions
-#     if "user_response" in state:
-#         state.pop("user_response")
-    
-#     # Return to END with the updated messages
-#     await copilotkit_exit(config)
-#     return Command(
-#         goto=END,
-#         update={
-#             "messages": messages,
-#             "steps": state["steps"],
-#         }
-#     )
-
-
 # Define the graph
 workflow = StateGraph(AgentState)
 
 # Add nodes
 workflow.add_node("start_flow", start_flow)
 workflow.add_node("chat_node", chat_node)
-# workflow.add_node("process_steps_node", process_steps_node)
 
 # Add edges
 workflow.set_entry_point("start_flow")
 workflow.add_edge(START, "start_flow")
 workflow.add_edge("start_flow", "chat_node")
-# workflow.add_edge("chat_node", "process_steps_node") # Removed unconditional edge
-# workflow.add_edge("process_steps_node", END)
 workflow.add_edge("chat_node", END)                 # Removed unconditional edge
-
-# Add conditional edges from chat_node
-# def should_continue(command: Command):
-#     if command.goto == "process_steps_node":
-#         return "process_steps_node"
-#     else:
-#         return END
-
-# workflow.add_conditional_edges(
-#     "chat_node",
-#     should_continue,
-#     {
-#         "process_steps_node": "process_steps_node",
-#         END: END,
-#     },
-# )
 
 # Compile the graph
 testing_graph = workflow.compile(checkpointer=MemorySaver())
 
 app = FastAPI()
-
 sdk = CopilotKitSDK(
     agents=[
         LangGraphAgent(
@@ -413,7 +280,6 @@ sdk = CopilotKitSDK(
         )
     ]
 )
-
 add_fastapi_endpoint(app, sdk, "/copilotkit")
 
 def main():
@@ -427,4 +293,19 @@ def main():
     )
 
 if __name__ == "__main__":
-    main()
+    main()`
+
+    return (
+        <div className="p-4 bg-white rounded-lg border border-gray-200 shadow-sm w-full">
+            <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-gray-800">Agent Code</h2>
+                <span className="text-sm text-gray-500">Python</span>
+            </div>
+            <pre className="overflow-x-auto">
+                <code className="text-sm text-gray-700 font-mono whitespace-pre-wrap break-words">
+                    {pythonCode}
+                </code>
+            </pre>
+        </div>
+    )
+}

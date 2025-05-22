@@ -8,7 +8,7 @@ import React from "react";
 import { Badge } from "./ui/badge";
 import { getStatusColor } from "./data-table-results";
 
-export function ChatGrid({ status, state, respond, onToggle, testSuite, setTestSuite, testCaseStatus, setTestCaseStatus }: { status: string, state: any, respond: ((result: any) => void) | undefined, onToggle: (testSuite: TestsData[]) => void, testSuite: TestsData[], setTestSuite: (testSuite: TestsData[]) => void, testCaseStatus: any, setTestCaseStatus: (testCaseStatus: any) => void }) {
+export function ChatGrid({ status, state, testSuite, setTestSuite, testCaseStatus, setTestCaseStatus }: { status: string, state: any,  testSuite: TestsData[], setTestSuite: (testSuite: TestsData[]) => void, testCaseStatus: any, setTestCaseStatus: (testCaseStatus: any) => void }) {
     const [newScriptsData, setNewScriptsData] = useState<TestsData[]>([])
     const [expandedRow, setExpandedRow] = useState<number | null>(null);
     const [selectedRows, setSelectedRows] = useState<number[]>([]);
@@ -34,29 +34,29 @@ export function ChatGrid({ status, state, respond, onToggle, testSuite, setTestS
         // Handle the action for selected rows
         debugger
 
-        if (respond) {
+        // if (respond) {
             console.log("Selected rows:", selectedRows);
-            onToggle([...testSuite, ...newScriptsData.filter((_, index) => selectedRows.includes(index))])
+            // onToggle([...testSuite, ...newScriptsData.filter((_, index) => selectedRows.includes(index))])
             setTestSuite([...testSuite, ...newScriptsData.filter((_, index) => selectedRows.includes(index))])
             setSelectedRows([])
             setDisabled(true)
-            respond("The selected test suites have been added successfully")
-        }
+            // respond("The selected test suites have been added successfully")
+        // }
         // Add your custom logic here
     };
 
     useEffect(() => {
         // console.log(nodeName,status, "nodeNamenodeName")
         // if (status === "executing") {
-        console.log(state)
-        setNewScriptsData(state)
+        console.log(state?.testScripts?.testSuites,"sad",status)
+        setNewScriptsData(state?.testScripts?.testSuites)
         // }
     }, [state, status])
     const handleRowClick = (rowIndex: number) => {
         setExpandedRow(expandedRow === rowIndex ? null : rowIndex);
     };
     return <>
-        {newScriptsData.length > 0 && <div className="rounded-md border w-full min-w-[200px]">
+        {newScriptsData && <div className="rounded-md border w-full min-w-[200px]">
             <Table>
                 <TableHeader>
                     <TableRow>
@@ -90,10 +90,10 @@ export function ChatGrid({ status, state, respond, onToggle, testSuite, setTestS
                                         onClick={(e) => e.stopPropagation()}
                                     />
                                 </TableCell>
-                                <TableCell>{script.title}</TableCell>
-                                <TableCell>{script.testCases.length}</TableCell>
+                                <TableCell>{script?.title}</TableCell>
+                                <TableCell>{script?.testCases?.length}</TableCell>
                             </TableRow>
-                            {expandedRow === index && (
+                            {(expandedRow === index && !disabled && status === "complete") && (
                                 <TableRow>
                                     <TableCell colSpan={3} className="bg-gray-50 dark:bg-[#181f2a] p-0 border-t-0">
                                         <div className="p-4">

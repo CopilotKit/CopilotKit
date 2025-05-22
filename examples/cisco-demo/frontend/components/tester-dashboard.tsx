@@ -6,10 +6,11 @@ import { DataTable } from "@/components/data-table-results"
 import { DataTable as DataTableTests } from "@/components/data-table-tests"
 import { DataChart } from "@/components/data-chart"
 import { Button } from "@/components/ui/button"
-import { BarChart3, Table2 } from "lucide-react"
+import { BarChart3, Table2,Code2 } from "lucide-react"
 import { getTestsService } from "@/app/Services/service"
 import Loader from "./ui/loader"
 import { testData } from "@/lib/testData"
+import { DataCode } from "./data-code"
 // Sample data for the tester dashboard
 const tableColumns = [
   {
@@ -105,7 +106,7 @@ const chartData = [
 ]
 
 export function TesterDashboard() {
-  const [viewMode, setViewMode] = useState<"results" | "tests" | "chart">("results")
+  const [viewMode, setViewMode] = useState<"results" | "tests" | "code">("results")
   const [testsData, setTestsData] = useState<any>([])
   const [testSuites, setTestSuites] = useState<any>([])
   const [loading, setLoading] = useState(true)
@@ -126,6 +127,10 @@ export function TesterDashboard() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-semibold tracking-tight">Tester Dashboard</h1>
         <div className="flex items-center gap-2">
+          <Button variant={viewMode === "code" ? "default" : "outline"} size="sm" onClick={() => setViewMode("code")}>
+            <Code2 className=" h-4 w-4" />
+            Code
+          </Button>
           <Button variant={viewMode === "results" ? "default" : "outline"} size="sm" onClick={() => setViewMode("results")}>
             <Table2 className="mr-2 h-4 w-4" />
             Results
@@ -134,25 +139,25 @@ export function TesterDashboard() {
             <Table2 className="mr-2 h-4 w-4" />
             Tests
           </Button>
-          <Button variant={viewMode === "chart" ? "default" : "outline"} size="sm" onClick={() => setViewMode("chart")}>
+          {/* <Button variant={viewMode === "chart" ? "default" : "outline"} size="sm" onClick={() => setViewMode("chart")}>
             <BarChart3 className="mr-2 h-4 w-4" />
             Chart
-          </Button>
+          </Button> */}
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Test Results</CardTitle>
-          <CardDescription>Monitor test results and performance metrics</CardDescription>
+          {viewMode != "code" && <><CardTitle>{viewMode === "results" ? "Test Results" : "Testing Grounds"}</CardTitle>
+          <CardDescription>{viewMode === "results" ? "Monitor test results and performance metrics" : "Perform testing on the latest PRs"}</CardDescription></>}
         </CardHeader>
         <CardContent>
           {viewMode === "results" ? (
-            <DataTable columns={tableColumns} data={testsData}  />
+            <DataTable columns={tableColumns} data={testsData} />
           ) : viewMode === "tests" ? (
-            <DataTableTests columns={tableColumnsTests} data={testSuites} onToggle={setTestSuites} />
+            <DataTableTests columns={tableColumnsTests} data={testSuites} onToggle={setTestSuites} setTestsData= {setTestsData} testsData={testsData}/>
           ) : (
-            <DataChart data={testsData} />
+            <DataCode />
           )}
         </CardContent>
       </Card>

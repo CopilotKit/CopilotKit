@@ -62,7 +62,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             {routes.map((route) => (
               <SidebarMenuItem key={route.href} className="p-3 px-6" >
                 <SidebarMenuButton asChild isActive={route.isActive}>
-                  <Link onClick={() => setMessages([])} href={"/developer"}>
+                  <Link onClick={() => setMessages([])} href={route.href}>
                     <route.icon className="mr-2 h-5 w-5" />
                     <span>{route.title}</span>
                   </Link>
