@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import {
   FunctionCallHandler,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
@@ -241,6 +241,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     headers,
     credentials: copilotConfig.credentials,
   });
+
+  const pendingAppendsRef = useRef<{ message: Message; followUp: boolean }[]>([]);
 
   const runChatCompletion = useAsyncCallback(
     async (previousMessages: Message[]): Promise<Message[]> => {
@@ -586,7 +588,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               message: ActionExecutionMessage,
             ) => {
               const isInterruptAction = interruptMessages.find((m) => m.id === message.id);
-              followUp = action?.followUp || !isInterruptAction;
+              followUp = action?.followUp ?? !isInterruptAction;
               const resultMessage = await executeAction({
                 onFunctionCall,
                 previousMessages,
@@ -716,6 +718,18 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
   runChatCompletionRef.current = runChatCompletion;
 
+  useEffect(() => {
+    if (!isLoading && pendingAppendsRef.current.length > 0) {
+      const pending = pendingAppendsRef.current.splice(0);
+      const followUp = pending.some((p) => p.followUp);
+      const newMessages = [...messages, ...pending.map((p) => p.message)];
+      setMessages(newMessages);
+      if (followUp) {
+        runChatCompletionAndHandleFunctionCall(newMessages);
+      }
+    }
+  }, [isLoading, messages, setMessages, runChatCompletionAndHandleFunctionCall]);
+
   const runChatCompletionAndHandleFunctionCall = useAsyncCallback(
     async (messages: Message[]): Promise<void> => {
       await runChatCompletionRef.current!(messages);
@@ -758,13 +772,14 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
   const append = useAsyncCallback(
     async (message: Message, options?: AppendMessageOptions): Promise<void> => {
+      const followUp = options?.followUp ?? true;
       if (isLoading) {
+        pendingAppendsRef.current.push({ message, followUp });
         return;
       }
 
       const newMessages = [...messages, message];
       setMessages(newMessages);
-      const followUp = options?.followUp ?? true;
       if (followUp) {
         return runChatCompletionAndHandleFunctionCall(newMessages);
       }
