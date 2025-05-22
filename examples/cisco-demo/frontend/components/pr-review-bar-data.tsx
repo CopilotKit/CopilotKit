@@ -24,10 +24,10 @@ export function PRReviewBarData({ args }: any) {
     useEffect(() => {
         debugger
         console.log(args)
-        if(args?.data){
-            setData(args.data)
+        if(args?.items){
+            setData(args?.items)
         }
-    }, [args])
+    }, [args?.items])
 
 
     function getUniqueReviewers(prArray: PRData[]): string[] {
