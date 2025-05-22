@@ -9,10 +9,10 @@ export function PRLineChartData({ args }: any) {
     useEffect(() => {
         console.log(args);
         
-        if(args?.data) {
-            setLineData(args.data)
+        if(args?.items) {
+            setLineData(args.items)
         }
-    }, [args])
+    }, [args?.items])
 
     function groupPRsByWeek(prs: PRData[]): WeeklyCount[] {
         const weekMap: Record<string, number> = {};
