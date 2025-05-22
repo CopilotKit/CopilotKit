@@ -266,8 +266,19 @@ export function DeveloperDashboard() {
         ]
       }
     ],
+    render: ({ args, status }) => {
+      useEffect(() => {
+        if (args?.items) {
+          setFilteredData(args.items);
+        }
+      }, [args.items])
+
+      if (status === "inProgress") {
+        return "..."
+      }
+      return <></>
+    },
     handler: (items: any) => {
-      debugger
       setFilteredData(items?.items)
     }
   })
@@ -350,16 +361,16 @@ export function DeveloperDashboard() {
             </Select>
             <Button onClick={() => {
               if (filterParams.status === "a" && filterParams.author === "b") {
-                setFilteredData(prData)
+                setFilteredData(prData.filter((pr: PRData) => pr.status !== 'running'))
               } else if (filterParams.status === "a") {
-                setFilteredData(prData.filter((pr: PRData) => pr.author.toLowerCase() === filterParams.author?.toLowerCase()))
+                setFilteredData(prData.filter((pr: PRData) => pr.author.toLowerCase() === filterParams.author?.toLowerCase() && pr.status !== 'running'))
               } else if (filterParams.author === "b") {
-                setFilteredData(prData.filter((pr: PRData) => pr.status.split("_").join(" ").toLowerCase() === filterParams.status?.toLowerCase()))
+                setFilteredData(prData.filter((pr: PRData) => pr.status.split("_").join(" ").toLowerCase() === filterParams.status?.toLowerCase() && pr.status !== 'running'))
               } else {
-                setFilteredData(prData.filter((pr: PRData) => pr.status.split("_").join(" ").toLowerCase() === filterParams.status?.toLowerCase() && pr.author.toLowerCase() === filterParams.author?.toLowerCase()))
+                setFilteredData(prData.filter((pr: PRData) => pr.status.split("_").join(" ").toLowerCase() === filterParams.status?.toLowerCase() && pr.author.toLowerCase() === filterParams.author?.toLowerCase() && pr.status !== 'running'))
               }
             }} variant="ghost" size="sm">Apply Filters</Button>
-            <Button onClick={() => { setFilteredData(prData); setFilterParams({ status: "a", author: "b" }) }} variant="ghost" size="sm">Clear Filters</Button>
+            <Button onClick={() => { setFilteredData(prData.filter((pr: PRData) => pr.status !== 'running')); setFilterParams({ status: "a", author: "b" }) }} variant="ghost" size="sm">Clear Filters</Button>
           </div>
         </CardHeader>
         <CardContent>
