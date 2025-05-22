@@ -48,7 +48,6 @@ export function ChatGrid({ status, state, testSuite, setTestSuite, testCaseStatu
     useEffect(() => {
         // console.log(nodeName,status, "nodeNamenodeName")
         // if (status === "executing") {
-        console.log(state?.testScripts?.testSuites,"sad",status)
         setNewScriptsData(state?.testScripts?.testSuites)
         // }
     }, [state, status])

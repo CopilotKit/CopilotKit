@@ -27,7 +27,7 @@ export interface TestsData {
     testId: string;
     prId: string;
     title: string;
-    status: 'passed' | 'failed' | 'in_progress';
+    status: 'idle' | 'passed' | 'failed' | 'in_progress';
     testCases: TestCase[];
     totalTestCases: number;
     passedTestCases: number;

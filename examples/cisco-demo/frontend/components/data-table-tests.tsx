@@ -27,6 +27,7 @@ export function DataTable({ columns, data, onToggle, setTestsData, testsData }: 
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [testSuite, setTestSuite] = useState<TestsData[]>(data || [])
+  const [testSuiteToMove, setTestSuiteToMove] = useState<TestsData[]>([])
   const [testStatus, setTestStatus] = useState<{ [key: number]: 'idle' | 'running' | 'passed' | 'failed' }>({});
   const [testCaseStatus, setTestCaseStatus] = useState<{ [rowIndex: number]: string[] }>({});
   const [snippetsHandler, setSnippetsHandler] = useState<TestsData[]>([])
@@ -36,8 +37,12 @@ export function DataTable({ columns, data, onToggle, setTestsData, testsData }: 
   const extraKeys = allKeys.filter(key => !mainKeys.includes(key));
 
   useEffect(() => {
-    console.log(testSuite, "testSuite");
-  }, [testSuite])
+    setTestSuite(data)
+    setTestStatus(prev => ({ 
+      ...prev, 
+      ...Object.fromEntries(data.map((item, index) => [index, item.status]))
+    }))
+  }, [data])
 
   const handleRowClick = (rowIndex: number) => {
     setExpandedRow(expandedRow === rowIndex ? null : rowIndex);
@@ -60,14 +65,18 @@ export function DataTable({ columns, data, onToggle, setTestsData, testsData }: 
       }));
 
       const suiteToMove = testSuite[rowIndex];
+      console.log(suiteToMove, "suiteToMove", rowIndex);
+      
       if (suiteToMove) {
-        onToggle([...testSuite.filter((_, idx) => idx !== rowIndex)])
+        // onToggle([...testSuite.filter((_, idx) => idx !== rowIndex)])
         console.log(suiteToMove, "suiteToMove");
         suiteToMove.testCases.forEach(element => {
           element.status = isPassed ? 'passed' : 'failed'
         });
         suiteToMove.status = isPassed ? 'passed' : 'failed'
-        setTestsData([...testsData, {
+        console.log(testSuiteToMove, "testSuiteToMove");
+        
+        setTestSuiteToMove([...testSuiteToMove, {
           title: suiteToMove.title,
           status: suiteToMove.status,
           shortDescription: suiteToMove.shortDescription,
@@ -85,10 +94,8 @@ export function DataTable({ columns, data, onToggle, setTestsData, testsData }: 
           updatedAt: suiteToMove.updatedAt,
         }]);
       }
-    }, 3000);
+    }, 2000);
   };
-
-  const hasCompleted = testSuite.some(suite => suite.status === 'passed' || suite.status === 'failed');
 
   return (
     <div className="rounded-md border">
@@ -145,7 +152,9 @@ export function DataTable({ columns, data, onToggle, setTestsData, testsData }: 
                               className="w-5 h-5 text-blue-600 hover:text-blue-700 cursor-pointer"
                               onClick={e => {
                                 e.stopPropagation();
-                                runTest(rowIndex, row);
+                                if(!Object.values(testStatus).some(status => (status === 'running'))){
+                                  runTest(rowIndex, row);
+                                }
                               }}
                             />
                           )}
@@ -193,15 +202,12 @@ export function DataTable({ columns, data, onToggle, setTestsData, testsData }: 
       <div className="flex justify-center my-4">
         <Button
           className="mt-4"
-          disabled={!hasCompleted}
+          disabled={Object.values(testStatus).length == 0 || Object.values(testStatus).some(status => (status === 'idle' || status === 'running'))}
           onClick={() => {
-            onToggle([...testSuite.filter((item, idx) => item.status === 'passed' || item.status === 'failed')])
-            setTestSuite(prevSuite => {
-              const completed = prevSuite.filter(suite => suite.status === 'passed' || suite.status === 'failed');
-              const remaining = prevSuite.filter(suite => suite.status !== 'passed' && suite.status !== 'failed');
-              setTestsData([...testsData, ...completed]);
-              return remaining;
-            });
+            onToggle([])
+            setTestSuite([])
+            setTestsData([...testsData, ...testSuiteToMove])
+            setTestSuiteToMove([])
           }}
         >
           Move Completed Tests to Results
