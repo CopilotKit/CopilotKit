@@ -44,7 +44,7 @@ DEFINE_TEST_SCRIPT_TOOL = {
                             "testId": { "type": "string" },
                             "prId": { "type": "string" },
                             "title": { "type": "string" },
-                            "status": { "type": "string", "enum": ["passed", "failed", "yet_to_start"] },
+                            "status": { "type": "string", "enum": ["passed", "failed", "idle"] },
                             "shortDescription": { "type": "string" },
                             "testCases": {
                                 "type": "array",
@@ -53,7 +53,7 @@ DEFINE_TEST_SCRIPT_TOOL = {
                                     "properties": {
                                         "id": { "type": "string" },
                                         "name": { "type": "string" },
-                                        "status": { "type": "string", "enum": ["passed", "failed", "yet_to_start", "pending"] },
+                                        "status": { "type": "string", "enum": ["passed", "failed", "idle", "pending"] },
                                         "executionTime": { "type": "string" },
                                         "createdAt": { "type": "string", "format": "date-time" },
                                         "updatedAt": { "type": "string", "format": "date-time" },
@@ -153,12 +153,12 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
     - testId: string
     - prId: string
     - title: string
-    - status: 'passed' | 'failed' | 'yet_to_start'
+    - status: 'passed' | 'failed' | 'idle'
     - shortDescription: string (a concise summary of what this test suite covers)
     - testCases: array of objects, each with:
         - id: string
         - name: string
-        - status: 'passed' | 'failed' | 'yet_to_start' | 'pending'
+        - status: 'passed' | 'failed' | 'idle' | 'pending'
         - executionTime: string
         - createdAt: string (date-time)
         - updatedAt: string (date-time)

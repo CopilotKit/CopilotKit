@@ -11,6 +11,8 @@ import { getTestsService } from "@/app/Services/service"
 import Loader from "./ui/loader"
 import { testData } from "@/lib/testData"
 import { DataCode } from "./data-code"
+import { useCoAgentStateRender } from "@copilotkit/react-core"
+import { ChatGrid } from "./data-chat-grid"
 // Sample data for the tester dashboard
 const tableColumns = [
   {
@@ -110,6 +112,22 @@ export function TesterDashboard() {
   const [testsData, setTestsData] = useState<any>([])
   const [testSuites, setTestSuites] = useState<any>([])
   const [loading, setLoading] = useState(true)
+  const [testCaseStatus, setTestCaseStatus] = useState<{ [rowIndex: number]: string[] }>({})
+
+  useCoAgentStateRender({
+    name: "testing_agent",
+    render: (props) => {
+      return <ChatGrid 
+        status={props.status} 
+        state={props.state} 
+        testSuite={testSuites} 
+        setTestSuite={setTestSuites} 
+        testCaseStatus={testCaseStatus} 
+        setTestCaseStatus={setTestCaseStatus} 
+      />
+    }
+  })
+
   useEffect(() => {
     getTests()
   }, [])

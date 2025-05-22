@@ -8,7 +8,7 @@ import React, { useEffect, useState } from "react"
 import { Button } from "./ui/button"
 import { codeSnippets } from "@/public/snippets"
 import { Checkbox } from "./ui/checkbox"
-import { useCopilotAction, ActionRenderPropsWait, useCoAgentStateRender } from "@copilotkit/react-core"
+import { useCopilotAction, ActionRenderPropsWait } from "@copilotkit/react-core"
 import { PlayCircle, Loader2, CheckCircle2, XCircle } from "lucide-react"
 import { ChatGrid } from "./data-chat-grid"
 
@@ -35,28 +35,13 @@ export function DataTable({ columns, data, onToggle, setTestsData, testsData }: 
   const mainKeys = columns.map(col => col.accessorKey);
   const extraKeys = allKeys.filter(key => !mainKeys.includes(key));
 
-  useCoAgentStateRender({
-    name: "testing_agent",
-    // nodeName : "chat_node",
-    render: (props) => {
-      return <ChatGrid status={props.status} state={props.state} testSuite={testSuite} setTestSuite={setTestSuite} testCaseStatus={testCaseStatus} setTestCaseStatus={setTestCaseStatus} />
-    }
-  })
-
   useEffect(() => {
     console.log(testSuite, "testSuite");
-    // setTestSuite(testSuite)
   }, [testSuite])
-
 
   const handleRowClick = (rowIndex: number) => {
     setExpandedRow(expandedRow === rowIndex ? null : rowIndex);
   };
-
-  // useEffect(() => {
-  //   setTestSuite([...testSuite.filter((_, idx) => idx !== selectedIndex)])
-  // }, [testStatus])
-
 
   // Handler for play icon
   const runTest = (rowIndex: number, row: TestsData) => {
@@ -74,8 +59,6 @@ export function DataTable({ columns, data, onToggle, setTestsData, testsData }: 
         [rowIndex]: testSuite[rowIndex]?.testCases.map(() => isPassed ? 'passed' : 'failed')
       }));
 
-      // setTestSuite(prevSuite => {
-      // debugger
       const suiteToMove = testSuite[rowIndex];
       if (suiteToMove) {
         onToggle([...testSuite.filter((_, idx) => idx !== rowIndex)])
@@ -102,11 +85,6 @@ export function DataTable({ columns, data, onToggle, setTestsData, testsData }: 
           updatedAt: suiteToMove.updatedAt,
         }]);
       }
-
-      // const newSuite = prevSuite.filter((item, idx) => item.testId !== row.testId);
-      // setSelectedIndex(rowIndex)
-      // return newSuite;
-      // });
     }, 3000);
   };
 
@@ -217,6 +195,7 @@ export function DataTable({ columns, data, onToggle, setTestsData, testsData }: 
           className="mt-4"
           disabled={!hasCompleted}
           onClick={() => {
+            onToggle([...testSuite.filter((item, idx) => item.status === 'passed' || item.status === 'failed')])
             setTestSuite(prevSuite => {
               const completed = prevSuite.filter(suite => suite.status === 'passed' || suite.status === 'failed');
               const remaining = prevSuite.filter(suite => suite.status !== 'passed' && suite.status !== 'failed');
