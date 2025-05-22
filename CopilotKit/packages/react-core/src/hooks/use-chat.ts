@@ -626,7 +626,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 (error: Error) => addErrorToast([error]), 
                 actions, 
                 setMessages, 
-                finalMessages
+                finalMessages,
+                { value: followUp }
               );
               
               const pairedFeAction = getPairedFeAction(actions, resultMessage);
@@ -649,7 +650,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                   (error: Error) => addErrorToast([error]), 
                   actions, 
                   setMessages, 
-                  finalMessages
+                  finalMessages,
+                  { value: followUp }
                 );
               }
             } else if (message.isResultMessage() && currentResultMessagePairedFeAction) {
@@ -671,7 +673,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 (error: Error) => addErrorToast([error]), 
                 actions, 
                 setMessages, 
-                finalMessages
+                finalMessages,
+                { value: followUp }
               );
             }
           }
@@ -705,18 +708,38 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           }
         }
 
+        // Check for explicit noFollowUp in the most recent action
+        const lastActionMessage = finalMessages
+          .filter(msg => msg.isActionExecutionMessage())
+          .pop();
+        
+        const lastAction = lastActionMessage 
+          ? actions.find(a => a.name === (lastActionMessage as ActionExecutionMessage).name) 
+          : null;
+        
+        // If the last action has followUp: false, override the global followUp value
+        if (lastAction && lastAction.followUp === false) {
+          followUp = false;
+        }
+
+        // Before we decide on follow-up, check if we did execute any actions
+        const didExecuteAnyAction = didExecuteAction || didExecuteActionGlobal;
+
         if (
-          // if followUp is not explicitly false
+          // Only follow up if followUp is not explicitly false
           followUp !== false &&
-          // and we executed an action OR the global flag indicates an action was executed
-          (didExecuteAction || didExecuteActionGlobal ||
-            // the last message is a server side result
+          // And we actually executed an action or got a result
+          (didExecuteAnyAction ||
+            // Or the last message is a server side result
             (!isAgentRun &&
               finalMessages.length &&
               finalMessages[finalMessages.length - 1].isResultMessage())) &&
-          // the user did not stop generation
+          // And the user did not stop generation
           !chatAbortControllerRef.current?.signal.aborted
         ) {
+          // Log the followUp state for debugging
+          console.log(`[CopilotKit] Follow-up triggered: followUp=${followUp}, didExecuteAction=${didExecuteAction}, didExecuteActionGlobal=${didExecuteActionGlobal}`);
+          
           // Clean up any lingering UI state
           (window as any).__COPILOT_CURRENT_ACTION_MESSAGE_ID__ = undefined;
           (window as any).__COPILOT_CURRENT_ACTION_NAME__ = undefined;
@@ -743,6 +766,11 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           
           return await runChatCompletionRef.current!(finalMessages);
         } else if (chatAbortControllerRef.current?.signal.aborted) {
+          // Log when no follow-up is triggered
+          if (followUp === false) {
+            console.log(`[CopilotKit] No follow-up due to followUp=${followUp}`);
+          }
+          
           // filter out all the action execution messages that do not have a consecutive matching result message
           const repairedMessages = finalMessages.filter((message, actionExecutionIndex) => {
             if (message.isActionExecutionMessage()) {
@@ -848,7 +876,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
       const newMessages = [...messages, message];
       setMessages(newMessages);
-      const followUp = options?.followUp ?? true;
+      // Only avoid follow-up if options.followUp is explicitly false
+      const followUp = options?.followUp !== false;
       if (followUp) {
         return runChatCompletionAndHandleFunctionCall(newMessages);
       }
@@ -1061,12 +1090,18 @@ async function executeActionFromMessage(
   onErrorCallback: (error: Error) => void,
   allActions: FrontendAction<any>[],
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>,
-  finalMessages: Message[]
+  finalMessages: Message[],
+  followUpRef?: { value: FrontendAction["followUp"] }
 ): Promise<ResultMessage> {
-  // Determine if this is an interrupt action by looking at the action properties
-  // instead of trying to access message properties that might not exist
-  const isInterruptAction = action?.followUp === false;
-  const followUp = action?.followUp !== false;
+  // Check if this action explicitly has followUp set to false
+  const hasExplicitNoFollowUp = action?.followUp === false;
+  
+  // Update the followUp reference if provided
+  if (followUpRef && hasExplicitNoFollowUp) {
+    // If this action explicitly disables follow-up, override any previous settings
+    // This is the ONLY place we should set followUp to false
+    followUpRef.value = false;
+  }
   
   // Identify if this is a HITL action
   const isHitlAction = action.renderAndWait || action.renderAndWaitForResponse;

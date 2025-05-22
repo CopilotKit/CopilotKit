@@ -2,9 +2,10 @@
 
 import { CopilotChat } from "@copilotkit/react-ui";
 import "./styles.css";
-import { CopilotKit, useCopilotAction } from "@copilotkit/react-core";
+import { CopilotKit, useCopilotAction, useCopilotChat } from "@copilotkit/react-core";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { MessageRole, TextMessage } from "@copilotkit/runtime-client-gql";
 
 interface BookableItem {
   name: string;
@@ -31,6 +32,7 @@ export default function PanelPage() {
 }
 
 function TravelPlanner() {
+  const { appendMessage } = useCopilotChat();
   const [bookableItems, setBookableItems] = useState<BookableItem[]>([]);
 
   // regular action
@@ -45,8 +47,9 @@ function TravelPlanner() {
   // backend action
   useCopilotAction({
     name: "getImageUrl",
+    followUp: true,
     render({ status, result, args }) {
-      return <img src={result} alt="Image" />;
+      return <div>Image</div>;
     },
   });
   
@@ -93,6 +96,14 @@ function TravelPlanner() {
         }}
         instructions="You are a travel planner. You help the user plan their vacation. After presenting something, don't summarize, but keep the reply short."
       />
+      <button onClick={() => appendMessage(new TextMessage({
+        role: MessageRole.User,
+        content: "What is the weather in San Francisco?"
+      }), {
+      })}
+      >
+        Append Message
+      </button>
     </div>
   );
 }
