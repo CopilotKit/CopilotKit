@@ -37,7 +37,7 @@ export function DataTable({ columns, data }: DataTableProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {data.map((row, rowIndex) => (
+          {data?.map((row, rowIndex) => (
             <React.Fragment key={rowIndex}>
               <TableRow
                 className="cursor-pointer hover:bg-gray-50 transition"
