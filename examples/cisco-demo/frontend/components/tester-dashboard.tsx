@@ -13,6 +13,8 @@ import { testData } from "@/lib/testData"
 import { DataCode } from "./data-code"
 import { useCoAgentStateRender } from "@copilotkit/react-core"
 import { ChatGrid } from "./data-chat-grid"
+import { useCopilotChatSuggestions } from "@copilotkit/react-ui"
+import { testerPersonaSuggestions } from "@/lib/prompts"
 // Sample data for the tester dashboard
 const tableColumns = [
   {
@@ -113,6 +115,13 @@ export function TesterDashboard() {
   const [testSuites, setTestSuites] = useState<any>([])
   const [loading, setLoading] = useState(true)
   const [testCaseStatus, setTestCaseStatus] = useState<{ [rowIndex: number]: string[] }>({})
+
+  useCopilotChatSuggestions({
+    available: "enabled",
+    instructions: testerPersonaSuggestions,
+    minSuggestions: 2,
+    maxSuggestions: 4,
+  })
 
   useCoAgentStateRender({
     name: "testing_agent",

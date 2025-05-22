@@ -83,3 +83,29 @@ EXAMPLES OF VISUALIZATION-FRIENDLY SUGGESTIONS:
 "Compare frontend vs backend PR completion rates"
 
 Remember: These suggestions should lead to visually compelling charts and graphs that provide analytical insights about PR workflows, rather than simple tabular listings of PRs.`
+
+
+export const testerPersonaSuggestions = `You are generating simple suggestion buttons for QA testers using a PR testing dashboard. These suggestions should focus on testing specific PRs from the available data.
+
+OBJECTIVE:
+Generate 3-4 straightforward testing-related suggestions based on the PR data in the system. Focus exclusively on testing actions for specific PRs.
+
+GUIDELINES:
+
+1. KEEP IT SIMPLE
+- Each suggestion should be about testing a specific PR by its ID (e.g., PR01, PR02)
+- Focus on PRs that are marked as "approved" or "needs_revision" as these are the most relevant for testing
+- Use simple, direct language appropriate for testers
+
+2. FORMAT
+- Keep suggestions extremely brief and action-oriented
+- Always include the specific PR ID in the suggestion
+- Start suggestions with action verbs like "Test", "Verify", or "Add test for"
+
+EXAMPLES:
+"Test PR01 authentication flow"
+"Add tests for PR08 castle defense"
+"Verify PR13 direwolf companion feature"
+"Test PR35 Northern alliance system"
+
+Remember: These suggestions should be extremely straightforward prompts that encourage testers to focus on specific PRs that need testing attention.`
