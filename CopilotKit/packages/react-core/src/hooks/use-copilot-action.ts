@@ -197,7 +197,12 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
         resolve = resolvePromise;
         reject = rejectPromise;
       });
-      renderAndWaitRef.current = { promise, resolve: resolve!, reject: reject!, messageId: currentActivatingId };
+      renderAndWaitRef.current = {
+        promise,
+        resolve: resolve!,
+        reject: reject!,
+        messageId: currentActivatingId,
+      };
       // then we await the promise (it will be resolved in the original renderAndWait function)
       const result = await promise;
       return result;
@@ -214,7 +219,10 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
       if (props.status === "executing") {
         if (!renderAndWaitRef.current || !renderAndWaitRef.current.promise) {
           status = "inProgress";
-        } else if (renderAndWaitRef.current.messageId !== currentRenderMessageId && activatingMessageIdRef.current !== currentRenderMessageId) {
+        } else if (
+          renderAndWaitRef.current.messageId !== currentRenderMessageId &&
+          activatingMessageIdRef.current !== currentRenderMessageId
+        ) {
           status = "inProgress";
         }
         // If conditions met, status remains 'executing'
@@ -226,8 +234,18 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
         result: props.result,
         // handler and respond should only be provided if this is the truly active instance
         // and its promise infrastructure is ready.
-        handler: status === "executing" && renderAndWaitRef.current && renderAndWaitRef.current.messageId === currentRenderMessageId ? renderAndWaitRef.current!.resolve : undefined,
-        respond: status === "executing" && renderAndWaitRef.current && renderAndWaitRef.current.messageId === currentRenderMessageId ? renderAndWaitRef.current!.resolve : undefined,
+        handler:
+          status === "executing" &&
+          renderAndWaitRef.current &&
+          renderAndWaitRef.current.messageId === currentRenderMessageId
+            ? renderAndWaitRef.current!.resolve
+            : undefined,
+        respond:
+          status === "executing" &&
+          renderAndWaitRef.current &&
+          renderAndWaitRef.current.messageId === currentRenderMessageId
+            ? renderAndWaitRef.current!.resolve
+            : undefined,
       } as T extends [] ? ActionRenderPropsNoArgsWait<T> : ActionRenderPropsWait<T>;
 
       // Type guard to check if renderAndWait is for no args case

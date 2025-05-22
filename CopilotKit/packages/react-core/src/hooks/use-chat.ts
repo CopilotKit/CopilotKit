@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef } from "react";
-import { flushSync } from 'react-dom';
+import { flushSync } from "react-dom";
 import {
   FunctionCallHandler,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
@@ -742,15 +742,20 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             if (action && message.isActionExecutionMessage()) {
               // For HITL actions, check if they've already been processed to avoid redundant handler calls.
               const isRenderAndWaitAction = (action as any)?._isRenderAndWait || false;
-              const alreadyProcessed = isRenderAndWaitAction && finalMessages.some(fm =>
-                fm.isResultMessage() && fm.actionExecutionId === message.id
-              );
+              const alreadyProcessed =
+                isRenderAndWaitAction &&
+                finalMessages.some(
+                  (fm) => fm.isResultMessage() && fm.actionExecutionId === message.id,
+                );
 
               if (alreadyProcessed) {
                 // Skip re-execution if already processed
               } else {
                 // Call the single, externally defined executeActionFromMessage
-                const resultMessage = await executeActionFromMessage(action, message as ActionExecutionMessage);
+                const resultMessage = await executeActionFromMessage(
+                  action,
+                  message as ActionExecutionMessage,
+                );
                 const pairedFeAction = getPairedFeAction(actions, resultMessage);
 
                 if (pairedFeAction) {

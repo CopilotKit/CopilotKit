@@ -31,16 +31,19 @@ function TravelPlanner() {
   useCopilotAction({
     name: "getFlight",
     followUp: false,
-    render() { return <div>Flight</div>; },
+    render() {
+      return <div>Flight</div>;
+    },
   });
-  
+
   // backend action
   useCopilotAction({
     name: "getImageUrl",
     followUp: true,
-    render() { return <div>Image</div>; },
+    render() {
+      return <div>Image</div>;
+    },
   });
-  
 
   // hitl action 1
   useCopilotAction({
@@ -51,8 +54,8 @@ function TravelPlanner() {
           <p>Weather</p>
           <p>Status: {status}</p>
           {status !== "complete" && (
-            <button 
-              className="bg-blue-500 text-white p-2 rounded-md" 
+            <button
+              className="bg-blue-500 text-white p-2 rounded-md"
               onClick={() => respond?.("the weather is 70 degrees")}
             >
               Continue
@@ -63,7 +66,6 @@ function TravelPlanner() {
     },
   });
 
-
   // hitl action 2
   useCopilotAction({
     name: "getHotel",
@@ -73,8 +75,8 @@ function TravelPlanner() {
           <p>Hotel</p>
           <p>Status: {status}</p>
           {status !== "complete" && (
-            <button 
-              className="bg-blue-500 text-white p-2 rounded-md" 
+            <button
+              className="bg-blue-500 text-white p-2 rounded-md"
               onClick={() => respond?.("Marriott")}
             >
               Continue
@@ -84,7 +86,6 @@ function TravelPlanner() {
       );
     },
   });
-
 
   // add a message with followUp false
   useCopilotAction({
@@ -101,11 +102,11 @@ function TravelPlanner() {
       appendMessage(
         new TextMessage({
           role: MessageRole.Assistant,
-          content: "What is the weather in San Francisco?"
-        }), 
+          content: "What is the weather in San Francisco?",
+        }),
         {
           followUp: false,
-        }
+        },
       );
     },
   });
@@ -119,56 +120,64 @@ function TravelPlanner() {
         }}
         instructions="You are a travel planner. You help the user plan their vacation. After presenting something, don't summarize, but keep the reply short."
       />
-      {
-        /* 
+      {/* 
           ----------------------------------------------------------------
             Buttons for triggering different cases 
           ----------------------------------------------------------------
-        */ 
-      }
+        */}
       <div className="flex flex-col gap-2 px-4">
-        <button 
+        <button
           className="bg-blue-500 text-white p-2 rounded-md"
-          onClick={
-            () => appendMessage(new TextMessage({
-              role: MessageRole.User,
-              content: "Get the weather 3 times all at once, you decide everything."
-            }), {
-            })
+          onClick={() =>
+            appendMessage(
+              new TextMessage({
+                role: MessageRole.User,
+                content: "Get the weather 3 times all at once, you decide everything.",
+              }),
+              {},
+            )
           }
         >
           Multiple of the same action
         </button>
-        <button 
+        <button
           className="bg-blue-500 text-white p-2 rounded-md"
-          onClick={
-            () => appendMessage(new TextMessage({
-              role: MessageRole.User,
-              content: "Get the weather and the hotel all at once, you decide everything."
-            }), {
-            })
+          onClick={() =>
+            appendMessage(
+              new TextMessage({
+                role: MessageRole.User,
+                content: "Get the weather and the hotel all at once, you decide everything.",
+              }),
+              {},
+            )
           }
         >
           Multiple different actions
         </button>
-        <button 
+        <button
           className="bg-blue-500 text-white p-2 rounded-md"
-          onClick={
-            () => appendMessage(new TextMessage({
-              role: MessageRole.User,
-              content: "Get the weather, hotel and flight all at once, you decide everything."
-            }), {
-            })
+          onClick={() =>
+            appendMessage(
+              new TextMessage({
+                role: MessageRole.User,
+                content: "Get the weather, hotel and flight all at once, you decide everything.",
+              }),
+              {},
+            )
           }
         >
           Multiple HITL actions and non-hitl actions
         </button>
-        <button 
+        <button
           className="bg-blue-500 text-white p-2 rounded-md"
-          onClick={() => appendMessage(new TextMessage({
-            role: MessageRole.User,
-            content: "Add a message"
-          }))}
+          onClick={() =>
+            appendMessage(
+              new TextMessage({
+                role: MessageRole.User,
+                content: "Add a message",
+              }),
+            )
+          }
         >
           Add a message
         </button>
