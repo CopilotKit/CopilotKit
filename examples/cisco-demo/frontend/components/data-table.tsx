@@ -118,7 +118,7 @@ function StatusBadge({ status }: { status: string }) {
       variant="outline"
       className={`px-2 py-1 rounded-full text-xs font-medium text-center ${getStatusColor(status)}`}
     >
-      {status.split("_").join(" ")}
+      {status?.split("_").join(" ")}
     </Badge>
   )
 }
