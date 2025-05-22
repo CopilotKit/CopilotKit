@@ -12,6 +12,13 @@ from .crewai_sdk import (
     copilotkit_exit,
     copilotkit_predict_state,
 )
+from .copilotkit_integration import (
+    CopilotKitFlow,
+    CopilotKitToolCallEvent,
+    register_tool_call_listener,
+    tool_calls_log,
+    create_tool_proxy
+)
 __all__ = [
     "CrewAIAgent",
     "CopilotKitProperties",
@@ -22,4 +29,9 @@ __all__ = [
     "copilotkit_stream",
     "copilotkit_exit",
     "copilotkit_predict_state",
+    "CopilotKitFlow",
+    "CopilotKitToolCallEvent",
+    "register_tool_call_listener",
+    "tool_calls_log",
+    "create_tool_proxy"
 ]
