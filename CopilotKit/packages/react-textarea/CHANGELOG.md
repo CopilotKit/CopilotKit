@@ -1,5 +1,15 @@
 # ui
 
+## 1.8.14-next.0
+
+### Patch Changes
+
+- Updated dependencies [9cf1fda]
+- Updated dependencies [9cf1fda]
+  - @copilotkit/react-core@1.8.14-next.0
+  - @copilotkit/runtime-client-gql@1.8.14-next.0
+  - @copilotkit/shared@1.8.14-next.0
+
 ## 1.8.13
 
 ### Patch Changes

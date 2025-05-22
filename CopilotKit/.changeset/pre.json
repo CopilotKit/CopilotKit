@@ -17,5 +17,8 @@
     "tailwind-config": "1.4.6",
     "tsconfig": "1.4.6"
   },
-  "changesets": []
+  "changesets": [
+    "green-apes-enjoy",
+    "stupid-nails-travel"
+  ]
 }

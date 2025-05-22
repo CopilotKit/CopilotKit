@@ -1,5 +1,16 @@
 # ui
 
+## 1.8.14-next.0
+
+### Patch Changes
+
+- 9cf1fda: - fix append follow-up when actions disable followUp
+  - Create stupid-nails-travel.md
+  - fixup
+- 9cf1fda: - fix append follow-up when actions disable followUp
+  - @copilotkit/runtime-client-gql@1.8.14-next.0
+  - @copilotkit/shared@1.8.14-next.0
+
 ## 1.8.13
 
 ### Patch Changes
