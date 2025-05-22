@@ -147,29 +147,85 @@ export function DeveloperDashboard() {
         type: "object[]",
         description: "The data to be displayed in the table. It should be an array of objects",
         required: true,
-        items: {
-          type: "object",
-          properties: {
-            id: { type: "string", description: "The id of the PR", required: true },
-            title: { type: "string", description: "The title of the PR", required: true },
-            status: { type: "string", description: "The status of the PR", required: true },
-            assignedReviewer: { type: "string", description: "The assigned reviewer of the PR", required: true },
-            assignedTester: { type: "string", description: "The assigned tester of the PR", required: true },
-            daysSinceStatusChange: { type: "number", description: "The number of days since the status of the PR was changed", required: true },
-            createdAt: { type: "string", description: "The date and time when the PR was created", required: true },
-            updatedAt: { type: "string", description: "The date and time when the PR was last updated", required: true },
-            userId: { type: "number", description: "The id of the user who created the PR", required: true },
-            author: { type: "string", description: "The author of the PR", required: true },
-            repository: { type: "string", description: "The repository of the PR", required: true },
-            branch: { type: "string", description: "The branch of the PR", required: true },
+        attributes: [
+          {
+            name: "id",
+            type: "string",
+            description: "The id of the PR",
+            required: true
+          },
+          {
+            name: "title",
+            type: "string",
+            description: "The title of the PR",
+            required: true
+          },
+          {
+            name: "status",
+            type: "string",
+            description: "The status of the PR",
+            required: true
+          },
+          {
+            name: "assignedReviewer",
+            type: "string",
+            description: "The assigned reviewer of the PR",
+            required: true
+          },
+          {
+            name: "assignedTester",
+            type: "string",
+            description: "The assigned tester of the PR",
+            required: true
+          },
+          {
+            name: "daysSinceStatusChange",
+            type: "number",
+            description: "The number of days since the status of the PR was changed",
+            required: true
+          },
+          {
+            name: "createdAt",
+            type: "string",
+            description: "The date and time when the PR was created",
+            required: true
+          },
+          {
+            name: "updatedAt",
+            type: "string",
+            description: "The date and time when the PR was last updated",
+            required: true
+          },
+          {
+            name: "userId",
+            type: "number",
+            description: "The id of the user who created the PR",
+            required: true
+          },
+          {
+            name: "author",
+            type: "string",
+            description: "The author of the PR",
+            required: true
+          },
+          {
+            name: "repository",
+            type: "string",
+            description: "The repository of the PR",
+            required: true
+          },
+          {
+            name: "branch",
+            type: "string",
+            description: "The branch of the PR",
+            required: true
           }
-
-        }
+        ]
       }
     ],
     handler: (items: any) => {
       debugger
-      setFilteredData(items.data)
+      setFilteredData(items?.items)
     }
   })
 
@@ -218,7 +274,7 @@ export function DeveloperDashboard() {
               <Filter className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">Filters:</span>
             </div>
-           <Select value={filterParams.status} onValueChange={(e) => {
+            <Select value={filterParams.status} onValueChange={(e) => {
               debugger
               setFilterParams({ ...filterParams, status: e })
 
