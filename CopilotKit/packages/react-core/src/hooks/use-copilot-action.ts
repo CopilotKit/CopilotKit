@@ -159,10 +159,13 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
   const { setAction, removeAction, actions, chatComponentsCache } = useCopilotContext();
   const idRef = useRef<string>(randomId());
   const renderAndWaitRef = useRef<RenderAndWaitForResponse | null>(null);
+  const activatingMessageIdRef = useRef<string | null>(null);
   const { addToast } = useToast();
 
   // clone the action to avoid mutating the original object
   action = { ...action };
+
+  // const { currentlyActivatingHitlActionMessageIdRef } = useCopilotContext() as any; // <-- REMOVE THIS FOR NOW
 
   // If the developer provides a renderAndWaitForResponse function, we transform the action
   // to use a promise internally, so that we can treat it like a normal action.
@@ -172,12 +175,21 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
     // check if renderAndWaitForResponse is set
     (action.renderAndWait || action.renderAndWaitForResponse)
   ) {
+    (action as any)._isRenderAndWait = true; // Internal flag to identify this action type later
     const renderAndWait = action.renderAndWait || action.renderAndWaitForResponse;
     // remove the renderAndWait function from the action
     action.renderAndWait = undefined;
     action.renderAndWaitForResponse = undefined;
+
+    // Add a method for use-chat.ts to set the activating message ID.
+    // This helps correlate the action instance with the message being processed by use-chat.
+    (action as any)._setActivatingMessageId = (id: string | null) => {
+      activatingMessageIdRef.current = id;
+    };
+
     // add a handler that will be called when the action is executed
     action.handler = useAsyncCallback(async () => {
+      const currentActivatingId = activatingMessageIdRef.current;
       // we create a new promise when the handler is called
       let resolve: (result: any) => void;
       let reject: (error: any) => void;
@@ -185,26 +197,37 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
         resolve = resolvePromise;
         reject = rejectPromise;
       });
-      renderAndWaitRef.current = { promise, resolve: resolve!, reject: reject! };
+      renderAndWaitRef.current = { promise, resolve: resolve!, reject: reject!, messageId: currentActivatingId };
       // then we await the promise (it will be resolved in the original renderAndWait function)
-      return await promise;
+      const result = await promise;
+      return result;
     }, []) as any;
 
     // add a render function that will be called when the action is rendered
-    action.render = ((props: ActionRenderProps<T>): React.ReactElement => {
-      // Specifically for renderAndWaitForResponse the executing state is set too early, causing a race condition
-      // To fit it: we will wait for the handler to be ready
+    action.render = ((props: ActionRenderProps<T> & { messageId?: string }): React.ReactElement => {
+      const currentRenderMessageId = props.messageId;
+      // For renderAndWaitForResponse, the 'executing' state might be set by use-chat before
+      // this specific action instance's handler (and thus its promise) is ready.
+      // This logic adjusts the status to 'inProgress' if the current render
+      // isn't for the actively processing HITL action, preventing premature interaction.
       let status = props.status;
-      if (props.status === "executing" && !renderAndWaitRef.current) {
-        status = "inProgress";
+      if (props.status === "executing") {
+        if (!renderAndWaitRef.current || !renderAndWaitRef.current.promise) {
+          status = "inProgress";
+        } else if (renderAndWaitRef.current.messageId !== currentRenderMessageId && activatingMessageIdRef.current !== currentRenderMessageId) {
+          status = "inProgress";
+        }
+        // If conditions met, status remains 'executing'
       }
       // Create type safe waitProps based on whether T extends empty array or not
       const waitProps = {
         status,
         args: props.args,
         result: props.result,
-        handler: status === "executing" ? renderAndWaitRef.current!.resolve : undefined,
-        respond: status === "executing" ? renderAndWaitRef.current!.resolve : undefined,
+        // handler and respond should only be provided if this is the truly active instance
+        // and its promise infrastructure is ready.
+        handler: status === "executing" && renderAndWaitRef.current && renderAndWaitRef.current.messageId === currentRenderMessageId ? renderAndWaitRef.current!.resolve : undefined,
+        respond: status === "executing" && renderAndWaitRef.current && renderAndWaitRef.current.messageId === currentRenderMessageId ? renderAndWaitRef.current!.resolve : undefined,
       } as T extends [] ? ActionRenderPropsNoArgsWait<T> : ActionRenderPropsWait<T>;
 
       // Type guard to check if renderAndWait is for no args case
@@ -302,4 +325,5 @@ interface RenderAndWaitForResponse {
   promise: Promise<any>;
   resolve: (result: any) => void;
   reject: (error: any) => void;
+  messageId: string | null;
 }
