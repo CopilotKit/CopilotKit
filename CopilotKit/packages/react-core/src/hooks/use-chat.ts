@@ -718,6 +718,13 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
   runChatCompletionRef.current = runChatCompletion;
 
+  const runChatCompletionAndHandleFunctionCall = useAsyncCallback(
+    async (messages: Message[]): Promise<void> => {
+      await runChatCompletionRef.current!(messages);
+    },
+    [messages],
+  );
+
   useEffect(() => {
     if (!isLoading && pendingAppendsRef.current.length > 0) {
       const pending = pendingAppendsRef.current.splice(0);
@@ -729,13 +736,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
       }
     }
   }, [isLoading, messages, setMessages, runChatCompletionAndHandleFunctionCall]);
-
-  const runChatCompletionAndHandleFunctionCall = useAsyncCallback(
-    async (messages: Message[]): Promise<void> => {
-      await runChatCompletionRef.current!(messages);
-    },
-    [messages],
-  );
 
   // Go over all events and see that they include data that should be returned to the agent
   const composeAndFlushMetaEventsInput = useCallback(
