@@ -147,7 +147,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
       autosuggestionsConfig.disableWhenEmpty,
       shouldDisableAutosuggestions,
     );
-    
+
     const onKeyDownHandlerForHoveringEditor = useCallback(
       (event: React.KeyboardEvent<HTMLDivElement>) => {
         if (
@@ -254,7 +254,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
             }
             return fullEditorText;
           });
-          
+
           onChangeHandlerForAutocomplete(newEditorState);
 
           props.onValueChange?.(fullEditorText);
