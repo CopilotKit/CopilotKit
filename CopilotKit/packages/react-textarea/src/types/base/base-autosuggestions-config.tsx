@@ -81,7 +81,7 @@ const defaultShouldToggleHoveringEditorOnKeyPress = (
   shortcut: string,
 ) => {
   const isMetaKey = isMacOS() ? event.metaKey : event.ctrlKey;
-  
+
   // if command-k, toggle the hovering editor
   return event.key === shortcut && isMetaKey;
 };
