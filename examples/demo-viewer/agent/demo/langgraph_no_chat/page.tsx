@@ -38,8 +38,8 @@ const Chat = () => {
   })
 
   useEffect(() => {
-    console.log(state,"state");
-    
+    console.log(state, "state", nodeName);
+
     if (nodeName && nodeName != "start_flow") {
       setShowVerticalWizard(true);
       // Update completed steps based on nodeName
@@ -59,27 +59,30 @@ const Chat = () => {
   const wizardSteps = [
     {
       title: "Step 1",
-      content: `Asking the agent to start the process. ${prompt}`
+      content: `Asking the agent to start the process. <b><i>${prompt}</i></b>`
     },
     {
       title: "Step 2",
-      content: "Running the buffer_node to extract the answer from the model."
+      content: "Running the <b><i>buffer_node</i></b> to extract the answer from the model."
     },
     {
       title: "Step 3",
-      content: "Running the confirming_response_node to confirm the response from the model."
+      content: "Running the <b><i>confirming_response_node</i></b> to confirm the response from the model."
     },
     {
       title: "Step 4",
-      content: "Running the reporting_node to generate a report and send it to the user."
+      content: "Running the <b><i>reporting_node</i></b> to generate a response and send it to the user."
     }
   ];
 
   useEffect(() => {
+    // console.log(state.messages,"messages");
+
     if (!isLoading && state?.messages?.length) {
       setAiResponse(state.messages[state.messages.length - 1].content);
     }
   }, [isLoading])
+
 
   function handleExecuteProcess(): void {
     try {
@@ -254,8 +257,7 @@ const Chat = () => {
                                 <h2 style={{ fontSize: 20, marginBottom: 4, fontWeight: 700 }}>
                                   {stepObj.title}
                                 </h2>
-                                <p style={{ fontSize: 16, marginBottom: 0 }}>
-                                  {stepObj.content}
+                                <p style={{ fontSize: 16, marginBottom: 0 }} dangerouslySetInnerHTML={{ __html: stepObj.content }}>
                                 </p>
                               </div>
                             </div>
@@ -287,44 +289,49 @@ const Chat = () => {
                     </div>
                   </motion.div>
                 </AnimatePresence>
+                {showVerticalWizard && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      right: 0,
+                      bottom: 40,
+                      display: "flex",
+                      justifyContent: "center",
+                      pointerEvents: "none",
+                      zIndex: 10,
+                    }}
+                  >
+                    <button
+                      disabled={isLoading}
+                      style={{
+                        background: "#0ea5e9",
+                        color: "#fff",
+                        borderRadius: 6,
+                        padding: "7px 24px",
+                        fontSize: 18,
+                        cursor: "pointer",
+                        fontWeight: 600,
+                        pointerEvents: "auto",
+                      }}
+                      onClick={() => {
+                        setCompletedSteps([])
+                        setStarted(false);
+                        setAiResponse("");
+                        setShowVerticalWizard(false);
+                        setStep(0);
+                      }}
+                    >
+                      Back to Start
+                    </button>
+                  </div>
+                )}
               </motion.div>
             )}
+
           </AnimatePresence>
         </div>
-        {showVerticalWizard && (
-          <div
-            style={{
-              position: "absolute",
-              left: 0,
-              right: 0,
-              bottom: 40,
-              display: "flex",
-              justifyContent: "center",
-              pointerEvents: "none",
-              zIndex: 10,
-            }}
-          >
-            <button
-              style={{
-                background: "#0ea5e9",
-                color: "#fff",
-                borderRadius: 6,
-                padding: "7px 24px",
-                fontSize: 18,
-                cursor: "pointer",
-                fontWeight: 600,
-                pointerEvents: "auto",
-              }}
-              onClick={() => {
-                setStarted(false);
-                setShowVerticalWizard(false);
-                setStep(0);
-              }}
-            >
-              Back to Start
-            </button>
-          </div>
-        )}
+
       </div>
     </div >
   );
