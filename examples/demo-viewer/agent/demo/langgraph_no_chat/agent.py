@@ -13,7 +13,7 @@ from langgraph.checkpoint.memory import MemorySaver
 
 # CopilotKit imports
 from copilotkit import CopilotKitState
-from copilotkit.langgraph import copilotkit_customize_config, copilotkit_emit_state, copilotkit_interrupt
+from copilotkit.langgraph import copilotkit_customize_config, copilotkit_emit_state, copilotkit_interrupt, copilotkit_emit_message
 
 # LLM imports
 from langchain_openai import ChatOpenAI
@@ -31,11 +31,11 @@ async def start_flow(state: AgentState, config: RunnableConfig):
     This is the entry point for the flow.
     """
     
-    await asyncio.sleep(1)
+    await asyncio.sleep(2)
     return Command(
         goto="buffer_node",
         update={
-            "messages": state["messages"]
+            "messages": state["messages"],
         }
     )
 
@@ -49,13 +49,13 @@ async def buffer_node(state: AgentState, config: RunnableConfig):
     """
     await asyncio.sleep(1)
 
+    
     # Define the model
     model = ChatOpenAI(model="gpt-4o-mini")
     
     # Define config for the model
     if config is None:
         config = RunnableConfig(recursion_limit=25)
-    
     # Use CopilotKit's custom config functions to properly set up streaming for the steps state
     config = copilotkit_customize_config(
         config
@@ -81,7 +81,7 @@ async def buffer_node(state: AgentState, config: RunnableConfig):
     return Command(
         goto="confirming_response_node",
         update={
-            "messages": messages
+            "messages": messages,
         }
     )
 
@@ -91,12 +91,12 @@ async def confirming_response_node(state: AgentState, config: RunnableConfig):
     This is a buffer node as well. Just the name is
     """
     
-    await asyncio.sleep(1)
+    await asyncio.sleep(2)
     await copilotkit_exit(config)
     return Command(
         goto="reporting_node",
         update={
-            "messages": state["messages"]
+            "messages": state["messages"],
         }
     )
 
@@ -107,7 +107,7 @@ async def reporting_node(state: AgentState, config: RunnableConfig):
     This node handles the user interrupt for step customization and generates the final response.
     """
 
-    await asyncio.sleep(1)
+    await asyncio.sleep(2)
     await copilotkit_exit(config)
     return Command(
         goto=END,
