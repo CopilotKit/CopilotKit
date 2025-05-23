@@ -1,0 +1,5 @@
+Flask>=2.0
+python-dotenv>=0.15
+openai>=0.27  # Or a more recent compatible version
+copilot-kit # As per backend/app.py
+langchain # Added as it's used in app.py
