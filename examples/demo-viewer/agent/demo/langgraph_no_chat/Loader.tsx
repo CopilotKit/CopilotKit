@@ -1,7 +1,7 @@
 // agent/demo/langgraph_no_chat/Loader.tsx
 import React from "react";
 
-const Loader: React.FC<{ size?: number }> = ({ size = 48 }) => (
+const Loader: React.FC<{ size?: number }> = ({ size = 24 }) => (
   <div style={{
     display: "flex",
     alignItems: "center",
