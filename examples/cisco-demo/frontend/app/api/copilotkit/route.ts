@@ -1,4 +1,5 @@
 import { prData } from "@/lib/data";
+import testData from "@/lib/testData";
 import {
   CopilotRuntime,
   OpenAIAdapter,
@@ -175,6 +176,74 @@ Example PR data:
             return uniqueReviewerNames;
           }
         },
+        {
+          name: "fetchData_TesterNames",
+          description: `Data fetching action that gets all the unique tester names from the Tests data.          
+            The Tests data structure includes:
+            - testId: Unique test identifier (e.g., 'TEST001')
+            - prId: Associated PR identifier (e.g., 'PR01')
+            - title: Test suite title
+            - status: Current status ('passed', 'failed', 'idle', 'running')
+            - testCases: Array of test cases, each containing:
+              - id: Test case identifier (e.g., 'TC001-1')
+              - name: Test case name
+              - status: Test case status
+              - executionTime: Time taken to execute
+              - createdAt: ISO timestamp of creation
+              - updatedAt: ISO timestamp of last update
+              - environment: Test environment
+              - browser: Browser used
+              - testSteps: Array of test steps
+            - totalTestCases: Total number of test cases
+            - passedTestCases: Number of passed test cases
+            - failedTestCases: Number of failed test cases
+            - skippedTestCases: Number of skipped test cases
+            - coverage: Test coverage percentage
+            - createdAt: ISO timestamp of test suite creation
+            - updatedAt: ISO timestamp of last update
+            - executedBy: Email of the tester who executed the tests
+
+            Example Test data:
+            {
+              "testId": "TEST69",
+              "prId": "PR81",
+              "title": "User Authentication Flow Test Suite",
+              "status": "passed",
+              "testCases": [
+                {
+                  "id": "TC001-1",
+                  "name": "Login with valid credentials",
+                  "status": "passed",
+                  "executionTime": "1.2s",
+                  "createdAt": "2025-04-28T15:00:00.000Z",
+                  "updatedAt": "2025-04-28T15:05:00.000Z",
+                  "environment": "staging",
+                  "browser": "Chrome",
+                  "testSteps": [
+                    "Enter valid email",
+                    "Enter valid password",
+                    "Click login button",
+                    "Verify successful login"
+                  ]
+                }
+              ],
+              "totalTestCases": 3,
+              "passedTestCases": 3,
+              "failedTestCases": 0,
+              "skippedTestCases": 0,
+              "coverage": 85,
+              "createdAt": "2025-04-28T14:30:00.000Z",
+              "updatedAt": "2025-04-28T15:30:00.000Z",
+              "executedBy": "jane.smith@got.com"
+            }`,
+          parameters: [],
+          handler: async () => {
+            let testerNames = testData.map(test => test.executedBy);
+            let uniqueTesterNames = [...new Set(testerNames)];
+            console.log(uniqueTesterNames, "uniqueTesterNames");            
+            return uniqueTesterNames;
+          }
+        }
       ] as any
     },
     remoteEndpoints : [

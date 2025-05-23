@@ -103,9 +103,12 @@ GUIDELINES:
 - Start suggestions with action verbs like "Test", "Verify", or "Add test for"
 
 EXAMPLES:
-"Test PR01 authentication flow"
+"Generate test cases for PR01 authentication flow"
 "Add tests for PR08 castle defense"
 "Verify PR13 direwolf companion feature"
 "Test PR35 Northern alliance system"
 
 Remember: These suggestions should be extremely straightforward prompts that encourage testers to focus on specific PRs that need testing attention.`
+
+
+export const generalSuggestions = `Suggest with relevant suggestions based on the pathname state which is accessible in copilotReadables. If pathname points to tester, suggest testing related suggestions like Generate test cases for PR01 authentication flow. Generate test cases for PR02 Product flow, etc. If pathname points to dev, suggest dev related suggestions like Show PR status distribution across repositories. Show PRs created over last month in weekly trend, etc. Strictly follow the pathname state and generate suggestions based on examples provided. `

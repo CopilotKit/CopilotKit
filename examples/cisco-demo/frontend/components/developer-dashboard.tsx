@@ -149,7 +149,7 @@ export function DeveloperDashboard() {
 
   useCopilotAction({
     name: "renderData_LineChart",
-    description: `Render a Line-chart based on the PR data which shows the trend of PR creation over time. Example input format: [{"name": "12/25", "value": 10}, {"name": "7/22", "value": 20}, {"name": "12/18", "value": 30}]. If dates are present convert them to the format "MM/DD". Also if name length is long, provide short name for the item in the input. For example, If the name is Jon.snow@got.com, then the short name is Jon`,
+    description: `Render a Line-chart based on the PR data which shows the trend of PR creation over time. Example input format: [[{"name": "12/25", "value": 10,accessorKey : "Jon"}, {"name": "7/22", "value": 20,accessorKey : "Jon"}, {"name": "12/18", "value": 30,accessorKey : "Jon"}],[{"name": "12/25", "value": 10,accessorKey : "Ned"}, {"name": "7/22", "value": 20,accessorKey : "Ned"}, {"name": "12/18", "value": 30,accessorKey : "Ned"}]]. If dates are present convert them to the format "MM/DD". Also if name length is long, provide short name for the item in the input. For example, If the name is Jon.snow@got.com, then the short name is Jon`,
     parameters: [
       {
         name: "items",
@@ -170,12 +170,20 @@ export function DeveloperDashboard() {
               type: "number",
               description: "The value of the item",
               required: true
+            },
+            {
+              name: "accessorKey",
+              type: "string",
+              description: "The accessor key of the item. It can be the author name or the repository name or the branch name or the status name or the date just value.",
+              required: true
             }
           ]
         }
       }
     ],
     render: ({ args }: any) => {
+      console.log(args, "args")
+      // return <div>Hello</div>
       return <PRLineChartData args={args} />
     }
   })
@@ -283,11 +291,6 @@ export function DeveloperDashboard() {
     }
   })
 
-  useCopilotChatSuggestions({
-    instructions: devSuggestions
-  },
-    [prData]
-  )
 
 
   async function getPRData() {

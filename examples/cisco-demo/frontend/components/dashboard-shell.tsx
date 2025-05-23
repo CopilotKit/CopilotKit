@@ -16,9 +16,15 @@ import { ModeToggle } from "@/components/mode-toggle"
 import { Code2, FlaskConical, LayoutDashboard, LogOut, Settings, TestTube2, TrendingUp } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import Link from "next/link"
-import { useCopilotChat } from "@copilotkit/react-core"
-
+import { useCopilotChat, useCopilotReadable } from "@copilotkit/react-core"
+import { devSuggestions, generalSuggestions, testerPersonaSuggestions } from "@/lib/prompts"
+import { useSharedContext } from "@/lib/shared-context"
+import { useCopilotChatSuggestions } from "@copilotkit/react-ui"
+import { useSharedTestsContext } from "@/lib/shared-tests-context"
+import { useEffect } from "react"
 export function DashboardShell({ children }: { children: React.ReactNode }) {
+  const { prData } = useSharedContext()
+  const { testsData } = useSharedTestsContext()
   const pathname = usePathname()
   const { setMessages } = useCopilotChat()
   const routes = [
@@ -47,6 +53,18 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       isActive: pathname === "/executive",
     },
   ]
+
+  useCopilotChatSuggestions({
+    instructions: devSuggestions,
+    maxSuggestions: 3,
+  },
+    [pathname]
+  )
+
+  useCopilotReadable({
+    description: "Current pathname",
+    value: pathname,
+  })
 
   return (
     <div className="flex h-full flex-1">

@@ -38,8 +38,8 @@ export function DataTable({ columns, data, onToggle, setTestsData, testsData }: 
 
   useEffect(() => {
     setTestSuite(data)
-    setTestStatus(prev => ({ 
-      ...prev, 
+    setTestStatus(prev => ({
+      ...prev,
       ...Object.fromEntries(data.map((item, index) => [index, item.status]))
     }))
   }, [data])
@@ -66,7 +66,7 @@ export function DataTable({ columns, data, onToggle, setTestsData, testsData }: 
 
       const suiteToMove = testSuite[rowIndex];
       console.log(suiteToMove, "suiteToMove", rowIndex);
-      
+
       if (suiteToMove) {
         // onToggle([...testSuite.filter((_, idx) => idx !== rowIndex)])
         console.log(suiteToMove, "suiteToMove");
@@ -75,7 +75,7 @@ export function DataTable({ columns, data, onToggle, setTestsData, testsData }: 
         });
         suiteToMove.status = isPassed ? 'passed' : 'failed'
         console.log(testSuiteToMove, "testSuiteToMove");
-        
+
         setTestSuiteToMove([...testSuiteToMove, {
           title: suiteToMove.title,
           status: suiteToMove.status,
@@ -152,7 +152,7 @@ export function DataTable({ columns, data, onToggle, setTestsData, testsData }: 
                               className="w-5 h-5 text-blue-600 hover:text-blue-700 cursor-pointer"
                               onClick={e => {
                                 e.stopPropagation();
-                                if(!Object.values(testStatus).some(status => (status === 'running'))){
+                                if (!Object.values(testStatus).some(status => (status === 'running'))) {
                                   runTest(rowIndex, row);
                                 }
                               }}
@@ -201,6 +201,7 @@ export function DataTable({ columns, data, onToggle, setTestsData, testsData }: 
       </Table>
       <div className="flex justify-center my-4">
         <Button
+          variant="outline"
           className="mt-4"
           disabled={Object.values(testStatus).length == 0 || Object.values(testStatus).some(status => (status === 'idle' || status === 'running'))}
           onClick={() => {
@@ -208,6 +209,7 @@ export function DataTable({ columns, data, onToggle, setTestsData, testsData }: 
             setTestSuite([])
             setTestsData([...testsData, ...testSuiteToMove])
             setTestSuiteToMove([])
+            setTestStatus({})
           }}
         >
           Move Completed Tests to Results

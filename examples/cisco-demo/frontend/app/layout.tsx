@@ -6,6 +6,7 @@ import { SidebarProvider } from "@/components/ui/sidebar"
 import { ThemeProvider } from "@/components/theme-provider"
 import { SharedProvider } from "@/lib/shared-context"
 import { CopilotKit } from "@copilotkit/react-core"
+import { SharedTestsProvider } from "@/lib/shared-tests-context"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -28,16 +29,18 @@ export default function RootLayout({
         <CopilotKit runtimeUrl="/api/copilotkit">
           <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
             <SharedProvider>
-              <SidebarProvider>
-                <div className="flex h-screen w-full overflow-hidden bg-background">
-                  {children}
-                  {chat}
-                </div>
-              </SidebarProvider>
+              <SharedTestsProvider>
+                <SidebarProvider>
+                  <div className="flex h-screen w-full overflow-hidden bg-background">
+                    {children}
+                    {chat}
+                  </div>
+                </SidebarProvider>
+              </SharedTestsProvider>
             </SharedProvider>
           </ThemeProvider>
         </CopilotKit>
       </body>
-    </html>
+    </html >
   )
 }

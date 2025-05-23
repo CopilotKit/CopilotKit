@@ -6,7 +6,7 @@ import { DataTable } from "@/components/data-table-results"
 import { DataTable as DataTableTests } from "@/components/data-table-tests"
 import { DataChart } from "@/components/data-chart"
 import { Button } from "@/components/ui/button"
-import { BarChart3, Table2,Code2 } from "lucide-react"
+import { BarChart3, Table2, Code2 } from "lucide-react"
 import { getTestsService } from "@/app/Services/service"
 import Loader from "./ui/loader"
 import { testData } from "@/lib/testData"
@@ -15,6 +15,8 @@ import { useCoAgentStateRender } from "@copilotkit/react-core"
 import { ChatGrid } from "./data-chat-grid"
 import { useCopilotChatSuggestions } from "@copilotkit/react-ui"
 import { testerPersonaSuggestions } from "@/lib/prompts"
+import { useSharedTestsContext } from "@/lib/shared-tests-context"
+import { TestsData } from "@/app/Interfaces/interface"
 // Sample data for the tester dashboard
 const tableColumns = [
   {
@@ -111,7 +113,7 @@ const chartData = [
 
 export function TesterDashboard() {
   const [viewMode, setViewMode] = useState<"results" | "tests" | "code">("results")
-  const [testsData, setTestsData] = useState<any>([])
+  const { testsData, setTestsData } = useSharedTestsContext()
   const [testSuites, setTestSuites] = useState<any>([])
   const [loading, setLoading] = useState(true)
   const [testCaseStatus, setTestCaseStatus] = useState<{ [rowIndex: number]: string[] }>({})
@@ -126,13 +128,13 @@ export function TesterDashboard() {
   useCoAgentStateRender({
     name: "testing_agent",
     render: (props) => {
-      return <ChatGrid 
-        status={props.status} 
-        state={props.state} 
-        testSuite={testSuites} 
-        setTestSuite={setTestSuites} 
-        testCaseStatus={testCaseStatus} 
-        setTestCaseStatus={setTestCaseStatus} 
+      return <ChatGrid
+        status={props.status}
+        state={props.state}
+        testSuite={testSuites}
+        setTestSuite={setTestSuites}
+        testCaseStatus={testCaseStatus}
+        setTestCaseStatus={setTestCaseStatus}
       />
     }
   })
@@ -144,8 +146,8 @@ export function TesterDashboard() {
   async function getTests() {
     // const tests = await getTestsService()
     const tests = testData
-    console.log(tests)
-    setTestsData(tests)
+    // console.log(tests)
+    setTestsData(tests as TestsData[])
     setLoading(false)
   }
   return (
@@ -176,13 +178,13 @@ export function TesterDashboard() {
       <Card>
         <CardHeader>
           {viewMode != "code" && <><CardTitle>{viewMode === "results" ? "Test Results" : "Testing Grounds"}</CardTitle>
-          <CardDescription>{viewMode === "results" ? "Monitor test results and performance metrics" : "Perform testing on the latest PRs"}</CardDescription></>}
+            <CardDescription>{viewMode === "results" ? "Monitor test results and performance metrics" : "Perform testing on the latest PRs"}</CardDescription></>}
         </CardHeader>
         <CardContent>
           {viewMode === "results" ? (
             <DataTable columns={tableColumns} data={testsData} />
           ) : viewMode === "tests" ? (
-            <DataTableTests columns={tableColumnsTests} data={testSuites} onToggle={setTestSuites} setTestsData= {setTestsData} testsData={testsData}/>
+            <DataTableTests columns={tableColumnsTests} data={testSuites} onToggle={setTestSuites} setTestsData={setTestsData} testsData={testsData} />
           ) : (
             <DataCode />
           )}
