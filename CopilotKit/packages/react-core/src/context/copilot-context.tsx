@@ -5,7 +5,7 @@ import {
   FrontendAction,
 } from "../types/frontend-action";
 import React from "react";
-import { TreeNodeId } from "../hooks/use-tree";
+import { TreeNodeId, Tree } from "../hooks/use-tree";
 import { DocumentPointer } from "../types";
 import { CopilotChatSuggestionConfiguration } from "../types/chat-suggestion-configuration";
 import { CoAgentStateRender, CoAgentStateRenderProps } from "../types/coagent-action";
@@ -113,6 +113,7 @@ export interface AuthState {
 }
 
 export type ActionName = string;
+export type ContextTree = Tree;
 
 export interface CopilotContextParams {
   // function-calling
@@ -134,6 +135,7 @@ export interface CopilotContextParams {
   // text context
   addContext: (context: string, parentId?: string, categories?: string[]) => TreeNodeId;
   removeContext: (id: TreeNodeId) => void;
+  getAllContext: () => Tree;
   getContextString: (documents: DocumentPointer[], categories: string[]) => string;
 
   // document context
@@ -232,6 +234,7 @@ const emptyCopilotContext: CopilotContextParams = {
     returnAndThrowInDebug(""),
   addContext: () => "",
   removeContext: () => {},
+  getAllContext: () => [],
 
   getFunctionCallHandler: () => returnAndThrowInDebug(async () => {}),
 

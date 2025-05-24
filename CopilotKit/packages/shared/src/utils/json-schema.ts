@@ -59,6 +59,104 @@ export function actionParametersToJsonSchema(actionParameters: Parameter[]): JSO
   };
 }
 
+// Convert JSONSchema to Parameter[]
+export function jsonSchemaToActionParameters(jsonSchema: JSONSchema): Parameter[] {
+  if (jsonSchema.type !== "object" || !jsonSchema.properties) {
+    return [];
+  }
+
+  const parameters: Parameter[] = [];
+  const requiredFields = jsonSchema.required || [];
+
+  for (const [name, schema] of Object.entries(jsonSchema.properties)) {
+    const parameter = convertJsonSchemaToParameter(name, schema, requiredFields.includes(name));
+    parameters.push(parameter);
+  }
+
+  return parameters;
+}
+
+// Convert JSONSchema property to Parameter
+function convertJsonSchemaToParameter(
+  name: string,
+  schema: JSONSchema,
+  isRequired: boolean,
+): Parameter {
+  const baseParameter: Parameter = {
+    name,
+    description: schema.description,
+  };
+
+  if (!isRequired) {
+    baseParameter.required = false;
+  }
+
+  switch (schema.type) {
+    case "string":
+      return {
+        ...baseParameter,
+        type: "string",
+        ...(schema.enum && { enum: schema.enum }),
+      };
+    case "number":
+    case "boolean":
+      return {
+        ...baseParameter,
+        type: schema.type,
+      };
+    case "object":
+      if (schema.properties) {
+        const attributes: Parameter[] = [];
+        const requiredFields = schema.required || [];
+
+        for (const [propName, propSchema] of Object.entries(schema.properties)) {
+          attributes.push(
+            convertJsonSchemaToParameter(propName, propSchema, requiredFields.includes(propName)),
+          );
+        }
+
+        return {
+          ...baseParameter,
+          type: "object",
+          attributes,
+        };
+      }
+      return {
+        ...baseParameter,
+        type: "object",
+      };
+    case "array":
+      if (schema.items.type === "object" && "properties" in schema.items) {
+        const attributes: Parameter[] = [];
+        const requiredFields = schema.items.required || [];
+
+        for (const [propName, propSchema] of Object.entries(schema.items.properties || {})) {
+          attributes.push(
+            convertJsonSchemaToParameter(propName, propSchema, requiredFields.includes(propName)),
+          );
+        }
+
+        return {
+          ...baseParameter,
+          type: "object[]",
+          attributes,
+        };
+      } else if (schema.items.type === "array") {
+        throw new Error("Nested arrays are not supported");
+      } else {
+        return {
+          ...baseParameter,
+          type: `${schema.items.type}[]`,
+        };
+      }
+    default:
+      return {
+        ...baseParameter,
+        type: "string",
+      };
+  }
+}
+
 function convertAttribute(attribute: Parameter): JSONSchema {
   switch (attribute.type) {
     case "string":

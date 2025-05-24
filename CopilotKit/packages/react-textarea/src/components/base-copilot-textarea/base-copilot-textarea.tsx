@@ -92,6 +92,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
     const valueOnInitialRender = useMemo(() => props.value ?? "", []);
     const [lastKnownFullEditorText, setLastKnownFullEditorText] = useState(valueOnInitialRender);
     const [cursorMovedSinceLastTextChange, setCursorMovedSinceLastTextChange] = useState(false);
+    const [isUserInputActive, setIsUserInputActive] = useState(false);
 
     // // When the editor text changes, we want to reset the `textEditedSinceLastCursorMovement` state.
     // useEffect(() => {
@@ -128,7 +129,9 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
       hoveringEditorIsDisplayed ||
       // the cursor has moved since the last text change AND we are configured to disable autosuggestions in this case:
       (cursorMovedSinceLastTextChange &&
-        autosuggestionsConfig.temporarilyDisableWhenMovingCursorWithoutChangingText);
+        autosuggestionsConfig.temporarilyDisableWhenMovingCursorWithoutChangingText) ||
+      // not user input and we want to disable non-trusted events (like text insertion from autocomplete plugins):
+      (!isUserInputActive && autosuggestionsConfig.temporarilyDisableNotTrustedEvents);
 
     const {
       currentAutocompleteSuggestion,
@@ -251,6 +254,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
             }
             return fullEditorText;
           });
+
           onChangeHandlerForAutocomplete(newEditorState);
 
           props.onValueChange?.(fullEditorText);
@@ -269,6 +273,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
           renderElement={renderElementMemoized}
           renderPlaceholder={renderPlaceholderMemoized}
           onKeyDown={(event) => {
+            setIsUserInputActive(true);
             onKeyDownHandlerForHoveringEditor(event); // forward the event for internal use
             onKeyDownHandlerForAutocomplete(event); // forward the event for internal use
             props.onKeyDown?.(event); // forward the event for external use
@@ -282,6 +287,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
             // clear autocompletion on blur
             props.onBlur?.(ev);
             clearAutocompletionsFromEditor(editor);
+            setIsUserInputActive(false);
           }}
           {...propsToForward}
         />
