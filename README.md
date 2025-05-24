@@ -77,7 +77,7 @@ Transform tedious form-filling into natural conversations. The AI assistant asks
 ### 🔄 [State Machine Copilot](https://github.com/CopilotKit/CopilotKit/tree/main/examples/copilot-state-machine)
 Transform complex conversational flows into manageable state machines. This AI-powered car sales application demonstrates how to build sophisticated multi-stage interactions with contextual awareness and state transitions.
 <div>
-  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/state-machine-copilot"><code>GitHub →</code></a>
+  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/copilot-state-machine"><code>GitHub →</code></a>
   <a href="https://state-machine-copilot.vercel.app"><code>Live Demo →</code></a>
 </div>
 
