@@ -53,11 +53,12 @@ export function RenderActionExecutionMessage({
 
         try {
           const toRender = render({
-            status: status as any,
+            status: status as any, // Cast to any as RenderFunctionStatus is a union that can be complex to narrow here
             args,
             result: actionResult,
             name: message.name,
-          });
+            messageId: message.id, // Pass messageId for HITL action correlation
+          } as any);
           // No result and complete: stay silent
           if (!toRender && status === "complete") {
             return null;
@@ -86,6 +87,7 @@ export function RenderActionExecutionMessage({
             );
           }
         } catch (e) {
+          // It's useful to log this error for developers to debug their custom render functions
           console.error(`Error executing render function for action ${message.name}: ${e}`);
           return (
             <AssistantMessage

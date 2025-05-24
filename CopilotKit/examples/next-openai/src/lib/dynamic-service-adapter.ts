@@ -38,7 +38,7 @@ async function getAzureOpenAIAdapter() {
 
 async function getAnthropicAdapter() {
   const { AnthropicAdapter } = await import("@copilotkit/runtime");
-  return new AnthropicAdapter();
+  return new AnthropicAdapter({ model: "claude-3-7-sonnet-20250219" });
 }
 
 async function getGeminiAdapter() {
