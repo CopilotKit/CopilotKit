@@ -44,15 +44,23 @@ export interface Option {
   props?: HTMLAttributes<HTMLElement>;
 }
 
+export interface OptionCategory {
+  name: string;
+  options: Option[];
+}
+
 export interface OptionDropdown {
   title: ReactNode;
-  options: Option[];
+  /**
+   * Categorized options that will be displayed in groups
+   */
+  categories: OptionCategory[];
 }
 
 function isOptionDropdown(
   item: Option | OptionDropdown
 ): item is OptionDropdown {
-  return "options" in item;
+  return "categories" in item;
 }
 
 function isOption(item: Option | OptionDropdown): item is Option {
@@ -76,8 +84,12 @@ export function SubdocsMenu({
     const dropDowns = options.filter((item) => isOptionDropdown(item));
 
     if (dropDowns.length > 0) {
-      const dropDown = dropDowns[0];
-      nonRootOptions = nonRootOptions.concat(dropDown.options);
+      // Collect options from all categories in all dropdowns
+      for (const dropDown of dropDowns) {
+        for (const category of dropDown.categories) {
+          nonRootOptions = nonRootOptions.concat(category.options);
+        }
+      }
     }
 
     const activeNonRootOption = nonRootOptions.find(
@@ -166,16 +178,19 @@ function SubdocsMenuItemAgentFramework({
   selected?: Option;
   onClick?: () => void;
 }) {
-  const defaultOption = item.options.find(
+  // Find options across all categories
+  const allOptions: Option[] = item.categories.flatMap(category => category.options);
+  
+  const defaultOption = allOptions.find(
     (option) => option.url === "/coagents"
   )!;
 
-  const isSelected = item.options.find(
+  const isSelected = allOptions.find(
     (option) => option.url === selected?.url
   );
 
   const showOption =
-    item.options.find((option) => option.url === selected?.url) ||
+    allOptions.find((option) => option.url === selected?.url) ||
     defaultOption;
 
   return (
@@ -216,9 +231,18 @@ function SubdocsMenuItemDropdown({
   const router = useRouter();
   const selectRef = useRef(null);
 
-  const selectedOption = item.options.find(
-    (option) => option.url === selected?.url
-  );
+  // Find selected option in categorized options
+  const selectedOption = useMemo(() => {
+    // Check in all categories
+    for (const category of item.categories) {
+      const categoryOption = category.options.find(
+        (option) => option.url === selected?.url
+      );
+      if (categoryOption) return categoryOption;
+    }
+    
+    return undefined;
+  }, [item, selected]);
 
   const isSelected = selectedOption !== undefined;
 
@@ -267,19 +291,37 @@ function SubdocsMenuItemDropdown({
           />
         </SelectTrigger>
         <SelectContent className="p-1">
-          {item.options.map((option) => (
-            <SelectItem
-              key={option.url}
-              value={option.url}
-              className="py-2 px-2 cursor-pointer focus:bg-accent focus:text-accent-foreground"
-            >
-              <div className="flex items-center">
-                <div className={cn("rounded-sm p-1.5 mr-2", option.bgGradient)}>
-                  {option.icon}
+          {/* Render categorized options */}
+          {item.categories.map((category, categoryIndex) => (
+            <div key={category.name || `category-${categoryIndex}`}>
+              {/* Category header */}
+              {category.name && (
+                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  {category.name}
                 </div>
-                <span className="font-medium whitespace-pre-line">{option.title}</span>
-              </div>
-            </SelectItem>
+              )}
+              
+              {/* Category options */}
+              {category.options.map((option) => (
+                <SelectItem
+                  key={option.url}
+                  value={option.url}
+                  className="py-2 px-2 cursor-pointer focus:bg-accent focus:text-accent-foreground"
+                >
+                  <div className="flex items-center">
+                    <div className={cn("rounded-sm p-1.5 mr-2", option.bgGradient)}>
+                      {option.icon}
+                    </div>
+                    <span className="font-medium whitespace-pre-line">{option.title}</span>
+                  </div>
+                </SelectItem>
+              ))}
+              
+              {/* Add divider between categories */}
+              {categoryIndex < item.categories.length - 1 && (
+                <div className="my-1 border-t border-border" />
+              )}
+            </div>
           ))}
         </SelectContent>
       </Select>

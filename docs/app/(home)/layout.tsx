@@ -34,64 +34,88 @@ export default function Layout({ children }: { children: ReactNode }) {
 
                 {
                   title: "CoAgents (LangGraph, CrewAI, Mastra, AG2)",
-                  options: [
+                  categories: [
                     {
-                      title: "What are CoAgents?",
-                      description:
-                        "CoAgents allow you to build AI-powered agents that can execute tasks and make decisions on your behalf.",
-                      url: "/coagents-home",
-                      icon: <UserCog className="w-4 h-4" />,
-                      bgGradient:
-                        "bg-gradient-to-b from-yellow-500 to-yellow-300 text-yellow-900",
-                      selectedStyle: "ring-yellow-500/70 ring-2 rounded-sm",
+                      name: "Getting Started",
+                      options: [
+                        {
+                          title: "What are CoAgents?",
+                          description:
+                            "CoAgents allow you to build AI-powered agents that can execute tasks and make decisions on your behalf.",
+                          url: "/coagents-home",
+                          icon: <UserCog className="w-4 h-4" />,
+                          bgGradient:
+                            "bg-gradient-to-b from-yellow-500 to-yellow-300 text-yellow-900",
+                          selectedStyle: "ring-yellow-500/70 ring-2 rounded-sm",
+                        },
+                      ]
                     },
                     {
-                      title: "CoAgents (LangGraph)",
-                      description: "Documentation for CoAgents with LangGraph",
-                      url: "/langgraph",
-                      icon: <SiLangchain className="w-4 h-4 text-bold" />,
-                      bgGradient:
-                        "bg-gradient-to-b from-purple-700 to-purple-400 text-purple-100",
-                      selectedStyle: "ring-purple-500/70 ring-2 rounded-sm",
+                      name: "Frameworks",
+                      options: [
+                        {
+                          title: "CoAgents (LangGraph)",
+                          description: "Documentation for CoAgents with LangGraph",
+                          url: "/langgraph",
+                          icon: <SiLangchain className="w-4 h-4 text-bold" />,
+                          bgGradient:
+                            "bg-gradient-to-b from-purple-700 to-purple-400 text-purple-100",
+                          selectedStyle: "ring-purple-500/70 ring-2 rounded-sm",
+                        },
+                        {
+                          title: "CoAgents (CrewAI Flows)",
+                          description:
+                            "Documentation for CoAgents with CrewAI Flows",
+                          url: "/crewai-flows",
+                          icon: <SiCrewai className="w-4 h-4 text-bold" />,
+                          bgGradient:
+                            "bg-gradient-to-b from-[#FA694C] to-[#FE8A71] text-white",
+                          selectedStyle: "ring-[#FA694C]/70 ring-2 rounded-sm",
+                        },
+                        {
+                          title: "CoAgents (CrewAI Crews)",
+                          description:
+                            "Documentation for CoAgents with CrewAI Crews",
+                          url: "/crewai-crews",
+                          icon: <SiCrewai className="w-4 h-4 text-bold" />,
+                          bgGradient:
+                            "bg-gradient-to-b from-[#FA694C] to-[#FE8A71] text-white",
+                          selectedStyle: "ring-[#FA694C]/70 ring-2 rounded-sm",
+                        },
+                        {
+                          title: "CoAgents (Mastra)",
+                          description: "Documentation for CoAgents with Mastra",
+                          url: "/mastra",
+                          icon: <MastraIcon className="w-4 h-4 text-bold" />,
+                          bgGradient:
+                            "bg-gradient-to-b from-black to-zinc-800 text-white",
+                          selectedStyle: "ring-zinc-800 dark:ring-white ring-2 rounded-sm",
+                        },
+                        {
+                          title: "CoAgents (AG2)",
+                          description: "Documentation for CoAgents with AG2",
+                          url: "/ag2",
+                          icon: <AG2Icon className="w-4 h-4 text-bold" />,
+                          bgGradient:
+                            "bg-gradient-to-b from-indigo-700 to-indigo-400 text-indigo-100",
+                          selectedStyle: "ring-indigo-500/70 ring-2 rounded-sm",
+                        },
+                      ]
                     },
                     {
-                      title: "CoAgents (CrewAI Flows)",
-                      description:
-                        "Documentation for CoAgents with CrewAI Flows",
-                      url: "/crewai-flows",
-                      icon: <SiCrewai className="w-4 h-4 text-bold" />,
-                      bgGradient:
-                        "bg-gradient-to-b from-[#FA694C] to-[#FE8A71] text-white",
-                      selectedStyle: "ring-[#FA694C]/70 ring-2 rounded-sm",
-                    },
-                    {
-                      title: "CoAgents (CrewAI Crews)",
-                      description:
-                        "Documentation for CoAgents with CrewAI Crews",
-                      url: "/crewai-crews",
-                      icon: <SiCrewai className="w-4 h-4 text-bold" />,
-                      bgGradient:
-                        "bg-gradient-to-b from-[#FA694C] to-[#FE8A71] text-white",
-                      selectedStyle: "ring-[#FA694C]/70 ring-2 rounded-sm",
-                    },
-                    {
-                      title: "CoAgents (Mastra)",
-                      description: "Documentation for CoAgents with Mastra",
-                      url: "/mastra",
-                      icon: <MastraIcon className="w-4 h-4 text-bold" />,
-                      bgGradient:
-                        "bg-gradient-to-b from-black to-zinc-800 text-white",
-                      selectedStyle: "ring-zinc-800 dark:ring-white ring-2 rounded-sm",
-                    },
-                    {
-                      title: "CoAgents (AG2)",
-                      description: "Documentation for CoAgents with AG2",
-                      url: "/ag2",
-                      icon: <AG2Icon className="w-4 h-4 text-bold" />,
-                      bgGradient:
-                        "bg-gradient-to-b from-indigo-700 to-indigo-400 text-indigo-100",
-                      selectedStyle: "ring-indigo-500/70 ring-2 rounded-sm",
-                    },
+                      name: "Examples",
+                      options: [
+                        {
+                          title: "Sample Projects",
+                          description: "Example CoAgent implementations",
+                          url: "/examples",
+                          icon: <LuPlane className="w-4 h-4" />,
+                          bgGradient:
+                            "bg-gradient-to-b from-blue-700 to-blue-400 text-blue-100",
+                          selectedStyle: "ring-blue-500/70 ring-2 rounded-sm",
+                        },
+                      ]
+                    }
                   ],
                 },
                 {
