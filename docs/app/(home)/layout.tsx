@@ -23,20 +23,24 @@ export default function Layout({ children }: { children: ReactNode }) {
             <SubdocsMenu
               options={[
                 {
-                  title: "The Standard Agent",
-                  description: "Documentation for building Copilots",
-                  url: "/",
-                  icon: <Bot className="w-4 h-4" />,
-                  bgGradient:
-                    "bg-gradient-to-b from-indigo-700 to-indigo-400 text-indigo-100",
-                  selectedStyle: "ring-indigo-500/70 ring-2 rounded-sm",
-                },
-
-                {
-                  title: "CoAgents (LangGraph, CrewAI, Mastra, AG2)",
+                  title: "CopilotKit Agents",
                   categories: [
                     {
-                      name: "Getting Started",
+                      name: "High Level",
+                      options: [
+                        {
+                          title: "The Standard Agent",
+                          description: "Documentation for building Copilots",
+                          url: "/",
+                          icon: <Bot className="w-4 h-4" />,
+                          bgGradient:
+                            "bg-gradient-to-b from-indigo-700 to-indigo-400 text-indigo-100",
+                          selectedStyle: "ring-indigo-500/70 ring-2 rounded-sm",
+                        },
+                      ]
+                    },
+                    {
+                      name: "Low Level (Agent Frameworks)",
                       options: [
                         {
                           title: "What are CoAgents?",
@@ -48,11 +52,6 @@ export default function Layout({ children }: { children: ReactNode }) {
                             "bg-gradient-to-b from-yellow-500 to-yellow-300 text-yellow-900",
                           selectedStyle: "ring-yellow-500/70 ring-2 rounded-sm",
                         },
-                      ]
-                    },
-                    {
-                      name: "Frameworks",
-                      options: [
                         {
                           title: "CoAgents (LangGraph)",
                           description: "Documentation for CoAgents with LangGraph",
@@ -99,20 +98,6 @@ export default function Layout({ children }: { children: ReactNode }) {
                           bgGradient:
                             "bg-gradient-to-b from-indigo-700 to-indigo-400 text-indigo-100",
                           selectedStyle: "ring-indigo-500/70 ring-2 rounded-sm",
-                        },
-                      ]
-                    },
-                    {
-                      name: "Examples",
-                      options: [
-                        {
-                          title: "Sample Projects",
-                          description: "Example CoAgent implementations",
-                          url: "/examples",
-                          icon: <LuPlane className="w-4 h-4" />,
-                          bgGradient:
-                            "bg-gradient-to-b from-blue-700 to-blue-400 text-blue-100",
-                          selectedStyle: "ring-blue-500/70 ring-2 rounded-sm",
                         },
                       ]
                     }
