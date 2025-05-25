@@ -248,83 +248,88 @@ function SubdocsMenuItemDropdown({
 
   return (
     <div className="w-full">
-      <Select
-        onValueChange={(url) => {
-          router.push(url);
-          onClick?.();
-          if (selectRef.current) {
-            setTimeout(() => {
-              (selectRef.current as any).blur();
-            }, 10);
-          }
-        }}
-        value={selectedOption?.url}
+      <div 
+        className={cn(
+          "p-2 rounded-md",
+          isSelected
+            ? `${
+                selectedOption?.selectedStyle ||
+                "ring-purple-500/70 ring-2"
+              } opacity-100`
+            : "ring-0 opacity-60 hover:opacity-100"
+        )}
       >
-        <SelectTrigger
-          className={cn(
-            "pl-2 py-2 border-0 h-auto flex gap-3 items-center w-full",
-            isSelected
-              ? `${
-                  selectedOption?.selectedStyle ||
-                  "ring-purple-500/70 ring-2 rounded-sm"
-                } opacity-100`
-              : "ring-0 opacity-60 hover:opacity-100"
-          )}
-          ref={selectRef}
-        >
-          <SelectValue
-            placeholder={
-              <div className="flex items-center">
-                <div className={cn("rounded-sm p-1.5 mr-2")}>
-                  {selectedOption?.icon || (
-                    <PiGraph
-                      className={cn(
-                        "w-5 h-5 text-bold bg-gradient-to-b rounded-sm",
-                        "from-purple-700 to-purple-400 text-purple-100 inline-block"
-                      )}
-                    />
-                  )}
-                </div>
-                <div className="font-medium whitespace-pre-line">{item.title}</div>
-              </div>
+        <div className="text-sm font-medium text-muted-foreground mb-2">Choose your agent</div>
+        <Select
+          onValueChange={(url) => {
+            router.push(url);
+            onClick?.();
+            if (selectRef.current) {
+              setTimeout(() => {
+                (selectRef.current as any).blur();
+              }, 10);
             }
-          />
-        </SelectTrigger>
-        <SelectContent className="p-1">
-          {/* Render categorized options */}
-          {item.categories.map((category, categoryIndex) => (
-            <div key={category.name || `category-${categoryIndex}`}>
-              {/* Category header */}
-              {category.name && (
-                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  {category.name}
-                </div>
-              )}
-              
-              {/* Category options */}
-              {category.options.map((option) => (
-                <SelectItem
-                  key={option.url}
-                  value={option.url}
-                  className="py-2 px-2 cursor-pointer focus:bg-accent focus:text-accent-foreground"
-                >
-                  <div className="flex items-center">
-                    <div className={cn("rounded-sm p-1.5 mr-2", option.bgGradient)}>
-                      {option.icon}
-                    </div>
-                    <span className="font-medium whitespace-pre-line">{option.title}</span>
+          }}
+          value={selectedOption?.url}
+        >
+          <SelectTrigger
+            className="border-0 h-auto p-0 w-full bg-transparent"
+            ref={selectRef}
+          >
+            <SelectValue
+              placeholder={
+                <div className="flex items-center w-full">
+                  <div className={cn("rounded-sm p-1.5 mr-2")}>
+                    {selectedOption?.icon || (
+                      <PiGraph
+                        className={cn(
+                          "w-5 h-5 text-bold bg-gradient-to-b rounded-sm",
+                          "from-purple-700 to-purple-400 text-purple-100 inline-block"
+                        )}
+                      />
+                    )}
                   </div>
-                </SelectItem>
-              ))}
-              
-              {/* Add divider between categories */}
-              {categoryIndex < item.categories.length - 1 && (
-                <div className="my-1 border-t border-border" />
-              )}
-            </div>
-          ))}
-        </SelectContent>
-      </Select>
+                  <div className="font-medium whitespace-pre-line">{item.title}</div>
+                </div>
+              }
+            />
+          </SelectTrigger>
+          <SelectContent className="p-1">
+            {/* Render categorized options */}
+            {item.categories.map((category, categoryIndex) => (
+              <div key={category.name || `category-${categoryIndex}`}>
+                {/* Category header */}
+                {category.name && (
+                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {category.name}
+                  </div>
+                )}
+                
+                {/* Category options */}
+                {category.options.map((option) => (
+                  <SelectItem
+                    key={option.url}
+                    value={option.url}
+                    className="py-2 px-2 cursor-pointer focus:bg-accent focus:text-accent-foreground"
+                  >
+                    <div className="flex items-center">
+                      <div className={cn("rounded-sm p-1.5 mr-2", option.bgGradient)}>
+                        {option.icon}
+                      </div>
+                      <span className="font-medium whitespace-pre-line">{option.title}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+                
+                {/* Add divider between categories */}
+                {categoryIndex < item.categories.length - 1 && (
+                  <div className="my-1 border-t border-border" />
+                )}
+              </div>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   );
 }
