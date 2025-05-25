@@ -1,16 +1,39 @@
 "use client";
 import { SearchIcon } from "lucide-react";
-import { Socials } from "@/components/react/socials";
+import { TerminalIcon } from "lucide-react";
+import Link from "next/link";
+import { Logo } from "@/app/logo";
+import { MenuButton } from "./menu-button";
+import { AgentFrameworkDropdown } from "./agent-framework-dropdown";
 
 export function TopBar() {
   return (
-    <>
-      <div className="p-2 h-[70px] hidden lg:block absolute w-[calc(100vw-var(--fd-sidebar-width)-20px)] ml-[var(--fd-sidebar-width)]">
-          <div className="flex justify-end items-center gap-2">
-            <SearchToggle />
+    <div className="sticky top-0 z-50 w-full border-b bg-background">
+      <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+        {/* Logo */}
+        <div className="flex items-center">
+          <Link href="/" className="flex items-center">
+            <Logo />
+          </Link>
+        </div>
+
+        {/* Navigation */}
+        <div className="flex-1 ml-8 flex items-center gap-4">
+          <AgentFrameworkDropdown />
+          
+          <Link href="/reference" className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-accent">
+            <TerminalIcon className="w-4 h-4" />
+            <span className="font-medium text-sm">API Reference</span>
+          </Link>
+        </div>
+
+        {/* Search and Menu */}
+        <div className="flex items-center gap-2">
+          <SearchToggle />
+          <MenuButton />
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
