@@ -8,8 +8,14 @@ import { SiCrewai } from "@icons-pack/react-simple-icons";
 import { TopBar } from "@/components/layout/top-bar";
 import { SiLangchain } from "react-icons/si";
 import { AG2Icon, MastraIcon } from "@/lib/icons/custom-icons";
+import { Metadata } from "next";
 
-export default function Layout({ children }: { children: ReactNode }) {
+export const metadata: Metadata = {
+  title: "CopilotKit Tutorials",
+  description: "Step-by-step tutorials for building AI agents with different frameworks",
+};
+
+export default function TutorialsLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <TopBar />
@@ -23,15 +29,15 @@ export default function Layout({ children }: { children: ReactNode }) {
               <SubdocsMenu
                 options={[
                   {
-                    title: "CopilotKit Agents",
+                    title: "Tutorials",
                     categories: [
                       {
-                        name: "High Level",
+                        name: "The Standard Agent",
                         options: [
                           {
-                            title: "The Standard Agent",
-                            description: "Documentation for building Copilots",
-                            url: "/",
+                            title: "Getting Started",
+                            description: "Learn how to build your first Copilot",
+                            url: "/tutorials/standard-agent/getting-started",
                             icon: <Bot className="w-4 h-4" />,
                             bgGradient:
                               "bg-gradient-to-b from-indigo-700 to-indigo-400 text-indigo-100",
@@ -40,60 +46,63 @@ export default function Layout({ children }: { children: ReactNode }) {
                         ]
                       },
                       {
-                        name: "Low Level (Agent Frameworks)",
+                        name: "LangGraph",
                         options: [
                           {
-                            title: "What are CoAgents?",
-                            description:
-                              "CoAgents allow you to build AI-powered agents that can execute tasks and make decisions on your behalf.",
-                            url: "/coagents-home",
-                            icon: <UserCog className="w-4 h-4" />,
-                            bgGradient:
-                              "bg-gradient-to-b from-yellow-500 to-yellow-300 text-yellow-900",
-                            selectedStyle: "ring-yellow-500/70 ring-2 rounded-sm",
-                          },
-                          {
-                            title: "CoAgents (LangGraph)",
-                            description: "Documentation for CoAgents with LangGraph",
-                            url: "/langgraph",
+                            title: "Basic Tutorial",
+                            description: "Build a simple LangGraph agent",
+                            url: "/tutorials/langgraph/basic",
                             icon: <SiLangchain className="w-4 h-4 text-bold" />,
                             bgGradient:
                               "bg-gradient-to-b from-purple-700 to-purple-400 text-purple-100",
                             selectedStyle: "ring-purple-500/70 ring-2 rounded-sm",
                           },
+                        ]
+                      },
+                      {
+                        name: "CrewAI",
+                        options: [
                           {
-                            title: "CoAgents (CrewAI Flows)",
-                            description:
-                              "Documentation for CoAgents with CrewAI Flows",
-                            url: "/crewai-flows",
+                            title: "Flows Tutorial",
+                            description: "Learn CrewAI Flows",
+                            url: "/tutorials/crewai/flows",
                             icon: <SiCrewai className="w-4 h-4 text-bold" />,
                             bgGradient:
                               "bg-gradient-to-b from-[#FA694C] to-[#FE8A71] text-white",
                             selectedStyle: "ring-[#FA694C]/70 ring-2 rounded-sm",
                           },
                           {
-                            title: "CoAgents (CrewAI Crews)",
-                            description:
-                              "Documentation for CoAgents with CrewAI Crews",
-                            url: "/crewai-crews",
+                            title: "Crews Tutorial",
+                            description: "Learn CrewAI Crews",
+                            url: "/tutorials/crewai/crews",
                             icon: <SiCrewai className="w-4 h-4 text-bold" />,
                             bgGradient:
                               "bg-gradient-to-b from-[#FA694C] to-[#FE8A71] text-white",
                             selectedStyle: "ring-[#FA694C]/70 ring-2 rounded-sm",
                           },
+                        ]
+                      },
+                      {
+                        name: "Mastra",
+                        options: [
                           {
-                            title: "CoAgents (Mastra)",
-                            description: "Documentation for CoAgents with Mastra",
-                            url: "/mastra",
+                            title: "Basic Tutorial",
+                            description: "Learn Mastra basics",
+                            url: "/tutorials/mastra/basic",
                             icon: <MastraIcon className="w-4 h-4 text-bold" />,
                             bgGradient:
                               "bg-gradient-to-b from-black to-zinc-800 text-white",
                             selectedStyle: "ring-zinc-800 dark:ring-white ring-2 rounded-sm",
                           },
+                        ]
+                      },
+                      {
+                        name: "AG2",
+                        options: [
                           {
-                            title: "CoAgents (AG2)",
-                            description: "Documentation for CoAgents with AG2",
-                            url: "/ag2",
+                            title: "Basic Tutorial",
+                            description: "Learn AG2 basics",
+                            url: "/tutorials/ag2/basic",
                             icon: <AG2Icon className="w-4 h-4 text-bold" />,
                             bgGradient:
                               "bg-gradient-to-b from-indigo-700 to-indigo-400 text-indigo-100",

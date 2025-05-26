@@ -1,10 +1,8 @@
 "use client";
-import { SearchIcon } from "lucide-react";
-import { TerminalIcon } from "lucide-react";
+import { SearchIcon, TerminalIcon, BookOpen, GraduationCap } from "lucide-react";
 import Link from "next/link";
 import { Logo } from "@/app/logo";
 import { MenuButton } from "./menu-button";
-import { AgentFrameworkDropdown } from "./agent-framework-dropdown";
 
 export function TopBar() {
   return (
@@ -19,8 +17,14 @@ export function TopBar() {
 
         {/* Navigation */}
         <div className="flex-1 ml-8 flex items-center gap-4">
-          <AgentFrameworkDropdown />
-          
+          <Link href="/" className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-accent">
+            <BookOpen className="w-4 h-4" />
+            <span className="font-medium text-sm">Guides</span>
+          </Link>
+          <Link href="/tutorials" className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-accent">
+            <GraduationCap className="w-4 h-4" />
+            <span className="font-medium text-sm">Tutorials</span>
+          </Link>
           <Link href="/reference" className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-accent">
             <TerminalIcon className="w-4 h-4" />
             <span className="font-medium text-sm">API Reference</span>
