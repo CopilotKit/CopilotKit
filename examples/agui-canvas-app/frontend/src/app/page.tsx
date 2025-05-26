@@ -6,10 +6,11 @@ export default function Home() {
   return (
     <CopilotKit runtimeUrl="/api/copilotkit" agent="langgraphAgent">
       <div style={{ 
-        "--copilot-kit-primary-color": "#000000",
+        "--copilot-kit-primary-color": "#ffff",
         "--copilot-kit-background-color": "#1e293b",
+        "--copilot-kit-contrast-color" : "#1e293b",
         "--copilot-kit-input-background-color" : "oklch(21% .034 264.665)",
-        "--copilot-kit-secondary-color" : "#fffff",
+        "--copilot-kit-secondary-color" : "oklch(21% .034 264.665)",
         "--copilot-kit-secondary-contrast-color" : "#fffff",
         "--copilot-kit-separator-color" : "oklch(21% .034 264.665)",
         "--copilot-kit-muted-color" : "oklch(21% .034 264.665)",
