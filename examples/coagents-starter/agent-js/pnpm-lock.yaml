@@ -9,7 +9,7 @@ importers:
   .:
     dependencies:
       '@copilotkit/sdk-js':
-        specifier: ^1.5.13
+        specifier: ^1.8.13
         version: 1.8.13(@langchain/anthropic@0.3.20(@langchain/core@0.3.56(openai@4.102.0(zod@3.25.17))))(@langchain/google-genai@0.1.12(@langchain/core@0.3.56(openai@4.102.0(zod@3.25.17)))(zod@3.25.17))(openai@4.102.0(zod@3.25.17))(zod-to-json-schema@3.24.5(zod@3.25.17))
       '@langchain/anthropic':
         specifier: ^0.3.8
