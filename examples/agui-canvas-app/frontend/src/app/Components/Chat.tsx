@@ -49,15 +49,15 @@ export default function Chat() {
         extensions,
         immediatelyRender: false,
         editorProps: {
-          attributes: { class: "min-h-screen p-10" },
+            attributes: { class: "min-h-screen p-10" },
         },
-      });
+    });
     const { setOpen, open } = useChatContext();
     const { state, name } = useCoAgent({
-        name : selectedAgent?.name,
-        initialState : {
-            document : "",
-            status : "idle",
+        name: selectedAgent?.name,
+        initialState: {
+            document: "",
+            status: "idle",
         }
     });
 
@@ -66,11 +66,21 @@ export default function Chat() {
     // })
 
     useEffect(() => {
-        if (state.status === "completed") {
-            console.log("[DEBUG] state.document",state.document)
-            console.log("[DEBUG] state.summary",fromMarkdown(state.document))
-            editor?.commands.setContent(fromMarkdown(state.document || "No response."));
+        try {
+            if (state.status === "completed") {
+                console.log("[DEBUG] state.document", state.document)
+                console.log("[DEBUG] state.summary", fromMarkdown(state.document))
+                // ```markdown
+                if (state.document.startsWith("```markdown")) {
+                    editor?.commands.setContent(fromMarkdown(state.document.slice(11, -3)));
+                } else {
+                    editor?.commands.setContent(fromMarkdown(state.document));
+                }
+            }
+        } catch (error) {
+            console.log("[DEBUG] error", error)
         }
+
     }, [state]);
 
     return (
@@ -83,7 +93,7 @@ export default function Chat() {
                     <div>
                         <select defaultValue={selectedAgent?.name}
                             className="bg-gray-800 text-white px-4 py-2 rounded-3xl border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            onChange={(e) => setSelectedAgent({name : e.target.value})}
+                            onChange={(e) => setSelectedAgent({ name: e.target.value })}
                         >
                             {agents.map((agent) => (
                                 <option key={agent.id} value={agent.id}>
@@ -114,8 +124,10 @@ export default function Chat() {
                         <div className="bg-gray-800 border border-blue-500 rounded-lg shadow-lg p-8 w-full max-w-2xl min-h-[300px] flex items-start justify-center">
                             <div
                                 className="prose prose-invert prose-lg max-w-2xl text-left p-8 rounded-lg shadow bg-gray-800 marker:text-blue-400 list-disc"
-                                dangerouslySetInnerHTML={{ __html: fromMarkdown(state.document || "No response.") }}
-                            />
+                            // dangerouslySetInnerHTML={{ __html: fromMarkdown(state.document || "No response.") }}
+                            >
+                                <EditorContent editor={editor} />
+                            </div>
                         </div>
                     </div>
                 )}
