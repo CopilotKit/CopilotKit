@@ -1,5 +1,12 @@
 # @copilotkit/runtime-client-gql
 
+## 1.8.14-next.1
+
+### Patch Changes
+
+- Updated dependencies [34a78d8]
+  - @copilotkit/shared@1.8.14-next.1
+
 ## 1.8.14-next.0
 
 ### Patch Changes
