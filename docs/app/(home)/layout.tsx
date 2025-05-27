@@ -9,7 +9,7 @@ import { TopBar } from "@/components/layout/top-bar";
 import { SiLangchain } from "react-icons/si";
 import { AG2Icon, MastraIcon } from "@/lib/icons/custom-icons";
 
-export default function Layout({ children }: { children: ReactNode }) {
+export default function Layout({ children }: { children: ReactNode }) {  
   return (
     <>
       <TopBar />

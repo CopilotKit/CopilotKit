@@ -8,3 +8,15 @@ export const source = loader({
   source: createMDXSource(docs, meta),
   icon,
 });
+
+export const referenceSource = loader({
+  baseUrl: '/reference',
+  source: createMDXSource(docs, meta),
+  icon,
+});
+
+export const tutorialsSource = loader({
+  baseUrl: '/tutorials',
+  source: createMDXSource(docs, meta),
+  icon,
+});
