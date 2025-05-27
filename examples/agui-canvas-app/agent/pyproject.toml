@@ -16,7 +16,8 @@ dependencies = [
     "langchain-core (>=0.3.61,<0.4.0)",
     "openai (>=1.82.0,<2.0.0)",
     "python-dotenv (>=1.1.0,<2.0.0)",
-    "langchain-openai (>=0.3.18,<0.4.0)"
+    "langchain-openai (>=0.3.18,<0.4.0)",
+    "litellm (>=1.71.1,<2.0.0)"
 ]
 
 

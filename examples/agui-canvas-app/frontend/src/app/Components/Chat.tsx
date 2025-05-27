@@ -3,14 +3,18 @@
 import { CopilotSidebar, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
 import { useChatContext } from "@copilotkit/react-ui";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
 import { FaRobot, FaComments, FaUsers } from "react-icons/fa";
 import { useCoAgent } from "@copilotkit/react-core";
 import { useEffect } from "react";
+import MarkdownIt from "markdown-it";
+import { useAgent } from "../Providers/AgentProvider";
 
 const agents = [
-    { id: "langgraph", name: "LangGraph" },
-    { id: "crewai", name: "CrewAI" },
-    { id: "mastra", name: "Mastra" },
+    { id: "langgraphAgent", name: "LangGraph" },
+    { id: "crewaiAgent", name: "CrewAI" },
+    { id: "mastraAgent", name: "Mastra" },
 ];
 
 function simpleMarkdownToHtml(md: string): string {
@@ -29,11 +33,28 @@ function simpleMarkdownToHtml(md: string): string {
     md = md.replace(/\n$/gim, '<br />');
     return md.trim();
 }
+const extensions = [StarterKit];
+
+function fromMarkdown(text: string) {
+    const md = new MarkdownIt({
+        typographer: true,
+        html: true,
+    });
+    return md.render(text);
+}
 
 export default function Chat() {
+    const { selectedAgent, setSelectedAgent } = useAgent();
+    const editor = useEditor({
+        extensions,
+        immediatelyRender: false,
+        editorProps: {
+          attributes: { class: "min-h-screen p-10" },
+        },
+      });
     const { setOpen, open } = useChatContext();
     const { state, name } = useCoAgent({
-        name : "langgraphAgent",
+        name : selectedAgent?.name,
         initialState : {
             document : "",
             status : "idle",
@@ -45,9 +66,12 @@ export default function Chat() {
     // })
 
     useEffect(() => {
-        console.log("[DEBUG] state",state.status);
-        console.log("[DEBUG] name",name);
-    }, [state.status, state.document]);
+        if (state.status === "completed") {
+            console.log("[DEBUG] state.document",state.document)
+            console.log("[DEBUG] state.summary",fromMarkdown(state.document))
+            editor?.commands.setContent(fromMarkdown(state.document || "No response."));
+        }
+    }, [state]);
 
     return (
         <div className="flex flex-col min-h-screen bg-gray-900 text-white">
@@ -57,8 +81,9 @@ export default function Chat() {
                     <img src="/copilotkit-logo-dark.webp" alt="logo" className="w-30 h-8" />
                     <h1 className="text-xl font-bold">AGUI Chat Interface</h1>
                     <div>
-                        <select
+                        <select defaultValue={selectedAgent?.name}
                             className="bg-gray-800 text-white px-4 py-2 rounded-3xl border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onChange={(e) => setSelectedAgent({name : e.target.value})}
                         >
                             {agents.map((agent) => (
                                 <option key={agent.id} value={agent.id}>
@@ -89,8 +114,7 @@ export default function Chat() {
                         <div className="bg-gray-800 border border-blue-500 rounded-lg shadow-lg p-8 w-full max-w-2xl min-h-[300px] flex items-start justify-center">
                             <div
                                 className="prose prose-invert prose-lg max-w-2xl text-left p-8 rounded-lg shadow bg-gray-800 marker:text-blue-400 list-disc"
-                                style={{ margin: 0 }}
-                                dangerouslySetInnerHTML={{ __html: simpleMarkdownToHtml(state.document || "No response.") }}
+                                dangerouslySetInnerHTML={{ __html: fromMarkdown(state.document || "No response.") }}
                             />
                         </div>
                     </div>

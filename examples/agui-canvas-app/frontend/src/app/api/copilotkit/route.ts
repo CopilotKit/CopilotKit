@@ -12,14 +12,19 @@ import {
 import { NextRequest } from "next/server";
 
 // Create a new HttpAgent instance that connects to the LangGraph research backend running locally
-const researchAgent = new HttpAgent({
+const langgraphAgent = new HttpAgent({
   url: "http://0.0.0.0:8000/langgraph-agent",
+});
+
+const crewaiAgent = new HttpAgent({
+  url: "http://0.0.0.0:8000/crewai-agent",
 });
 
 // Initialize the CopilotKit runtime with our research agent
 const runtime = new CopilotRuntime({
     agents: {
-      langgraphAgent : researchAgent, // Register the research agent with the runtime
+      langgraphAgent : langgraphAgent, // Register the research agent with the runtime
+      crewaiAgent : crewaiAgent, // Register the research agent with the runtime
     },
   });
 
