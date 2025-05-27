@@ -241,6 +241,11 @@ If you're seeing this error, it means the LangGraph platform client cannot conne
     </Accordion>
 </Accordions>
 
+## I am getting a "No checkpointer set" error when using LangGraph with FastAPI
+
+If you're seeing this error, it means you are missing a checkpointer in your compiled graph.
+You can visit the [LangGraph Persistence guide](https://langchain-ai.github.io/langgraph/concepts/persistence/#checkpoints) to undestand what a checkpointer is and how to add it.
+
 ## I see messages being streamed and disappear
 
 LangGraph agents are stateful. As a graph is traversed, the state is saved at the end of each node. CopilotKit uses the agent's state as
