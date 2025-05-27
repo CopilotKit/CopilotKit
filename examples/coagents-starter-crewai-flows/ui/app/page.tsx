@@ -78,11 +78,12 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
 
   //🪁 Generative UI: https://docs.copilotkit.ai/coagents/generative-ui
   useCopilotAction({
-    name: "getWeather",
-    description: "Get the weather for a given location.",
+    name: "get_weather",
+    description: "Display the weather for a given location.",
     available: "disabled",
     parameters: [{ name: "location", type: "string", required: true }],
     render: ({ args }) => {
+      console.log("displayWeather", args);
       return <WeatherCard location={args.location} themeColor={themeColor} />;
     },
   });
