@@ -3,6 +3,10 @@
   "root": true,
   "pages": [
     "index",
-    "standard-agent"
+    "standard-agent",
+    "langgraph-tutorials",
+    "crewai-tutorials",
+    "mastra-tutorials",
+    "ag2-tutorials"
   ]
 }
