@@ -14,7 +14,7 @@ import { AGENT_TYPE } from "@/config";
 const AgenticChat: React.FC = () => {
   return (
     <CopilotKit
-      runtimeUrl={AGENT_TYPE == "general" ? "/api/copilotkit?langgraph=true" : "/api/copilotkit"}
+      runtimeUrl={"/api/copilotkit?langgraph=true"}
       showDevConsole={true}
       agent="no_chat"
     >
@@ -31,14 +31,27 @@ const Chat = () => {
   const [step, setStep] = React.useState(0);
   const [showVerticalWizard, setShowVerticalWizard] = React.useState(false);
   const [started, setStarted] = useState(false);
+  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
 
   const { nodeName, state } = useCoAgent({
     name: "no_chat",
   })
 
   useEffect(() => {
-    if (nodeName && nodeName != "start_flow" && nodeName != "__end__") {
-      setStep(step + 1);
+    console.log(state, "state", nodeName);
+
+    if (nodeName && nodeName != "start_flow") {
+      setShowVerticalWizard(true);
+      // Update completed steps based on nodeName
+      if (nodeName === "buffer_node") {
+        setCompletedSteps([0]);
+      } else if (nodeName === "confirming_response_node") {
+        setCompletedSteps([0, 1]);
+      } else if (nodeName === "reporting_node") {
+        setCompletedSteps([0, 1, 2]);
+      } else if (nodeName === "__end__") {
+        setCompletedSteps([0, 1, 2, 3]);
+      }
     }
   }, [nodeName]);
 
@@ -46,27 +59,30 @@ const Chat = () => {
   const wizardSteps = [
     {
       title: "Step 1",
-      content: `Asking the agent to start the process. ${prompt}`
+      content: `Asking the agent to start the process. <b><i>${prompt}</i></b>`
     },
     {
       title: "Step 2",
-      content: "Running the buffer_node to extract the answer from the model."
+      content: "Running the <b><i>buffer_node</i></b> to extract the answer from the model."
     },
     {
       title: "Step 3",
-      content: "Running the confirming_response_node to confirm the response from the model."
+      content: "Running the <b><i>confirming_response_node</i></b> to confirm the response from the model."
     },
     {
       title: "Step 4",
-      content: "Running the reporting_node to generate a report and send it to the user."
+      content: "Running the <b><i>reporting_node</i></b> to generate a response and send it to the user."
     }
   ];
 
   useEffect(() => {
+    // console.log(state.messages,"messages");
+
     if (!isLoading && state?.messages?.length) {
       setAiResponse(state.messages[state.messages.length - 1].content);
     }
   }, [isLoading])
+
 
   function handleExecuteProcess(): void {
     try {
@@ -137,6 +153,7 @@ const Chat = () => {
                     }}
                     onClick={() => {
                       setStarted(true);
+                      setShowVerticalWizard(true);
                       setTimeout(() => handleExecuteProcess(), 400); // delay to allow animation
                     }}
                     disabled={isLoading}
@@ -154,140 +171,36 @@ const Chat = () => {
                 transition={{ duration: 0.5 }}
                 style={{ width: "100%", height: "100%" }}
               >
-                {!showVerticalWizard ? (
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={step}
-                      initial={{ x: 300, opacity: 0 }}
-                      animate={{ x: 0, opacity: 1 }}
-                      exit={{ x: -300, opacity: 0 }}
-                      transition={{ duration: 0.5, type: "spring" }}
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key="vertical-wizard"
+                    initial={{ opacity: 0, y: 40 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -40 }}
+                    transition={{ duration: 0.5 }}
+                    style={{ width: "100%", height: "100%" }}
+                  >
+                    <div
                       style={{
-                        position: "absolute",
-                        width: "100%",
-                        height: "100%",
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        background: "rgba(255,255,255,0.92)",
-                        borderRadius: "12px",
-                        color: "#1e293b",
+                        background: "#fefefe",
+                        borderRadius: 12,
                         boxShadow: "0 4px 24px 0 rgba(30,41,59,0.08)",
                         padding: 32,
-                        zIndex: 2
+                        minHeight: 800,
+                        width: "100%",
+                        display: "flex",
+                        flexDirection: "row",
+                        gap: 48,
+                        alignItems: "flex-start",
+                        justifyContent: "flex-start",
                       }}
-                      aria-live="polite"
                     >
-                      <h2 style={{ fontSize: 28, marginBottom: 12, fontWeight: 700 }}>{wizardSteps[step].title}</h2>
-                      <p style={{ fontSize: 18, marginBottom: 32, textAlign: "center", maxWidth: 400 }}>{wizardSteps[step].content}</p>
-                      <div style={{ marginTop: 12, display: "flex", gap: 16 }}>
-                        {isLoading && <Loader />}
-                        {(step > 0 && !isLoading) && (
-                          <>
-                            <button
-                              onClick={() => setStep(step - 1)}
-                              style={{
-                                background: "#e0e7ef",
-                                color: "#1e293b",
-                                border: "none",
-                                borderRadius: 6,
-                                padding: "10px 24px",
-                                fontSize: 16,
-                                cursor: "pointer",
-                                fontWeight: 500,
-                                transition: "background 0.2s"
-                              }}
-                              aria-label="Back"
-                            >
-                              Back
-                            </button>
-                          </>
-                        )}
-                        {(step < wizardSteps.length - 1 && !isLoading) && (
-                          <button
-                            onClick={() => setStep(step + 1)}
-                            style={{
-                              background: "#e0e7ef",
-                              color: "#1e293b",
-                              border: "none",
-                              borderRadius: 6,
-                              padding: "10px 24px",
-                              fontSize: 16,
-                              cursor: "pointer",
-                              fontWeight: 500,
-                              transition: "background 0.2s"
-                            }}
-                            aria-label="Back"
-                          >
-                            Next
-                          </button>
-                        )}
-                        {(step === wizardSteps.length - 1 && !isLoading) && (
-                          <button
-                            onClick={() => setShowVerticalWizard(true)}
-                            style={{
-                              background: "#22c55e",
-                              color: "#fff",
-                              border: "none",
-                              borderRadius: 6,
-                              padding: "10px 24px",
-                              fontSize: 16,
-                              cursor: "pointer",
-                              fontWeight: 500,
-                              transition: "background 0.2s"
-                            }}
-                            aria-label="Finish"
-                          >
-                            Finish
-                          </button>
-                        )}
-                      </div>
-                      <div style={{ display: "flex", gap: 8, marginTop: 32 }} aria-label="Wizard Progress">
-                        {wizardSteps.map((_, i) => (
-                          <span
-                            key={i}
-                            style={{
-                              width: 12,
-                              height: 12,
-                              borderRadius: "50%",
-                              background: i === step ? "#0ea5e9" : "#cbd5e1",
-                              border: i === step ? "2px solid #fff" : "2px solid transparent",
-                              display: "inline-block"
-                            }}
-                            aria-current={i === step ? "step" : undefined}
-                          />
-                        ))}
-                      </div>
-                    </motion.div>
-                  </AnimatePresence>
-                ) : (
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key="vertical-wizard"
-                      initial={{ opacity: 0, y: 40 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -40 }}
-                      transition={{ duration: 0.5 }}
-                      style={{ width: "100%", height: "100%" }}
-                    >
-                      <div
-                        style={{
-                          background: "#fefefe",
-                          borderRadius: 12,
-                          boxShadow: "0 4px 24px 0 rgba(30,41,59,0.08)",
-                          padding: 32,
-                          minHeight: 800,
-                          width: "100%",
-                          display: "flex",
-                          flexDirection: "row",
-                          gap: 48,
-                          alignItems: "flex-start",
-                          justifyContent: "flex-start",
-                        }}
-                      >
-                        <div style={{ flex: 2 }}>
-                          {wizardSteps.map((stepObj, idx) => (
+                      <div style={{ flex: 2 }}>
+                        {wizardSteps.map((stepObj, idx) => {
+                          // Determine step status
+                          const isCompleted = completedSteps.includes(idx);
+                          const isCurrent = !isCompleted && (completedSteps.length === idx);
+                          return (
                             <div
                               key={idx}
                               style={{
@@ -305,8 +218,8 @@ const Chat = () => {
                                     width: 32,
                                     height: 32,
                                     borderRadius: "50%",
-                                    background: "#10b981",
-                                    color: "#fff",
+                                    background: isCompleted ? "#10b981" : isCurrent ? "#cbd5e1" : "#cbd5e1",
+                                    color: isCompleted ? "#fff" : "#64748b",
                                     display: "flex",
                                     alignItems: "center",
                                     justifyContent: "center",
@@ -314,18 +227,28 @@ const Chat = () => {
                                     fontSize: 18,
                                     zIndex: 2,
                                     boxShadow: "0 2px 8px 0 rgba(16,185,129,0.08)",
+                                    transition: "background 0.3s ease, color 0.3s ease",
                                   }}
                                 >
-                                  {idx + 1}
+                                  {isCompleted ? (
+                                    idx + 1
+                                  ) : isCurrent ? (
+                                    <div style={{ width: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                      <Loader />
+                                    </div>
+                                  ) : (
+                                    idx + 1
+                                  )}
                                 </div>
                                 {idx < wizardSteps.length - 1 && (
                                   <div
                                     style={{
                                       width: 4,
                                       flex: 1,
-                                      background: "#cbd5e1",
+                                      background: isCompleted ? "#10b981" : "#cbd5e1",
                                       minHeight: 48,
                                       marginTop: 0,
+                                      transition: "background 0.3s ease",
                                     }}
                                   />
                                 )}
@@ -334,77 +257,81 @@ const Chat = () => {
                                 <h2 style={{ fontSize: 20, marginBottom: 4, fontWeight: 700 }}>
                                   {stepObj.title}
                                 </h2>
-                                <p style={{ fontSize: 16, marginBottom: 0 }}>
-                                  {stepObj.content}
+                                <p style={{ fontSize: 16, marginBottom: 0 }} dangerouslySetInnerHTML={{ __html: stepObj.content }}>
                                 </p>
                               </div>
                             </div>
-                          ))}
-                        </div>
-                        <div
-                          style={{
-                            flex: 1,
-                            minWidth: 350,
-                            maxWidth: 420,
-                            background: "#fff",
-                            borderRadius: 16,
-                            boxShadow: "0 2px 16px 0 rgba(30,41,59,0.10)",
-                            padding: 32,
-                            marginLeft: 24,
-                            minHeight: 400,
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "flex-start",
-                            justifyContent: "flex-start",
-                          }}
-                        >
-                          <h3 style={{ fontWeight: 700, fontSize: 18, marginBottom: 16 }}>AI Response</h3>
-                          <div style={{ color: "#334155", fontSize: 16 }}>
-                            {aiResponse}
-                          </div>
+                          );
+                        })}
+                      </div>
+                      <div
+                        style={{
+                          flex: 1,
+                          minWidth: 350,
+                          maxWidth: 420,
+                          background: "#fff",
+                          borderRadius: 16,
+                          boxShadow: "0 2px 16px 0 rgba(30,41,59,0.10)",
+                          padding: 32,
+                          marginLeft: 24,
+                          minHeight: 400,
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "flex-start",
+                          justifyContent: "flex-start",
+                        }}
+                      >
+                        <h3 style={{ fontWeight: 700, fontSize: 18, marginBottom: 16 }}>AI Response</h3>
+                        <div style={{ color: "#334155", fontSize: 16 }}>
+                          {aiResponse}
                         </div>
                       </div>
-                    </motion.div>
-                  </AnimatePresence>
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
+                {showVerticalWizard && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      right: 0,
+                      bottom: 40,
+                      display: "flex",
+                      justifyContent: "center",
+                      pointerEvents: "none",
+                      zIndex: 10,
+                    }}
+                  >
+                    <button
+                      disabled={isLoading}
+                      style={{
+                        background: "#0ea5e9",
+                        color: "#fff",
+                        borderRadius: 6,
+                        padding: "7px 24px",
+                        fontSize: 18,
+                        cursor: "pointer",
+                        fontWeight: 600,
+                        pointerEvents: "auto",
+                      }}
+                      onClick={() => {
+                        setCompletedSteps([])
+                        setStarted(false);
+                        setAiResponse("");
+                        setShowVerticalWizard(false);
+                        setStep(0);
+                      }}
+                    >
+                      Back to Start
+                    </button>
+                  </div>
                 )}
               </motion.div>
             )}
+
           </AnimatePresence>
         </div>
-        {showVerticalWizard && (
-          <div
-            style={{
-              position: "absolute",
-              left: 0,
-              right: 0,
-              bottom: 40,
-              display: "flex",
-              justifyContent: "center",
-              pointerEvents: "none",
-              zIndex: 10,
-            }}
-          >
-            <button
-              style={{
-                background: "#0ea5e9",
-                color: "#fff",
-                borderRadius: 6,
-                padding: "7px 24px",
-                fontSize: 18,
-                cursor: "pointer",
-                fontWeight: 600,
-                pointerEvents: "auto",
-              }}
-              onClick={() => {
-                setStarted(false);
-                setShowVerticalWizard(false);
-                setStep(0);
-              }}
-            >
-              Back to Start
-            </button>
-          </div>
-        )}
+
       </div>
     </div >
   );

@@ -1,9 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Editor, Location, Transforms } from "slate";
 import { useSlate, useSlateSelection } from "slate-react";
-import { HoveringInsertionPromptBox } from "./text-insertion-prompt-box";
-import { Menu, Portal } from "./hovering-toolbar-components";
-import { useHoveringEditorContext } from "./hovering-editor-provider";
 import {
   getFullEditorTextWithNewlines,
   getTextAroundSelection,
@@ -12,6 +9,9 @@ import {
   EditingEditorState,
   InsertionEditorApiConfig,
 } from "../../types/base/autosuggestions-bare-function";
+import { useHoveringEditorContext } from "./hovering-editor-provider";
+import { Menu, Portal } from "./hovering-toolbar-components";
+import { HoveringInsertionPromptBox } from "./text-insertion-prompt-box";
 
 export interface HoveringToolbarProps {
   apiConfig: InsertionEditorApiConfig;
@@ -31,11 +31,13 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
     setIsClient(true);
   }, []);
 
-  useEffect(() => {
+  const isShown = isClient && isDisplayed && selection;
+
+  useLayoutEffect(() => {
     const el = ref.current;
     const { selection } = editor;
 
-    if (!el) {
+    if (!el || !isShown) {
       return;
     }
 
@@ -59,24 +61,29 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
     if (rect.top === 0 && rect.left === 0 && rect.width === 0 && rect.height === 0) {
       return;
     }
-    const minGapFromEdge = 60;
-    const verticalOffsetFromCorner = 35;
-    const horizontalOffsetFromCorner = 15;
-    let top = rect.top + window.scrollY - el.offsetHeight + verticalOffsetFromCorner;
-    // make sure top is in the viewport and not too close to the edge
-    if (top < minGapFromEdge) {
-      top = rect.bottom + window.scrollY + minGapFromEdge;
-    } else if (top + el.offsetHeight > window.innerHeight - minGapFromEdge) {
-      top = rect.top + window.scrollY - el.offsetHeight - minGapFromEdge;
+
+    const verticalOffsetFromCorner = 0;
+    const horizontalOffsetFromCorner = 0;
+
+    // position the toolbar below the selection
+    let top = rect.bottom + window.scrollY + verticalOffsetFromCorner;
+
+    // no space left at bottom, move up
+    if (rect.bottom + el.offsetHeight > window.innerHeight - verticalOffsetFromCorner) {
+      top = rect.top + window.scrollY - el.offsetHeight - verticalOffsetFromCorner;
     }
 
+    // position the toolbar in the center of the selection
     let left =
       rect.left + window.scrollX - el.offsetWidth / 2 + rect.width / 2 + horizontalOffsetFromCorner;
-    // make sure left is in the viewport and not too close to the edge
-    if (left < minGapFromEdge) {
-      left = minGapFromEdge;
-    } else if (left + el.offsetWidth > window.innerWidth - minGapFromEdge) {
-      left = window.innerWidth - el.offsetWidth - minGapFromEdge;
+
+    // no space left at left, move right
+    if (left < horizontalOffsetFromCorner) {
+      left = horizontalOffsetFromCorner;
+    }
+    // no space left at right, move left
+    else if (left + el.offsetWidth > window.innerWidth - horizontalOffsetFromCorner) {
+      left = window.innerWidth - el.offsetWidth - horizontalOffsetFromCorner;
     }
 
     el.style.opacity = "1";
@@ -84,7 +91,7 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
 
     el.style.top = `${top}px`;
     el.style.left = `${left}px`;
-  });
+  }, [isShown]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -94,12 +101,13 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
     };
 
     document.addEventListener("mousedown", handleClickOutside);
+
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [ref, setIsDisplayed]);
 
-  if (!isClient) {
+  if (!isShown) {
     return null;
   }
 
@@ -114,24 +122,19 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
         }
         data-testid="hovering-toolbar"
       >
-        {isDisplayed && selection && (
-          <HoveringInsertionPromptBox
-            editorState={editorState(editor, selection)}
-            apiConfig={props.apiConfig}
-            closeWindow={() => {
-              setIsDisplayed(false);
-            }}
-            performInsertion={(insertedText) => {
-              // replace the selection with the inserted text
-              Transforms.delete(editor, { at: selection });
-              Transforms.insertText(editor, insertedText, {
-                at: selection,
-              });
-              setIsDisplayed(false);
-            }}
-            contextCategories={props.contextCategories}
-          />
-        )}
+        <HoveringInsertionPromptBox
+          editorState={editorState(editor, selection)}
+          apiConfig={props.apiConfig}
+          performInsertion={(insertedText) => {
+            // replace the selection with the inserted text
+            Transforms.delete(editor, { at: selection });
+            Transforms.insertText(editor, insertedText, {
+              at: selection,
+            });
+            setIsDisplayed(false);
+          }}
+          contextCategories={props.contextCategories}
+        />
       </Menu>
     </Portal>
   );

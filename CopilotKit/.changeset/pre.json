@@ -6,21 +6,20 @@
     "next-pages-router": "1.4.6",
     "node-express": "1.4.6",
     "node-http": "1.4.6",
-    "@copilotkit/react-core": "1.8.12",
-    "@copilotkit/react-textarea": "1.8.12",
-    "@copilotkit/react-ui": "1.8.12",
-    "@copilotkit/runtime": "1.8.12",
-    "@copilotkit/runtime-client-gql": "1.8.12",
-    "@copilotkit/sdk-js": "1.8.12",
-    "@copilotkit/shared": "1.8.12",
+    "@copilotkit/react-core": "1.8.13",
+    "@copilotkit/react-textarea": "1.8.13",
+    "@copilotkit/react-ui": "1.8.13",
+    "@copilotkit/runtime": "1.8.13",
+    "@copilotkit/runtime-client-gql": "1.8.13",
+    "@copilotkit/sdk-js": "1.8.13",
+    "@copilotkit/shared": "1.8.13",
     "eslint-config-custom": "1.4.6",
     "tailwind-config": "1.4.6",
     "tsconfig": "1.4.6"
   },
   "changesets": [
-    "afraid-bottles-dress",
-    "calm-flowers-punch",
-    "nice-dancers-clean",
-    "shaggy-moles-speak"
+    "giant-avocados-joke",
+    "green-apes-enjoy",
+    "stupid-nails-travel"
   ]
 }
