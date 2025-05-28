@@ -193,7 +193,16 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
   langserve?: RemoteChainParameters[];
 
   /*
-   * A map of agent names to AgentWire agents.
+   * A map of agent names to AGUI agents.
+   * Example agent config:
+   * ```ts
+   * import { AbstractAgent } from "@ag-ui/client";
+   * // ...
+   * agents: {
+   *   "support": new CustomerSupportAgent(),
+   *   "technical": new TechnicalAgent()
+   * }
+   * ```
    */
   agents?: Record<string, AbstractAgent>;
 
