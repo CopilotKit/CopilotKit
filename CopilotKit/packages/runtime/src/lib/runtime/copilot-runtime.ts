@@ -425,7 +425,6 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
     return newMessages;
   }
-  // --- MCP Instruction Injection Method ---
 
   async processRuntimeRequest(request: CopilotRuntimeRequest): Promise<CopilotRuntimeResponse> {
     const {
