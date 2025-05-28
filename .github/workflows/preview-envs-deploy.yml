@@ -70,6 +70,13 @@ jobs:
             }
           - { project: "coagents-qa-native", type: "ui" }
           - { project: "next-openai", type: "next-openai" }
+          - {
+              project: "coagents-starter-crewai-flows",
+              type: "agent",
+              runtime: "python",
+              deps: "local-deps",
+            }
+          - { project: "coagents-starter-crewai-flows", type: "ui" }
     steps:
       - name: Checkout
         uses: actions/checkout@v4

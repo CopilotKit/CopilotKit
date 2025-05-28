@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 import "source-map-support/register";
 import * as cdk from "aws-cdk-lib";
-import { createAgentProjectStack, createNextOpenAIProjectStack, createUIProjectStack } from "../lib/utils";
+import {
+  createAgentProjectStack,
+  createNextOpenAIProjectStack,
+  createUIProjectStack,
+} from "../lib/utils";
 
 // app
 const app = new cdk.App();
@@ -20,8 +24,10 @@ const coAgentsResearchCanvasUIWithLocalDeps = createUIProjectStack({
   app,
   project: "coagents-research-canvas",
   description: "CoAgents Research Canvas (UI) - Local Depenencies",
-  selfHostedAgentProject: coAgentsResearchCanvasAgentWithLocalDeps.selfHostedAgent,
-  lgcAgentProjectPython: coAgentsResearchCanvasAgentWithLocalDeps.lgcAgentPython,
+  selfHostedAgentProject:
+    coAgentsResearchCanvasAgentWithLocalDeps.selfHostedAgent,
+  lgcAgentProjectPython:
+    coAgentsResearchCanvasAgentWithLocalDeps.lgcAgentPython,
   lgcAgentProjectJS: coAgentsResearchCanvasAgentWithLocalDeps.lgcAgentJS,
 });
 
@@ -89,4 +95,22 @@ createNextOpenAIProjectStack({
   app,
   description: "Next OpenAI - Self Hosted",
   variant: "self-hosted",
+});
+
+/**
+ * coagents-starter-crewai-flows
+ */
+const coagentsStarterCrewaiFlows = createAgentProjectStack({
+  app,
+  project: "coagents-starter-crewai-flows",
+  description: "CoAgents Starter CrewAI Flows (Agent) - Local Dependencies",
+});
+
+const coagentsStarterCrewaiFlowsUI = createUIProjectStack({
+  app,
+  project: "coagents-starter-crewai-flows",
+  description: "CoAgents Starter CrewAI Flows (UI) - Local Dependencies",
+  selfHostedAgentProject: coagentsStarterCrewaiFlows.selfHostedAgent,
+  lgcAgentProjectPython: coagentsStarterCrewaiFlows.lgcAgentPython,
+  lgcAgentProjectJS: coagentsStarterCrewaiFlows.lgcAgentJS,
 });
