@@ -50,16 +50,28 @@ export default function Chat() {
                     <img src="/copilotkit-logo-dark.webp" alt="logo" className="w-30 h-8" />
                     <h1 className="text-xl font-bold">AGUI Chat Interface</h1>
                     <div>
-                        <select style={{ "-webkit-appearance": "none" } as any} defaultValue={selectedAgent?.name}
-                            className="bg-gray-800 text-center text-white px-4 py-2 rounded-3xl border border-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            onChange={(e) => setSelectedAgent({ name: e.target.value })}
-                        >
-                            {agents.map((agent) => (
-                                <option key={agent.id} value={agent.id}>
-                                    {agent.name}
-                                </option>
-                            ))}
-                        </select>
+                        <div style={{ position: "relative", display: "inline-block" }}>
+                            <select defaultValue={selectedAgent?.name}
+                                className="bg-gray-800 text-center text-white px-4 py-2 rounded-3xl border border-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                onChange={(e) => setSelectedAgent({ name: e.target.value })}
+                            >
+                                {agents.map((agent) => (
+                                    <option key={agent.id} value={agent.id}>
+                                        {agent.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <span style={{
+                                scale: "0.7",
+                                position: "absolute",
+                                right: "1em",
+                                top: "45%",
+                                transform: "translateY(-50%)",
+                                pointerEvents: "none"
+                            }}>
+                                ▼
+                            </span>
+                        </div>
                     </div>
                 </div>
             </header>
@@ -159,6 +171,12 @@ export default function Chat() {
                 }
                 .prose li {
                     margin-bottom: 0.5rem !important;
+                }
+                select {
+                     appearance: none;
+                    -webkit-appearance: none;
+                    -moz-appearance: none;
+                    padding-right: 2.0em;
                 }
             `}</style>
         </div>
