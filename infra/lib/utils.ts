@@ -143,7 +143,7 @@ export function createUIProjectStack({
   description: string;
   selfHostedAgentProject: PreviewProjectStack;
   lgcAgentProjectPython: PreviewProjectStack;
-  lgcAgentProjectJS: PreviewProjectStack;
+  lgcAgentProjectJS?: PreviewProjectStack;
   environmentVariables?: Record<string, string>;
   environmentVariablesFromSecrets?: string[];
   customOutputs?: Record<string, string>;
@@ -155,7 +155,7 @@ export function createUIProjectStack({
     Dependencies: "Local",
     EndToEndProjectKey: `${project}-ui-deps-local`,
     LgcPythonDeploymentUrl: `${lgcAgentProjectPython.fnUrl}`,
-    LgcJSDeploymentUrl: `${lgcAgentProjectJS.fnUrl}`,
+    LgcJSDeploymentUrl: lgcAgentProjectJS ? `${lgcAgentProjectJS.fnUrl}` : "",
   };
 
   if (customOutputs) {

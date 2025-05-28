@@ -112,5 +112,4 @@ const coagentsStarterCrewaiFlowsUI = createUIProjectStack({
   description: "CoAgents Starter CrewAI Flows (UI) - Local Dependencies",
   selfHostedAgentProject: coagentsStarterCrewaiFlows.selfHostedAgent,
   lgcAgentProjectPython: coagentsStarterCrewaiFlows.lgcAgentPython,
-  lgcAgentProjectJS: coagentsStarterCrewaiFlows.lgcAgentJS,
 });
