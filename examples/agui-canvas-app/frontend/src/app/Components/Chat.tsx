@@ -50,8 +50,8 @@ export default function Chat() {
                     <img src="/copilotkit-logo-dark.webp" alt="logo" className="w-30 h-8" />
                     <h1 className="text-xl font-bold">AGUI Chat Interface</h1>
                     <div>
-                        <select defaultValue={selectedAgent?.name}
-                            className="bg-gray-800 text-white px-4 py-2 rounded-3xl border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        <select style={{ "-webkit-appearance": "none" } as any} defaultValue={selectedAgent?.name}
+                            className="bg-gray-800 text-center text-white px-4 py-2 rounded-3xl border border-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
                             onChange={(e) => setSelectedAgent({ name: e.target.value })}
                         >
                             {agents.map((agent) => (

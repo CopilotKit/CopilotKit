@@ -74,7 +74,7 @@ app.post("/mastra-agent", async (req: Request, res: Response) => {
 
         // STEP 7: Retrieve Weather Agent from Mastra
         // Get the configured weather agent that will handle the weather queries
-        const documentAgent = mastra.getAgent("documentAgent");
+        const documentAgent = mastra.getWorkflow("docWorkflow");
 
         // STEP 8: Validate Agent Availability
         // Ensure the weather agent is properly configured and available
@@ -95,13 +95,21 @@ app.post("/mastra-agent", async (req: Request, res: Response) => {
         // STEP 10: Extract Location Information
         // Parse the user's message to identify the location for weather query
         // This helps with state tracking and provides context to the user
-        const userMessage = input.messages.find((msg) => msg.role === "user");
+        const userMessage = input.messages.filter((msg) => msg.role === "user")[input.messages.filter((msg) => msg.role === "user").length - 1];
 
 
         // STEP 13: Execute Weather Agent
         // Call Mastra's weather agent with the processed messages
         // This will use the configured tools and models to generate a response
-        const result = await documentAgent.generate(mastraMessages);
+        const result = await documentAgent.createRun().start({
+            inputData: {
+                topic: userMessage?.content || ""
+            }
+        });
+
+        const summary : any= result.steps.summaryStep
+        const document : any= result.steps.documentStep
+
 
         // STEP 14: Update Final State
         // Mark the process as completed and include the weather report
@@ -109,7 +117,7 @@ app.post("/mastra-agent", async (req: Request, res: Response) => {
             type: EventType.STATE_DELTA,
             delta: [
                 { op: "replace", path: "/status", value: "completed" },
-                { op: "replace", path: "/document", value: result.text }
+                { op: "replace", path: "/document", value: document.output.document },
             ],
         };
         res.write(encoder.encode(finalStateDelta));    // STEP 15: Generate Unique Message ID
@@ -127,14 +135,14 @@ app.post("/mastra-agent", async (req: Request, res: Response) => {
 
         // STEP 17: Prepare Response Content
         // Extract the generated text from Mastra's response
-        const response = result.text;
+        // const response = result.text;
 
         // STEP 18: Stream Response in Chunks
         // Split the response into smaller chunks for smoother streaming experience
         // This simulates real-time generation and provides better UX
         const chunkSize = 100; // Number of characters per chunk
-        for (let i = 0; i < response.length; i += chunkSize) {
-            const chunk = response.slice(i, i + chunkSize);
+        for (let i = 0; i < summary.output.summary.length; i += chunkSize) {
+            const chunk = summary.output.summary.slice(i, i + chunkSize);
 
             // Send each chunk as a separate content event
             const textMessageContent = {

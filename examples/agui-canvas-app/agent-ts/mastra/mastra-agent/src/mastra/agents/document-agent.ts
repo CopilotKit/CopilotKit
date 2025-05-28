@@ -21,3 +21,21 @@ export const documentAgent = new Agent({
     }),
   }),
 });
+
+export const summaryAgent = new Agent({
+  name: 'Summary Agent',
+  instructions: `
+    You are a helpful document assistant that summarizes the generated documents.
+
+    Your primary function is to summarize the generated documents. When responding:
+    - The response should be maximum 3 sentences.
+    - Always have an intent that here is the document on the topic that have been generated.
+  `,
+  model: openai('gpt-4o-mini'),
+  tools: { },
+  memory: new Memory({
+    storage: new LibSQLStore({
+      url: 'file:../mastra.db', // path is relative to the .mastra/output directory
+    }),
+  }),
+});
