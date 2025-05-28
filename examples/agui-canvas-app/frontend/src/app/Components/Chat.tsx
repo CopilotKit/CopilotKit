@@ -3,55 +3,20 @@
 import { CopilotSidebar, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
 import { useChatContext } from "@copilotkit/react-ui";
-import { useEditor, EditorContent } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
 import { FaRobot, FaComments, FaUsers } from "react-icons/fa";
 import { useCoAgent } from "@copilotkit/react-core";
 import { useEffect } from "react";
-import MarkdownIt from "markdown-it";
 import { useAgent } from "../Providers/AgentProvider";
-
+import { Markdown } from "@copilotkit/react-ui";
 const agents = [
     { id: "langgraphAgent", name: "LangGraph" },
     { id: "crewaiAgent", name: "CrewAI" },
     { id: "mastraAgent", name: "Mastra" },
 ];
 
-function simpleMarkdownToHtml(md: string): string {
-    // Headings
-    md = md.replace(/^### (.*$)/gim, '<h3>$1</h3>');
-    md = md.replace(/^## (.*$)/gim, '<h2>$1</h2>');
-    md = md.replace(/^# (.*$)/gim, '<h1>$1</h1>');
-    // Bold
-    md = md.replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>');
-    // Italic
-    md = md.replace(/\*(.*?)\*/gim, '<em>$1</em>');
-    // Unordered List
-    md = md.replace(/^\s*[-*+] (.*)$/gim, '<li>$1</li>');
-    md = md.replace(/(<li>.*<\/li>)/gim, '<ul>$1</ul>');
-    // Line breaks
-    md = md.replace(/\n$/gim, '<br />');
-    return md.trim();
-}
-const extensions = [StarterKit];
-
-function fromMarkdown(text: string) {
-    const md = new MarkdownIt({
-        typographer: true,
-        html: true,
-    });
-    return md.render(text);
-}
 
 export default function Chat() {
     const { selectedAgent, setSelectedAgent } = useAgent();
-    const editor = useEditor({
-        extensions,
-        immediatelyRender: false,
-        editorProps: {
-            attributes: { class: "min-h-screen p-10" },
-        },
-    });
     const { setOpen, open } = useChatContext();
     const { state, name } = useCoAgent({
         name: selectedAgent?.name,
@@ -69,13 +34,7 @@ export default function Chat() {
         try {
             if (state.status === "completed") {
                 console.log("[DEBUG] state.document", state.document)
-                console.log("[DEBUG] state.summary", fromMarkdown(state.document))
-                // ```markdown
-                if (state.document.startsWith("```markdown")) {
-                    editor?.commands.setContent(fromMarkdown(state.document.slice(11, -3)));
-                } else {
-                    editor?.commands.setContent(fromMarkdown(state.document));
-                }
+                // console.log("[DEBUG] state.summary", fromMarkdown(state.document))
             }
         } catch (error) {
             console.log("[DEBUG] error", error)
@@ -126,7 +85,10 @@ export default function Chat() {
                                 className="prose prose-invert prose-lg max-w-2xl text-left p-8 rounded-lg shadow bg-gray-800 marker:text-blue-400 list-disc"
                             // dangerouslySetInnerHTML={{ __html: fromMarkdown(state.document || "No response.") }}
                             >
-                                <EditorContent editor={editor} />
+                                <div className="copilotKitMarkdown">
+                                    {/* <EditorContent editor={editor} /> */}
+                                    <Markdown content={state.document.startsWith("```markdown") ? state.document.slice(11, -3) : state.document} />
+                                </div>
                             </div>
                         </div>
                     </div>

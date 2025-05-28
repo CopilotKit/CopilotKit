@@ -20,11 +20,15 @@ const crewaiAgent = new HttpAgent({
   url: "http://0.0.0.0:8000/crewai-agent",
 });
 
+const mastraAgent = new HttpAgent({
+  url: "http://0.0.0.0:8001/mastra-agent",
+})
 // Initialize the CopilotKit runtime with our research agent
 const runtime = new CopilotRuntime({
     agents: {
       langgraphAgent : langgraphAgent, // Register the research agent with the runtime
       crewaiAgent : crewaiAgent, // Register the research agent with the runtime
+      mastraAgent : mastraAgent, // Register the research agent with the runtime
     },
   });
 
