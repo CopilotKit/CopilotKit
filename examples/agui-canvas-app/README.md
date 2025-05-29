@@ -1,9 +1,9 @@
 # AGUI Canvas App
 
 This project is a multi-agent, multi-stack application featuring:
-- A **Next.js React frontend** (with CopilotKit, AG-UI, and Tiptap)
-- A **Python FastAPI agent** (with CopilotKit, LangGraph, and OpenAI)
-- A **TypeScript Mastra agent** (with Mastra, AG-UI, and OpenAI)
+- A **Next.js React frontend** (with CopilotKit and AG-UI)
+- A **Python FastAPI agent** (with CopilotKit, LangGraph, and CrewAI)
+- A **TypeScript Mastra agent** (with CopilotKit and Mastra)
 
 ## Project Structure
 
@@ -17,7 +17,7 @@ This project is a multi-agent, multi-stack application featuring:
 
 ## 1. Python Agent (`agent/`)
 
-A FastAPI-based agent using CopilotKit, LangGraph, and OpenAI.
+A FastAPI-based agent using CopilotKit, LangGraph, and CrewAI.
 
 ### Setup & Run
 ```bash
@@ -30,7 +30,7 @@ poetry run python main.py
 
 ## 2. TypeScript Mastra Agent (`agent-ts/mastra/mastra-agent/`)
 
-A TypeScript agent using Mastra, AG-UI, and OpenAI.
+A TypeScript agent using CopilotKit and Mastra.
 
 ### Setup & Run
 ```bash
@@ -42,7 +42,7 @@ npx ts-node src/aguiMastra.ts
 
 ## 3. Frontend (`frontend/`)
 
-A Next.js React app using CopilotKit, AG-UI, and Tiptap.
+A Next.js React app using CopilotKit and AG-UI.
 
 ### Setup & Run
 ```bash
