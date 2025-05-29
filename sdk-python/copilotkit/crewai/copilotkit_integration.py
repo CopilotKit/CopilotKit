@@ -54,6 +54,12 @@ def create_tool_proxy(tool_name):
 class CopilotKitFlow(Flow[S], Generic[S]): # Make it generic
     _tools_from_input: List[Dict[str, Any]] = [] # Store raw tool definitions
 
+    def __class_getitem__(cls, item):
+        # Pass type info down to Flow's __class_getitem__
+        super().__class_getitem__(item)
+        cls._initial_state_T = item
+        return cls
+
     def kickoff(self, state: Optional[S] = None, inputs: Optional[Dict[str, Any]] = None):
         # CrewAI's Flow class initializes self.state from the 'state' parameter or
         # by instantiating S using 'inputs' if 'state' is None and 'inputs' is a dict.
