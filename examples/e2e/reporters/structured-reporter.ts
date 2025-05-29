@@ -56,8 +56,33 @@ const videosToUpload: VideoToUpload[] = [];
   return `${header}${separator}${rows}\n`;
 };
 
-export const extractVariant = (description: string) =>
-  description.split("variant ").at(1) as string;
+export const extractVariant = (description: string) => {
+  const variantIndex = description.indexOf("variant ");
+  if (variantIndex === -1) return undefined;
+
+  // Extract everything after "variant "
+  let variantName = description.substring(variantIndex + 8);
+
+  // If the variant name is at the end of a describe block title that ends with ")",
+  // we need to remove only the final closing paren that belongs to the route description
+  // Example: "Test ... Multi HITL Action ("/multi" route) with variant OpenAI"
+  // should extract "OpenAI", not "OpenAI"
+
+  // Look for patterns like ") with variant" to know if we should trim the final )
+  if (description.includes(") with variant ")) {
+    // This means the ) belongs to the route description, not the variant
+    // So we don't need to trim anything
+    return variantName.trim();
+  }
+
+  // If the description ends with ), it might be closing a test.describe block
+  // In that case, we should remove the final )
+  if (variantName.endsWith(")")) {
+    variantName = variantName.slice(0, -1);
+  }
+
+  return variantName.trim();
+};
 
 export default class StructuredReporter implements Reporter {
   private groupedResults: {
@@ -112,7 +137,23 @@ export default class StructuredReporter implements Reporter {
     const description = testPath[4];
     const browser = testPath[1];
     const title = test.title;
-    const variant = extractVariant(title);
+
+    // Look for variant information in the entire titlePath, starting from the end
+    let variant: string | undefined;
+    for (let i = testPath.length - 1; i >= 0; i--) {
+      variant = extractVariant(testPath[i]);
+      if (variant) break;
+    }
+
+    // If no variant found, try to extract from test title as fallback
+    if (!variant) {
+      variant = extractVariant(title);
+    }
+
+    // Default to "Unknown" if no variant found
+    if (!variant) {
+      variant = "Unknown";
+    }
 
     return {
       browser,
@@ -414,8 +455,8 @@ export default class StructuredReporter implements Reporter {
 
                     // Collect video URLs from failed tests
                     const videoLinks = Array.from(stats.testCases.values())
-                      .filter(tc => tc.videoPath)
-                      .map(tc => `[Video](${tc.videoPath})`)
+                      .filter((tc) => tc.videoPath)
+                      .map((tc) => `[Video](${tc.videoPath})`)
                       .join(", ");
 
                     return [variant, browser, status, videoLinks || "-"];
