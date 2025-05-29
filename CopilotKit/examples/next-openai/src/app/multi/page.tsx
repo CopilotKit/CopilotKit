@@ -132,7 +132,8 @@ function TravelPlanner() {
             appendMessage(
               new TextMessage({
                 role: MessageRole.User,
-                content: "Get the weather 3 times all at once, you decide everything.",
+                content:
+                  "Get the weather 3 times all at once, you decide everything. Do not ask me for anything, just do it.",
               }),
               {},
             )
@@ -146,7 +147,8 @@ function TravelPlanner() {
             appendMessage(
               new TextMessage({
                 role: MessageRole.User,
-                content: "Get the weather and the hotel all at once, you decide everything.",
+                content:
+                  "Get the weather and the hotel all at once, you decide everything. Do not ask me for anything, just do it.",
               }),
               {},
             )
@@ -160,7 +162,8 @@ function TravelPlanner() {
             appendMessage(
               new TextMessage({
                 role: MessageRole.User,
-                content: "Get the weather, hotel and flight all at once, you decide everything.",
+                content:
+                  "Get the weather, hotel and flight all at once, you decide everything. Do not ask me for anything, just do it.",
               }),
               {},
             )
@@ -174,7 +177,7 @@ function TravelPlanner() {
             appendMessage(
               new TextMessage({
                 role: MessageRole.User,
-                content: "Add a message, you choose",
+                content: "Add a message via your tool. Do not ask me for anything, just do it.",
               }),
             )
           }
