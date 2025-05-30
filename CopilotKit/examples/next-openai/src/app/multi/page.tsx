@@ -6,6 +6,25 @@ import { CopilotKit, useCopilotAction, useCopilotChat } from "@copilotkit/react-
 import { useSearchParams } from "next/navigation";
 import { MessageRole, TextMessage } from "@copilotkit/runtime-client-gql";
 
+const testMessages = [
+  {
+    name: "Multiple of the same action",
+    message: "Get the weather 3 times all at once, you decide everything. Do not ask me for anything. At the end, tell me what the weather was between them.",
+  },
+  {
+    name: "Multiple different actions",
+    message: "Get the weather and the hotel all at once, you decide everything. Do not ask me for anything. At the end, tell me what the weather and hotel was.",
+  },
+  {
+    name: "Multiple HITL actions and non-hitl actions",
+    message: "Get the weather, hotel and flight all at once, you decide everything. Do not ask me for anything.",
+  },
+  {
+    name: "Add a message",
+    message: "Add a message via your tool. Do not ask me for anything.",
+  },
+]
+
 export default function PanelPage() {
   const searchParams = useSearchParams();
   const serviceAdapter = searchParams.get("serviceAdapter") || "openai";
@@ -126,64 +145,17 @@ function TravelPlanner() {
           ----------------------------------------------------------------
         */}
       <div className="flex flex-col gap-2 px-4">
-        <button
-          className="bg-blue-500 text-white p-2 rounded-md"
-          onClick={() =>
-            appendMessage(
-              new TextMessage({
-                role: MessageRole.User,
-                content:
-                  "Get the weather 3 times all at once, you decide everything. Do not ask me for anything, just do it.",
-              }),
-              {},
-            )
-          }
-        >
-          Multiple of the same action
-        </button>
-        <button
-          className="bg-blue-500 text-white p-2 rounded-md"
-          onClick={() =>
-            appendMessage(
-              new TextMessage({
-                role: MessageRole.User,
-                content:
-                  "Get the weather and the hotel all at once, you decide everything. Do not ask me for anything, just do it.",
-              }),
-              {},
-            )
-          }
-        >
-          Multiple different actions
-        </button>
-        <button
-          className="bg-blue-500 text-white p-2 rounded-md"
-          onClick={() =>
-            appendMessage(
-              new TextMessage({
-                role: MessageRole.User,
-                content:
-                  "Get the weather, hotel and flight all at once, you decide everything. Do not ask me for anything, just do it.",
-              }),
-              {},
-            )
-          }
-        >
-          Multiple HITL actions and non-hitl actions
-        </button>
-        <button
-          className="bg-blue-500 text-white p-2 rounded-md"
-          onClick={() =>
-            appendMessage(
-              new TextMessage({
-                role: MessageRole.User,
-                content: "Add a message via your tool. Do not ask me for anything, just do it.",
-              }),
-            )
-          }
-        >
-          Add a message
-        </button>
+        {testMessages.map((testMessage) => (
+          <div key={testMessage.name}>
+            <button
+              className="bg-blue-500 text-white p-2 rounded-md"
+              onClick={() => appendMessage(new TextMessage({ role: MessageRole.User, content: testMessage.message }), {},
+              )}
+            >
+              {testMessage.name}
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   );
