@@ -1,9 +1,9 @@
 name: Preview Environments
 
-on:
-  pull_request:
-    branches:
-      - main
+# on:
+#   pull_request:
+#     branches:
+#       - main
 
 concurrency:
   group: preview-${{ github.event.pull_request.number }}-deploy
