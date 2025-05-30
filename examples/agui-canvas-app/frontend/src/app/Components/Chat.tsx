@@ -26,9 +26,9 @@ export default function Chat() {
         }
     });
 
-    // useCopilotChatSuggestions({
-    //     instructions : "Generate suggestions for the user to generate documents for any topics"
-    // })
+    useCopilotChatSuggestions({
+        instructions : "Generate suggestions for the user to generate documents for any topics like Dinosaurs, Space, Game of Thrones, etc."
+    })
 
     useEffect(() => {
         try {
@@ -121,7 +121,11 @@ export default function Chat() {
             </header>
             {/* Fixed Sidebar */}
             <aside className="fixed top-[72px] left-0 w-90 min-h-[calc(100vh-72px)] bg-gray-950/70 flex-shrink-0 flex flex-col items-center justify-start shadow-2xl backdrop-blur-lg z-20 animate-fadeIn" style={{ boxShadow: '0 8px 32px 0 rgba(66,153,225,0.15)', height: 'calc(100vh - 72px)' }}>
-                <CopilotChat className="w-full h-full px-2" />
+                <CopilotChat className="w-full h-full px-2" 
+                    labels={{
+                        initial : "Hi, I'm CopilotKit's AGUI Chatbot. How can I help you today?"
+                    }}
+                />
                 {/* Shimmer effect for CopilotKit branding */}
                 <div className="absolute bottom-2 left-0 w-full text-center">
                     <span className="text-xs text-blue-300 shimmer">Powered by CopilotKit</span>

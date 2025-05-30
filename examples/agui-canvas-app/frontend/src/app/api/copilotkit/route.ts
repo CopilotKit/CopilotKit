@@ -5,6 +5,7 @@ import { HttpAgent } from "@ag-ui/client";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
+  OpenAIAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 
@@ -45,7 +46,7 @@ export const POST = async (req: NextRequest) => {
   // Configure the CopilotKit endpoint for the Next.js app router
   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
     runtime, // Use the runtime with our research agent
-    serviceAdapter: new ExperimentalEmptyAdapter(), // Use the experimental adapter
+    serviceAdapter: new OpenAIAdapter(), // Use the experimental adapter
     endpoint: "/api/copilotkit", // Define the API endpoint path
   });
 
