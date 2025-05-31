@@ -8,26 +8,24 @@ import InstallSDKSnippet from "@/snippets/install-python-sdk-crew.mdx";
 
 ## What is this?
 
-By default, CopilotKit will stream both your state and tool calls to the frontend.
-You can disable this by using CopilotKit's custom `RunnableConfig`.
+By default, CopilotKit will stream both your messages and tool calls to the frontend when you use `copilotkit_stream`. You can disable this by choosing when to use `copilotkit_stream` vs calling `completion` directly.
 
 ## When should I use this?
 
-Occasionally, you'll want to disable streaming temporarily — for example, the LLM may be
-doing something the current user should not see, like emitting tool calls or questions
-pertaining to other employees in an HR system.
+Occasionally, you'll want to disable streaming temporarily — for example, the LLM may be doing something the current user should not see, like emitting tool calls or questions pertaining to other employees in an HR system.
 
 ## Implementation
 
 ### Disable all streaming
 
-You can decide wether to stream messages or tool calls by selectively wrapping calls to `completion`
-with `copilotkit_stream`.
+You can control whether to stream messages or tool calls by selectively wrapping calls to `completion` with `copilotkit_stream`.
 
 <Tabs groupId="language" items={['Python']} default="Python">
     <Tab value="Python">
         ```python
         from copilotkit.crewai import copilotkit_stream
+        from typing import cast, Any
+        from litellm import completion
 
         @start()
         async def start(self):
@@ -36,23 +34,25 @@ with `copilotkit_stream`.
             response = completion(
                 model="openai/gpt-4o",
                 messages=[
-                    {"role": "system", "content": my_prompt},
-                    *self.state["messages"]
+                    {"role": "system", "content": "You are a helpful assistant"},
+                    *self.state.messages
                 ],
             )
+            message = response.choices[0].message
 
-            # 2) Or wrap the LLM call with `copilotkit_stream` to stream messages tokens.
+            # 2) Or wrap the LLM call with `copilotkit_stream` to stream message tokens.
             #    Note that we pass `stream=True` to the inner `completion` call.
-            response = copilotkit_stream(
+            response = await copilotkit_stream(
                 completion(
                     model="openai/gpt-4o",
                     messages=[
-                        {"role": "system", "content": my_prompt},
-                        *self.state["messages"]
+                        {"role": "system", "content": "You are a helpful assistant"},
+                        *self.state.messages
                     ],
                     stream=True
                 )
             )
+            message = cast(Any, response).choices[0]["message"]
         ```
     </Tab>
 

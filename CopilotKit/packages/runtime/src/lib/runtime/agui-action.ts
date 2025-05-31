@@ -7,15 +7,15 @@ import telemetry from "../telemetry-client";
 import { RemoteAgentHandlerParams } from "./remote-actions";
 
 import {
-  AssistantMessage as AgentWireAssistantMessage,
-  Message as AgentWireMessage,
+  AssistantMessage as AGUIAssistantMessage,
+  Message as AGUIMessage,
   ToolCall,
 } from "@ag-ui/client";
 
 import { AbstractAgent } from "@ag-ui/client";
 import { parseJson } from "@copilotkit/shared";
 
-export function constructAgentWireRemoteAction({
+export function constructAGUIRemoteAction({
   logger,
   messages,
   agentStates,
@@ -37,7 +37,7 @@ export function constructAgentWireRemoteAction({
     }: RemoteAgentHandlerParams): Promise<Observable<RuntimeEvent>> => {
       logger.debug({ actionName: agent.agentId }, "Executing remote agent");
 
-      const agentWireMessages = convertMessagesToAgentWire(messages);
+      const agentWireMessages = convertMessagesToAGUIMessage(messages);
       agent.messages = agentWireMessages;
       agent.threadId = threadId;
 
@@ -72,8 +72,8 @@ export function constructAgentWireRemoteAction({
   return [action];
 }
 
-export function convertMessagesToAgentWire(messages: Message[]): AgentWireMessage[] {
-  const result: AgentWireMessage[] = [];
+export function convertMessagesToAGUIMessage(messages: Message[]): AGUIMessage[] {
+  const result: AGUIMessage[] = [];
 
   for (const message of messages) {
     if (message.isTextMessage()) {
@@ -93,9 +93,9 @@ export function convertMessagesToAgentWire(messages: Message[]): AgentWireMessag
       };
 
       if (message.parentMessageId && result.some((m) => m.id === message.parentMessageId)) {
-        const parentMessage: AgentWireAssistantMessage | undefined = result.find(
+        const parentMessage: AGUIAssistantMessage | undefined = result.find(
           (m) => m.id === message.parentMessageId,
-        ) as AgentWireAssistantMessage;
+        ) as AGUIAssistantMessage;
         if (parentMessage.toolCalls === undefined) {
           parentMessage.toolCalls = [];
         }
