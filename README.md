@@ -207,6 +207,9 @@ const response = await ChatOpenAI({ model: "gpt-4o" }).invoke(messages, modified
 
 ## Contributing
 
+<a href="https://openomy.app/github/CopilotKit/CopilotKit" target="_blank" style="display: block; width: 100%;" align="center">
+<img src="https://openomy.app/svg?repo=CopilotKit/CopilotKit&chart=bubble&latestMonth=3" target="_blank" alt="Contribution Chart" style="display: block; width: 100%;" />
+</a>
 Thanks for your interest in contributing to CopilotKit! 💜
 
 We value all contributions, whether it's through code, documentation, creating demo apps, or just spreading the word.
