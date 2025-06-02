@@ -15,9 +15,10 @@ type PlaceCardProps = {
   onMouseLeave?: () => void;
   checked?: boolean;
   onCheck?: (checked: boolean) => void;
+  shouldShowCheckbox?: boolean;
 };
 
-export function PlaceCard({ place, actions, onMouseEnter, onMouseLeave, className, number, checked, onCheck }: PlaceCardProps) {
+export function PlaceCard({ place, actions, onMouseEnter, onMouseLeave, className, number, checked, onCheck, shouldShowCheckbox = true }: PlaceCardProps) {
   return (
     <Card 
       className={cn("hover:shadow-md transition-shadow duration-200", className)}
@@ -40,7 +41,7 @@ export function PlaceCard({ place, actions, onMouseEnter, onMouseLeave, classNam
             </div>
             <div className="flex flex-col items-end gap-2 min-w-[2rem]">
               {actions}
-              <Checkbox checked={checked} onCheckedChange={onCheck} />
+              {shouldShowCheckbox && <Checkbox checked={checked} onCheckedChange={onCheck} />}
             </div>
           </div>
 
