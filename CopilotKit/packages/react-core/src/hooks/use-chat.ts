@@ -40,7 +40,6 @@ import { FrontendAction, processActionsForRuntimeRequest } from "../types/fronte
 import { CoagentState } from "../types/coagent-state";
 import { AgentSession, useCopilotContext } from "../context/copilot-context";
 import { useCopilotRuntimeClient } from "./use-copilot-runtime-client";
-import { useCopilotContext } from "../context/copilot-context";
 import { useAsyncCallback, useErrorToast } from "../components/error-boundary/error-utils";
 import { useToast } from "../components/toast/toast-provider";
 import {
