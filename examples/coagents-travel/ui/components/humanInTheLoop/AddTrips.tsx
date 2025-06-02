@@ -3,6 +3,7 @@ import { PlaceCard } from "@/components/PlaceCard";
 import { X, Plus } from "lucide-react";
 import { ActionButtons } from "./ActionButtons";
 import { RenderFunctionStatus } from "@copilotkit/react-core";
+import { useState } from "react";
 
 export type AddTripsProps = {
   args: any;
@@ -11,6 +12,20 @@ export type AddTripsProps = {
 };
 
 export const AddTrips = ({ args, status, handler }: AddTripsProps) => {
+  const [selectedPlaceIds, setSelectedPlaceIds] = useState<Set<string>>(new Set());
+
+  const handleCheck = (placeId: string, checked: boolean) => {
+    setSelectedPlaceIds(prev => {
+      const newSet = new Set(prev);
+      if (checked) {
+        newSet.add(placeId);
+      } else {
+        newSet.delete(placeId);
+      }
+      return newSet;
+    });
+  };
+
   return (
     <div className="space-y-4 w-full bg-secondary p-6 rounded-lg">
       {args.trips?.map((trip: Trip) => (
@@ -20,7 +35,13 @@ export const AddTrips = ({ args, status, handler }: AddTripsProps) => {
           <div className="flex flex-col gap-4">
             <h2 className="text-lg font-bold">{trip.name}</h2>
             {trip.places?.map((place) => (
-              <PlaceCard key={place.id} place={place} />
+              // <PlaceCard
+              //   key={place.id}
+              //   place={place}
+              //   checked={selectedPlaceIds.has(place.id)}
+              //   onCheck={(checked) => handleCheck(place.id, checked as boolean)}
+              // />
+              <></>
             ))}
           </div>
         </div>
