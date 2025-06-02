@@ -14,17 +14,20 @@ import {
 
 import { AbstractAgent } from "@ag-ui/client";
 import { parseJson } from "@copilotkit/shared";
+import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 
 export function constructAGUIRemoteAction({
   logger,
   messages,
   agentStates,
   agent,
+  metaEvents,
 }: {
   logger: Logger;
   messages: Message[];
   agentStates?: AgentStateInput[];
   agent: AbstractAgent;
+  metaEvents?: MetaEventInput[];
 }) {
   const action = {
     name: agent.agentId,
@@ -64,8 +67,13 @@ export function constructAGUIRemoteAction({
         };
       });
 
+      const forwardedProps = metaEvents.length
+        ? { command: { resume: metaEvents[0]?.response } }
+        : undefined;
+
       return agent.legacy_to_be_removed_runAgentBridged({
         tools,
+        forwardedProps,
       }) as Observable<RuntimeEvent>;
     },
   };

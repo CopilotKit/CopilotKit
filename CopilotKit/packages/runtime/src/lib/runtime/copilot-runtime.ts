@@ -1130,6 +1130,7 @@ please use an LLM adapter instead.`,
       agentStates,
       frontendUrl: url,
       agents: this.agents,
+      metaEvents: request.metaEvents,
     });
 
     const configuredActions =
