@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.8.14-next.4
+
+### Patch Changes
+
+- 12b8ca8: - fix: fix cpk agui wiring for langgraph
+  - @copilotkit/shared@1.8.14-next.4
+
 ## 1.8.14-next.3
 
 ### Patch Changes
