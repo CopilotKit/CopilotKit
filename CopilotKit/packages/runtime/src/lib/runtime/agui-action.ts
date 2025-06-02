@@ -67,10 +67,11 @@ export function constructAGUIRemoteAction({
         };
       });
 
+      const forwardedProps = metaEvents.length ? { command: { resume: metaEvents[0]?.response } } : undefined;
+
       return agent.legacy_to_be_removed_runAgentBridged({
         tools,
-        // @ts-ignore
-        resume: metaEvents[0]?.response,
+        forwardedProps
       }) as Observable<RuntimeEvent>;
     },
   };
