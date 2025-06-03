@@ -1,0 +1,64 @@
+---
+title: "Quickstart"
+description: "Get started with PraisonAI Agents and CopilotKit in minutes"
+---
+
+# Quickstart
+
+This guide will help you set up and run your first PraisonAI Agents research assistant.
+
+## Prerequisites
+
+- Python 3.10 or higher
+- Node.js 18 or higher
+- OpenAI API key
+
+## Installation
+
+1. **Clone the Example**
+```bash
+git clone https://github.com/CopilotKit/CopilotKit.git
+cd examples/coagents-starter-praisonai-agents
+```
+
+2. **Install Backend Dependencies**
+```bash
+cd agent-py
+poetry install
+```
+
+3. **Install Frontend Dependencies**
+```bash
+cd ../ui
+npm install  # or pnpm install
+```
+
+## Configuration
+
+1. **Backend Environment**
+Create `.env` in `agent-py`:
+```env
+OPENAI_API_KEY=your_openai_api_key
+```
+
+2. **Frontend Environment**
+Create `.env.local` in `ui`:
+```env
+OPENAI_API_KEY=your_openai_api_key
+```
+
+## Run the Example
+
+1. **Start the Backend**
+```bash
+cd agent-py
+poetry run demo
+```
+
+2. **Start the Frontend**
+```bash
+cd ui
+npm run dev
+```
+
+Visit [http://localhost:3000](http://localhost:3000) to see your research assistant! 
