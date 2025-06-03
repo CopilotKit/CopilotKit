@@ -68,6 +68,7 @@ const StepsFeedback = ({ args, respond, status }: { args: any, respond: any, sta
       status: "disabled" | "enabled" | "executing";
     }[]
   >([]);
+  const [newStep, setNewStep] = useState("");
 
   useEffect(() => {
     if (status === "executing" && localSteps.length === 0) {
@@ -92,6 +93,22 @@ const StepsFeedback = ({ args, respond, status }: { args: any, respond: any, sta
           : step
       )
     );
+  };
+
+  const handleAddStep = () => {
+    const trimmed = newStep.trim();
+    if (trimmed.length === 0) return;
+    setLocalSteps((prevSteps) => [
+      ...prevSteps,
+      { description: trimmed, status: "enabled" },
+    ]);
+    setNewStep("");
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handleAddStep();
+    }
   };
 
   return (
@@ -123,6 +140,17 @@ const StepsFeedback = ({ args, respond, status }: { args: any, respond: any, sta
             </label>
           </div>
         ))}
+        <div className="flex items-center gap-2 mb-4">
+          <input
+            type="text"
+            className="flex-1 rounded px-3 py-2 focus:outline-none"
+            placeholder="Add a new step..."
+            value={newStep}
+            onChange={(e) => setNewStep(e.target.value)}
+            onKeyDown={handleInputKeyDown}
+            hidden={status != "executing"}
+          />
+        </div>
         {status === "executing" && (
           <button
             className="mt-4 bg-gradient-to-r from-purple-400 to-purple-600 text-white py-2 px-4 rounded cursor-pointer w-48 font-bold"
