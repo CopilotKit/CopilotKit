@@ -69,15 +69,6 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
 
 
 async def interrupted_node(state: Dict[str, Any], config: RunnableConfig):
-    messages = state["messages"] + [HumanMessage(content=HUMAN_FEEDBACK_AFTER_INTERRUPT)]
-    return Command(
-        goto="chat_node",
-        update={
-            "messages": messages,
-        }
-    )
-
-async def interrupted_node(state: Dict[str, Any], config: RunnableConfig):
     """
     This node handles the user interrupt for step customization and generates the final response.
     """
