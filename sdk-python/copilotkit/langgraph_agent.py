@@ -279,13 +279,17 @@ class LangGraphAgent(Agent):
         interrupt_from_meta_events = next((ev for ev in (meta_events or []) if ev.get("name") == "LangGraphInterruptEvent"), None)
         resume_input = None
 
+        goto_kwargs = {}
+        if node_name is not None:
+            goto_kwargs["goto"] = node_name
+
          # An active interrupt event that runs through messages. Use latest message as response
         if self.active_interrupt_event and interrupt_from_meta_events is None:
             # state["messages"] only includes the messages we need to add at this point, tool call+result if applicable, and user text
-            resume_input = Command(resume=state["messages"])
+            resume_input = Command(resume=state["messages"], **goto_kwargs)
 
         if interrupt_from_meta_events and "response" in interrupt_from_meta_events:
-            resume_input = Command(resume=interrupt_from_meta_events["response"])
+            resume_input = Command(resume=interrupt_from_meta_events["response"], **goto_kwargs)
 
         mode = "continue" if thread_id and node_name != "__end__" and node_name is not None else "start"
         thread_id = thread_id or str(uuid.uuid4())

@@ -21,6 +21,10 @@ toml = "^0.10.2"
 [tool.poetry.extras]
 crewai = ["crewai"]
 
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.0"
+pytest-asyncio = "^1.0.0"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
