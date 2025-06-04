@@ -1,0 +1,19 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "coagents-starter-crewai-flows",
+  "type": "registry:page",
+  "title": "Coagents Starter CrewAI Flows",
+  "description": "Quickstart for CopilotKit and CrewAI Flows on CrewAI Enterprise.",
+  "dependencies": [
+    "@copilotkit/react-core",
+    "@copilotkit/react-ui"
+  ],
+  "files": [
+    {
+      "path": "registry/quickstarts/coagents-starter-crewai-flows/page.tsx",
+      "content": "\"use client\";\nimport \"@copilotkit/react-ui/styles.css\";\nimport { CopilotKit, useCopilotAction } from \"@copilotkit/react-core\";\nimport { CopilotChat } from \"@copilotkit/react-ui\";\nimport React, { useState } from \"react\";\n\nconst publicApiKey = process.env.NEXT_PUBLIC_COPILOT_API_KEY || \"\";\n/**\n * AgentName refers to the Crew Flow Agent you have saved via CLI during setup.\n * It is used to identify the agent you want to use for the chat.\n */\nconst agentName =\n  process.env.NEXT_PUBLIC_COPILOTKIT_AGENT_NAME || \"DefaultAgent\";\n\n// Main Chat Component: Handles chat interface and background customization\nconst Chat = () => {\n  const [background, setBackground] = useState(\n    \"--copilot-kit-background-color\"\n  );\n\n  // Action: Allow AI to change background color dynamically\n  useCopilotAction({\n    name: \"change_background\",\n    description:\n      \"Change the background color of the chat. Can be anything that the CSS background attribute accepts. Regular colors, linear of radial gradients etc.\",\n    parameters: [\n      {\n        name: \"background\",\n        type: \"string\",\n        description: \"The background. Prefer gradients.\",\n      },\n    ],\n    handler: ({ background }) => setBackground(background),\n    followUp: false,\n  });\n\n  return (\n    <div\n      className=\"flex justify-center items-center h-full w-full\"\n      style={{ background }}\n    >\n      <div className=\"w-8/10 h-8/10 rounded-lg\">\n        <CopilotChat\n          className=\"h-full rounded-2xl\"\n          labels={{ initial: \"Hi, I'm an agent. Want to chat?\" }}\n        />\n      </div>\n    </div>\n  );\n};\n\n// App Component: Main wrapper that provides CopilotKit context\nconst CrewAIFlow: React.FC = () => (\n  <CopilotKit publicApiKey={publicApiKey} agent={agentName}>\n    <Chat />\n  </CopilotKit>\n);\n\nexport default CrewAIFlow;\n",
+      "type": "registry:page",
+      "target": "app/copilotkit/page.tsx"
+    }
+  ]
+}
