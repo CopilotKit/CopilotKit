@@ -1,5 +1,5 @@
 import pytest
-from .agent import human_in_the_loop_graph, INTERRUPTED_NODE_NAME, HUMAN_FEEDBACK_AFTER_INTERRUPT
+from .agent import human_in_the_loop_graph, INTERRUPTED_NODE_NAME
 from copilotkit.langgraph import langchain_messages_to_copilotkit
 from copilotkit.langgraph_agent import LangGraphAgent
 from copilotkit.types import MetaEvent
@@ -14,6 +14,7 @@ LANGGRAPH_CONFIG = {
     }
 }
 
+HUMAN_FEEDBACK_AFTER_INTERRUPT = "Here is my feedback"
 
 @pytest.mark.asyncio
 async def test_execute():
@@ -46,7 +47,7 @@ async def test_execute():
     async for event in agent.execute(
         state={"messages": langchain_messages_to_copilotkit(current_state.values.get("messages", []))},
         config=LANGGRAPH_CONFIG,
-        messages=[{"type": "TextMessage", "role": "user", "content": "Here's my feedback", "id": "123"}],
+        messages=[{"type": "TextMessage", "role": "user", "content": HUMAN_FEEDBACK_AFTER_INTERRUPT, "id": "123"}],
         thread_id=LANGGRAPH_CONFIG["thread_id"],
         meta_events=[meta_event],
         node_name="interrupted_node"

@@ -19,7 +19,6 @@ from langchain_core.messages import SystemMessage
 from copilotkit.langgraph import (copilotkit_exit)
 
 # Constants
-HUMAN_FEEDBACK_AFTER_INTERRUPT = "Here is my feedback"
 INTERRUPTED_NODE_NAME = "interrupted_node"
 
 class AgentState(CopilotKitState):
@@ -51,8 +50,6 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
         tool_call_id="123",
         name="fake_tool"
     )
-
-    print(response)
 
     # Update messages with the response
     messages = state["messages"] + [response]
@@ -119,8 +116,7 @@ workflow.add_edge(INTERRUPTED_NODE_NAME, END)
 def should_continue(command: Command):
     if command.goto == INTERRUPTED_NODE_NAME:
         return INTERRUPTED_NODE_NAME
-    else:
-        return END
+    return END
 
 workflow.add_conditional_edges(
     "chat_node",
