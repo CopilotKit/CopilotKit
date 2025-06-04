@@ -4,8 +4,8 @@
   </a>
 
   <h3>
-    Develop AI assistants & agents<br />
-    that integrate seamlessly within your application.
+    Build deeply-integrated AI assistants & agents<br/>
+    that work <em>alongside</em> your users inside your applications.
   </h3>
 </div>
 
