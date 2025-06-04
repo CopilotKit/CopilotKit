@@ -2,8 +2,7 @@
 A LangGraph implementation of the human-in-the-loop agent.
 """
 
-import json
-from typing import Dict, List, Any
+from typing import Dict, Any
 
 # LangGraph imports
 from langchain_core.messages import AIMessage, ToolMessage
@@ -14,7 +13,6 @@ from langgraph.checkpoint.memory import MemorySaver
 
 # CopilotKit imports
 from copilotkit import CopilotKitState
-from copilotkit.langgraph import copilotkit_customize_config
 
 # LLM imports
 from langchain_core.messages import SystemMessage
