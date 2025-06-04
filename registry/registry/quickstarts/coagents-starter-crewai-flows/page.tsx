@@ -4,18 +4,17 @@ import { CopilotKit, useCopilotAction } from "@copilotkit/react-core";
 import { CopilotChat } from "@copilotkit/react-ui";
 import React, { useState } from "react";
 
-const publicApiKey = process.env.NEXT_PUBLIC_COPILOT_API_KEY || "";
-/**
- * AgentName refers to the Crew Flow Agent you have saved via CLI during setup.
- * It is used to identify the agent you want to use for the chat.
- */
-const agentName =
-  process.env.NEXT_PUBLIC_COPILOTKIT_AGENT_NAME || "DefaultAgent";
+const publicApiKey = process.env.NEXT_PUBLIC_COPILOT_API_KEY;
+const agentName = process.env.NEXT_PUBLIC_COPILOTKIT_AGENT_NAME;
+
+if (!publicApiKey || !agentName) {
+  throw new Error("Missing environment variables");
+}
 
 // Main Chat Component: Handles chat interface and background customization
 const Chat = () => {
   const [background, setBackground] = useState(
-    "--copilot-kit-background-color"
+    "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
   );
 
   // Action: Allow AI to change background color dynamically
@@ -36,14 +35,19 @@ const Chat = () => {
 
   return (
     <div
-      className="flex justify-center items-center h-full w-full"
+      className="h-screen w-full flex items-center justify-center"
       style={{ background }}
     >
-      <div className="w-8/10 h-8/10 rounded-lg">
-        <CopilotChat
-          className="h-full rounded-2xl"
-          labels={{ initial: "Hi, I'm an agent. Want to chat?" }}
-        />
+      <div className="w-full max-w-3xl h-[80vh] px-4">
+        <div className="h-full bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl overflow-hidden">
+          <CopilotChat
+            className="h-full"
+            labels={{
+              initial: "Hi, I'm an agent. Want to chat?",
+              placeholder: "Type a message...",
+            }}
+          />
+        </div>
       </div>
     </div>
   );
