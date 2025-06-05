@@ -23,7 +23,7 @@ async def test_execute():
         graph=human_in_the_loop_graph,
         langgraph_config=LANGGRAPH_CONFIG
     )
-    result = await agent.graph.ainvoke(
+    await agent.graph.ainvoke(
         {
             "input": "Hello, how are you?",
         },
