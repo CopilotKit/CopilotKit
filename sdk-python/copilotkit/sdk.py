@@ -380,12 +380,15 @@ class CopilotKitRemoteEndpoint:
         """
         Log request info
         """
-        logger.info(bold(title))
-        logger.info("--------------------------")
+        message_parts = [bold(title), "--------------------------"]
+
         for key, value in data:
-            logger.info(bold(key+":"))
-            logger.info(pformat(value))
-        logger.info("--------------------------")
+            message_parts.append(bold(key + ":"))
+            message_parts.append(pformat(value))
+
+        message_parts.append("--------------------------")
+
+        logger.info("\n".join(message_parts))
 
 # Alias for backwards compatibility
 class CopilotKitSDK(CopilotKitRemoteEndpoint):
