@@ -104,7 +104,7 @@ const Chat = () => {
           <div className="flex items-center gap-2 mb-4">
             <input
               type="text"
-              className="flex-1 rounded px-3 py-2 focus:outline-none"
+              className="flex-1 rounded py-2 focus:outline-none"
               placeholder="Add a new step..."
               value={newStep}
               onChange={(e) => setNewStep(e.target.value)}
