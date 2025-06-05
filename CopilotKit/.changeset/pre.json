@@ -18,9 +18,13 @@
     "tsconfig": "1.4.6"
   },
   "changesets": [
+    "friendly-lizards-press",
     "giant-avocados-joke",
     "green-apes-enjoy",
+    "poor-garlics-melt",
+    "rich-drinks-arrive",
     "stupid-nails-travel",
+    "warm-swans-look",
     "yellow-fireants-push"
   ]
 }

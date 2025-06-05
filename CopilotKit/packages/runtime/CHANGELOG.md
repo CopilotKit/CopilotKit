@@ -1,5 +1,28 @@
 # @copilotkit/runtime
 
+## 1.8.14-next.5
+
+### Patch Changes
+
+- ddd4165: - fix(runtime): filter empty AIMessages in GoogleGenerativeAIAdapter
+  - fix(runtime): filter empty text messages in AnthropicAdapter
+- ddd4165: - fix(runtime): filter empty AIMessages in GoogleGenerativeAIAdapter
+  - @copilotkit/shared@1.8.14-next.5
+
+## 1.8.14-next.4
+
+### Patch Changes
+
+- 12b8ca8: - fix: fix cpk agui wiring for langgraph
+  - @copilotkit/shared@1.8.14-next.4
+
+## 1.8.14-next.3
+
+### Patch Changes
+
+- 9d33836: - fix: prepare cpk agui wiring for ag-ui langgraph support
+  - @copilotkit/shared@1.8.14-next.3
+
 ## 1.8.14-next.2
 
 ### Patch Changes

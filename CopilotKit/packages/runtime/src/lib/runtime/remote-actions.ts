@@ -130,6 +130,7 @@ export async function setupRemoteActions({
   agentStates,
   frontendUrl,
   agents,
+  metaEvents,
 }: {
   remoteEndpointDefinitions: EndpointDefinition[];
   graphqlContext: GraphQLContext;
@@ -137,6 +138,7 @@ export async function setupRemoteActions({
   agentStates?: AgentStateInput[];
   frontendUrl?: string;
   agents: Record<string, AbstractAgent>;
+  metaEvents?: MetaEventInput[];
 }): Promise<Action[]> {
   const logger = graphqlContext.logger.child({ component: "remote-actions.fetchRemoteActions" });
   logger.debug({ remoteEndpointDefinitions }, "Fetching from remote endpoints");
@@ -201,6 +203,7 @@ export async function setupRemoteActions({
         messages,
         agentStates,
         agent: agent,
+        metaEvents,
       }),
     );
   }

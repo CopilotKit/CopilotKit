@@ -1,5 +1,29 @@
 # ui
 
+## 1.8.14-next.5
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.14-next.5
+- @copilotkit/react-core@1.8.14-next.5
+- @copilotkit/shared@1.8.14-next.5
+
+## 1.8.14-next.4
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.14-next.4
+- @copilotkit/react-core@1.8.14-next.4
+- @copilotkit/shared@1.8.14-next.4
+
+## 1.8.14-next.3
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.14-next.3
+- @copilotkit/react-core@1.8.14-next.3
+- @copilotkit/shared@1.8.14-next.3
+
 ## 1.8.14-next.2
 
 ### Patch Changes
