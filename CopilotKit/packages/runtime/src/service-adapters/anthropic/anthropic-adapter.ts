@@ -121,7 +121,20 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
         // For non-tool-result messages, convert normally
         return convertMessageToAnthropicMessage(message);
       })
-      .filter(Boolean) as Anthropic.Messages.MessageParam[]; // Explicitly cast after filtering nulls
+      .filter(Boolean) // Remove nulls
+      .filter((msg) => {
+        // Filter out assistant messages with empty text content
+        if (msg.role === "assistant" && Array.isArray(msg.content)) {
+          const hasEmptyTextOnly =
+            msg.content.length === 1 &&
+            msg.content[0].type === "text" &&
+            (!msg.content[0].text || msg.content[0].text.trim() === "");
+
+          // Keep messages that have tool_use or non-empty text
+          return !hasEmptyTextOnly;
+        }
+        return true;
+      }) as Anthropic.Messages.MessageParam[];
 
     // Apply token limits
     const limitedMessages = limitMessagesToTokenCount(anthropicMessages, tools, model);
