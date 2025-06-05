@@ -742,27 +742,25 @@ cron = ["capturer (>=2.4)"]
 
 [[package]]
 name = "copilotkit"
-version = "0.1.45"
+version = "0.1.46"
 description = "CopilotKit python SDK"
 optional = false
-python-versions = ">=3.10,<3.13"
+python-versions = "<3.13,>=3.10"
 groups = ["main"]
-files = []
-develop = true
+files = [
+    {file = "copilotkit-0.1.46-py3-none-any.whl", hash = "sha256:f229dd513d3fcbbcb5634e4e5e1563bfebd7f6cb97525c3345d1f203deedf5fa"},
+    {file = "copilotkit-0.1.46.tar.gz", hash = "sha256:fa9e913b63af60c07d599722801121831903b6ce858dc57db7f1b5ad361c6d22"},
+]
 
 [package.dependencies]
-fastapi = "^0.115.0"
-langchain = "^0.3.3"
+fastapi = ">=0.115.0,<0.116.0"
+langchain = ">=0.3.3,<0.4.0"
 langgraph = ">=0.2.50"
-partialjson = "^0.0.8"
-toml = "^0.10.2"
+partialjson = ">=0.0.8,<0.0.9"
+toml = ">=0.10.2,<0.11.0"
 
 [package.extras]
 crewai = ["crewai (==0.118.0)"]
-
-[package.source]
-type = "directory"
-url = "../../../sdk-python"
 
 [[package]]
 name = "crewai"
@@ -5399,4 +5397,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.13"
-content-hash = "4db5070ca1077edf4d1200c2fdd7762c588617dfce7b04a83f9bfa43307989c3"
+content-hash = "1a34c1949a7a7aa2957b9a803374bfdb4b3ac716eb9d1d7fb48e54707ec5b8da"

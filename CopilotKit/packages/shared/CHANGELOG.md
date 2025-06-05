@@ -1,5 +1,13 @@
 # @copilotkit/shared
 
+## 1.8.14-next.5
+
+## 1.8.14-next.4
+
+## 1.8.14-next.3
+
+## 1.8.14-next.2
+
 ## 1.8.14-next.1
 
 ### Patch Changes
