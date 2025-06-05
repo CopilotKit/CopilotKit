@@ -1,8 +1,10 @@
 import {
+  Assistant,
   Client as LangGraphClient,
   EventsStreamEvent,
   GraphSchema,
   StreamMode,
+  ThreadState,
 } from "@langchain/langgraph-sdk";
 import { createHash } from "node:crypto";
 import { isValidUUID, randomUUID } from "@copilotkit/shared";
@@ -83,6 +85,13 @@ type SchemaKeys = {
   config: string[] | null;
 } | null;
 
+interface StreamInfo {
+  provider?: string;
+  langGraphHost?: string;
+  langGraphVersion?: string;
+  hashedLgcKey?: string | null;
+}
+
 let activeInterruptEvent = false;
 
 export async function execute(args: ExecutionArgs): Promise<ReadableStream<Uint8Array>> {
@@ -122,10 +131,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   const {
     deploymentUrl,
     langsmithApiKey,
-    threadId: argsInitialThreadId,
     agent,
-    nodeName: initialNodeName,
-    state: initialState,
     config: explicitConfig,
     messages,
     actions,
@@ -134,9 +140,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     metaEvents,
   } = args;
 
-  let nodeName = initialNodeName;
-  let state = initialState;
-  const { name, assistantId: initialAssistantId } = agent;
+  let { nodeName, state } = args;
 
   const propertyHeaders = properties.authorization
     ? { authorization: `Bearer ${properties.authorization}` }
@@ -148,29 +152,9 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     defaultHeaders: { ...propertyHeaders },
   });
 
-  let threadId = argsInitialThreadId ?? randomUUID();
-  if (argsInitialThreadId && argsInitialThreadId.startsWith("ck-")) {
-    threadId = argsInitialThreadId.substring(3);
-  }
+  let threadId = getThreadIdFromArgs(args);
 
-  if (!isValidUUID(threadId)) {
-    console.warn(
-      `Cannot use the threadId ${threadId} with LangGraph Platform. Must be a valid UUID.`,
-    );
-  }
-
-  let wasInitiatedWithExistingThread = true;
-  try {
-    await client.threads.get(threadId);
-  } catch (error) {
-    wasInitiatedWithExistingThread = false;
-    await client.threads.create({ threadId });
-  }
-
-  let agentState = { values: {} };
-  if (wasInitiatedWithExistingThread) {
-    agentState = await client.threads.getState(threadId);
-  }
+  let agentState = await getOrCreateThreadAndReturnState(client, threadId);
 
   const agentStateValues = agentState.values as State;
   state.messages = agentStateValues.messages;
@@ -184,116 +168,59 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   } catch (e) {
     logger.error(e, `Error event thrown: ${e.message}`);
   }
-  state = langGraphDefaultMergeState(state, formattedMessages, actions, name);
-
-  const streamInput = mode === "start" ? state : null;
-
-  const payload = {
-    input: streamInput,
-    streamMode: ["events", "values", "updates"] satisfies StreamMode[],
-    command: undefined,
-  };
-
-  const lgInterruptMetaEvent = metaEvents?.find(
-    (ev) => ev.name === MetaEventName.LangGraphInterruptEvent,
-  );
-  if (activeInterruptEvent && !lgInterruptMetaEvent) {
-    // state.messages includes only messages that were not processed by the agent, which are the interrupt messages
-    payload.command = { resume: state.messages };
-  }
-  if (lgInterruptMetaEvent?.response) {
-    let response = lgInterruptMetaEvent.response;
-    payload.command = { resume: parseJson(response, response) };
-  }
+  state = langGraphDefaultMergeState(state, formattedMessages, actions);
 
   if (mode === "continue" && !activeInterruptEvent) {
     await client.threads.updateState(threadId, { values: state, asNode: nodeName });
   }
 
-  let streamInfo: {
-    provider?: string;
-    langGraphHost?: string;
-    langGraphVersion?: string;
-    hashedLgcKey?: string | null;
-  } = {
+  let streamInfo: StreamInfo = {
     hashedLgcKey: langsmithApiKey
       ? createHash("sha256").update(langsmithApiKey).digest("hex")
       : null,
   };
 
-  const assistants = await client.assistants.search();
-  const retrievedAssistant = assistants.find(
-    (a) => a.name === name || a.assistant_id === initialAssistantId,
-  );
-  if (!retrievedAssistant) {
-    telemetry.capture("oss.runtime.agent_execution_stream_errored", {
-      ...streamInfo,
-      error: `Found no assistants for given information, while ${assistants.length} assistants exists`,
-    });
-    console.error(`
-      No agent found for the agent name specified in CopilotKit provider
-      Please check your available agents or provide an agent ID in the LangGraph Platform endpoint definition.\n
-      
-      These are the available agents: [${assistants.map((a) => `${a.name} (ID: ${a.assistant_id})`).join(", ")}]
-      `);
-    throw new Error("No agent id found");
-  }
+  const retrievedAssistant = await getAssistant({
+    assistantParams: agent,
+    client,
+    streamInfo,
+  });
   const assistantId = retrievedAssistant.assistant_id;
+  const lgInterruptMetaEvent = metaEvents?.find(
+    (ev) => ev.name === MetaEventName.LangGraphInterruptEvent,
+  );
 
-  const graphInfo = await client.assistants.getGraph(assistantId);
   const graphSchema = await client.assistants.getSchemas(assistantId);
   const schemaKeys = getSchemaKeys(graphSchema);
 
+  const payload = getStreamPayload({
+    mode,
+    interruptMetaEvent: lgInterruptMetaEvent,
+    hasActiveInterruptEvent: activeInterruptEvent,
+    state,
+    schemaKeys,
+  });
+
+  const graphInfo = await client.assistants.getGraph(assistantId);
+
   if (explicitConfig) {
-    let filteredConfigurable = retrievedAssistant.config.configurable;
-    if (explicitConfig.configurable) {
-      filteredConfigurable = schemaKeys?.config
-        ? filterObjectBySchemaKeys(explicitConfig?.configurable, schemaKeys?.config)
-        : explicitConfig?.configurable;
-    }
-
-    const newConfig = {
-      ...retrievedAssistant.config,
-      ...explicitConfig,
-      configurable: filteredConfigurable,
-    };
-
-    // LG does not return recursion limit if it's the default, therefore we check: if no recursion limit is currently set, and the user asked for 25, there is no change.
-    const isRecursionLimitSetToDefault =
-      retrievedAssistant.config.recursion_limit == null && explicitConfig.recursion_limit === 25;
-    // Deep compare configs to avoid unnecessary update calls
-    const configsAreDifferent =
-      JSON.stringify(newConfig) !== JSON.stringify(retrievedAssistant.config);
-
-    // Check if the only difference is the recursion_limit being set to default
-    const isOnlyRecursionLimitDifferent =
-      isRecursionLimitSetToDefault &&
-      JSON.stringify({ ...newConfig, recursion_limit: null }) ===
-        JSON.stringify({ ...retrievedAssistant.config, recursion_limit: null });
-
-    // If configs are different, we further check: Is the only diff a request to set the recursion limit to its already default?
-    if (configsAreDifferent && !isOnlyRecursionLimitDifferent) {
-      await client.assistants.update(assistantId, {
-        config: newConfig,
-      });
-    }
+    await mergeConfigs({
+      config: explicitConfig,
+      assistant: retrievedAssistant,
+      schemaKeys,
+      client,
+    });
   }
-
-  // Do not input keys that are not part of the input schema
-  if (payload.input && schemaKeys?.input) {
-    payload.input = filterObjectBySchemaKeys(payload.input, schemaKeys.input);
-  }
-
-  let streamingStateExtractor = new StreamingStateExtractor([]);
-  let prevNodeName = null;
-  let emitIntermediateStateUntilEnd = null;
-  let shouldExit = false;
-  let externalRunId = null;
 
   const streamResponse = client.runs.stream(threadId, assistantId, payload);
 
   const emit = (message: string) => controller.enqueue(new TextEncoder().encode(message));
 
+  let streamingStateExtractor = new StreamingStateExtractor([]);
+  let prevNodeName = null;
+  let emitIntermediateStateUntilEnd = null;
+  let shouldExit = false;
+  let runId = null;
   let latestStateValues = {};
   let updatedState = state;
   // If a manual emittance happens, it is the ultimate source of truth of state, unless a node has exited.
@@ -325,34 +252,11 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       const interruptEvents = chunk.data.__interrupt__;
       if (interruptEvents?.length) {
         activeInterruptEvent = true;
-        const interruptValue = interruptEvents?.[0].value;
-        if (
-          typeof interruptValue != "string" &&
-          "__copilotkit_interrupt_value__" in interruptValue
-        ) {
-          const evValue = interruptValue.__copilotkit_interrupt_value__;
-          emit(
-            JSON.stringify({
-              event: LangGraphEventTypes.OnCopilotKitInterrupt,
-              data: {
-                value: typeof evValue === "string" ? evValue : JSON.stringify(evValue),
-                messages: langchainMessagesToCopilotKit(interruptValue.__copilotkit_messages__),
-              },
-            }) + "\n",
-          );
-        } else {
-          emit(
-            JSON.stringify({
-              event: LangGraphEventTypes.OnInterrupt,
-              value:
-                typeof interruptValue === "string"
-                  ? interruptValue
-                  : JSON.stringify(interruptValue),
-            }) + "\n",
-          );
-        }
+        const emittableInterruptEvent = getEmittableInterruptEvent(interruptEvents);
+        emit(JSON.stringify(emittableInterruptEvent) + "\n");
         continue;
       }
+
       if (streamResponseChunk.event === "updates") continue;
 
       if (streamResponseChunk.event === "values") {
@@ -363,9 +267,9 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       const chunkData = chunk.data;
       const currentNodeName = chunkData.metadata.langgraph_node;
       const eventType = chunkData.event;
-      const runId = chunkData.metadata.run_id;
-      externalRunId = runId;
       const metadata = chunkData.metadata;
+      runId = chunkData.metadata.run_id;
+
       if (chunkData.data?.output?.model != null && chunkData.data?.output?.model != "") {
         streamInfo.provider = chunkData.data?.output?.model;
       }
@@ -382,9 +286,6 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
           chunkData.name === CustomEventNames.CopilotKitExit);
 
       const emitIntermediateState = metadata["copilotkit:emit-intermediate-state"];
-      const manuallyEmitIntermediateState =
-        eventType === LangGraphEventTypes.OnCustomEvent &&
-        chunkData.name === CustomEventNames.CopilotKitManuallyEmitIntermediateState;
 
       const exitingNode =
         nodeName === currentNodeName && eventType === LangGraphEventTypes.OnChainEnd;
@@ -406,7 +307,10 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
         continue;
       }
 
-      if (manuallyEmitIntermediateState) {
+      if (
+        eventType === LangGraphEventTypes.OnCustomEvent &&
+        chunkData.name === CustomEventNames.CopilotKitManuallyEmitIntermediateState
+      ) {
         // See manuallyEmittedState for explanation
         manuallyEmittedState = chunkData.data;
         emit(
@@ -487,7 +391,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     emit(
       getStateSyncEvent({
         threadId,
-        runId: externalRunId,
+        runId,
         agentName: agent.name,
         nodeName: isEndNode ? "__end__" : nodeName,
         state: state.values,
@@ -644,7 +548,6 @@ function langGraphDefaultMergeState(
   state: State,
   messages: LangGraphPlatformMessage[],
   actions: ExecutionAction[],
-  agentName: string,
 ): State {
   if (messages.length > 0 && "role" in messages[0] && messages[0].role === "system") {
     // remove system message
@@ -887,4 +790,171 @@ function getSchemaKeys(graphSchema: GraphSchema): SchemaKeys {
 
 function filterObjectBySchemaKeys(obj: Record<string, any>, schemaKeys: string[]) {
   return Object.fromEntries(Object.entries(obj).filter(([key]) => schemaKeys.includes(key)));
+}
+
+function getThreadIdFromArgs(args: ExecutionArgs) {
+  let threadId = args.threadId ?? randomUUID();
+  if (args.threadId && args.threadId.startsWith("ck-")) {
+    threadId = args.threadId.substring(3);
+  }
+
+  if (!isValidUUID(threadId)) {
+    console.warn(
+      `Cannot use the threadId ${threadId} with LangGraph Platform. Must be a valid UUID.`,
+    );
+  }
+
+  return threadId;
+}
+
+async function getOrCreateThreadAndReturnState(
+  client: LangGraphClient,
+  threadId: string,
+): Promise<ThreadState<{}>> {
+  let agentState = { values: {} } as ThreadState;
+  try {
+    await client.threads.get(threadId);
+    agentState = await client.threads.getState(threadId);
+  } catch (error) {
+    await client.threads.create({ threadId });
+  }
+
+  return agentState;
+}
+
+function getStreamPayload({
+  mode,
+  interruptMetaEvent,
+  hasActiveInterruptEvent,
+  state,
+  schemaKeys,
+}: {
+  mode: "start" | "continue";
+  interruptMetaEvent: MetaEventInput;
+  hasActiveInterruptEvent: boolean;
+  state: State;
+  schemaKeys: SchemaKeys;
+}) {
+  const payload = {
+    input: mode === "start" ? state : null,
+    streamMode: ["events", "values", "updates"] satisfies StreamMode[],
+    command: undefined,
+  };
+
+  if (hasActiveInterruptEvent && !interruptMetaEvent) {
+    // state.messages includes only messages that were not processed by the agent, which are the interrupt messages
+    payload.command = { resume: state.messages };
+  }
+
+  if (interruptMetaEvent?.response) {
+    let response = interruptMetaEvent.response;
+    payload.command = { resume: parseJson(response, response) };
+  }
+
+  // Do not input keys that are not part of the input schema
+  if (payload.input && schemaKeys?.input) {
+    payload.input = filterObjectBySchemaKeys(payload.input, schemaKeys.input);
+  }
+
+  // Do not input keys that are not part of the input schema
+  if (payload.input && schemaKeys?.input) {
+    payload.input = filterObjectBySchemaKeys(payload.input, schemaKeys.input);
+  }
+
+  return payload;
+}
+
+async function getAssistant({
+  assistantParams,
+  client,
+  streamInfo,
+}: {
+  assistantParams: LangGraphPlatformAgent;
+  client: LangGraphClient;
+  streamInfo: StreamInfo;
+}): Promise<Assistant> {
+  const assistants = await client.assistants.search();
+  const retrievedAssistant = assistants.find(
+    (searchResult) =>
+      searchResult.assistant_id === assistantParams.assistantId ||
+      searchResult.name === assistantParams.name,
+  );
+  if (!retrievedAssistant) {
+    telemetry.capture("oss.runtime.agent_execution_stream_errored", {
+      ...streamInfo,
+      error: `Found no assistants for given information, while ${assistants.length} assistants exists`,
+    });
+    console.error(`
+      No agent found for the agent name specified in CopilotKit provider
+      Please check your available agents or provide an agent ID in the LangGraph Platform endpoint definition.\n
+      
+      These are the available agents: [${assistants.map((a) => `${a.name} (ID: ${a.assistant_id})`).join(", ")}]
+      `);
+    throw new Error("No agent id found");
+  }
+
+  return retrievedAssistant;
+}
+
+async function mergeConfigs({
+  config: explicitConfig,
+  assistant,
+  schemaKeys,
+  client,
+}: {
+  config: Record<string, any>;
+  assistant: Assistant;
+  schemaKeys: SchemaKeys;
+  client: LangGraphClient;
+}) {
+  let filteredConfigurable = assistant.config.configurable;
+  if (explicitConfig.configurable) {
+    filteredConfigurable = schemaKeys?.config
+      ? filterObjectBySchemaKeys(explicitConfig?.configurable, schemaKeys?.config)
+      : explicitConfig?.configurable;
+  }
+
+  const newConfig = {
+    ...assistant.config,
+    ...explicitConfig,
+    configurable: filteredConfigurable,
+  };
+
+  // LG does not return recursion limit if it's the default, therefore we check: if no recursion limit is currently set, and the user asked for 25, there is no change.
+  const isRecursionLimitSetToDefault =
+    assistant.config.recursion_limit == null && explicitConfig.recursion_limit === 25;
+  // Deep compare configs to avoid unnecessary update calls
+  const configsAreDifferent = JSON.stringify(newConfig) !== JSON.stringify(assistant.config);
+
+  // Check if the only difference is the recursion_limit being set to default
+  const isOnlyRecursionLimitDifferent =
+    isRecursionLimitSetToDefault &&
+    JSON.stringify({ ...newConfig, recursion_limit: null }) ===
+      JSON.stringify({ ...assistant.config, recursion_limit: null });
+
+  // If configs are different, we further check: Is the only diff a request to set the recursion limit to its already default?
+  if (configsAreDifferent && !isOnlyRecursionLimitDifferent) {
+    await client.assistants.update(assistant.assistant_id, {
+      config: newConfig,
+    });
+  }
+}
+
+function getEmittableInterruptEvent(interruptEvents: { value: any }[]) {
+  const interruptValue = interruptEvents[0].value;
+  if (typeof interruptValue != "string" && "__copilotkit_interrupt_value__" in interruptValue) {
+    const evValue = interruptValue.__copilotkit_interrupt_value__;
+    return {
+      event: LangGraphEventTypes.OnCopilotKitInterrupt,
+      data: {
+        value: typeof evValue === "string" ? evValue : JSON.stringify(evValue),
+        messages: langchainMessagesToCopilotKit(interruptValue.__copilotkit_messages__),
+      },
+    };
+  }
+
+  return {
+    event: LangGraphEventTypes.OnInterrupt,
+    value: typeof interruptValue === "string" ? interruptValue : JSON.stringify(interruptValue),
+  };
 }
