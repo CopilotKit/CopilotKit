@@ -128,7 +128,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
           const hasEmptyTextOnly =
             msg.content.length === 1 &&
             msg.content[0].type === "text" &&
-            (!msg.content[0].text || msg.content[0].text.trim() === "");
+            (!(msg.content[0] as any).text || (msg.content[0] as any).text.trim() === "");
 
           // Keep messages that have tool_use or non-empty text
           return !hasEmptyTextOnly;
