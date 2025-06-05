@@ -1,5 +1,14 @@
 # @copilotkit/runtime
 
+## 1.8.14-next.5
+
+### Patch Changes
+
+- ddd4165: - fix(runtime): filter empty AIMessages in GoogleGenerativeAIAdapter
+  - fix(runtime): filter empty text messages in AnthropicAdapter
+- ddd4165: - fix(runtime): filter empty AIMessages in GoogleGenerativeAIAdapter
+  - @copilotkit/shared@1.8.14-next.5
+
 ## 1.8.14-next.4
 
 ### Patch Changes
