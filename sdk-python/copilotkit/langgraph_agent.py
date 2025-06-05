@@ -261,7 +261,7 @@ class LangGraphAgent(Agent):
         ):
 
         default_config = ensure_config(cast(Any, self.langgraph_config.copy()) if self.langgraph_config else {}) # pylint: disable=line-too-long
-        config = {**default_config, **(self.graph.config or {}), **config}
+        config = {**default_config, **(self.graph.config or {}), **(config or {})}
         config["configurable"] = {**config.get("configurable", {}), **(config["configurable"] or {})}
         config["configurable"]["thread_id"] = thread_id
 
