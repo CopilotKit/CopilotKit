@@ -25,7 +25,7 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
     name: "travel",
     initialState: {
       trips: defaultTrips,
-      selected_trip_id: defaultTrips[0].id,
+      selected_trip_id: defaultTrips[0].id || "1",
     },
   });
 
@@ -70,7 +70,7 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
         required: true,
       },
     ],
-    renderAndWait: EditTrips,
+    renderAndWait: (props) => EditTrips({ ...props, trips: state.trips, selectedTripId: state.selected_trip_id as string }),
   });
 
   useCopilotAction({

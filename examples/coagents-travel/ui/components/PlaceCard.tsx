@@ -4,6 +4,7 @@ import { Stars } from "@/components/Stars";
 import { MapPin, Info } from "lucide-react";
 import { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type PlaceCardProps = {
   place: Place;
@@ -12,9 +13,12 @@ type PlaceCardProps = {
   actions?: ReactNode;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
+  checked?: boolean;
+  onCheck?: (checked: boolean) => void;
+  shouldShowCheckbox?: boolean;
 };
 
-export function PlaceCard({ place, actions, onMouseEnter, onMouseLeave, className, number }: PlaceCardProps) {
+export function PlaceCard({ place, actions, onMouseEnter, onMouseLeave, className, number, checked, onCheck, shouldShowCheckbox = true }: PlaceCardProps) {
   return (
     <Card 
       className={cn("hover:shadow-md transition-shadow duration-200", className)}
@@ -35,7 +39,10 @@ export function PlaceCard({ place, actions, onMouseEnter, onMouseLeave, classNam
               </CardTitle>
               <Stars rating={place.rating} />
             </div>
-            {actions}
+            <div className="flex flex-col items-end gap-2 min-w-[2rem]">
+              {actions}
+              {shouldShowCheckbox && <Checkbox checked={checked} onCheckedChange={onCheck} />}
+            </div>
           </div>
 
           <div className="space-y-2 text-sm text-muted-foreground">

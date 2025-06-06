@@ -19,8 +19,12 @@ export function TripSelect() {
       <DropdownMenuContent align="end">
         {trips?.map((trip) => (
           <DropdownMenuItem 
-            disabled={selectedTripId === trip.id}
-            className={cn("flex items-center", selectedTripId === trip.id && "text-muted-foreground")}
+            className={cn(
+              "flex items-center",
+              selectedTripId === trip.id
+                ? "font-bold text-gray-900"
+                : "text-muted-foreground"
+            )}
             key={trip.id}
             onClick={() => setSelectedTripId(trip.id)}
           >
