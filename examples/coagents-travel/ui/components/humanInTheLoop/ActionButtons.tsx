@@ -8,9 +8,10 @@ export type ActionButtonsProps = {
   approve: React.ReactNode;
   reject: React.ReactNode;
   selectedPlaceIds?: Set<string>;
+  type?: "edit" | "add";
 }
 
-export const ActionButtons = ({ status, handler, approve, reject, selectedPlaceIds }: ActionButtonsProps) => {
+export const ActionButtons = ({ status, handler, approve, reject, selectedPlaceIds, type="add" }: ActionButtonsProps) => {
   
   useEffect(() => {
     console.log(selectedPlaceIds,"btn");
@@ -31,8 +32,13 @@ export const ActionButtons = ({ status, handler, approve, reject, selectedPlaceI
         disabled={status === "complete" || status === "inProgress"}
         onClick={() => {
           if (selectedPlaceIds) {
-            debugger
-            handler?.(Array.from(selectedPlaceIds));
+            if(type == "edit"){
+              console.log(Array.from(selectedPlaceIds), "selectedPlaceIds")
+              handler?.(JSON.stringify(Array.from(selectedPlaceIds)+"|||editMode"));
+            } else {
+              console.log(Array.from(selectedPlaceIds), "selectedPlaceIds")
+              handler?.(JSON.stringify(Array.from(selectedPlaceIds)+"|||addMode"));
+            }
           } else {
             handler?.("SEND");
           }
