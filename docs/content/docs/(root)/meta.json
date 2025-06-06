@@ -2,10 +2,13 @@
   "title": "copilotkit",
   "root": true,
   "pages": [
+<<<<<<< HEAD
     "index",
     "runtime-loops",
     "quickstart",
     "---Guides---",
+=======
+>>>>>>> 0ecf445e0 (Remove duplicate Overview and Quickstart entries from main navigation meta.json)
     "...guides",
     "---Tutorials---",
     "...tutorials",
