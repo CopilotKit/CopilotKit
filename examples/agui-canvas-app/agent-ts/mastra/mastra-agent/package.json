@@ -1,0 +1,38 @@
+{
+  "name": "mastra-agent",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "mastra dev",
+    "build": "mastra build",
+    "start": "tsx src/aguiMastra.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@ag-ui/core": "^0.0.28",
+    "@ag-ui/encoder": "^0.0.28",
+    "@ai-sdk/openai": "^1.3.22",
+    "@mastra/core": "^0.10.1",
+    "@mastra/libsql": "^0.10.0",
+    "@mastra/loggers": "^0.10.0",
+    "@mastra/memory": "^0.10.1",
+    "express": "^5.1.0",
+    "tsx": "^4.7.1",
+    "uuid": "^11.1.0",
+    "zod": "^3.25.32"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.2",
+    "@types/node": "^22.15.23",
+    "mastra": "^0.10.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}
