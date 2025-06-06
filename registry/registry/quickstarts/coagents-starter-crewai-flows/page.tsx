@@ -4,12 +4,36 @@ import { CopilotKit, useCopilotAction } from "@copilotkit/react-core";
 import { CopilotChat } from "@copilotkit/react-ui";
 import React, { useState } from "react";
 
+// registry/registry/quickstarts/coagents-starter-crewai-flows/page.tsx
+
+// Keep only the env-var reads at module scope
 const publicApiKey = process.env.NEXT_PUBLIC_COPILOT_API_KEY;
 const agentName = process.env.NEXT_PUBLIC_COPILOTKIT_AGENT_NAME;
 
-if (!publicApiKey || !agentName) {
-  throw new Error("Missing environment variables");
-}
+const CrewAIFlow: React.FC = () => {
+  // Move the missing-env check into the component render
+  if (!publicApiKey || !agentName) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-bold mb-2">Configuration Error</h2>
+          <p>
+            Missing required environment variables: NEXT_PUBLIC_COPILOT_API_KEY
+            and NEXT_PUBLIC_COPILOTKIT_AGENT_NAME
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <CopilotKit publicApiKey={publicApiKey} agent={agentName}>
+      <Chat />
+    </CopilotKit>
+  );
+};
+
+export default CrewAIFlow;
 
 // Main Chat Component: Handles chat interface and background customization
 const Chat = () => {
