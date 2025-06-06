@@ -2,6 +2,7 @@ import { AssistantMessageProps } from "../props";
 import { useChatContext } from "../ChatContext";
 import { Markdown } from "../Markdown";
 import { useState } from "react";
+import { TextMessage } from "@copilotkit/runtime-client-gql";
 
 export const AssistantMessage = (props: AssistantMessageProps) => {
   const { icons, labels } = useChatContext();
@@ -14,6 +15,7 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
     onThumbsUp,
     onThumbsDown,
     isCurrentMessage,
+    rawData,
     markdownTagRenderers,
   } = props;
   const [copied, setCopied] = useState(false);
@@ -38,14 +40,16 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
   };
 
   const handleThumbsUp = () => {
-    if (onThumbsUp && message) {
-      onThumbsUp(message);
+    const fullMessage = rawData as TextMessage;
+    if (onThumbsUp && fullMessage) {
+      onThumbsUp(fullMessage);
     }
   };
 
   const handleThumbsDown = () => {
-    if (onThumbsDown && message) {
-      onThumbsDown(message);
+    const fullMessage = rawData as TextMessage;
+    if (onThumbsDown && fullMessage) {
+      onThumbsDown(fullMessage);
     }
   };
 

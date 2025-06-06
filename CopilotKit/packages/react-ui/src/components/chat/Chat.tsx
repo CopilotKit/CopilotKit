@@ -132,12 +132,12 @@ export interface CopilotChatProps {
   /**
    * A callback function for thumbs up feedback
    */
-  onThumbsUp?: (message: string) => void;
+  onThumbsUp?: (message: TextMessage) => void;
 
   /**
    * A callback function for thumbs down feedback
    */
-  onThumbsDown?: (message: string) => void;
+  onThumbsDown?: (message: TextMessage) => void;
 
   /**
    * A list of markdown components to render in assistant message.
