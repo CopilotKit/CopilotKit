@@ -76,12 +76,3 @@ const Chat = () => {
     </div>
   );
 };
-
-// App Component: Main wrapper that provides CopilotKit context
-const CrewAIFlow: React.FC = () => (
-  <CopilotKit publicApiKey={publicApiKey} agent={agentName}>
-    <Chat />
-  </CopilotKit>
-);
-
-export default CrewAIFlow;
