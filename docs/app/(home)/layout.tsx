@@ -27,6 +27,24 @@ export default function Layout({ children }: { children: ReactNode }) {
             <SubdocsMenu
               options={[
                 {
+                  title: "CopilotKit Overview",
+                  description: "The Agentic Application Framework Overview",
+                  url: "/",
+                  icon: <RocketIcon className="w-4 h-4" />,
+                  bgGradient:
+                    "bg-gradient-to-b from-blue-700 to-blue-400 text-blue-100",
+                  selectedStyle: "ring-blue-500/70 ring-2 rounded-sm",
+                },
+                {
+                  title: "Quickstart",
+                  description: "Get started with CopilotKit quickly",
+                  url: "/quickstart",
+                  icon: <RocketIcon className="w-4 h-4" />,
+                  bgGradient:
+                    "bg-gradient-to-b from-green-700 to-green-400 text-green-100",
+                  selectedStyle: "ring-green-500/70 ring-2 rounded-sm",
+                },
+                {
                   title: "Standard",
                   description: "Documentation for building Copilots",
                   url: "/",
