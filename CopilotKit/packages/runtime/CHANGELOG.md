@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.8.15-next.0
+
+### Patch Changes
+
+- c120e07: - refactor(react-ui): pass full message to onThumbsUp and onThumbsDown handlers
+  - @copilotkit/shared@1.8.15-next.0
+
 ## 1.8.14
 
 ### Patch Changes
