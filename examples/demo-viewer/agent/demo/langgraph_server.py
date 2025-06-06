@@ -23,8 +23,9 @@ from demo.langgraph_no_chat.agent import no_chat
 app = FastAPI()
 # Use CopilotKitSDK instead of CopilotKitRemoteEndpoint
 
-def create_agents(context):
-    return [
+    
+sdk = CopilotKitSDK(
+    agents=[
         # Register the LangGraph agent using the LangGraphAgent class
         LangGraphAgent(
             name="agentic_chat",
@@ -66,9 +67,6 @@ def create_agents(context):
             graph=no_chat,
         )
     ]
-    
-sdk = CopilotKitSDK(
-    agents=create_agents
 )
 
 add_fastapi_endpoint(app, sdk, "/copilotkit")
