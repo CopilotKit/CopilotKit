@@ -37,21 +37,22 @@ export const EditTrips = ({ args, status, handler, trips, selectedTripId }: Edit
   }
   return (
     <div className="space-y-4 w-full bg-secondary p-6 rounded-lg">
-      {args.trips?.map((trip: Trip) => (
-        <div key={trip.id} className="flex flex-col gap-4">
-          <h1 className="text-sm">Do you want to save these changes?</h1>
-          <hr className="my-2" />
-          <div className="flex flex-col gap-4">
-            <h2 className="text-lg font-bold">{trip.name}</h2>
-            {getDelta(trip.places, trips.find((t) => t.id === selectedTripId)?.places || []).map((place) => (
-              <PlaceCard key={place.id} place={place}
-                onCheck={(checked) => handleCheck(place.id, checked as boolean)}
-              />
-            ))}
+      {Array.isArray(args.trips) && args.trips.length > 0 && args.trips.map((trip: Trip) => (
+        trip.id && trip.places&& Array.isArray(trip.places) && (
+          <div key={trip.id} className="flex flex-col gap-4">
+            <h1 className="text-sm">Do you want to save these changes?</h1>
+            <hr className="my-2" />
+            <div className="flex flex-col gap-4">
+              <h2 className="text-lg font-bold">{trip.name}</h2>
+              {getDelta(trip.places, trips.find((t) => t.id === selectedTripId)?.places || []).map((place) => (
+                <PlaceCard key={place.id} place={place}
+                  onCheck={(checked) => handleCheck(place.id, checked as boolean)}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-      )
-      )}
+        )
+      ))}
       <ActionButtons
         status={status}
         handler={handler}
