@@ -3,6 +3,7 @@
   "root": true,
   "pages": [
     "index",
+    "runtime-loops",
     "quickstart",
     "---Guides---",
     "...guides",
