@@ -45,17 +45,26 @@ export default function Layout({ children }: { children: ReactNode }) {
                   selectedStyle: "ring-green-500/70 ring-2 rounded-sm",
                 },
                 {
-                  title: "Standard",
+                  title: "API Reference",
+                  description: "API Reference",
+                  url: "/reference",
+                  icon: <TerminalIcon className="w-4 h-4" />,
+                  bgGradient:
+                    "bg-gradient-to-b from-teal-700 to-teal-400 text-teal-100",
+                  selectedStyle: "ring-teal-500/70 ring-2 rounded-sm",
+                },
+                { type: 'separator' },
+                {
+                  title: "Standard Runloop",
                   description: "Documentation for building Copilots",
-                  url: "/",
+                  url: "/standard",
                   icon: <RocketIcon className="w-4 h-4" />,
                   bgGradient:
                     "bg-gradient-to-b from-indigo-700 to-indigo-400 text-indigo-100",
                   selectedStyle: "ring-indigo-500/70 ring-2 rounded-sm",
                 },
-
                 {
-                  title: "CoAgents",
+                  title: "CoAgent Runloops",
                   options: [
                     {
                       title: "CoAgents (LangGraph)",
@@ -126,16 +135,6 @@ export default function Layout({ children }: { children: ReactNode }) {
                     },
                   ],
                 },
-                {
-                  title: "API Reference",
-                  description: "API Reference",
-                  url: "/reference",
-                  icon: <TerminalIcon className="w-4 h-4" />,
-                  bgGradient:
-                    "bg-gradient-to-b from-teal-700 to-teal-400 text-teal-100",
-                  selectedStyle: "ring-teal-500/70 ring-2 rounded-sm",
-                },
-
                 // {
                 //   title: "Chat with our docs",
                 //   description: "Chat with our docs",

@@ -49,6 +49,10 @@ export interface OptionDropdown {
   options: Option[];
 }
 
+export interface Separator {
+  type: 'separator';
+}
+
 function isOptionDropdown(
   item: Option | OptionDropdown
 ): item is OptionDropdown {
@@ -59,11 +63,15 @@ function isOption(item: Option | OptionDropdown): item is Option {
   return !isOptionDropdown(item);
 }
 
+function isSeparator(item: Option | OptionDropdown | Separator): item is Separator {
+  return (item as Separator).type === 'separator';
+}
+
 export function SubdocsMenu({
   options,
   ...props
 }: {
-  options: (Option | OptionDropdown)[];
+  options: (Option | OptionDropdown | Separator)[];
 } & HTMLAttributes<HTMLButtonElement>): React.ReactElement {
   const { closeOnRedirect } = useSidebar();
   const pathname = usePathname();
@@ -100,13 +108,17 @@ export function SubdocsMenu({
 
   return (
     <div className="flex flex-col gap-2 border-b p-4">
-      {options.map((item) => (
-        <SubdocsMenuItem
-          key={isOption(item) ? item.url : "dropdown"}
-          item={item}
-          selected={selected}
-          onClick={onClick}
-        />
+      {options.map((item, index) => (
+        isSeparator(item) ? (
+          <hr key={`separator-${index}`} className="my-2 border-t border-gray-700" />
+        ) : (
+          <SubdocsMenuItem
+            key={isOption(item) ? item.url : "dropdown"}
+            item={item}
+            selected={selected}
+            onClick={onClick}
+          />
+        )
       ))}
     </div>
   );

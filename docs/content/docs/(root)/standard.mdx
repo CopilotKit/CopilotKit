@@ -1,6 +1,6 @@
 ---
-title: Runtime Loops
-description: "How CopilotKit interacts with models and agents, and the architecture of agentic runloops."
+title: Standard Runloop
+description: "How CopilotKit interacts directly with AI models."
 icon: "lucide/RotateCcw"
 ---
 import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
@@ -14,10 +14,10 @@ import { AG2Icon } from "@/lib/icons/custom-icons";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
 import { FileSpreadsheet, Banknote, Plane, BookOpen, Telescope, Play } from "lucide-react";
 
-Interacting with these models can be done directly (**Standard**) or through agents (**CoAgents**).
+CopilotKit can connect directly with 
+AI models through the **Standard Runloop** or through a **CoAgent Runloop** using one of many Agent Frameworks.
 
-## Standard
-Utilize CopilotKit's standard agentic runloop to get started quickly.
+Use CopilotKit's standard agentic runloop to get started quickly.
 
 <Cards className="gap-6">
   <Card
