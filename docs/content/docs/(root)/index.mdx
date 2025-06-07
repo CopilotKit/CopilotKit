@@ -15,48 +15,37 @@ import { AG2Icon } from "@/lib/icons/custom-icons";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
 import { FileSpreadsheet, Banknote, Plane, BookOpen, Telescope, Play } from "lucide-react";
 
+<div className="w-1/2 float-right ml-4 mb-4 border px-4 pb-4 pt-0 rounded-md bg-gradient-to-r from-indigo-200/50 to-purple-200/80 dark:from-indigo-900/40 dark:to-purple-900/50">
+<h2 className="mt-0">Get Started!</h2>
+If you have a **NextJS** application, you can use our CLI to automatically bootstrap your application for use with CopilotKit.
+
+```bash
+npx copilotkit@latest init
+```
+
+<Accordions>
+  <Accordion title="Starting from scratch?">
+    No problem! Just use `create-next-app` to make a new NextJS application quickly.
+    ```bash
+    npx create-next-app@latest
+    ```
+  </Accordion>
+</Accordions>
+
+</div>
+
+<h2 className="mt-0">What is CopilotKit?</h2>
 CopilotKit is the easiest way to add AI copilots - intelligent, context-aware assistants - into your app.
 
 CopilotKit connects your app's **logic, state, and user context** to the **AI agents** that deliver the animated and interactive part of your app experience — across both embedded UIs and fully headless interfaces. It gives you the tools to build, deploy, and monitor AI-assisted features that feel intuitive, helpful, and deeply integrated.
 
 By decoupling your application from any specific model or agent architecture, CopilotKit gives you the freedom to evolve your AI stack without rethinking your user experience.
 
-## CoAgents
-When you need **complete control** over the agentic runloop, you can use **CoAgents**. Bridge the remaining gap between demos and production-ready experiences.
 
-<Cards className="gap-6">
-  <Card
-    className="p-6 rounded-xl text-base"
-    title="LangGraph"
-    description="User-interactive agents with LangGraph."
-    href="/coagents"
-    icon={<SiLangchain className="text-indigo-500 dark:text-indigo-300" />}
-  />
-  <Card 
-    className="p-6 rounded-xl text-base"
-    title="CrewAI Crews"
-    description="Build multi-agent workflows with CrewAI."
-    href="/crewai-crews"
-    icon={<SiCrewai className="text-indigo-500 dark:text-indigo-300" />}
-  />
-  <Card 
-    className="p-6 rounded-xl text-base"
-    title="CrewAI Flows"
-    description="User-interactive agents with CrewAI."
-    href="/crewai-flows"
-    icon={<SiCrewai className="text-indigo-500 dark:text-indigo-300" />}
-  />
-  <Card 
-    className="p-6 rounded-xl text-base"
-    title="AG2"
-    description="Autonomous, collaborative AI agents with AG2."
-    href="/ag2"
-    icon={<AG2Icon className="text-indigo-500 dark:text-indigo-300 h-6 w-6" />}
-  />
-</Cards>
+
 
 ## CopilotKit in Action
-Need some inspiration? Check out somethings we've built with CopilotKit.
+Need some inspiration? Check out some things we've built with CopilotKit.
 
 <Cards className="gap-6">
   <Card
