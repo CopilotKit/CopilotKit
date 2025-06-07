@@ -64,7 +64,16 @@ An array of LangServer URLs.
 </PropertyReference>
 
 <PropertyReference name="agents" type="Record<string, AbstractAgent>"  > 
-A map of agent names to AgentWire agents.
+A map of agent names to AGUI agents.
+  Example agent config:
+  ```ts
+  import { AbstractAgent } from "@ag-ui/client";
+  // ...
+  agents: {
+    "support": new CustomerSupportAgent(),
+    "technical": new TechnicalAgent()
+  }
+  ```
 </PropertyReference>
 
 <PropertyReference name="delegateAgentProcessingToServiceAdapter" type="boolean"  > 
@@ -130,7 +139,7 @@ A function that creates an MCP client instance for a given endpoint configuratio
 </PropertyReference>
 
 <PropertyReference name="processRuntimeRequest" type="request: CopilotRuntimeRequest">
-// --- MCP Instruction Injection Method ---
+
 
   <PropertyReference name="request" type="CopilotRuntimeRequest" required>
   

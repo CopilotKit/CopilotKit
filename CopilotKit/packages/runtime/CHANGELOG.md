@@ -1,5 +1,75 @@
 # @copilotkit/runtime
 
+## 1.8.15-next.0
+
+### Patch Changes
+
+- c120e07: - refactor(react-ui): pass full message to onThumbsUp and onThumbsDown handlers
+  - @copilotkit/shared@1.8.15-next.0
+
+## 1.8.14
+
+### Patch Changes
+
+- ddd4165: - fix(runtime): filter empty AIMessages in GoogleGenerativeAIAdapter
+  - fix(runtime): filter empty text messages in AnthropicAdapter
+- 9d33836: - fix: prepare cpk agui wiring for ag-ui langgraph support
+- 12b8ca8: - fix: fix cpk agui wiring for langgraph
+- ddd4165: - fix(runtime): filter empty AIMessages in GoogleGenerativeAIAdapter
+- 1af7333: - docs: updates ag-ui agent interface
+- Updated dependencies [34a78d8]
+  - @copilotkit/shared@1.8.14
+
+## 1.8.14-next.5
+
+### Patch Changes
+
+- ddd4165: - fix(runtime): filter empty AIMessages in GoogleGenerativeAIAdapter
+  - fix(runtime): filter empty text messages in AnthropicAdapter
+- ddd4165: - fix(runtime): filter empty AIMessages in GoogleGenerativeAIAdapter
+  - @copilotkit/shared@1.8.14-next.5
+
+## 1.8.14-next.4
+
+### Patch Changes
+
+- 12b8ca8: - fix: fix cpk agui wiring for langgraph
+  - @copilotkit/shared@1.8.14-next.4
+
+## 1.8.14-next.3
+
+### Patch Changes
+
+- 9d33836: - fix: prepare cpk agui wiring for ag-ui langgraph support
+  - @copilotkit/shared@1.8.14-next.3
+
+## 1.8.14-next.2
+
+### Patch Changes
+
+- 1af7333: - docs: updates ag-ui agent interface
+  - @copilotkit/shared@1.8.14-next.2
+
+## 1.8.14-next.1
+
+### Patch Changes
+
+- Updated dependencies [34a78d8]
+  - @copilotkit/shared@1.8.14-next.1
+
+## 1.8.14-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.14-next.0
+
+## 1.8.13
+
+### Patch Changes
+
+- 6ed54f4: - AG-UI 0.0.28
+  - @copilotkit/shared@1.8.13
+
 ## 1.8.13-next.3
 
 ### Patch Changes

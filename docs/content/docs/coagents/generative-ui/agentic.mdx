@@ -145,7 +145,7 @@ is a situation where a user and an agent are working together to solve a problem
             await copilotkitEmitState(config, state);
           }
 
-          const response = await ChatOpenAI({ model: "gpt-4o" }).invoke([
+          const response = await new ChatOpenAI({ model: "gpt-4o" }).invoke([
             new SystemMessage({ content: "You are a helpful assistant."}),
             ...state.messages,
           ], config);

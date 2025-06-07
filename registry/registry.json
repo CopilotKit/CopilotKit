@@ -295,6 +295,20 @@
           "target": "app/copilotkit/page.tsx"
         }
       ]
+    },
+    {
+      "name": "coagents-starter-crewai-flows",
+      "type": "registry:page",
+      "title": "Coagents Starter CrewAI Flows",
+      "description": "Quickstart for CopilotKit and CrewAI Flows on CrewAI Enterprise.",
+      "dependencies": ["@copilotkit/react-core", "@copilotkit/react-ui"],
+      "files": [
+        {
+          "path": "registry/quickstarts/coagents-starter-crewai-flows/page.tsx",
+          "type": "registry:page",
+          "target": "app/copilotkit/page.tsx"
+        }
+      ]
     }
   ]
 }

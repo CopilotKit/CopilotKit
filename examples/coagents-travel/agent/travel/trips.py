@@ -1,4 +1,5 @@
 from typing import cast, List
+import json
 from langchain_core.messages import ToolMessage, AIMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
@@ -20,6 +21,20 @@ async def perform_trips_node(state: AgentState, config: RunnableConfig):
         state["messages"].append(AIMessage(content="Cancelled the trip operation."))
         await copilotkit_emit_message(config, "Cancelled the trip operation.")
         return state
+    
+    if tool_message.content != "SEND":
+        args = ai_message.tool_calls[0].get("args", {})
+        trips = args.get("trips", [])
+        lst = json.loads(tool_message.content)
+        editMode = tool_message.content.split("|||")[1]
+        lst = lst.split("|||")[0]
+        lst = lst.split(",")
+        filtered_lst = [item for item in trips[0]["places"] if item["id"] in lst]
+        if editMode.strip().lower() == 'editmode"':
+            existing_places = next(x for x in state["trips"] if x["id"] == args["trips"][0]["id"])["places"]
+            args["trips"][0]["places"] =existing_places + filtered_lst
+        else:
+            args["trips"][0]["places"] = filtered_lst
     
     if not isinstance(ai_message, AIMessage) or not ai_message.tool_calls:
         return state
@@ -53,6 +68,7 @@ def handle_add_trips(state: AgentState, args: dict) -> AIMessage:
     trips = args.get("trips", [])
 
     state["trips"].extend(trips)
+    state["selected_trip_id"] = trips[0]["id"]
     return AIMessage(content=f"Successfully added the trip(s)!")
 
 @tool

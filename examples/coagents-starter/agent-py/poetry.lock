@@ -455,14 +455,14 @@ files = [
 
 [[package]]
 name = "copilotkit"
-version = "0.1.45"
+version = "0.1.46"
 description = "CopilotKit python SDK"
 optional = false
 python-versions = "<3.13,>=3.10"
 groups = ["main"]
 files = [
-    {file = "copilotkit-0.1.45-py3-none-any.whl", hash = "sha256:afcf412c9d4ff89e9ede5d88169fd375ae20d1dee25bf462af4c71acba236368"},
-    {file = "copilotkit-0.1.45.tar.gz", hash = "sha256:cd4db3f1039bb24b78f21a0ed3347bec04a7fb63e7072be40b48dabf62911d40"},
+    {file = "copilotkit-0.1.46-py3-none-any.whl", hash = "sha256:f229dd513d3fcbbcb5634e4e5e1563bfebd7f6cb97525c3345d1f203deedf5fa"},
+    {file = "copilotkit-0.1.46.tar.gz", hash = "sha256:fa9e913b63af60c07d599722801121831903b6ce858dc57db7f1b5ad361c6d22"},
 ]
 
 [package.dependencies]
@@ -473,7 +473,7 @@ partialjson = ">=0.0.8,<0.0.9"
 toml = ">=0.10.2,<0.11.0"
 
 [package.extras]
-crewai = ["crewai (==0.102.0)"]
+crewai = ["crewai (==0.118.0)"]
 
 [[package]]
 name = "cryptography"

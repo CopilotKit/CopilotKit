@@ -16,6 +16,7 @@
  */
 import { ChatGoogle } from "@langchain/google-gauth";
 import { LangChainAdapter } from "../langchain/langchain-adapter";
+import { AIMessage } from "@langchain/core/messages";
 
 interface GoogleGenerativeAIAdapterOptions {
   /**
@@ -28,11 +29,28 @@ export class GoogleGenerativeAIAdapter extends LangChainAdapter {
   constructor(options?: GoogleGenerativeAIAdapterOptions) {
     super({
       chainFn: async ({ messages, tools, threadId }) => {
+        // Filter out empty assistant messages to prevent Gemini validation errors
+        // Gemini specifically rejects conversations containing AIMessages with empty content
+        const filteredMessages = messages.filter((message) => {
+          // Keep all non-AI messages (HumanMessage, SystemMessage, ToolMessage, etc.)
+          if (!(message instanceof AIMessage)) {
+            return true;
+          }
+
+          // For AIMessages, only keep those with non-empty content
+          // Also keep AIMessages with tool_calls even if content is empty
+          return (
+            (message.content && String(message.content).trim().length > 0) ||
+            (message.tool_calls && message.tool_calls.length > 0)
+          );
+        });
+
         const model = new ChatGoogle({
           modelName: options?.model ?? "gemini-1.5-pro",
           apiVersion: "v1beta",
         }).bindTools(tools);
-        return model.stream(messages, { metadata: { conversation_id: threadId } });
+
+        return model.stream(filteredMessages, { metadata: { conversation_id: threadId } });
       },
     });
   }

@@ -54,7 +54,7 @@ export function MapCanvas({ className }: MapCanvasProps) {
           })}
         >
           <Tooltip offset={[10, 0]} opacity={1}>
-            <PlaceCard className="border-none overflow-y-auto shadow-none" place={place} />
+            <PlaceCard shouldShowCheckbox={false} className="border-none overflow-y-auto shadow-none" place={place} />
           </Tooltip>
         </Marker>
       ))}

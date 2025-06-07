@@ -1,5 +1,31 @@
 # @copilotkit/shared
 
+## 1.8.15-next.0
+
+## 1.8.14
+
+### Patch Changes
+
+- 34a78d8: - jsonSchemaToActionParameters implementation
+
+## 1.8.14-next.5
+
+## 1.8.14-next.4
+
+## 1.8.14-next.3
+
+## 1.8.14-next.2
+
+## 1.8.14-next.1
+
+### Patch Changes
+
+- 34a78d8: - jsonSchemaToActionParameters implementation
+
+## 1.8.14-next.0
+
+## 1.8.13
+
 ## 1.8.13-next.3
 
 ## 1.8.13-next.2

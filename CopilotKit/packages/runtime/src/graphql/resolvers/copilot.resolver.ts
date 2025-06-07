@@ -53,6 +53,7 @@ import {
 import telemetry from "../../lib/telemetry-client";
 import { randomId } from "@copilotkit/shared";
 import { AgentsResponse } from "../types/agents-response.type";
+import { LangGraphEventTypes } from "../../agents/langgraph/events";
 
 const invokeGuardrails = async ({
   baseUrl,
@@ -263,6 +264,19 @@ export class CopilotResolver {
               return;
             }
             switch (event.name) {
+              // @ts-ignore
+              case LangGraphEventTypes.OnInterrupt:
+                push(
+                  plainToInstance(LangGraphInterruptEvent, {
+                    // @ts-ignore
+                    type: event.type,
+                    // @ts-ignore
+                    name: RuntimeMetaEventName.LangGraphInterruptEvent,
+                    // @ts-ignore
+                    value: event.value,
+                  }),
+                );
+                break;
               case RuntimeMetaEventName.LangGraphInterruptEvent:
                 push(
                   plainToInstance(LangGraphInterruptEvent, {

@@ -24,6 +24,7 @@ export const POST = async (req: NextRequest) => {
   });
 
   const runtime = new CopilotRuntime({
+    // @ts-ignore
     agents: mastraAgents,
   });
 
