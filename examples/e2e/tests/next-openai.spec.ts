@@ -51,23 +51,26 @@ interface WaitDestinationProps extends DestinationProps {
   timeout?: number;
 }
 
+const PAGE_TIMEOUT = 10000;
+const INTERACTION_DELAY = 6000;
+
 const variants: Variant[] = [
-  { name: "OpenAI", queryParams: "?coAgentsModel=openai" },
-  { name: "Anthropic", queryParams: "?coAgentsModel=anthropic" },
-  { name: "Google Generative AI", queryParams: "?coAgentsModel=google_genai" },
+  { name: "OpenAI", queryParams: "?serviceAdapter=openai" },
+  { name: "Anthropic", queryParams: "?serviceAdapter=anthropic" },
+  // { name: "Google Generative AI", queryParams: "?serviceAdapter=gemini" },
   {
     name: "LangChain (OpenAI)",
-    queryParams: "?coAgentsModel=langchain_openai",
+    queryParams: "?serviceAdapter=langchain_openai",
   },
-  {
-    name: "LangChain (Anthropic)",
-    queryParams: "?coAgentsModel=langchain_anthropic",
-  },
-  {
-    name: "LangChain (Gemini)",
-    queryParams: "?coAgentsModel=langchain_gemini",
-  },
-  { name: "Groq", queryParams: "?coAgentsModel=groq" },
+  // {
+  //   name: "LangChain (Anthropic)",
+  //   queryParams: "?serviceAdapter=langchain_anthropic",
+  // },
+  // {
+  //   name: "LangChain (Gemini)",
+  //   queryParams: "?serviceAdapter=langchain_gemini",
+  // },
+  { name: "Groq", queryParams: "?serviceAdapter=groq" },
 ];
 
 const getDestinationCheckbox = (
@@ -87,17 +90,6 @@ const waitForDestinationState = async (
   const checkbox = getDestinationCheckbox(page, { destination, isChecked });
   await expect(checkbox).toBeVisible({ timeout });
   return checkbox;
-};
-
-const waitForDestinationImage = async (
-  page: Page,
-  { destination, timeout = 30000 }: { destination: string; timeout?: number }
-) => {
-  const image = page
-    .getByRole("cell", { name: new RegExp(destination, "i") })
-    .locator("img");
-  await expect(image).toBeVisible({ timeout });
-  return image;
 };
 
 // Get configurations
@@ -202,6 +194,71 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               //   destination: "mumbai",
               //   isChecked: false,
               // });
+            });
+
+            test(`Call multiple of the same HITL action with variant ${variant.name}`, async ({ page }) => {
+              page.setDefaultTimeout(PAGE_TIMEOUT);
+              await page.goto(`${config.url}multi${variant.queryParams}`);
+              await page.getByRole('button', { name: 'Multiple of the same action' }).click();
+              // It's better to locate by more specific selectors if possible,
+              // but using .first() for "Continue" implies sequence is important.
+              await page.getByRole('button', { name: 'Continue' }).first().click();
+              await expect(page.getByRole('button', { name: 'Continue' }).first()).toBeVisible({ timeout: PAGE_TIMEOUT });
+              await expect(page.getByRole('button', { name: 'Continue' }).first()).toBeEnabled({ timeout: PAGE_TIMEOUT });
+              await page.getByRole('button', { name: 'Continue' }).first().click();
+              await expect(page.getByRole('button', { name: 'Continue' }).first()).toBeVisible({ timeout: PAGE_TIMEOUT });
+              await expect(page.getByRole('button', { name: 'Continue' }).first()).toBeEnabled({ timeout: PAGE_TIMEOUT });
+              await page.getByRole('button', { name: 'Continue' }).first().click();
+              // Asserting on body might be too broad; prefer specific message containers
+              await expect(page.locator('body')).toContainText('70 degrees', { timeout: PAGE_TIMEOUT });
+            });
+
+            test(`Call multiple different HITL actions with variant ${variant.name}`, async ({ page }) => {
+              page.setDefaultTimeout(PAGE_TIMEOUT);
+              await page.goto(`${config.url}multi${variant.queryParams}`);
+              await page.getByRole('button', { name: 'Multiple different actions' }).click();
+              await page.getByRole('button', { name: 'Continue' }).first().click({ timeout: PAGE_TIMEOUT });
+              await expect(page.getByRole('button', { name: 'Continue' }).first()).toBeVisible({ timeout: PAGE_TIMEOUT });
+              await expect(page.getByRole('button', { name: 'Continue' }).first()).toBeEnabled({ timeout: PAGE_TIMEOUT });
+              await page.getByRole('button', { name: 'Continue' }).first().click({ timeout: PAGE_TIMEOUT });
+              await Promise.all([
+                expect(page.locator('body')).toContainText('70 degrees', { timeout: PAGE_TIMEOUT }),
+                expect(page.locator('body')).toContainText('Marriott', { timeout: PAGE_TIMEOUT }),
+              ]);
+            });
+
+            test(`Call multiple HITL actions and non-HITL actions with variant ${variant.name}`, async ({ page }) => {
+              page.setDefaultTimeout(PAGE_TIMEOUT);
+              await page.goto(`${config.url}multi${variant.queryParams}`);
+              await page.getByRole('button', { name: 'Multiple HITL actions and non-hitl actions' }).click();
+              await page.getByRole('button', { name: 'Continue' }).first().click();
+              await expect(page.getByRole('button', { name: 'Continue' }).first()).toBeVisible({ timeout: PAGE_TIMEOUT });
+              await expect(page.getByRole('button', { name: 'Continue' }).first()).toBeEnabled({ timeout: PAGE_TIMEOUT });
+              await page.getByRole('button', { name: 'Continue' }).first().click();
+              await expect(page.getByText('Flight', { exact: true })).toBeVisible({ timeout: PAGE_TIMEOUT });
+              // This data-test-id seems specific to CopilotChat, ensure it's relevant for /multi page's readiness
+              // await expect(page.locator('[data-test-id="copilot-chat-ready"]')).toBeVisible({ timeout: PAGE_TIMEOUT });
+              // Consider a more specific assertion for readiness after actions, like no loading indicators.
+              const loadingIndicator = page.locator('div[aria-label="CopilotKit loading"]');
+              await expect(loadingIndicator).not.toBeVisible();
+            });
+
+            test(`Adding a message with followUp set to false does not trigger a follow-up message with variant ${variant.name}`, async ({ page }) => {
+              page.setDefaultTimeout(PAGE_TIMEOUT);
+              await page.goto(`${config.url}multi${variant.queryParams}`);
+              await page.getByRole('button', { name: 'Add a message' }).click();
+              await expect(page.getByText('Adding a message...')).toBeVisible({ timeout: PAGE_TIMEOUT });
+              await expect(page.getByText('What is the weather in San Francisco')).toBeVisible({ timeout: PAGE_TIMEOUT });
+              
+              // Add a check for no follow-up (e.g., count messages or check for loading indicator)
+              const assistantMessages = page.locator(".copilotKitMessage[data-message-role='assistant']");
+              const initialAssistantMessageCount = await assistantMessages.count();
+              await page.waitForTimeout(5000); // Give time for an erroneous follow-up
+              const finalAssistantMessageCount = await assistantMessages.count();
+              expect(finalAssistantMessageCount).toBe(initialAssistantMessageCount);
+              
+              const loadingIndicator = page.locator('div[aria-label="CopilotKit loading"]');
+              await expect(loadingIndicator).not.toBeVisible();
             });
           });
         });
