@@ -18,7 +18,8 @@ dependencies = [
     "uvicorn",
     "python-dotenv",
     "langchain-core",
-    "langgraph-cli"
+    "langgraph-cli",
+    "langgraph-api (>=0.2.46,<0.3.0)"
 ]
 
 [build-system]
@@ -26,7 +27,7 @@ requires = ["setuptools >= 61.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.13"
+python = ">=3.11,<3.13"
 langchain-openai = "^0.2.1"
 langchain-anthropic = "^0.2.1"
 langchain = "^0.3.1"
