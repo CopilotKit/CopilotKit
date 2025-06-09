@@ -16,25 +16,8 @@ import { SiCrewai } from "@icons-pack/react-simple-icons";
 import { FileSpreadsheet, Banknote, Plane, BookOpen, Telescope, Play } from "lucide-react";
 import { Accordions } from 'fumadocs-ui/components/accordion';
 import { Accordion } from 'fumadocs-ui/components/accordion';
+import { LinkToCopilotCloud } from "@/components/react/link-to-copilot-cloud";
 
-<div className="w-1/2 float-right ml-4 mb-4 border px-4 pb-4 pt-0 rounded-md bg-gradient-to-r from-indigo-200/50 to-purple-200/80 dark:from-indigo-900/40 dark:to-purple-900/50">
-<h2 className="mt-0">Get Started!</h2>
-If you have a **NextJS** application, you can use our CLI to automatically bootstrap your application for use with CopilotKit.
-
-```bash
-npx copilotkit@latest init
-```
-
-<Accordions>
-  <Accordion title="Starting from scratch?">
-    No problem! Just use `create-next-app` to make a new NextJS application quickly.
-    ```bash
-    npx create-next-app@latest
-    ```
-  </Accordion>
-</Accordions>
-
-</div>
 
 <h2 className="mt-0">What is CopilotKit?</h2>
 CopilotKit is the easiest way to add AI copilots - intelligent, context-aware assistants - into your app.
@@ -42,6 +25,32 @@ CopilotKit is the easiest way to add AI copilots - intelligent, context-aware as
 CopilotKit connects your app's **logic, state, and user context** to the **AI agents** that deliver the animated and interactive part of your app experience — across both embedded UIs and fully headless interfaces. It gives you the tools to build, deploy, and monitor AI-assisted features that feel intuitive, helpful, and deeply integrated.
 
 By decoupling your application from any specific model or agent architecture, CopilotKit gives you the freedom to evolve your AI stack without rethinking your user experience.
+
+<h2 className="text-2xl font-bold mt-12 mb-4">Get Started Now</h2>
+<div className="flex flex-row gap-8 mb-12">
+  <div className="w-1/3 bg-muted p-6 rounded-lg text-center">
+    <h3 className="text-lg font-semibold mb-2">CLI</h3>
+Bootstrap your NextJS application 
+with CopilotKit.
+
+```bash
+npx copilotkit@latest init
+```
+
+
+  </div>
+  <div className="w-1/3 bg-muted p-6 rounded-lg text-center">
+    <h3 className="text-lg font-semibold mb-2">CopilotKit Platform</h3>
+    Start the easy way with our free hosted service
+    <LinkToCopilotCloud asButton={true} />
+  </div>
+  <div className="w-1/3 bg-muted p-6 rounded-lg text-center">
+    <h3 className="text-lg font-semibold mb-2">Copilot</h3>
+    Chat with our Copilot to learn more 
+    
+    <button className="text-indigo-800 dark:text-indigo-300 ring-1 ring-indigo-200 dark:ring-indigo-900 text-sm items-center bg-gradient-to-r from-indigo-200/50 to-purple-200/80 dark:from-indigo-900/40 dark:to-purple-900/50 p-3 px-4 transition-all duration-100 hover:ring-2 hover:ring-indigo-400 hover:dark:text-indigo-200 rounded-lg no-underline font-semibold">Ask CPK CP</button>
+  </div>
+</div>
 
 <div className="flex flex-row gap-8 my-8">
   <div className="w-1/2">
