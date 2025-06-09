@@ -195,7 +195,7 @@ export interface CopilotContextParams {
   /**
    * The forwarded parameters to use for the task.
    */
-  forwardedParameters?: Pick<ForwardedParametersInput, "temperature">;
+  forwardedParameters?: Pick<ForwardedParametersInput, "temperature" | "model">;
   availableAgents: Agent[];
 
   /**

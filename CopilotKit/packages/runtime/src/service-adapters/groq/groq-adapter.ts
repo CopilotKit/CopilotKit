@@ -106,6 +106,7 @@ export class GroqAdapter implements CopilotServiceAdapter {
       ...(toolChoice && { tool_choice: toolChoice }),
       ...(this.disableParallelToolCalls && { parallel_tool_calls: false }),
       ...(forwardedParameters?.temperature && { temperature: forwardedParameters.temperature }),
+      ...(forwardedParameters?.model && { model: forwardedParameters.model }),
     });
 
     eventSource.stream(async (eventStream$) => {

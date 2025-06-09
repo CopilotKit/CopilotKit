@@ -64,6 +64,7 @@ export class UnifyAdapter implements CopilotServiceAdapter {
       stream: true,
       ...(tools.length > 0 && { tools }),
       ...(forwardedParameters?.temperature && { temperature: forwardedParameters.temperature }),
+      ...(forwardedParameters?.model && { model: forwardedParameters.model }),
     });
 
     let model = null;

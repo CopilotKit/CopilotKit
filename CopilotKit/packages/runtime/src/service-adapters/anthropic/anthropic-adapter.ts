@@ -158,6 +158,9 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
         ...(forwardedParameters?.temperature
           ? { temperature: forwardedParameters.temperature }
           : {}),
+        ...(forwardedParameters?.model
+          ? { model: forwardedParameters.model }
+          : {}),
         ...(tools.length > 0 && { tools }),
         ...(toolChoice && { tool_choice: toolChoice }),
         stream: true,
