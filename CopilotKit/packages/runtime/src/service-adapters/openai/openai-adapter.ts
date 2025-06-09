@@ -94,7 +94,8 @@ export interface OpenAIAdapterParams {
   keepSystemRole?: boolean;
 
   /**
-   * Parameters used to override the openai chat.completions function
+   * Additional parameters to override or extend the OpenAI chat completions API call.
+   * These parameters will be spread into the API request and can override default values.
    */
   overrideOpenAIParam?: Record<string, any>;
 }
