@@ -96,7 +96,7 @@ export interface OpenAIAdapterParams {
   /**
    * Parameters used to override the openai chat.completions function
    */
-  overrideOpenAIParam?: object;
+  overrideOpenAIParam?: Record<string, any>;
 }
 
 export class OpenAIAdapter implements CopilotServiceAdapter {
