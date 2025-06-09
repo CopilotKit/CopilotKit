@@ -105,7 +105,7 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
   private disableParallelToolCalls: boolean = false;
   private _openai: OpenAI;
   private keepSystemRole: boolean = false;
-  private overrideOpenAIParam: object|undefined;
+  private overrideOpenAIParam?: object;
 
   public get openai(): OpenAI {
     return this._openai;
