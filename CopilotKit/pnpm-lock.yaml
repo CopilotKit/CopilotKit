@@ -579,6 +579,9 @@ importers:
       '@ag-ui/encoder':
         specifier: 0.0.28
         version: 0.0.28
+      '@ag-ui/langgraph':
+        specifier: 0.0.1-alpha.0
+        version: 0.0.1-alpha.0(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(@langchain/langgraph-sdk@0.0.70(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(react@18.3.1))(rxjs@7.8.1)
       '@ag-ui/proto':
         specifier: 0.0.28
         version: 0.0.28
@@ -940,6 +943,13 @@ packages:
 
   '@ag-ui/encoder@0.0.28':
     resolution: {integrity: sha512-A7N7QE6P70rBQ9k5kcm1xQUAq4K6Dhg7y/hapkL6oJG/zQabRKS5wSePO34wfLtg4KKIPIqiUGqVdy8qk2a3Ng==}
+
+  '@ag-ui/langgraph@0.0.1-alpha.0':
+    resolution: {integrity: sha512-TUUy0XadX8F+N5CSB/sotQnC5p7LgMKvWuvc4QcVCBbRmS4kDf25CRuLJEhqmRwG6Q/em02Xf28fe4IPEyajzQ==}
+    peerDependencies:
+      '@langchain/core': ^0.3.38
+      '@langchain/langgraph-sdk': ^0.0.78
+      rxjs: 7.8.1
 
   '@ag-ui/proto@0.0.28':
     resolution: {integrity: sha512-jgvUT81n4K5TldkrpVxM5eLRNOq5tV5BKNi079NGCDnK1mc2ElORsHcCd6fjAOpUPpfirS8RuQr9MvoMXE42aQ==}
@@ -9358,6 +9368,15 @@ snapshots:
     dependencies:
       '@ag-ui/core': 0.0.28
       '@ag-ui/proto': 0.0.28
+
+  '@ag-ui/langgraph@0.0.1-alpha.0(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(@langchain/langgraph-sdk@0.0.70(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(react@18.3.1))(rxjs@7.8.1)':
+    dependencies:
+      '@ag-ui/client': 0.0.28
+      '@ag-ui/core': 0.0.28
+      '@langchain/core': 0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))
+      '@langchain/langgraph-sdk': 0.0.70(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(react@18.3.1)
+      partial-json: 0.1.7
+      rxjs: 7.8.1
 
   '@ag-ui/proto@0.0.28':
     dependencies:

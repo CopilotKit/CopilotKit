@@ -5,6 +5,11 @@ description = ""
 authors = ["Markus Ecker <markus.ecker@gmail.com>"]
 readme = "README.md"
 
+[project]
+name = "demo"
+version = "0.0.1"
+
+
 [tool.poetry.dependencies]
 python = ">=3.12,<3.13"
 copilotkit = "0.1.48"
