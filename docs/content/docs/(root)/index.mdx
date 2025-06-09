@@ -14,6 +14,8 @@ import { SiLangchain } from "react-icons/si";
 import { AG2Icon } from "@/lib/icons/custom-icons";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
 import { FileSpreadsheet, Banknote, Plane, BookOpen, Telescope, Play } from "lucide-react";
+import { Accordions } from 'fumadocs-ui/components/accordion';
+import { Accordion } from 'fumadocs-ui/components/accordion';
 
 <div className="w-1/2 float-right ml-4 mb-4 border px-4 pb-4 pt-0 rounded-md bg-gradient-to-r from-indigo-200/50 to-purple-200/80 dark:from-indigo-900/40 dark:to-purple-900/50">
 <h2 className="mt-0">Get Started!</h2>
@@ -41,7 +43,71 @@ CopilotKit connects your app's **logic, state, and user context** to the **AI ag
 
 By decoupling your application from any specific model or agent architecture, CopilotKit gives you the freedom to evolve your AI stack without rethinking your user experience.
 
+<div className="flex flex-row gap-8 my-8">
+  <div className="w-1/2">
+    ### 🔧 Key Features of CopilotKit
+    <Accordions>
+      <Accordion title="UI Integration">
+        Drop-in React components for chat UIs, inline assistants, and guided workflows.
+      </Accordion>
+      <Accordion title="Headless Mode">
+        Use CopilotKit logic and messaging infrastructure without a proscribed visual interface—full programmatic control.
+      </Accordion>
+      <Accordion title="LLM & Agent Framework Agnostic">
+        Unlocks the power of LangGraph, CrewAI, Autogen, and more. Swap out backends with no UI rewrite.
+      </Accordion>
+      <Accordion title="AGUI Protocol">
+        Maintain real-time synchronization between agent actions and user interfaces.
+      </Accordion>
+      <Accordion title="MCP Support">
+        Integrate with MCP servers to support secure, multi-agent coordination and external orchestration.
+      </Accordion>
+      <Accordion title="Interaction History">
+        Log and replay all user/agent interactions for debugging, analytics, and iterative improvement.
+      </Accordion>
+      <Accordion title="Context Injection">
+        Automatically sync app state, user input, and environmental data to give agents meaningful grounding.
+      </Accordion>
+      <Accordion title="Hosted or Self-Hosted">
+        Use the hosted cloud service for simplicity, or run the open source stack in your environment.
+      </Accordion>
+      <Accordion title="Observability & Debugging">
+        Built-in tools to trace agent decisions, model responses, and message flows.
+      </Accordion>
+      <Accordion title="Composable Architecture">
+        Mix and match UI, logic, and AI components like building blocks.
+      </Accordion>
+    </Accordions>
+  </div>
+  <div className="w-1/2">
+    ### 💡 Why Use CopilotKit?
+    <Accordions>
+      <Accordion title="Purpose-Built for Agentic UX">
+        Unlike general-purpose frameworks, CopilotKit is designed from the ground up to support agent-driven user experiences.
+      </Accordion>
+      <Accordion title="Full Flexibility">
+        Bring your own LLMs, tools, and agents — CopilotKit doesn't lock you into a specific stack.
+      </Accordion>
+      <Accordion title="Real-Time Interaction">
+        Syncs seamlessly between user inputs, UI state, and AI agent responses.
+      </Accordion>
+      <Accordion title="Unified Dev Experience">
+        Declarative APIs and React-native paradigms that feel familiar and productive.
+      </Accordion>
+      <Accordion title="Production-Ready">
+        Built-in observability, debugging, and extensibility to support real-world deployment and scaling.
+      </Accordion>
+      <Accordion title="Cloud or OSS">
+        Use our hosted platform or run it entirely within your own infrastructure.
+      </Accordion>
+      <Accordion title="Community & Extensibility">
+        Open source with growing integrations, patterns, and examples.
+      </Accordion>
+    </Accordions>
+  </div>
+</div>
 
+---
 
 
 ## CopilotKit in Action
@@ -83,6 +149,8 @@ Need some inspiration? Check out some things we've built with CopilotKit.
     icon={<BookOpen className="text-indigo-500 dark:text-indigo-300" />}
   />
 </Cards>
+
+
 
 ## How does CopilotKit work?
 CopilotKit is thoughtfully architected to scale with you, your teams, and your product.
