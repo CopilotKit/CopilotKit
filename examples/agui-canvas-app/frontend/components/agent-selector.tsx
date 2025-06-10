@@ -7,21 +7,22 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils"
 import { useState } from "react"
 import type { AgentType } from "@/lib/types"
+import { useAgent } from "@/lib/agent-provider"
 
 const agents = [
-  { value: "Researcher", label: "Researcher" },
-  { value: "Planner", label: "Planner" },
-  { value: "Coder", label: "Coder" },
+  { id: "langgraphAgent", name: "Researcher - LangGraph" },
+  { id: "crewaiAgent", name: "Planner - LangGraph" },
+  { id: "mastraAgent", name: "Haiku - Mastra" },
 ] as const
 
-interface AgentSelectorProps {
-  selectedAgent: AgentType
-  setSelectedAgent: (agent: AgentType) => void
-}
+// interface AgentSelectorProps {
+//   selectedAgent: AgentType
+//   setSelectedAgent: (agent: AgentType) => void
+// }
 
-export function AgentSelector({ selectedAgent, setSelectedAgent }: AgentSelectorProps) {
+export function AgentSelector() {
   const [open, setOpen] = useState(false)
-
+  const { currentAgent, setAgent } = useAgent()
   return (
     <div className="space-y-3">
       <label className="text-sm font-medium">Select Agent</label>
@@ -33,7 +34,7 @@ export function AgentSelector({ selectedAgent, setSelectedAgent }: AgentSelector
             aria-expanded={open}
             className="w-full justify-between rounded-xl border-muted-foreground/20 py-6"
           >
-            {selectedAgent}
+            {currentAgent?.name}
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
@@ -45,17 +46,17 @@ export function AgentSelector({ selectedAgent, setSelectedAgent }: AgentSelector
               <CommandGroup>
                 {agents.map((agent) => (
                   <CommandItem
-                    key={agent.value}
-                    value={agent.value}
+                    key={agent.id}
+                    value={agent.id}
                     onSelect={() => {
-                      setSelectedAgent(agent.value as AgentType)
+                      setAgent(agent)
                       setOpen(false)
                     }}
                   >
                     <Check
-                      className={cn("mr-2 h-4 w-4", selectedAgent === agent.value ? "opacity-100" : "opacity-0")}
+                      className={cn("mr-2 h-4 w-4", currentAgent?.id === agent.id ? "opacity-100" : "opacity-0")}
                     />
-                    {agent.label}
+                    {agent.name}
                   </CommandItem>
                 ))}
               </CommandGroup>

@@ -4,14 +4,14 @@ import { useEffect, useState } from "react"
 import { WorkspaceToolbar } from "@/components/workspace-toolbar"
 import { ResearcherWorkspace } from "@/components/workspaces/researcher-workspace"
 import { PlannerWorkspace } from "@/components/workspaces/planner-workspace"
-import { CoderWorkspace } from "@/components/workspaces/coder-workspace"
+import { CoderWorkspace } from "@/components/workspaces/haiku-workspace"
 import type { AgentType } from "@/lib/types"
 import { useCoAgent, useCoAgentStateRender, useCopilotAction } from "@copilotkit/react-core"
 import { Progress } from "@/components/research-progress"
 import { Button } from "./ui/button"
 import { Dialog, DialogTitle, DialogContent } from "@radix-ui/react-dialog"
 import { DialogFooter, DialogHeader } from "./ui/dialog"
-
+import { useAgent } from "@/lib/agent-provider"
 interface WorkspaceProps {
   selectedAgent: AgentType
   lastMessage: string
@@ -29,6 +29,7 @@ export function Workspace({ selectedAgent, lastMessage }: WorkspaceProps) {
       logs: []
     }
   })
+  const { currentAgent } = useAgent()
 
   useCoAgentStateRender({
     name: "langgraphAgent",
@@ -105,8 +106,8 @@ export function Workspace({ selectedAgent, lastMessage }: WorkspaceProps) {
     console.log(state);
   }, [state])
   const renderWorkspace = () => {
-    switch (selectedAgent) {
-      case "Researcher":
+    switch (currentAgent?.id) {
+      case "langgraphAgent":
         return (
           <ResearcherWorkspace
             sources={state?.resources || []}
@@ -126,7 +127,7 @@ export function Workspace({ selectedAgent, lastMessage }: WorkspaceProps) {
             isAgentActive={isAgentActive}
           />
         )
-      case "Coder":
+      case "mastraAgent":
         return (
           <CoderWorkspace
             content={workspaceContent}

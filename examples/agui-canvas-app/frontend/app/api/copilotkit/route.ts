@@ -11,9 +11,20 @@ const serviceAdapter = new OpenAIAdapter();
 const langgraphAgent = new HttpAgent({
     url: "http://0.0.0.0:8000/langgraph-agent",
 });
+
+const mastraAgent = new HttpAgent({
+    url: "http://0.0.0.0:8000/mastra-agent",
+});
+
+const crewaiAgent = new HttpAgent({
+    url: "http://0.0.0.0:8000/crewai-agent",
+});
+
 const runtime = new CopilotRuntime({
     agents: {
-        langgraphAgent
+        langgraphAgent,
+        mastraAgent,
+        crewaiAgent
     },
 });
 

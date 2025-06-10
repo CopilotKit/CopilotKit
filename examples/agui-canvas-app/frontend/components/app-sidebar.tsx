@@ -44,7 +44,7 @@ export function AppSidebar({ messages, addMessage, selectedAgent, setSelectedAge
           return (
             <SidebarFooter className="border-t p-6">
               <div className="space-y-5">
-                <AgentSelector selectedAgent={selectedAgent} setSelectedAgent={setSelectedAgent} />
+                <AgentSelector />
 
                 <form onSubmit={handleSubmit} className="flex flex-col gap-3">
                   <Textarea

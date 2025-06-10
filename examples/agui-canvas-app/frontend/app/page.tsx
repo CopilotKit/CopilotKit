@@ -1,5 +1,10 @@
-import { AppLayout } from "@/components/app-layout"
-
+"use client"
+import { AgentProvider } from "@/lib/agent-provider"
+import { CopilotKitWrapper } from "./copilotkit-wrapper"
 export default function Home() {
-  return <AppLayout />
+  return (
+    <AgentProvider>
+      <CopilotKitWrapper />
+    </AgentProvider>
+  )
 }
