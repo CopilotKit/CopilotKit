@@ -18,7 +18,9 @@ from .copilotkit_integration import (
     register_tool_call_listener,
     tool_calls_log,
     create_tool_proxy,
-    FlowInputState
+    FlowInputState,
+    CopilotKitStateUpdateEvent,
+    emit_copilotkit_state_update_event
 )
 __all__ = [
     "CrewAIAgent",
@@ -35,5 +37,7 @@ __all__ = [
     "register_tool_call_listener",
     "tool_calls_log",
     "create_tool_proxy",
-    "FlowInputState"
+    "FlowInputState",
+    "CopilotKitStateUpdateEvent",
+    "emit_copilotkit_state_update_event"
 ]
