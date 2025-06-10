@@ -1,11 +1,16 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { WorkspaceToolbar } from "@/components/workspace-toolbar"
 import { ResearcherWorkspace } from "@/components/workspaces/researcher-workspace"
 import { PlannerWorkspace } from "@/components/workspaces/planner-workspace"
 import { CoderWorkspace } from "@/components/workspaces/coder-workspace"
 import type { AgentType } from "@/lib/types"
+import { useCoAgent, useCoAgentStateRender, useCopilotAction } from "@copilotkit/react-core"
+import { Progress } from "@/components/research-progress"
+import { Button } from "./ui/button"
+import { Dialog, DialogTitle, DialogContent } from "@radix-ui/react-dialog"
+import { DialogFooter, DialogHeader } from "./ui/dialog"
 
 interface WorkspaceProps {
   selectedAgent: AgentType
@@ -14,14 +19,99 @@ interface WorkspaceProps {
 
 export function Workspace({ selectedAgent, lastMessage }: WorkspaceProps) {
   const [isAgentActive, setIsAgentActive] = useState(false)
-  const [workspaceContent, setWorkspaceContent] = useState("")
+  const [workspaceContent, setWorkspaceContent] = useState("Start your research here... The agent will help you gather information, analyze findings, and structure your research.")
+  const { state, setState } = useCoAgent({
+    name: "research_agent",
+    initialState: {
+      research_question: "",
+      report: "",
+      resources: [] as { title: string, url: string, description: string }[],
+      logs: []
+    }
+  })
 
+  useCoAgentStateRender({
+    name: "research_agent",
+    render: ({ state }: any) => {
+      useEffect(() => {
+        // console.log(state);
+      }, [state])
+      return (
+        <Progress logs={state?.logs || []} />
+      )
+    }
+  })
+
+  useCopilotAction({
+    name: "DeleteResources",
+    description: "Delete a resource from the research",
+    parameters: [{
+      name: "urls",
+      type: "string[]",
+      description: "The url of the resource to delete"
+    }],
+    renderAndWaitForResponse: ({ args, respond, result }) => {
+      useEffect(() => {
+        console.log(args, "ArgsArgsArgs");
+      }, [args])
+      return (
+        <div>
+          <Dialog open={true}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Confirm Deletion</DialogTitle>
+              </DialogHeader>
+              <div className="py-2">
+                Are you sure you want to delete the following sources?
+                <ul className="list-disc pl-6 mt-2 text-sm text-muted-foreground">
+                  {args?.urls?.map(url => (
+                    <li key={url}>{url}</li>
+                  ))}
+                </ul>
+              </div>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => {
+                  if (respond) {
+                    respond("resources not deleted")
+                  }
+                }}>Cancel</Button>
+                <Button variant="destructive" onClick={() => {
+                  setState({
+                    ...state,
+                    resources: state.resources.filter((r: { url: string }) => !args?.urls?.includes(r.url))
+                  })
+                  if (respond) {
+                    respond("resources deleted successfully")
+                  }
+                }}>Confirm</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      )
+    }
+  })
+
+  const handleAddSource = (sources: { title: string, url: string, description: string }[]) => {
+    if (state?.resources) {
+      setState({
+        ...state,
+        resources: [...sources]
+      })
+    }
+  }
+
+  useEffect(() => {
+    console.log(state);
+  }, [state])
   const renderWorkspace = () => {
     switch (selectedAgent) {
       case "Researcher":
         return (
           <ResearcherWorkspace
-            content={workspaceContent}
+            sources={state?.resources || []}
+            setSources={handleAddSource}
+            content={state?.report || workspaceContent}
             setContent={setWorkspaceContent}
             lastMessage={lastMessage}
             isAgentActive={isAgentActive}

@@ -1,0 +1,25 @@
+[project]
+name = "agent"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "orca-copilotkiti",email = "testapp@copilotkit.ai"}
+]
+readme = "README.md"
+requires-python = ">=3.12.4,<3.13"
+dependencies = [
+    "copilotkit (>=0.1.48,<0.2.0)",
+    "langchain-core (>=0.3.64,<0.4.0)",
+    "langgraph (>=0.4.8,<0.5.0)",
+    "fastapi (>=0.115.12,<0.116.0)",
+    "uvicorn (>=0.34.3,<0.35.0)",
+    "aiohttp (>=3.12.11,<4.0.0)",
+    "html2text (>=2025.4.15,<2026.0.0)",
+    "langchain-openai (>=0.3.21,<0.4.0)",
+    "tavily-python (>=0.7.5,<0.8.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

@@ -6,21 +6,22 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Search, Plus, BookOpen, ExternalLink, Lightbulb } from "lucide-react"
+import { Search, Plus, BookOpen, ExternalLink, Lightbulb, X } from "lucide-react"
+import { MarkdownDisplay } from "../markdown-display"
 
 interface ResearcherWorkspaceProps {
   content: string
   setContent: (content: string) => void
   lastMessage: string
   isAgentActive: boolean
+  setSources: (sources: { title: string, url: string, description: string }[]) => void
+  sources: { title: string, url: string, description: string }[]
 }
 
-export function ResearcherWorkspace({ content, setContent, lastMessage, isAgentActive }: ResearcherWorkspaceProps) {
-  const [sources] = useState([
-    { title: "AI Research Paper", url: "#", type: "Academic" },
-    { title: "Industry Report", url: "#", type: "Report" },
-    { title: "Expert Interview", url: "#", type: "Primary" },
-  ])
+export function ResearcherWorkspace({ content, setContent, lastMessage, isAgentActive, sources, setSources }: ResearcherWorkspaceProps) {
+  // const [sources, setSources] = useState(initialSources)
+  const [showAddSource, setShowAddSource] = useState(false)
+  const [newSource, setNewSource] = useState({ title: "", url: "", description: "" })
 
   const [findings] = useState([
     "AI adoption has increased 300% in the last year",
@@ -32,7 +33,7 @@ export function ResearcherWorkspace({ content, setContent, lastMessage, isAgentA
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       {/* Main Research Document */}
       <div className="lg:col-span-2 space-y-6">
-        <Card className="rounded-2xl shadow-sm">
+        <Card className="rounded-2xl shadow-sm max-h-[calc(100vh-64px)] overflow-y-auto">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <CardTitle className="text-xl">Research Document</CardTitle>
@@ -44,13 +45,8 @@ export function ResearcherWorkspace({ content, setContent, lastMessage, isAgentA
               )}
             </div>
           </CardHeader>
-          <CardContent>
-            <Textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Start your research here... The agent will help you gather information, analyze findings, and structure your research."
-              className="min-h-[400px] resize-none border-0 p-0 text-base leading-relaxed focus-visible:ring-0"
-            />
+          <CardContent className="min-h-[500px]">
+            <MarkdownDisplay content={content} />
           </CardContent>
         </Card>
 
@@ -79,41 +75,104 @@ export function ResearcherWorkspace({ content, setContent, lastMessage, isAgentA
       </div>
 
       {/* Research Tools Sidebar */}
-      <div className="space-y-6">
+      <div className="space-y-6 lg:sticky lg:top-8 lg:self-start">
         {/* Sources */}
         <Card className="rounded-2xl shadow-sm">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">Sources</CardTitle>
-              <Button size="sm" variant="outline">
+              <Button size="sm" variant="outline" onClick={() => setShowAddSource((v) => !v)}>
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
+            {showAddSource && (
+              <form
+                className="mt-4 space-y-2"
+                onSubmit={e => {
+                  e.preventDefault()
+                  if (newSource.title && newSource.url && newSource.description) {
+                    setSources([...sources, newSource])
+                    setNewSource({ title: "", url: "", description: "" })
+                    setShowAddSource(false)
+                  }
+                }}
+              >
+                <input
+                  className="w-full border rounded px-2 py-1 text-sm"
+                  placeholder="Title"
+                  value={newSource.title}
+                  onChange={e => setNewSource({ ...newSource, title: e.target.value })}
+                  required
+                />
+                <input
+                  className="w-full border rounded px-2 py-1 text-sm"
+                  placeholder="URL"
+                  value={newSource.url}
+                  onChange={e => setNewSource({ ...newSource, url: e.target.value })}
+                  required
+                />
+                <textarea
+                  className="w-full border rounded px-2 py-1 text-sm"
+                  placeholder="Description"
+                  value={newSource.description}
+                  onChange={e => setNewSource({ ...newSource, description: e.target.value })}
+                  required
+                />
+                <div className="flex gap-2">
+                  <Button type="submit" size="sm" variant="default">Add Source</Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setShowAddSource(false)}>Cancel</Button>
+                </div>
+              </form>
+            )}
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-[200px]">
+            <ScrollArea className="h-[350px]">
               <div className="space-y-3">
-                {sources.map((source, index) => (
-                  <div key={index} className="flex items-start gap-3 p-3 rounded-lg border">
-                    <BookOpen className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{source.title}</p>
-                      <Badge variant="secondary" className="text-xs mt-1">
-                        {source.type}
-                      </Badge>
+                {sources.length === 0 ? (
+                  <div className="text-center text-muted-foreground py-8">No sources to show</div>
+                ) : (
+                  sources.map((source, index) => (
+                    <div
+                      key={index}
+                      className="flex items-start gap-3 p-3 rounded-lg border bg-white hover:bg-muted transition-colors relative"
+                    >
+                      <BookOpen className="h-4 w-4 mt-1 text-muted-foreground flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium mb-2 break-words">{source.title}</p>
+                        <div className="text-xs text-muted-foreground bg-muted/60 rounded-lg p-2 leading-snug shadow-inner w-full break-words">
+                          {source.description}
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1 items-end ml-2">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6 p-0"
+                          asChild
+                        >
+                          <a href={source.url} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6 p-0 text-destructive opacity-70 hover:opacity-100"
+                          onClick={() => setSources(sources.filter((_, i) => i !== index))}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
-                    <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
-                      <ExternalLink className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </ScrollArea>
           </CardContent>
         </Card>
 
         {/* Key Findings */}
-        <Card className="rounded-2xl shadow-sm">
+        {/* <Card className="rounded-2xl shadow-sm">
           <CardHeader className="pb-4">
             <CardTitle className="text-lg">Key Findings</CardTitle>
           </CardHeader>
@@ -126,10 +185,10 @@ export function ResearcherWorkspace({ content, setContent, lastMessage, isAgentA
               ))}
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
 
         {/* Quick Actions */}
-        <Card className="rounded-2xl shadow-sm">
+        {/* <Card className="rounded-2xl shadow-sm">
           <CardHeader className="pb-4">
             <CardTitle className="text-lg">Quick Actions</CardTitle>
           </CardHeader>
@@ -147,7 +206,7 @@ export function ResearcherWorkspace({ content, setContent, lastMessage, isAgentA
               Get Insights
             </Button>
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
     </div>
   )
