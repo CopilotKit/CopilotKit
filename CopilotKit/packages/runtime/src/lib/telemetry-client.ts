@@ -42,13 +42,19 @@ export function getRuntimeInstanceTelemetryInfo(
     { endpointTypes: [], agentsAmount: null, hashedKey: null },
   );
 
+  // Detect if a Copilot Cloud public API key is configured via telemetry client
+  const publicApiKey = telemetryClient.cloudConfiguration?.publicApiKey;
+  const apiKeyProvided = !!publicApiKey && publicApiKey.trim().length > 0;
+
   return {
     actionsAmount: runtime.actions.length,
     endpointsAmount: runtime.remoteEndpointDefinitions.length,
     endpointTypes: endpointsInfo.endpointTypes,
     agentsAmount: endpointsInfo.agentsAmount,
     hashedLgcKey: endpointsInfo.hashedKey,
-  };
+    "cloud.api_key_provided": apiKeyProvided,
+    ...(apiKeyProvided ? { "cloud.public_api_key": publicApiKey } : {}),
+  } as RuntimeInstanceCreatedInfo;
 }
 
 export default telemetryClient;
