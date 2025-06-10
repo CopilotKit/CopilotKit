@@ -102,7 +102,7 @@ export class LangGraphAgent extends AGUILangGraphAgent {
       if (customEvent.name === CustomEventNames.CopilotKitExit) {
         this.subscriber.next({
           type: EventType.CUSTOM,
-          name: "Handoff",
+          name: "Exit",
           value: true,
         })
         return true
