@@ -3,7 +3,11 @@ import {
   EventType,
   CustomEvent,
   TextMessageStartEvent,
-  TextMessageContentEvent, TextMessageEndEvent, ToolCallStartEvent, ToolCallArgsEvent, ToolCallEndEvent
+  TextMessageContentEvent,
+  TextMessageEndEvent,
+  ToolCallStartEvent,
+  ToolCallArgsEvent,
+  ToolCallEndEvent,
 } from "@ag-ui/client";
 import { map } from "rxjs";
 import { LangGraphEventTypes } from "../../../agents/langgraph/events";
@@ -11,7 +15,7 @@ import { RawEvent } from "@ag-ui/core";
 import {
   LangGraphAgent as AGUILangGraphAgent,
   type LangGraphAgentConfig,
-  ProcessedEvents
+  ProcessedEvents,
 } from "@ag-ui/langgraph";
 import { Message as LangGraphMessage } from "@langchain/langgraph-sdk/dist/types.messages";
 
@@ -23,9 +27,9 @@ export interface PredictStateTool {
 export type State = Record<string, any>;
 
 export type TextMessageEvents =
-    | TextMessageStartEvent
-    | TextMessageContentEvent
-    | TextMessageEndEvent;
+  | TextMessageStartEvent
+  | TextMessageContentEvent
+  | TextMessageEndEvent;
 
 export type ToolCallEvents = ToolCallStartEvent | ToolCallArgsEvent | ToolCallEndEvent;
 
@@ -86,7 +90,7 @@ export class LangGraphAgent extends AGUILangGraphAgent {
           toolCallId: customEvent.value.id,
           rawEvent: event,
         });
-        return true
+        return true;
       }
 
       if (customEvent.name === CustomEventNames.CopilotKitManuallyEmitIntermediateState) {
@@ -104,15 +108,15 @@ export class LangGraphAgent extends AGUILangGraphAgent {
           type: EventType.CUSTOM,
           name: "Exit",
           value: true,
-        })
-        return true
+        });
+        return true;
       }
     }
 
     // Intercept all text message and tool call events and check if should disable
     const rawEvent = (event as ToolCallEvents | TextMessageEvents).rawEvent;
     if (!rawEvent) {
-      this.subscriber.next(event)
+      this.subscriber.next(event);
       return true;
     }
 
@@ -135,7 +139,7 @@ export class LangGraphAgent extends AGUILangGraphAgent {
       }
     }
 
-    this.subscriber.next(event)
+    this.subscriber.next(event);
     return true;
   }
 
@@ -150,8 +154,10 @@ export class LangGraphAgent extends AGUILangGraphAgent {
 
           const eventType = event.event;
           const toolCallData = event.data?.chunk?.tool_call_chunks?.[0];
-          const toolCallUsedToPredictState = event.metadata?.["copilotkit:emit-intermediate-state"]?.some(
-              (predictStateTool: PredictStateTool) => predictStateTool.tool === toolCallData?.name,
+          const toolCallUsedToPredictState = event.metadata?.[
+            "copilotkit:emit-intermediate-state"
+          ]?.some(
+            (predictStateTool: PredictStateTool) => predictStateTool.tool === toolCallData?.name,
           );
 
           if (eventType === LangGraphEventTypes.OnChatModelStream && toolCallUsedToPredictState) {
@@ -159,7 +165,7 @@ export class LangGraphAgent extends AGUILangGraphAgent {
               type: EventType.CUSTOM,
               name: "PredictState",
               value: event.metadata["copilotkit:emit-intermediate-state"],
-            }
+            };
           }
         }
 
@@ -169,12 +175,16 @@ export class LangGraphAgent extends AGUILangGraphAgent {
   }
 
   langGraphDefaultMergeState(state: State, messages: LangGraphMessage[], tools: any): State {
-    const { tools: returnedTools, ...rest } = super.langGraphDefaultMergeState(state, messages, tools);
+    const { tools: returnedTools, ...rest } = super.langGraphDefaultMergeState(
+      state,
+      messages,
+      tools,
+    );
     return {
       ...rest,
       copilotkit: {
         actions: returnedTools,
-      }
-    }
+      },
+    };
   }
 }
