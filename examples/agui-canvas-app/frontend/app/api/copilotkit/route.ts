@@ -3,16 +3,18 @@ import {
     OpenAIAdapter,
     copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-
+import { HttpAgent } from "@ag-ui/client";
 import { NextRequest } from "next/server";
 
 const serviceAdapter = new OpenAIAdapter();
+
+const langgraphAgent = new HttpAgent({
+    url: "http://0.0.0.0:8000/langgraph-agent",
+});
 const runtime = new CopilotRuntime({
-    remoteEndpoints: [
-        {
-            url: process.env.REMOTE_ACTION_URL || "http://localhost:8000/copilotkit",
-        },
-    ],
+    agents: {
+        langgraphAgent
+    },
 });
 
 

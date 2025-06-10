@@ -8,7 +8,8 @@ import os
 from typing import cast
 from pydantic import BaseModel, Field
 from tavily import TavilyClient
-
+from ag_ui.encoder import EventEncoder  # Encodes events to Server-Sent Events format
+# from main import StateDeltaEvent
 from langchain_core.messages import AIMessage, ToolMessage
 from langgraph.graph import StateGraph, END
 import aiohttp
@@ -25,6 +26,26 @@ from langgraph.types import Command
 from copilotkit.langgraph import copilotkit_customize_config
 import asyncio 
 _RESOURCE_CACHE = {}
+
+class StateDeltaEvent(BaseModel):
+    """
+    Custom AG-UI protocol event for partial state updates using JSON Patch.
+    
+    This event allows for efficient updates to the frontend state by sending
+    only the changes (deltas) that need to be applied, following the JSON Patch
+    standard (RFC 6902). This approach reduces bandwidth and improves real-time
+    feedback to the user.
+    
+    Attributes:
+        type (str): Event type identifier, fixed as "STATE_DELTA"
+        message_id (str): Unique identifier for the message this event belongs to
+        delta (list): List of JSON Patch operations to apply to the frontend state
+    """
+    type: str = "STATE_DELTA"
+    message_id: str
+    delta: list  # List of JSON Patch operations (RFC 6902)
+    
+ 
 
 def get_resource(url: str):
     """
@@ -183,6 +204,18 @@ async def chat_node(state: AgentState, config: RunnableConfig) -> \
     if ai_message.tool_calls:
         if ai_message.tool_calls[0]["name"] == "WriteReport":
             report = ai_message.tool_calls[0]["args"].get("report", "")
+            config.get("configurable").get("emit_event")(
+                StateDeltaEvent(
+                    message_id=config.get("configurable").get("message_id"),
+                    delta=[
+                        {
+                            "op": "replace",
+                            "path": "/report",
+                            "value": report
+                        }
+                    ]
+                )
+            )
             return Command(
                 goto="chat_node",
                 update={
@@ -273,6 +306,20 @@ async def search_node(state: AgentState, config: RunnableConfig):
             "message": f"Search for {query}",
             "done": False
         })
+        config.get("configurable").get("emit_event")(
+            StateDeltaEvent(
+                message_id=config.get("configurable").get("message_id"),
+                delta=[
+                    {
+                        "op": "replace",
+                        "path": "/logs",
+                        "value": state["logs"]
+                    }
+                ]
+            )
+        )
+        
+        
 
     await copilotkit_emit_state(config, state)
 
@@ -292,6 +339,19 @@ async def search_node(state: AgentState, config: RunnableConfig):
         state["logs"][i]["done"] = True
         await copilotkit_emit_state(config, state)
 
+        config.get("configurable").get("emit_event")(
+            StateDeltaEvent(
+                message_id=config.get("configurable").get("message_id"),
+                delta=[
+                    {
+                        "op": "replace",
+                        "path": "/logs",
+                        "value": state["logs"]
+                    }
+                ]
+            )
+        )
+    
     config = copilotkit_customize_config(
         config,
         emit_intermediate_state=[{
@@ -332,11 +392,24 @@ async def search_node(state: AgentState, config: RunnableConfig):
 
     state["resources"].extend(resources)
 
+    config.get("configurable").get("emit_event")(
+        StateDeltaEvent(
+            message_id=config.get("configurable").get("message_id"),
+            delta=[
+                {
+                    "op": "replace",
+                    "path": "/resources",
+                    "value": state["resources"]
+                }
+            ]
+        )
+    )
     state["messages"].append(ToolMessage(
         tool_call_id=ai_message.tool_calls[0]["id"],
         content=f"Added the following resources: {resources}"
     ))
 
+    # yield state
     return state
 
 
@@ -350,6 +423,7 @@ async def perform_delete_node(state: AgentState, config: RunnableConfig): # pyli
     """
     Perform Delete Node
     """
+    print("[DEBUG] state from perform_delete_node",state["messages"])
     ai_message = cast(AIMessage, state["messages"][-2])
     tool_message = cast(ToolMessage, state["messages"][-1])
     if tool_message.content == "YES":
@@ -365,21 +439,27 @@ async def perform_delete_node(state: AgentState, config: RunnableConfig): # pyli
 
     return state
 
-workflow = StateGraph(AgentState)
-workflow.add_node("download", download_node)
-workflow.add_node("chat_node", chat_node)
-workflow.add_node("search_node", search_node)
-workflow.add_node("delete_node", delete_node)
-workflow.add_node("perform_delete_node", perform_delete_node)
+def get_emit_event(config):
+    return config.get("emit_event")
 
-workflow.set_entry_point("download")
-workflow.add_edge("download", "chat_node")
-workflow.add_edge("delete_node", "perform_delete_node")
-workflow.add_edge("perform_delete_node", "chat_node")
-workflow.add_edge("search_node", "download")
 
-compile_kwargs = {"interrupt_after": ["delete_node"]}
-from langgraph.checkpoint.memory import MemorySaver
-memory = MemorySaver()
-compile_kwargs["checkpointer"] = memory
-graph = workflow.compile(**compile_kwargs)
+async def agent_graph():
+    workflow = StateGraph(AgentState)
+    workflow.add_node("download", download_node)
+    workflow.add_node("chat_node", chat_node)
+    workflow.add_node("search_node", search_node)
+    workflow.add_node("delete_node", delete_node)
+    workflow.add_node("perform_delete_node", perform_delete_node)
+
+    workflow.set_entry_point("download")
+    workflow.add_edge("download", "chat_node")
+    workflow.add_edge("delete_node", "perform_delete_node")
+    workflow.add_edge("perform_delete_node", "chat_node")
+    workflow.add_edge("search_node", "download")
+
+    compile_kwargs = {"interrupt_after": ["delete_node"]}
+    from langgraph.checkpoint.memory import MemorySaver
+    memory = MemorySaver()
+    compile_kwargs["checkpointer"] = memory
+    graph = workflow.compile()
+    return graph

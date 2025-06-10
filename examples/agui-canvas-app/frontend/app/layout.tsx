@@ -14,7 +14,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased`}>
-        <CopilotKit runtimeUrl="/api/copilotkit" agent="research_agent">
+        <CopilotKit runtimeUrl="/api/copilotkit" agent="langgraphAgent">
           {children}
         </CopilotKit>
       </body>

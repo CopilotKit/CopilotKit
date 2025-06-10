@@ -21,7 +21,7 @@ export function Workspace({ selectedAgent, lastMessage }: WorkspaceProps) {
   const [isAgentActive, setIsAgentActive] = useState(false)
   const [workspaceContent, setWorkspaceContent] = useState("Start your research here... The agent will help you gather information, analyze findings, and structure your research.")
   const { state, setState } = useCoAgent({
-    name: "research_agent",
+    name: "langgraphAgent",
     initialState: {
       research_question: "",
       report: "",
@@ -31,10 +31,10 @@ export function Workspace({ selectedAgent, lastMessage }: WorkspaceProps) {
   })
 
   useCoAgentStateRender({
-    name: "research_agent",
+    name: "langgraphAgent",
     render: ({ state }: any) => {
       useEffect(() => {
-        // console.log(state);
+        console.log(state);
       }, [state])
       return (
         <Progress logs={state?.logs || []} />

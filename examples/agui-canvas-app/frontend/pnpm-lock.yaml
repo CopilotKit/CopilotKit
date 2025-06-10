@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@ag-ui/client':
+        specifier: ^0.0.28
+        version: 0.0.28
       '@copilotkit/react-core':
         specifier: ^1.8.14
         version: 1.8.14(@types/react@19.1.6)(graphql@16.11.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
