@@ -10,7 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Code, Play, FileText, Lightbulb, Bug } from "lucide-react"
 
 interface CoderWorkspaceProps {
-  content: string
+  // content: string
+  haikus: Haiku[]
   setContent: (content: string) => void
   lastMessage: string
   isAgentActive: boolean
@@ -23,20 +24,22 @@ interface Haiku {
   selectedImage: string | null;
 }
 
-export function CoderWorkspace({ content, setContent, lastMessage, isAgentActive }: CoderWorkspaceProps) {
+export function CoderWorkspace({ haikus, setContent, lastMessage, isAgentActive }: CoderWorkspaceProps) {
 
 
 
-  const [haikus, setHaikus] = useState<Haiku[]>([{
-    japanese: ["仮の句よ", "まっさらながら", "花を呼ぶ"],
-    english: [
-      "A placeholder verse—",
-      "even in a blank canvas,",
-      "it beckons flowers.",
-    ],
-    image_names: [],
-    selectedImage: null,
-  }])
+  // const [haikus, setHaikus] = useState<Haiku[]>([{
+  //   japanese: ["仮の句よ", "まっさらながら", "花を呼ぶ"],
+  //   english: [
+  //     "A placeholder verse—",
+  //     "even in a blank canvas,",
+  //     "it beckons flowers.",
+  //   ],
+  //   image_names: [],
+  //   selectedImage: null,
+  // }])
+
+  
 
 
   return (
@@ -61,20 +64,20 @@ export function CoderWorkspace({ content, setContent, lastMessage, isAgentActive
                     className={`haiku-card`}
                   // onClick={() => setActiveIndex(index)}
                   >
-                    {haiku.japanese.map((line, lineIndex) => (
+                    {haiku?.japanese.map((line, lineIndex) => (
                       <div
                         className="flex items-start gap-4 mb-4 haiku-line"
                         key={lineIndex}
                       // style={{ animationDelay: `${lineIndex * 0.1}s` }}
                       >
                         <p className="text-4xl font-bold text-gray-600 w-auto">{line}</p>
-                        <p className="text-base font-light text-gray-600 w-auto">{haiku.english?.[lineIndex]}</p>
+                        <p className="text-base font-light text-gray-600 w-auto">{haiku?.english?.[lineIndex]}</p>
                       </div>
                     ))}
 
-                    {haiku.image_names && haiku.image_names.length === 3 && (
+                    {haiku?.image_names && haiku?.image_names.length === 3 && (
                       <div className="mt-6 flex gap-4 justify-center">
-                        {haiku.image_names.map((imageName, imgIndex) => (
+                        {haiku?.image_names.map((imageName, imgIndex) => (
                           <img
                             key={imageName}
                             src={`/images/${imageName}`}
@@ -84,7 +87,7 @@ export function CoderWorkspace({ content, setContent, lastMessage, isAgentActive
                               height: '130px',
                               objectFit: 'cover',
                             }}
-                            className={(haiku.selectedImage === imageName) ? `suggestion-card-image-focus` : `haiku-card-image`}
+                            className={(haiku?.selectedImage === imageName) ? `suggestion-card-image-focus` : `haiku-card-image`}
                           />
                         ))}
                       </div>
@@ -122,19 +125,19 @@ export function CoderWorkspace({ content, setContent, lastMessage, isAgentActive
                       }}
                     // onClick={() => setActiveIndex(index)}
                     >
-                      {haiku.japanese.map((line, lineIndex) => (
+                      {haiku?.japanese.map((line, lineIndex) => (
                         <div
                           className="flex items-start gap-4 mb-4 haiku-line"
                           key={lineIndex}
                           style={{ animationDelay: `${lineIndex * 0.1}s` }}
                         >
                           <p className="text-4xl font-bold text-gray-600 w-auto">{line}</p>
-                          <p className="text-base font-light text-gray-500 w-auto">{haiku.english?.[lineIndex]}</p>
+                          <p className="text-base font-light text-gray-500 w-auto">{haiku?.english?.[lineIndex]}</p>
                         </div>
                       ))}
-                      {haiku.image_names && haiku.image_names.length === 3 && (
+                      {haiku?.image_names && haiku?.image_names.length === 3 && (
                         <div className="mt-6 flex gap-4 justify-center">
-                          {haiku.image_names.map((imageName, imgIndex) => (
+                          {haiku?.image_names.map((imageName, imgIndex) => (
                             <img
                               key={imageName}
                               src={`/images/${imageName}`}
@@ -144,7 +147,7 @@ export function CoderWorkspace({ content, setContent, lastMessage, isAgentActive
                                 height: '130px',
                                 objectFit: 'cover',
                               }}
-                              className={(haiku.selectedImage === imageName) ? `suggestion-card-image-focus` : `haiku-card-image`}
+                              className={(haiku?.selectedImage === imageName) ? `suggestion-card-image-focus` : `haiku-card-image`}
                             />
                           ))}
                         </div>

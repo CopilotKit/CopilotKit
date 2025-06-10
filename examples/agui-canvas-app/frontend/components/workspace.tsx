@@ -19,17 +19,41 @@ interface WorkspaceProps {
 
 export function Workspace({ selectedAgent, lastMessage }: WorkspaceProps) {
   const [isAgentActive, setIsAgentActive] = useState(false)
+  const [haikus, setHaikus] = useState<{ japanese: string[], english: string[], image_names: string[], selectedImage: string | null }[]>([{
+    japanese: ["仮の句よ", "まっさらながら", "花を呼ぶ"],
+    english: [
+      "A placeholder verse—",
+      "even in a blank canvas,",
+      "it beckons flowers.",
+    ],
+    image_names: [],
+    selectedImage: null,
+  }])
+  const { currentAgent, setAgents } = useAgent()
   const [workspaceContent, setWorkspaceContent] = useState("Start your research here... The agent will help you gather information, analyze findings, and structure your research.")
   const { state, setState } = useCoAgent({
-    name: "langgraphAgent",
-    initialState: {
+    name: currentAgent?.id,
+    initialState: currentAgent?.id === "langgraphAgent" ? {
       research_question: "",
       report: "",
       resources: [] as { title: string, url: string, description: string }[],
       logs: []
+    } : currentAgent?.id === "mastraAgent" ? {
+      haiku: {
+        japanese: ["仮の句よ", "まっさらながら", "花を呼ぶ"],
+        english: [
+          "A placeholder verse—",
+          "even in a blank canvas,",
+          "it beckons flowers.",
+        ],
+        image_names: [],
+        selectedImage: null,
+      }
+    } : {
+      haiku: "",
+      logs: []
     }
   })
-  const { currentAgent } = useAgent()
 
   useCoAgentStateRender({
     name: "langgraphAgent",
@@ -43,55 +67,71 @@ export function Workspace({ selectedAgent, lastMessage }: WorkspaceProps) {
     }
   })
 
-  useCopilotAction({
-    name: "DeleteResources",
-    description: "Delete a resource from the research",
-    parameters: [{
-      name: "urls",
-      type: "string[]",
-      description: "The url of the resource to delete"
-    }],
-    renderAndWaitForResponse: ({ args, respond, result }) => {
+  useCoAgentStateRender({
+    name: "mastraAgent",
+    render: ({ state }: any) => {
       useEffect(() => {
-        console.log(args, "ArgsArgsArgs");
-      }, [args])
+        console.log(state);
+        if (state?.english[0] != "A placeholder verse—") {
+          setHaikus((prev) => [...prev, state])
+        }
+      }, [state])
       return (
-        <div>
-          <Dialog open={true}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Confirm Deletion</DialogTitle>
-              </DialogHeader>
-              <div className="py-2">
-                Are you sure you want to delete the following sources?
-                <ul className="list-disc pl-6 mt-2 text-sm text-muted-foreground">
-                  {args?.urls?.map(url => (
-                    <li key={url}>{url}</li>
-                  ))}
-                </ul>
-              </div>
-              <DialogFooter>
-                <Button variant="ghost" onClick={() => {
-                  if (respond) {
-                    respond("resources not deleted")
-                  }
-                }}>Cancel</Button>
-                <Button variant="destructive" onClick={() => {
-                  setState({
-                    ...state,
-                    resources: state.resources.filter((r: { url: string }) => !args?.urls?.includes(r.url))
-                  })
-                  if (respond) {
-                    respond("resources deleted successfully")
-                  }
-                }}>Confirm</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
+        <></>
       )
     }
   })
+
+
+  // useCopilotAction({
+  //   name: "DeleteResources",
+  //   description: "Delete a resource from the research",
+  //   parameters: [{
+  //     name: "urls",
+  //     type: "string[]",
+  //     description: "The url of the resource to delete"
+  //   }],
+  //   renderAndWaitForResponse: ({ args, respond, result }) => {
+  //     useEffect(() => {
+  //       console.log(args, "ArgsArgsArgs");
+  //     }, [args])
+  //     return (
+  //       <div>
+  //         <Dialog open={true}>
+  //           <DialogContent>
+  //             <DialogHeader>
+  //               <DialogTitle>Confirm Deletion</DialogTitle>
+  //             </DialogHeader>
+  //             <div className="py-2">
+  //               Are you sure you want to delete the following sources?
+  //               <ul className="list-disc pl-6 mt-2 text-sm text-muted-foreground">
+  //                 {args?.urls?.map(url => (
+  //                   <li key={url}>{url}</li>
+  //                 ))}
+  //               </ul>
+  //             </div>
+  //             <DialogFooter>
+  //               <Button variant="ghost" onClick={() => {
+  //                 if (respond) {
+  //                   respond("resources not deleted")
+  //                 }
+  //               }}>Cancel</Button>
+  //               <Button variant="destructive" onClick={() => {
+  //                 setState({
+  //                   ...state,
+  //                   resources: state.resources.filter((r: { url: string }) => !args?.urls?.includes(r.url))
+  //                 })
+  //                 if (respond) {
+  //                   respond("resources deleted successfully")
+  //                 }
+  //               }}>Confirm</Button>
+  //             </DialogFooter>
+  //           </DialogContent>
+  //         </Dialog>
+  //       </div>
+  //     )
+  //   }
+  // })
 
   const handleAddSource = (sources: { title: string, url: string, description: string }[]) => {
     if (state?.resources) {
@@ -130,7 +170,8 @@ export function Workspace({ selectedAgent, lastMessage }: WorkspaceProps) {
       case "mastraAgent":
         return (
           <CoderWorkspace
-            content={workspaceContent}
+            haikus={haikus}
+            // content={workspaceContent}
             setContent={setWorkspaceContent}
             lastMessage={lastMessage}
             isAgentActive={isAgentActive}

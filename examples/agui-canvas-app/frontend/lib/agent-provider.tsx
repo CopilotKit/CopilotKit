@@ -9,7 +9,7 @@ export type Agent = {
 
 // Context value type
 type AgentContextType = {
-  currentAgent: Agent | null;
+  currentAgent: Agent;
   setAgent: (agent: Agent) => void;
   agents: Agent[];
   setAgents: (agents: Agent[]) => void;
@@ -19,7 +19,7 @@ const AgentContext = createContext<AgentContextType | undefined>(undefined);
 
 export const AgentProvider = ({ children }: { children: ReactNode }) => {
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [currentAgent, setCurrentAgent] = useState<Agent>({id : "langgraphAgent", name : "Researcher - LangGraph"});
+  const [currentAgent, setCurrentAgent] = useState<Agent>({ id: "mastraAgent", name: "Haiku - Mastra" });
 
   const setAgent = (agent: Agent) => {
     setCurrentAgent(agent);
