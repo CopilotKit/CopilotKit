@@ -37,6 +37,17 @@ class CopilotKitToolCallEvent(BaseEvent):
         # If timestamp is not provided, it will use the default_factory
         super().__init__(**data)
 
+class CopilotKitStateUpdateEvent(BaseEvent):
+    """Event for state updates in CopilotKit"""
+    type: str = "copilotkit_state_update"
+    tool_name: str
+    args: dict[str, Any]
+    timestamp: str = Field(default_factory=lambda: datetime.datetime.now().isoformat())
+
+    def __init__(self, **data):
+        # If timestamp is not provided, it will use the default_factory
+        super().__init__(**data)
+
 def create_tool_proxy(tool_name):
     def tool_proxy(**kwargs):
         event = CopilotKitToolCallEvent(tool_name=tool_name, args=kwargs)
@@ -258,4 +269,10 @@ def register_tool_call_listener():
         print(f"Received CopilotKit tool call event: Tool: {event.tool_name}, Args: {event.args}, Time: {event.timestamp}")
         pass
 
-# register_tool_call_listener() # Call this if you want the listener active
+# Use this function to emit state updates to the client UI (STATE_SNAPSHOT)
+# This is particularly useful when you need to update the UI state from within a tool call
+# or when you want to reflect state changes in the AG-UI interface
+# Example: emit_copilotkit_state_update_event("write_document", {"document": state.data["document"]})
+def emit_copilotkit_state_update_event(tool_name: str, args: dict[str, Any]):
+    event = CopilotKitStateUpdateEvent(tool_name=tool_name, args=args)
+    crewai_event_bus.emit(None, event=event)
