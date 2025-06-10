@@ -30,7 +30,7 @@ export function ResearcherWorkspace({ content, setContent, lastMessage, isAgentA
   ])
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
       {/* Main Research Document */}
       <div className="lg:col-span-2 space-y-6">
         <Card className="rounded-2xl shadow-sm max-h-[calc(100vh-64px)] overflow-y-auto">
@@ -75,7 +75,7 @@ export function ResearcherWorkspace({ content, setContent, lastMessage, isAgentA
       </div>
 
       {/* Research Tools Sidebar */}
-      <div className="space-y-6 lg:sticky lg:top-8 lg:self-start">
+      <div className="space-y-6 lg:sticky lg:self-start">
         {/* Sources */}
         <Card className="rounded-2xl shadow-sm">
           <CardHeader className="pb-4">

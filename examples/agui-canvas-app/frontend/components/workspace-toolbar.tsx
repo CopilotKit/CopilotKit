@@ -21,7 +21,7 @@ export function WorkspaceToolbar({ selectedAgent, isAgentActive, setIsAgentActiv
     <>
       <div className="border-b w-full" />
       <div className="bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="mx-auto max-w-screen-xl flex h-16 items-center justify-between px-8">
+        <div className="mx-auto max-w-screen-xl flex h-16 items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-semibold whitespace-nowrap">Shared Workspace</h1>

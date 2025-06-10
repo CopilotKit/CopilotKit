@@ -20,17 +20,17 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ messages, addMessage, selectedAgent, setSelectedAgent }: AppSidebarProps) {
- 
+
 
   return (
     <Sidebar className="w-[380px] border-r">
       <SidebarHeader className="border-b p-4">
         <h2 className="text-2xl font-semibold">AI Canvas</h2>
       </SidebarHeader>
-      
+
 
       <CopilotChat
-        Input={({onSend,onStop,onUpload,inProgress,isVisible}) => {
+        Input={({ onSend, onStop, onUpload, inProgress, isVisible }) => {
           const [input, setInput] = useState("")
 
           const handleSubmit = (e: React.FormEvent) => {
@@ -65,7 +65,7 @@ export function AppSidebar({ messages, addMessage, selectedAgent, setSelectedAge
         className="h-full"
       />
 
-              <SidebarRail />
-            </Sidebar>
-          )
-        }
+      {/* <SidebarRail /> */}
+    </Sidebar>
+  )
+}

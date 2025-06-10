@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { WorkspaceToolbar } from "@/components/workspace-toolbar"
 import { ResearcherWorkspace } from "@/components/workspaces/researcher-workspace"
 import { PlannerWorkspace } from "@/components/workspaces/planner-workspace"
-import { CoderWorkspace } from "@/components/workspaces/haiku-workspace"
+import { CoderWorkspace, Haiku } from "@/components/workspaces/haiku-workspace"
 import type { AgentType } from "@/lib/types"
 import { useCoAgent, useCoAgentStateRender, useCopilotAction } from "@copilotkit/react-core"
 import { Progress } from "@/components/research-progress"
@@ -19,7 +19,8 @@ interface WorkspaceProps {
 
 export function Workspace({ selectedAgent, lastMessage }: WorkspaceProps) {
   const [isAgentActive, setIsAgentActive] = useState(false)
-  const [haikus, setHaikus] = useState<{ japanese: string[], english: string[], image_names: string[], selectedImage: string | null }[]>([{
+  const [haikus, setHaikus] = useState<{ japanese: string[], english: string[], image_names: string[], selectedImage: string | null }[]>([])
+  const [selectedHaiku, setSelectedHaiku] = useState<Haiku>({
     japanese: ["仮の句よ", "まっさらながら", "花を呼ぶ"],
     english: [
       "A placeholder verse—",
@@ -28,7 +29,7 @@ export function Workspace({ selectedAgent, lastMessage }: WorkspaceProps) {
     ],
     image_names: [],
     selectedImage: null,
-  }])
+  })
   const { currentAgent, setAgents } = useAgent()
   const [workspaceContent, setWorkspaceContent] = useState("Start your research here... The agent will help you gather information, analyze findings, and structure your research.")
   const { state, setState } = useCoAgent({
@@ -72,8 +73,9 @@ export function Workspace({ selectedAgent, lastMessage }: WorkspaceProps) {
     render: ({ state }: any) => {
       useEffect(() => {
         console.log(state);
-        if (state?.english[0] != "A placeholder verse—") {
+        if (state?.english[0] != "A placeholder verse—" && state?.english[0] != haikus[haikus.length - 1]?.english[0]) {
           setHaikus((prev) => [...prev, state])
+          // setSelectedHaiku(state)
         }
       }, [state])
       return (
@@ -171,6 +173,9 @@ export function Workspace({ selectedAgent, lastMessage }: WorkspaceProps) {
         return (
           <CoderWorkspace
             haikus={haikus}
+            setHaikus={setHaikus}
+            selectedHaiku={selectedHaiku}
+            setSelectedHaiku={setSelectedHaiku}
             // content={workspaceContent}
             setContent={setWorkspaceContent}
             lastMessage={lastMessage}
@@ -181,7 +186,7 @@ export function Workspace({ selectedAgent, lastMessage }: WorkspaceProps) {
   }
 
   return (
-    <main className="flex flex-1 flex-col overflow-hidden">
+    <div className="flex flex-1 flex-col overflow-hidden">
       <WorkspaceToolbar
         selectedAgent={selectedAgent}
         isAgentActive={isAgentActive}
@@ -190,6 +195,6 @@ export function Workspace({ selectedAgent, lastMessage }: WorkspaceProps) {
       <div className="flex-1 overflow-auto p-8">
         <div className="mx-auto max-w-6xl">{renderWorkspace()}</div>
       </div>
-    </main>
+    </div>
   )
 }

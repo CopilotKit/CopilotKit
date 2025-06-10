@@ -12,7 +12,7 @@ export function AppLayout() {
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
     { role: "assistant", content: "Hello! I'm your AI assistant. How can I help you today?" },
   ])
- 
+
   const addMessage = (message: string) => {
     setMessages([...messages, { role: "user", content: message }])
 
@@ -37,9 +37,9 @@ export function AppLayout() {
 
   return (
     <SidebarProvider>
-      <div className="flex h-screen w-full overflow-hidden bg-background">
-        <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="flex h-16 items-center justify-between px-8">
+      <div className="flex h-screen w-full bg-background">
+        <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 col-span-3">
+          <div className="flex h-16 items-center justify-between">
             <div className="flex items-center gap-4">
               <AppSidebar
                 messages={messages}
@@ -53,11 +53,14 @@ export function AppLayout() {
             </div>
           </div>
         </div>
-        <Workspace
-          selectedAgent={selectedAgent}
-          lastMessage={messages.filter((m) => m.role === "assistant").pop()?.content || ""}
-        />
+        <div style={{ width: 'calc(100% - 250px)', marginLeft: '140px' }} className="col-span-9">
+          <Workspace
+            selectedAgent={selectedAgent}
+            lastMessage={messages.filter((m) => m.role === "assistant").pop()?.content || ""}
+          />
+        </div>
       </div>
+
     </SidebarProvider>
   )
 }
