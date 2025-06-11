@@ -17,6 +17,7 @@ import { FileSpreadsheet, Banknote, Plane, BookOpen, Telescope, Play } from "luc
 import { Accordions } from 'fumadocs-ui/components/accordion';
 import { Accordion } from 'fumadocs-ui/components/accordion';
 import { LinkToCopilotCloud } from "@/components/react/link-to-copilot-cloud";
+import { QuickstartDropdown } from "@/components/react/quickstart-dropdown";
 
 
 <h2 className="mt-0">What is CopilotKit?</h2>
@@ -31,7 +32,7 @@ By decoupling your application from any specific model or agent architecture, Co
   <div className="w-1/3 bg-muted py-3 px-6 rounded-lg text-center">
     <h3 className="text-lg font-semibold mb-2">CLI</h3>
 Bootstrap your NextJS application 
-with CopilotKit.
+with CopilotKit
 
 ```bash
 npx copilotkit@latest init
@@ -45,10 +46,10 @@ npx copilotkit@latest init
     <LinkToCopilotCloud asButton={true} />
   </div>
   <div className="w-1/3 bg-muted py-3 px-6 rounded-lg text-center">
-    <h3 className="text-lg font-semibold mb-2">Copilot</h3>
-    Chat with our Copilot to learn more 
+    <h3 className="text-lg font-semibold mb-2">Quickstart</h3>
+    Start with an LLM or Agent Framework 
 
-    <button className="text-indigo-800 dark:text-indigo-300 ring-1 ring-indigo-200 dark:ring-indigo-900 text-sm items-center bg-gradient-to-r from-indigo-200/50 to-purple-200/80 dark:from-indigo-900/40 dark:to-purple-900/50 p-3 px-4 transition-all duration-100 hover:ring-2 hover:ring-indigo-400 hover:dark:text-indigo-200 rounded-lg no-underline font-semibold">Ask CPK CP</button>
+    <QuickstartDropdown />
   </div>
 </div>
 
