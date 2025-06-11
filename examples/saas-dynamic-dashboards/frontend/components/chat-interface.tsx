@@ -11,7 +11,7 @@ export function ChatInterface() {
       <div className="flex items-center justify-between border-b px-4 py-4">
         <h2 className="font-semibold">EnterpriseX Assistant</h2>
       </div>
-      <CopilotChat className="flex-1 py-4"
+      <CopilotChat className="flex-1 min-h-0 py-4"
         instructions={instructions.replace("{prData}", JSON.stringify(prData))}
       />
     </div>

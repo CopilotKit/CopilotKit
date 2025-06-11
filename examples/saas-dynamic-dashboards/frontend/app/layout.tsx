@@ -13,7 +13,6 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Dynamic SaaS Dashboard",
   description: "Dynamic SaaS Dashboard with persistent chat",
-  generator: 'v0.dev'
 }
 
 export default function RootLayout({
