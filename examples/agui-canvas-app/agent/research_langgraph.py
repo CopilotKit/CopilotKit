@@ -201,60 +201,61 @@ async def chat_node(state: AgentState, config: RunnableConfig) -> \
                 ),
                 *state["messages"],
             ],config)
-        report = ""
-        reportGen = False
-        final_chunk = None
-        for chunk in response:
-            # print(chunk)
-            final_chunk = chunk
-            reportGen = True
-            if chunk.tool_calls or reportGen:
-                print(report)
-                if "tool_calls" not in chunk.additional_kwargs:
-                    print(chunk.additional_kwargs)
-                if "tool_calls" in chunk.additional_kwargs and (reportGen or chunk.tool_calls[0]["name"] == "WriteReport") :
-                    report = report +  chunk.additional_kwargs['tool_calls'][0]['function']['arguments']
-                    new_report = state["report"] + report
-                    config.get("configurable").get("emit_event")(
-                        StateDeltaEvent(
-                            message_id=config.get("configurable").get("message_id"),
-                            delta=[
-                                {
-                                    "op": "replace",
-                                    "path": "/report",
-                                    "value": new_report
-                                }
-                            ]
+            report = ""
+            reportGen = False
+            final_chunk = None
+            # chunks = []
+            for chunk in response:
+                print(chunk)
+                final_chunk = chunk
+                reportGen = True
+                if chunk.tool_calls or reportGen:
+                    # print(report)
+                    if "tool_calls" not in chunk.additional_kwargs:
+                        print(chunk.additional_kwargs)
+                    if "tool_calls" in chunk.additional_kwargs and (reportGen or chunk.tool_calls[0]["name"] == "WriteReport") :
+                        report = report +  chunk.additional_kwargs['tool_calls'][0]['function']['arguments']
+                        new_report = state["report"] + report
+                        config.get("configurable").get("emit_event")(
+                            StateDeltaEvent(
+                                message_id=config.get("configurable").get("message_id"),
+                                delta=[
+                                    {
+                                        "op": "replace",
+                                        "path": "/report",
+                                        "value": new_report
+                                    }
+                                ]
+                            )
                         )
-                    )
-                    await asyncio.sleep(0)
-                # if chunk.tool_calls[0]["name"] == "WriteResearchQuestion":
-                #     return Command(
-                #         goto="chat_node",
-                #         update={
-                #             "research_question": chunk.tool_calls[0]["args"]["research_question"],
-                #             "messages": [chunk, ToolMessage(
-                #                 tool_call_id=chunk.tool_calls[0]["id"],
-                #                 content="Research question written."
-                #             )]
-                #         }
-                #     )
+                        await asyncio.sleep(0)
+                    # if chunk.tool_calls[0]["name"] == "WriteResearchQuestion":
+                    #     return Command(
+                    #         goto="chat_node",
+                    #         update={
+                    #             "research_question": chunk.tool_calls[0]["args"]["research_question"],
+                    #             "messages": [chunk, ToolMessage(
+                    #                 tool_call_id=chunk.tool_calls[0]["id"],
+                    #                 content="Research question written."
+                    #             )]
+                    #         }
+                    #     )
+                
+                    goto = "__end__"
             
-                goto = "__end__"
-        
-        
-        print(report)
-        ai_message = cast(AIMessage, final_chunk)
-        return Command(
-            goto="chat_node",
-            update={
-                "report": report,
-                "messages": [ai_message, ToolMessage(
-                tool_call_id=ai_message.tool_calls[0]["id"],
-                content="Report written."
-                )]
-            }
-        )
+            
+            print(report)
+            ai_message = AIMessage(content=report, tool_calls=[{"name": "WriteReport", "id": state["messages"][-1].tool_call_id, "args": {}}])
+            return Command(
+                goto="chat_node",
+                update={
+                    "report": report,
+                    "messages": [ai_message, ToolMessage(
+                    tool_call_id=state["messages"][-1].tool_call_id,
+                    content="Report written."
+                    )]
+                }
+            )
             
             
     response = await model.bind_tools(
