@@ -5,7 +5,6 @@ description = ""
 authors = [
     {name = "orca-copilotkit",email = "testapp@copilotkit.ai"}
 ]
-readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "fastapi (>=0.115.12,<0.116.0)",
@@ -21,3 +20,6 @@ dependencies = [
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+server = "agent:main"
