@@ -1,6 +1,8 @@
-# Cisco CopilotKit Demo
+# Dynamic SaaS Dashboard
 
 ## Overview
+
+Deployed on Vercel: https://dynamic-saas-dashboard.vercel.app
 
 This project is a modern dashboard and analytics solution built with Next.js (in the `frontend` directory). It features:
 - Clean, responsive UI for PR and repository analytics
