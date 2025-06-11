@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Search, Plus, BookOpen, ExternalLink, Lightbulb, X } from "lucide-react"
 import { MarkdownDisplay } from "../markdown-display"
+import { Markdown } from "@copilotkit/react-ui"
 
 interface ResearcherWorkspaceProps {
   content: string
@@ -16,6 +17,24 @@ interface ResearcherWorkspaceProps {
   isAgentActive: boolean
   setSources: (sources: { title: string, url: string, description: string }[]) => void
   sources: { title: string, url: string, description: string }[]
+}
+
+function extractReportMarkdown(content: string) {
+  // Remove leading {"report":" if present
+  if (content.startsWith('{"report":"')) {
+    content = content.slice(11);
+  }
+  // Remove trailing "} if present
+  if (content.endsWith('"}')) {
+    content = content.slice(0, -2);
+  }
+  // Replace escaped newlines with real newlines
+  content = content.replace(/\\n/g, '\n');
+  // Optionally, unescape double quotes if needed
+  content = content.replace(/\\"/g, '"');
+  // Optionally, unescape escaped backslashes
+  content = content.replace(/\\\\/g, '\\');
+  return content;
 }
 
 export function ResearcherWorkspace({ content, setContent, lastMessage, isAgentActive, sources, setSources }: ResearcherWorkspaceProps) {
@@ -46,7 +65,9 @@ export function ResearcherWorkspace({ content, setContent, lastMessage, isAgentA
             </div>
           </CardHeader>
           <CardContent className="min-h-[500px]">
-            <MarkdownDisplay content={content} />
+            {/* <MarkdownDisplay content={(content)} /> */}
+            {/* <Markdown content={(content)} /> */}
+            <MarkdownDisplay content={extractReportMarkdown(content)} />
           </CardContent>
         </Card>
 

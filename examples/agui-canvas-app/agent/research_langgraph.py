@@ -162,20 +162,109 @@ async def chat_node(state: AgentState, config: RunnableConfig) -> \
             **resource,
             "content": content
         })
-    model = ChatOpenAI(temperature=0, model="gpt-4o-mini")
+    model = ChatOpenAI(temperature=0, streaming=True, model="gpt-4o-mini")
     # Prepare the kwargs for the ainvoke method
     ainvoke_kwargs = {}
     if model.__class__.__name__ in ["ChatOpenAI"]:
         ainvoke_kwargs["parallel_tool_calls"] = False
+    response = None
+    
+    if (len(state["messages"]) > 0):
+        if(state["messages"][-1].content.startswith("Added the following resources:") and state["messages"][-1].type == 'tool'):
+            response = model.bind_tools(
+                [
+                Search,
+                WriteReport,
+                WriteResearchQuestion,
+                DeleteResources,
+            ],
+            **ainvoke_kwargs  # Pass the kwargs conditionally
+            ).stream([
+                SystemMessage(
+                    content=f"""
+                    You are a research assistant. You help the user with writing a research report.
+                    Do not recite the resources, instead use them to answer the user's question.
+                    You should use the search tool to get resources before answering the user's question.
+                    If you finished writing the report, ask the user proactively for next steps, changes etc, make it engaging.
+                    To write the report, you should use the WriteReport tool. Never EVER respond with the report, only use the tool.
+                    If a research question is provided, YOU MUST NOT ASK FOR IT AGAIN.
 
+                    This is the research question:
+                    {research_question}
+
+                    This is the research report:
+                    {report}
+
+                    Here are the resources that you have available:
+                    {resources}
+                    """
+                ),
+                *state["messages"],
+            ],config)
+        report = ""
+        reportGen = False
+        final_chunk = None
+        for chunk in response:
+            # print(chunk)
+            final_chunk = chunk
+            reportGen = True
+            if chunk.tool_calls or reportGen:
+                print(report)
+                if "tool_calls" not in chunk.additional_kwargs:
+                    print(chunk.additional_kwargs)
+                if "tool_calls" in chunk.additional_kwargs and (reportGen or chunk.tool_calls[0]["name"] == "WriteReport") :
+                    report = report +  chunk.additional_kwargs['tool_calls'][0]['function']['arguments']
+                    new_report = state["report"] + report
+                    config.get("configurable").get("emit_event")(
+                        StateDeltaEvent(
+                            message_id=config.get("configurable").get("message_id"),
+                            delta=[
+                                {
+                                    "op": "replace",
+                                    "path": "/report",
+                                    "value": new_report
+                                }
+                            ]
+                        )
+                    )
+                    await asyncio.sleep(0)
+                # if chunk.tool_calls[0]["name"] == "WriteResearchQuestion":
+                #     return Command(
+                #         goto="chat_node",
+                #         update={
+                #             "research_question": chunk.tool_calls[0]["args"]["research_question"],
+                #             "messages": [chunk, ToolMessage(
+                #                 tool_call_id=chunk.tool_calls[0]["id"],
+                #                 content="Research question written."
+                #             )]
+                #         }
+                #     )
+            
+                goto = "__end__"
+        
+        
+        print(report)
+        ai_message = cast(AIMessage, final_chunk)
+        return Command(
+            goto="chat_node",
+            update={
+                "report": report,
+                "messages": [ai_message, ToolMessage(
+                tool_call_id=ai_message.tool_calls[0]["id"],
+                content="Report written."
+                )]
+            }
+        )
+            
+            
     response = await model.bind_tools(
-        [
-            Search,
-            WriteReport,
-            WriteResearchQuestion,
-            DeleteResources,
-        ],
-        **ainvoke_kwargs  # Pass the kwargs conditionally
+    [
+        Search,
+        WriteReport,
+        WriteResearchQuestion,
+        DeleteResources,
+    ],
+    **ainvoke_kwargs  # Pass the kwargs conditionally
     ).ainvoke([
         SystemMessage(
             content=f"""
@@ -197,8 +286,14 @@ async def chat_node(state: AgentState, config: RunnableConfig) -> \
             """
         ),
         *state["messages"],
-    ], config)
-
+    ],config)
+    # final_chunk = None
+    # chunks = []
+    # for chunk in response:
+    #     print(chunk)
+    #     chunks.append(chunk)
+    #     final_chunk = chunk
+    
     ai_message = cast(AIMessage, response)
 
     if ai_message.tool_calls:
@@ -237,7 +332,7 @@ async def chat_node(state: AgentState, config: RunnableConfig) -> \
                     )]
                 }
             )
-       
+    
     goto = "__end__"
     if ai_message.tool_calls and ai_message.tool_calls[0]["name"] == "Search":
         goto = "search_node"
@@ -250,7 +345,9 @@ async def chat_node(state: AgentState, config: RunnableConfig) -> \
         update={
             "messages": response
         }
-    )
+    )    
+
+    
 
 
 """
