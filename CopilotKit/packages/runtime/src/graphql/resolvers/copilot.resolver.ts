@@ -154,7 +154,9 @@ export class CopilotResolver {
         ? {
           "cloud.base_url": ctx._copilotkit.baseUrl,
         }
-        : {}),
+        : {
+          "cloud.base_url": "https://api.cloud.copilotkit.ai",
+        }),
     });
 
     let logger = ctx.logger.child({ component: "CopilotResolver.generateCopilotResponse" });
