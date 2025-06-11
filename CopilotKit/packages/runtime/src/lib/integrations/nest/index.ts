@@ -11,7 +11,7 @@ export function copilotRuntimeNestEndpoint(options: CreateCopilotRuntimeServerOp
 
   telemetry.capture(
     "oss.runtime.instance_created",
-    getRuntimeInstanceTelemetryInfo(options.runtime),
+    getRuntimeInstanceTelemetryInfo(options),
   );
   return copilotRuntimeNodeHttpEndpoint(options);
 }

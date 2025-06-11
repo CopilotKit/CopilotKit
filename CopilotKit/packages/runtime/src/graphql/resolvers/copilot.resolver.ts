@@ -150,6 +150,11 @@ export class CopilotResolver {
           "cloud.public_api_key": ctx.request.headers.get("x-copilotcloud-public-api-key"),
         }
         : {}),
+      ...(data.cloud
+        ? {
+          "cloud.base_url": ctx._copilotkit.cloud?.baseUrl,
+        }
+        : {}),
     });
 
     let logger = ctx.logger.child({ component: "CopilotResolver.generateCopilotResponse" });

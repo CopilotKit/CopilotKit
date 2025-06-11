@@ -13,7 +13,7 @@ export type CopilotRuntimeServerInstance<T> = YogaServerInstance<T, Partial<Grap
 // This import is needed to fix the type error
 // Fix is currently in TypeScript 5.5 beta, waiting for stable version
 // https://github.com/microsoft/TypeScript/issues/42873#issuecomment-2066874644
-export type {} from "@whatwg-node/server";
+export type { } from "@whatwg-node/server";
 
 export function copilotRuntimeNextJSPagesRouterEndpoint(
   options: CreateCopilotRuntimeServerOptions,
@@ -34,7 +34,7 @@ export function copilotRuntimeNextJSPagesRouterEndpoint(
 
   telemetry.capture(
     "oss.runtime.instance_created",
-    getRuntimeInstanceTelemetryInfo(options.runtime),
+    getRuntimeInstanceTelemetryInfo(options),
   );
 
   const logger = commonConfig.logging;

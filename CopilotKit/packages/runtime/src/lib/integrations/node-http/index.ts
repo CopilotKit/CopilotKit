@@ -19,7 +19,7 @@ export function copilotRuntimeNodeHttpEndpoint(options: CreateCopilotRuntimeServ
 
   telemetry.capture(
     "oss.runtime.instance_created",
-    getRuntimeInstanceTelemetryInfo(options.runtime),
+    getRuntimeInstanceTelemetryInfo(options),
   );
 
   const logger = commonConfig.logging;
