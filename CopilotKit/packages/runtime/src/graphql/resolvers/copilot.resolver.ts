@@ -150,9 +150,9 @@ export class CopilotResolver {
           "cloud.public_api_key": ctx.request.headers.get("x-copilotcloud-public-api-key"),
         }
         : {}),
-      ...(data.cloud
+      ...(ctx._copilotkit.baseUrl
         ? {
-          "cloud.base_url": ctx._copilotkit.cloud?.baseUrl,
+          "cloud.base_url": ctx._copilotkit.baseUrl,
         }
         : {}),
     });
