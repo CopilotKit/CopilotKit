@@ -1,21 +1,25 @@
-[project]
+[tool.poetry]
 name = "agent"
 version = "0.1.0"
 description = ""
-requires-python = ">=3.12,<3.13"
-dependencies = [
-    "fastapi (>=0.115.12,<0.116.0)",
-    "uvicorn (>=0.34.2,<0.35.0)",
-    "copilotkit (>=0.1.46,<0.2.0)",
-    "langchain-core (>=0.3.60,<0.4.0)",
-    "langgraph (>=0.4.5,<0.5.0)",
-    "langchain-openai (>=0.3.17,<0.4.0)",
-    "dotenv (>=0.9.9,<0.10.0)"
-]
+authors = ["Orca CopilotKit <testapp@copilotkit.ai>"]
+readme = "README.md"
 
+[tool.poetry.dependencies]
+python = ">=3.12,<3.13"
+copilotkit = "0.1.48"
+langchain = ">=0.1.0"
+langchain-core = ">=0.1.5"
+langchain-community = ">=0.0.1"
+langchain-experimental = ">=0.0.11"
+langchain-openai = ">=0.0.1"
+langgraph = "^0.3.25"
+dotenv = "^0.9.9"
+uvicorn = "^0.34.0"
+fastapi = "0.115.12"
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
+requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
