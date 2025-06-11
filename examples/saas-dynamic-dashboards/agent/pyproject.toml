@@ -2,9 +2,7 @@
 name = "agent"
 version = "0.1.0"
 description = ""
-authors = [
-    {name = "orca-copilotkit",email = "testapp@copilotkit.ai"}
-]
+authors = ["Orca Copilotkit <testapp@copilotkit.ai>"]
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "fastapi (>=0.115.12,<0.116.0)",
