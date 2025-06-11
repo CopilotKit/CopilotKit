@@ -47,6 +47,18 @@ If you are not sure yet, simply ignore this note.
         ```
     </If>
 
+     <If conditions={[{ key: 'id', value: "bedrock" }]}>
+        ### Add your API key
+
+        Next, add your API key to your `.env` file in the root of your project (unless you prefer to provide it directly to the client):
+
+        ```plaintext title=".env"
+        {{envVarSecret}}=your_secret_key_here
+        {{envVarAccess}}=your_access_key_here
+        {{envVarToken}}=your_session_token_here
+        ```
+    </If>
+
     <If conditions={[{ key: 'id', value: 'openai' }, { key: 'id', value: 'openai-assistants' }]}>
         <Callout type="warn">
             Please note that the code below uses GPT-4o, which requires a paid OpenAI API key. **If you are using a free OpenAI API key**, change the model to a different option such as `gpt-3.5-turbo`.
