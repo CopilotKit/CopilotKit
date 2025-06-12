@@ -25,6 +25,17 @@ import {
   CopilotKitMisuseError,
 } from "@copilotkit/shared";
 import {
+  CopilotRuntimeError,
+  ErrorHandler,
+  ErrorHandlerResult,
+  categorizeError,
+  isAgentError,
+  isLLMProviderError,
+  isActionExecutionError,
+  isNetworkError,
+  isRuntimeError,
+} from "../types/error-types";
+import {
   CopilotServiceAdapter,
   EmptyAdapter,
   RemoteChain,
@@ -143,11 +154,27 @@ interface Middleware {
    * A function that is called after the request is processed.
    */
   onAfterRequest?: OnAfterRequestHandler;
+
+  /**
+   * A function that is called when an error occurs during request processing.
+   * Return 'handled' to suppress the default error behavior, or 'default' to allow it.
+   */
+  onError?: ErrorHandler;
 }
 
 type AgentWithEndpoint = Agent & { endpoint: EndpointDefinition };
 
 export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []> {
+  /**
+   * Error handler to be called when errors occur during request processing.
+   * Return 'handled' to suppress the default error behavior, or 'default' to allow it.
+   *
+   * ```ts
+   * onError: (error: CopilotRuntimeError) => 'handled' | 'default' | Promise<'handled' | 'default'>;
+   * ```
+   */
+  onError?: ErrorHandler;
+
   /**
    * Middleware to be used by the runtime.
    *
@@ -168,6 +195,10 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
    *   outputMessages: Message[];
    *   properties: any;
    * }) => void | Promise<void>;
+   * ```
+   *
+   * ```ts
+   * onError: (error: CopilotRuntimeError) => 'handled' | 'default' | Promise<'handled' | 'default'>;
    * ```
    */
   middleware?: Middleware;
@@ -280,6 +311,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   private langserve: Promise<Action<any>>[] = [];
   private onBeforeRequest?: OnBeforeRequestHandler;
   private onAfterRequest?: OnAfterRequestHandler;
+  private onError?: ErrorHandler;
   private delegateAgentProcessingToServiceAdapter: boolean;
   private observability?: CopilotObservabilityConfig;
   private availableAgents: Pick<AgentWithEndpoint, "name" | "id">[];
@@ -313,6 +345,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
     this.onBeforeRequest = params?.middleware?.onBeforeRequest;
     this.onAfterRequest = params?.middleware?.onAfterRequest;
+    this.onError = params?.onError || params?.middleware?.onError;
     this.delegateAgentProcessingToServiceAdapter =
       params?.delegateAgentProcessingToServiceAdapter || false;
     this.observability = params?.observability_c;
@@ -664,12 +697,40 @@ please use an LLM adapter instead.`,
         }
       }
 
-      if (error instanceof CopilotKitError) {
-        throw error;
+      // Enhanced error handling
+      try {
+        await this.handleErrorAndThrow(error, {
+          threadId,
+          runId,
+          url,
+        });
+      } catch (handledError) {
+        console.error("Error getting response:", handledError);
+
+        // Emit structured error event instead of generic error message
+        // This allows the GraphQL resolver to access the categorized error data
+        eventSource.stream(async (eventStream$) => {
+          eventStream$.sendStructuredError({
+            error: handledError,
+            context: {
+              threadId,
+              runId,
+            },
+          });
+          eventStream$.complete();
+        });
+
+        // Don't throw the error - let the structured error event handle it
+        // The GraphQL resolver will process the structured error and send it to the client
+        return {
+          threadId,
+          runId: runId || null,
+          eventSource,
+          serverSideActions: [],
+          actionInputsWithoutAgents: [],
+          extensions: {},
+        };
       }
-      console.error("Error getting response:", error);
-      eventSource.sendErrorMessageToChat();
-      throw error;
     }
   }
 
@@ -1099,8 +1160,18 @@ please use an LLM adapter instead.`,
         }
       }
 
-      console.error("Error getting response:", error);
-      throw error;
+      // Enhanced error handling for agent requests
+      try {
+        await this.handleErrorAndThrow(error, {
+          threadId,
+          runId: undefined,
+          agentName,
+          nodeName,
+        });
+      } catch (handledError) {
+        console.error("Error getting response:", handledError);
+        throw handledError;
+      }
     }
   }
 
@@ -1213,6 +1284,160 @@ please use an LLM adapter instead.`,
     if (adapterName.includes("Groq")) return "groq";
     if (adapterName.includes("LangChain")) return "langchain";
     return undefined;
+  }
+
+  // Public method to handle errors - allows external code to tap into structured error handling
+  public async handleError(
+    error: unknown,
+    context: {
+      threadId?: string;
+      runId?: string;
+      url?: string;
+      agentName?: string;
+      nodeName?: string;
+      actionName?: string;
+    } = {},
+  ): Promise<CopilotRuntimeError> {
+    // Categorize the error
+    const categorizedError = categorizeError(error, {
+      threadId: context.threadId,
+      runId: context.runId,
+      url: context.url,
+      timestamp: Date.now(),
+    });
+
+    // Add additional context based on error category
+    if (isAgentError(categorizedError) && context.agentName) {
+      categorizedError.agentName = context.agentName;
+      categorizedError.nodeName = context.nodeName;
+    }
+
+    if (isActionExecutionError(categorizedError) && context.actionName) {
+      categorizedError.actionName = context.actionName;
+    }
+
+    // Call user's error handler if provided
+    if (this.onError) {
+      try {
+        const result = await this.onError(categorizedError);
+        if (result === "handled") {
+          // User handled the error, return the categorized error without throwing
+          return categorizedError;
+        }
+      } catch (handlerError) {
+        console.error("Error in user error handler:", handlerError);
+        // Continue with default error handling
+      }
+    }
+
+    // Return the categorized error for further processing
+    return categorizedError;
+  }
+
+  // Private method that wraps public handleError and throws appropriate CopilotKit errors
+  private async handleErrorAndThrow(
+    error: unknown,
+    context: {
+      threadId?: string;
+      runId?: string;
+      url?: string;
+      agentName?: string;
+      nodeName?: string;
+      actionName?: string;
+    } = {},
+  ): Promise<void> {
+    const categorizedError = await this.handleError(error, context);
+
+    // Default error handling - re-throw with enhanced context
+    if (error instanceof CopilotKitError) {
+      throw error;
+    }
+
+    // Create CopilotKit errors with embedded categorized error data
+    const createErrorWithMetadata = (CopilotErrorClass: any, errorOptions: any) => {
+      const copilotError = new CopilotErrorClass(errorOptions);
+      // Embed the categorized error in the extensions for client access
+      if (copilotError.extensions) {
+        copilotError.extensions.categorizedError = categorizedError;
+      } else {
+        copilotError.extensions = { categorizedError };
+      }
+      return copilotError;
+    };
+
+    // Provide actionable error messages based on category
+    switch (categorizedError.category) {
+      case "llm_provider":
+        if (isLLMProviderError(categorizedError)) {
+          switch (categorizedError.type) {
+            case "auth_failed":
+              throw createErrorWithMetadata(CopilotKitMisuseError, {
+                message: `LLM Provider Authentication Failed: ${categorizedError.message}. Please check your API key configuration.`,
+              });
+            case "quota_exceeded":
+              throw createErrorWithMetadata(CopilotKitLowLevelError, {
+                error: categorizedError.originalError || new Error(categorizedError.message),
+                url: context.url,
+              });
+            case "rate_limited":
+              throw createErrorWithMetadata(CopilotKitLowLevelError, {
+                error:
+                  categorizedError.originalError ||
+                  new Error(
+                    `Rate limited${categorizedError.retryAfter ? `. Retry after ${categorizedError.retryAfter} seconds` : ""}`,
+                  ),
+                url: context.url,
+              });
+          }
+        }
+        break;
+
+      case "agent":
+        if (isAgentError(categorizedError)) {
+          switch (categorizedError.type) {
+            case "not_found":
+              throw createErrorWithMetadata(CopilotKitAgentDiscoveryError, {
+                agentName: categorizedError.agentName,
+                availableAgents: this.availableAgents,
+              });
+            case "execution_failed":
+              throw createErrorWithMetadata(CopilotKitLowLevelError, {
+                error: categorizedError.originalError || new Error(categorizedError.message),
+                url: context.url,
+              });
+          }
+        }
+        break;
+
+      case "network":
+        if (isNetworkError(categorizedError)) {
+          throw createErrorWithMetadata(CopilotKitLowLevelError, {
+            error:
+              categorizedError.originalError ||
+              new Error(`Network error: ${categorizedError.message}`),
+            url: categorizedError.endpoint || context.url,
+          });
+        }
+        break;
+
+      case "action_execution":
+        if (isActionExecutionError(categorizedError)) {
+          // For action errors, we might want to provide user-safe messages
+          const displayMessage = categorizedError.userMessage || categorizedError.message;
+          throw createErrorWithMetadata(CopilotKitLowLevelError, {
+            error: new Error(`Action '${categorizedError.actionName}' failed: ${displayMessage}`),
+            url: context.url,
+          });
+        }
+        break;
+
+      default:
+        // Generic runtime error
+        throw createErrorWithMetadata(CopilotKitLowLevelError, {
+          error: categorizedError.originalError || new Error(categorizedError.message),
+          url: context.url,
+        });
+    }
   }
 }
 

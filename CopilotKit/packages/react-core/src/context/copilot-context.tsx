@@ -20,6 +20,7 @@ import {
   LangGraphInterruptAction,
   LangGraphInterruptActionSetter,
 } from "../types/interrupt-action";
+import { CopilotErrorHandler, CopilotClientError } from "../types/error-handler";
 
 /**
  * Interface for the configuration of the Copilot API.
@@ -218,6 +219,13 @@ export interface CopilotContextParams {
   langGraphInterruptAction: LangGraphInterruptAction | null;
   setLangGraphInterruptAction: LangGraphInterruptActionSetter;
   removeLangGraphInterruptAction: () => void;
+
+  // Error handling
+  onError?: CopilotErrorHandler;
+  handleError: (
+    error: unknown,
+    context?: Partial<{ componentName: string; hookName: string; actionName: string }>,
+  ) => Promise<void>;
 }
 
 const emptyCopilotContext: CopilotContextParams = {
@@ -288,6 +296,10 @@ const emptyCopilotContext: CopilotContextParams = {
   langGraphInterruptAction: null,
   setLangGraphInterruptAction: () => null,
   removeLangGraphInterruptAction: () => null,
+  onError: undefined,
+  handleError: async () => {
+    throw new Error("Remember to wrap your app in a `<CopilotKit> {...} </CopilotKit>` !!!");
+  },
 };
 
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);

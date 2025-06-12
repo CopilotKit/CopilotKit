@@ -1,6 +1,7 @@
 import { ForwardedParametersInput } from "@copilotkit/runtime-client-gql";
 import { ReactNode } from "react";
 import { AuthState } from "../../context/copilot-context";
+import { CopilotErrorHandler } from "../../types/error-handler";
 /**
  * Props for CopilotKit.
  */
@@ -113,4 +114,38 @@ export interface CopilotKitProps {
    * The thread id to use for the CopilotKit.
    */
   threadId?: string;
+
+  /**
+   * Error handler for CopilotKit errors.
+   *
+   * This function will be called whenever an error occurs in CopilotKit components,
+   * hooks, or API calls. Return 'handled' to suppress the default error behavior,
+   * or 'default' to allow the system to handle the error.
+   *
+   * @example
+   * ```tsx
+   * <CopilotKit
+   *   onError={async (error) => {
+   *     if (isCopilotAuthError(error)) {
+   *       // Handle auth errors (e.g., refresh token, redirect to login)
+   *       await refreshToken();
+   *       return 'handled';
+   *     }
+   *
+   *     if (isCopilotNetworkError(error) && error.type === 'rate_limited') {
+   *       // Show user-friendly rate limit message
+   *       showToast('Too many requests. Please try again later.');
+   *       return 'handled';
+   *     }
+   *
+   *     // Log error to monitoring service
+   *     logError(error);
+   *     return 'default';
+   *   }}
+   * >
+   *   {children}
+   * </CopilotKit>
+   * ```
+   */
+  onError?: CopilotErrorHandler;
 }

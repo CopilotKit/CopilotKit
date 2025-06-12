@@ -283,7 +283,7 @@ export class RemoteLangGraphEventSource {
         return events;
       }),
       catchError((error) => {
-        console.error(error);
+        console.error("LangGraph stream error:", error);
         const events: RuntimeEvent[] = [];
 
         if (lastEventWithState?.lastMessageId && !lastEventWithState.isToolCall) {
@@ -299,23 +299,9 @@ export class RemoteLangGraphEventSource {
           });
         }
 
-        const messageId = randomId();
-
-        events.push({
-          type: RuntimeEventTypes.TextMessageStart,
-          messageId: messageId,
-        });
-        events.push({
-          type: RuntimeEventTypes.TextMessageContent,
-          messageId: messageId,
-          content: "❌ An error occurred. Please try again.",
-        });
-        events.push({
-          type: RuntimeEventTypes.TextMessageEnd,
-          messageId: messageId,
-        });
-
-        return events;
+        // Instead of a generic message, re-throw the error so it can be handled by the runtime
+        // This allows the structured error handling system to categorize and process it properly
+        throw error;
       }),
     );
   }

@@ -24,6 +24,15 @@ const copilotKit = new CopilotRuntime();
 
 ## Constructor Parameters
 
+<PropertyReference name="onError" type="ErrorHandler"  > 
+Error handler to be called when errors occur during request processing.
+  Return 'handled' to suppress the default error behavior, or 'default' to allow it.
+ 
+  ```ts
+  onError: (error: CopilotRuntimeError) => 'handled' | 'default' | Promise<'handled' | 'default'>;
+  ```
+</PropertyReference>
+
 <PropertyReference name="middleware" type="Middleware"  > 
 Middleware to be used by the runtime.
  
@@ -44,6 +53,10 @@ Middleware to be used by the runtime.
     outputMessages: Message[];
     properties: any;
   }) => void | Promise<void>;
+  ```
+ 
+  ```ts
+  onError: (error: CopilotRuntimeError) => 'handled' | 'default' | Promise<'handled' | 'default'>;
   ```
 </PropertyReference>
 
@@ -168,6 +181,33 @@ A function that creates an MCP client instance for a given endpoint configuratio
   </PropertyReference>
 
   <PropertyReference name="agentName" type="string" required>
+  
+  </PropertyReference>
+
+</PropertyReference>
+
+<PropertyReference name="handleError" type="error: unknown, context: {
+      threadId?: string;
+      runId?: string;
+      url?: string;
+      agentName?: string;
+      nodeName?: string;
+      actionName?: string;
+    } = {}">
+// Public method to handle errors - allows external code to tap into structured error handling
+
+  <PropertyReference name="error" type="unknown" required>
+  
+  </PropertyReference>
+
+  <PropertyReference name="context" type="{
+      threadId?: string;
+      runId?: string;
+      url?: string;
+      agentName?: string;
+      nodeName?: string;
+      actionName?: string;
+    }" required>
   
   </PropertyReference>
 

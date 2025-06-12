@@ -9,3 +9,6 @@ export * from "./logger";
 export * from "./runtime/copilot-runtime";
 export * from "./runtime/mcp-tools-utils";
 export * from "./runtime/langgraph/langgraph-agent";
+export * from "./types/error-types";
+export * from "../service-adapters/openai/openai-error-categorizer";
+export * from "../service-adapters/anthropic/anthropic-error-categorizer";
