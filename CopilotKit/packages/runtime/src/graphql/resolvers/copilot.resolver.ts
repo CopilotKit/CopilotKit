@@ -152,10 +152,10 @@ export class CopilotResolver {
         : {}),
       ...(ctx._copilotkit.baseUrl
         ? {
-          "cloud.base_url": ctx._copilotkit.baseUrl,
+          "cloud_base_url": ctx._copilotkit.baseUrl,
         }
         : {
-          "cloud.base_url": "https://api.cloud.copilotkit.ai",
+          "cloud_base_url": "https://api.cloud.copilotkit.ai",
         }),
     });
 
