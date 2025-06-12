@@ -18,6 +18,7 @@
     "tsconfig": "1.4.6"
   },
   "changesets": [
-    "purple-apples-grow"
+    "purple-apples-grow",
+    "serious-donuts-enjoy"
   ]
 }
