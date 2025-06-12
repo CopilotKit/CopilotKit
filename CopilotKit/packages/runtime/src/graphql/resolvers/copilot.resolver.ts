@@ -147,16 +147,16 @@ export class CopilotResolver {
       "cloud.api_key_provided": !!ctx.request.headers.get("x-copilotcloud-public-api-key"),
       ...(ctx.request.headers.get("x-copilotcloud-public-api-key")
         ? {
-          "cloud.public_api_key": ctx.request.headers.get("x-copilotcloud-public-api-key"),
-        }
+            "cloud.public_api_key": ctx.request.headers.get("x-copilotcloud-public-api-key"),
+          }
         : {}),
       ...(ctx._copilotkit.baseUrl
         ? {
-          "cloud.base_url": ctx._copilotkit.baseUrl,
-        }
+            "cloud.base_url": ctx._copilotkit.baseUrl,
+          }
         : {
-          "cloud.base_url": "https://api.cloud.copilotkit.ai",
-        }),
+            "cloud.base_url": "https://api.cloud.copilotkit.ai",
+          }),
     });
 
     let logger = ctx.logger.child({ component: "CopilotResolver.generateCopilotResponse" });

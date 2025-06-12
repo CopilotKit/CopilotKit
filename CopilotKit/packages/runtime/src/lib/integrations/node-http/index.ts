@@ -17,10 +17,7 @@ export function copilotRuntimeNodeHttpEndpoint(options: CreateCopilotRuntimeServ
     });
   }
 
-  telemetry.capture(
-    "oss.runtime.instance_created",
-    getRuntimeInstanceTelemetryInfo(options),
-  );
+  telemetry.capture("oss.runtime.instance_created", getRuntimeInstanceTelemetryInfo(options));
 
   const logger = commonConfig.logging;
   logger.debug("Creating Node HTTP endpoint");
