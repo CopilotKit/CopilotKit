@@ -29,15 +29,6 @@ const cookingTimeValues = [
   { label: CookingTime.SixtyPlusMin, value: 4 },
 ];
 
-const dietaryOptions = [
-  "Vegetarian",
-  "Nut-free",
-  "Dairy-free",
-  "Gluten-free",
-  "Vegan",
-  "Low-carb"
-];
-
 export default function SharedState() {
   return (
     
@@ -88,11 +79,23 @@ interface Ingredient {
   amount: string;
 }
 
+enum SpecialPreferences {
+  HighProtein = "High Protein",
+  LowCarb = "Low Carb",
+  Spicy = "Spicy",
+  BudgetFriendly = "Budget-Friendly",
+  OnePotMeal = "One-Pot Meal",
+  Vegetarian = "Vegetarian",
+  Vegan = "Vegan",
+}
+
+const dietaryOptions = Object.values(SpecialPreferences);
+
 interface Recipe {
   title: string;
   skill_level: SkillLevel;
   cooking_time: CookingTime;
-  dietary_preferences: string[];
+  special_preferences: SpecialPreferences[];
   ingredients: Ingredient[];
   instructions: string[];
 }
@@ -106,7 +109,7 @@ const INITIAL_STATE: RecipeAgentState = {
     title: "Make Your Recipe",
     skill_level: SkillLevel.INTERMEDIATE,
     cooking_time: CookingTime.FortyFiveMin,
-    dietary_preferences: [],
+    special_preferences: [],
     ingredients: [
       { icon: "🥕", name: "Carrots", amount: "3 large, grated" },
       { icon: "🌾", name: "All-Purpose Flour", amount: "2 cups" },
@@ -197,14 +200,14 @@ function Recipe() {
     });
   };
 
-  const handleDietaryChange = (preference: string, checked: boolean) => {
+  const handleDietaryChange = (preference: SpecialPreferences, checked: boolean) => {
     if (checked) {
       updateRecipe({
-        dietary_preferences: [...recipe.dietary_preferences, preference],
+        special_preferences: [...recipe.special_preferences, preference],
       });
     } else {
       updateRecipe({
-        dietary_preferences: recipe.dietary_preferences.filter(
+        special_preferences: recipe.special_preferences.filter(
           (p) => p !== preference
         ),
       });
@@ -282,6 +285,8 @@ function Recipe() {
     return icon;
   };
 
+  console.log(recipe)
+
   return (
     <form className="recipe-card">
       {/* Recipe Title */}
@@ -344,14 +349,14 @@ function Recipe() {
 
       {/* Dietary Preferences */}
       <div className="section-container relative">
-        {changedKeysRef.current.includes("dietary_preferences") && <Ping />}
+        {changedKeysRef.current.includes("special_preferences") && <Ping />}
         <h2 className="section-title">Dietary Preferences</h2>
         <div className="dietary-options">
           {dietaryOptions.map((option) => (
             <label key={option} className="dietary-option">
               <input
                 type="checkbox"
-                checked={recipe.dietary_preferences.includes(option)}
+                checked={recipe.special_preferences.includes(option)}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDietaryChange(option, e.target.checked)}
               />
               <span>{option}</span>

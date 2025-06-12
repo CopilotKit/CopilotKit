@@ -2,6 +2,7 @@ import {
   CopilotRuntime,
   OpenAIAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
+  LangGraphAgent
 } from "@copilotkit/runtime";
 
 import { NextRequest } from "next/server";
@@ -15,14 +16,17 @@ export const POST = async (req: NextRequest) => {
     runtime = new CopilotRuntime();
   }
   else if (req.url.endsWith("?langgraph=true")) {
-    let url = process.env.REMOTE_ACTION_URL || process.env.REMOTE_ACTION_URL_LANGGRAPH
-    console.log(url,"url");
+    let deploymentUrl = process.env.LG_DEPLOYMENT_URL ?? "http://localhost:8000"
     runtime = new CopilotRuntime({
-      remoteEndpoints: [
-        {
-          url: process.env.REMOTE_ACTION_URL || process.env.REMOTE_ACTION_URL_LANGGRAPH || "http://localhost:8000/copilotkit",
-        },
-      ],
+      agents: {
+        "agentic_chat": new LangGraphAgent({ deploymentUrl, graphId: 'agentic_chat' }),
+        "agentic_generative_ui": new LangGraphAgent({ deploymentUrl, graphId: 'agentic_generative_ui' }),
+        "human_in_the_loop": new LangGraphAgent({ deploymentUrl, graphId: 'human_in_the_loop' }),
+        "predictive_state_updates": new LangGraphAgent({ deploymentUrl, graphId: 'predictive_state_updates' }),
+        "shared_state": new LangGraphAgent({ deploymentUrl, graphId: 'shared_state' }),
+        "tool_based_generative_ui": new LangGraphAgent({ deploymentUrl, graphId: 'tool_based_generative_ui' }),
+        "no_chat": new LangGraphAgent({ deploymentUrl, graphId: 'no_chat' })
+      }
     });
   }
   else if (req.url.endsWith("?crewai=true")) {
