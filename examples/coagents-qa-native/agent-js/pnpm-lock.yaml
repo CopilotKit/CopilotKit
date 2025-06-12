@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@copilotkit/sdk-js':
-        specifier: ^1.5.13
-        version: 1.8.13(@langchain/anthropic@0.3.8(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8))))(@langchain/google-genai@0.1.4(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))(zod@3.23.8))(openai@4.102.0(zod@3.23.8))
+        specifier: ^1.8.13
+        version: 1.8.13(@langchain/anthropic@0.3.8(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8))))(@langchain/google-genai@0.1.4(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))(zod@3.23.8))(openai@4.102.0(zod@3.23.8))(zod-to-json-schema@3.24.5(zod@3.23.8))
       '@langchain/anthropic':
         specifier: ^0.3.8
         version: 0.3.8(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))
@@ -21,8 +21,11 @@ importers:
         specifier: ^0.1.4
         version: 0.1.4(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))(zod@3.23.8)
       '@langchain/langgraph':
-        specifier: ^0.2.44
-        version: 0.2.44(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))
+        specifier: ^0.2.57
+        version: 0.2.74(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))(zod-to-json-schema@3.24.5(zod@3.23.8))
+      '@langchain/langgraph-cli':
+        specifier: ^0.0.10
+        version: 0.0.10(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))(@langchain/langgraph-checkpoint@0.0.18(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8))))(@langchain/langgraph@0.2.74(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))(zod-to-json-schema@3.24.5(zod@3.23.8)))(openai@4.102.0(zod@3.23.8))(typescript@5.6.3)
       '@langchain/openai':
         specifier: ^0.3.14
         version: 0.3.14(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))
@@ -30,9 +33,6 @@ importers:
         specifier: ^3.23.8
         version: 3.23.8
     devDependencies:
-      '@langchain/langgraph-cli':
-        specifier: ^0.0.10
-        version: 0.0.10(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))(@langchain/langgraph-checkpoint@0.0.15(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8))))(@langchain/langgraph@0.2.44(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8))))(openai@4.102.0(zod@3.23.8))(typescript@5.6.3)
       '@types/html-to-text':
         specifier: ^9.0.4
         version: 9.0.4
@@ -553,8 +553,8 @@ packages:
       '@langchain/langgraph-checkpoint': ^0.0.14
       typescript: ^5.5.4
 
-  '@langchain/langgraph-checkpoint@0.0.15':
-    resolution: {integrity: sha512-AiJkvsYHqNbCh1Tx823qs2lf2qRqeB4EAMejirOk8gkpPszAGYua5c3niKYkcKR2tU8Snhrmj7Gm9HKZSFOXyw==}
+  '@langchain/langgraph-checkpoint@0.0.18':
+    resolution: {integrity: sha512-IS7zJj36VgY+4pf8ZjsVuUWef7oTwt1y9ylvwu0aLuOn1d0fg05Om9DLm3v2GZ2Df6bhLV1kfWAM0IAl9O5rQQ==}
     engines: {node: '>=18'}
     peerDependencies:
       '@langchain/core': '>=0.2.31 <0.4.0'
@@ -567,11 +567,15 @@ packages:
   '@langchain/langgraph-sdk@0.0.36':
     resolution: {integrity: sha512-KkAZM0uXBaMcD/dpGTBppOhbvNX6gz+Y1zFAC898OblegFkSvICrkd0oRQ5Ro/GWK/NAoDymnMUDXeZDdUkSuw==}
 
-  '@langchain/langgraph@0.2.44':
-    resolution: {integrity: sha512-CR9LB7sytdx0Ink56qVUPorDo5gW5m7iOU2ypu1OYA4l5aIrT4xGvHCwrGH9RE80pb/d0FglVUkEgEfuvSDbmw==}
+  '@langchain/langgraph@0.2.74':
+    resolution: {integrity: sha512-oHpEi5sTZTPaeZX1UnzfM2OAJ21QGQrwReTV6+QnX7h8nDCBzhtipAw1cK616S+X8zpcVOjgOtJuaJhXa4mN8w==}
     engines: {node: '>=18'}
     peerDependencies:
-      '@langchain/core': '>=0.2.36 <0.3.0 || >=0.3.9 < 0.4.0'
+      '@langchain/core': '>=0.2.36 <0.3.0 || >=0.3.40 < 0.4.0'
+      zod-to-json-schema: ^3.x
+    peerDependenciesMeta:
+      zod-to-json-schema:
+        optional: true
 
   '@langchain/openai@0.0.34':
     resolution: {integrity: sha512-M+CW4oXle5fdoz2T2SwdOef8pl3/1XmUx1vjn2mXUVM/128aO0l23FMF0SNBsAbRV6P+p/TuzjodchJbi0Ht/A==}
@@ -1521,12 +1525,12 @@ snapshots:
     dependencies:
       commander: 13.1.0
 
-  '@copilotkit/sdk-js@1.8.13(@langchain/anthropic@0.3.8(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8))))(@langchain/google-genai@0.1.4(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))(zod@3.23.8))(openai@4.102.0(zod@3.23.8))':
+  '@copilotkit/sdk-js@1.8.13(@langchain/anthropic@0.3.8(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8))))(@langchain/google-genai@0.1.4(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))(zod@3.23.8))(openai@4.102.0(zod@3.23.8))(zod-to-json-schema@3.24.5(zod@3.23.8))':
     dependencies:
       '@copilotkit/shared': 1.8.13
       '@langchain/community': 0.0.53(openai@4.102.0(zod@3.23.8))
       '@langchain/core': 0.3.18(openai@4.102.0(zod@3.23.8))
-      '@langchain/langgraph': 0.2.44(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))
+      '@langchain/langgraph': 0.2.74(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))(zod-to-json-schema@3.24.5(zod@3.23.8))
       langchain: 0.3.26(@langchain/anthropic@0.3.8(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8))))(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))(@langchain/google-genai@0.1.4(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))(zod@3.23.8))(openai@4.102.0(zod@3.23.8))
       zod: 3.23.8
     transitivePeerDependencies:
@@ -1640,6 +1644,7 @@ snapshots:
       - weaviate-ts-client
       - web-auth-library
       - ws
+      - zod-to-json-schema
 
   '@copilotkit/shared@1.8.13':
     dependencies:
@@ -1819,14 +1824,14 @@ snapshots:
     transitivePeerDependencies:
       - zod
 
-  '@langchain/langgraph-api@0.0.10(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))(@langchain/langgraph-checkpoint@0.0.15(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8))))(@langchain/langgraph@0.2.44(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8))))(openai@4.102.0(zod@3.23.8))(typescript@5.6.3)':
+  '@langchain/langgraph-api@0.0.10(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))(@langchain/langgraph-checkpoint@0.0.18(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8))))(@langchain/langgraph@0.2.74(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))(zod-to-json-schema@3.24.5(zod@3.23.8)))(openai@4.102.0(zod@3.23.8))(typescript@5.6.3)':
     dependencies:
       '@babel/code-frame': 7.26.2
       '@hono/node-server': 1.13.8(hono@4.7.1)
       '@hono/zod-validator': 0.2.2(hono@4.7.1)(zod@3.23.8)
       '@langchain/core': 0.3.18(openai@4.102.0(zod@3.23.8))
-      '@langchain/langgraph': 0.2.44(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))
-      '@langchain/langgraph-checkpoint': 0.0.15(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))
+      '@langchain/langgraph': 0.2.74(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))(zod-to-json-schema@3.24.5(zod@3.23.8))
+      '@langchain/langgraph-checkpoint': 0.0.18(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))
       '@types/json-schema': 7.0.15
       '@typescript/vfs': 1.6.1(typescript@5.6.3)
       dedent: 1.5.3
@@ -1848,16 +1853,16 @@ snapshots:
       - openai
       - supports-color
 
-  '@langchain/langgraph-checkpoint@0.0.15(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))':
+  '@langchain/langgraph-checkpoint@0.0.18(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))':
     dependencies:
       '@langchain/core': 0.3.18(openai@4.102.0(zod@3.23.8))
       uuid: 10.0.0
 
-  '@langchain/langgraph-cli@0.0.10(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))(@langchain/langgraph-checkpoint@0.0.15(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8))))(@langchain/langgraph@0.2.44(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8))))(openai@4.102.0(zod@3.23.8))(typescript@5.6.3)':
+  '@langchain/langgraph-cli@0.0.10(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))(@langchain/langgraph-checkpoint@0.0.18(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8))))(@langchain/langgraph@0.2.74(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))(zod-to-json-schema@3.24.5(zod@3.23.8)))(openai@4.102.0(zod@3.23.8))(typescript@5.6.3)':
     dependencies:
       '@babel/code-frame': 7.26.2
       '@commander-js/extra-typings': 13.1.0(commander@13.1.0)
-      '@langchain/langgraph-api': 0.0.10(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))(@langchain/langgraph-checkpoint@0.0.15(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8))))(@langchain/langgraph@0.2.44(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8))))(openai@4.102.0(zod@3.23.8))(typescript@5.6.3)
+      '@langchain/langgraph-api': 0.0.10(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))(@langchain/langgraph-checkpoint@0.0.18(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8))))(@langchain/langgraph@0.2.74(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))(zod-to-json-schema@3.24.5(zod@3.23.8)))(openai@4.102.0(zod@3.23.8))(typescript@5.6.3)
       chokidar: 4.0.3
       commander: 13.1.0
       dedent: 1.5.3
@@ -1889,13 +1894,15 @@ snapshots:
       p-retry: 4.6.2
       uuid: 9.0.1
 
-  '@langchain/langgraph@0.2.44(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))':
+  '@langchain/langgraph@0.2.74(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))(zod-to-json-schema@3.24.5(zod@3.23.8))':
     dependencies:
       '@langchain/core': 0.3.18(openai@4.102.0(zod@3.23.8))
-      '@langchain/langgraph-checkpoint': 0.0.15(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))
+      '@langchain/langgraph-checkpoint': 0.0.18(@langchain/core@0.3.18(openai@4.102.0(zod@3.23.8)))
       '@langchain/langgraph-sdk': 0.0.36
       uuid: 10.0.0
       zod: 3.23.8
+    optionalDependencies:
+      zod-to-json-schema: 3.24.5(zod@3.23.8)
 
   '@langchain/openai@0.0.34':
     dependencies:

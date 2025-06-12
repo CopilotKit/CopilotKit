@@ -3,38 +3,60 @@
 FROM public.ecr.aws/docker/library/node:22-slim AS production
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.0 /lambda-adapter /opt/extensions/lambda-adapter
 
-# ENV HOME="/tmp"
+# Install bash and required utilities first
+RUN apt-get update && apt-get install -y \
+    curl \
+    bash \
+    bash-completion \
+    procps \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set comprehensive shell environment for execa compatibility
+ENV SHELL="/bin/bash"
+ENV BASH="/bin/bash"
+ENV TERM="xterm-256color"
+ENV PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ENV FORCE_COLOR="1"
+ENV NODE_ENV="production"
+
+# PNPM setup
 ENV PNPM_HOME="/tmp/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
 RUN corepack prepare pnpm@9.15.0 --activate
 
-RUN apt-get update && apt-get install curl -y
+# Verify Node.js version meets requirements
+RUN node --version && npm --version
 
-# First install via pnpx
+# First install via pnpx to ensure CLI is available
 RUN pnpx @langchain/langgraph-cli --help
 
 ARG APP_DIR
 
-# WORKDIR /tmp
-
+# Create and ensure .env file exists
 RUN touch .env
 
-# Copy only poetry files first
+# Copy only package files first for better layer caching
 COPY ${APP_DIR}/package.json ${APP_DIR}/pnpm-lock.yaml ./
+
+# Clean install to avoid dependency conflicts
 RUN pnpm i --frozen-lockfile
 
-# Copy SDK and install dependencies in a single layer
+# Copy all source files
 COPY ${APP_DIR}/ ./
 
-# Explicitly install the missing dependency
-RUN pnpm add @langchain/langgraph-checkpoint
+# Explicitly install missing dependencies that may be needed
+RUN pnpm add @langchain/langgraph-checkpoint || true
 
-RUN mkdir /tmp/.langgraph_api
+# Create langgraph API directories with proper permissions
+RUN mkdir -p /tmp/.langgraph_api /tmp/storage/checkpoints /tmp/storage/store
 
+# Set environment variables for LangGraph
 ENV LANGGRAPH_API_DIR="/tmp/.langgraph_api"
+ENV LANGGRAPH_STORAGE_DIR="/tmp/storage"
 
-RUN ls -la
+# Verify installation
+RUN ls -la && pnpm list --depth=0
 
-# CMD ["/bin/sh", "-c", "ls -la"]
-CMD ["/bin/sh", "-c", "pnpx @langchain/langgraph-cli dev --config=langgraph.json --no-browser --port 8000 --host 0.0.0.0"]
+# Use npx directly to avoid shell detection issues
+CMD ["npx", "@langchain/langgraph-cli", "dev", "--port", "8000", "--no-browser"]

@@ -17,11 +17,12 @@
     "typescript": "^5.6.3"
   },
   "dependencies": {
-    "@copilotkit/sdk-js": "^1.5.13",
+    "@copilotkit/sdk-js": "^1.8.13",
     "@langchain/anthropic": "^0.3.8",
     "@langchain/core": "^0.3.18",
     "@langchain/google-genai": "^0.1.4",
-    "@langchain/langgraph": "^0.2.44",
+    "@langchain/langgraph": "^0.2.57",
+    "@langchain/langgraph-cli": "^0.0.10",
     "@langchain/openai": "^0.3.14",
     "zod": "^3.23.8"
   }
