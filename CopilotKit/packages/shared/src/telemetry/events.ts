@@ -5,7 +5,7 @@ export type AnalyticsEvents = {
     requestType: string;
     "cloud.api_key_provided": boolean;
     "cloud.public_api_key"?: string;
-    "cloud_base_url"?: string;
+    "cloud.base_url"?: string;
   };
   "oss.runtime.server_action_executed": {};
   "oss.runtime.remote_action_executed": RemoteActionExecutionInfo;
@@ -22,7 +22,7 @@ export interface RuntimeInstanceCreatedInfo {
   agentsAmount?: number | null;
   "cloud.api_key_provided": boolean;
   "cloud.public_api_key"?: string;
-  "cloud_base_url"?: string;
+  "cloud.base_url"?: string;
 }
 
 export interface RemoteActionExecutionInfo {
