@@ -1,5 +1,16 @@
 # @copilotkit/runtime
 
+## 1.9.0-next.2
+
+### Minor Changes
+
+- 8408d58: - feat: create copilotkit agui langgraph agent
+  - docs: replace remote endpoint with AGUI agent
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.0-next.2
+
 ## 1.8.15-next.1
 
 ### Patch Changes
