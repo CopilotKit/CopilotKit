@@ -13,7 +13,7 @@ const langgraphAgent = new HttpAgent({
 });
 
 const mastraAgent = new HttpAgent({
-    url: "http://0.0.0.0:8000/mastra-agent",
+    url: "http://0.0.0.0:8001/mastra-agent",
 });
 
 const crewaiAgent = new HttpAgent({

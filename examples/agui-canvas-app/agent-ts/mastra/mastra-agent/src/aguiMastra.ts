@@ -299,7 +299,7 @@ function extractLocationFromMessage(content: string): string | null {
 
 // START EXPRESS SERVER
 // Configure and start the HTTP server on port 8000
-app.listen(8000, () => {
-    console.log("Server running on http://localhost:8000");
-    console.log("AG-UI endpoint available at http://localhost:8000/mastra-agent");
+app.listen(8001, () => {
+    console.log("Server running on http://localhost:8001");
+    console.log("AG-UI endpoint available at http://localhost:8001/mastra-agent");
 });
