@@ -51,7 +51,13 @@ as this guide uses it as a starting point.
 <Tabs groupId="language" items={['Python']} default="Python">
     <Tab value="Python">
         ```python title="agent/sample_agent/agent.py"
-        # your code goes here...
+        from agno.agent import Agent
+        from agno.tools.duckduckgo import DuckDuckGoTools
+
+        agent = Agent(
+            tools=[DuckDuckGoTools()],
+            show_tool_calls=True,
+        )
         ```
     </Tab>
 
@@ -59,7 +65,7 @@ as this guide uses it as a starting point.
 </Step>
 <Step>
 ### Render the tool call in your frontend
-At this point, your agent will be able to call the `get_weather` tool. Now 
+At this point, your agent will be able to call the `duckduckgo_search` tool. Now
 we just need to add a `useCopilotAction` hook to render the tool call in
 the UI.
 
@@ -76,14 +82,14 @@ const YourMainContent = () => {
   // ...
   // [!code highlight:13]
   useCopilotAction({
-    name: "get_weather",
+    name: "duckduckgo_search",
     available: "disabled", // Don't allow the agent or UI to call this tool as its only for rendering
     render: ({ status, args }) => {
       return (
         <p className="text-gray-500 mt-2">
-          {status !== "complete" && "Calling weather API..."}
+          {status !== "complete" && "Calling DuckDuckGo API..."}
           {status === "complete" &&
-            `Called the weather API for ${args.location}.`}
+            `Called the DuckDuckGo API for ${args.query}.`}
         </p>
       );
     },
@@ -96,8 +102,8 @@ const YourMainContent = () => {
 <Step>
 ### Give it a try!
 
-Try asking the agent to get the weather for a location. You should see the custom UI component that we added
+Try asking the agent to search for something on the Internet. You should see the custom UI component that we added
 render the tool call and display the arguments that were passed to the tool.
 
 </Step>
-</Steps> 
+</Steps>
