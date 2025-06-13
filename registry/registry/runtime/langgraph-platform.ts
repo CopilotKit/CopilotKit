@@ -3,22 +3,21 @@ import {
   CopilotRuntime,
   copilotRuntimeNextJSAppRouterEndpoint,
   ExperimentalEmptyAdapter,
-  langGraphPlatformEndpoint,
+  LangGraphAgent,
 } from "@copilotkit/runtime";
 
 const serviceAdapter = new ExperimentalEmptyAdapter();
 
+const agentName = process.env.NEXT_PUBLIC_COPILOTKIT_AGENT_NAME ?? ''
+
 const runtime = new CopilotRuntime({
-  remoteEndpoints: [
-    langGraphPlatformEndpoint({
+  agents: {
+    [agentName]: new LangGraphAgent({
       deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL || "",
       langsmithApiKey: process.env.LANGSMITH_API_KEY || "", // only used in LangGraph Platform deployments
-      agents: [{
-          name: process.env.NEXT_PUBLIC_COPILOTKIT_AGENT_NAME || "",
-          description: process.env.NEXT_PUBLIC_COPILOTKIT_AGENT_DESCRIPTION || 'A helpful LLM agent.'
-      }]
-    }),
-  ],
+      graphId: agentName
+    })
+  }
 });
 
 export const POST = async (req: NextRequest) => {
