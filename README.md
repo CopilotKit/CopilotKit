@@ -1,24 +1,20 @@
-<div align="center">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
+
+<div style="display: flex; flex-direction: column; gap: 20px; margin: 54px 0;">
+
+<div align="center" style="margin: 0;">
   <a href="https://copilotkit.ai" target="_blank">
-    <img src="./assets/banner.png" alt="CopilotKit Logo">
+    <img src="./assets/banner.png" alt="CopilotKit Logo" width="100%">
   </a>
-
-  <br/>
-
-  <h3>
-    Build deeply-integrated AI assistants & agents<br/>
-    that work <em>alongside</em> your users inside your applications.
+  <h3 style="font-weight: 500; font-size: 24px; line-height: 32px; letter-spacing: 0px;">
+    Build deeply-integrated AI assistants & agents that work <br/> alongside your users inside your applications.
   </h3>
-  
 </div>
 
-<!-- -->
-
-<br/>
-
-<div align="center">
-
-<div style="display:flex;justify-content:center;gap:8px;">
+<div style="display: flex; flex-direction: column; gap: 20px; margin: 0;">
+  <div style="display:flex;justify-content:center;gap:16px;height:20px;margin: 0;">
   <a href="https://www.npmjs.com/package/@copilotkit/react-core" target="_blank">
     <img src="https://img.shields.io/npm/v/%40copilotkit%2Freact-core?logo=npm&logoColor=%23FFFFFF&label=Version&color=%236963ff" alt="NPM">
   </a>
@@ -30,38 +26,35 @@
   <a href="https://discord.gg/6dffbvGU3D" target="_blank">
     <img src="https://img.shields.io/discord/1122926057641742418?logo=discord&logoColor=%23FFFFFF&label=Discord&color=%236963ff" alt="Discord">
   </a>
-</div>
-<br/>
-
-
-  
-  <a href="https://discord.gg/6dffbvGU3D?ref=github_readme" target="_blank">
-    <img src="./assets/btn_discord.png" alt="CopilotKit Discord" height="40px">
+  </div>
+  <div align="center" style="display: flex; justify-content: center; gap: 16px; height: 43px; margin: 0;">
+  <a href="https://discord.gg/6dffbvGU3D?ref=github_readme" target="_blank" style="display: flex; align-items: center; justify-content: center; background: #57575B; color: #fff; border-radius: 9999px; padding: 6px 24px; height: 43px; font-size: 12px; text-decoration: none; font-weight: 400; letter-spacing: 0.5px; line-height: 16px; font-family: 'Plus Jakarta Sans', sans-serif;">
+    JOIN OUR DISCORD
   </a>
-  <a href="https://docs.copilotkit.ai?ref=github_readme" target="_blank">
-    <img src="./assets/btn_docs.png" alt="CopilotKit GitHub" height="40px">
+  <a href="https://docs.copilotkit.ai?ref=github_readme" target="_blank" style="display: flex; align-items: center; justify-content: center; background: #57575B; color: #fff; border-radius: 9999px; padding: 6px 24px; height: 43px; font-size: 12px; text-decoration: none; font-weight: 400; letter-spacing: 0.5px; line-height: 16px; font-family: 'Plus Jakarta Sans', sans-serif;">
+    READ THE DOCS
   </a>
-  <a href="https://cloud.copilotkit.ai?ref=github_readme" target="_blank">
-    <img src="./assets/btn_cloud.png" alt="CopilotKit GitHub" height="40px">
+  <a href="https://cloud.copilotkit.ai?ref=github_readme" target="_blank" style="display: flex; align-items: center; justify-content: center; background: #57575B; color: #fff; border-radius: 9999px; padding: 6px 24px; height: 43px; font-size: 12px; text-decoration: none; font-weight: 400; letter-spacing: 0.5px; line-height: 16px; font-family: 'Plus Jakarta Sans', sans-serif;">
+    TRY COPILOT CLOUD
   </a>
-  
+  </div>
 </div>
 
+<div style="display: flex; flex-direction: column; gap: 12px; margin: 0;">
+  <h3 align="center" style="font-weight: 500; font-size: 24px; line-height: 32px; letter-spacing: 0px; margin: 0;"> 
+  Stay up to date with our latest releases!
+  </h3>
 
-<h3 align="center"> 
-Stay up to date with our latest releases!
-</h3>
-
-<div align="center">
-  <a href="https://go.copilotkit.ai/gh-linkedin" target="_blank">
-    <img src="https://github.com/user-attachments/assets/e33e7ebb-f5fc-4775-81b0-d5dd6865271a" alt="LI">
-  </a>
-  <a href="https://go.copilotkit.ai/gh-twitter" target="_blank">
-    <img src="https://github.com/user-attachments/assets/14e57c97-70ac-4f9a-88f5-67028107794f" alt="Discord">
-  </a>
+  <div align="center" style="display: flex; justify-content: center; gap: 16px; height: 43px; margin: 0;">
+    <a href="https://go.copilotkit.ai/gh-linkedin" target="_blank" style="display: flex; align-items: center; justify-content: center; background: #57575B; color: #fff; border-radius: 9999px; padding: 0 24px;  height: 43px; font-size: 12px; text-decoration: none; font-weight: 400; letter-spacing: 0.5px; line-height: 16px;">
+    <img src="./assets/linkedin.svg" alt="CopilotKit Logo" width="20px" height="20px">
+    </a>
+    <a href="https://go.copilotkit.ai/gh-twitter" target="_blank" style="display: flex; align-items: center; justify-content: center; background: #57575B; color: #fff; border-radius: 9999px; padding: 0px 24px; height: 43px; font-size: 12px; text-decoration: none; font-weight: 400; letter-spacing: 0.5px; line-height: 16px;">
+      <img src="./assets/x.svg" alt="CopilotKit Logo" width="20px" height="20px">
+    </a>
+  </div>
 </div>
 
-<br/>
 <div align="center">
   <a href="https://trendshift.io/repositories/5730" target="_blank">
     <img src="https://trendshift.io/api/badge/repositories/5730" alt="Trendshift Metrics" width="250" height="55" />
@@ -70,10 +63,10 @@ Stay up to date with our latest releases!
     <img src="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=428778&theme=light&period=daily">
   </a>
 </div>
-<br />
+</div>
 
 
-<img width="1685" alt="214 (1)" src="https://github.com/user-attachments/assets/145600ce-c49b-4e25-883e-feee149d6332">
+<img alt="214 (1)" src="./assets/banner-llm.png" width="100%">
 
 ## 🏆 Featured Examples
 
