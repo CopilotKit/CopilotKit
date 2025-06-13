@@ -15,11 +15,11 @@ This resembles the majority of React apps, where frontend state, either for a fe
 
 ## Integrate the Agent
 
-To integrate the agent into this state, we're going to need to setup a remote endpoint and then use the `useCoAgent` hook to connect the two.
+To integrate the agent into this state, we're going to need to register an agent with CopilotKit and then use the `useCoAgent` hook to connect the two.
 
 <Steps>
 <Step>
-## Setup a remote endpoint
+## Register the agent
 
 Make sure you have the LangGraph Studio endpoint from the previous step!
 
@@ -70,23 +70,20 @@ In our previously setup `/api/copilotkit` route, we're going to add the followin
 ```tsx title="ui/app/api/copilotkit/route.ts"
 // ...
 
-import { langGraphPlatformEndpoint } from '@copilotkit/runtime'; // [!code ++]
+import { CopilotRuntime, LangGraphAgent } from '@copilotkit/runtime'; // [!code ++]
 
 // ...
 
 const runtime = new CopilotRuntime();// [!code --]
-// [!code ++:13]
- const runtime = new CopilotRuntime({
-    remoteEndpoints: [
-      langGraphPlatformEndpoint({
-        deploymentUrl: "http://localhost:<port_number>",
-        langsmithApiKey: "your-langsmith-api-key",
-        agents: [{ 
-          name: 'travel', 
-          description: 'A travel assistant that can help with planning trips.' 
-        }]
-      }),
-    ],
+// [!code ++:10]
+const runtime = new CopilotRuntime({
+  agents: { // [!code highlight:8]
+    'travel': new LangGraphAgent({
+      deploymentUrl: "http://localhost:<port_number>",
+      graphId: 'travel',
+      langsmithApiKey: "your-langsmith-api-key" // Optional
+    }),
+  },
 });
 
 // ...
