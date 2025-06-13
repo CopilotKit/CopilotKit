@@ -8,7 +8,7 @@
     Build deeply-integrated AI assistants & agents that work <br/> alongside your users inside your applications.
   </h3>
 </div>
-<br><br>
+<br>
 <div align="center" style="display: flex; flex-direction: column; gap: 20px; margin: 0;">
   <div align="center" style="display:flex;justify-content:center;gap:16px;height:20px;margin: 0;">
   <a href="https://www.npmjs.com/package/@copilotkit/react-core" target="_blank">
@@ -61,6 +61,7 @@
   </a>
 </div>
 </div>
+<br>
 
 
 <img alt="214 (1)" src="./assets/banner-llm.png" width="100%">
