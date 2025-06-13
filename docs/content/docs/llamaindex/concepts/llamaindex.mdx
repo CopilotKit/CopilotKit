@@ -1,0 +1,24 @@
+---
+title: LlamaIndex
+description: An agentic framework for building LLM applications that can be used with Copilotkit.
+icon: custom/llamaindex
+---
+
+LlamaIndex is an agentic framework for building LLM applications that can be used with Copilotkit. LlamaIndex Agents allow developers
+to combine and coordinate tasks efficiently, providing a robust framework for building sophisticated AI automations.
+
+## CoAgents and LlamaIndex
+
+How do CoAgents extend LlamaIndex?
+
+
+- **Multi-actor**: CoAgents allow for multiple agents to interact with each other. Copilotkit acts as the "ground-truth"
+  when transitioning between agents. Read more about how multi-actor workflows work [here](/llamaindex/multi-agent-flows)
+  and how messages are managed [here](/llamaindex/concepts/message-management).
+- **LLMs**: CoAgents use large language models to generate responses. This is useful for building applications that need to
+  generate natural language responses.
+- **Human in the loop**: CoAgents enabled human review and approval of generated responses. Read more about how this works
+  [here](/llamaindex/human-in-the-loop).
+- **Tool calling**: Tool calling is a fundamental building block for agentic workflows. They allow for greater control over what
+  the agent can do and can be used to interact with external systems. CoAgents allow you to easily render in-progress
+  tool calls in the UI so your users know what's happening. Read more about streaming tool calls [here](/llamaindex/frontend-actions).
