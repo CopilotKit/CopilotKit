@@ -6,18 +6,16 @@
     "next-pages-router": "1.4.6",
     "node-express": "1.4.6",
     "node-http": "1.4.6",
-    "@copilotkit/react-core": "1.8.14",
-    "@copilotkit/react-textarea": "1.8.14",
-    "@copilotkit/react-ui": "1.8.14",
-    "@copilotkit/runtime": "1.8.14",
-    "@copilotkit/runtime-client-gql": "1.8.14",
-    "@copilotkit/sdk-js": "1.8.14",
-    "@copilotkit/shared": "1.8.14",
+    "@copilotkit/react-core": "1.9.0",
+    "@copilotkit/react-textarea": "1.9.0",
+    "@copilotkit/react-ui": "1.9.0",
+    "@copilotkit/runtime": "1.9.0",
+    "@copilotkit/runtime-client-gql": "1.9.0",
+    "@copilotkit/sdk-js": "1.9.0",
+    "@copilotkit/shared": "1.9.0",
     "eslint-config-custom": "1.4.6",
     "tailwind-config": "1.4.6",
     "tsconfig": "1.4.6"
   },
-  "changesets": [
-    "purple-apples-grow"
-  ]
+  "changesets": []
 }
