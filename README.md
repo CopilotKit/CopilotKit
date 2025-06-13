@@ -1,7 +1,3 @@
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
-
 <div style="display: flex; flex-direction: column; gap: 20px; margin: 54px 0;">
 
 <div align="center" style="margin: 0;">
@@ -13,8 +9,8 @@
   </h3>
 </div>
 
-<div style="display: flex; flex-direction: column; gap: 20px; margin: 0;">
-  <div style="display:flex;justify-content:center;gap:16px;height:20px;margin: 0;">
+<div align="center" style="display: flex; flex-direction: column; gap: 20px; margin: 0;">
+  <div align="center" style="display:flex;justify-content:center;gap:16px;height:20px;margin: 0;">
   <a href="https://www.npmjs.com/package/@copilotkit/react-core" target="_blank">
     <img src="https://img.shields.io/npm/v/%40copilotkit%2Freact-core?logo=npm&logoColor=%23FFFFFF&label=Version&color=%236963ff" alt="NPM">
   </a>
@@ -27,30 +23,31 @@
     <img src="https://img.shields.io/discord/1122926057641742418?logo=discord&logoColor=%23FFFFFF&label=Discord&color=%236963ff" alt="Discord">
   </a>
   </div>
+
   <div align="center" style="display: flex; justify-content: center; gap: 16px; height: 43px; margin: 0;">
-  <a href="https://discord.gg/6dffbvGU3D?ref=github_readme" target="_blank" style="display: flex; align-items: center; justify-content: center; background: #57575B; color: #fff; border-radius: 9999px; padding: 6px 24px; height: 43px; font-size: 12px; text-decoration: none; font-weight: 400; letter-spacing: 0.5px; line-height: 16px; font-family: 'Plus Jakarta Sans', sans-serif;">
-    JOIN OUR DISCORD
-  </a>
-  <a href="https://docs.copilotkit.ai?ref=github_readme" target="_blank" style="display: flex; align-items: center; justify-content: center; background: #57575B; color: #fff; border-radius: 9999px; padding: 6px 24px; height: 43px; font-size: 12px; text-decoration: none; font-weight: 400; letter-spacing: 0.5px; line-height: 16px; font-family: 'Plus Jakarta Sans', sans-serif;">
-    READ THE DOCS
-  </a>
-  <a href="https://cloud.copilotkit.ai?ref=github_readme" target="_blank" style="display: flex; align-items: center; justify-content: center; background: #57575B; color: #fff; border-radius: 9999px; padding: 6px 24px; height: 43px; font-size: 12px; text-decoration: none; font-weight: 400; letter-spacing: 0.5px; line-height: 16px; font-family: 'Plus Jakarta Sans', sans-serif;">
-    TRY COPILOT CLOUD
-  </a>
+    <a href="https://discord.gg/6dffbvGU3D?ref=github_readme" target="_blank">
+      <img src='./assets/buttons/discord.svg'/>
+    </a>
+    <a href="https://docs.copilotkit.ai?ref=github_readme" target="_blank">
+      <img src='./assets/buttons/docs.svg'/>
+    </a>
+    <a href="https://cloud.copilotkit.ai?ref=github_readme" target="_blank">
+      <img src='./assets/buttons/try.svg'/>
+    </a>
   </div>
 </div>
 
-<div style="display: flex; flex-direction: column; gap: 12px; margin: 0;">
+<div align="center" style="display: flex; flex-direction: column; gap: 12px; margin: 0;">
   <h3 align="center" style="font-weight: 500; font-size: 24px; line-height: 32px; letter-spacing: 0px; margin: 0;"> 
   Stay up to date with our latest releases!
   </h3>
 
   <div align="center" style="display: flex; justify-content: center; gap: 16px; height: 43px; margin: 0;">
-    <a href="https://go.copilotkit.ai/gh-linkedin" target="_blank" style="display: flex; align-items: center; justify-content: center; background: #57575B; color: #fff; border-radius: 9999px; padding: 0 24px;  height: 43px; font-size: 12px; text-decoration: none; font-weight: 400; letter-spacing: 0.5px; line-height: 16px;">
-    <img src="./assets/linkedin.svg" alt="CopilotKit Logo" width="20px" height="20px">
-    </a>
-    <a href="https://go.copilotkit.ai/gh-twitter" target="_blank" style="display: flex; align-items: center; justify-content: center; background: #57575B; color: #fff; border-radius: 9999px; padding: 0px 24px; height: 43px; font-size: 12px; text-decoration: none; font-weight: 400; letter-spacing: 0.5px; line-height: 16px;">
-      <img src="./assets/x.svg" alt="CopilotKit Logo" width="20px" height="20px">
+    <a href="https://trendshift.io/repositories/5730" target="_blank">
+      <img src='./assets/buttons/linkedin.svg'/>
+    </a>  
+    <a href="https://www.producthunt.com/posts/copilotkit" target="_blank">
+      <img src='./assets/buttons/x.svg'/>
     </a>
   </div>
 </div>
