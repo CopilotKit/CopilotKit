@@ -3,6 +3,9 @@ export type AnalyticsEvents = {
   "oss.runtime.copilot_request_created": {
     "cloud.guardrails.enabled": boolean;
     requestType: string;
+    "cloud.api_key_provided": boolean;
+    "cloud.public_api_key"?: string;
+    "cloud.base_url"?: string;
   };
   "oss.runtime.server_action_executed": {};
   "oss.runtime.remote_action_executed": RemoteActionExecutionInfo;
@@ -17,6 +20,9 @@ export interface RuntimeInstanceCreatedInfo {
   hashedLgcKey?: string;
   endpointsAmount: number;
   agentsAmount?: number | null;
+  "cloud.api_key_provided": boolean;
+  "cloud.public_api_key"?: string;
+  "cloud.base_url"?: string;
 }
 
 export interface RemoteActionExecutionInfo {
