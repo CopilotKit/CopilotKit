@@ -8,7 +8,7 @@
     Build deeply-integrated AI assistants & agents that work <br/> alongside your users inside your applications.
   </h3>
 </div>
-
+<br><br>
 <div align="center" style="display: flex; flex-direction: column; gap: 20px; margin: 0;">
   <div align="center" style="display:flex;justify-content:center;gap:16px;height:20px;margin: 0;">
   <a href="https://www.npmjs.com/package/@copilotkit/react-core" target="_blank">
@@ -23,7 +23,7 @@
     <img src="https://img.shields.io/discord/1122926057641742418?logo=discord&logoColor=%23FFFFFF&label=Discord&color=%236963ff" alt="Discord">
   </a>
   </div>
-
+  <br>
   <div align="center" style="display: flex; justify-content: center; gap: 16px; height: 43px; margin: 0;">
     <a href="https://discord.gg/6dffbvGU3D?ref=github_readme" target="_blank">
       <img src='./assets/buttons/discord.svg'/>
@@ -51,7 +51,7 @@
     </a>
   </div>
 </div>
-
+<br>
 <div align="center">
   <a href="https://trendshift.io/repositories/5730" target="_blank">
     <img src="https://trendshift.io/api/badge/repositories/5730" alt="Trendshift Metrics" width="250" height="55" />
