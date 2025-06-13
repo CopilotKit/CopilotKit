@@ -11,14 +11,14 @@ description: "The CopilotKit provider component, wrapping your application."
   */
 }
 This component will typically wrap your entire application (or a sub-tree of your application where you want to have a copilot). It provides the copilot context to all other components and hooks.
- 
+
 ## Example
- 
+
 You can find more information about self-hosting CopilotKit [here](/guides/self-hosting).
- 
+
 ```tsx
 import { CopilotKit } from "@copilotkit/react-core";
- 
+
 <CopilotKit runtimeUrl="<your-runtime-url>">
   // ... your app ...
 </CopilotKit>
@@ -26,32 +26,32 @@ import { CopilotKit } from "@copilotkit/react-core";
 
 ## Properties
 
-<PropertyReference name="publicApiKey" type="string"  > 
+<PropertyReference name="publicApiKey" type="string"  >
 Your Copilot Cloud API key. Don't have it yet? Go to https://cloud.copilotkit.ai and get one for free.
 </PropertyReference>
 
-<PropertyReference name="guardrails_c" type="{ validTopics?: string[]; invalidTopics?: string[]; }"  > 
+<PropertyReference name="guardrails_c" type="{ validTopics?: string[]; invalidTopics?: string[]; }"  >
 Restrict input to specific topics using guardrails.
   @remarks
- 
+
   This feature is only available when using CopilotKit's hosted cloud service. To use this feature, sign up at https://cloud.copilotkit.ai to get your publicApiKey. The feature allows restricting chat conversations to specific topics.
 </PropertyReference>
 
-<PropertyReference name="runtimeUrl" type="string"  > 
+<PropertyReference name="runtimeUrl" type="string"  >
 The endpoint for the Copilot Runtime instance. [Click here for more information](/concepts/copilot-runtime).
 </PropertyReference>
 
-<PropertyReference name="transcribeAudioUrl" type="string"  > 
+<PropertyReference name="transcribeAudioUrl" type="string"  >
 The endpoint for the Copilot transcribe audio service.
 </PropertyReference>
 
-<PropertyReference name="textToSpeechUrl" type="string"  > 
+<PropertyReference name="textToSpeechUrl" type="string"  >
 The endpoint for the Copilot text to speech service.
 </PropertyReference>
 
-<PropertyReference name="headers" type="Record<string, string>"  > 
+<PropertyReference name="headers" type="Record<string, string>"  >
 Additional headers to be sent with the request.
- 
+
   For example:
   ```json
   {
@@ -60,11 +60,11 @@ Additional headers to be sent with the request.
   ```
 </PropertyReference>
 
-<PropertyReference name="children" type="ReactNode" required > 
+<PropertyReference name="children" type="ReactNode" required >
 The children to be rendered within the CopilotKit.
 </PropertyReference>
 
-<PropertyReference name="properties" type="Record<string, any>"  > 
+<PropertyReference name="properties" type="Record<string, any>"  >
 Custom properties to be sent with the request
   For example:
   ```js
@@ -74,33 +74,33 @@ Custom properties to be sent with the request
   ```
 </PropertyReference>
 
-<PropertyReference name="credentials" type="RequestCredentials"  > 
+<PropertyReference name="credentials" type="RequestCredentials"  >
 Indicates whether the user agent should send or receive cookies from the other domain
   in the case of cross-origin requests.
 </PropertyReference>
 
-<PropertyReference name="showDevConsole" type="boolean | 'auto'"  > 
+<PropertyReference name="showDevConsole" type="boolean | 'auto'"  >
 Whether to show the dev console.
- 
+
   If set to "auto", the dev console will be show on localhost only.
 </PropertyReference>
 
-<PropertyReference name="agent" type="string"  > 
+<PropertyReference name="agent" type="string"  >
 The name of the agent to use.
 </PropertyReference>
 
-<PropertyReference name="forwardedParameters" type="Pick<ForwardedParametersInput, 'temperature'>"  > 
+<PropertyReference name="forwardedParameters" type="Pick<ForwardedParametersInput, 'temperature' | 'model'>"  >
 The forwarded parameters to use for the task.
 </PropertyReference>
 
-<PropertyReference name="authConfig_c" type="{ SignInComponent: React.ComponentType<{ onSignInComplete: (authState: AuthState) => void; }>; }"  > 
+<PropertyReference name="authConfig_c" type="{ SignInComponent: React.ComponentType<{ onSignInComplete: (authState: AuthState) => void; }>; }"  >
 The auth config to use for the CopilotKit.
   @remarks
- 
+
   This feature is only available when using CopilotKit's hosted cloud service. To use this feature, sign up at https://cloud.copilotkit.ai to get your publicApiKey. The feature allows restricting chat conversations to specific topics.
 </PropertyReference>
 
-<PropertyReference name="threadId" type="string"  > 
+<PropertyReference name="threadId" type="string"  >
 The thread id to use for the CopilotKit.
 </PropertyReference>
 
