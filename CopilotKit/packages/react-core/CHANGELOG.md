@@ -1,5 +1,15 @@
 # ui
 
+## 1.9.0
+
+### Patch Changes
+
+- 54cae30: - fix(react-core): allow custom toolChoice in forwardedParameters to override default
+  - fix: move react-dom to peerDependencies in @copilotkit/react-textarea
+  - feat: add amazon bedrock adapter support
+  - @copilotkit/runtime-client-gql@1.9.0
+  - @copilotkit/shared@1.9.0
+
 ## 1.9.0-next.2
 
 ### Patch Changes

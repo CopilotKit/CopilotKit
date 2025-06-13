@@ -1,5 +1,20 @@
 # @copilotkit/runtime
 
+## 1.9.0
+
+### Minor Changes
+
+- 8408d58: - feat: create copilotkit agui langgraph agent
+  - docs: replace remote endpoint with AGUI agent
+
+### Patch Changes
+
+- c120e07: - refactor(react-ui): pass full message to onThumbsUp and onThumbsDown handlers
+- 54cae30: - fix(react-core): allow custom toolChoice in forwardedParameters to override default
+  - fix: move react-dom to peerDependencies in @copilotkit/react-textarea
+  - feat: add amazon bedrock adapter support
+  - @copilotkit/shared@1.9.0
+
 ## 1.9.0-next.2
 
 ### Minor Changes
