@@ -9,13 +9,29 @@ tool calls are emitted and streamed to the frontend.
 
 ## Message Streaming
 
-If you just call the LiteLLM `completion` function from your Agno agent, messages will not be streamed by default.
-To stream messages, wrap the `completion` function with the `copilotkit_stream` function. This will enable streaming
-of both the messages and tool calls to the frontend.
+Message streaming is enabled by default when using your Agno Agents together with the Agno AG-UI app:
 
 ```python
-# your code goes here...
-```
+from agno.app.agui.app import AGUIApp
+from agno.agent.agent import Agent
 
-For more information on how tool calls are utilized check out our [frontend actions](/agno/frontend-actions)
-documentation. 
+# Setup your Agno Agent
+agent = Agent(
+    name="Agno Assistant",
+    model=OpenAIChat(id="gpt-4o"),
+    instructions="You are a helpful AI assistant.",
+)
+
+# Setup the AG-UI app
+agui_app = AGUIApp(
+    agent=agent,
+    name="AG-UI Agno Agent",
+    app_id="agno_agent",
+)
+app = agui_app.get_app()
+
+# Serve the app, effectively exposing your Agno Agent
+agui_app.serve(app="agno_agent:app", port=8000, reload=True)
+
+# Interacting with the Agent through the app will automatically stream messages!
+```
