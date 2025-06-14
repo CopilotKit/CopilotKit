@@ -75,6 +75,18 @@ Stay up to date with our latest releases!
 
 <img width="1685" alt="214 (1)" src="https://github.com/user-attachments/assets/145600ce-c49b-4e25-883e-feee149d6332">
 
+<div align="center">
+  <!-- Keep these links. Translations will automatically update with the README. -->
+  <a href="https://www.readme-i18n.com/CopilotKit/CopilotKit?lang=de"><code>Deutsch →</code></a> 
+  <a href="https://www.readme-i18n.com/CopilotKit/CopilotKit?lang=es"><code>Español →</code></a> 
+  <a href="https://www.readme-i18n.com/CopilotKit/CopilotKit?lang=fr"><code>français →</code></a> 
+  <a href="https://www.readme-i18n.com/CopilotKit/CopilotKit?lang=ja"><code>日本語 →</code></a> 
+  <a href="https://www.readme-i18n.com/CopilotKit/CopilotKit?lang=ko"><code>한국어 →</code></a> 
+  <a href="https://www.readme-i18n.com/CopilotKit/CopilotKit?lang=pt"><code>Português →</code></a> 
+  <a href="https://www.readme-i18n.com/CopilotKit/CopilotKit?lang=ru"><code>Русский →</code></a> 
+  <a href="https://www.readme-i18n.com/CopilotKit/CopilotKit?lang=zh"><code>中文 →</code></a>
+</div>
+
 ## 🏆 Featured Examples
 
 ### 📝 [Form-Filling Copilot](https://github.com/CopilotKit/CopilotKit/tree/main/examples/copilot-form-filling)
