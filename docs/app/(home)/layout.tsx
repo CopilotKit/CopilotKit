@@ -67,7 +67,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                   title: "CoAgent Runloops",
                   options: [
                     {
-                      title: "CoAgents (LangGraph)",
+                      title: "LangGraph",
                       description: "Documentation for CoAgents with LangGraph",
                       url: "/coagents",
                       icon: <SiLangchain className="w-4 h-4 text-bold" />,
@@ -76,7 +76,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                       selectedStyle: "ring-purple-500/70 ring-2 rounded-sm",
                     },
                     {
-                      title: "CoAgents (CrewAI Flows)",
+                      title: "CrewAI Flows",
                       description:
                         "Documentation for CoAgents with CrewAI Flows",
                       url: "/crewai-flows",
@@ -86,7 +86,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                       selectedStyle: "ring-[#FA694C]/70 ring-2 rounded-sm",
                     },
                     {
-                      title: "CoAgents (CrewAI Crews)",
+                      title: "CrewAI Crews",
                       description:
                         "Documentation for CoAgents with CrewAI Crews",
                       url: "/crewai-crews",
@@ -96,7 +96,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                       selectedStyle: "ring-[#FA694C]/70 ring-2 rounded-sm",
                     },
                     {
-                      title: "CoAgents (Mastra)",
+                      title: "Mastra",
                       description: "Documentation for CoAgents with Mastra",
                       url: "/mastra",
                       icon: <MastraIcon className="w-4 h-4 text-bold" />,
@@ -106,7 +106,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                         "ring-zinc-800 dark:ring-white ring-2 rounded-sm",
                     },
                     {
-                      title: "CoAgents (AG2)",
+                      title: "AG2",
                       description: "Documentation for CoAgents with AG2",
                       url: "/ag2",
                       icon: <AG2Icon className="w-4 h-4 text-bold" />,
