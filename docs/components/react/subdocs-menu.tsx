@@ -18,6 +18,7 @@ import {
   useRef,
 } from "react";
 import { PiGraph } from "react-icons/pi";
+import { BoxesIcon } from "lucide-react";
 
 export function isActive(
   url: string,
@@ -263,13 +264,11 @@ function SubdocsMenuItemDropdown({
           <SelectValue
             placeholder={
               <div className="flex items-center">
-                <div className={cn("rounded-sm p-1.5 mr-2")}>
+                <div className={cn("rounded-sm p-1.5 mr-2", !selectedOption && "bg-gradient-to-b from-cyan-700 to-cyan-400 text-cyan-100")}>
                   {selectedOption?.icon || (
-                    <PiGraph
-                      className={cn(
-                        "w-5 h-5 text-bold bg-gradient-to-b rounded-sm",
-                        "from-purple-700 to-purple-400 text-purple-100 inline-block"
-                      )}
+                    <BoxesIcon
+                      className="w-4 h-4"
+                      style={{ fontSize: '16px', width: '16px', height: '16px' }}
                     />
                   )}
                 </div>

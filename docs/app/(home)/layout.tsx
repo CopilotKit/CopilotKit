@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { baseOptions } from "../layout.config";
 import { source } from "@/app/source";
 import { SubdocsMenu } from "@/components/react/subdocs-menu";
-import { TerminalIcon, RocketIcon } from "lucide-react";
+import { TerminalIcon, RocketIcon, BoxesIcon } from "lucide-react";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
 import { TopBar } from "@/components/layout/top-bar";
 import { SiLangchain } from "react-icons/si";
@@ -50,7 +50,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                   title: "Connect to an LLM",
                   description: "Get started with CopilotKit quickly",
                   url: "/quickstart",
-                  icon: <RocketIcon className="w-4 h-4" />,
+                  icon: <RocketIcon className="w-4 h-4" style={{ fontSize: '16px', width: '16px', height: '16px' }} />,
                   bgGradient:
                     "bg-gradient-to-b from-green-700 to-green-400 text-green-100",
                   selectedStyle: "ring-green-500/70 ring-2 rounded-sm",
@@ -62,7 +62,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                       title: "LangGraph",
                       description: "Documentation for CoAgents with LangGraph",
                       url: "/coagents",
-                      icon: <SiLangchain className="w-4 h-4 text-bold" />,
+                      icon: <SiLangchain className="w-4 h-4" style={{ fontSize: '16px', width: '16px', height: '16px' }} />,
                       bgGradient:
                         "bg-gradient-to-b from-purple-700 to-purple-400 text-purple-100",
                       selectedStyle: "ring-purple-500/70 ring-2 rounded-sm",
