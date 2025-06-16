@@ -52,6 +52,35 @@ you can ensure that the agent is always making the right decisions and ultimatel
     </Step>
 
     <Step>
+        ### Add a tool to your agent
+        Add a tool to your agent that will be used to write an essay. Since the tool will be used in the frontend,
+        we'll add it to the `frontend_tools` list.
+
+        ```python title="agent-py/agent/agent.py"
+        from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
+        from llama_index.llms.openai import OpenAI
+        from fastapi import FastAPI
+
+        def write_essay(draft: str) -> str:
+            """Writes an essay and takes the draft as an argument."""
+            return "Essay draft written!"
+
+        app = FastAPI()
+
+        router = get_ag_ui_workflow_router(
+            llm=OpenAI(model="gpt-4.1"),
+            frontend_tools=[write_essay],
+        )
+
+        app.include_router(router)
+
+        if __name__ == "__main__":
+            import uvicorn
+            uvicorn.run(app, host="0.0.0.0", port=8000)
+        ```
+    </Step>
+
+    <Step>
         ### Add a `useCopilotAction` to your Frontend
         First, we'll create a component that renders the agent's essay draft and waits for user approval.
 
@@ -106,6 +135,7 @@ you can ensure that the agent is always making the right decisions and ultimatel
     On the agent side, we are already done! LlamaIndex natively supports the AG-UI protocol and will automatically
     pass control back to the frontend when the `writeEssay` action is found in the model's response.
     </Step>
+    
     <Step>
         ### Give it a try!
         Try asking your agent to write an essay about the benefits of AI. You'll see that it will generate an essay,

@@ -51,23 +51,37 @@ as this guide uses it as a starting point.
 Add a new tool definition:
 
 ```python
-
-# llamaindex code goes here
-
+def get_weather(location: str) -> str:
+    """Get the weather for a given location."""
+    return f"The weather in {location} is sunny and 70 degrees."
 ```
 
-Then, pass the tool to the agent:
+Then, pass the tool to the agent and start the server:
 
 ```python
+from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
+from llama_index.llms.openai import OpenAI
+from fastapi import FastAPI
 
-# llamaindex code goes here
+app = FastAPI()
 
+router = get_ag_ui_workflow_router(
+    llm=OpenAI(model="gpt-4.1"),
+    # These are the tools that only have a render function in the frontend
+    backend_tools=[get_weather],
+)
+
+app.include_router(router)
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 ```
     
 </Step>
 <Step>
 ### Render the tool call in your frontend
-At this point, your agent will be able to call the `weatherInfo` tool. Now 
+At this point, your agent will be able to call the `get_weather` tool. Now 
 we just need to add a `useCopilotAction` hook to render the tool call in
 the UI.
 
@@ -84,14 +98,13 @@ const YourMainContent = () => {
   // ...
   // [!code highlight:13]
   useCopilotAction({
-    name: "weatherInfo",
+    name: "get_weather",
     available: "disabled", // Don't allow the agent or UI to call this tool as its only for rendering
-    render: ({ status, args }) => {
+    render: ({status, args}) => {
       return (
         <p className="text-gray-500 mt-2">
           {status !== "complete" && "Calling weather API..."}
-          {status === "complete" &&
-            `Called the weather API for ${args.location}.`}
+          {status === "complete" && `Called the weather API for ${args.location}.`}
         </p>
       );
     },
@@ -112,4 +125,4 @@ render the tool call and display the arguments that were passed to the tool.
 
 ### Setup the LlamaIndex Agent
 On the agent side, we are already done! LlamaIndex natively supports the AG-UI protocol and will automatically
-pass control back to the frontend when the `writeEssay` action is found in the model's response. 
+pass control back to the frontend when the `get_weather` action is found in the model's response. 
