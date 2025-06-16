@@ -1,20 +1,24 @@
 {
   "title": "Guides",
   "pages": [
+    "---Getting Started---",
+    "bring-your-own-llm",
+    "self-hosting",
+    "---UI & Customization---",
     "custom-look-and-feel",
-    "connect-your-data",
-    "generative-ui",
+    "copilot-textarea",
+    "copilot-suggestions",
+    "custom-ai-assistant-behavior",
+    "---Actions & Integration---",
     "frontend-actions",
     "backend-actions",
-    "model-context-protocol",
-    "custom-ai-assistant-behavior",
     "frontend-backend-action-pairing",
+    "connect-your-data",
     "authenticated-actions",
+    "---Advanced Features---",
+    "generative-ui",
+    "model-context-protocol",
     "guardrails",
-    "copilot-suggestions",
-    "bring-your-own-llm",
-    "copilot-textarea",
-    "self-hosting",
     "messages-localstorage"
   ]
 }
