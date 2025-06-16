@@ -68,6 +68,15 @@ export default function Layout({ children }: { children: ReactNode }) {
                       selectedStyle: "ring-purple-500/70 ring-2 rounded-sm",
                     },
                     {
+                      title: "Mastra",
+                      description: "Documentation for CoAgents with Mastra",
+                      url: "/mastra",
+                      icon: <MastraIcon className="w-4 h-4 text-bold" />,
+                      bgGradient:
+                        "bg-gradient-to-b from-black to-zinc-800 text-white",
+                      selectedStyle: "ring-zinc-800 dark:ring-white ring-2 rounded-sm",
+                    },
+                    {
                       title: "CrewAI Flows",
                       description:
                         "Documentation for CoAgents with CrewAI Flows",
@@ -86,16 +95,6 @@ export default function Layout({ children }: { children: ReactNode }) {
                       bgGradient:
                         "bg-gradient-to-b from-[#FA694C] to-[#FE8A71] text-white",
                       selectedStyle: "ring-[#FA694C]/70 ring-2 rounded-sm",
-                    },
-                    {
-                      title: "Mastra",
-                      description: "Documentation for CoAgents with Mastra",
-                      url: "/mastra",
-                      icon: <MastraIcon className="w-4 h-4 text-bold" />,
-                      bgGradient:
-                        "bg-gradient-to-b from-black to-zinc-800 text-white",
-                      selectedStyle:
-                        "ring-zinc-800 dark:ring-white ring-2 rounded-sm",
                     },
                     {
                       title: "AG2",
