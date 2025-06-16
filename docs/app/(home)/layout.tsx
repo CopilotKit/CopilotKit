@@ -35,15 +35,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                     "bg-gradient-to-b from-blue-700 to-blue-400 text-blue-100",
                   selectedStyle: "ring-blue-500/70 ring-2 rounded-sm",
                 },
-                {
-                  title: "Quickstart",
-                  description: "Get started with CopilotKit quickly",
-                  url: "/quickstart",
-                  icon: <RocketIcon className="w-4 h-4" />,
-                  bgGradient:
-                    "bg-gradient-to-b from-green-700 to-green-400 text-green-100",
-                  selectedStyle: "ring-green-500/70 ring-2 rounded-sm",
-                },
+
                 {
                   title: "API Reference",
                   description: "API Reference",
@@ -54,6 +46,15 @@ export default function Layout({ children }: { children: ReactNode }) {
                   selectedStyle: "ring-teal-500/70 ring-2 rounded-sm",
                 },
                 { type: 'separator' },
+                {
+                  title: "Connect to an LLM",
+                  description: "Get started with CopilotKit quickly",
+                  url: "/quickstart",
+                  icon: <RocketIcon className="w-4 h-4" />,
+                  bgGradient:
+                    "bg-gradient-to-b from-green-700 to-green-400 text-green-100",
+                  selectedStyle: "ring-green-500/70 ring-2 rounded-sm",
+                },
                 {
                   title: "Use an Agent Framework",
                   options: [
