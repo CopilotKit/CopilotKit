@@ -14,11 +14,34 @@ import {
   type HTMLAttributes,
   type ReactNode,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import { PiGraph } from "react-icons/pi";
 import { BoxesIcon } from "lucide-react";
+
+// localStorage utilities for managing user's connection type preference
+const STORAGE_KEY = "copilotkit-nav-preference";
+
+function getStoredNavPreference(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function setStoredNavPreference(url: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_KEY, url);
+  } catch {
+    // Ignore localStorage errors
+  }
+}
 
 export function isActive(
   url: string,
@@ -85,18 +108,24 @@ export function SubdocsMenu({
 } & HTMLAttributes<HTMLButtonElement>): React.ReactElement {
   const { closeOnRedirect } = useSidebar();
   const pathname = usePathname();
+  
+  // State for tracking user's explicit navigation preference
+  const [storedPreference, setStoredPreference] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Load stored preference on mount
+  useEffect(() => {
+    const preference = getStoredNavPreference();
+    setStoredPreference(preference);
+    setIsInitialized(true);
+  }, []);
+
   const selected: Option | undefined = useMemo(() => {
-    // First, check if we're on a top-level page that should reset dropdown selections
-    const topLevelPages = ["/", "/reference", "/quickstart"];
-    const isOnTopLevelPage = topLevelPages.some(page => 
-      page === "/" ? pathname === "/" : pathname.startsWith(page)
-    );
+    // Don't calculate selection until we've loaded the stored preference
+    if (!isInitialized) return undefined;
 
-    // Get all non-root options (excluding dropdown options for now)
-    let nonRootOptions = options.filter(
-      (item) => isOption(item) && item.url !== "/"
-    ) as Option[];
-
+    // Get all available options for easier searching
+    const allOptions = options.filter(isOption) as Option[];
     const dropDowns = options.filter((item) => isOptionDropdown(item)) as OptionDropdown[];
     let dropdownOptions: Option[] = [];
 
@@ -105,37 +134,49 @@ export function SubdocsMenu({
       dropdownOptions = dropDown.options;
     }
 
+    // PRIORITY 1: Check if we have a stored preference and it's still valid
+    if (storedPreference) {
+      // Check if stored preference matches any main option
+      const storedOption = allOptions.find(option => option.url === storedPreference);
+      if (storedOption) {
+        return storedOption;
+      }
+      
+      // Check if stored preference matches any dropdown option
+      const storedDropdownOption = dropdownOptions.find(option => option.url === storedPreference);
+      if (storedDropdownOption) {
+        return storedDropdownOption;
+      }
+    }
+
+    // PRIORITY 2: If no valid stored preference, fall back to URL-based logic
+    
     // Check if we're on a dropdown option page (agent framework page)
     const activeDropdownOption = dropdownOptions.find(
       (item) => isActive(item.url, pathname, true)
     );
-
-    // If we're on a top-level page, only return that page (not dropdown selections)
-    if (isOnTopLevelPage) {
-      return (options.filter(isOption) as Option[]).find(
-        (item) => isActive(item.url, pathname, true, true)
-      );
-    }
-
-    // If we're on a dropdown option page, return that
     if (activeDropdownOption) {
       return activeDropdownOption;
     }
 
-    // Check other non-root options
-    const activeNonRootOption = nonRootOptions.find(
-      (item) => isActive(item.url, pathname, true)
+    // Check main options (including root)
+    const activeMainOption = allOptions.find(
+      (item) => isActive(item.url, pathname, true, item.url === "/")
     );
-
-    if (activeNonRootOption) {
-      return activeNonRootOption;
+    if (activeMainOption) {
+      return activeMainOption;
     }
 
-    // If no non-root options are active, try the root options ("/*")
-    return (options.filter(isOption) as Option[]).find(
-      (item) => isActive(item.url, pathname, true, true)
-    );
-  }, [options, pathname]);
+    // Default fallback
+    return undefined;
+  }, [options, pathname, storedPreference, isInitialized]);
+
+  // Handle explicit upper nav clicks to store preference
+  const handleExplicitNavClick = useCallback((url: string) => {
+    setStoredNavPreference(url);
+    setStoredPreference(url);
+    closeOnRedirect.current = false;
+  }, []);
 
   const onClick = useCallback(() => {
     closeOnRedirect.current = false;
@@ -159,6 +200,7 @@ export function SubdocsMenu({
                 item={item}
                 selected={selected}
                 onClick={onClick}
+                onExplicitClick={handleExplicitNavClick}
               />
             );
           }
@@ -171,17 +213,22 @@ function SubdocsMenuItem({
   item,
   selected,
   onClick,
+  onExplicitClick,
 }: {
   item: Option | OptionDropdown;
   selected?: Option;
   onClick?: () => void;
+  onExplicitClick?: (url: string) => void;
 }) {
   if (isOption(item)) {
     return (
       <Link
         key={item.url}
         href={item.url}
-        onClick={onClick}
+        onClick={() => {
+          onClick?.();
+          onExplicitClick?.(item.url);
+        }}
         {...item.props}
         className={cn(
           "p-2 flex flex-row gap-3 items-center cursor-pointer group opacity-60 hover:opacity-100",
@@ -207,6 +254,7 @@ function SubdocsMenuItem({
         item={item}
         selected={selected}
         onClick={onClick}
+        onExplicitClick={onExplicitClick}
       />
     );
   }
@@ -263,10 +311,12 @@ function SubdocsMenuItemDropdown({
   item,
   selected,
   onClick,
+  onExplicitClick,
 }: {
   item: OptionDropdown;
   selected?: Option;
   onClick?: () => void;
+  onExplicitClick?: (url: string) => void;
 }) {
   const router = useRouter();
   const selectRef = useRef(null);
@@ -291,6 +341,7 @@ function SubdocsMenuItemDropdown({
         onValueChange={(url) => {
           router.push(url);
           onClick?.();
+          onExplicitClick?.(url);
           if (selectRef.current) {
             setTimeout(() => {
               (selectRef.current as any).blur();
