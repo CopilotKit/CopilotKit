@@ -149,96 +149,129 @@ Before you begin, you'll need the following:
                 ### Install CopilotKit packages
 
                 ```package-install
-                @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime
+                @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/mastra
                 ```
             </Step>
             <Step>
                 ### Setup Copilot Runtime
 
-                CopilotKit requires a Copilot Runtime endpoint to safely communicate with your agent. With Mastra,
-                you can use the `registerCopilotKit` function to register a Copilot Runtime endpoint to be served
-                directly alongside your agent.
+                CopilotKit requires a Copilot Runtime endpoint to safely communicate with your agent. This can be served
+                anywhere that Node.js can run, but for this example we'll just use Next.js.
+
+                ```ts title="api/copilotkit/route.ts"
+                import {
+                  CopilotRuntime,
+                  ExperimentalEmptyAdapter,
+                  copilotRuntimeNextJSAppRouterEndpoint,
+                } from "@copilotkit/runtime";
+                // [!code highlight:3]
+                import { MastraAgent } from "@ag-ui/mastra"
+                import { MastraClient } from "@mastra/client-js";
+                import { NextRequest } from "next/server";
+
+                // 1. Base address for the Mastra server
+                const MASTRA_URL = process.env.MASTRA_URL || "http://localhost:4111";
+                
+                // 2. You can use any service adapter here for multi-agent support. We use
+                //    the empty adapter since we're only using one agent.
+                const serviceAdapter = new ExperimentalEmptyAdapter();
+
+                // [!code highlight:8]
+                // 3. Create the CopilotRuntime instance and utilize the Mastra AG-UI
+                //    integration to get the remote agents.
+                const runtime = new CopilotRuntime({
+                  agents: await MastraAgent.getRemoteAgents({
+                    mastraClient: new MastraClient({ baseUrl: MASTRA_URL }),
+                  }),
+                });
+
+                // 4. Build a Next.js API route that handles the CopilotKit runtime requests.
+                export const POST = async (req: NextRequest) => {
+                  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+                    runtime, // [!code highlight]
+                    serviceAdapter,
+                    endpoint: "/api/copilotkit",
+                  });
+                
+                  return handleRequest(req);
+                };
+                ```
+            </Step>
+            <Step>
+                ### Configure Mastra to accept requests from CopilotKit
+
+                If you're running CopilotKit on a different domain than your Mastra server, you'll need to configure Mastra to accept CORS requests.
 
                 ```ts title="mastra/index.ts"
                 import { Mastra } from "@mastra/core/mastra";
-                import { LibSQLStore } from "@mastra/libsql";
-                import { registerCopilotKit } from "@mastra/agui";
-                import { createLogger, LogLevel } from "@mastra/core/logger";
 
-                // Example agent
-                import { weatherAgent } from "./agents";
-                
+                const ENV = process.env.NODE_ENV || "development";
+
                 export const mastra = new Mastra({
-                  agents: { weatherAgent },
-                  storage: new LibSQLStore({ url: ":memory:" }),
-                  logger: createLogger({ level: "info" }),
+                  // ...
                   server: {
-                    // disable cors for getting started
-                    cors: {
+                    // [!code highlight:7]
+                    // Disable CORS for development
+                    cors: ENV === "development" ? {
                       origin: "*",
                       allowMethods: ["*"],
                       allowHeaders: ["*"],
-                    },
-                    apiRoutes: [
-                      // [!code highlight:5]
-                      registerCopilotKit<WeatherRuntimeContext>({
-                        path: "/copilotkit",
-                        resourceId: "weatherAgent",
-                      }),
-                    ],
+                    } : undefined,
                   },
                 });
                 ```
-                <Callout type="info" title="Want some more control?">
+
+                <Callout type="info" title="Want some other runtime hosting options?">
                   Checkout the [Mastra integration guide](https://mastra.ai/en/docs/frameworks/copilotkit) for more advanced configuration options.
                 </Callout>
             </Step>
             <Step>
                 ### Configure CopilotKit Provider
 
-                Wrap your application with the CopilotKit provider:
+                Next, wrap your application with the CopilotKit provider so that CopilotKit can take control across your application
+                via the Mastra agent.
 
                 ```tsx title="app/layout.tsx"
-                import { CopilotKit } from "@copilotkit/react-core";
+                import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
                 import "@copilotkit/react-ui/styles.css";
 
-                const MASTRA_URL = process.env.MASTRA_URL || "http://localhost:4111";
+                // ...
 
                 export default function RootLayout({ children }: {children: React.ReactNode}) {
-                    return (
-                        <html lang="en">
-                            <body>
-                                <CopilotKit runtimeEndpoint={`${MASTRA_URL}/copilotkit`}>
-                                    {children}
-                                </CopilotKit>
-                            </body>
-                        </html>
-                    );
+                  return (
+                    <html lang="en">
+                      <body>
+                        /* [!code highlight:7] */
+                        <CopilotKit 
+                          runtimeUrl="/api/copilotkit" 
+                          agentName="your-mastra-agent-name"
+                        >
+                          {children}
+                        </CopilotKit>
+                      </body>
+                    </html>
+                  );
                 }
+
                 ```
             </Step>
             <Step>
-                ### Add the chat interface
+              ### Add the chat interface
 
-                Add the CopilotPopup component to your page:
+              Add the CopilotSidebar component to your page:
 
-                ```tsx title="app/page.tsx"
-                import { CopilotPopup } from "@copilotkit/react-ui";
+              ```tsx title="app/page.tsx"
+              import { CopilotSidebar } from "@copilotkit/react-ui"; // [!code highlight]
 
-                export default function Page() {
-                    return (
-                        <main>
-                            <h1>Your App</h1>
-                            <CopilotPopup
-                                labels={{
-                                    title: "AI Assistant",
-                                    initial: "How can I help you today?",
-                                }}
-                            />
-                        </main>
-                    );
-                }
-                ```
+              export default function Page() {
+                return (
+                  <main>
+                    <h1>Your App</h1>
+                    <CopilotSidebar /> // [!code highlight]
+                  </main>
+                );
+              }
+              ```
             </Step>
         </TailoredContentOption>
     </TailoredContent>
