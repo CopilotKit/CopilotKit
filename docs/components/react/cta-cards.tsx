@@ -3,9 +3,24 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { IconType } from "react-icons";
+import { BotIcon, WrenchIcon } from "lucide-react";
+import { ReactNode } from "react";
+
+// Icon resolver function for CTACards
+function getIconByKey(iconKey: string): React.ComponentType<any> {
+  switch (iconKey) {
+    case 'bot':
+      return BotIcon;
+    case 'wrench':
+      return WrenchIcon;
+    default:
+      return BotIcon;
+  }
+}
 
 interface CTACardProps {
-  icon: IconType;
+  icon?: IconType;
+  iconKey?: string;
   title: string;
   description: string;
   href: string;
@@ -17,7 +32,9 @@ interface CTACardsProps {
   columns?: 1 | 2 | 3 | 4;
 }
 
-export function CTACard({ icon: Icon, title, description, href, iconBgColor = "bg-indigo-500" }: CTACardProps) {
+export function CTACard({ icon, iconKey, title, description, href, iconBgColor = "bg-indigo-500" }: CTACardProps) {
+  const Icon = icon || (iconKey ? getIconByKey(iconKey) : BotIcon);
+  
   return (
     <Link href={href} className="no-underline">
       <Card className="transition-transform hover:scale-105 cursor-pointer shadow-xl shadow-indigo-500/20 h-full">
