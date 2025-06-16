@@ -3,7 +3,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { IconType } from "react-icons";
-import { BotIcon, WrenchIcon, Pause, Share2 } from "lucide-react";
+import { BotIcon, WrenchIcon, Pause, Share2, Bot, Wrench } from "lucide-react";
 import { ReactNode } from "react";
 
 // Icon resolver function for CTACards
@@ -11,8 +11,12 @@ function getIconByKey(iconKey: string): React.ComponentType<any> {
   switch (iconKey) {
     case 'bot':
       return BotIcon;
+    case 'boticon':
+      return Bot;
     case 'wrench':
       return WrenchIcon;
+    case 'wrenchicon':
+      return Wrench;
     case 'pause':
       return Pause;
     case 'share2':
