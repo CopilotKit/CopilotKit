@@ -55,16 +55,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                 },
                 { type: 'separator' },
                 {
-                  title: "Standard Runloop",
-                  description: "Documentation for building Copilots",
-                  url: "/standard",
-                  icon: <RocketIcon className="w-4 h-4" />,
-                  bgGradient:
-                    "bg-gradient-to-b from-indigo-700 to-indigo-400 text-indigo-100",
-                  selectedStyle: "ring-indigo-500/70 ring-2 rounded-sm",
-                },
-                {
-                  title: "CoAgent Runloops",
+                  title: "Use an Agent Framework",
                   options: [
                     {
                       title: "LangGraph",
