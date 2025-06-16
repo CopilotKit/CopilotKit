@@ -77,18 +77,43 @@ export function SubdocsMenu({
   const { closeOnRedirect } = useSidebar();
   const pathname = usePathname();
   const selected: Option | undefined = useMemo(() => {
-    // First, try all non-root options
+    // First, check if we're on a top-level page that should reset dropdown selections
+    const topLevelPages = ["/", "/reference", "/quickstart"];
+    const isOnTopLevelPage = topLevelPages.some(page => 
+      page === "/" ? pathname === "/" : pathname.startsWith(page)
+    );
+
+    // Get all non-root options (excluding dropdown options for now)
     let nonRootOptions = options.filter(
       (item) => isOption(item) && item.url !== "/"
     );
 
     const dropDowns = options.filter((item) => isOptionDropdown(item));
+    let dropdownOptions: Option[] = [];
 
     if (dropDowns.length > 0) {
       const dropDown = dropDowns[0];
-      nonRootOptions = nonRootOptions.concat(dropDown.options);
+      dropdownOptions = dropDown.options;
     }
 
+    // Check if we're on a dropdown option page (agent framework page)
+    const activeDropdownOption = dropdownOptions.find(
+      (item) => isActive(item.url, pathname, true)
+    );
+
+    // If we're on a top-level page, only return that page (not dropdown selections)
+    if (isOnTopLevelPage) {
+      return options.find(
+        (item) => isOption(item) && isActive(item.url, pathname, true, true)
+      ) as Option | undefined;
+    }
+
+    // If we're on a dropdown option page, return that
+    if (activeDropdownOption) {
+      return activeDropdownOption;
+    }
+
+    // Check other non-root options
     const activeNonRootOption = nonRootOptions.find(
       (item) => isOption(item) && isActive(item.url, pathname, true)
     );
@@ -228,16 +253,24 @@ function SubdocsMenuItemDropdown({
 }) {
   const router = useRouter();
   const selectRef = useRef(null);
+  const pathname = usePathname();
 
   const selectedOption = item.options.find(
     (option) => option.url === selected?.url
   );
 
-  const isSelected = selectedOption !== undefined;
+  // Check if we're on a page that should reset the dropdown
+  const topLevelPages = ["/", "/reference", "/quickstart"];
+  const shouldResetDropdown = topLevelPages.some(page => 
+    page === "/" ? pathname === "/" : pathname.startsWith(page)
+  );
+
+  const isSelected = selectedOption !== undefined && !shouldResetDropdown;
 
   return (
     <div className="w-full">
       <Select
+        key={shouldResetDropdown ? "reset" : "normal"}
         onValueChange={(url) => {
           router.push(url);
           onClick?.();
@@ -247,7 +280,7 @@ function SubdocsMenuItemDropdown({
             }, 10);
           }
         }}
-        value={selectedOption?.url}
+        value={shouldResetDropdown ? undefined : selectedOption?.url}
       >
         <SelectTrigger
           className={cn(
