@@ -15,7 +15,7 @@ class CopilotKitPredictStateEvent(BaseEvent):
 
 # ==================== PREDICT STATE HANDLER ====================
 
-def copilotkit_predict_state(
+def emit_copilotkit_predict_state(
     predict_config: List[Dict[str, str]],
     context: str = "predict_state"
 ):

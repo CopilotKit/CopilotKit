@@ -22,6 +22,13 @@ from .copilotkit_integration import (
     CopilotKitStateUpdateEvent,
     emit_copilotkit_state_update_event
 )
+from .copilotkit_stream_completion import (
+    copilotkit_stream_completion
+)
+from .emit_copilotkit_predict_state import (
+    emit_copilotkit_predict_state
+)
+
 __all__ = [
     "CrewAIAgent",
     "CopilotKitProperties",
@@ -39,5 +46,7 @@ __all__ = [
     "create_tool_proxy",
     "FlowInputState",
     "CopilotKitStateUpdateEvent",
-    "emit_copilotkit_state_update_event"
+    "emit_copilotkit_state_update_event",
+    "emit_copilotkit_predict_state",
+    "copilotkit_stream_completion"
 ]
