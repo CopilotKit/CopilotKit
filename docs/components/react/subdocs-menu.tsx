@@ -54,25 +54,34 @@ export interface Separator {
   type: 'separator';
 }
 
+export interface Label {
+  type: 'label';
+  text: string;
+}
+
 function isOptionDropdown(
-  item: Option | OptionDropdown
+  item: Option | OptionDropdown | Separator | Label
 ): item is OptionDropdown {
   return "options" in item;
 }
 
-function isOption(item: Option | OptionDropdown): item is Option {
-  return !isOptionDropdown(item);
+function isOption(item: Option | OptionDropdown | Separator | Label): item is Option {
+  return !isOptionDropdown(item) && !isSeparator(item) && !isLabel(item);
 }
 
-function isSeparator(item: Option | OptionDropdown | Separator): item is Separator {
+function isSeparator(item: Option | OptionDropdown | Separator | Label): item is Separator {
   return (item as Separator).type === 'separator';
+}
+
+function isLabel(item: Option | OptionDropdown | Separator | Label): item is Label {
+  return (item as Label).type === 'label';
 }
 
 export function SubdocsMenu({
   options,
   ...props
 }: {
-  options: (Option | OptionDropdown | Separator)[];
+  options: (Option | OptionDropdown | Separator | Label)[];
 } & HTMLAttributes<HTMLButtonElement>): React.ReactElement {
   const { closeOnRedirect } = useSidebar();
   const pathname = usePathname();
@@ -86,9 +95,9 @@ export function SubdocsMenu({
     // Get all non-root options (excluding dropdown options for now)
     let nonRootOptions = options.filter(
       (item) => isOption(item) && item.url !== "/"
-    );
+    ) as Option[];
 
-    const dropDowns = options.filter((item) => isOptionDropdown(item));
+    const dropDowns = options.filter((item) => isOptionDropdown(item)) as OptionDropdown[];
     let dropdownOptions: Option[] = [];
 
     if (dropDowns.length > 0) {
@@ -103,9 +112,9 @@ export function SubdocsMenu({
 
     // If we're on a top-level page, only return that page (not dropdown selections)
     if (isOnTopLevelPage) {
-      return options.find(
-        (item) => isOption(item) && isActive(item.url, pathname, true, true)
-      ) as Option | undefined;
+      return (options.filter(isOption) as Option[]).find(
+        (item) => isActive(item.url, pathname, true, true)
+      );
     }
 
     // If we're on a dropdown option page, return that
@@ -115,39 +124,47 @@ export function SubdocsMenu({
 
     // Check other non-root options
     const activeNonRootOption = nonRootOptions.find(
-      (item) => isOption(item) && isActive(item.url, pathname, true)
+      (item) => isActive(item.url, pathname, true)
     );
 
     if (activeNonRootOption) {
-      return activeNonRootOption as Option;
+      return activeNonRootOption;
     }
 
     // If no non-root options are active, try the root options ("/*")
-    return options.find(
-      (item) => isOption(item) && isActive(item.url, pathname, true, true)
-    ) as Option | undefined;
+    return (options.filter(isOption) as Option[]).find(
+      (item) => isActive(item.url, pathname, true, true)
+    );
   }, [options, pathname]);
 
   const onClick = useCallback(() => {
     closeOnRedirect.current = false;
   }, [closeOnRedirect]);
 
-  return (
-    <div className="flex flex-col gap-2 border-b p-4">
-      {options.map((item, index) => (
-        isSeparator(item) ? (
-          <hr key={`separator-${index}`} className="my-2 border-t border-gray-700" />
-        ) : (
-          <SubdocsMenuItem
-            key={isOption(item) ? item.url : "dropdown"}
-            item={item}
-            selected={selected}
-            onClick={onClick}
-          />
-        )
-      ))}
-    </div>
-  );
+      return (
+      <div className="flex flex-col gap-2 border-b p-4">
+        {options.map((item, index) => {
+          if (isSeparator(item)) {
+            return <hr key={`separator-${index}`} className="my-2 border-t border-gray-700" />;
+          } else if (isLabel(item)) {
+            return (
+              <div key={`label-${index}`} className="px-2 py-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                {item.text}
+              </div>
+            );
+          } else {
+            return (
+              <SubdocsMenuItem
+                key={isOption(item) ? item.url : "dropdown"}
+                item={item}
+                selected={selected}
+                onClick={onClick}
+              />
+            );
+          }
+        })}
+      </div>
+    );
 }
 
 function SubdocsMenuItem({

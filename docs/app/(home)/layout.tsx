@@ -46,8 +46,9 @@ export default function Layout({ children }: { children: ReactNode }) {
                   selectedStyle: "ring-teal-500/70 ring-2 rounded-sm",
                 },
                 { type: 'separator' },
+                { type: 'label', text: 'Choose Agent Connection' },
                 {
-                  title: "Connect to an LLM",
+                  title: "Direct to LLM",
                   description: "Get started with CopilotKit quickly",
                   url: "/quickstart",
                   icon: <RocketIcon className="w-4 h-4" style={{ fontSize: '16px', width: '16px', height: '16px' }} />,
@@ -56,7 +57,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                   selectedStyle: "ring-green-500/70 ring-2 rounded-sm",
                 },
                 {
-                  title: "Use an Agent Framework",
+                  title: "Use Agent Framework",
                   options: [
                     {
                       title: "LangGraph",
