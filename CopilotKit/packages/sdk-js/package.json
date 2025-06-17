@@ -60,11 +60,11 @@
   },
   "dependencies": {
     "@copilotkit/shared": "workspace:*",
-    "@langchain/community": "^0.0.53",
-    "@langchain/core": "^0.3.13",
-    "@langchain/langgraph": "^0.2.44",
-    "langchain": "^0.3.3",
-    "zod": "^3.23.3"
+    "@langchain/community": "0.0.53",
+    "@langchain/core": "0.3.13",
+    "@langchain/langgraph": "0.2.44",
+    "langchain": "0.3.3",
+    "zod": "3.23.3"
   },
   "keywords": [
     "copilotkit",
