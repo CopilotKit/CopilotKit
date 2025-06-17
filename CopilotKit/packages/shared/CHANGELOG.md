@@ -1,5 +1,13 @@
 # @copilotkit/shared
 
+## 1.9.1
+
+### Patch Changes
+
+- deaeca0: - feat: Add public key
+
+  Signed-off-by: Luis Valdes <luis@copilotkit.ai>
+
 ## 1.9.1-next.0
 
 ### Patch Changes
