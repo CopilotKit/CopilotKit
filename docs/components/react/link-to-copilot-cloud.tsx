@@ -57,7 +57,7 @@ export function LinkToCopilotCloud({
     >
       {asButton ? <CloudIcon className="w-5 h-5 mr-2" /> : null}
       {
-        children ? children : userId ? "Go to Copilot Platform" : "Sign up for Copilot Platform"
+        children ? children : "CopilotKit Platform"
       }
     </Link>
   );
