@@ -27,29 +27,39 @@ CopilotKit connects your app's **logic, state, and user context** to the **AI ag
 
 By decoupling your application from any specific model or agent architecture, CopilotKit gives you the freedom to evolve your AI stack without rethinking your user experience.
 
-<h2 className="text-2xl font-bold mt-12 mb-4">Get Started Now</h2>
-<div className="flex flex-row gap-8 mb-12">
-  <div className="w-1/3 bg-muted py-3 px-6 rounded-lg text-center">
-    <h3 className="text-lg font-semibold mb-2">CLI</h3>
-Bootstrap your NextJS application 
-with CopilotKit
-
+<h2 className="text-2xl font-bold mt-12 mb-6">Get Started Now</h2>
+<div className="grid grid-cols-1 md:grid-cols-10 gap-6 mb-12">
+  <div className="md:col-span-3 bg-muted/50 border border-border px-6 pt-1 pb-4 rounded-xl text-center hover:bg-muted/70 transition-colors min-h-[180px] flex flex-col justify-between">
+    <div>
+      <h3 className="text-xl font-bold mb-3 text-foreground">Platform</h3>
+      <p className="text-sm text-muted-foreground mb-4">Start the easiest way<br /> with our hosted service</p>
+    </div>
+    <div className="h-12 flex items-center justify-center">
+      <LinkToCopilotCloud asButton={true} />
+    </div>
+  </div>
+  
+  <div className="md:col-span-4 bg-muted/50 border border-border px-6 pt-1 pb-4 rounded-xl text-center hover:bg-muted/70 transition-colors min-h-[180px] flex flex-col justify-between">
+    <div>
+      <h3 className="text-xl font-bold mb-3 text-foreground">CLI</h3>
+      <p className="text-sm text-muted-foreground mb-4">Bootstrap your NextJS<br />application with CopilotKit</p>
+    </div>
+    <div className="h-12 flex items-center justify-center">
+      
 ```bash
 npx copilotkit@latest init
 ```
-
-
+    </div>
   </div>
-  <div className="w-1/3 bg-muted py-3 px-6 rounded-lg text-center">
-    <h3 className="text-lg font-semibold mb-2">Platform</h3>
-    Start the easiest way with our hosted service
-    <LinkToCopilotCloud asButton={true} />
-  </div>
-  <div className="w-1/3 bg-muted py-3 px-6 rounded-lg text-center">
-    <h3 className="text-lg font-semibold mb-2">Quickstart</h3>
-    Start with an LLM or Agent Framework 
-
-    <QuickstartDropdown />
+  
+  <div className="md:col-span-3 bg-muted/50 border border-border px-6 pt-1 pb-4 rounded-xl text-center hover:bg-muted/70 transition-colors min-h-[180px] flex flex-col justify-between">
+    <div>
+      <h3 className="text-xl font-bold mb-3 text-foreground">Quickstart</h3>
+      <p className="text-sm text-muted-foreground mb-4">Start with an LLM<br /> or Agent Framework</p>
+    </div>
+    <div className="h-12 flex items-center justify-center">
+      <QuickstartDropdown />
+    </div>
   </div>
 </div>
 
