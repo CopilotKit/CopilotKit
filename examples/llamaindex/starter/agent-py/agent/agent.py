@@ -20,6 +20,9 @@ async def add_proverb(
     """Add a proverb to the list of proverbs."""
     state = await ctx.get("state", default={})
 
+    if "proverbs" not in state:
+        state["proverbs"] = []
+        
     state["proverbs"].append(proverb)
     ctx.write_event_to_stream(StateSnapshotWorkflowEvent(snapshot=state))
 
