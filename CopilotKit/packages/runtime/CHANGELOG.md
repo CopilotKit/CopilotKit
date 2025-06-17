@@ -1,5 +1,16 @@
 # @copilotkit/runtime
 
+## 1.9.1-next.0
+
+### Patch Changes
+
+- deaeca0: - feat: Add public key
+
+  Signed-off-by: Luis Valdes <luis@copilotkit.ai>
+
+- Updated dependencies [deaeca0]
+  - @copilotkit/shared@1.9.1-next.0
+
 ## 1.9.0
 
 ### Minor Changes
