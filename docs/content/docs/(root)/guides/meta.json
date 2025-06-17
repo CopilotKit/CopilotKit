@@ -2,6 +2,7 @@
   "title": "Guides",
   "pages": [
     "---Getting Started---",
+    "quickstart",
     "bring-your-own-llm",
     "self-hosting",
     "---UI & Customization---",

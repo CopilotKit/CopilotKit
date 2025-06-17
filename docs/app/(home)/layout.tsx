@@ -35,7 +35,6 @@ export default function Layout({ children }: { children: ReactNode }) {
                     "bg-gradient-to-b from-blue-700 to-blue-400 text-blue-100",
                   selectedStyle: "ring-blue-500/70 ring-2 rounded-sm",
                 },
-
                 {
                   title: "API Reference",
                   description: "API Reference",
@@ -48,17 +47,17 @@ export default function Layout({ children }: { children: ReactNode }) {
                 { type: 'separator' },
                 { type: 'label', text: 'Choose Agent Connection' },
                 {
-                  title: "Direct to LLM",
-                  description: "Get started with CopilotKit quickly",
-                  url: "/quickstart",
-                  icon: <RocketIcon className="w-4 h-4" style={{ fontSize: '16px', width: '16px', height: '16px' }} />,
-                  bgGradient:
-                    "bg-gradient-to-b from-green-700 to-green-400 text-green-100",
-                  selectedStyle: "ring-green-500/70 ring-2 rounded-sm",
-                },
-                {
-                  title: "Use Agent Framework",
+                  title: "LLM or Agent Framework",
                   options: [
+                    {
+                      title: "Direct to LLM",
+                      description: "Get started with CopilotKit quickly",
+                      url: "/guides/quickstart",
+                      icon: <RocketIcon className="w-4 h-4" style={{ fontSize: '16px', width: '16px', height: '16px' }} />,
+                      bgGradient:
+                        "bg-gradient-to-b from-green-700 to-green-400 text-green-100",
+                      selectedStyle: "ring-green-500/70 ring-2 rounded-sm",
+                    },
                     {
                       title: "LangGraph",
                       description: "Documentation for CoAgents with LangGraph",
@@ -98,7 +97,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                       selectedStyle: "ring-[#FA694C]/70 ring-2 rounded-sm",
                     },
                     {
-                      title: "AG2",
+                      title: "AutoGen2",
                       description: "Documentation for CoAgents with AG2",
                       url: "/ag2",
                       icon: <AG2Icon className="w-4 h-4 text-bold" />,
