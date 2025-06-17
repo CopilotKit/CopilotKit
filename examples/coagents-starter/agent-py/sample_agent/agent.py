@@ -3,6 +3,7 @@ This is the main entry point for the agent.
 It defines the workflow graph, state, tools, nodes and edges.
 """
 
+import os
 from typing_extensions import Literal
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, AIMessage
@@ -50,10 +51,10 @@ async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Litera
     - Getting a response from the model
     - Handling tool calls
 
-    For more about the ReAct design pattern, see: 
+    For more about the ReAct design pattern, see:
     https://www.perplexity.ai/search/react-agents-NcXLQhreS0WDzpVaS4m9Cg
     """
-    
+
     # 1. Define the model
     model = ChatOpenAI(model="gpt-4o")
 
@@ -110,5 +111,18 @@ workflow.add_node("tool_node", ToolNode(tools=tools))
 workflow.add_edge("tool_node", "chat_node")
 workflow.set_entry_point("chat_node")
 
-# Compile the workflow graph
-graph = workflow.compile()
+# Conditionally use a checkpointer based on the environment
+# Check for multiple indicators that we're running in LangGraph dev/API mode
+is_langgraph_api = (
+    os.environ.get("LANGGRAPH_API", "false").lower() == "true" or
+    os.environ.get("LANGGRAPH_API_DIR") is not None
+)
+
+if is_langgraph_api:
+    # When running in LangGraph API/dev, don't use a custom checkpointer
+    graph = workflow.compile()
+else:
+    # For CopilotKit and other contexts, use MemorySaver
+    from langgraph.checkpoint.memory import MemorySaver
+    memory = MemorySaver()
+    graph = workflow.compile(checkpointer=memory)
