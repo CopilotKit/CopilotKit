@@ -60,8 +60,14 @@ import {
   limitMessagesToTokenCount,
 } from "./utils";
 import { randomUUID } from "@copilotkit/shared";
+import { errorCategorizerRegistry } from "../../lib/types/error-types";
+import { OpenAIErrorCategorizer } from "./openai-error-categorizer";
 
 const DEFAULT_MODEL = "gpt-4o";
+
+// Register the OpenAI error categorizer globally when the module loads
+const openAIErrorCategorizer = new OpenAIErrorCategorizer();
+errorCategorizerRegistry.register(openAIErrorCategorizer);
 
 export interface OpenAIAdapterParams {
   /**
@@ -245,6 +251,7 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
           }
         } catch (error) {
           console.error("[OpenAI] Error processing stream:", error);
+          // Let the error bubble up to be handled by the runtime error handler
           throw error;
         }
 
@@ -252,6 +259,8 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
       });
     } catch (error) {
       console.error("[OpenAI] Error during API call:", error);
+      // Let the error bubble up - the runtime will use our registered categorizer
+      // to properly categorize OpenAI-specific errors
       throw error;
     }
 

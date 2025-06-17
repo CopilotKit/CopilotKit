@@ -33,6 +33,22 @@ export class MessageStreamInterruptedResponse extends FailedResponseStatus {
   }
 }
 
+export class StructuredErrorResponse extends FailedResponseStatus {
+  reason = FailedResponseStatusReason.STRUCTURED_ERROR;
+  declare details: {
+    categorizedError: any; // Full categorized error object
+    description: string; // Human-readable description
+  };
+
+  constructor({ categorizedError, description }: { categorizedError: any; description: string }) {
+    super();
+    this.details = {
+      categorizedError,
+      description,
+    };
+  }
+}
+
 export class UnknownErrorResponse extends FailedResponseStatus {
   reason = FailedResponseStatusReason.UNKNOWN_ERROR;
   declare details: {

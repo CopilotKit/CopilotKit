@@ -29,8 +29,14 @@ import {
 } from "./utils";
 
 import { randomId, randomUUID } from "@copilotkit/shared";
+import { errorCategorizerRegistry } from "../../lib/types/error-types";
+import { AnthropicErrorCategorizer } from "./anthropic-error-categorizer";
 
 const DEFAULT_MODEL = "claude-3-5-sonnet-latest";
+
+// Register the Anthropic error categorizer globally when the module loads
+const anthropicErrorCategorizer = new AnthropicErrorCategorizer();
+errorCategorizerRegistry.register(anthropicErrorCategorizer);
 
 export interface AnthropicAdapterParams {
   /**
