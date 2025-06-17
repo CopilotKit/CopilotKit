@@ -241,7 +241,7 @@ export function convertActionToDynamicStructuredTool(actionInput: any) {
   return new DynamicStructuredTool({
     name: actionInput.name,
     description: actionInput.description,
-    schema: convertJsonSchemaToZodSchema(actionInput.parameters, true),
+    schema: convertJsonSchemaToZodSchema(actionInput.parameters, true) as any,
     func: async () => {
       return "";
     },
