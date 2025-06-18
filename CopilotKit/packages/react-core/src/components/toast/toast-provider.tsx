@@ -39,8 +39,6 @@ export function ToastProvider({
   enabled: boolean;
   children: React.ReactNode;
 }) {
-  console.log("#### ToastProvider enabled ####", enabled);
-
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [bannerError, setBannerErrorState] = useState<CopilotKitError | null>(null);
 
@@ -50,7 +48,23 @@ export function ToastProvider({
 
   const addToast = useCallback(
     (toast: PartialBy<Toast, "id">) => {
-      if (!enabled) {
+      // Allow structured errors to bypass the enabled check
+      const isStructuredError =
+        toast.type === "error" &&
+        React.isValidElement(toast.message) &&
+        (toast.message as any)?.props?.errors;
+
+      console.log(
+        "🐛 addToast - enabled:",
+        enabled,
+        "isStructuredError:",
+        isStructuredError,
+        "type:",
+        toast.type,
+      );
+
+      if (!enabled && !isStructuredError) {
+        console.log("🐛 ToastProvider disabled and not structured error, skipping toast");
         return;
       }
 
@@ -72,7 +86,26 @@ export function ToastProvider({
 
   const addGraphQLErrorsToast = useCallback(
     (errors: GraphQLError[]) => {
-      if (!enabled || errors.length === 0) {
+      if (errors.length === 0) {
+        return;
+      }
+
+      // Check if any error has explicit visibility (structured errors should always show)
+      const hasStructuredError = errors.some(
+        (error) => error.extensions?.visibility && error.extensions.visibility !== "silent",
+      );
+
+      console.log(
+        "🐛 addGraphQLErrorsToast - enabled:",
+        enabled,
+        "hasStructuredError:",
+        hasStructuredError,
+        "errors:",
+        errors.length,
+      );
+
+      if (!enabled && !hasStructuredError) {
+        console.log("🐛 ToastProvider disabled and no structured errors, skipping");
         return;
       }
 

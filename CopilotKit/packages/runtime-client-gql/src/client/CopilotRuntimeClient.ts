@@ -118,6 +118,19 @@ export class CopilotRuntimeClient {
       GenerateCopilotResponseMutationVariables
     >(generateCopilotResponseMutation, { data, properties }, { fetch: fetchFn });
 
+    // Add error handling for GraphQL errors that occur during mutation execution
+    result.subscribe(({ error }) => {
+      if (error && this.handleGQLErrors) {
+        console.log("🐛 generateCopilotResponse: GraphQL error detected", error);
+        console.log("🐛 generateCopilotResponse: GraphQL errors array", error.graphQLErrors);
+        console.log(
+          "🐛 generateCopilotResponse: Error extensions",
+          error.graphQLErrors?.[0]?.extensions,
+        );
+        this.handleGQLErrors(error);
+      }
+    });
+
     return result;
   }
 

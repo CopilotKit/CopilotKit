@@ -3,9 +3,21 @@ export function shouldShowDevConsole(showDevConsole: boolean | "auto"): boolean 
     return showDevConsole;
   }
 
-  // Auto mode: check if we're running on localhost
+  // Auto mode: check if we're running on localhost or in development
   const hostname = getHostname();
-  return ["localhost", "127.0.0.1", "0.0.0.0", "::1"].includes(hostname);
+  const isLocalhost = ["localhost", "127.0.0.1", "0.0.0.0", "::1"].includes(hostname);
+  const isDevelopment = process.env.NODE_ENV === "development";
+
+  const result = isLocalhost || isDevelopment;
+  console.log(
+    "🐛 shouldShowDevConsole - hostname:",
+    hostname,
+    "NODE_ENV:",
+    process.env.NODE_ENV,
+    "result:",
+    result,
+  );
+  return result;
 }
 
 function getHostname(): string {

@@ -119,10 +119,26 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
             }
           }
 
-          // Handle visibility-based routing
-          if (visibility === ErrorVisibility.DEV_ONLY && !isDev) {
-            console.warn("CopilotKit Development Error:", gqlError.message);
-            return null;
+          // Handle dev-only errors
+          if (visibility === ErrorVisibility.DEV_ONLY) {
+            console.log(
+              "🐛 copilot-messages: Dev-only error detected:",
+              gqlError.message,
+              "isDev:",
+              isDev,
+              "visibility:",
+              visibility,
+            );
+            if (isDev) {
+              console.log("🐛 copilot-messages: Showing dev-only error as toast", gqlError.message);
+              // Continue to show as toast
+            } else {
+              console.warn(
+                "CopilotKit Development Error (hidden in production):",
+                gqlError.message,
+              );
+              return null;
+            }
           }
 
           if (visibility === ErrorVisibility.SILENT) {
