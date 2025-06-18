@@ -18,7 +18,7 @@ interface UsageBannerProps {
 }
 
 const defaultIcons: Record<Severity, JSX.Element> = {
-  [Severity.Error]: (
+  [Severity.CRITICAL]: (
     <svg
       viewBox="0 0 24 24"
       width="18"
@@ -34,10 +34,42 @@ const defaultIcons: Record<Severity, JSX.Element> = {
       <line x1="9" y1="9" x2="15" y2="15" />
     </svg>
   ),
+  [Severity.WARNING]: (
+    <svg
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      fill="none"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  ),
+  [Severity.INFO]: (
+    <svg
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      fill="none"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="16" x2="12" y2="12" />
+      <line x1="12" y1="8" x2="12.01" y2="8" />
+    </svg>
+  ),
 };
 
 export function UsageBanner({
-  severity = Severity.Error,
+  severity = Severity.CRITICAL,
   message = "",
   icon,
   onClose,
@@ -69,8 +101,8 @@ export function UsageBanner({
   const cleanMessage = parseMessage(message);
   const Icon = icon || defaultIcons[severity];
 
-  const themeConfig = {
-    info: {
+  const themeConfigs = {
+    [Severity.INFO]: {
       bg: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)",
       border: "#93c5fd",
       text: "#1e40af",
@@ -78,7 +110,7 @@ export function UsageBanner({
       primaryBtn: "#3b82f6",
       primaryBtnHover: "#2563eb",
     },
-    warning: {
+    [Severity.WARNING]: {
       bg: "linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)",
       border: "#fbbf24",
       text: "#92400e",
@@ -86,7 +118,7 @@ export function UsageBanner({
       primaryBtn: "#f59e0b",
       primaryBtnHover: "#d97706",
     },
-    error: {
+    [Severity.CRITICAL]: {
       bg: "linear-gradient(135deg, #fef2f2 0%, #fecaca 100%)",
       border: "#f87171",
       text: "#991b1b",
@@ -94,7 +126,9 @@ export function UsageBanner({
       primaryBtn: "#ef4444",
       primaryBtnHover: "#dc2626",
     },
-  }[severity];
+  };
+
+  const themeConfig = themeConfigs[severity] || themeConfigs[Severity.CRITICAL];
 
   return (
     <div
@@ -342,7 +376,7 @@ export function renderCopilotKitUsage(error: CopilotKitError, onClose?: () => vo
 
   return (
     <UsageBanner
-      severity={error.severity || Severity.Error}
+      severity={error.severity || Severity.CRITICAL}
       message={error.message}
       onClose={onClose}
       actions={getErrorActions(error)}
