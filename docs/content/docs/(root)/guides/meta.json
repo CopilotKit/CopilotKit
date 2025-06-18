@@ -3,7 +3,6 @@
   "pages": [
     "---Getting Started---",
     "quickstart",
-    "bring-your-own-llm",
     "self-hosting",
     "---UI & Customization---",
     "custom-look-and-feel",
@@ -14,10 +13,11 @@
     "frontend-actions",
     "backend-actions",
     "frontend-backend-action-pairing",
+    "generative-ui",
     "connect-your-data",
     "authenticated-actions",
     "---Advanced Features---",
-    "generative-ui",
+    "bring-your-own-llm",
     "model-context-protocol",
     "guardrails",
     "messages-localstorage"
