@@ -92,6 +92,12 @@ export interface OpenAIAdapterParams {
    * @default false
    */
   keepSystemRole?: boolean;
+
+  /**
+   * Additional parameters to override or extend the OpenAI chat completions API call.
+   * These parameters will be spread into the API request and can override default values.
+   */
+  overrideOpenAIParam?: Record<string, any>;
 }
 
 export class OpenAIAdapter implements CopilotServiceAdapter {
@@ -100,6 +106,7 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
   private disableParallelToolCalls: boolean = false;
   private _openai: OpenAI;
   private keepSystemRole: boolean = false;
+  private overrideOpenAIParam?: Record<string, any>;
 
   public get openai(): OpenAI {
     return this._openai;
@@ -112,6 +119,7 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
     }
     this.disableParallelToolCalls = params?.disableParallelToolCalls || false;
     this.keepSystemRole = params?.keepSystemRole ?? false;
+    this.overrideOpenAIParam = params?.overrideOpenAIParam;
   }
 
   async process(
@@ -179,6 +187,8 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
         ...(toolChoice && { tool_choice: toolChoice }),
         ...(this.disableParallelToolCalls && { parallel_tool_calls: false }),
         ...(forwardedParameters?.temperature && { temperature: forwardedParameters.temperature }),
+        ...(forwardedParameters?.model && { model: forwardedParameters.model }),
+        ...(this.overrideOpenAIParam),
       });
 
       eventSource.stream(async (eventStream$) => {
