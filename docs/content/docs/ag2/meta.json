@@ -5,11 +5,14 @@
     "index",
     "quickstart",
     "---Guides---",
+    "...guides",
     "agentic-chat-ui",
     "human-in-the-loop",
     "---Learn---",
     "...concepts",    
     "---Troubleshooting Copilots---",
-    "...../shared/troubleshooting"
+    "...troubleshooting",
+    "---Other---",
+    "...(other)"
   ]
 }

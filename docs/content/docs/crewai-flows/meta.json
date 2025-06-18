@@ -6,6 +6,7 @@
     "quickstart",
     "[lucide/Telescope][Feature Viewer](https://demo-viewer-five.vercel.app/ )",
     "---Guides---",
+    "...guides",
     "agentic-chat-ui",
     "generative-ui",
     "human-in-the-loop",
@@ -16,7 +17,11 @@
     "advanced",
     "---Learn---",
     "...concepts",
+    "---Troubleshooting CoAgents Copilots---",
+    "...troubleshooting",
     "---Troubleshooting Copilots---",
-    "...../shared/troubleshooting"
+    "...../shared/troubleshooting",
+    "---Other---",
+    "...(other)"
   ]
 }

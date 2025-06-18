@@ -5,7 +5,7 @@
     "quickstart",
     "self-hosting",
     "---UI & Customization---",
-    "custom-look-and-feel",
+    "../../shared/guides/custom-look-and-feel",
     "copilot-textarea",
     "copilot-suggestions",
     "custom-ai-assistant-behavior",

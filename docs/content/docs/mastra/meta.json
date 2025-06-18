@@ -6,6 +6,7 @@
     "quickstart",
     "[lucide/Telescope][Feature Viewer](https://copilotkit-mastra-feature-viewer.vercel.app/)",
     "---Guides---",
+    "...guides",
     "agentic-chat-ui",
     "generative-ui",
     "human-in-the-loop",
@@ -14,6 +15,8 @@
     "---Learn---",
     "...concepts",
     "---Troubleshooting Copilots---",
-    "...../shared/troubleshooting"
+    "...troubleshooting",
+    "---Other---",
+    "...(other)"
   ]
 }

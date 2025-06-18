@@ -12,8 +12,8 @@
     "---Troubleshooting Copilots---",
     "...../shared/troubleshooting",
     "---Other---",
-    "(other)/contributing",
-    "(other)/telemetry",
+    "../shared/(other)/contributing",
+    "../shared/(other)/telemetry",
     "(other)/observability"
   ]
 }

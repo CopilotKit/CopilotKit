@@ -6,7 +6,7 @@
     "quickstart",
     "[lucide/Telescope][Feature Viewer](https://feature-viewer-langgraph.vercel.app/)",
     "---Guides---",
-    "custom-look-and-feel",
+    "...guides",
     "agentic-chat-ui",
     "generative-ui",
     "human-in-the-loop",
@@ -23,6 +23,8 @@
     "---Troubleshooting LangGraph Copilots---",
     "...troubleshooting",
     "---Troubleshooting Copilots---",
-    "...../shared/troubleshooting"
+    "...../shared/troubleshooting",
+    "---Other---",
+    "...(other)"
   ]
 }
