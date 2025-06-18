@@ -46,8 +46,9 @@ import CopilotUI from "@/snippets/copilot-ui.mdx";
 Before you begin, you'll need the following:
 
 - An OpenAI API key
+- Python 3.10+
 - Node.js 18+
-- Your favorite package manager
+- Your favorite package managers
 
 ## Getting started
 
@@ -75,7 +76,7 @@ Before you begin, you'll need the following:
 
                 ```bash
                 git clone https://github.com/CopilotKit/examples/llamaindex/starter
-                cd coagents-starter-llamaindex
+                cd starter
                 ```
             </Step>
             <Step>
@@ -165,7 +166,7 @@ Before you begin, you'll need the following:
                     OpenAIAdapter,
                     copilotRuntimeNextJSAppRouterEndpoint,
                 } from "@copilotkit/runtime";
-                import { LllamaIndexAgent } from "@ag-ui/llamaindex"
+                import { LlamaIndexAgent } from "@ag-ui/llamaindex"
                 import { NextRequest } from "next/server";
 
                 const serviceAdapter = new OpenAIAdapter();
@@ -196,13 +197,11 @@ Before you begin, you'll need the following:
                 import { CopilotKit } from "@copilotkit/react-core";
                 import "@copilotkit/react-ui/styles.css";
 
-                const LLAMAINDEX_URL = process.env.LLAMAINDEX_URL || "http://localhost:4111";
-
                 export default function RootLayout({ children }: {children: React.ReactNode}) {
                     return (
                         <html lang="en">
                             <body>
-                                <CopilotKit runtimeEndpoint={`${LLAMAINDEX_URL}/copilotkit`}>
+                                <CopilotKit runtimeUrl="/api/copilotkit">
                                     {children}
                                 </CopilotKit>
                             </body>
