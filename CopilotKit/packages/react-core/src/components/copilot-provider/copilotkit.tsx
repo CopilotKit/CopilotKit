@@ -49,6 +49,7 @@ import {
   LangGraphInterruptAction,
   LangGraphInterruptActionSetterArgs,
 } from "../../types/interrupt-action";
+import { StatusChecker } from "../../lib/status-checker";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const showDevConsole = props.showDevConsole === undefined ? "auto" : props.showDevConsole;
@@ -95,6 +96,10 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     removeElement: removeDocument,
     allElements: allDocuments,
   } = useFlatCategoryStore<DocumentPointer>();
+
+  const statusChecker = useMemo(() => new StatusChecker(), []);
+
+  const [usageBannerStatus, setUsageBannerStatus] = useState<any>(null);
 
   // Compute all the functions and properties that we need to pass
 

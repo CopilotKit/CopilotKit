@@ -20,9 +20,11 @@ import {
   CopilotKitApiDiscoveryError,
   randomId,
   CopilotKitError,
-  CopilotKitLowLevelError,
+  CopilotKitRemoteEndpointDiscoveryError,
   CopilotKitAgentDiscoveryError,
   CopilotKitMisuseError,
+  CopilotKitErrorCode,
+  CopilotKitLowLevelError,
 } from "@copilotkit/shared";
 import {
   CopilotServiceAdapter,
@@ -667,9 +669,11 @@ please use an LLM adapter instead.`,
       if (error instanceof CopilotKitError) {
         throw error;
       }
+
+      // Convert non-CopilotKitErrors to structured errors
       console.error("Error getting response:", error);
-      eventSource.sendErrorMessageToChat();
-      throw error;
+      const structuredError = this.convertStreamingErrorToStructured(error);
+      throw structuredError;
     }
   }
 
@@ -1022,7 +1026,9 @@ please use an LLM adapter instead.`,
               }
             }
 
-            eventStream$.error(err);
+            // Convert network termination errors to structured errors
+            const structuredError = this.convertStreamingErrorToStructured(err);
+            eventStream$.error(structuredError);
             eventStream$.complete();
           },
           complete: () => eventStream$.complete(),
@@ -1213,6 +1219,55 @@ please use an LLM adapter instead.`,
     if (adapterName.includes("Groq")) return "groq";
     if (adapterName.includes("LangChain")) return "langchain";
     return undefined;
+  }
+
+  private convertStreamingErrorToStructured(error: any): CopilotKitError {
+    // Handle network termination errors
+    if (
+      error?.message?.includes("terminated") ||
+      error?.cause?.code === "UND_ERR_SOCKET" ||
+      error?.message?.includes("other side closed") ||
+      error?.code === "UND_ERR_SOCKET"
+    ) {
+      return new CopilotKitError({
+        message:
+          "Connection to agent was unexpectedly terminated. This may be due to the agent service being restarted or network issues. Please try again.",
+        code: CopilotKitErrorCode.NETWORK_ERROR,
+      });
+    }
+
+    // Handle other network-related errors
+    if (
+      error?.message?.includes("fetch failed") ||
+      error?.message?.includes("ECONNREFUSED") ||
+      error?.message?.includes("ENOTFOUND") ||
+      error?.message?.includes("ETIMEDOUT")
+    ) {
+      return new CopilotKitLowLevelError({
+        error: error instanceof Error ? error : new Error(String(error)),
+        url: "agent streaming connection",
+        message:
+          "Network error occurred during agent streaming. Please check your connection and try again.",
+      });
+    }
+
+    // Handle abort/cancellation errors (these are usually normal)
+    if (
+      error?.message?.includes("aborted") ||
+      error?.message?.includes("canceled") ||
+      error?.message?.includes("signal is aborted")
+    ) {
+      return new CopilotKitError({
+        message: "Agent request was cancelled",
+        code: CopilotKitErrorCode.UNKNOWN,
+      });
+    }
+
+    // Default: convert unknown streaming errors
+    return new CopilotKitError({
+      message: `Agent streaming error: ${error?.message || String(error)}`,
+      code: CopilotKitErrorCode.UNKNOWN,
+    });
   }
 }
 

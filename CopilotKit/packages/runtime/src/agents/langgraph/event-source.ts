@@ -5,7 +5,7 @@ import {
   RuntimeEventTypes,
   RuntimeMetaEventName,
 } from "../../service-adapters/events";
-import { randomId } from "@copilotkit/shared";
+import { randomId, CopilotKitError } from "@copilotkit/shared";
 
 interface LangGraphEventWithState {
   event: LangGraphEvent | null;
@@ -284,6 +284,15 @@ export class RemoteLangGraphEventSource {
       }),
       catchError((error) => {
         console.error(error);
+
+        // If it's a structured CopilotKitError, re-throw it to be handled by the frontend error system
+        if (
+          error instanceof CopilotKitError ||
+          (error?.name && error.name.includes("CopilotKit"))
+        ) {
+          throw error;
+        }
+
         const events: RuntimeEvent[] = [];
 
         if (lastEventWithState?.lastMessageId && !lastEventWithState.isToolCall) {

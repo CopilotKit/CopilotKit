@@ -33,7 +33,7 @@ export function ErrorToast({ errors }: { errors: (Error | GraphQLError)[] }) {
               marginBottom: 4,
             }}
           >
-            Copilot Cloud Error:{" "}
+            Copilot Runtime Error:{" "}
             <span style={{ fontFamily: "monospace", fontWeight: "normal" }}>{code}</span>
           </div>
         )}

@@ -1,7 +1,8 @@
 import { GraphQLError } from "@copilotkit/runtime-client-gql";
 import React, { createContext, useContext, useState, useCallback } from "react";
 import { ErrorToast } from "../error-boundary/error-utils";
-import { PartialBy } from "@copilotkit/shared";
+import { PartialBy, CopilotKitError } from "@copilotkit/shared";
+import { renderCopilotKitUsage } from "../usage-banner";
 
 interface Toast {
   id: string;
@@ -16,6 +17,9 @@ interface ToastContextValue {
   addGraphQLErrorsToast: (errors: GraphQLError[]) => void;
   removeToast: (id: string) => void;
   enabled: boolean;
+  // Banner management
+  bannerError: CopilotKitError | null;
+  setBannerError: (error: CopilotKitError | null) => void;
 }
 
 const ToastContext = createContext<ToastContextValue | undefined>(undefined);
@@ -35,10 +39,17 @@ export function ToastProvider({
   enabled: boolean;
   children: React.ReactNode;
 }) {
+  console.log("#### ToastProvider enabled ####", enabled);
+
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [bannerError, setBannerErrorState] = useState<CopilotKitError | null>(null);
+
+  const removeToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  }, []);
+
   const addToast = useCallback(
     (toast: PartialBy<Toast, "id">) => {
-      // We do not display these errors unless we are in dev mode.
       if (!enabled) {
         return;
       }
@@ -56,19 +67,32 @@ export function ToastProvider({
         }, toast.duration);
       }
     },
-    [enabled],
+    [enabled, removeToast],
   );
 
-  const addGraphQLErrorsToast = useCallback((errors: GraphQLError[]) => {
-    addToast({
-      type: "error",
-      message: <ErrorToast errors={errors} />,
-    });
-  }, []);
+  const addGraphQLErrorsToast = useCallback(
+    (errors: GraphQLError[]) => {
+      if (!enabled || errors.length === 0) {
+        return;
+      }
 
-  const removeToast = useCallback((id: string) => {
-    setToasts((currentToasts) => currentToasts.filter((toast) => toast.id !== id));
-  }, []);
+      addToast({
+        type: "error",
+        message: <ErrorToast errors={errors} />,
+      });
+    },
+    [enabled, addToast],
+  );
+
+  const setBannerError = useCallback(
+    (error: CopilotKitError | null) => {
+      if (!enabled && error !== null) {
+        return;
+      }
+      setBannerErrorState(error);
+    },
+    [enabled],
+  );
 
   const value = {
     toasts,
@@ -76,10 +100,20 @@ export function ToastProvider({
     addGraphQLErrorsToast,
     removeToast,
     enabled,
+    bannerError,
+    setBannerError,
   };
 
   return (
     <ToastContext.Provider value={value}>
+      {/* Banner Error Display */}
+      {bannerError && (
+        <div style={{ position: "relative", zIndex: 9999 }}>
+          {renderCopilotKitUsage(bannerError, () => setBannerError(null))}
+        </div>
+      )}
+
+      {/* Toast Display */}
       <div
         style={{
           position: "fixed",

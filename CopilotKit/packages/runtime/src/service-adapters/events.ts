@@ -1,4 +1,10 @@
-import { Action, randomId } from "@copilotkit/shared";
+import {
+  Action,
+  randomId,
+  CopilotKitError,
+  CopilotKitErrorCode,
+  CopilotKitLowLevelError,
+} from "@copilotkit/shared";
 import {
   of,
   concat,
@@ -10,14 +16,22 @@ import {
   from,
   catchError,
   EMPTY,
+  BehaviorSubject,
 } from "rxjs";
 import { streamLangChainResponse } from "./langchain/utils";
 import { GuardrailsResult } from "../graphql/types/guardrails-result.type";
 import telemetry from "../lib/telemetry-client";
 import { isRemoteAgentAction } from "../lib/runtime/remote-actions";
 import { ActionInput } from "../graphql/inputs/action.input";
-import { ActionExecutionMessage, ResultMessage, TextMessage } from "../graphql/types/converted";
+import {
+  ActionExecutionMessage,
+  ResultMessage,
+  TextMessage,
+  Message,
+} from "../graphql/types/converted";
 import { plainToInstance } from "class-transformer";
+import { MessageRole } from "../graphql/types/enums";
+import { parseJson, tryMap } from "@copilotkit/shared";
 
 export enum RuntimeEventTypes {
   TextMessageStart = "TextMessageStart",
@@ -260,7 +274,10 @@ export class RuntimeEventSource {
   }) {
     this.callback(this.eventStream$).catch((error) => {
       console.error("Error in event source callback", error);
-      this.sendErrorMessageToChat();
+
+      // Convert streaming errors to structured errors
+      const structuredError = convertStreamingErrorToStructured(error);
+      this.eventStream$.error(structuredError);
       this.eventStream$.complete();
     });
     return this.eventStream$.pipe(
@@ -321,7 +338,18 @@ export class RuntimeEventSource {
           return concat(of(eventWithState.event!), toolCallEventStream$).pipe(
             catchError((error) => {
               console.error("Error in tool call stream", error);
-              this.sendErrorMessageToChat();
+
+              // Convert streaming errors to structured errors and send as action result
+              const structuredError = convertStreamingErrorToStructured(error);
+              toolCallEventStream$.sendActionExecutionResult({
+                actionExecutionId: eventWithState.actionExecutionId!,
+                actionName: eventWithState.action!.name,
+                error: {
+                  code: structuredError.code,
+                  message: structuredError.message,
+                },
+              });
+
               return EMPTY;
             }),
           );
@@ -409,12 +437,15 @@ async function executeAction(
       next: (event) => eventStream$.next(event),
       error: (err) => {
         console.error("Error in stream", err);
+
+        // Convert streaming errors to structured errors
+        const structuredError = convertStreamingErrorToStructured(err);
         eventStream$.sendActionExecutionResult({
           actionExecutionId,
           actionName: action.name,
           error: {
-            code: "STREAM_ERROR",
-            message: err.message,
+            code: structuredError.code,
+            message: structuredError.message,
           },
         });
         eventStream$.complete();
@@ -446,4 +477,53 @@ async function executeAction(
       eventStream$.complete();
     }
   }
+}
+
+function convertStreamingErrorToStructured(error: any): CopilotKitError {
+  // Handle network termination errors
+  if (
+    error?.message?.includes("terminated") ||
+    error?.cause?.code === "UND_ERR_SOCKET" ||
+    error?.message?.includes("other side closed") ||
+    error?.code === "UND_ERR_SOCKET"
+  ) {
+    return new CopilotKitError({
+      message:
+        "Connection to agent was unexpectedly terminated. This may be due to the agent service being restarted or network issues. Please try again.",
+      code: CopilotKitErrorCode.NETWORK_ERROR,
+    });
+  }
+
+  // Handle other network-related errors
+  if (
+    error?.message?.includes("fetch failed") ||
+    error?.message?.includes("ECONNREFUSED") ||
+    error?.message?.includes("ENOTFOUND") ||
+    error?.message?.includes("ETIMEDOUT")
+  ) {
+    return new CopilotKitLowLevelError({
+      error: error instanceof Error ? error : new Error(String(error)),
+      url: "event streaming connection",
+      message:
+        "Network error occurred during event streaming. Please check your connection and try again.",
+    });
+  }
+
+  // Handle abort/cancellation errors (these are usually normal)
+  if (
+    error?.message?.includes("aborted") ||
+    error?.message?.includes("canceled") ||
+    error?.message?.includes("signal is aborted")
+  ) {
+    return new CopilotKitError({
+      message: "Request was cancelled",
+      code: CopilotKitErrorCode.UNKNOWN,
+    });
+  }
+
+  // Default: convert unknown streaming errors
+  return new CopilotKitError({
+    message: `Event streaming error: ${error?.message || String(error)}`,
+    code: CopilotKitErrorCode.UNKNOWN,
+  });
 }

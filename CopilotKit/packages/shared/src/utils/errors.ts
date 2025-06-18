@@ -5,6 +5,13 @@ export enum Severity {
   Error = "error",
 }
 
+export enum ErrorVisibility {
+  BANNER = "banner", // Critical errors shown as fixed banners
+  TOAST = "toast", // Regular errors shown as dismissible toasts
+  SILENT = "silent", // Errors logged but not shown to user
+  DEV_ONLY = "dev_only", // Errors only shown in development mode
+}
+
 export const ERROR_NAMES = {
   COPILOT_ERROR: "CopilotError",
   COPILOT_API_DISCOVERY_ERROR: "CopilotApiDiscoveryError",
@@ -17,11 +24,19 @@ export const ERROR_NAMES = {
   MISSING_PUBLIC_API_KEY_ERROR: "MissingPublicApiKeyError",
   UPGRADE_REQUIRED_ERROR: "UpgradeRequiredError",
 } as const;
-export const COPILOT_CLOUD_ERROR_NAMES = [
+
+// Banner errors - critical configuration/discovery issues
+export const BANNER_ERROR_NAMES = [
   ERROR_NAMES.CONFIGURATION_ERROR,
   ERROR_NAMES.MISSING_PUBLIC_API_KEY_ERROR,
   ERROR_NAMES.UPGRADE_REQUIRED_ERROR,
+  ERROR_NAMES.COPILOT_API_DISCOVERY_ERROR,
+  ERROR_NAMES.COPILOT_REMOTE_ENDPOINT_DISCOVERY_ERROR,
+  ERROR_NAMES.COPILOT_KIT_AGENT_DISCOVERY_ERROR,
 ];
+
+// Legacy cloud error names for backward compatibility
+export const COPILOT_CLOUD_ERROR_NAMES = BANNER_ERROR_NAMES;
 
 export enum CopilotKitErrorCode {
   NETWORK_ERROR = "NETWORK_ERROR",
@@ -45,48 +60,59 @@ export const ERROR_CONFIG = {
   [CopilotKitErrorCode.NETWORK_ERROR]: {
     statusCode: 503,
     troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#i-am-getting-a-network-errors--api-not-found`,
+    visibility: ErrorVisibility.TOAST,
   },
   [CopilotKitErrorCode.NOT_FOUND]: {
     statusCode: 404,
     troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#i-am-getting-a-network-errors--api-not-found`,
+    visibility: ErrorVisibility.TOAST,
   },
   [CopilotKitErrorCode.AGENT_NOT_FOUND]: {
     statusCode: 500,
     troubleshootingUrl: `${BASE_URL}/coagents/troubleshooting/common-issues#i-am-getting-agent-not-found-error`,
+    visibility: ErrorVisibility.BANNER,
   },
   [CopilotKitErrorCode.API_NOT_FOUND]: {
     statusCode: 404,
     troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#i-am-getting-a-network-errors--api-not-found`,
+    visibility: ErrorVisibility.BANNER,
   },
   [CopilotKitErrorCode.REMOTE_ENDPOINT_NOT_FOUND]: {
     statusCode: 404,
     troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#i-am-getting-copilotkits-remote-endpoint-not-found-error`,
+    visibility: ErrorVisibility.BANNER,
   },
   [CopilotKitErrorCode.MISUSE]: {
     statusCode: 400,
     troubleshootingUrl: null,
+    visibility: ErrorVisibility.DEV_ONLY,
   },
   [CopilotKitErrorCode.UNKNOWN]: {
     statusCode: 500,
+    visibility: ErrorVisibility.TOAST,
   },
   [CopilotKitErrorCode.CONFIGURATION_ERROR]: {
     statusCode: 400,
     troubleshootingUrl: null,
     severity: Severity.Error,
+    visibility: ErrorVisibility.BANNER,
   },
   [CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR]: {
     statusCode: 400,
     troubleshootingUrl: null,
     severity: Severity.Error,
+    visibility: ErrorVisibility.BANNER,
   },
   [CopilotKitErrorCode.UPGRADE_REQUIRED_ERROR]: {
     statusCode: 402,
     troubleshootingUrl: null,
     severity: Severity.Error,
+    visibility: ErrorVisibility.BANNER,
   },
   [CopilotKitErrorCode.VERSION_MISMATCH]: {
     statusCode: 400,
     troubleshootingUrl: null,
+    visibility: ErrorVisibility.DEV_ONLY,
   },
 };
 
@@ -94,28 +120,45 @@ export class CopilotKitError extends GraphQLError {
   code: CopilotKitErrorCode;
   statusCode: number;
   severity?: Severity;
+  visibility: ErrorVisibility;
+
   constructor({
     message = "Unknown error occurred",
     code,
     severity,
+    visibility,
   }: {
     message?: string;
     code: CopilotKitErrorCode;
     severity?: Severity;
+    visibility?: ErrorVisibility;
   }) {
     const name = ERROR_NAMES.COPILOT_ERROR;
-    const { statusCode } = ERROR_CONFIG[code];
+    const config = ERROR_CONFIG[code];
+    const { statusCode } = config;
+    const resolvedVisibility = visibility ?? config.visibility ?? ErrorVisibility.TOAST;
+    const resolvedSeverity = severity ?? ("severity" in config ? config.severity : undefined);
 
     super(message, {
       extensions: {
         name,
         statusCode,
+        code,
+        visibility: resolvedVisibility,
+        severity: resolvedSeverity,
+        troubleshootingUrl: "troubleshootingUrl" in config ? config.troubleshootingUrl : null,
+        originalError: {
+          message,
+          stack: new Error().stack,
+        },
       },
     });
+
     this.code = code;
     this.name = name;
     this.statusCode = statusCode;
-    this.severity = severity;
+    this.severity = resolvedSeverity;
+    this.visibility = resolvedVisibility;
   }
 }
 

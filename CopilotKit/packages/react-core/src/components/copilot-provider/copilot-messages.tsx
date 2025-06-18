@@ -2,10 +2,61 @@
  * An internal context to separate the messages state (which is constantly changing) from the rest of CopilotKit context
  */
 
-import { ReactNode, useEffect, useState, useRef } from "react";
+import { ReactNode, useEffect, useState, useRef, useCallback } from "react";
 import { CopilotMessagesContext } from "../../context/copilot-messages-context";
-import { loadMessagesFromJsonRepresentation, Message } from "@copilotkit/runtime-client-gql";
+import {
+  loadMessagesFromJsonRepresentation,
+  Message,
+  GraphQLError,
+} from "@copilotkit/runtime-client-gql";
 import { useCopilotContext } from "../../context/copilot-context";
+import { useToast } from "../toast/toast-provider";
+import { useErrorToast } from "../error-boundary/error-utils";
+import { shouldShowDevConsole } from "../../utils/dev-console";
+import {
+  ErrorVisibility,
+  CopilotKitApiDiscoveryError,
+  CopilotKitRemoteEndpointDiscoveryError,
+  CopilotKitAgentDiscoveryError,
+  CopilotKitError,
+  CopilotKitErrorCode,
+} from "@copilotkit/shared";
+
+// Helper to determine if error should show as banner based on visibility and legacy patterns
+function shouldShowAsBanner(gqlError: GraphQLError): boolean {
+  const extensions = gqlError.extensions;
+  if (!extensions) return false;
+
+  // Priority 1: Check error code for discovery errors (these should always be banners)
+  const code = extensions.code as CopilotKitErrorCode;
+  if (
+    code === CopilotKitErrorCode.AGENT_NOT_FOUND ||
+    code === CopilotKitErrorCode.API_NOT_FOUND ||
+    code === CopilotKitErrorCode.REMOTE_ENDPOINT_NOT_FOUND ||
+    code === CopilotKitErrorCode.CONFIGURATION_ERROR ||
+    code === CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR ||
+    code === CopilotKitErrorCode.UPGRADE_REQUIRED_ERROR
+  ) {
+    return true;
+  }
+
+  // Priority 2: Check banner visibility
+  if (extensions.visibility === ErrorVisibility.BANNER) {
+    return true;
+  }
+
+  // Priority 3: Legacy stack trace detection for discovery errors
+  const originalError = extensions.originalError as any;
+  if (originalError?.stack) {
+    return (
+      originalError.stack.includes("CopilotApiDiscoveryError") ||
+      originalError.stack.includes("CopilotKitRemoteEndpointDiscoveryError") ||
+      originalError.stack.includes("CopilotKitAgentDiscoveryError")
+    );
+  }
+
+  return false;
+}
 
 export function CopilotMessages({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -14,6 +65,86 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
   const lastLoadedMessages = useRef<string>();
 
   const { threadId, agentSession, runtimeClient } = useCopilotContext();
+  const { addGraphQLErrorsToast, setBannerError } = useToast();
+  const addErrorToast = useErrorToast();
+
+  const createStructuredError = (gqlError: GraphQLError): CopilotKitError | null => {
+    const extensions = gqlError.extensions;
+    const originalError = extensions?.originalError as any;
+
+    // Priority: Check stack trace for discovery errors first
+    if (originalError?.stack) {
+      if (originalError.stack.includes("CopilotApiDiscoveryError")) {
+        return new CopilotKitApiDiscoveryError({ message: originalError.message });
+      }
+      if (originalError.stack.includes("CopilotKitRemoteEndpointDiscoveryError")) {
+        return new CopilotKitRemoteEndpointDiscoveryError({ message: originalError.message });
+      }
+      if (originalError.stack.includes("CopilotKitAgentDiscoveryError")) {
+        return new CopilotKitAgentDiscoveryError({
+          agentName: "",
+          availableAgents: [],
+        });
+      }
+    }
+
+    // Fallback: Use the formal error code if available
+    const message = originalError?.message || gqlError.message;
+    const code = extensions?.code as CopilotKitErrorCode;
+
+    if (code) {
+      return new CopilotKitError({ message, code });
+    }
+
+    return null;
+  };
+
+  const handleGraphQLErrors = useCallback(
+    (error: any) => {
+      if (error.graphQLErrors?.length) {
+        const graphQLErrors = error.graphQLErrors as GraphQLError[];
+
+        // Route errors based on visibility level
+        const routeError = (gqlError: GraphQLError) => {
+          const extensions = gqlError.extensions;
+          const visibility = extensions?.visibility as ErrorVisibility;
+          const isDev = shouldShowDevConsole("auto");
+
+          // Handle banner errors via state management
+          if (shouldShowAsBanner(gqlError)) {
+            const ckError = createStructuredError(gqlError);
+            if (ckError) {
+              setBannerError(ckError);
+              return null;
+            }
+          }
+
+          // Handle visibility-based routing
+          if (visibility === ErrorVisibility.DEV_ONLY && !isDev) {
+            console.warn("CopilotKit Development Error:", gqlError.message);
+            return null;
+          }
+
+          if (visibility === ErrorVisibility.SILENT) {
+            console.error("CopilotKit Silent Error:", gqlError.message);
+            return null;
+          }
+
+          // Default to toast for regular errors
+          return gqlError;
+        };
+
+        const toastErrors = graphQLErrors.map(routeError).filter(Boolean) as GraphQLError[];
+
+        if (toastErrors.length > 0) {
+          addGraphQLErrorsToast(toastErrors);
+        }
+      } else {
+        addErrorToast([error]);
+      }
+    },
+    [addGraphQLErrorsToast, setBannerError, addErrorToast],
+  );
 
   useEffect(() => {
     if (!threadId || threadId === lastLoadedThreadId.current) return;
@@ -32,6 +163,12 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
         agentName: agentSession?.agentName,
       });
 
+      // Check for GraphQL errors and manually trigger error handling
+      if (result.error) {
+        handleGraphQLErrors(result.error);
+        return; // Don't try to process the data if there's an error
+      }
+
       const newMessages = result.data?.loadAgentState?.messages;
       if (newMessages === lastLoadedMessages.current) return;
 
@@ -45,7 +182,7 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
       }
     };
     void fetchMessages();
-  }, [threadId, agentSession?.agentName]);
+  }, [threadId, agentSession?.agentName, handleGraphQLErrors]);
 
   return (
     <CopilotMessagesContext.Provider

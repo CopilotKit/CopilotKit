@@ -138,6 +138,26 @@ export class CopilotRuntimeClient {
               console.warn("Abort error suppressed");
               return;
             }
+
+            // Handle structured errors specially - check if it's a CopilotKitError with visibility
+            if ((error as any).extensions?.visibility) {
+              // Create a synthetic GraphQL error with the structured error info
+              const syntheticError = {
+                ...error,
+                graphQLErrors: [
+                  {
+                    message: error.message,
+                    extensions: (error as any).extensions,
+                  },
+                ],
+              };
+
+              if (handleGQLErrors) {
+                handleGQLErrors(syntheticError);
+              }
+              return; // Don't close the stream for structured errors, let the error handler decide
+            }
+
             controller.error(error);
             if (handleGQLErrors) {
               handleGQLErrors(error);

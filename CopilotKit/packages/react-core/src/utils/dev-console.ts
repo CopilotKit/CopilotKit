@@ -2,17 +2,15 @@ export function shouldShowDevConsole(showDevConsole: boolean | "auto"): boolean 
   if (typeof showDevConsole === "boolean") {
     return showDevConsole;
   }
-  return (
-    getHostname() === "localhost" ||
-    getHostname() === "127.0.0.1" ||
-    getHostname() === "0.0.0.0" ||
-    getHostname() === "::1"
-  );
+
+  // Auto mode: check if we're running on localhost
+  const hostname = getHostname();
+  return ["localhost", "127.0.0.1", "0.0.0.0", "::1"].includes(hostname);
 }
 
 function getHostname(): string {
-  if (typeof window !== "undefined" && window.location) {
-    return window.location.hostname;
+  if (typeof window === "undefined") {
+    return "";
   }
-  return "";
+  return window.location.hostname;
 }
