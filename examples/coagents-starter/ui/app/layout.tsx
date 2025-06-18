@@ -15,7 +15,7 @@ export default function RootLayout({ children }: { children: any }) {
     <html lang="en">
       <body>
         <CopilotKit
-          agent="sample_agent" // this invalid agent will trigger our error handling
+          agent="sample_agent_" // this invalid agent will trigger our error handling
           runtimeUrl="/api/copilotkit"
           showDevConsole={true}
         >

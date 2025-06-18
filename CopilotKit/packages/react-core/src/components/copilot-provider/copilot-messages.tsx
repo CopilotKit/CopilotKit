@@ -205,7 +205,7 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
       }
     };
     void fetchMessages();
-  }, [threadId, agentSession?.agentName, runtimeClient, handleGraphQLErrors]);
+  }, [threadId, agentSession?.agentName, runtimeClient]); // handleGraphQLErrors should NOT be in deps - causes infinite loop
 
   return (
     <CopilotMessagesContext.Provider
