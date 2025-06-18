@@ -154,14 +154,7 @@ export function ToastProvider({
 
   const setBannerError = useCallback(
     (error: CopilotKitError | null) => {
-      // Always show structured errors with explicit visibility, regardless of enabled state
-      // This ensures that critical errors (like agent discovery failures) are always visible
-      if (error && error.visibility === "banner") {
-        setBannerErrorState(error);
-        return;
-      }
-
-      // For other errors, respect the enabled flag
+      // Respect the enabled flag for ALL errors
       if (!enabled && error !== null) {
         return;
       }

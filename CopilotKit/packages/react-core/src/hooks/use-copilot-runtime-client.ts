@@ -40,15 +40,15 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
             const visibility = extensions?.visibility as ErrorVisibility;
             const isDev = shouldShowDevConsole(showDevConsole ?? false);
 
-            // If dev console is disabled, don't show ANY error UI to users
-            if (!isDev) {
-              console.error("CopilotKit Error (hidden in production):", gqlError.message);
-              return;
-            }
-
             // Silent errors - just log
             if (visibility === ErrorVisibility.SILENT) {
               console.error("CopilotKit Silent Error:", gqlError.message);
+              return;
+            }
+
+            // Respect showDevConsole setting for ALL errors
+            if (!isDev) {
+              console.error("CopilotKit Error (hidden in production):", gqlError.message);
               return;
             }
 
