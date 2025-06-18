@@ -1,7 +1,7 @@
 import { GraphQLError } from "@copilotkit/runtime-client-gql";
 import React, { createContext, useContext, useState, useCallback } from "react";
 import { ErrorToast } from "../error-boundary/error-utils";
-import { PartialBy, CopilotKitError, Severity } from "@copilotkit/shared";
+import { PartialBy, CopilotKitError, CopilotKitErrorCode, Severity } from "@copilotkit/shared";
 import { renderCopilotKitUsage } from "../usage-banner";
 
 interface Toast {
@@ -152,37 +152,48 @@ export function ToastProvider({
     [enabled, removeToast],
   );
 
-  const addGraphQLErrorsToast = useCallback(
-    (errors: GraphQLError[]) => {
-      if (errors.length === 0) {
-        return;
-      }
-
-      // Check if any error has explicit visibility (structured errors should always show)
-      const hasStructuredError = errors.some(
-        (error) => error.extensions?.visibility && error.extensions.visibility !== "silent",
-      );
-
-      if (!enabled && !hasStructuredError) {
-        return;
-      }
-
-      addToast({
-        type: "error",
-        message: <ErrorToast errors={errors} />,
-      });
-    },
-    [enabled, addToast],
-  );
-
   const setBannerError = useCallback(
     (error: CopilotKitError | null) => {
+      // Always show structured errors with explicit visibility, regardless of enabled state
+      // This ensures that critical errors (like agent discovery failures) are always visible
+      if (error && error.visibility === "banner") {
+        setBannerErrorState(error);
+        return;
+      }
+
+      // For other errors, respect the enabled flag
       if (!enabled && error !== null) {
         return;
       }
       setBannerErrorState(error);
     },
     [enabled],
+  );
+
+  const addGraphQLErrorsToast = useCallback(
+    (errors: GraphQLError[]) => {
+      // DEPRECATED: All errors now route to banners for consistency
+      // This function is kept for backward compatibility but should not be used
+      console.warn("addGraphQLErrorsToast is deprecated. All errors now show as banners.");
+
+      if (errors.length === 0) {
+        return;
+      }
+
+      // Route GraphQL errors to banners instead of toasts
+      errors.forEach((error) => {
+        const extensions = error.extensions;
+        const code = extensions?.code as CopilotKitErrorCode;
+        const originalError = extensions?.originalError as any;
+        const message = originalError?.message || error.message;
+
+        if (code) {
+          const ckError = new CopilotKitError({ message, code });
+          setBannerError(ckError);
+        }
+      });
+    },
+    [setBannerError],
   );
 
   const value = {
