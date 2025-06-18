@@ -1,0 +1,17 @@
+{
+  "title": "CoAgents",
+  "root": true,
+  "pages": [
+    "index",
+    "quickstart",
+    "[lucide/Telescope][Feature Viewer](https://copilotkit-llamaindex-feature-viewer.vercel.app/)",
+    "---Guides---",
+    "agentic-chat-ui",
+    "generative-ui",
+    "human-in-the-loop",
+    "frontend-actions",
+    "multi-agent-flows",
+    "---Learn---",
+    "...concepts"
+  ]
+}

@@ -1,0 +1,288 @@
+---
+title: Quickstart
+description: Turn your LlamaIndex Agents into an agent-native application in 10 minutes.
+icon: "lucide/Play"
+---
+
+import {
+  TailoredContent,
+  TailoredContentOption,
+} from "@/components/react/tailored-content.tsx";
+import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
+import { CoAgentsDiagram } from "@/components/react/coagents/coagents-diagram.tsx";
+import { FaPython, FaJs, FaCloud } from "react-icons/fa";
+import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
+import CopilotCloudConfigureRemoteEndpointLangGraph from "@/snippets/copilot-cloud-configure-remote-endpoint-langgraph.mdx";
+import CopilotKitCloudCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
+import LangGraphPlatformDeploymentTabs from "@/snippets/langgraph-platform-deployment-tabs.mdx";
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import FindYourCopilotRuntime from "@/snippets/find-your-copilot-runtime.mdx";
+import CloudCopilotKitProvider from "@/snippets/coagents/cloud-configure-copilotkit-provider.mdx";
+import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/coagents/self-host-configure-copilotkit-provider.mdx";
+import SelfHostingCopilotRuntimeLangGraphEndpoint from "@/snippets/self-hosting-copilot-runtime-langgraph-endpoint.mdx";
+import SelfHostingCopilotRuntimeStarter from "@/snippets/self-hosting-copilot-runtime-starter.mdx";
+import SelfHostingRemoteEndpoints from "@/snippets/self-hosting-remote-endpoints.mdx";
+import {
+  UserIcon,
+  PaintbrushIcon,
+  WrenchIcon,
+  RepeatIcon,
+  ServerIcon,
+} from "lucide-react";
+import CopilotUI from "@/snippets/copilot-ui.mdx";
+
+<video
+  src="/images/coagents/chat-example.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
+
+## Prerequisites
+
+Before you begin, you'll need the following:
+
+- An OpenAI API key
+- Python 3.10+
+- Node.js 18+
+- Your favorite package managers
+
+## Getting started
+
+<Steps>
+    <TailoredContent
+        className="step"
+        id="agent"
+        header={
+            <div>
+                <p className="text-xl font-semibold">Choose your starting point</p>
+                <p className="text-base">
+                    You can either start fresh with our starter template or integrate CopilotKit into your existing LlamaIndex Agent.
+                </p>
+            </div>
+        }
+    >
+        <TailoredContentOption
+            id="coagents-starter"
+            title="Start with our template"
+            description="Get started quickly with our pre-configured starter template."
+            icon={<img src="/images/copilotkit-logo.svg" alt="CopilotKit Logo" width={20} height={20} />}
+        >
+            <Step>
+                ### Clone the starter template
+
+                ```bash
+                git clone https://github.com/CopilotKit/examples/llamaindex/starter
+                cd starter
+                ```
+            </Step>
+            <Step>
+                ### Install dependencies
+
+                ```package-install
+                ```
+            </Step>
+            <Step>
+                ### Configure your environment
+
+                Create a `.env` file and add your OpenAI API key:
+
+                ```plaintext title=".env"
+                OPENAI_API_KEY=your_openai_api_key
+                ```
+
+                <Callout type="info" title="What about other models?">
+                  The starter template is configured to use OpenAI's GPT-4o by default, but you can modify it to use any language model supported by LlamaIndex.
+                </Callout>
+            </Step>
+            <Step>
+                ### Start the development server
+
+                <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+                    <Tab value="npm">
+                        ```bash
+                        npm run dev
+                        ```
+                    </Tab>
+                    <Tab value="pnpm">
+                        ```bash
+                        pnpm dev
+                        ```
+                    </Tab>
+                    <Tab value="yarn">
+                        ```bash
+                        yarn dev
+                        ```
+                    </Tab>
+                    <Tab value="bun">
+                        ```bash
+                        bun dev
+                        ```
+                    </Tab>
+                </Tabs>
+
+                This will start both the UI and agent servers concurrently.
+            </Step>
+        </TailoredContentOption>
+        <TailoredContentOption
+            id="bring-your-own"
+            title="Integrate with existing agent"
+            description="I already have a LlamaIndex Agent and want to add CopilotKit."
+            icon={<img src="/images/copilotkit-logo.svg" alt="CopilotKit Logo" width={20} height={20} />}
+        >
+            <Step>
+                ### Frontend Setup
+                CopilotKit works with any React-based frontend. If you don't have one yet, you can create a new Next.js app:
+
+                ```bash
+                npx create-next-app@latest my-copilot-app
+                cd my-copilot-app
+                ```
+
+                <Callout type="info" title="What about other frameworks?">
+                    While we recommend Next.js for its simplicity and features, CopilotKit will work with any React framework (Vite, Remix, Tanstack, etc.) or custom React setup.
+                </Callout>
+            </Step>
+            <Step>
+                ### Install CopilotKit packages
+
+                ```package-install
+                @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/llamaindex
+                ```
+            </Step>
+            <Step>
+                ### Setup CopilotKit Runtime
+
+                CopilotKit requires a Copilot Runtime endpoint to safely communicate with your agent. With LlamaIndex,
+                you can use the `registerCopilotKit` function to register a Copilot Runtime endpoint to be served
+                directly alongside your agent.
+
+                ```ts title="app/api/copilotkit/route.ts"
+                import {
+                    CopilotRuntime,
+                    OpenAIAdapter,
+                    copilotRuntimeNextJSAppRouterEndpoint,
+                } from "@copilotkit/runtime";
+                import { LlamaIndexAgent } from "@ag-ui/llamaindex"
+                import { NextRequest } from "next/server";
+
+                const serviceAdapter = new OpenAIAdapter();
+                
+
+                const runtime = new CopilotRuntime({
+                    agent: new LlamaIndexAgent({url: "http://localhost:8000"}),
+                });
+
+                export const POST = async (req: NextRequest) => {
+                const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+                    runtime,
+                    serviceAdapter,
+                    endpoint: "/api/copilotkit",
+                });
+
+                return handleRequest(req);
+                };
+                ```
+               
+            </Step>
+            <Step>
+                ### Configure CopilotKit Provider
+
+                Wrap your application with the CopilotKit provider:
+
+                ```tsx title="app/layout.tsx"
+                import { CopilotKit } from "@copilotkit/react-core";
+                import "@copilotkit/react-ui/styles.css";
+
+                export default function RootLayout({ children }: {children: React.ReactNode}) {
+                    return (
+                        <html lang="en">
+                            <body>
+                                <CopilotKit runtimeUrl="/api/copilotkit">
+                                    {children}
+                                </CopilotKit>
+                            </body>
+                        </html>
+                    );
+                }
+                ```
+            </Step>
+            <Step>
+                ### Add the chat interface
+
+                Add the CopilotPopup component to your page:
+
+                ```tsx title="app/page.tsx"
+                import { CopilotPopup } from "@copilotkit/react-ui";
+
+                export default function Page() {
+                    return (
+                        <main>
+                            <h1>Your App</h1>
+                            <CopilotPopup
+                                labels={{
+                                    title: "AI Assistant",
+                                    initial: "How can I help you today?",
+                                }}
+                            />
+                        </main>
+                    );
+                }
+                ```
+            </Step>
+        </TailoredContentOption>
+    </TailoredContent>
+    <Step>
+        ### 🎉 Start chatting!
+
+        Your AI agent is now ready to use! Try asking it some questions:
+
+        ```
+        What tools do you have access to?
+        ```
+
+        ```
+        What do you think about React?
+        ```
+
+        ```
+        Show me some cool things you can do!
+        ```
+
+        <Accordions className="mb-4">
+            <Accordion title="Troubleshooting">
+                - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
+                - Make sure your LlamaIndex agent is running on port 4111
+                - Check that your OpenAI API key is correctly set in the `.env` file
+            </Accordion>
+        </Accordions>
+    </Step>
+</Steps>
+
+## What's next?
+
+Now that you have your basic agent setup, explore these advanced features:
+
+<Cards>
+  <Card
+    title="Implement Human in the Loop"
+    description="Allow your users and agents to collaborate together on tasks."
+    href="/llamaindex/human-in-the-loop"
+    icon={<UserIcon />}
+  />
+  <Card
+    title="Add some generative UI"
+    description="Render your agent's progress and output in the UI."
+    href="/llamaindex/generative-ui"
+    icon={<PaintbrushIcon />}
+  />
+  <Card
+    title="Setup frontend actions"
+    description="Give your agent the ability to call frontend tools, directly updating your application."
+    href="/llamaindex/frontend-actions"
+    icon={<WrenchIcon />}
+  />
+</Cards> 
