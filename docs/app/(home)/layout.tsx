@@ -7,7 +7,12 @@ import { TerminalIcon, RocketIcon } from "lucide-react";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
 import { TopBar } from "@/components/layout/top-bar";
 import { SiLangchain } from "react-icons/si";
-import { AG2Icon, MastraIcon, AgnoIcon } from "@/lib/icons/custom-icons";
+import {
+  AG2Icon,
+  MastraIcon,
+  AgnoIcon,
+  LlamaIndexIcon,
+} from "@/lib/icons/custom-icons";
 
 export default function Layout({ children }: { children: ReactNode }) {
   return (
@@ -88,6 +93,16 @@ export default function Layout({ children }: { children: ReactNode }) {
                       url: "/agno",
                       icon: <AgnoIcon className="w-4 h-4 text-bold" />,
                       bgGradient: "bg-[#FF3C1A] text-white",
+                      selectedStyle:
+                        "ring-zinc-800 dark:ring-white ring-2 rounded-sm",
+                    },
+                    {
+                      title: "CoAgents (LlamaIndex)",
+                      description: "Documentation for CoAgents with LlamaIndex",
+                      url: "/llamaindex",
+                      icon: <LlamaIndexIcon className="w-4 h-4 text-bold" />,
+                      bgGradient:
+                        "bg-gradient-to-b from-black to-zinc-800 text-white",
                       selectedStyle:
                         "ring-zinc-800 dark:ring-white ring-2 rounded-sm",
                     },
