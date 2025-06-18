@@ -453,6 +453,10 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     const streamedChunks: any[] = [];
 
     try {
+      if (Object.keys(this.agents).length && agentSession?.agentName && !this.delegateAgentProcessingToServiceAdapter) {
+        this.agents = { [agentSession.agentName]: this.agents[agentSession.agentName] };
+      }
+
       if (agentSession && !this.delegateAgentProcessingToServiceAdapter) {
         return await this.processAgentRequest(request);
       }
