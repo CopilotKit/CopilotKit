@@ -11,7 +11,6 @@ import {
 } from "@copilotkit/runtime-client-gql";
 import { useCopilotContext } from "../../context/copilot-context";
 import { useToast } from "../toast/toast-provider";
-import { useErrorToast } from "../error-boundary/error-utils";
 import { shouldShowDevConsole } from "../../utils/dev-console";
 import {
   ErrorVisibility,
@@ -77,8 +76,7 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
   const lastLoadedMessages = useRef<string>();
 
   const { threadId, agentSession, runtimeClient, showDevConsole } = useCopilotContext();
-  const { addGraphQLErrorsToast, setBannerError } = useToast();
-  const addErrorToast = useErrorToast();
+  const { setBannerError } = useToast();
 
   const createStructuredError = (gqlError: GraphQLError): CopilotKitError | null => {
     const extensions = gqlError.extensions;
@@ -116,7 +114,7 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
       if (error.graphQLErrors?.length) {
         const graphQLErrors = error.graphQLErrors as GraphQLError[];
 
-        // Route errors based on visibility level
+        // Route all errors to banners for consistent UI
         const routeError = (gqlError: GraphQLError) => {
           const extensions = gqlError.extensions;
           const visibility = extensions?.visibility as ErrorVisibility;
@@ -125,48 +123,46 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
           // If dev console is disabled, don't show ANY error UI to users
           if (!isDev) {
             console.error("CopilotKit Error (hidden in production):", gqlError.message);
-            return null;
+            return;
           }
 
-          // Handle banner errors via state management (only in dev mode)
-          if (shouldShowAsBanner(gqlError)) {
-            const ckError = createStructuredError(gqlError);
-            if (ckError) {
-              setBannerError(ckError);
-              return null;
-            }
-          }
-
-          // Handle dev-only errors
-          if (visibility === ErrorVisibility.DEV_ONLY) {
-            console.log("🐛 copilot-messages: Showing dev-only error as toast", gqlError.message);
-            // Continue to show as toast
-          }
-
+          // Silent errors - just log
           if (visibility === ErrorVisibility.SILENT) {
             console.error("CopilotKit Silent Error:", gqlError.message);
-            return null;
+            return;
           }
 
-          // Default to toast for regular errors (only in dev mode)
-          return gqlError;
+          // All other errors (including DEV_ONLY) show as banners for consistency
+          const ckError = createStructuredError(gqlError);
+          if (ckError) {
+            setBannerError(ckError);
+          } else {
+            // Fallback: create a generic error for unstructured GraphQL errors
+            const fallbackError = new CopilotKitError({
+              message: gqlError.message,
+              code: CopilotKitErrorCode.UNKNOWN,
+            });
+            setBannerError(fallbackError);
+          }
         };
 
-        const toastErrors = graphQLErrors.map(routeError).filter(Boolean) as GraphQLError[];
-
-        if (toastErrors.length > 0) {
-          addGraphQLErrorsToast(toastErrors);
-        }
+        // Process all errors as banners
+        graphQLErrors.forEach(routeError);
       } else {
         const isDev = shouldShowDevConsole(showDevConsole);
         if (!isDev) {
           console.error("CopilotKit Error (hidden in production):", error);
         } else {
-          addErrorToast([error]);
+          // Route non-GraphQL errors to banner as well
+          const fallbackError = new CopilotKitError({
+            message: error?.message || String(error),
+            code: CopilotKitErrorCode.UNKNOWN,
+          });
+          setBannerError(fallbackError);
         }
       }
     },
-    [addGraphQLErrorsToast, setBannerError, addErrorToast, showDevConsole],
+    [setBannerError, showDevConsole],
   );
 
   useEffect(() => {

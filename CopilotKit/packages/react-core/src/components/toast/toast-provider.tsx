@@ -273,95 +273,10 @@ export function ToastProvider({
           );
         })()}
 
-      {/* Toast Display */}
-      <div
-        style={{
-          position: "fixed",
-          bottom: "1rem",
-          left: "50%",
-          transform: "translateX(-50%)",
-          zIndex: 50,
-          display: "flex",
-          flexDirection: "column",
-          gap: "0.5rem",
-        }}
-      >
-        {toasts.length > 1 && (
-          <div style={{ textAlign: "right" }}>
-            <button
-              onClick={() => setToasts([])}
-              style={{
-                padding: "4px 8px",
-                fontSize: "12px",
-                cursor: "pointer",
-                background: "white",
-                border: "1px solid rgba(0,0,0,0.2)",
-                borderRadius: "4px",
-              }}
-            >
-              Close All
-            </button>
-          </div>
-        )}
-        {toasts.map((toast) => (
-          <Toast
-            key={toast.id}
-            message={toast.message}
-            type={toast.type}
-            onClose={() => removeToast(toast.id)}
-          />
-        ))}
-      </div>
+      {/* Toast Display - Deprecated: All errors now show as banners */}
       {children}
     </ToastContext.Provider>
   );
 }
 
-function Toast({
-  message,
-  type = "info",
-  onClose,
-}: {
-  message: string | React.ReactNode;
-  type: "info" | "success" | "warning" | "error";
-  onClose: () => void;
-}) {
-  const bgColors = {
-    info: "#3b82f6",
-    success: "#22c55e",
-    warning: "#eab308",
-    error: "#ef4444",
-  };
-
-  return (
-    <div
-      style={{
-        backgroundColor: bgColors[type],
-        color: "white",
-        padding: "0.5rem 1.5rem",
-        borderRadius: "0.25rem",
-        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-        position: "relative",
-        minWidth: "200px",
-      }}
-    >
-      <div>{message}</div>
-      <button
-        onClick={onClose}
-        style={{
-          position: "absolute",
-          top: "0",
-          right: "0",
-          background: "none",
-          border: "none",
-          color: "white",
-          cursor: "pointer",
-          padding: "0.5rem",
-          fontSize: "1rem",
-        }}
-      >
-        ✕
-      </button>
-    </div>
-  );
-}
+// Toast component removed - all errors now show as banners for consistency

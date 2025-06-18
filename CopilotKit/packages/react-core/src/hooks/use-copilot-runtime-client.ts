@@ -5,7 +5,6 @@ import {
 } from "@copilotkit/runtime-client-gql";
 import { useToast } from "../components/toast/toast-provider";
 import { useMemo, useRef } from "react";
-import { useErrorToast } from "../components/error-boundary/error-utils";
 import {
   ErrorVisibility,
   CopilotKitApiDiscoveryError,
@@ -22,9 +21,7 @@ export interface CopilotRuntimeClientHookOptions extends CopilotRuntimeClientOpt
 }
 
 export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions) => {
-  const { addGraphQLErrorsToast, setBannerError } = useToast();
-  const addErrorToast = useErrorToast();
-  const { addToast } = useToast();
+  const { setBannerError } = useToast();
   const { showDevConsole, ...runtimeOptions } = options;
 
   // Deduplication state for structured errors
@@ -37,7 +34,7 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
         if ((error as any).graphQLErrors?.length) {
           const graphQLErrors = (error as any).graphQLErrors as GraphQLError[];
 
-          // Route errors based on visibility level
+          // Route all errors to banners for consistent UI
           const routeError = (gqlError: GraphQLError) => {
             const extensions = gqlError.extensions;
             const visibility = extensions?.visibility as ErrorVisibility;
@@ -46,90 +43,68 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
             // If dev console is disabled, don't show ANY error UI to users
             if (!isDev) {
               console.error("CopilotKit Error (hidden in production):", gqlError.message);
-              return null;
-            }
-
-            // Dev-only errors (explicit visibility takes priority)
-            if (visibility === ErrorVisibility.DEV_ONLY) {
-              // Deduplicate dev-only errors
-              const now = Date.now();
-              const errorMessage = gqlError.message;
-              if (
-                lastStructuredErrorRef.current &&
-                lastStructuredErrorRef.current.message === errorMessage &&
-                now - lastStructuredErrorRef.current.timestamp < 150
-              ) {
-                return null;
-              }
-              lastStructuredErrorRef.current = { message: errorMessage, timestamp: now };
-
-              return gqlError;
+              return;
             }
 
             // Silent errors - just log
             if (visibility === ErrorVisibility.SILENT) {
               console.error("CopilotKit Silent Error:", gqlError.message);
-              return null;
+              return;
             }
 
-            // Handle banner errors via state management (only in dev mode)
-            const shouldBeBanner = shouldShowAsBanner(gqlError);
-            if (visibility === ErrorVisibility.BANNER || shouldBeBanner) {
-              const ckError = createStructuredError(gqlError);
-              if (ckError) {
-                setBannerError(ckError);
-                return null; // Don't show as toast
-              }
+            // All errors (including DEV_ONLY) show as banners for consistency
+            // Deduplicate to prevent spam
+            const now = Date.now();
+            const errorMessage = gqlError.message;
+            if (
+              lastStructuredErrorRef.current &&
+              lastStructuredErrorRef.current.message === errorMessage &&
+              now - lastStructuredErrorRef.current.timestamp < 150
+            ) {
+              return; // Skip duplicate
             }
+            lastStructuredErrorRef.current = { message: errorMessage, timestamp: now };
 
-            // Default to toast for regular errors (only in dev mode) - deduplicate these
-            if (visibility) {
-              const now = Date.now();
-              const errorMessage = gqlError.message;
-
-              if (
-                lastStructuredErrorRef.current &&
-                lastStructuredErrorRef.current.message === errorMessage &&
-                now - lastStructuredErrorRef.current.timestamp < 150
-              ) {
-                console.warn("Suppressing duplicate structured error:", errorMessage);
-                return null;
-              }
-
-              // Record this error for deduplication
-              lastStructuredErrorRef.current = { message: errorMessage, timestamp: now };
+            const ckError = createStructuredError(gqlError);
+            if (ckError) {
+              setBannerError(ckError);
+            } else {
+              // Fallback for unstructured errors
+              const fallbackError = new CopilotKitError({
+                message: gqlError.message,
+                code: CopilotKitErrorCode.UNKNOWN,
+              });
+              setBannerError(fallbackError);
             }
-
-            return gqlError;
           };
 
-          const toastErrors = graphQLErrors.map(routeError).filter(Boolean) as GraphQLError[];
-
-          if (toastErrors.length > 0) {
-            addGraphQLErrorsToast(toastErrors);
-          }
+          // Process all errors as banners
+          graphQLErrors.forEach(routeError);
         } else {
           const isDev = shouldShowDevConsole(showDevConsole ?? false);
           if (!isDev) {
             console.error("CopilotKit Error (hidden in production):", error);
           } else {
-            addErrorToast([error]);
+            // Route non-GraphQL errors to banner as well
+            const fallbackError = new CopilotKitError({
+              message: error?.message || String(error),
+              code: CopilotKitErrorCode.UNKNOWN,
+            });
+            setBannerError(fallbackError);
           }
         }
       },
       handleGQLWarning: (message: string) => {
         console.warn(message);
-        addToast({ type: "warning", message });
+        // Show warnings as banners too for consistency
+        const warningError = new CopilotKitError({
+          message,
+          code: CopilotKitErrorCode.UNKNOWN,
+        });
+        setBannerError(warningError);
       },
     });
-  }, [
-    runtimeOptions,
-    addGraphQLErrorsToast,
-    addToast,
-    addErrorToast,
-    setBannerError,
-    showDevConsole,
-  ]);
+  }, [runtimeOptions, setBannerError, showDevConsole]);
 
   return runtimeClient;
 };
