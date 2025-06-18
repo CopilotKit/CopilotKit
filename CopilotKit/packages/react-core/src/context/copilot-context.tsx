@@ -162,7 +162,7 @@ export interface CopilotContextParams {
   // api endpoints
   copilotApiConfig: CopilotApiConfig;
 
-  showDevConsole: boolean | "auto";
+  showDevConsole: boolean;
 
   // agents
   coagentStates: Record<string, CoagentState>;
@@ -268,7 +268,7 @@ const emptyCopilotContext: CopilotContextParams = {
   chatSuggestionConfiguration: {},
   addChatSuggestionConfiguration: () => {},
   removeChatSuggestionConfiguration: () => {},
-  showDevConsole: "auto",
+  showDevConsole: false,
   coagentStates: {},
   setCoagentStates: () => {},
   coagentStatesRef: { current: {} },

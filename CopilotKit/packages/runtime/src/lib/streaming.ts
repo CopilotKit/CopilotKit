@@ -72,7 +72,7 @@ function convertStreamingErrorToStructured(error: any): CopilotKitError {
   ) {
     return new CopilotKitError({
       message:
-        "Connection to agent was unexpectedly terminated. This may be due to the agent service being restarted or network issues. Please try again.",
+        "Connection to agent was unexpectedly terminated. This is likely due to the agent service being down or experiencing issues. Please check your agent logs and try again.",
       code: CopilotKitErrorCode.NETWORK_ERROR,
     });
   }

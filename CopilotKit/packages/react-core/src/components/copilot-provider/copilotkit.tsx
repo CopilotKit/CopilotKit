@@ -52,7 +52,7 @@ import {
 import { StatusChecker } from "../../lib/status-checker";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
-  const showDevConsole = props.showDevConsole === undefined ? "auto" : props.showDevConsole;
+  const showDevConsole = props.showDevConsole ?? false;
   const enabled = shouldShowDevConsole(showDevConsole);
 
   return (
@@ -271,6 +271,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     publicApiKey: copilotApiConfig.publicApiKey,
     headers,
     credentials: copilotApiConfig.credentials,
+    showDevConsole: props.showDevConsole ?? false,
   });
 
   const [chatSuggestionConfiguration, setChatSuggestionConfiguration] = useState<{
@@ -365,7 +366,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
 
   const chatAbortControllerRef = useRef<AbortController | null>(null);
 
-  const showDevConsole = props.showDevConsole === undefined ? "auto" : props.showDevConsole;
+  const showDevConsole = props.showDevConsole ?? false;
 
   const [langGraphInterruptAction, _setLangGraphInterruptAction] =
     useState<LangGraphInterruptAction | null>(null);

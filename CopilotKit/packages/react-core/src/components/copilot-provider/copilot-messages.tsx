@@ -45,7 +45,19 @@ function shouldShowAsBanner(gqlError: GraphQLError): boolean {
     return true;
   }
 
-  // Priority 3: Legacy stack trace detection for discovery errors
+  // Priority 3: Check for critical errors that should be banners regardless of formal classification
+  const errorMessage = gqlError.message.toLowerCase();
+  if (
+    errorMessage.includes("api key") ||
+    errorMessage.includes("401") ||
+    errorMessage.includes("unauthorized") ||
+    errorMessage.includes("authentication") ||
+    errorMessage.includes("incorrect api key")
+  ) {
+    return true;
+  }
+
+  // Priority 4: Legacy stack trace detection for discovery errors
   const originalError = extensions.originalError as any;
   if (originalError?.stack) {
     return (
@@ -64,7 +76,7 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
   const lastLoadedAgentName = useRef<string>();
   const lastLoadedMessages = useRef<string>();
 
-  const { threadId, agentSession, runtimeClient } = useCopilotContext();
+  const { threadId, agentSession, runtimeClient, showDevConsole } = useCopilotContext();
   const { addGraphQLErrorsToast, setBannerError } = useToast();
   const addErrorToast = useErrorToast();
 
@@ -108,9 +120,15 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
         const routeError = (gqlError: GraphQLError) => {
           const extensions = gqlError.extensions;
           const visibility = extensions?.visibility as ErrorVisibility;
-          const isDev = shouldShowDevConsole("auto");
+          const isDev = shouldShowDevConsole(showDevConsole);
 
-          // Handle banner errors via state management
+          // If dev console is disabled, don't show ANY error UI to users
+          if (!isDev) {
+            console.error("CopilotKit Error (hidden in production):", gqlError.message);
+            return null;
+          }
+
+          // Handle banner errors via state management (only in dev mode)
           if (shouldShowAsBanner(gqlError)) {
             const ckError = createStructuredError(gqlError);
             if (ckError) {
@@ -121,24 +139,8 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
 
           // Handle dev-only errors
           if (visibility === ErrorVisibility.DEV_ONLY) {
-            console.log(
-              "🐛 copilot-messages: Dev-only error detected:",
-              gqlError.message,
-              "isDev:",
-              isDev,
-              "visibility:",
-              visibility,
-            );
-            if (isDev) {
-              console.log("🐛 copilot-messages: Showing dev-only error as toast", gqlError.message);
-              // Continue to show as toast
-            } else {
-              console.warn(
-                "CopilotKit Development Error (hidden in production):",
-                gqlError.message,
-              );
-              return null;
-            }
+            console.log("🐛 copilot-messages: Showing dev-only error as toast", gqlError.message);
+            // Continue to show as toast
           }
 
           if (visibility === ErrorVisibility.SILENT) {
@@ -146,7 +148,7 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
             return null;
           }
 
-          // Default to toast for regular errors
+          // Default to toast for regular errors (only in dev mode)
           return gqlError;
         };
 
@@ -156,10 +158,15 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
           addGraphQLErrorsToast(toastErrors);
         }
       } else {
-        addErrorToast([error]);
+        const isDev = shouldShowDevConsole(showDevConsole);
+        if (!isDev) {
+          console.error("CopilotKit Error (hidden in production):", error);
+        } else {
+          addErrorToast([error]);
+        }
       }
     },
-    [addGraphQLErrorsToast, setBannerError, addErrorToast],
+    [addGraphQLErrorsToast, setBannerError, addErrorToast, showDevConsole],
   );
 
   useEffect(() => {
@@ -198,7 +205,7 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
       }
     };
     void fetchMessages();
-  }, [threadId, agentSession?.agentName, handleGraphQLErrors]);
+  }, [threadId, agentSession?.agentName, runtimeClient, handleGraphQLErrors]);
 
   return (
     <CopilotMessagesContext.Provider

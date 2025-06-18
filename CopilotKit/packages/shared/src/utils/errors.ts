@@ -2,7 +2,9 @@ import { GraphQLError } from "graphql";
 import { COPILOTKIT_VERSION } from "../index";
 
 export enum Severity {
-  Error = "error",
+  CRITICAL = "critical", // Critical errors that block core functionality
+  WARNING = "warning", // Configuration/setup issues that need attention
+  INFO = "info", // General errors and network issues
 }
 
 export enum ErrorVisibility {
@@ -61,58 +63,66 @@ export const ERROR_CONFIG = {
     statusCode: 503,
     troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#i-am-getting-a-network-errors--api-not-found`,
     visibility: ErrorVisibility.TOAST,
+    severity: Severity.INFO,
   },
   [CopilotKitErrorCode.NOT_FOUND]: {
     statusCode: 404,
     troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#i-am-getting-a-network-errors--api-not-found`,
     visibility: ErrorVisibility.TOAST,
+    severity: Severity.INFO,
   },
   [CopilotKitErrorCode.AGENT_NOT_FOUND]: {
     statusCode: 500,
     troubleshootingUrl: `${BASE_URL}/coagents/troubleshooting/common-issues#i-am-getting-agent-not-found-error`,
     visibility: ErrorVisibility.BANNER,
+    severity: Severity.CRITICAL,
   },
   [CopilotKitErrorCode.API_NOT_FOUND]: {
     statusCode: 404,
     troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#i-am-getting-a-network-errors--api-not-found`,
     visibility: ErrorVisibility.BANNER,
+    severity: Severity.CRITICAL,
   },
   [CopilotKitErrorCode.REMOTE_ENDPOINT_NOT_FOUND]: {
     statusCode: 404,
     troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#i-am-getting-copilotkits-remote-endpoint-not-found-error`,
     visibility: ErrorVisibility.BANNER,
+    severity: Severity.CRITICAL,
   },
   [CopilotKitErrorCode.MISUSE]: {
     statusCode: 400,
     troubleshootingUrl: null,
     visibility: ErrorVisibility.DEV_ONLY,
+    severity: Severity.WARNING,
   },
   [CopilotKitErrorCode.UNKNOWN]: {
     statusCode: 500,
     visibility: ErrorVisibility.TOAST,
+    severity: Severity.INFO,
   },
   [CopilotKitErrorCode.CONFIGURATION_ERROR]: {
     statusCode: 400,
     troubleshootingUrl: null,
-    severity: Severity.Error,
+    severity: Severity.WARNING,
     visibility: ErrorVisibility.BANNER,
   },
   [CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR]: {
     statusCode: 400,
     troubleshootingUrl: null,
-    severity: Severity.Error,
+    severity: Severity.CRITICAL,
     visibility: ErrorVisibility.BANNER,
   },
   [CopilotKitErrorCode.UPGRADE_REQUIRED_ERROR]: {
     statusCode: 402,
     troubleshootingUrl: null,
-    severity: Severity.Error,
+    severity: Severity.WARNING,
     visibility: ErrorVisibility.BANNER,
   },
   [CopilotKitErrorCode.VERSION_MISMATCH]: {
     statusCode: 400,
     troubleshootingUrl: null,
     visibility: ErrorVisibility.DEV_ONLY,
+    severity: Severity.INFO,
   },
 };
 
@@ -378,7 +388,7 @@ export class ResolvedCopilotKitError extends CopilotKitError {
             : new CopilotKitApiDiscoveryError({ message, url });
         default:
           resolvedCode = CopilotKitErrorCode.UNKNOWN;
-          super({ message, code: resolvedCode });
+          super({ message, code: resolvedCode, visibility: ErrorVisibility.BANNER });
       }
     } else {
       super({ message, code: resolvedCode });
@@ -391,7 +401,7 @@ export class ConfigurationError extends CopilotKitError {
   constructor(message: string) {
     super({ message, code: CopilotKitErrorCode.CONFIGURATION_ERROR });
     this.name = ERROR_NAMES.CONFIGURATION_ERROR;
-    this.severity = Severity.Error;
+    this.severity = Severity.WARNING;
   }
 }
 
@@ -399,7 +409,7 @@ export class MissingPublicApiKeyError extends ConfigurationError {
   constructor(message: string) {
     super(message);
     this.name = ERROR_NAMES.MISSING_PUBLIC_API_KEY_ERROR;
-    this.severity = Severity.Error;
+    this.severity = Severity.CRITICAL;
   }
 }
 
@@ -407,7 +417,7 @@ export class UpgradeRequiredError extends ConfigurationError {
   constructor(message: string) {
     super(message);
     this.name = ERROR_NAMES.UPGRADE_REQUIRED_ERROR;
-    this.severity = Severity.Error;
+    this.severity = Severity.WARNING;
   }
 }
 

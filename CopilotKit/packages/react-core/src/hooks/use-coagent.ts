@@ -241,6 +241,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     publicApiKey: copilotApiConfig.publicApiKey,
     headers,
     credentials: copilotApiConfig.credentials,
+    showDevConsole: context.showDevConsole,
   });
 
   // if we manage state internally, we need to provide a function to set the state

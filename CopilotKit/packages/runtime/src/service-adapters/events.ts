@@ -521,9 +521,24 @@ function convertStreamingErrorToStructured(error: any): CopilotKitError {
     });
   }
 
+  // Handle API key errors (authentication/authorization issues)
+  const errorMessage = error?.message || String(error);
+  if (
+    errorMessage.includes("401") ||
+    errorMessage.toLowerCase().includes("api key") ||
+    errorMessage.toLowerCase().includes("unauthorized") ||
+    errorMessage.toLowerCase().includes("authentication") ||
+    errorMessage.toLowerCase().includes("incorrect api key")
+  ) {
+    return new CopilotKitError({
+      message: `Event streaming error: ${errorMessage}`,
+      code: CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR,
+    });
+  }
+
   // Default: convert unknown streaming errors
   return new CopilotKitError({
-    message: `Event streaming error: ${error?.message || String(error)}`,
+    message: `Event streaming error: ${errorMessage}`,
     code: CopilotKitErrorCode.UNKNOWN,
   });
 }

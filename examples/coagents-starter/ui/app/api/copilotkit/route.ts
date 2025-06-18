@@ -4,9 +4,10 @@ import {
   copilotRuntimeNextJSAppRouterEndpoint,
   ExperimentalEmptyAdapter,
   langGraphPlatformEndpoint,
+  OpenAIAdapter,
 } from "@copilotkit/runtime";
 
-const serviceAdapter = new ExperimentalEmptyAdapter();
+const serviceAdapter = new OpenAIAdapter();
 
 const runtime = new CopilotRuntime({
   remoteEndpoints: [
