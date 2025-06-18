@@ -1,0 +1,37 @@
+---
+title: Streaming and Tool Calls
+description: CoAgents support streaming your messages and tool calls to the frontend.
+---
+
+If you'd like to stream messages from your Agno agents you can utilize our Copilotkit SDK which provides a collection
+of functions and utilities for interacting with the agent's state or behavior. This allows you to choose how messages and
+tool calls are emitted and streamed to the frontend.
+
+## Message Streaming
+
+Message streaming is enabled by default when using your Agno Agents together with the Agno AG-UI app:
+
+```python
+from agno.app.agui.app import AGUIApp
+from agno.agent.agent import Agent
+
+# Setup your Agno Agent
+agent = Agent(
+    name="Agno Assistant",
+    model=OpenAIChat(id="gpt-4o"),
+    instructions="You are a helpful AI assistant.",
+)
+
+# Setup the AG-UI app
+agui_app = AGUIApp(
+    agent=agent,
+    name="AG-UI Agno Agent",
+    app_id="agno_agent",
+)
+app = agui_app.get_app()
+
+# Serve the app, effectively exposing your Agno Agent
+agui_app.serve(app="agno_agent:app", port=8000, reload=True)
+
+# Interacting with the Agent through the app will automatically stream messages!
+```

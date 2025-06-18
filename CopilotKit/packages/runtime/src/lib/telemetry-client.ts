@@ -3,6 +3,7 @@ import { EndpointType, LangGraphPlatformEndpoint } from "./runtime/remote-action
 import { createHash } from "node:crypto";
 import { CopilotRuntime, resolveEndpointType } from "./runtime/copilot-runtime";
 import { RuntimeInstanceCreatedInfo } from "@copilotkit/shared/src/telemetry/events";
+import { CreateCopilotRuntimeServerOptions } from "./integrations/shared";
 const packageJson = require("../../package.json");
 
 const telemetryClient = new TelemetryClient({
@@ -11,8 +12,9 @@ const telemetryClient = new TelemetryClient({
 });
 
 export function getRuntimeInstanceTelemetryInfo(
-  runtime: CopilotRuntime,
+  options: CreateCopilotRuntimeServerOptions,
 ): RuntimeInstanceCreatedInfo {
+  const runtime = options.runtime;
   const endpointsInfo = runtime.remoteEndpointDefinitions.reduce(
     (acc, endpoint) => {
       let info = { ...acc };
@@ -42,13 +44,20 @@ export function getRuntimeInstanceTelemetryInfo(
     { endpointTypes: [], agentsAmount: null, hashedKey: null },
   );
 
+  // Get public API key from options.cloud.publicApiKey
+  const publicApiKey = options.cloud?.publicApiKey;
+  const apiKeyProvided = !!publicApiKey && publicApiKey.trim().length > 0;
+
   return {
     actionsAmount: runtime.actions.length,
     endpointsAmount: runtime.remoteEndpointDefinitions.length,
     endpointTypes: endpointsInfo.endpointTypes,
     agentsAmount: endpointsInfo.agentsAmount,
     hashedLgcKey: endpointsInfo.hashedKey,
-  };
+    "cloud.api_key_provided": apiKeyProvided,
+    ...(apiKeyProvided ? { "cloud.public_api_key": publicApiKey } : {}),
+    ...(options.cloud?.baseUrl ? { "cloud.base_url": options.cloud.baseUrl } : {}),
+  } as RuntimeInstanceCreatedInfo;
 }
 
 export default telemetryClient;
