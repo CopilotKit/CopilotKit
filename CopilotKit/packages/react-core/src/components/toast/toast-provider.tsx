@@ -69,36 +69,25 @@ function getErrorColors(severity: ErrorSeverity): ErrorColors {
   switch (severity) {
     case "critical":
       return {
-        background: "#fef2f2",
-        border: "#fca5a5",
-        text: "#991b1b",
+        background: "#fee2e2",
+        border: "#dc2626",
+        text: "#7f1d1d",
         icon: "#dc2626",
       };
     case "warning":
       return {
-        background: "#fffbeb",
-        border: "#fcd34d",
-        text: "#92400e",
-        icon: "#f59e0b",
+        background: "#fef3c7",
+        border: "#d97706",
+        text: "#78350f",
+        icon: "#d97706",
       };
     case "info":
       return {
-        background: "#eff6ff",
-        border: "#93c5fd",
+        background: "#dbeafe",
+        border: "#2563eb",
         text: "#1e3a8a",
-        icon: "#3b82f6",
+        icon: "#2563eb",
       };
-  }
-}
-
-function getErrorIcon(severity: ErrorSeverity): string {
-  switch (severity) {
-    case "critical":
-      return "🚨";
-    case "warning":
-      return "⚠️";
-    case "info":
-      return "ℹ️";
   }
 }
 
@@ -126,13 +115,8 @@ export function ToastProvider({
 
   const addToast = useCallback(
     (toast: PartialBy<Toast, "id">) => {
-      // Allow structured errors to bypass the enabled check
-      const isStructuredError =
-        toast.type === "error" &&
-        React.isValidElement(toast.message) &&
-        (toast.message as any)?.props?.errors;
-
-      if (!enabled && !isStructuredError) {
+      // Respect the enabled flag for ALL toasts
+      if (!enabled) {
         return;
       }
 
@@ -163,31 +147,11 @@ export function ToastProvider({
     [enabled],
   );
 
-  const addGraphQLErrorsToast = useCallback(
-    (errors: GraphQLError[]) => {
-      // DEPRECATED: All errors now route to banners for consistency
-      // This function is kept for backward compatibility but should not be used
-      console.warn("addGraphQLErrorsToast is deprecated. All errors now show as banners.");
-
-      if (errors.length === 0) {
-        return;
-      }
-
-      // Route GraphQL errors to banners instead of toasts
-      errors.forEach((error) => {
-        const extensions = error.extensions;
-        const code = extensions?.code as CopilotKitErrorCode;
-        const originalError = extensions?.originalError as any;
-        const message = originalError?.message || error.message;
-
-        if (code) {
-          const ckError = new CopilotKitError({ message, code });
-          setBannerError(ckError);
-        }
-      });
-    },
-    [setBannerError],
-  );
+  const addGraphQLErrorsToast = useCallback((errors: GraphQLError[]) => {
+    // DEPRECATED: All errors now route to banners for consistency
+    console.warn("addGraphQLErrorsToast is deprecated. All errors now show as banners.");
+    // Function kept for backward compatibility - does nothing
+  }, []);
 
   const value = {
     toasts,
@@ -206,21 +170,25 @@ export function ToastProvider({
         (() => {
           const severity = getErrorSeverity(bannerError);
           const colors = getErrorColors(severity);
-          const icon = getErrorIcon(severity);
 
           return (
             <div
               style={{
                 position: "fixed",
-                top: 0,
-                left: 0,
-                right: 0,
+                bottom: "20px",
+                left: "50%",
+                transform: "translateX(-50%)",
                 zIndex: 9999,
                 backgroundColor: colors.background,
-                borderBottom: `2px solid ${colors.border}`,
-                padding: "16px 20px",
-                fontSize: "14px",
-                boxShadow: "0 2px 12px rgba(0, 0, 0, 0.08)",
+                border: `1px solid ${colors.border}`,
+                borderLeft: `4px solid ${colors.border}`,
+                borderRadius: "8px",
+                padding: "10px 14px",
+                fontSize: "13px",
+                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+                backdropFilter: "blur(8px)",
+                maxWidth: "500px",
+                minWidth: "350px",
               }}
             >
               <div
@@ -228,49 +196,135 @@ export function ToastProvider({
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  maxWidth: "1200px",
-                  margin: "0 auto",
+                  gap: "10px",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1 }}>
-                  <span style={{ color: colors.icon, fontSize: "20px" }}>{icon}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
                   <div
                     style={{
-                      color: colors.text,
-                      lineHeight: "1.5",
-                      fontWeight: "500",
-                      fontSize: "15px",
+                      width: "12px",
+                      height: "12px",
+                      borderRadius: "50%",
+                      backgroundColor: colors.border,
+                      flexShrink: 0,
                     }}
-                  >
-                    {bannerError.message}
+                  />
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", flex: 1 }}>
+                    <div
+                      style={{
+                        color: colors.text,
+                        lineHeight: "1.4",
+                        fontWeight: "400",
+                        fontSize: "13px",
+                        flex: 1,
+                        wordWrap: "break-word",
+                        overflowWrap: "break-word",
+                        hyphens: "auto",
+                      }}
+                    >
+                      {(() => {
+                        const message = bannerError.message;
+                        const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+                        const plainUrlRegex = /(https?:\/\/[^\s)]+)/g;
+
+                        // Remove URLs and markdown links from the message, keep just the text
+                        let cleanMessage = message
+                          .replace(markdownLinkRegex, "") // Remove [text](url)
+                          .replace(plainUrlRegex, "") // Remove plain URLs
+                          .replace(/See more:\s*/g, "") // Remove "See more:" text
+                          .replace(/\s+/g, " ") // Clean up extra spaces
+                          .trim();
+
+                        // Truncate very long messages for better display
+                        if (cleanMessage.length > 120) {
+                          cleanMessage = cleanMessage.substring(0, 117) + "...";
+                        }
+
+                        return cleanMessage;
+                      })()}
+                    </div>
+
+                    {(() => {
+                      const message = bannerError.message;
+                      const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+                      const plainUrlRegex = /(https?:\/\/[^\s)]+)/g;
+
+                      // Extract the first URL found
+                      let url = null;
+                      let buttonText = "See More";
+
+                      // Check for markdown links first
+                      const markdownMatch = markdownLinkRegex.exec(message);
+                      if (markdownMatch) {
+                        url = markdownMatch[2];
+                        buttonText = "See More";
+                      } else {
+                        // Check for plain URLs
+                        const urlMatch = plainUrlRegex.exec(message);
+                        if (urlMatch) {
+                          url = urlMatch[0];
+                          buttonText = "See More";
+                        }
+                      }
+
+                      if (!url) return null;
+
+                      return (
+                        <button
+                          onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
+                          style={{
+                            background: colors.border,
+                            color: "white",
+                            border: "none",
+                            borderRadius: "5px",
+                            padding: "4px 10px",
+                            fontSize: "11px",
+                            fontWeight: "500",
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                            flexShrink: 0,
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.opacity = "0.9";
+                            e.currentTarget.style.transform = "translateY(-1px)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.opacity = "1";
+                            e.currentTarget.style.transform = "translateY(0)";
+                          }}
+                        >
+                          {buttonText}
+                        </button>
+                      );
+                    })()}
                   </div>
                 </div>
                 <button
                   onClick={() => setBannerError(null)}
                   style={{
-                    background: "rgba(255, 255, 255, 0.7)",
-                    border: `1px solid ${colors.border}`,
+                    background: "transparent",
+                    border: "none",
                     color: colors.text,
                     cursor: "pointer",
-                    padding: "6px 10px",
-                    borderRadius: "8px",
+                    padding: "2px",
+                    borderRadius: "3px",
                     fontSize: "14px",
-                    fontWeight: "500",
-                    marginLeft: "16px",
+                    lineHeight: "1",
+                    opacity: 0.6,
                     transition: "all 0.2s ease",
-                    opacity: 0.8,
+                    flexShrink: 0,
                   }}
                   title="Dismiss"
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "rgba(255, 255, 255, 0.9)";
                     e.currentTarget.style.opacity = "1";
+                    e.currentTarget.style.background = "rgba(0, 0, 0, 0.05)";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "rgba(255, 255, 255, 0.7)";
-                    e.currentTarget.style.opacity = "0.8";
+                    e.currentTarget.style.opacity = "0.6";
+                    e.currentTarget.style.background = "transparent";
                   }}
                 >
-                  ✕
+                  ×
                 </button>
               </div>
             </div>
