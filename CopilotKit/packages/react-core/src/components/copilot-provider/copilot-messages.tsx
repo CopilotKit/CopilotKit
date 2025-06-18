@@ -188,6 +188,9 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
 
       // Check for GraphQL errors and manually trigger error handling
       if (result.error) {
+        // Update refs to prevent infinite retries of the same failed request
+        lastLoadedThreadId.current = threadId;
+        lastLoadedAgentName.current = agentSession?.agentName;
         handleGraphQLErrors(result.error);
         return; // Don't try to process the data if there's an error
       }
