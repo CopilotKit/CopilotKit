@@ -20,6 +20,7 @@ import { writeJsonLineResponseToEventStream } from "../streaming";
 import { CopilotKitApiDiscoveryError, ResolvedCopilotKitError } from "@copilotkit/shared";
 import { parseJson, tryMap } from "@copilotkit/shared";
 import { ActionInput } from "../../graphql/inputs/action.input";
+import { fetchWithRetry } from "./retry-utils";
 
 export function constructLGCRemoteAction({
   endpoint,
@@ -144,15 +145,19 @@ export function constructRemoteActions({
 
       const fetchUrl = `${url}/actions/execute`;
       try {
-        const response = await fetch(fetchUrl, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            name: action.name,
-            arguments: args,
-            properties: graphqlContext.properties,
-          }),
-        });
+        const response = await fetchWithRetry(
+          fetchUrl,
+          {
+            method: "POST",
+            headers,
+            body: JSON.stringify({
+              name: action.name,
+              arguments: args,
+              properties: graphqlContext.properties,
+            }),
+          },
+          logger,
+        );
 
         if (!response.ok) {
           logger.error(
@@ -219,25 +224,29 @@ export function constructRemoteActions({
 
           const fetchUrl = `${url}/agents/execute`;
           try {
-            const response = await fetch(fetchUrl, {
-              method: "POST",
-              headers,
-              body: JSON.stringify({
-                name,
-                threadId,
-                nodeName,
-                messages: [...messages, ...additionalMessages],
-                state,
-                config,
-                properties: graphqlContext.properties,
-                actions: tryMap(actionInputsWithoutAgents, (action: ActionInput) => ({
-                  name: action.name,
-                  description: action.description,
-                  parameters: JSON.parse(action.jsonSchema),
-                })),
-                metaEvents,
-              }),
-            });
+            const response = await fetchWithRetry(
+              fetchUrl,
+              {
+                method: "POST",
+                headers,
+                body: JSON.stringify({
+                  name,
+                  threadId,
+                  nodeName,
+                  messages: [...messages, ...additionalMessages],
+                  state,
+                  config,
+                  properties: graphqlContext.properties,
+                  actions: tryMap(actionInputsWithoutAgents, (action: ActionInput) => ({
+                    name: action.name,
+                    description: action.description,
+                    parameters: JSON.parse(action.jsonSchema),
+                  })),
+                  metaEvents,
+                }),
+              },
+              logger,
+            );
 
             if (!response.ok) {
               logger.error(

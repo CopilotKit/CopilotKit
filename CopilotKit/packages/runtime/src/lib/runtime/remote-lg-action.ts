@@ -19,6 +19,7 @@ import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 import { MetaEventName } from "../../graphql/types/meta-events.type";
 import { parseJson, CopilotKitMisuseError } from "@copilotkit/shared";
 import { RemoveMessage } from "@langchain/core/messages";
+import { RETRY_CONFIG, isRetryableError, sleep, calculateDelay } from "./retry-utils";
 
 type State = Record<string, any>;
 
@@ -88,31 +89,51 @@ let activeInterruptEvent = false;
 export async function execute(args: ExecutionArgs): Promise<ReadableStream<Uint8Array>> {
   return new ReadableStream({
     async start(controller) {
-      try {
-        await streamEvents(controller, args);
-        controller.close();
-      } catch (err) {
-        // Unwrap the possible cause
-        const cause = err?.cause;
+      let lastError: any;
 
-        // Check code directly if it exists
-        const errorCode = cause?.code || err?.code;
+      // Retry logic for transient connection errors
+      for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
+        try {
+          await streamEvents(controller, args);
+          controller.close();
+          return; // Success - exit retry loop
+        } catch (err) {
+          lastError = err;
 
-        if (errorCode === "ECONNREFUSED") {
-          throw new CopilotKitMisuseError({
-            message: `
-              The LangGraph client could not connect to the graph. Please further check previous logs, which includes further details.
-              
-              See more: https://docs.copilotkit.ai/troubleshooting/common-issues`,
-          });
-        } else {
-          throw new CopilotKitMisuseError({
-            message: `
-              The LangGraph client threw unhandled error ${err}.
-              
-              See more: https://docs.copilotkit.ai/troubleshooting/common-issues`,
-          });
+          // Check if this is a retryable error
+          if (isRetryableError(err) && attempt < RETRY_CONFIG.maxRetries) {
+            const delay = calculateDelay(attempt);
+            console.warn(
+              `LangGraph connection attempt ${attempt + 1}/${RETRY_CONFIG.maxRetries + 1} failed. ` +
+                `Retrying in ${delay}ms. Error: ${err?.message || String(err)}`,
+            );
+            await sleep(delay);
+            continue; // Retry
+          }
+
+          // Not retryable or max retries exceeded - handle error
+          break;
         }
+      }
+
+      // Handle the final error after retries exhausted
+      const cause = lastError?.cause;
+      const errorCode = cause?.code || lastError?.code;
+
+      if (errorCode === "ECONNREFUSED") {
+        throw new CopilotKitMisuseError({
+          message: `
+            The LangGraph client could not connect to the graph after ${RETRY_CONFIG.maxRetries + 1} attempts. Please further check previous logs, which includes further details.
+            
+            See more: https://docs.copilotkit.ai/troubleshooting/common-issues`,
+        });
+      } else {
+        throw new CopilotKitMisuseError({
+          message: `
+            The LangGraph client threw unhandled error ${lastError}.
+            
+            See more: https://docs.copilotkit.ai/troubleshooting/common-issues`,
+        });
       }
     },
   });

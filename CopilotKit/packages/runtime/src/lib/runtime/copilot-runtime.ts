@@ -56,6 +56,7 @@ import { from } from "rxjs";
 import { AgentStateInput } from "../../graphql/inputs/agent-state.input";
 import { ActionInputAvailability } from "../../graphql/types/enums";
 import { createHeaders } from "./remote-action-constructors";
+import { fetchWithRetry } from "./retry-utils";
 import { Agent } from "../../graphql/types/agents-response.type";
 import { ExtensionsInput } from "../../graphql/inputs/extensions.input";
 import { ExtensionsResponse } from "../../graphql/types/extensions-response.type";
@@ -725,7 +726,7 @@ please use an LLM adapter instead.`,
         const cpkEndpoint = endpoint as CopilotKitEndpoint;
         const fetchUrl = `${endpoint.url}/info`;
         try {
-          const response = await fetch(fetchUrl, {
+          const response = await fetchWithRetry(fetchUrl, {
             method: "POST",
             headers: createHeaders(cpkEndpoint.onBeforeRequest, graphqlContext),
             body: JSON.stringify({ properties: graphqlContext.properties }),
@@ -814,7 +815,7 @@ please use an LLM adapter instead.`,
       const cpkEndpoint = agentWithEndpoint.endpoint as CopilotKitEndpoint;
       const fetchUrl = `${cpkEndpoint.url}/agents/state`;
       try {
-        const response = await fetch(fetchUrl, {
+        const response = await fetchWithRetry(fetchUrl, {
           method: "POST",
           headers: createHeaders(cpkEndpoint.onBeforeRequest, graphqlContext),
           body: JSON.stringify({
