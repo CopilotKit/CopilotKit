@@ -167,6 +167,11 @@ const config = {
         destination: "/ag2/quickstart",
         permanent: true,
       },
+      {
+        source: "/llamaindex/",
+        destination: "/llamaindex",
+        permanent: true,
+      },
     ];
   },
 };
