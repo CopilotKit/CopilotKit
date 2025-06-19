@@ -24,7 +24,7 @@ const groupedConfigs = groupConfigsByDescription(qaConfigs);
 export const cloudVariants = variants.filter((variant) => variant.isCloud);
 export const nonCloudVariants = variants.filter((variant) => !variant.isCloud);
 
-test.describe.configure({ mode: 'parallel' });
+test.describe.configure({ mode: "parallel" });
 
 Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
   test.describe(`${projectName}`, () => {
@@ -36,7 +36,8 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               {
                 ...config,
               },
-              nonCloudVariants
+              nonCloudVariants,
+              true
             ),
             ...cloudVariants,
           ].forEach((variant) => {
@@ -65,15 +66,14 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
 
               // First interaction will bring up interrupt interface
               await page
-                  .getByPlaceholder("Your name")
-                  .fill('CopilotKit Automation');
+                .getByPlaceholder("Your name")
+                .fill("CopilotKit Automation");
               await page.locator('button:has-text("Submit")').click();
 
-              await page.locator('p:has-text("Ah, forgot to ask, which company are you working for?")')
-              await sendChatMessage(
-                  page,
-                  "CopilotKit"
+              await page.locator(
+                'p:has-text("Ah, forgot to ask, which company are you working for?")'
               );
+              await sendChatMessage(page, "CopilotKit");
 
               const cancelMessage = page.locator(
                 '[data-test-id="email-cancel-message"]'
