@@ -7,7 +7,7 @@
     "---UI & Customization---",
     "../../shared/guides/custom-look-and-feel",
     "copilot-textarea",
-    "copilot-suggestions",
+    "../../shared/guides/copilot-suggestions",
     "custom-ai-assistant-behavior",
     "---Actions & Integration---",
     "frontend-actions",
