@@ -10,7 +10,7 @@ packages = [{include = "research"}]
 python = ">=3.10,<3.13"
 copilotkit = "0.1.49"
 langchain = "0.3.21"
-langgraph = "^0.4.0" 
+langgraph = "0.4.8" 
 langsmith = "0.3.18"
 openai = "^1.68.2"
 fastapi = "^0.115.5"

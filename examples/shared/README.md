@@ -12,16 +12,16 @@ This directory contains standardized dependency templates and utilities for all 
 
 All examples use these exact versions, synchronized with the main SDK:
 
-| Package         | Version    | Source                 |
-| --------------- | ---------- | ---------------------- |
-| `copilotkit`    | `0.1.49`   | Latest stable          |
-| `langchain`     | `0.3.21`   | Main SDK lock          |
-| `langgraph`     | `^0.4.0`   | Compatible with SDK    |
-| `langsmith`     | `0.3.18`   | Main SDK lock          |
-| `openai`        | `^1.68.2`  | Main SDK compatible    |
-| `fastapi`       | `^0.115.5` | Standard framework     |
-| `uvicorn`       | `^0.29.0`  | ASGI server            |
-| `python-dotenv` | `^1.0.0`   | Environment management |
+| Package         | Version    | Source                      |
+| --------------- | ---------- | --------------------------- |
+| `copilotkit`    | `0.1.49`   | Latest stable               |
+| `langchain`     | `0.3.21`   | Main SDK lock               |
+| `langgraph`     | `0.4.8`    | Exact pin - working version |
+| `langsmith`     | `0.3.18`   | Main SDK lock               |
+| `openai`        | `^1.68.2`  | Main SDK compatible         |
+| `fastapi`       | `^0.115.5` | Standard framework          |
+| `uvicorn`       | `^0.29.0`  | ASGI server                 |
+| `python-dotenv` | `^1.0.0`   | Environment management      |
 
 ### 🔧 **Optional Dependencies**
 
