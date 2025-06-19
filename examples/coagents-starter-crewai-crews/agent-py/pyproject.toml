@@ -17,9 +17,9 @@ uvicorn = "^0.29.0"
 python-dotenv = "^1.0.0"
 crewai = "0.118.0"
 
+[tool.poetry.scripts]
+demo = "research.demo:main"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
-
-[tool.poetry.scripts]
-demo = "research.demo:main"

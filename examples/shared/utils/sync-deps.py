@@ -40,7 +40,7 @@ python-dotenv>=1.0.0,<2.0.0
 """
 
 def update_pyproject(pyproject_path):
-    """Update pyproject.toml with canonical versions."""
+    """Update pyproject.toml with canonical versions while preserving existing config."""
     if not pyproject_path.exists():
         print(f"Skipping {pyproject_path} - file not found")
         return False
@@ -52,16 +52,20 @@ def update_pyproject(pyproject_path):
         deps = data.get('tool', {}).get('poetry', {}).get('dependencies', {})
         updated = False
 
+        # Update only the canonical dependencies, preserve others
         for dep, version in CANONICAL_VERSIONS.items():
             if dep in deps and deps[dep] != version:
                 print(f"Updating {dep}: {deps[dep]} -> {version}")
                 deps[dep] = version
                 updated = True
 
+        # Preserve existing sections like scripts, dev-dependencies, etc.
+        # Only update the dependencies section
+
         if updated:
             with open(pyproject_path, 'w') as f:
                 toml.dump(data, f)
-            print(f"✅ Updated {pyproject_path}")
+            print(f"✅ Updated {pyproject_path} (preserved existing config)")
         else:
             print(f"✅ {pyproject_path} already up to date")
 

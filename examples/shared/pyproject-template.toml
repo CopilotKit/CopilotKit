@@ -36,6 +36,10 @@ python-dotenv = "^1.0.0"
 # crewai = "0.118.0"  # For CrewAI examples
 # tavily-python = "^0.5.1"  # For research examples
 
+# IMPORTANT: Preserve existing scripts section if present
+# [tool.poetry.scripts]
+# demo = "your_agent.demo:main"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api" 

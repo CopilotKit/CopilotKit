@@ -16,6 +16,9 @@ fastapi = "^0.115.5"
 uvicorn = "^0.29.0"
 python-dotenv = "^1.0.0"
 
+[tool.poetry.scripts]
+demo = "email_agent.demo:main"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
