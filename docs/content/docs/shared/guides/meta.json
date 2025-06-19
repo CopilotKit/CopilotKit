@@ -1,7 +1,9 @@
 {
   "title": "Guides",
   "pages": [
-    "custom-look-and-feel",
+    "---Custom Look and Feel---",
+    "...custom-look-and-feel",
+    "---Guides---",
     "copilot-suggestions"
   ]
 } 

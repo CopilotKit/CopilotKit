@@ -3,9 +3,9 @@
   "root": true,
   "pages": [
     "index",
+    "---Getting Started---",
     "quickstart",
     "[lucide/Telescope][Feature Viewer](https://demo-viewer-five.vercel.app/ )",
-    "---Guides---",
     "...shared-guides",
     "agentic-chat-ui",
     "generative-ui",
