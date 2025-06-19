@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.9.2-next.2
+
+### Patch Changes
+
+- 9b81464: - fix: use latest langgraph agui
+  - @copilotkit/shared@1.9.2-next.2
+
 ## 1.9.2-next.1
 
 ### Patch Changes
