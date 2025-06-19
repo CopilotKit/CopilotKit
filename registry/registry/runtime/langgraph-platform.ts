@@ -3,8 +3,8 @@ import {
   CopilotRuntime,
   copilotRuntimeNextJSAppRouterEndpoint,
   ExperimentalEmptyAdapter,
-  LangGraphAgent,
 } from "@copilotkit/runtime";
+import { LangGraphAgent } from "@ag-ui/langgraph";
 
 const serviceAdapter = new ExperimentalEmptyAdapter();
 

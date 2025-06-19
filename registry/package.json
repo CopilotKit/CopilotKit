@@ -10,10 +10,11 @@
     "registry:build": "shadcn build"
   },
   "dependencies": {
-    "@copilotkit/react-core": "^1.9.0",
-    "@copilotkit/react-ui": "^1.9.0",
-    "@copilotkit/runtime": "^1.9.0",
-    "@copilotkit/runtime-client-gql": "^1.9.0",
+    "@ag-ui/langgraph": "^0.0.4",
+    "@copilotkit/react-core": "^1.9.1",
+    "@copilotkit/react-ui": "^1.9.1",
+    "@copilotkit/runtime": "^1.9.1",
+    "@copilotkit/runtime-client-gql": "^1.9.1",
     "@modelcontextprotocol/sdk": "^1.10.2",
     "@radix-ui/react-label": "^2.1.1",
     "@radix-ui/react-slot": "^1.1.1",
