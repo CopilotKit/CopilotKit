@@ -272,6 +272,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     headers,
     credentials: copilotApiConfig.credentials,
     showDevConsole: props.showDevConsole ?? false,
+    onTrace: props.onTrace,
   });
 
   const [chatSuggestionConfiguration, setChatSuggestionConfiguration] = useState<{
@@ -440,6 +441,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         langGraphInterruptAction,
         setLangGraphInterruptAction,
         removeLangGraphInterruptAction,
+        onTrace: props.onTrace,
       }}
     >
       <CopilotMessages>{memoizedChildren}</CopilotMessages>
