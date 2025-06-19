@@ -85,32 +85,32 @@ Before you begin, you'll need the following:
                 Now we need to install the depedencies for the frontend and the agent. This repo comes with a helper function to do this for you.
 
                 <Callout type="info">
-                    This Agno agent uses pip and manages the installation of dependencies through an package.json script, `agent:setup`.
+                    This Agno agent uses pip and manages the installation of dependencies through an package.json script, `install:agent`.
                 </Callout>
 
                 <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
                     <Tab value="npm">
                         ```bash
                         npm install
-                        npm run agent:setup
+                        npm run install:agent
                         ```
                     </Tab>
                     <Tab value="pnpm">
                         ```bash
                         pnpm install
-                        pnpm agent:setup
+                        pnpm install:agent
                         ```
                     </Tab>
                     <Tab value="yarn">
                         ```bash
                         yarn install
-                        yarn agent:setup
+                        yarn install:agent
                         ```
                     </Tab>
                     <Tab value="bun">
                         ```bash
                         bun install
-                        bun agent:setup
+                        bun install:agent
                         ```
                     </Tab>
                 </Tabs>
