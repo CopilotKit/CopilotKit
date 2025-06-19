@@ -386,6 +386,8 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     setLangGraphInterruptAction(null);
   }, []);
 
+  const memoizedChildren = useMemo(() => children, [children]);
+
   return (
     <CopilotContext.Provider
       value={{
@@ -440,7 +442,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         removeLangGraphInterruptAction,
       }}
     >
-      <CopilotMessages>{children}</CopilotMessages>
+      <CopilotMessages>{memoizedChildren}</CopilotMessages>
     </CopilotContext.Provider>
   );
 }

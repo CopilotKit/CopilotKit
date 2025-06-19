@@ -2,7 +2,7 @@
  * An internal context to separate the messages state (which is constantly changing) from the rest of CopilotKit context
  */
 
-import { ReactNode, useEffect, useState, useRef, useCallback } from "react";
+import { ReactNode, useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { CopilotMessagesContext } from "../../context/copilot-messages-context";
 import {
   loadMessagesFromJsonRepresentation,
@@ -206,6 +206,8 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
     void fetchMessages();
   }, [threadId, agentSession?.agentName, runtimeClient]); // handleGraphQLErrors should NOT be in deps - causes infinite loop
 
+  const memoizedChildren = useMemo(() => children, [children]);
+
   return (
     <CopilotMessagesContext.Provider
       value={{
@@ -213,7 +215,7 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
         setMessages,
       }}
     >
-      {children}
+      {memoizedChildren}
     </CopilotMessagesContext.Provider>
   );
 }
