@@ -31,7 +31,6 @@ export interface TestVariant {
   isCloud?: boolean;
 }
 
-
 export type TestVariants = TestVariant[];
 
 /**
@@ -79,8 +78,16 @@ export const filterConfigsByProject = (
   }, {} as ConfigMap);
 };
 
-export const appendLGCVariants = (config: ConfigItem, variants: any[]) => {
+export const appendLGCVariants = (
+  config: ConfigItem,
+  variants: any[],
+  skipLGC: boolean = false
+) => {
   let appendedVariants = [...variants];
+
+  if (skipLGC) {
+    return appendedVariants;
+  }
 
   if (config.lgcPythonDeploymentUrl) {
     const newVariants = variants.map((variant) => {
