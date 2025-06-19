@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.9.2-next.0
+
+### Patch Changes
+
+- 10345a5: - feat: structured error visibility system for streaming errors
+
 ## 1.9.1
 
 ### Patch Changes
