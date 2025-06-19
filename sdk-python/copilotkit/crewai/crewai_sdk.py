@@ -70,32 +70,20 @@ async def crewai_flow_async_runner(flow: Flow, inputs: Dict[str, Any]):
                 type=RuntimeEventTypes.RUN_STARTED,
                 state=flow.state
             ), priority=True)
-        elif isinstance(event, MethodExecutionStartedEvent):
-            await queue_put(NodeStarted(
-                type=RuntimeEventTypes.NODE_STARTED,
-                node_name=event.method_name,
-                state=flow.state
-            ), priority=True)
-        elif isinstance(event, MethodExecutionFinishedEvent):
-            await queue_put(NodeFinished(
-                type=RuntimeEventTypes.NODE_FINISHED,
-                node_name=event.method_name,
-                state=flow.state
-            ), priority=True)
         elif isinstance(event, FlowFinishedEvent):
             await queue_put(RunFinished(
                 type=RuntimeEventTypes.RUN_FINISHED,
                 state=flow.state
             ), priority=True)
 
-    
+
     def _global_event_listener(_sender: Any, _event: CrewAIFlowEvent, **_kw):  # noqa: D401
         # Forward to the async handler inside the flow's loop
         loop = asyncio.get_running_loop()
         loop.call_soon(lambda: asyncio.create_task(crewai_flow_event_subscriber(flow, _event)))
 
     # Register for the specific event classes we care about to avoid noise
-    for _ev_cls in (FlowStartedEvent, MethodExecutionStartedEvent, MethodExecutionFinishedEvent, FlowFinishedEvent):
+    for _ev_cls in (FlowStartedEvent, FlowFinishedEvent):
             _crewai_event_bus.on(_ev_cls)(_global_event_listener)  # type: ignore
 
     try:
@@ -108,7 +96,7 @@ async def crewai_flow_async_runner(flow: Flow, inputs: Dict[str, Any]):
 
 async def copilotkit_emit_state(state: Any) -> Literal[True]:
     """
-    Emits intermediate state to CopilotKit. 
+    Emits intermediate state to CopilotKit.
     Useful if you have a longer running node and you want to update the user with the current state of the node.
 
     To install the CopilotKit SDK, run:
@@ -299,7 +287,7 @@ async def _copilotkit_stream_custom_stream_wrapper(response: CustomStreamWrapper
                     message_id=message_id
                 )
             )
-            
+
         elif mode == "tool" and (tool_calls is None or finish_reason is not None):
             # end the current tool call
             await queue_put(
