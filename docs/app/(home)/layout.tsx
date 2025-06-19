@@ -52,7 +52,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                     {
                       title: "Direct to LLM",
                       description: "Get started with CopilotKit quickly",
-                      url: "/guides/quickstart",
+                      url: "/direct-to-llm/guides/quickstart",
                       icon: <RocketIcon className="w-4 h-4" style={{ fontSize: '16px', width: '16px', height: '16px' }} />,
                       bgGradient:
                         "bg-gradient-to-b from-green-700 to-green-400 text-green-100",
