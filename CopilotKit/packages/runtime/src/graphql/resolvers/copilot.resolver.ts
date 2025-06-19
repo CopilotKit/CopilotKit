@@ -174,15 +174,34 @@ export class CopilotResolver {
     let copilotCloudPublicApiKey: string | null = null;
     let copilotCloudBaseUrl: string;
 
+    // Extract publicApiKey from headers for both cloud and non-cloud requests
+    // This enables onTrace functionality regardless of cloud configuration
+    const publicApiKeyFromHeaders = ctx.request.headers.get("x-copilotcloud-public-api-key");
+    if (publicApiKeyFromHeaders) {
+      copilotCloudPublicApiKey = publicApiKeyFromHeaders;
+    }
+
     if (data.cloud) {
       logger = logger.child({ cloud: true });
       logger.debug("Cloud configuration provided, checking for public API key in headers");
-      const key = ctx.request.headers.get("x-copilotcloud-public-api-key");
-      if (key) {
-        logger.debug("Public API key found in headers");
-        copilotCloudPublicApiKey = key;
-      } else {
+
+      if (!copilotCloudPublicApiKey) {
         logger.error("Public API key not found in headers");
+
+        // Trace the validation error for debugging visibility
+        await copilotRuntime.traceGraphQLError(
+          {
+            message: "X-CopilotCloud-Public-API-Key header is required",
+            code: "MISSING_PUBLIC_API_KEY",
+            type: "GraphQLError",
+          },
+          {
+            operation: "generateCopilotResponse",
+            cloudConfigPresent: Boolean(data.cloud),
+            guardrailsEnabled: Boolean(data.cloud?.guardrails),
+          },
+        );
+
         throw new GraphQLError("X-CopilotCloud-Public-API-Key header is required");
       }
 

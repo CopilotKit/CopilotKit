@@ -25,6 +25,9 @@ import {
   CopilotKitMisuseError,
   CopilotKitErrorCode,
   CopilotKitLowLevelError,
+  CopilotTraceHandler,
+  CopilotTraceEvent,
+  CopilotRequestContext,
 } from "@copilotkit/shared";
 import {
   CopilotServiceAdapter,
@@ -274,6 +277,25 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
    * ```
    */
   createMCPClient?: CreateMCPClientFunction;
+
+  /**
+   * Optional trace handler for comprehensive debugging and observability.
+   *
+   * **Requires publicApiKey**: Tracing only works when requests include a valid publicApiKey.
+   * This is a premium CopilotKit Cloud feature.
+   *
+   * @param traceEvent - Structured trace event with rich debugging context
+   *
+   * @example
+   * ```typescript
+   * const runtime = new CopilotRuntime({
+   *   onTrace: (traceEvent) => {
+   *     debugDashboard.capture(traceEvent);
+   *   }
+   * });
+   * ```
+   */
+  onTrace?: CopilotTraceHandler;
 }
 
 export class CopilotRuntime<const T extends Parameter[] | [] = []> {
@@ -286,6 +308,8 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   private delegateAgentProcessingToServiceAdapter: boolean;
   private observability?: CopilotObservabilityConfig;
   private availableAgents: Pick<AgentWithEndpoint, "name" | "id">[];
+  private onTrace?: CopilotTraceHandler;
+  private hasWarnedAboutTracing = false;
 
   // +++ MCP Properties +++
   private readonly mcpServersConfig?: MCPEndpointConfig[];
@@ -320,6 +344,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       params?.delegateAgentProcessingToServiceAdapter || false;
     this.observability = params?.observability_c;
     this.agents = params?.agents ?? {};
+    this.onTrace = params?.onTrace;
     // +++ MCP Initialization +++
     this.mcpServersConfig = params?.mcpServers;
     this.createMCPClientImpl = params?.createMCPClient;
@@ -451,6 +476,32 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     const requestStartTime = Date.now();
     // For storing streamed chunks if progressive logging is enabled
     const streamedChunks: any[] = [];
+
+    // Trace request start
+    await this.trace(
+      "request",
+      {
+        threadId,
+        runId,
+        source: "runtime",
+        request: {
+          operation: "processRuntimeRequest",
+          method: "POST",
+          url: url,
+          startTime: requestStartTime,
+        },
+        agent: agentSession ? { name: agentSession.agentName } : undefined,
+        messages: {
+          input: rawMessages,
+          messageCount: rawMessages.length,
+        },
+        technical: {
+          environment: process.env.NODE_ENV,
+        },
+      },
+      undefined,
+      publicApiKey,
+    );
 
     try {
       if (
@@ -675,13 +726,43 @@ please use an LLM adapter instead.`,
         }
       }
 
+      let structuredError: CopilotKitError;
+
       if (error instanceof CopilotKitError) {
-        throw error;
+        structuredError = error;
+      } else {
+        // Convert non-CopilotKitErrors to structured errors
+        console.error("Error getting response:", error);
+        structuredError = this.convertStreamingErrorToStructured(error);
       }
 
-      // Convert non-CopilotKitErrors to structured errors
-      console.error("Error getting response:", error);
-      const structuredError = this.convertStreamingErrorToStructured(error);
+      // Trace the error
+      await this.trace(
+        "error",
+        {
+          threadId,
+          runId,
+          source: "runtime",
+          request: {
+            operation: "processRuntimeRequest",
+            method: "POST",
+            url: url,
+            startTime: requestStartTime,
+          },
+          response: {
+            endTime: Date.now(),
+            latency: Date.now() - requestStartTime,
+          },
+          agent: agentSession ? { name: agentSession.agentName } : undefined,
+          technical: {
+            environment: process.env.NODE_ENV,
+            stackTrace: error instanceof Error ? error.stack : undefined,
+          },
+        },
+        structuredError,
+        publicApiKey,
+      );
+
       throw structuredError;
     }
   }
@@ -884,6 +965,33 @@ please use an LLM adapter instead.`,
     // for backwards compatibility, deal with the case when no threadId is provided
     const threadId = threadIdFromRequest ?? agentSession.threadId;
 
+    // Trace agent request start
+    await this.trace(
+      "agent_state",
+      {
+        threadId,
+        source: "agent",
+        request: {
+          operation: "processAgentRequest",
+          method: "POST",
+          startTime: requestStartTime,
+        },
+        agent: {
+          name: agentName,
+          nodeName: nodeName,
+        },
+        messages: {
+          input: rawMessages,
+          messageCount: rawMessages.length,
+        },
+        technical: {
+          environment: process.env.NODE_ENV,
+        },
+      },
+      undefined,
+      publicApiKey,
+    );
+
     const serverSideActions = await this.getServerSideActions(request);
 
     const messages = convertGqlInputToMessages(rawMessages);
@@ -1011,7 +1119,7 @@ please use an LLM adapter instead.`,
       eventSource.stream(async (eventStream$) => {
         from(stream).subscribe({
           next: (event) => eventStream$.next(event),
-          error: (err) => {
+          error: async (err) => {
             console.error("Error in stream", err);
 
             // Log error with observability if enabled
@@ -1037,6 +1145,35 @@ please use an LLM adapter instead.`,
 
             // Convert network termination errors to structured errors
             const structuredError = this.convertStreamingErrorToStructured(err);
+
+            // Trace streaming errors
+            await this.trace(
+              "error",
+              {
+                threadId,
+                source: "agent",
+                request: {
+                  operation: "processAgentRequest",
+                  method: "POST",
+                  startTime: requestStartTime,
+                },
+                response: {
+                  endTime: Date.now(),
+                  latency: Date.now() - requestStartTime,
+                },
+                agent: {
+                  name: agentName,
+                  nodeName: nodeName,
+                },
+                technical: {
+                  environment: process.env.NODE_ENV,
+                  stackTrace: err instanceof Error ? err.stack : undefined,
+                },
+              },
+              structuredError,
+              publicApiKey,
+            );
+
             eventStream$.error(structuredError);
             eventStream$.complete();
           },
@@ -1114,8 +1251,44 @@ please use an LLM adapter instead.`,
         }
       }
 
+      // Ensure error is structured
+      let structuredError: CopilotKitError;
+      if (error instanceof CopilotKitError) {
+        structuredError = error;
+      } else {
+        structuredError = this.convertStreamingErrorToStructured(error);
+      }
+
+      // Trace the agent error
+      await this.trace(
+        "error",
+        {
+          threadId,
+          source: "agent",
+          request: {
+            operation: "processAgentRequest",
+            method: "POST",
+            startTime: requestStartTime,
+          },
+          response: {
+            endTime: Date.now(),
+            latency: Date.now() - requestStartTime,
+          },
+          agent: {
+            name: agentName,
+            nodeName: nodeName,
+          },
+          technical: {
+            environment: process.env.NODE_ENV,
+            stackTrace: error instanceof Error ? error.stack : undefined,
+          },
+        },
+        structuredError,
+        publicApiKey,
+      );
+
       console.error("Error getting response:", error);
-      throw error;
+      throw structuredError;
     }
   }
 
@@ -1277,6 +1450,81 @@ please use an LLM adapter instead.`,
       message: `Agent streaming error: ${error?.message || String(error)}`,
       code: CopilotKitErrorCode.UNKNOWN,
     });
+  }
+
+  private async trace(
+    type: CopilotTraceEvent["type"],
+    context: CopilotRequestContext,
+    error?: any,
+    publicApiKey?: string,
+  ): Promise<void> {
+    if (!this.onTrace) return;
+
+    if (!publicApiKey) {
+      if (!this.hasWarnedAboutTracing) {
+        console.warn(
+          "CopilotKit: onTrace handler provided but requires publicApiKey for tracing to work. " +
+            "This is a CopilotKit Cloud feature. See: https://docs.copilotkit.ai/cloud",
+        );
+        this.hasWarnedAboutTracing = true;
+      }
+      return;
+    }
+
+    try {
+      const traceEvent: CopilotTraceEvent = {
+        type,
+        timestamp: Date.now(),
+        context,
+        ...(error && { error }),
+      };
+
+      await this.onTrace(traceEvent);
+    } catch (traceError) {
+      // Don't let trace errors break the main flow
+      console.error("Error in onTrace handler:", traceError);
+    }
+  }
+
+  /**
+   * Public method to trace GraphQL validation errors
+   * This allows the GraphQL resolver to send validation errors through the trace system
+   */
+  public async traceGraphQLError(
+    error: { message: string; code: string; type: string },
+    context: {
+      operation: string;
+      cloudConfigPresent: boolean;
+      guardrailsEnabled: boolean;
+    },
+  ): Promise<void> {
+    if (!this.onTrace) return;
+
+    try {
+      await this.onTrace({
+        type: "error",
+        timestamp: Date.now(),
+        context: {
+          source: "runtime",
+          request: {
+            operation: context.operation,
+            startTime: Date.now(),
+          },
+          technical: {
+            environment: process.env.NODE_ENV,
+          },
+          metadata: {
+            errorType: "GraphQLValidationError",
+            cloudConfigPresent: context.cloudConfigPresent,
+            guardrailsEnabled: context.guardrailsEnabled,
+          },
+        },
+        error,
+      });
+    } catch (traceError) {
+      // Don't let trace errors break the main flow
+      console.error("Error in onTrace handler:", traceError);
+    }
   }
 }
 

@@ -138,6 +138,24 @@ A function that creates an MCP client instance for a given endpoint configuratio
   ```
 </PropertyReference>
 
+<PropertyReference name="onTrace" type="CopilotTraceHandler"  > 
+Optional trace handler for comprehensive debugging and observability.
+ 
+  Requires publicApiKey: Tracing only works when requests include a valid publicApiKey.
+  This is a premium CopilotKit Cloud feature.
+ 
+  @param traceEvent - Structured trace event with rich debugging context
+ 
+  @example
+  ```typescript
+  const runtime = new CopilotRuntime({
+    onTrace: (traceEvent) => {
+      debugDashboard.capture(traceEvent);
+    }
+  });
+  ```
+</PropertyReference>
+
 <PropertyReference name="processRuntimeRequest" type="request: CopilotRuntimeRequest">
 
 
@@ -168,6 +186,27 @@ A function that creates an MCP client instance for a given endpoint configuratio
   </PropertyReference>
 
   <PropertyReference name="agentName" type="string" required>
+  
+  </PropertyReference>
+
+</PropertyReference>
+
+<PropertyReference name="traceGraphQLError" type="error: { message: string; code: string; type: string }, context: {
+      operation: string;
+      cloudConfigPresent: boolean;
+      guardrailsEnabled: boolean;
+    }">
+Public method to trace GraphQL validation errors
+
+  <PropertyReference name="error" type="{ message: string; code: string; type: string }" required>
+  
+  </PropertyReference>
+
+  <PropertyReference name="context" type="{
+      operation: string;
+      cloudConfigPresent: boolean;
+      guardrailsEnabled: boolean;
+    }" required>
   
   </PropertyReference>
 
