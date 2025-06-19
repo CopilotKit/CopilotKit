@@ -3,8 +3,7 @@
   "root": true,
   "pages": [
     "index",
-    "---Quickstart---",
-    "...quickstart",
+    "quickstart",
     "---Guides---",
     "agentic-chat-ui",
     "generative-ui",
