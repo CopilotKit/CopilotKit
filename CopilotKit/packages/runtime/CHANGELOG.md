@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.9.2-next.1
+
+### Patch Changes
+
+- f295375: - fix: remove all agents as tools when there is an active agent session
+  - fix formatting
+  - @copilotkit/shared@1.9.2-next.1
+
 ## 1.9.2-next.0
 
 ### Patch Changes
