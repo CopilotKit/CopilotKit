@@ -10,7 +10,7 @@ from langgraph.types import Command
 from langchain.load.dump import dumps as langchain_dumps
 from langchain.schema import BaseMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig, ensure_config
-from langchain_core.messages import RemoveMessage
+from langchain_core.messages import RemoveMessage, AIMessage, ToolMessage
 
 from partialjson.json_parser import JSONParser
 
@@ -72,8 +72,13 @@ def langgraph_default_merge_state( # pylint: disable=unused-argument
     message_ids = {message.id for message in messages}
     removed_messages = []
     if len(messages) < len(existing_messages):
-        # messages were removed
-        removed_messages = [RemoveMessage(id=existing_message.id) for existing_message in existing_messages if existing_message.id not in message_ids]
+        # messages were removed - need to handle complete tool sessions
+        removed_message_ids = {msg.id for msg in existing_messages if msg.id not in message_ids}
+        
+        # Find complete tool sessions to remove
+        tool_session_ids = _find_complete_tool_sessions(existing_messages, removed_message_ids)
+
+        removed_messages = [RemoveMessage(id=message_id) for message_id in tool_session_ids]
 
     new_messages = removed_messages + [message for message in messages if message.id not in existing_message_ids]
 
@@ -84,6 +89,52 @@ def langgraph_default_merge_state( # pylint: disable=unused-argument
             "actions": actions
         }
     }
+
+
+def _find_complete_tool_sessions(existing_messages: List[BaseMessage], removed_message_ids: set) -> set:
+    """
+    Find complete tool sessions that should be removed together.
+    
+    A tool session consists of:
+    1. AI message with tool calls (no content or minimal content)
+    2. One or more ToolMessage results
+    3. Optional AI summary message
+    
+    If any message in a tool session is marked for removal, the entire session should be removed.
+    """
+    all_ids_to_remove = set(removed_message_ids)
+    
+    # Group messages into potential tool sessions
+    i = 0
+    while i < len(existing_messages):
+        msg = existing_messages[i]
+        
+        # Look for AI messages with tool calls
+        if isinstance(msg, AIMessage) and hasattr(msg, 'tool_calls') and msg.tool_calls:
+            tool_session_ids = [msg.id]
+            j = i + 1
+            
+            # Collect consecutive ToolMessages
+            while j < len(existing_messages) and isinstance(existing_messages[j], ToolMessage):
+                tool_session_ids.append(existing_messages[j].id)
+                j += 1
+            
+            # Check if there's a summary AI message (AI message after tool results)
+            if (j < len(existing_messages) and 
+                isinstance(existing_messages[j], AIMessage) and 
+                (not hasattr(existing_messages[j], 'tool_calls') or not existing_messages[j].tool_calls)):
+                tool_session_ids.append(existing_messages[j].id)
+                j += 1
+            
+            # If any message in this tool session is marked for removal, remove the entire session
+            if any(msg_id in removed_message_ids for msg_id in tool_session_ids):
+                all_ids_to_remove.update(tool_session_ids)
+            
+            i = j
+        else:
+            i += 1
+    
+    return all_ids_to_remove
 
 class LangGraphAgent(Agent):
     """
