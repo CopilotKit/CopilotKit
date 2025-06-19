@@ -1485,6 +1485,47 @@ please use an LLM adapter instead.`,
       console.error("Error in onTrace handler:", traceError);
     }
   }
+
+  /**
+   * Public method to trace GraphQL validation errors
+   * This allows the GraphQL resolver to send validation errors through the trace system
+   */
+  public async traceGraphQLError(
+    error: { message: string; code: string; type: string },
+    context: {
+      operation: string;
+      cloudConfigPresent: boolean;
+      guardrailsEnabled: boolean;
+    },
+  ): Promise<void> {
+    if (!this.onTrace) return;
+
+    try {
+      await this.onTrace({
+        type: "error",
+        timestamp: Date.now(),
+        context: {
+          source: "runtime",
+          request: {
+            operation: context.operation,
+            startTime: Date.now(),
+          },
+          technical: {
+            environment: process.env.NODE_ENV,
+          },
+          metadata: {
+            errorType: "GraphQLValidationError",
+            cloudConfigPresent: context.cloudConfigPresent,
+            guardrailsEnabled: context.guardrailsEnabled,
+          },
+        },
+        error,
+      });
+    } catch (traceError) {
+      // Don't let trace errors break the main flow
+      console.error("Error in onTrace handler:", traceError);
+    }
+  }
 }
 
 export function flattenToolCallsNoDuplicates(toolsByPriority: ActionInput[]): ActionInput[] {
