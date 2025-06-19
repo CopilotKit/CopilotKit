@@ -10,8 +10,8 @@ authors = ["CopilotKit"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-# Core Python version - consistent across all examples
-python = "^3.10"
+# Core Python version - compatible with CopilotKit requirement
+python = ">=3.10,<3.13"
 
 # CopilotKit - exact version for reproducibility  
 copilotkit = "0.1.49"

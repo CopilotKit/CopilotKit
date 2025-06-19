@@ -6,7 +6,7 @@ authors = ["CopilotKit"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = ">=3.10,<3.13"
 copilotkit = "0.1.49"
 langchain = "0.3.21"
 langgraph = "0.3.18"

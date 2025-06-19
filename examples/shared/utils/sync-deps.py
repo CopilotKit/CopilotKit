@@ -15,6 +15,7 @@ from pathlib import Path
 
 # Canonical versions from main SDK
 CANONICAL_VERSIONS = {
+    "python": ">=3.10,<3.13",  # Compatible with CopilotKit requirement
     "copilotkit": "0.1.49",
     "langchain": "0.3.21",
     "langgraph": "0.3.18",
