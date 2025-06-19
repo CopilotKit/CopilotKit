@@ -1,5 +1,13 @@
 # ui
 
+## 1.9.2-next.3
+
+### Patch Changes
+
+- 35537f1: - fix: memoize nested components to not rerender when content changes
+  - @copilotkit/runtime-client-gql@1.9.2-next.3
+  - @copilotkit/shared@1.9.2-next.3
+
 ## 1.9.2-next.2
 
 ### Patch Changes
