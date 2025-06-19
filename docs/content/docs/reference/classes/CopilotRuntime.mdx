@@ -191,3 +191,24 @@ Optional trace handler for comprehensive debugging and observability.
 
 </PropertyReference>
 
+<PropertyReference name="traceGraphQLError" type="error: { message: string; code: string; type: string }, context: {
+      operation: string;
+      cloudConfigPresent: boolean;
+      guardrailsEnabled: boolean;
+    }">
+Public method to trace GraphQL validation errors
+
+  <PropertyReference name="error" type="{ message: string; code: string; type: string }" required>
+  
+  </PropertyReference>
+
+  <PropertyReference name="context" type="{
+      operation: string;
+      cloudConfigPresent: boolean;
+      guardrailsEnabled: boolean;
+    }" required>
+  
+  </PropertyReference>
+
+</PropertyReference>
+
