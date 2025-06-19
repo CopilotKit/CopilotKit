@@ -1,4 +1,5 @@
 import { ReplaySubject } from "rxjs";
+import { CopilotKitLowLevelError, CopilotKitError, CopilotKitErrorCode } from "@copilotkit/shared";
 
 export async function writeJsonLineResponseToEventStream<T>(
   response: ReadableStream<Uint8Array>,
@@ -52,8 +53,60 @@ export async function writeJsonLineResponseToEventStream<T>(
     }
   } catch (error) {
     console.error("Error in stream", error);
-    eventStream$.error(error);
+
+    // Convert network termination errors to structured errors
+    const structuredError = convertStreamingErrorToStructured(error);
+    eventStream$.error(structuredError);
     return;
   }
   eventStream$.complete();
+}
+
+function convertStreamingErrorToStructured(error: any): CopilotKitError {
+  // Handle network termination errors
+  if (
+    error?.message?.includes("terminated") ||
+    error?.cause?.code === "UND_ERR_SOCKET" ||
+    error?.message?.includes("other side closed") ||
+    error?.code === "UND_ERR_SOCKET"
+  ) {
+    return new CopilotKitError({
+      message:
+        "Connection to agent was unexpectedly terminated. This is likely due to the agent service being down or experiencing issues. Please check your agent logs and try again.",
+      code: CopilotKitErrorCode.NETWORK_ERROR,
+    });
+  }
+
+  // Handle other network-related errors
+  if (
+    error?.message?.includes("fetch failed") ||
+    error?.message?.includes("ECONNREFUSED") ||
+    error?.message?.includes("ENOTFOUND") ||
+    error?.message?.includes("ETIMEDOUT")
+  ) {
+    return new CopilotKitLowLevelError({
+      error: error instanceof Error ? error : new Error(String(error)),
+      url: "streaming connection",
+      message:
+        "Network error occurred during streaming. Please check your connection and try again.",
+    });
+  }
+
+  // Handle abort/cancellation errors (these are usually normal)
+  if (
+    error?.message?.includes("aborted") ||
+    error?.message?.includes("canceled") ||
+    error?.message?.includes("signal is aborted")
+  ) {
+    return new CopilotKitError({
+      message: "Request was cancelled",
+      code: CopilotKitErrorCode.UNKNOWN,
+    });
+  }
+
+  // Default: convert unknown streaming errors
+  return new CopilotKitError({
+    message: `Streaming error: ${error?.message || String(error)}`,
+    code: CopilotKitErrorCode.UNKNOWN,
+  });
 }

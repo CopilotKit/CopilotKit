@@ -118,7 +118,7 @@ function VersionInfo({
   currentVersion,
   latestVersion,
 }: {
-  showDevConsole: boolean | "auto";
+  showDevConsole: boolean;
   versionStatus: VersionStatus;
   currentVersion: string;
   latestVersion: string;
@@ -146,10 +146,8 @@ function VersionInfo({
   }
 
   let asideLabel = "";
-  if (showDevConsole === "auto") {
-    asideLabel = "(localhost only)";
-  } else if (showDevConsole === true) {
-    asideLabel = "(always on)";
+  if (showDevConsole === true) {
+    asideLabel = "(enabled)";
   }
 
   const installCommand = [

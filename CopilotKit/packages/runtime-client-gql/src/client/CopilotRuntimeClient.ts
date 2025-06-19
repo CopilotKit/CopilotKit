@@ -118,6 +118,19 @@ export class CopilotRuntimeClient {
       GenerateCopilotResponseMutationVariables
     >(generateCopilotResponseMutation, { data, properties }, { fetch: fetchFn });
 
+    // Add error handling for GraphQL errors that occur during mutation execution
+    result.subscribe(({ error }) => {
+      if (error && this.handleGQLErrors) {
+        console.log("🐛 generateCopilotResponse: GraphQL error detected", error);
+        console.log("🐛 generateCopilotResponse: GraphQL errors array", error.graphQLErrors);
+        console.log(
+          "🐛 generateCopilotResponse: Error extensions",
+          error.graphQLErrors?.[0]?.extensions,
+        );
+        this.handleGQLErrors(error);
+      }
+    });
+
     return result;
   }
 
@@ -138,6 +151,26 @@ export class CopilotRuntimeClient {
               console.warn("Abort error suppressed");
               return;
             }
+
+            // Handle structured errors specially - check if it's a CopilotKitError with visibility
+            if ((error as any).extensions?.visibility) {
+              // Create a synthetic GraphQL error with the structured error info
+              const syntheticError = {
+                ...error,
+                graphQLErrors: [
+                  {
+                    message: error.message,
+                    extensions: (error as any).extensions,
+                  },
+                ],
+              };
+
+              if (handleGQLErrors) {
+                handleGQLErrors(syntheticError);
+              }
+              return; // Don't close the stream for structured errors, let the error handler decide
+            }
+
             controller.error(error);
             if (handleGQLErrors) {
               handleGQLErrors(error);

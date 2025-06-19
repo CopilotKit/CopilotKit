@@ -7,23 +7,8 @@ import { CopilotKitVersion } from "./types";
 import { ActionExecutionMessage, ResultMessage, TextMessage } from "@copilotkit/runtime-client-gql";
 import { AgentStateMessage } from "@copilotkit/runtime-client-gql";
 
-export function shouldShowDevConsole(showDevConsole: boolean | "auto"): boolean {
-  if (typeof showDevConsole === "boolean") {
-    return showDevConsole;
-  }
-  return (
-    getHostname() === "localhost" ||
-    getHostname() === "127.0.0.1" ||
-    getHostname() === "0.0.0.0" ||
-    getHostname() === "::1"
-  );
-}
-
-function getHostname(): string {
-  if (typeof window !== "undefined" && window.location) {
-    return window.location.hostname;
-  }
-  return "";
+export function shouldShowDevConsole(showDevConsole: boolean): boolean {
+  return showDevConsole;
 }
 
 export async function getPublishedCopilotKitVersion(

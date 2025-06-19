@@ -54,6 +54,7 @@ import telemetry from "../../lib/telemetry-client";
 import { randomId } from "@copilotkit/shared";
 import { AgentsResponse } from "../types/agents-response.type";
 import { LangGraphEventTypes } from "../../agents/langgraph/events";
+import { CopilotKitError } from "@copilotkit/shared";
 
 const invokeGuardrails = async ({
   baseUrl,
@@ -646,6 +647,18 @@ export class CopilotResolver {
           },
           error: (err) => {
             logger.error({ err }, "Error in event stream");
+
+            // If it's a structured CopilotKitError, stop the repeater with the error so frontend can handle it
+            if (
+              err instanceof CopilotKitError ||
+              (err instanceof Error && err.name && err.name.includes("CopilotKit"))
+            ) {
+              eventStreamSubscription?.unsubscribe();
+              rejectOutputMessagesPromise(err);
+              stopStreamingMessages(err); // Pass the error to stop the GraphQL stream with this error
+              return;
+            }
+
             responseStatus$.next(
               new UnknownErrorResponse({
                 description: `An unknown error has occurred in the event stream`,

@@ -42,25 +42,25 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
             "Copilot Cloud": cloudVariants,
           };
 
-          if (config.lgcPythonDeploymentUrl) {
-            groups["LGC Python in-memory"] = nonCloudVariants
-              .filter((v) => v.name !== "CrewAI")
-              .map((variant) => ({
-                ...variant,
-                name: `${variant.name} (LGC Python in-memory)`,
-                queryParams: `${variant.queryParams}&lgcDeploymentUrl=${config.lgcPythonDeploymentUrl}`,
-              }));
-          }
+          // if (config.lgcPythonDeploymentUrl) {
+          //   groups["LGC Python in-memory"] = nonCloudVariants
+          //     .filter((v) => v.name !== "CrewAI")
+          //     .map((variant) => ({
+          //       ...variant,
+          //       name: `${variant.name} (LGC Python in-memory)`,
+          //       queryParams: `${variant.queryParams}&lgcDeploymentUrl=${config.lgcPythonDeploymentUrl}`,
+          //     }));
+          // }
 
-          if (config.lgcJSDeploymentUrl) {
-            groups["LGC JS in-memory"] = nonCloudVariants
-              .filter((v) => v.name !== "CrewAI")
-              .map((variant) => ({
-                ...variant,
-                name: `${variant.name} (LGC JS in-memory)`,
-                queryParams: `${variant.queryParams}&lgcDeploymentUrl=${config.lgcJSDeploymentUrl}`,
-              }));
-          }
+          // if (config.lgcJSDeploymentUrl) {
+          //   groups["LGC JS in-memory"] = nonCloudVariants
+          //     .filter((v) => v.name !== "CrewAI")
+          //     .map((variant) => ({
+          //       ...variant,
+          //       name: `${variant.name} (LGC JS in-memory)`,
+          //       queryParams: `${variant.queryParams}&lgcDeploymentUrl=${config.lgcJSDeploymentUrl}`,
+          //     }));
+          // }
 
           Object.entries(groups).forEach(([groupName, variants]) => {
             test.describe(`${groupName}`, () => {

@@ -83,9 +83,10 @@ export interface CopilotKitProps {
   /**
    * Whether to show the dev console.
    *
-   * If set to "auto", the dev console will be show on localhost only.
+   * Set to `true` to show error banners and toasts, `false` to hide all error UI.
+   * Defaults to `false` for production safety.
    */
-  showDevConsole?: boolean | "auto";
+  showDevConsole?: boolean;
 
   /**
    * The name of the agent to use.
