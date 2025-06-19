@@ -4,12 +4,13 @@ version = "0.1.0"
 description = ""
 authors = ["CopilotKit"]
 readme = "README.md"
+packages = [{include = "sample_agent"}]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
 copilotkit = "0.1.49"
 langchain = "0.3.21"
-langgraph = "0.3.18"
+langgraph = "^0.4.0"
 langsmith = "0.3.18"
 openai = "^1.68.2"
 fastapi = "^0.115.5"

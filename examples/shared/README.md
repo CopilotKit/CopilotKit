@@ -16,7 +16,7 @@ All examples use these exact versions, synchronized with the main SDK:
 | --------------- | ---------- | ---------------------- |
 | `copilotkit`    | `0.1.49`   | Latest stable          |
 | `langchain`     | `0.3.21`   | Main SDK lock          |
-| `langgraph`     | `0.3.18`   | Main SDK lock          |
+| `langgraph`     | `^0.4.0`   | Compatible with SDK    |
 | `langsmith`     | `0.3.18`   | Main SDK lock          |
 | `openai`        | `^1.68.2`  | Main SDK compatible    |
 | `fastapi`       | `^0.115.5` | Standard framework     |
@@ -38,14 +38,32 @@ All examples use these exact versions, synchronized with the main SDK:
    cp examples/shared/pyproject-template.toml examples/your-example/agent/pyproject.toml
    ```
 
-2. Modify for project-specific dependencies:
+2. **Important**: Add packages configuration for your project structure:
+
+   ```toml
+   [tool.poetry]
+   name = "agent"
+   version = "0.1.0"
+   description = ""
+   authors = ["CopilotKit"]
+   readme = "README.md"
+   packages = [{include = "your_package_name"}]  # Add this line
+   ```
+
+3. Create a basic README.md file:
+
+   ```bash
+   echo "# Your Agent Name" > README.md
+   ```
+
+4. Modify for project-specific dependencies:
 
    ```toml
    # Add project-specific deps after the standard ones
    crewai = "0.118.0"  # For CrewAI examples
    ```
 
-3. Install dependencies:
+5. Install dependencies:
    ```bash
    cd examples/your-example/agent
    poetry install
