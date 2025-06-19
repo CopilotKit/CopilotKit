@@ -1,25 +1,25 @@
 [tool.poetry]
-name = "research"
+name = "agent"
 version = "0.1.0"
-description = "Starter"
-authors = ["Markus Ecker <markus.ecker@gmail.com>"]
-license = "MIT"
-
-[project]
-name = "research"
-version = "0.0.1"
-
-[build-system]
-requires = ["setuptools >= 61.0"]
-build-backend = "setuptools.build_meta"
+description = ""
+authors = ["CopilotKit"]
+readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.13"
-openai = "^1.51.0"
-copilotkit = "0.1.46"
-uvicorn = "^0.31.0"
-python-dotenv = "^1.0.1"
-crewai = {extras = ["tools"], version = "^0.102.0"}
+python = "^3.10"
+copilotkit = "0.1.49"
+langchain = "0.3.21"
+langgraph = "0.3.18" 
+langsmith = "0.3.18"
+openai = "^1.68.2"
+fastapi = "^0.115.5"
+uvicorn = "^0.29.0"
+python-dotenv = "^1.0.0"
+crewai = "0.118.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 demo = "research.demo:main"
