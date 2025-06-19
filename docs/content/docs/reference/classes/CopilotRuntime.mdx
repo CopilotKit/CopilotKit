@@ -138,6 +138,24 @@ A function that creates an MCP client instance for a given endpoint configuratio
   ```
 </PropertyReference>
 
+<PropertyReference name="onTrace" type="CopilotTraceHandler"  > 
+Optional trace handler for comprehensive debugging and observability.
+ 
+  Requires publicApiKey: Tracing only works when requests include a valid publicApiKey.
+  This is a premium CopilotKit Cloud feature.
+ 
+  @param traceEvent - Structured trace event with rich debugging context
+ 
+  @example
+  ```typescript
+  const runtime = new CopilotRuntime({
+    onTrace: (traceEvent) => {
+      debugDashboard.capture(traceEvent);
+    }
+  });
+  ```
+</PropertyReference>
+
 <PropertyReference name="processRuntimeRequest" type="request: CopilotRuntimeRequest">
 
 
