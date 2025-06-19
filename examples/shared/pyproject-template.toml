@@ -1,0 +1,45 @@
+# CopilotKit Shared Dependency Template
+# Use this template for all Python agent examples
+# Copy this file and add project-specific dependencies as needed
+
+[tool.poetry]
+name = "agent" 
+version = "0.1.0"
+description = ""
+authors = ["CopilotKit"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+# Core Python version - compatible with CopilotKit requirement
+python = ">=3.10,<3.13"
+
+# CopilotKit - exact version for reproducibility  
+copilotkit = "0.1.49"
+
+# LangChain ecosystem - pinned to main SDK versions
+langchain = "0.3.21"
+langgraph = "0.4.8" 
+langsmith = "0.3.18"
+
+# OpenAI - compatible range with main SDK
+openai = "^1.68.2"
+
+# FastAPI/Web framework
+fastapi = "^0.115.5"
+uvicorn = "^0.29.0"
+
+# Utilities
+python-dotenv = "^1.0.0"
+
+# Optional: Add project-specific dependencies here
+# Examples:
+# crewai = "0.118.0"  # For CrewAI examples
+# tavily-python = "^0.5.1"  # For research examples
+
+# IMPORTANT: Preserve existing scripts section if present
+# [tool.poetry.scripts]
+# demo = "your_agent.demo:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api" 
