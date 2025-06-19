@@ -679,15 +679,10 @@ function langGraphDefaultMergeState(
 
   let removedMessages = [];
   if (messages.length < existingMessages.length) {
-    // messages were removed - need to handle complete tool sessions
-    const removedMessageIds = new Set(
-      existingMessages.filter((m) => !messageIds.has(m.id)).map((m) => m.id),
-    );
-
-    // Find complete tool sessions to remove
-    const toolSessionIds = findCompleteToolSessions(existingMessages, removedMessageIds);
-
-    removedMessages = Array.from(toolSessionIds).map((id) => new RemoveMessage({ id }));
+    // Messages were removed
+    removedMessages = existingMessages
+      .filter((m) => !messageIds.has(m.id))
+      .map((m) => new RemoveMessage({ id: m.id }));
   }
 
   const newMessages = messages.filter((message) => !existingMessageIds.has(message.id));
@@ -699,82 +694,6 @@ function langGraphDefaultMergeState(
       actions,
     },
   };
-}
-
-function findCompleteToolSessions(
-  existingMessages: LangGraphPlatformMessage[],
-  removedMessageIds: Set<string>,
-): Set<string> {
-  /**
-   * Find complete tool sessions that should be removed together.
-   *
-   * A tool session consists of:
-   * 1. ActionExecution message with tool calls
-   * 2. One or more ResultMessages with tool_call_id matching the tool calls
-   * 3. Optional AI summary message (assistant message without tool calls)
-   *
-   * If any message in a tool session is marked for removal, the entire session should be removed.
-   */
-  const allIdsToRemove = new Set(removedMessageIds);
-
-  // Group messages into potential tool sessions
-  let i = 0;
-  while (i < existingMessages.length) {
-    const msg = existingMessages[i];
-
-    // Look for ActionExecution messages with tool calls
-    if (isActionExecutionMessage(msg) && msg.tool_calls && msg.tool_calls.length > 0) {
-      const toolSessionIds = [msg.id];
-      const toolCallIds = new Set(msg.tool_calls.map((tc) => tc.id));
-      let j = i + 1;
-
-      // Collect consecutive ResultMessages that match the tool call IDs
-      while (j < existingMessages.length && isResultMessage(existingMessages[j])) {
-        const resultMsg = existingMessages[j] as LangGraphPlatformResultMessage;
-        if (toolCallIds.has(resultMsg.tool_call_id)) {
-          toolSessionIds.push(resultMsg.id);
-          j++;
-        } else {
-          break;
-        }
-      }
-
-      // Check if there's a summary AI message (assistant message after tool results)
-      if (
-        j < existingMessages.length &&
-        isAssistantMessage(existingMessages[j]) &&
-        !isActionExecutionMessage(existingMessages[j])
-      ) {
-        toolSessionIds.push(existingMessages[j].id);
-        j++;
-      }
-
-      // If any message in this tool session is marked for removal, remove the entire session
-      if (toolSessionIds.some((msgId) => removedMessageIds.has(msgId))) {
-        toolSessionIds.forEach((id) => allIdsToRemove.add(id));
-      }
-
-      i = j;
-    } else {
-      i++;
-    }
-  }
-
-  return allIdsToRemove;
-}
-
-function isActionExecutionMessage(
-  msg: LangGraphPlatformMessage,
-): msg is LangGraphPlatformActionExecutionMessage {
-  return "tool_calls" in msg;
-}
-
-function isResultMessage(msg: LangGraphPlatformMessage): msg is LangGraphPlatformResultMessage {
-  return "tool_call_id" in msg;
-}
-
-function isAssistantMessage(msg: LangGraphPlatformMessage): boolean {
-  return msg.role === MessageRole.assistant;
 }
 
 export function langchainMessagesToCopilotKit(messages: any[]): any[] {
