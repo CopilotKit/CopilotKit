@@ -53,7 +53,6 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
         },
         error,
       };
-
       await onTrace(traceEvent);
     } catch (traceError) {
       console.error("Error in onTrace handler:", traceError);
@@ -147,42 +146,6 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
 
   return runtimeClient;
 };
-
-// Helper to determine if error should show as banner based on structured error system
-function shouldShowAsBanner(gqlError: GraphQLError): boolean {
-  const extensions = gqlError.extensions;
-  if (!extensions) return false;
-
-  // Primary: Check error code and use structured config
-  const code = extensions.code as CopilotKitErrorCode;
-  if (code && ERROR_CONFIG[code]?.visibility === ErrorVisibility.BANNER) {
-    return true;
-  }
-
-  // Fallback: Check for API key errors which should always be banners
-  const errorMessage = gqlError.message.toLowerCase();
-  if (
-    errorMessage.includes("api key") ||
-    errorMessage.includes("401") ||
-    errorMessage.includes("unauthorized") ||
-    errorMessage.includes("authentication") ||
-    errorMessage.includes("incorrect api key")
-  ) {
-    return true;
-  }
-
-  // Legacy: Check by stack trace for discovery errors (for backward compatibility)
-  const originalError = extensions.originalError as any;
-  if (originalError?.stack) {
-    return (
-      originalError.stack.includes("CopilotApiDiscoveryError") ||
-      originalError.stack.includes("CopilotKitRemoteEndpointDiscoveryError") ||
-      originalError.stack.includes("CopilotKitAgentDiscoveryError")
-    );
-  }
-
-  return false;
-}
 
 // Create appropriate structured error from GraphQL error
 function createStructuredError(gqlError: GraphQLError): CopilotKitError | null {

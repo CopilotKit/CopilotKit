@@ -75,8 +75,51 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
   const lastLoadedAgentName = useRef<string>();
   const lastLoadedMessages = useRef<string>();
 
-  const { threadId, agentSession, runtimeClient, showDevConsole } = useCopilotContext();
+  const { threadId, agentSession, runtimeClient, showDevConsole, onTrace, copilotApiConfig } =
+    useCopilotContext();
   const { setBannerError } = useToast();
+
+  // Helper function to trace UI errors (similar to useCopilotRuntimeClient)
+  const traceUIError = useCallback(
+    async (error: CopilotKitError, originalError?: any) => {
+      console.log("🔍 CopilotMessages traceUIError called", {
+        hasOnTrace: !!onTrace,
+        hasPublicApiKey: !!copilotApiConfig.publicApiKey,
+        publicApiKey: copilotApiConfig.publicApiKey,
+        error: error.message,
+      });
+
+      if (!onTrace || !copilotApiConfig.publicApiKey) return;
+
+      try {
+        const traceEvent = {
+          type: "error" as const,
+          timestamp: Date.now(),
+          context: {
+            source: "ui" as const,
+            request: {
+              operation: "loadAgentState",
+              url: copilotApiConfig.chatApiEndpoint,
+              startTime: Date.now(),
+            },
+            technical: {
+              environment: process.env.NODE_ENV,
+              userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+              stackTrace: originalError instanceof Error ? originalError.stack : undefined,
+            },
+          },
+          error,
+        };
+
+        console.log("🚀 CopilotMessages about to call onTrace with:", traceEvent);
+        await onTrace(traceEvent);
+        console.log("✅ CopilotMessages onTrace completed successfully");
+      } catch (traceError) {
+        console.error("Error in CopilotMessages onTrace handler:", traceError);
+      }
+    },
+    [onTrace, copilotApiConfig.publicApiKey, copilotApiConfig.chatApiEndpoint],
+  );
 
   const createStructuredError = (gqlError: GraphQLError): CopilotKitError | null => {
     const extensions = gqlError.extensions;
@@ -136,6 +179,8 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
           const ckError = createStructuredError(gqlError);
           if (ckError) {
             setBannerError(ckError);
+            // Trace the structured error
+            traceUIError(ckError, gqlError);
           } else {
             // Fallback: create a generic error for unstructured GraphQL errors
             const fallbackError = new CopilotKitError({
@@ -143,6 +188,8 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
               code: CopilotKitErrorCode.UNKNOWN,
             });
             setBannerError(fallbackError);
+            // Trace the fallback error
+            traceUIError(fallbackError, gqlError);
           }
         };
 
@@ -159,10 +206,12 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
             code: CopilotKitErrorCode.UNKNOWN,
           });
           setBannerError(fallbackError);
+          // Trace the non-GraphQL error
+          traceUIError(fallbackError, error);
         }
       }
     },
-    [setBannerError, showDevConsole],
+    [setBannerError, showDevConsole, traceUIError],
   );
 
   useEffect(() => {
