@@ -46,6 +46,7 @@ export enum CopilotKitErrorCode {
   AGENT_NOT_FOUND = "AGENT_NOT_FOUND",
   API_NOT_FOUND = "API_NOT_FOUND",
   REMOTE_ENDPOINT_NOT_FOUND = "REMOTE_ENDPOINT_NOT_FOUND",
+  AUTHENTICATION_ERROR = "AUTHENTICATION_ERROR",
   MISUSE = "MISUSE",
   UNKNOWN = "UNKNOWN",
   VERSION_MISMATCH = "VERSION_MISMATCH",
@@ -63,13 +64,13 @@ export const ERROR_CONFIG = {
     statusCode: 503,
     troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#i-am-getting-a-network-errors--api-not-found`,
     visibility: ErrorVisibility.TOAST,
-    severity: Severity.INFO,
+    severity: Severity.CRITICAL,
   },
   [CopilotKitErrorCode.NOT_FOUND]: {
     statusCode: 404,
     troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#i-am-getting-a-network-errors--api-not-found`,
     visibility: ErrorVisibility.TOAST,
-    severity: Severity.INFO,
+    severity: Severity.CRITICAL,
   },
   [CopilotKitErrorCode.AGENT_NOT_FOUND]: {
     statusCode: 500,
@@ -89,6 +90,12 @@ export const ERROR_CONFIG = {
     visibility: ErrorVisibility.BANNER,
     severity: Severity.CRITICAL,
   },
+  [CopilotKitErrorCode.AUTHENTICATION_ERROR]: {
+    statusCode: 401,
+    troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#authentication-errors`,
+    visibility: ErrorVisibility.BANNER,
+    severity: Severity.CRITICAL,
+  },
   [CopilotKitErrorCode.MISUSE]: {
     statusCode: 400,
     troubleshootingUrl: null,
@@ -98,7 +105,7 @@ export const ERROR_CONFIG = {
   [CopilotKitErrorCode.UNKNOWN]: {
     statusCode: 500,
     visibility: ErrorVisibility.TOAST,
-    severity: Severity.INFO,
+    severity: Severity.CRITICAL,
   },
   [CopilotKitErrorCode.CONFIGURATION_ERROR]: {
     statusCode: 400,

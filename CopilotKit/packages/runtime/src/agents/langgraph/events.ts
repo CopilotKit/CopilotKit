@@ -15,6 +15,7 @@ export enum LangGraphEventTypes {
   OnCustomEvent = "on_custom_event",
   OnInterrupt = "on_interrupt",
   OnCopilotKitInterrupt = "on_copilotkit_interrupt",
+  OnCopilotKitError = "on_copilotkit_error",
 }
 
 export enum MetaEventNames {
@@ -344,6 +345,22 @@ interface CopilotKitLangGraphInterruptEvent {
   data: { value: string; messages: (TextMessage | ActionExecutionMessage | ResultMessage)[] };
 }
 
+interface CopilotKitLangGraphErrorEvent {
+  event: LangGraphEventTypes.OnCopilotKitError;
+  data: {
+    error: {
+      message: string;
+      type: string;
+      agent_name: string;
+      status_code?: number;
+      response_data?: any;
+    };
+    thread_id: string;
+    agent_name: string;
+    node_name: string;
+  };
+}
+
 export type LangGraphEvent =
   | LangGraphOnChainStartEvent
   | LangGraphOnChainStreamEvent
@@ -356,4 +373,5 @@ export type LangGraphEvent =
   | LangGraphOnCopilotKitStateSyncEvent
   | LangGraphOnCustomEvent
   | LangGraphInterruptEvent
-  | CopilotKitLangGraphInterruptEvent;
+  | CopilotKitLangGraphInterruptEvent
+  | CopilotKitLangGraphErrorEvent;

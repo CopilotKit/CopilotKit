@@ -89,6 +89,8 @@ import { LangGraphAgent } from "./langgraph/langgraph-agent";
 type CreateMCPClientFunction = (config: MCPEndpointConfig) => Promise<MCPClient>;
 // --- MCP Imports ---
 
+import { generateHelpfulErrorMessage } from "../streaming";
+
 export interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
   messages: MessageInput[];
@@ -1193,8 +1195,6 @@ please use an LLM adapter instead.`,
         from(stream).subscribe({
           next: (event) => eventStream$.next(event),
           error: async (err) => {
-            console.error("Error in stream", err);
-
             // Log error with observability if enabled
             if (this.observability?.enabled && publicApiKey) {
               try {
@@ -1477,50 +1477,42 @@ please use an LLM adapter instead.`,
   }
 
   private convertStreamingErrorToStructured(error: any): CopilotKitError {
-    // Handle network termination errors
+    // Log the raw error for debugging
+    console.error("copilot-runtime.ts convertStreamingErrorToStructured - Raw error:", error);
+    console.error("copilot-runtime.ts convertStreamingErrorToStructured - Error details:", {
+      message: error?.message,
+      name: error?.name,
+      stack: error?.stack,
+      cause: error?.cause,
+      code: error?.code,
+      status: error?.status,
+      statusText: error?.statusText,
+    });
+
+    // Determine a more helpful error message based on context
+    let helpfulMessage = generateHelpfulErrorMessage(error, "agent streaming connection");
+
+    // For network-related errors, use CopilotKitLowLevelError to preserve the original error
     if (
+      error?.message?.includes("fetch failed") ||
+      error?.message?.includes("ECONNREFUSED") ||
+      error?.message?.includes("ENOTFOUND") ||
+      error?.message?.includes("ETIMEDOUT") ||
       error?.message?.includes("terminated") ||
       error?.cause?.code === "UND_ERR_SOCKET" ||
       error?.message?.includes("other side closed") ||
       error?.code === "UND_ERR_SOCKET"
     ) {
-      return new CopilotKitError({
-        message:
-          "Connection to agent was unexpectedly terminated. This may be due to the agent service being restarted or network issues. Please try again.",
-        code: CopilotKitErrorCode.NETWORK_ERROR,
-      });
-    }
-
-    // Handle other network-related errors
-    if (
-      error?.message?.includes("fetch failed") ||
-      error?.message?.includes("ECONNREFUSED") ||
-      error?.message?.includes("ENOTFOUND") ||
-      error?.message?.includes("ETIMEDOUT")
-    ) {
       return new CopilotKitLowLevelError({
         error: error instanceof Error ? error : new Error(String(error)),
         url: "agent streaming connection",
-        message:
-          "Network error occurred during agent streaming. Please check your connection and try again.",
+        message: helpfulMessage,
       });
     }
 
-    // Handle abort/cancellation errors (these are usually normal)
-    if (
-      error?.message?.includes("aborted") ||
-      error?.message?.includes("canceled") ||
-      error?.message?.includes("signal is aborted")
-    ) {
-      return new CopilotKitError({
-        message: "Agent request was cancelled",
-        code: CopilotKitErrorCode.UNKNOWN,
-      });
-    }
-
-    // Default: convert unknown streaming errors
+    // For all other errors, preserve the raw error in a basic CopilotKitError
     return new CopilotKitError({
-      message: `Agent streaming error: ${error?.message || String(error)}`,
+      message: helpfulMessage,
       code: CopilotKitErrorCode.UNKNOWN,
     });
   }

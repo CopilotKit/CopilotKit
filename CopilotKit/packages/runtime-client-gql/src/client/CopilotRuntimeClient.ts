@@ -193,11 +193,23 @@ export class CopilotRuntimeClient {
 
   loadAgentState(data: { threadId: string; agentName: string }) {
     const fetchFn = createFetchFn();
-    return this.client.query<LoadAgentStateQuery>(
+    const result = this.client.query<LoadAgentStateQuery>(
       loadAgentStateQuery,
       { data },
       { fetch: fetchFn },
     );
+
+    // Add error handling for GraphQL errors - similar to generateCopilotResponse
+    result
+      .toPromise()
+      .then(({ error }) => {
+        if (error && this.handleGQLErrors) {
+          this.handleGQLErrors(error);
+        }
+      })
+      .catch(() => {}); // Suppress promise rejection warnings
+
+    return result;
   }
 
   static removeGraphQLTypename(data: any) {

@@ -1,11 +1,12 @@
+import { CopilotKitError, CopilotKitLowLevelError } from "@copilotkit/shared";
 import { catchError, mergeMap, ReplaySubject, scan } from "rxjs";
-import { CustomEventNames, LangGraphEvent, LangGraphEventTypes } from "./events";
+import { generateHelpfulErrorMessage } from "../../lib/streaming";
 import {
   RuntimeEvent,
   RuntimeEventTypes,
   RuntimeMetaEventName,
 } from "../../service-adapters/events";
-import { randomId, CopilotKitError } from "@copilotkit/shared";
+import { CustomEventNames, LangGraphEvent, LangGraphEventTypes } from "./events";
 
 interface LangGraphEventWithState {
   event: LangGraphEvent | null;
@@ -155,6 +156,31 @@ export class RemoteLangGraphEventSource {
           });
         }
 
+        // Handle CopilotKit error events with preserved semantic information
+        if (acc.event.event === LangGraphEventTypes.OnCopilotKitError) {
+          const errorData = acc.event.data.error;
+
+          // Create a structured error with the original semantic information
+          const preservedError = new CopilotKitLowLevelError({
+            error: new Error(errorData.message),
+            url: "langgraph agent",
+            message: `${errorData.type}: ${errorData.message}`,
+          });
+
+          // Add additional error context to the error object
+          if (errorData.status_code) {
+            (preservedError as any).statusCode = errorData.status_code;
+          }
+          if (errorData.response_data) {
+            (preservedError as any).responseData = errorData.response_data;
+          }
+          (preservedError as any).agentName = errorData.agent_name;
+          (preservedError as any).originalErrorType = errorData.type;
+
+          // Throw the structured error to be handled by the catchError operator
+          throw preservedError;
+        }
+
         const responseMetadata = this.getResponseMetadata(acc.event);
 
         // Tool call ended: emit ActionExecutionEnd
@@ -283,8 +309,6 @@ export class RemoteLangGraphEventSource {
         return events;
       }),
       catchError((error) => {
-        console.error(error);
-
         // If it's a structured CopilotKitError, re-throw it to be handled by the frontend error system
         if (
           error instanceof CopilotKitError ||
@@ -293,38 +317,15 @@ export class RemoteLangGraphEventSource {
           throw error;
         }
 
-        const events: RuntimeEvent[] = [];
+        // Determine a more helpful error message based on context
+        let helpfulMessage = generateHelpfulErrorMessage(error, "LangGraph agent connection");
 
-        if (lastEventWithState?.lastMessageId && !lastEventWithState.isToolCall) {
-          events.push({
-            type: RuntimeEventTypes.TextMessageEnd,
-            messageId: lastEventWithState.lastMessageId,
-          });
-        }
-        if (lastEventWithState?.lastToolCallId) {
-          events.push({
-            type: RuntimeEventTypes.ActionExecutionEnd,
-            actionExecutionId: lastEventWithState.lastToolCallId,
-          });
-        }
-
-        const messageId = randomId();
-
-        events.push({
-          type: RuntimeEventTypes.TextMessageStart,
-          messageId: messageId,
+        // For all other errors, preserve the raw error information in a structured format
+        throw new CopilotKitLowLevelError({
+          error: error instanceof Error ? error : new Error(String(error)),
+          url: "langgraph event stream",
+          message: helpfulMessage,
         });
-        events.push({
-          type: RuntimeEventTypes.TextMessageContent,
-          messageId: messageId,
-          content: "❌ An error occurred. Please try again.",
-        });
-        events.push({
-          type: RuntimeEventTypes.TextMessageEnd,
-          messageId: messageId,
-        });
-
-        return events;
       }),
     );
   }

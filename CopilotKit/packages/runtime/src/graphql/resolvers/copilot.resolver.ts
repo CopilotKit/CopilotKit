@@ -356,8 +356,7 @@ export class CopilotResolver {
                 break;
             }
           },
-          error: (err) => {
-            logger.error({ err }, "Error in meta events stream");
+          error: () => {
             responseStatus$.next(
               new UnknownErrorResponse({
                 description: `An unknown error has occurred in the event stream`,
@@ -665,8 +664,6 @@ export class CopilotResolver {
             }
           },
           error: (err) => {
-            logger.error({ err }, "Error in event stream");
-
             // If it's a structured CopilotKitError, stop the repeater with the error so frontend can handle it
             if (
               err instanceof CopilotKitError ||
