@@ -2,11 +2,6 @@
   "title": "Overview",
   "root": true,
   "pages": [
-    "index",
-    "...shared-guides",   
-    "---Troubleshooting Copilots---",
-    "...troubleshooting",
-    "---Other---",
-    "...(other)"
+    "index"
   ]
 }
