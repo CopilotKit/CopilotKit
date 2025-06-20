@@ -27,7 +27,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             <SubdocsMenu
               options={[
                 {
-                  title: "CopilotKit Overview",
+                  title: "Overview",
                   description: "The Agentic Application Framework Overview",
                   url: "/",
                   icon: <RocketIcon className="w-4 h-4" />,
@@ -106,7 +106,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                       selectedStyle: "ring-indigo-500/70 ring-2 rounded-sm",
                     },
                     {
-                      title: "CoAgents (Agno)",
+                      title: "Agno",
                       description: "Documentation for CoAgents with Agno",
                       url: "/agno",
                       icon: <AgnoIcon className="w-4 h-4 text-bold" />,
@@ -115,7 +115,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                         "ring-[#FF3C1A] ring-2 rounded-sm",
                     },
                     {
-                      title: "CoAgents (LlamaIndex)",
+                      title: "LlamaIndex",
                       description: "Documentation for CoAgents with LlamaIndex",
                       url: "/llamaindex",
                       icon: <LlamaIndexIcon className="w-4 h-4 text-bold" />,

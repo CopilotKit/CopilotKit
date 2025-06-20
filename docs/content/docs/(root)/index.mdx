@@ -1,5 +1,5 @@
 ---
-title: CopilotKit Overview
+title: Overview
 description: "The Agentic Application Framework:  Open source framework and hosted service for AI-assisted applications."
 icon: "lucide/Sparkles"
 ---
@@ -7,7 +7,6 @@ import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
 import { ExamplesCarousel } from "@/components/react/examples-carousel";
 import { CTACards } from "@/components/react/cta-cards";
 import { YouTubeVideo } from "@/components/react/youtube-video";
-
 import { MdMessage } from "react-icons/md";
 import { TbSparkles } from "react-icons/tb";
 import { SiLangchain } from "react-icons/si";
@@ -18,28 +17,43 @@ import { Accordions } from 'fumadocs-ui/components/accordion';
 import { Accordion } from 'fumadocs-ui/components/accordion';
 import { LinkToCopilotCloud } from "@/components/react/link-to-copilot-cloud";
 import { QuickstartDropdown } from "@/components/react/quickstart-dropdown";
+import { IntegrationsGrid } from "@/components/react/integrations";
 
+# What is CopilotKit?
 
-<h2 className="mt-0">What is CopilotKit?</h2>
 CopilotKit is the easiest way to add AI copilots - intelligent, context-aware assistants - into your app.
 
 CopilotKit connects your app's **logic, state, and user context** to the **AI agents** that deliver the animated and interactive part of your app experience — across both embedded UIs and fully headless interfaces. It gives you the tools to build, deploy, and monitor AI-assisted features that feel intuitive, helpful, and deeply integrated.
 
 By decoupling your application from any specific model or agent architecture, CopilotKit gives you the freedom to evolve your AI stack without rethinking your user experience.
 
-<h2 className="text-2xl font-bold mt-12 mb-6">Get Started Now</h2>
-<div className="grid grid-cols-1 md:grid-cols-10 gap-6 mb-12">
-  <div className="md:col-span-3 bg-muted/50 border border-border px-6 pt-1 pb-4 rounded-xl text-center hover:bg-muted/70 transition-colors min-h-[180px] flex flex-col justify-between">
+<video
+  src="/images/coagents/tutorials/ai-travel-app/demo.mp4"
+  autoPlay
+  loop
+  muted
+  playsInline
+  className="rounded-2xl w-full"
+/>
+
+<Callout title="Want to build your own travel app?">
+  Check out our [Travel App Tutorial](/coagents/tutorials/ai-travel-app) to see how to build your own travel app with CopilotKit.
+</Callout>
+
+## Get Started Now
+Get started with CopilotKit in minutes.
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+  <div className="border border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
     <div>
-      <h3 className="text-xl font-bold mb-3 text-foreground">Platform</h3>
-      <p className="text-sm text-muted-foreground mb-4">Start the easiest way<br /> with our hosted service</p>
+      <h3 className="text-xl font-bold mb-3 text-foreground">Quickstart</h3>
+      <p className="text-sm text-muted-foreground mb-8">Start with an LLM<br /> or Agent Framework</p>
     </div>
     <div className="h-12 flex items-center justify-center">
-      <LinkToCopilotCloud asButton={true} />
+      <QuickstartDropdown />
     </div>
   </div>
-  
-  <div className="md:col-span-4 bg-muted/50 border border-border px-6 pt-1 pb-4 rounded-xl text-center hover:bg-muted/70 transition-colors min-h-[180px] flex flex-col justify-between">
+  <div className="border border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
     <div>
       <h3 className="text-xl font-bold mb-3 text-foreground">CLI</h3>
       <p className="text-sm text-muted-foreground mb-4">Bootstrap your NextJS<br />application with CopilotKit</p>
@@ -51,21 +65,29 @@ npx copilotkit@latest init
 ```
     </div>
   </div>
-  
-  <div className="md:col-span-3 bg-muted/50 border border-border px-6 pt-1 pb-4 rounded-xl text-center hover:bg-muted/70 transition-colors min-h-[180px] flex flex-col justify-between">
+  <div className="border border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
     <div>
-      <h3 className="text-xl font-bold mb-3 text-foreground">Quickstart</h3>
-      <p className="text-sm text-muted-foreground mb-4">Start with an LLM<br /> or Agent Framework</p>
+      <h3 className="text-xl font-bold mb-3 text-foreground">Platform</h3>
+      <p className="text-sm text-muted-foreground mb-4">Start the easiest way<br /> with our hosted service</p>
     </div>
     <div className="h-12 flex items-center justify-center">
-      <QuickstartDropdown />
+      <LinkToCopilotCloud asButton={true} />
     </div>
   </div>
+  
 </div>
+
+## Integrations
+
+CopilotKit works with any LLM or agent framework.
+
+<IntegrationsGrid />
+
+## Key Features of CopilotKit
+Learn more about why CopilotKit is used by thousands of developers around the world.
 
 <div className="flex flex-row gap-8 my-8">
   <div className="w-1/2">
-    ### 🔧 Key Features of CopilotKit
     <Accordions>
       <Accordion title="UI Integration">
         Drop-in React components for chat UIs, inline assistants, and guided workflows.
@@ -100,7 +122,6 @@ npx copilotkit@latest init
     </Accordions>
   </div>
   <div className="w-1/2">
-    ### 💡 Why Use CopilotKit?
     <Accordions>
       <Accordion title="Purpose-Built for Agentic UX">
         Unlike general-purpose frameworks, CopilotKit is designed from the ground up to support agent-driven user experiences.
@@ -126,9 +147,6 @@ npx copilotkit@latest init
     </Accordions>
   </div>
 </div>
-
----
-
 
 ## CopilotKit in Action
 Need some inspiration? Check out some things we've built with CopilotKit.
