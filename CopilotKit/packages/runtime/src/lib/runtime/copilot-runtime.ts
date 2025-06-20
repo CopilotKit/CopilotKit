@@ -84,6 +84,7 @@ import {
   convertMCPToolsToActions,
   generateMcpToolInstructions,
 } from "./mcp-tools-utils";
+import { LangGraphAgent } from "./langgraph/langgraph-agent";
 // Define the function type alias here or import if defined elsewhere
 type CreateMCPClientFunction = (config: MCPEndpointConfig) => Promise<MCPClient>;
 // --- MCP Imports ---
@@ -327,7 +328,19 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       params?.remoteEndpoints.some((e) => e.type === EndpointType.LangGraphPlatform)
     ) {
       console.warn("Actions set in runtime instance will not be available for the agent");
+      console.warn(`LangGraph Platform remote endpoints are deprecated in favor of the "agents" property`)
     }
+
+    // TODO: finalize
+    // if (
+    //   params?.agents &&
+    //   Object.values(params.agents).some((agent) => {
+    //     return agent instanceof AguiLangGraphAgent && !(agent instanceof LangGraphAgent);
+    //   })
+    // ) {
+    //   console.warn('LangGraph Agent class should be imported from @copilotkit/runtime. ')
+    // }
+
     this.actions = params?.actions || [];
     this.availableAgents = [];
 
@@ -767,6 +780,15 @@ please use an LLM adapter instead.`,
     }
   }
 
+  async getAllAgents(graphqlContext: GraphQLContext): Promise<(AgentWithEndpoint | Agent)[]> {
+    const [agentsWithEndpoints, aguiAgents] = await Promise.all([
+      this.discoverAgentsFromEndpoints(graphqlContext),
+      this.discoverAgentsFromAgui(),
+    ]);
+
+    return [...agentsWithEndpoints, ...aguiAgents];
+  }
+
   async discoverAgentsFromEndpoints(graphqlContext: GraphQLContext): Promise<AgentWithEndpoint[]> {
     const agents: Promise<AgentWithEndpoint[]> = this.remoteEndpointDefinitions.reduce(
       async (acc: Promise<Agent[]>, endpoint) => {
@@ -853,55 +875,59 @@ please use an LLM adapter instead.`,
     return agents;
   }
 
+  async discoverAgentsFromAgui(): Promise<AgentWithEndpoint[]> {
+    const agents: Promise<AgentWithEndpoint[]> = Object.values(this.agents ?? []).reduce(
+      async (acc: Promise<Agent[]>, agent: LangGraphAgent) => {
+        const agents = await acc;
+
+        const client = agent.client;
+        let data: Array<{ assistant_id: string; graph_id: string }> | { detail: string } = [];
+        try {
+          data = await client.assistants.search();
+
+          if (data && "detail" in data && (data.detail as string).toLowerCase() === "not found") {
+            throw new CopilotKitAgentDiscoveryError({ availableAgents: this.availableAgents });
+          }
+        } catch (e) {
+          throw new CopilotKitMisuseError({
+            message: `
+              Failed to find or contact agent ${agent.graphId}.
+              Make sure the LangGraph API is running and the agent is defined in langgraph.json
+              
+              See more: https://docs.copilotkit.ai/troubleshooting/common-issues`,
+          });
+        }
+        const endpointAgents = data.map((entry) => ({
+          name: entry.graph_id,
+          id: entry.assistant_id,
+          description: "",
+        }));
+        return [...agents, ...endpointAgents];
+      },
+      Promise.resolve([]),
+    );
+    this.availableAgents = ((await agents) ?? []).map((a) => ({ name: a.name, id: a.id }));
+
+    return agents;
+  }
+
   async loadAgentState(
     graphqlContext: GraphQLContext,
     threadId: string,
     agentName: string,
   ): Promise<LoadAgentStateResponse> {
-    const agentsWithEndpoints = await this.discoverAgentsFromEndpoints(graphqlContext);
+    const agents = await this.getAllAgents(graphqlContext);
 
-    const agentWithEndpoint = agentsWithEndpoints.find((agent) => agent.name === agentName);
-    if (!agentWithEndpoint) {
+    const agent = agents.find((agent) => agent.name === agentName);
+    if (!agent) {
       throw new Error("Agent not found");
     }
 
-    if (agentWithEndpoint.endpoint.type === EndpointType.LangGraphPlatform) {
-      const propertyHeaders = graphqlContext.properties.authorization
-        ? { authorization: `Bearer ${graphqlContext.properties.authorization}` }
-        : null;
-
-      const client = new LangGraphClient({
-        apiUrl: agentWithEndpoint.endpoint.deploymentUrl,
-        apiKey: agentWithEndpoint.endpoint.langsmithApiKey,
-        defaultHeaders: { ...propertyHeaders },
-      });
-      let state: any = {};
-      try {
-        state = (await client.threads.getState(threadId)).values as any;
-      } catch (error) {}
-
-      if (Object.keys(state).length === 0) {
-        return {
-          threadId: threadId || "",
-          threadExists: false,
-          state: JSON.stringify({}),
-          messages: JSON.stringify([]),
-        };
-      } else {
-        const { messages, ...stateWithoutMessages } = state;
-        const copilotkitMessages = langchainMessagesToCopilotKit(messages);
-        return {
-          threadId: threadId || "",
-          threadExists: true,
-          state: JSON.stringify(stateWithoutMessages),
-          messages: JSON.stringify(copilotkitMessages),
-        };
-      }
-    } else if (
-      agentWithEndpoint.endpoint.type === EndpointType.CopilotKit ||
-      !("type" in agentWithEndpoint.endpoint)
+    if (
+      'endpoint' in agent && (agent.endpoint.type === EndpointType.CopilotKit ||
+        !("type" in agent.endpoint))
     ) {
-      const cpkEndpoint = agentWithEndpoint.endpoint as CopilotKitEndpoint;
+      const cpkEndpoint = agent.endpoint as CopilotKitEndpoint;
       const fetchUrl = `${cpkEndpoint.url}/agents/state`;
       try {
         const response = await fetchWithRetry(fetchUrl, {
@@ -937,9 +963,51 @@ please use an LLM adapter instead.`,
         }
         throw new CopilotKitLowLevelError({ error, url: fetchUrl });
       }
-    } else {
-      throw new Error(`Unknown endpoint type: ${(agentWithEndpoint.endpoint as any).type}`);
     }
+
+    const propertyHeaders = graphqlContext.properties.authorization
+      ? { authorization: `Bearer ${graphqlContext.properties.authorization}` }
+      : null;
+
+    let client: LangGraphClient;
+    if ('endpoint' in agent && agent.endpoint.type === EndpointType.LangGraphPlatform) {
+      client = new LangGraphClient({
+        apiUrl: agent.endpoint.deploymentUrl,
+        apiKey: agent.endpoint.langsmithApiKey,
+        defaultHeaders: { ...propertyHeaders },
+      });
+    } else {
+      const aguiAgent = graphqlContext._copilotkit.runtime.agents[agent.name] as LangGraphAgent
+      if (!aguiAgent) {
+        throw new Error(`Agent: ${agent.name} could not be resolved`)
+      }
+      // @ts-expect-error -- both clients are the same
+      client = aguiAgent.client
+    }
+    let state: any = {};
+    try {
+      state = (await client.threads.getState(threadId)).values as any;
+    } catch (error) {}
+
+    if (Object.keys(state).length === 0) {
+      return {
+        threadId: threadId || "",
+        threadExists: false,
+        state: JSON.stringify({}),
+        messages: JSON.stringify([]),
+      };
+    } else {
+      const { messages, ...stateWithoutMessages } = state;
+      const copilotkitMessages = langchainMessagesToCopilotKit(messages);
+      return {
+        threadId: threadId || "",
+        threadExists: true,
+        state: JSON.stringify(stateWithoutMessages),
+        messages: JSON.stringify(copilotkitMessages),
+      };
+    }
+
+    throw new Error(`Agent: ${agent.name} could not be resolved`);
   }
 
   private async processAgentRequest(

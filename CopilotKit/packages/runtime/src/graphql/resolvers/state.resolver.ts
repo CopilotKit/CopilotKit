@@ -10,9 +10,9 @@ import { CopilotKitAgentDiscoveryError } from "@copilotkit/shared";
 export class StateResolver {
   @Query(() => LoadAgentStateResponse)
   async loadAgentState(@Ctx() ctx: GraphQLContext, @Arg("data") data: LoadAgentStateInput) {
-    const agents = await ctx._copilotkit.runtime.discoverAgentsFromEndpoints(ctx);
-    const agent = agents.find((agent) => agent.name === data.agentName);
-    if (!agent) {
+    const agents = await ctx._copilotkit.runtime.getAllAgents(ctx);
+    const hasAgent = agents.some((agent) => agent.name === data.agentName);
+    if (!hasAgent) {
       throw new CopilotKitAgentDiscoveryError({
         agentName: data.agentName,
         availableAgents: agents.map((a) => ({ name: a.name, id: a.name })),
