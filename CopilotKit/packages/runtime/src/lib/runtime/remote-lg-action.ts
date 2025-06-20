@@ -84,7 +84,8 @@ type SchemaKeys = {
   config: string[] | null;
 } | null;
 
-let activeInterruptEvent = false;
+// use map to store the interrupt state of each thread to avoid global state pollution
+const threadInterruptStates = new Map<string, boolean>();
 
 export async function execute(args: ExecutionArgs): Promise<ReadableStream<Uint8Array>> {
   return new ReadableStream({
@@ -179,6 +180,9 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       `Cannot use the threadId ${threadId} with LangGraph Platform. Must be a valid UUID.`,
     );
   }
+
+  // get or initialize the interrupt state of this thread
+  let activeInterruptEvent = threadInterruptStates.get(threadId) || false;
 
   let wasInitiatedWithExistingThread = true;
   try {
@@ -322,6 +326,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   let manuallyEmittedState = null;
 
   activeInterruptEvent = false;
+  threadInterruptStates.set(threadId, false);
   try {
     telemetry.capture("oss.runtime.agent_execution_stream_started", {
       hashedLgcKey: streamInfo.hashedLgcKey,
@@ -346,6 +351,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       const interruptEvents = chunk.data.__interrupt__;
       if (interruptEvents?.length) {
         activeInterruptEvent = true;
+        threadInterruptStates.set(threadId, true);
         const interruptValue = interruptEvents?.[0].value;
         if (
           typeof interruptValue != "string" &&
