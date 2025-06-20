@@ -134,7 +134,22 @@ export function SubdocsMenu({
       dropdownOptions = dropDown.options;
     }
 
-    // PRIORITY 1: Check if we have a stored preference and it's still valid
+    // PRIORITY 1: Check if current pathname matches any option (highest priority)
+    const activeDropdownOption = dropdownOptions.find(
+      (item) => isActive(item.url, pathname, true)
+    );
+    if (activeDropdownOption) {
+      return activeDropdownOption;
+    }
+
+    const activeMainOption = allOptions.find(
+      (item) => isActive(item.url, pathname, true, item.url === "/")
+    );
+    if (activeMainOption) {
+      return activeMainOption;
+    }
+
+    // PRIORITY 2: If no current pathname match, check stored preference
     if (storedPreference) {
       // Check if stored preference matches any main option
       const storedOption = allOptions.find(option => option.url === storedPreference);
@@ -147,24 +162,6 @@ export function SubdocsMenu({
       if (storedDropdownOption) {
         return storedDropdownOption;
       }
-    }
-
-    // PRIORITY 2: If no valid stored preference, fall back to URL-based logic
-    
-    // Check if we're on a dropdown option page (agent framework page)
-    const activeDropdownOption = dropdownOptions.find(
-      (item) => isActive(item.url, pathname, true)
-    );
-    if (activeDropdownOption) {
-      return activeDropdownOption;
-    }
-
-    // Check main options (including root)
-    const activeMainOption = allOptions.find(
-      (item) => isActive(item.url, pathname, true, item.url === "/")
-    );
-    if (activeMainOption) {
-      return activeMainOption;
     }
 
     // Default fallback
