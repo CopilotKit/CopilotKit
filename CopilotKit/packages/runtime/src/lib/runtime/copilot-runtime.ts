@@ -788,6 +788,11 @@ please use an LLM adapter instead.`,
       this.discoverAgentsFromAgui(),
     ]);
 
+    this.availableAgents = [...agentsWithEndpoints, ...aguiAgents].map((a) => ({
+      name: a.name,
+      id: a.id,
+    }));
+
     return [...agentsWithEndpoints, ...aguiAgents];
   }
 
@@ -872,7 +877,6 @@ please use an LLM adapter instead.`,
       },
       Promise.resolve([]),
     );
-    this.availableAgents = ((await agents) ?? []).map((a) => ({ name: a.name, id: a.id }));
 
     return agents;
   }
@@ -908,7 +912,6 @@ please use an LLM adapter instead.`,
       },
       Promise.resolve([]),
     );
-    this.availableAgents = ((await agents) ?? []).map((a) => ({ name: a.name, id: a.id }));
 
     return agents;
   }
