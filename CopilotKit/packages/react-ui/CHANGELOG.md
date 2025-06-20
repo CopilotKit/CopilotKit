@@ -1,5 +1,14 @@
 # ui
 
+## 1.9.2-next.5
+
+### Patch Changes
+
+- abe23c3: - feat: enable hiding stop button
+  - @copilotkit/react-core@1.9.2-next.5
+  - @copilotkit/runtime-client-gql@1.9.2-next.5
+  - @copilotkit/shared@1.9.2-next.5
+
 ## 1.9.2-next.4
 
 ### Patch Changes
