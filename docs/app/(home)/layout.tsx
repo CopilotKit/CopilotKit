@@ -45,7 +45,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                   selectedStyle: "ring-teal-500/70 ring-2 rounded-sm",
                 },
                 { type: 'separator' },
-                { type: 'label', text: 'Choose Agent Connection' },
+                { type: 'label', text: 'Choose Agent Integration' },
                 {
                   title: "LLM or Agent Framework",
                   options: [
