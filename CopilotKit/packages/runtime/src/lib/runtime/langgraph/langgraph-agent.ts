@@ -16,6 +16,7 @@ import {
   LangGraphAgent as AGUILangGraphAgent,
   type LangGraphAgentConfig,
   ProcessedEvents,
+  SchemaKeys,
 } from "@ag-ui/langgraph";
 import { Message as LangGraphMessage } from "@langchain/langgraph-sdk/dist/types.messages";
 
@@ -180,11 +181,22 @@ export class LangGraphAgent extends AGUILangGraphAgent {
       messages,
       tools,
     );
+
     return {
       ...rest,
       copilotkit: {
         actions: returnedTools,
       },
+    };
+  }
+
+  async getSchemaKeys(): Promise<SchemaKeys> {
+    const CONSTANT_KEYS = ["copilotkit"];
+    const schemaKeys = await super.getSchemaKeys();
+    return {
+      config: schemaKeys.config,
+      input: schemaKeys.input ? [...schemaKeys.input, ...CONSTANT_KEYS] : null,
+      output: schemaKeys.output ? [...schemaKeys.output, ...CONSTANT_KEYS] : null,
     };
   }
 }
