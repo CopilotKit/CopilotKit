@@ -2,7 +2,9 @@ import {
   Client as LangGraphClient,
   EventsStreamEvent,
   GraphSchema,
+  Interrupt,
   StreamMode,
+  ThreadState,
 } from "@langchain/langgraph-sdk";
 import { createHash } from "node:crypto";
 import { isValidUUID, randomUUID } from "@copilotkit/shared";
@@ -83,8 +85,6 @@ type SchemaKeys = {
   output: string[] | null;
   config: string[] | null;
 } | null;
-
-let activeInterruptEvent = false;
 
 export async function execute(args: ExecutionArgs): Promise<ReadableStream<Uint8Array>> {
   return new ReadableStream({
@@ -188,7 +188,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     await client.threads.create({ threadId });
   }
 
-  let agentState = { values: {} };
+  let agentState = { values: {} } as ThreadState;
   if (wasInitiatedWithExistingThread) {
     agentState = await client.threads.getState(threadId);
   }
@@ -218,16 +218,14 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   const lgInterruptMetaEvent = metaEvents?.find(
     (ev) => ev.name === MetaEventName.LangGraphInterruptEvent,
   );
-  if (activeInterruptEvent && !lgInterruptMetaEvent) {
-    // state.messages includes only messages that were not processed by the agent, which are the interrupt messages
-    payload.command = { resume: state.messages };
-  }
+
   if (lgInterruptMetaEvent?.response) {
     let response = lgInterruptMetaEvent.response;
     payload.command = { resume: parseJson(response, response) };
   }
 
-  if (mode === "continue" && !activeInterruptEvent) {
+  const interrupts = (agentState.tasks?.[0]?.interrupts ?? []) as Interrupt[];
+  if (mode === "continue" && !interrupts.length) {
     await client.threads.updateState(threadId, { values: state, asNode: nodeName });
   }
 
@@ -311,9 +309,23 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   let shouldExit = false;
   let externalRunId = null;
 
-  const streamResponse = client.runs.stream(threadId, assistantId, payload);
-
   const emit = (message: string) => controller.enqueue(new TextEncoder().encode(message));
+
+  // If there are still outstanding unresolved interrupts, we must force resolution of them before moving forward
+  if (interrupts?.length && !payload.command?.resume) {
+    // If the interrupt is "by message" we assume the upcoming user message is a resoluton for the interrupt
+    if (!lgInterruptMetaEvent) {
+      // state.messages includes only messages that were not processed by the agent, which are the interrupt messages
+      payload.command = { resume: state.messages };
+    } else {
+      interrupts.forEach((interrupt) => {
+        emitInterrupt(interrupt.value, emit);
+      });
+      return Promise.resolve();
+    }
+  }
+
+  const streamResponse = client.runs.stream(threadId, assistantId, payload);
 
   let latestStateValues = {};
   let updatedState = state;
@@ -321,7 +333,6 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   // Therefore, this value should either hold null, or the only edition of state that should be used.
   let manuallyEmittedState = null;
 
-  activeInterruptEvent = false;
   try {
     telemetry.capture("oss.runtime.agent_execution_stream_started", {
       hashedLgcKey: streamInfo.hashedLgcKey,
@@ -345,33 +356,8 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
 
       const interruptEvents = chunk.data.__interrupt__;
       if (interruptEvents?.length) {
-        activeInterruptEvent = true;
         const interruptValue = interruptEvents?.[0].value;
-        if (
-          typeof interruptValue != "string" &&
-          "__copilotkit_interrupt_value__" in interruptValue
-        ) {
-          const evValue = interruptValue.__copilotkit_interrupt_value__;
-          emit(
-            JSON.stringify({
-              event: LangGraphEventTypes.OnCopilotKitInterrupt,
-              data: {
-                value: typeof evValue === "string" ? evValue : JSON.stringify(evValue),
-                messages: langchainMessagesToCopilotKit(interruptValue.__copilotkit_messages__),
-              },
-            }) + "\n",
-          );
-        } else {
-          emit(
-            JSON.stringify({
-              event: LangGraphEventTypes.OnInterrupt,
-              value:
-                typeof interruptValue === "string"
-                  ? interruptValue
-                  : JSON.stringify(interruptValue),
-            }) + "\n",
-          );
-        }
+        emitInterrupt(interruptValue, emit);
         continue;
       }
       if (streamResponseChunk.event === "updates") continue;
@@ -908,4 +894,26 @@ function getSchemaKeys(graphSchema: GraphSchema): SchemaKeys {
 
 function filterObjectBySchemaKeys(obj: Record<string, any>, schemaKeys: string[]) {
   return Object.fromEntries(Object.entries(obj).filter(([key]) => schemaKeys.includes(key)));
+}
+
+function emitInterrupt(interruptValue: any, emit: (data: string) => void) {
+  if (typeof interruptValue != "string" && "__copilotkit_interrupt_value__" in interruptValue) {
+    const evValue = interruptValue.__copilotkit_interrupt_value__;
+    emit(
+      JSON.stringify({
+        event: LangGraphEventTypes.OnCopilotKitInterrupt,
+        data: {
+          value: typeof evValue === "string" ? evValue : JSON.stringify(evValue),
+          messages: langchainMessagesToCopilotKit(interruptValue.__copilotkit_messages__),
+        },
+      }) + "\n",
+    );
+  } else {
+    emit(
+      JSON.stringify({
+        event: LangGraphEventTypes.OnInterrupt,
+        value: typeof interruptValue === "string" ? interruptValue : JSON.stringify(interruptValue),
+      }) + "\n",
+    );
+  }
 }
