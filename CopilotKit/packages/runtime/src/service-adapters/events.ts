@@ -331,7 +331,6 @@ export class RuntimeEventSource {
             actionInputsWithoutAgents,
             threadId,
           ).catch((error) => {
-            console.error("SHIT", error);
           });
 
           telemetry.capture("oss.runtime.server_action_executed", {});
