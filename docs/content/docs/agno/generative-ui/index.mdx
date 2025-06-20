@@ -30,25 +30,13 @@ agents and user interfaces. As your agent processes information and makes decisi
 - Create interactive elements for user input
 - Animate transitions between different states
 
-## How can I use this?
 
-There are two main variants of Generative UI.
-
-<CTACards
-  columns={2}
-  cards={[
-    {
-      icon: BotIcon,
-      title: "Agentic",
-      description:
-        "Render your agent's state, progress, and outputs with custom UI components.",
-      href: "/agno/generative-ui/agentic",
-    },
-    {
-      icon: WrenchIcon,
-      title: "Tool-based",
-      description: "Render your agent's tool calls with custom UI components.",
-      href: "/agno/generative-ui/tool-based",
-    },
-  ]}
-/> 
+<Cards className="gap-6">
+  <Card
+    className="p-6 rounded-xl text-base border-[#FF3C1A]"
+    icon={<WrenchIcon className="text-[#FF3C1A]" />}
+    title="Tool-based"
+    description="Render your agent's tool calls with custom UI components."
+    href="/agno/generative-ui/tool-based"
+  />
+</Cards>

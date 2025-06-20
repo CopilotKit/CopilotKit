@@ -105,3 +105,22 @@ The auth config to use for the CopilotKit.
 The thread id to use for the CopilotKit.
 </PropertyReference>
 
+<PropertyReference name="onTrace" type="CopilotTraceHandler"  > 
+Optional trace handler for comprehensive debugging and observability.
+ 
+  Requires publicApiKey: Tracing only works when publicApiKey is provided.
+  This is a premium CopilotKit Cloud feature.
+ 
+  @param traceEvent - Structured trace event with rich debugging context
+ 
+  @example
+  ```typescript
+  <CopilotKit
+    publicApiKey="ck_pub_your_key"
+    onTrace={(traceEvent) => {
+      debugDashboard.capture(traceEvent);
+    }}
+  >
+  ```
+</PropertyReference>
+

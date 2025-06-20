@@ -94,7 +94,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                       icon: <AgnoIcon className="w-4 h-4 text-bold" />,
                       bgGradient: "bg-[#FF3C1A] text-white",
                       selectedStyle:
-                        "ring-zinc-800 dark:ring-white ring-2 rounded-sm",
+                        "ring-[#FF3C1A] ring-2 rounded-sm",
                     },
                     {
                       title: "CoAgents (LlamaIndex)",
@@ -102,9 +102,9 @@ export default function Layout({ children }: { children: ReactNode }) {
                       url: "/llamaindex",
                       icon: <LlamaIndexIcon className="w-4 h-4 text-bold" />,
                       bgGradient:
-                        "bg-gradient-to-b from-black to-zinc-800 text-white",
+                        "bg-gradient-to-b from-pink-500 via-purple-500 to-blue-400 text-pink-100",
                       selectedStyle:
-                        "ring-zinc-800 dark:ring-white ring-2 rounded-sm",
+                        "ring-pink-500/70 ring-2 rounded-sm",
                     },
                   ],
                 },

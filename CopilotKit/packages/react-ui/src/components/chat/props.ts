@@ -177,6 +177,7 @@ export interface InputProps {
   isVisible?: boolean;
   onStop?: () => void;
   onUpload?: () => void;
+  hideStopButton?: boolean;
 }
 
 export interface RenderSuggestionsListProps {

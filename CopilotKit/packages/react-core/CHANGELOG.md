@@ -1,5 +1,46 @@
 # ui
 
+## 1.9.2-next.6
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.6
+- @copilotkit/shared@1.9.2-next.6
+
+## 1.9.2-next.5
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.5
+- @copilotkit/shared@1.9.2-next.5
+
+## 1.9.2-next.4
+
+### Patch Changes
+
+- 9169ad7: - feat: add onTrace handler for runtime and UI error/event tracking
+- 9169ad7: - feat: add onTrace handler for comprehensive debugging and observability - Add CopilotTraceEvent interfaces with rich debugging context, implement runtime-side tracing with publicApiKey gating, add UI-side error tracing, include comprehensive test coverage, and fix tsup build config to exclude test files
+  - fix: extract publicApiKey for all requests + trace GraphQL errors
+- Updated dependencies [9169ad7]
+- Updated dependencies [9169ad7]
+  - @copilotkit/shared@1.9.2-next.4
+  - @copilotkit/runtime-client-gql@1.9.2-next.4
+
+## 1.9.2-next.3
+
+### Patch Changes
+
+- 35537f1: - fix: memoize nested components to not rerender when content changes
+  - @copilotkit/runtime-client-gql@1.9.2-next.3
+  - @copilotkit/shared@1.9.2-next.3
+
+## 1.9.2-next.2
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.2
+- @copilotkit/shared@1.9.2-next.2
+
 ## 1.9.2-next.1
 
 ### Patch Changes

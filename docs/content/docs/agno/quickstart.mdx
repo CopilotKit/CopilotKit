@@ -1,6 +1,6 @@
 ---
 title: Quickstart
-description: Turn your LlamaIndex Agents into an agent-native application in 10 minutes.
+description: Turn your Agno Agents into an agent-native application in 10 minutes.
 icon: "lucide/Play"
 ---
 
@@ -60,7 +60,7 @@ Before you begin, you'll need the following:
             <div>
                 <p className="text-xl font-semibold">Choose your starting point</p>
                 <p className="text-base">
-                    You can either start fresh with our starter template or integrate CopilotKit into your existing LlamaIndex Agent.
+                    You can either start fresh with our starter template or integrate CopilotKit into your existing Agno Agent.
                 </p>
             </div>
         }
@@ -75,8 +75,8 @@ Before you begin, you'll need the following:
                 ### Clone the starter template
 
                 ```bash
-                git clone https://github.com/CopilotKit/with-llamaindex copilotkit-llamaindex-starter
-                cd copilotkit-llamaindex-starter
+                git clone https://github.com/CopilotKit/with-agno copilotkit-agno-starter
+                cd copilotkit-agno-starter
                 ```
             </Step>
             <Step>
@@ -85,7 +85,7 @@ Before you begin, you'll need the following:
                 Now we need to install the depedencies for the frontend and the agent. This repo comes with a helper function to do this for you.
 
                 <Callout type="info">
-                    This LlamaIndex agent uses pip and manages the installation of dependencies through an package.json script, `install:agent`.
+                    This Agno agent uses pip and manages the installation of dependencies through an package.json script, `install:agent`.
                 </Callout>
 
                 <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
@@ -118,14 +118,14 @@ Before you begin, you'll need the following:
             <Step>
                 ### Configure your environment
 
-                This LlamaIndex agent uses OpenAI's `gpt-4o` by default, so we need to set the `OPENAI_API_KEY` environment variable.
+                This Agno agent uses OpenAI's `gpt-4o` by default, so we need to set the `OPENAI_API_KEY` environment variable.
 
                 ```bash
                 export OPENAI_API_KEY="your_openai_api_key"
                 ```
 
                 <Callout type="info" title="What about other models?">
-                  The starter template is configured to use OpenAI's GPT-4o by default, but you can modify it to use any language model supported by LlamaIndex.
+                  The starter template is configured to use OpenAI's GPT-4o by default, but you can modify it to use any language model supported by Agno.
                 </Callout>
             </Step>
             <Step>
@@ -161,19 +161,19 @@ Before you begin, you'll need the following:
         <TailoredContentOption
             id="bring-your-own"
             title="Integrate with existing agent"
-            description="I already have a LlamaIndex Agent and want to add CopilotKit."
+            description="I already have a Agno Agent and want to add CopilotKit."
             icon={<img src="/images/copilotkit-logo.svg" alt="CopilotKit Logo" width={20} height={20} />}
         >
             <Step>
-                ### Serve your LlamaIndex agent as a AG-UI endpoint
+                ### Serve your Agno agent as a AG-UI endpoint
 
                 ```python title="agent.py"
-                from llamaindex.app.agui.app import AGUIApp
-                from llamaindex.agent.agent import Agent
+                from agno.app.agui.app import AGUIApp
+                from agno.agent.agent import Agent
                 
-                # Setup your LlamaIndex Agent, can be any LlamaIndex Agent
+                # Setup your Agno Agent, can be any Agno Agent
                 agent = Agent(
-                    name="LlamaIndex Assistant",
+                    name="Agno Assistant",
                     model=OpenAIChat(id="gpt-4o"),
                     instructions="You are a helpful AI assistant.",
                 )
@@ -181,13 +181,13 @@ Before you begin, you'll need the following:
                 # Setup the AG-UI app
                 agui_app = AGUIApp(
                     agent=agent,
-                    name="AG-UI LlamaIndex Agent",
-                    app_id="llamaindex_agent",
+                    name="AG-UI Agno Agent",
+                    app_id="agno_agent",
                 )
                 app = agui_app.get_app()
                 
-                # Serve the app, effectively exposing your LlamaIndex Agent
-                agui_app.serve(app="llamaindex_agent:app", port=8000, reload=True)
+                # Serve the app, effectively exposing your Agno Agent
+                agui_app.serve(app="agno_agent:app", port=8000, reload=True)
                 ```
             </Step>
             <Step>
@@ -207,7 +207,7 @@ Before you begin, you'll need the following:
                 ### Install CopilotKit packages
 
                 ```package-install
-                @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/llamaindex
+                @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/agno
                 ```
             </Step>
             <Step>
@@ -223,7 +223,7 @@ Before you begin, you'll need the following:
                   copilotRuntimeNextJSAppRouterEndpoint,
                 } from "@copilotkit/runtime";
                 // [!code highlight:3]
-                import { LlamaIndexAgent } from "@ag-ui/llamaindex"
+                import { AgnoAgent } from "@ag-ui/agno"
                 import { NextRequest } from "next/server";
                 
                 // 1. You can use any service adapter here for multi-agent support. We use
@@ -231,12 +231,12 @@ Before you begin, you'll need the following:
                 const serviceAdapter = new ExperimentalEmptyAdapter();
 
                 // [!code highlight:8]
-                // 2. Create the CopilotRuntime instance and utilize the LlamaIndex AG-UI
+                // 2. Create the CopilotRuntime instance and utilize the Agno AG-UI
                 //    integration to setup the connection.
                 const runtime = new CopilotRuntime({
                      agents: {
                         // Our FastAPI endpoint URL
-                        "llamaindex_agent": new LlamaIndexAgent({url: "http://localhost:8000/agui"}),
+                        "agno_agent": new AgnoAgent({url: "http://localhost:8000/agui"}),
                     }   
                 });
 
@@ -256,7 +256,7 @@ Before you begin, you'll need the following:
                 ### Configure CopilotKit Provider
 
                 Next, wrap your application with the CopilotKit provider so that CopilotKit can take control across your application
-                via the LlamaIndex agent.
+                via the Agno agent.
 
                 ```tsx title="app/layout.tsx"
                 import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
@@ -271,7 +271,7 @@ Before you begin, you'll need the following:
                         /* [!code highlight:7] */
                         <CopilotKit 
                           runtimeUrl="/api/copilotkit" 
-                          agentName="llamaindex_agent"
+                          agentName="agno_agent"
                         >
                           {children}
                         </CopilotKit>
@@ -322,7 +322,7 @@ Before you begin, you'll need the following:
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
                 - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
-                - Make sure your LlamaIndex agent is running on port 8000
+                - Make sure your Agno agent is running on port 8000
                 - Check that your OpenAI API key is correctly set in the `.env` file
             </Accordion>
         </Accordions>
@@ -337,19 +337,19 @@ Now that you have your basic agent setup, explore these advanced features:
   <Card
     title="Implement Human in the Loop"
     description="Allow your users and agents to collaborate together on tasks."
-    href="/llamaindex/human-in-the-loop"
+    href="/agno/human-in-the-loop"
     icon={<UserIcon />}
   />
   <Card
     title="Add some generative UI"
     description="Render your agent's progress and output in the UI."
-    href="/llamaindex/generative-ui"
+    href="/agno/generative-ui"
     icon={<PaintbrushIcon />}
   />
   <Card
     title="Setup frontend actions"
     description="Give your agent the ability to call frontend tools, directly updating your application."
-    href="/llamaindex/frontend-actions"
+    href="/agno/frontend-actions"
     icon={<WrenchIcon />}
   />
 </Cards> 

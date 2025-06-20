@@ -41,44 +41,29 @@ Full user-interaction infrastructure for your agents, to turn your agents into C
 
 Everything you need to build Agent-Native Applications (ANAs), right out of the box.
 
-<CTACards
-  columns={2}
-  cards={[
-    {
-      icon: LuMessageSquare,
-      title: "Agentic Chat UI",
-      description: "In-app chat powered by your agent.",
-      href: "/agno/agentic-chat-ui",
-    },
-   
-    {
-      icon: LuLayoutTemplate,
-      title: "Generative UI",
-      description: "UI that updates in real-time based on your agent's state.",
-      href: "/agno/generative-ui",
-    },
-    {
-      icon: LuWand2,
-      title: "Frontend Tools",
-      description:
-        "Give your agent the ability to take action in your application.",
-      href: "/agno/frontend-actions",
-    },
-    {
-      icon: LuWand2,
-      title: "Multi-Agent Coordination",
-      description:
-        "Route your agent to the right agent based on the user's request.",
-      href: "/agno/multi-agent-flows",
-    },
-    {
-      icon: LuUserCog,
-      title: "Human-in-the-Loop",
-      description: "Set smart checkpoints where humans can guide your agents.",
-      href: "/agno/human-in-the-loop",
-    },
-  ]}
-/>
+<Cards className="gap-6">
+  <Card
+    className="p-6 rounded-xl text-base border-[#FF3C1A]"
+    icon={<LuMessageSquare className="text-[#FF3C1A]" />}
+    title="Agentic Chat UI"
+    description="In-app chat powered by your agent."
+    href="/agno/agentic-chat-ui"
+  />
+  <Card
+    className="p-6 rounded-xl text-base border-[#FF3C1A]"
+    icon={<LuLayoutTemplate className="text-[#FF3C1A]" />}
+    title="Generative UI"
+    description="UI that updates in real-time based on your agent's state."
+    href="/agno/generative-ui"
+  />
+  <Card
+    className="p-6 rounded-xl text-base border-[#FF3C1A]"
+    icon={<LuWand2 className="text-[#FF3C1A]" />}
+    title="Multi-Agent Coordination"
+    description="Route your agent to the right agent based on the user's request."
+    href="/agno/multi-agent-flows"
+  />
+</Cards>
 
 {/* TODO: Add CoAgents in action section for Agno Agents */}
 
@@ -86,18 +71,15 @@ Everything you need to build Agent-Native Applications (ANAs), right out of the 
 
 Get started with CoAgents in as little as 5 minutes with one of our guides or tutorials.
 
-<CTACards
-  columns={1}
-  cards={[
-    {
-      icon: LuPlay,
-      title: "Quickstart",
-      description: "Learn how to build your first CoAgent in 10 minutes.",
-      href: "/agno/quickstart/agno",
-    },
-  ]}
-/>
-{/* TODO: Add example tutorials for Agno Agents */}
+<Cards className="gap-6">
+  <Card
+    className="p-6 rounded-xl text-base border-[#FF3C1A]"
+    icon={<LuPlay className="text-[#FF3C1A]" />}
+    title="Quickstart"
+    description="Learn how to build your first CoAgent in 10 minutes."
+    href="/agno/quickstart/agno"
+  />
+</Cards>
 
 ## Common Questions
 

@@ -13,19 +13,52 @@ import {
   CopilotKitError,
   CopilotKitErrorCode,
   ERROR_CONFIG,
+  CopilotTraceHandler,
+  CopilotTraceEvent,
 } from "@copilotkit/shared";
 import { shouldShowDevConsole } from "../utils/dev-console";
 
 export interface CopilotRuntimeClientHookOptions extends CopilotRuntimeClientOptions {
   showDevConsole?: boolean;
+  onTrace?: CopilotTraceHandler;
 }
 
 export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions) => {
   const { setBannerError } = useToast();
-  const { showDevConsole, ...runtimeOptions } = options;
+  const { showDevConsole, onTrace, ...runtimeOptions } = options;
 
   // Deduplication state for structured errors
   const lastStructuredErrorRef = useRef<{ message: string; timestamp: number } | null>(null);
+
+  // Helper function to trace UI errors
+  const traceUIError = async (error: CopilotKitError, originalError?: any) => {
+    if (!onTrace || !runtimeOptions.publicApiKey) return;
+
+    try {
+      const traceEvent: CopilotTraceEvent = {
+        type: "error",
+        timestamp: Date.now(),
+        context: {
+          source: "ui",
+          request: {
+            operation: "runtimeClient",
+            url: runtimeOptions.url,
+            startTime: Date.now(),
+          },
+          technical: {
+            environment: process.env.NODE_ENV,
+            userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+            stackTrace: originalError instanceof Error ? originalError.stack : undefined,
+          },
+        },
+        error,
+      };
+
+      await onTrace(traceEvent);
+    } catch (traceError) {
+      console.error("Error in onTrace handler:", traceError);
+    }
+  };
 
   const runtimeClient = useMemo(() => {
     return new CopilotRuntimeClient({
@@ -68,6 +101,8 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
             const ckError = createStructuredError(gqlError);
             if (ckError) {
               setBannerError(ckError);
+              // Trace the error
+              traceUIError(ckError, gqlError);
             } else {
               // Fallback for unstructured errors
               const fallbackError = new CopilotKitError({
@@ -75,6 +110,8 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
                 code: CopilotKitErrorCode.UNKNOWN,
               });
               setBannerError(fallbackError);
+              // Trace the fallback error
+              traceUIError(fallbackError, gqlError);
             }
           };
 
@@ -91,6 +128,8 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
               code: CopilotKitErrorCode.UNKNOWN,
             });
             setBannerError(fallbackError);
+            // Trace the non-GraphQL error
+            traceUIError(fallbackError, error);
           }
         }
       },
@@ -104,7 +143,7 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
         setBannerError(warningError);
       },
     });
-  }, [runtimeOptions, setBannerError, showDevConsole]);
+  }, [runtimeOptions, setBannerError, showDevConsole, onTrace]);
 
   return runtimeClient;
 };

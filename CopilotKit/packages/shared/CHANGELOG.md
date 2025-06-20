@@ -1,5 +1,21 @@
 # @copilotkit/shared
 
+## 1.9.2-next.6
+
+## 1.9.2-next.5
+
+## 1.9.2-next.4
+
+### Patch Changes
+
+- 9169ad7: - feat: add onTrace handler for runtime and UI error/event tracking
+- 9169ad7: - feat: add onTrace handler for comprehensive debugging and observability - Add CopilotTraceEvent interfaces with rich debugging context, implement runtime-side tracing with publicApiKey gating, add UI-side error tracing, include comprehensive test coverage, and fix tsup build config to exclude test files
+  - fix: extract publicApiKey for all requests + trace GraphQL errors
+
+## 1.9.2-next.3
+
+## 1.9.2-next.2
+
 ## 1.9.2-next.1
 
 ## 1.9.2-next.0

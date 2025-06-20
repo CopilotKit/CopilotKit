@@ -1,5 +1,42 @@
 # @copilotkit/runtime
 
+## 1.9.2-next.6
+
+### Patch Changes
+
+- 4fd92d1: - fix: enable resolving of langgraph agents when cpk starts
+  - @copilotkit/shared@1.9.2-next.6
+
+## 1.9.2-next.5
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.5
+
+## 1.9.2-next.4
+
+### Patch Changes
+
+- 9169ad7: - feat: add onTrace handler for runtime and UI error/event tracking
+- 9169ad7: - feat: add onTrace handler for comprehensive debugging and observability - Add CopilotTraceEvent interfaces with rich debugging context, implement runtime-side tracing with publicApiKey gating, add UI-side error tracing, include comprehensive test coverage, and fix tsup build config to exclude test files
+  - fix: extract publicApiKey for all requests + trace GraphQL errors
+- Updated dependencies [9169ad7]
+- Updated dependencies [9169ad7]
+  - @copilotkit/shared@1.9.2-next.4
+
+## 1.9.2-next.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.3
+
+## 1.9.2-next.2
+
+### Patch Changes
+
+- 9b81464: - fix: use latest langgraph agui
+  - @copilotkit/shared@1.9.2-next.2
+
 ## 1.9.2-next.1
 
 ### Patch Changes

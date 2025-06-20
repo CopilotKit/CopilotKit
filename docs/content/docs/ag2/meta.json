@@ -4,7 +4,6 @@
   "pages": [
     "index",
     "quickstart",
-    "[lucide/Telescope][Feature Viewer](https://ag2-feature-viewer.vercel.app/)",
     "---Guides---",
     "agentic-chat-ui",
     "human-in-the-loop",

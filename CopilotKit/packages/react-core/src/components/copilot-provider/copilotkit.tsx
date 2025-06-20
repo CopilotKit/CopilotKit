@@ -272,6 +272,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     headers,
     credentials: copilotApiConfig.credentials,
     showDevConsole: props.showDevConsole ?? false,
+    onTrace: props.onTrace,
   });
 
   const [chatSuggestionConfiguration, setChatSuggestionConfiguration] = useState<{
@@ -386,6 +387,8 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     setLangGraphInterruptAction(null);
   }, []);
 
+  const memoizedChildren = useMemo(() => children, [children]);
+
   return (
     <CopilotContext.Provider
       value={{
@@ -438,9 +441,10 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         langGraphInterruptAction,
         setLangGraphInterruptAction,
         removeLangGraphInterruptAction,
+        onTrace: props.onTrace,
       }}
     >
-      <CopilotMessages>{children}</CopilotMessages>
+      <CopilotMessages>{memoizedChildren}</CopilotMessages>
     </CopilotContext.Provider>
   );
 }
