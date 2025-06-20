@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.9.2-next.7
+
+### Patch Changes
+
+- 54b62f0: - fix: add default schema keys for input and output of agui langgraph
+  - @copilotkit/shared@1.9.2-next.7
+
 ## 1.9.2-next.6
 
 ### Patch Changes
