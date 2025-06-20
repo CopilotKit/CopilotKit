@@ -1477,18 +1477,6 @@ please use an LLM adapter instead.`,
   }
 
   private convertStreamingErrorToStructured(error: any): CopilotKitError {
-    // Log the raw error for debugging
-    console.error("copilot-runtime.ts convertStreamingErrorToStructured - Raw error:", error);
-    console.error("copilot-runtime.ts convertStreamingErrorToStructured - Error details:", {
-      message: error?.message,
-      name: error?.name,
-      stack: error?.stack,
-      cause: error?.cause,
-      code: error?.code,
-      status: error?.status,
-      statusText: error?.statusText,
-    });
-
     // Determine a more helpful error message based on context
     let helpfulMessage = generateHelpfulErrorMessage(error, "agent streaming connection");
 
