@@ -4,11 +4,13 @@ import { MastraIcon, LlamaIndexIcon, AG2Icon, AgnoIcon } from "@/lib/icons/custo
 import { SiCrewai } from "@icons-pack/react-simple-icons";
 import { SiLangchain } from "react-icons/si";
 import { Brain } from "lucide-react";
+import { RocketIcon } from "lucide-react";
 
 interface Integration {
   title: string;
   description?: string;
   logo: React.ReactNode;
+  bgGradient: string;
   href: string;
 }
 
@@ -19,52 +21,60 @@ interface IntegrationCardProps {
 
 const integrations: Integration[] = [
   {
+    title: "Direct to LLM",
+    description: "Use CopilotKit directly with your LLM of choice. No framework required.",
+    logo: <RocketIcon className="w-8 h-8" />,
+    bgGradient: "bg-gradient-to-b from-green-700 to-green-400 text-green-100",
+    href: "/direct-to-llm/guides/quickstart",
+  },
+  {
     title: "LangGraph",
     description: "LangGraph is a framework for building and deploying AI agents.",
-    logo: <SiLangchain className="w-32 h-32 bg-indigo-500 text-white p-4 rounded-3xl" />,
+    logo: <SiLangchain className="w-8 h-8" />,
+    bgGradient: "bg-gradient-to-b from-purple-700 to-purple-400 text-purple-100",
     href: "/coagents",
   },
   {
     title: "Mastra",
     description: "Mastra is a framework for building and deploying AI agents.",
-    logo: <MastraIcon className="w-32 stroke-black h-32 bg-black dark:bg-white text-white dark:text-black p-4 rounded-3xl" />,
+    logo: <MastraIcon className="w-8 h-8 text-bold" />,
+    bgGradient: "bg-gradient-to-b from-black to-zinc-800 text-white",
     href: "/mastra",
   },
   {
     title: "CrewAI Crews",
     description: "CrewAI is a framework for building and deploying AI agents.",
-    logo: <SiCrewai className="w-32 h-32 bg-orange-500 text-white p-8 rounded-3xl" />,
+    logo: <SiCrewai className="w-8 h-8 text-bold" />,
+    bgGradient: "bg-gradient-to-b from-[#FA694C] to-[#FE8A71] text-white",
     href: "/crewai-crews",
   },
   {
     title: "CrewAI Flows",
     description: "CrewAI is a framework for building and deploying AI agents.",
-    logo: <SiCrewai className="w-32 h-32 bg-orange-500 text-white p-8 rounded-3xl" />,
+    logo: <SiCrewai className="w-8 h-8 text-bold" />,
+    bgGradient: "bg-gradient-to-b from-[#FA694C] to-[#FE8A71] text-white",
     href: "/crewai-flows",
   },
   {
     title: "Agno",
     description: "Agno is a framework for building and deploying AI agents.",
-    logo: <AgnoIcon className="w-32 h-32 bg-[#FF3C1A] text-white p-4 rounded-3xl" />,
+    logo: <AgnoIcon className="w-8 h-8 text-bold" />,
+    bgGradient: "bg-[#FF3C1A] text-white",
     href: "/agno",
   },
   {
     title: "LlamaIndex",
     description: "LlamaIndex is a framework for building and deploying AI agents.",
-    logo: <LlamaIndexIcon className="w-32 h-32 bg-black text-white p-2 dark:shadow-xl dark:shadow-pink-500/20 rounded-3xl" />,
+    logo: <LlamaIndexIcon className="w-8 h-8 text-bold" />,
+    bgGradient: "bg-gradient-to-b from-pink-500 via-purple-500 to-blue-400 text-pink-100",
     href: "/llamaindex",
   },
   {
     title: "AutoGen2",
     description: "AutoGen2 is a framework for building and deploying AI agents.",
-    logo: <AG2Icon className="w-32 h-32 bg-blue-500 text-white p-4 rounded-2xl scale-1" />,
+    logo: <AG2Icon className="w-8 h-8 text-bold" />,
+    bgGradient: "bg-gradient-to-b from-indigo-700 to-indigo-400 text-indigo-100",
     href: "/ag2",
-  },
-  {
-    title: "Direct to LLM",
-    description: "Use CopilotKit directly with your LLM of choice. No framework required.",
-    logo: <Brain className="w-32 h-32 bg-gray-500 text-white p-8 rounded-3xl" />,
-    href: "/direct-to-llm/guides/quickstart",
   },
   // Add more integrations here
 ];
@@ -102,9 +112,20 @@ const IntegrationCard: React.FC<IntegrationCardProps> = ({
 
 const IntegrationsGrid: React.FC = () => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="flex flex-row flex-wrap justify-center items-center gap-x-6 gap-y-6 my-8">
       {integrations.map((integration, index) => (
-        <IntegrationCard key={index} integration={integration} />
+        <a 
+          key={index}
+          href={integration.href}
+          className="flex flex-col items-center gap-3 text-center no-underline group"
+        >
+          <div className={`w-16 h-16 flex items-center justify-center rounded-2xl transition-all duration-200 group-hover:scale-105 ${integration.bgGradient}`}>
+            {integration.logo}
+          </div>
+          <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300 group-hover:text-black dark:group-hover:text-white transition-colors duration-200">
+            {integration.title}
+          </span>
+        </a>
       ))}
     </div>
   );
