@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { InputProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import AutoResizingTextarea from "./Textarea";
@@ -8,7 +8,14 @@ import { PoweredByTag } from "./PoweredByTag";
 
 const MAX_NEWLINES = 6;
 
-export const Input = ({ inProgress, onSend, isVisible = false, onStop, onUpload }: InputProps) => {
+export const Input = ({
+  inProgress,
+  onSend,
+  isVisible = false,
+  onStop,
+  onUpload,
+  hideStopButton = false,
+}: InputProps) => {
   const context = useChatContext();
   const copilotContext = useCopilotContext();
 
@@ -63,25 +70,28 @@ export const Input = ({ inProgress, onSend, isVisible = false, onStop, onUpload 
   });
 
   const isInProgress = inProgress || pushToTalkState === "transcribing";
-  const buttonIcon = isInProgress ? context.icons.stopIcon : context.icons.sendIcon;
+  const buttonIcon =
+    isInProgress && !hideStopButton ? context.icons.stopIcon : context.icons.sendIcon;
   const showPushToTalk =
     pushToTalkConfigured &&
     (pushToTalkState === "idle" || pushToTalkState === "recording") &&
     !inProgress;
 
-  const canSend = () => {
+  const canSend = useMemo(() => {
     const interruptEvent = copilotContext.langGraphInterruptAction?.event;
     const interruptInProgress =
       interruptEvent?.name === "LangGraphInterruptEvent" && !interruptEvent?.response;
 
     return (
-      (isInProgress || (!isInProgress && text.trim().length > 0)) &&
-      pushToTalkState === "idle" &&
-      !interruptInProgress
+      !isInProgress && text.trim().length > 0 && pushToTalkState === "idle" && !interruptInProgress
     );
-  };
+  }, [copilotContext.langGraphInterruptAction?.event, isInProgress, text, pushToTalkState]);
 
-  const sendDisabled = !canSend();
+  const canStop = useMemo(() => {
+    return isInProgress && !hideStopButton;
+  }, [isInProgress, hideStopButton]);
+
+  const sendDisabled = !canSend && !canStop;
 
   return (
     <div className={`copilotKitInputContainer ${showPoweredBy ? "poweredByContainer" : ""}`}>
@@ -96,7 +106,7 @@ export const Input = ({ inProgress, onSend, isVisible = false, onStop, onUpload 
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();
-              if (canSend()) {
+              if (canSend) {
                 send();
               }
             }
@@ -127,7 +137,7 @@ export const Input = ({ inProgress, onSend, isVisible = false, onStop, onUpload 
           )}
           <button
             disabled={sendDisabled}
-            onClick={isInProgress ? onStop : send}
+            onClick={isInProgress && !hideStopButton ? onStop : send}
             data-copilotkit-in-progress={inProgress}
             data-test-id={inProgress ? "copilot-chat-request-in-progress" : "copilot-chat-ready"}
             className="copilotKitInputControlButton"
