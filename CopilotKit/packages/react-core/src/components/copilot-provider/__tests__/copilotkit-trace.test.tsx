@@ -1,3 +1,4 @@
+/// <reference types="jest" />
 import { CopilotTraceEvent, CopilotTraceHandler } from "@copilotkit/shared";
 
 describe("CopilotKit onTrace types", () => {
