@@ -18,6 +18,7 @@
     "tsconfig": "1.4.6"
   },
   "changesets": [
+    "hip-ghosts-drum",
     "late-eyes-drive",
     "ninety-cameras-prove",
     "seven-grapes-wonder",

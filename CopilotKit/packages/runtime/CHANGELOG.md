@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.9.2-next.6
+
+### Patch Changes
+
+- 4fd92d1: - fix: enable resolving of langgraph agents when cpk starts
+  - @copilotkit/shared@1.9.2-next.6
+
 ## 1.9.2-next.5
 
 ### Patch Changes
