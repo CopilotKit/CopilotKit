@@ -742,20 +742,20 @@ cron = ["capturer (>=2.4)"]
 
 [[package]]
 name = "copilotkit"
-version = "0.1.46"
+version = "0.1.50"
 description = "CopilotKit python SDK"
 optional = false
 python-versions = "<3.13,>=3.10"
 groups = ["main"]
 files = [
-    {file = "copilotkit-0.1.46-py3-none-any.whl", hash = "sha256:f229dd513d3fcbbcb5634e4e5e1563bfebd7f6cb97525c3345d1f203deedf5fa"},
-    {file = "copilotkit-0.1.46.tar.gz", hash = "sha256:fa9e913b63af60c07d599722801121831903b6ce858dc57db7f1b5ad361c6d22"},
+    {file = "copilotkit-0.1.50-py3-none-any.whl", hash = "sha256:38bddb8f6f1bf4866d8cfbb0fc67590f2d4984faa3fd7bb7015bba3d561ba169"},
+    {file = "copilotkit-0.1.50.tar.gz", hash = "sha256:18af71d0d38e769820dc8e92ef3a73d22928e90fea9acd8f87de16285bba20a1"},
 ]
 
 [package.dependencies]
 fastapi = ">=0.115.0,<0.116.0"
-langchain = ">=0.3.3,<0.4.0"
-langgraph = ">=0.2.50"
+langchain = "0.3.21"
+langgraph = "0.3.18"
 partialjson = ">=0.0.8,<0.0.9"
 toml = ">=0.10.2,<0.11.0"
 
@@ -1977,35 +1977,30 @@ adal = ["adal (>=1.0.2)"]
 
 [[package]]
 name = "langchain"
-version = "0.3.19"
+version = "0.3.21"
 description = "Building applications with LLMs through composability"
 optional = false
 python-versions = "<4.0,>=3.9"
 groups = ["main"]
 files = [
-    {file = "langchain-0.3.19-py3-none-any.whl", hash = "sha256:1e16d97db9106640b7de4c69f8f5ed22eeda56b45b9241279e83f111640eff16"},
-    {file = "langchain-0.3.19.tar.gz", hash = "sha256:b96f8a445f01d15d522129ffe77cc89c8468dbd65830d153a676de8f6b899e7b"},
+    {file = "langchain-0.3.21-py3-none-any.whl", hash = "sha256:c8bd2372440cc5d48cb50b2d532c2e24036124f1c467002ceb15bc7b86c92579"},
+    {file = "langchain-0.3.21.tar.gz", hash = "sha256:a10c81f8c450158af90bf37190298d996208cfd15dd3accc1c585f068473d619"},
 ]
 
 [package.dependencies]
-aiohttp = ">=3.8.3,<4.0.0"
 async-timeout = {version = ">=4.0.0,<5.0.0", markers = "python_version < \"3.11\""}
-langchain-core = ">=0.3.35,<1.0.0"
-langchain-text-splitters = ">=0.3.6,<1.0.0"
+langchain-core = ">=0.3.45,<1.0.0"
+langchain-text-splitters = ">=0.3.7,<1.0.0"
 langsmith = ">=0.1.17,<0.4"
-numpy = [
-    {version = ">=1.26.4,<2", markers = "python_version < \"3.12\""},
-    {version = ">=1.26.2,<3", markers = "python_version >= \"3.12\""},
-]
 pydantic = ">=2.7.4,<3.0.0"
 PyYAML = ">=5.3"
 requests = ">=2,<3"
 SQLAlchemy = ">=1.4,<3"
-tenacity = ">=8.1.0,<8.4.0 || >8.4.0,<10"
 
 [package.extras]
 anthropic = ["langchain-anthropic"]
 aws = ["langchain-aws"]
+azure-ai = ["langchain-azure-ai"]
 cohere = ["langchain-cohere"]
 community = ["langchain-community"]
 deepseek = ["langchain-deepseek"]
@@ -2069,24 +2064,21 @@ tenacity = ">=8.1.0,<8.4.0 || >8.4.0,<10"
 
 [[package]]
 name = "langchain-core"
-version = "0.3.36"
+version = "0.3.63"
 description = "Building applications with LLMs through composability"
 optional = false
-python-versions = "<4.0,>=3.9"
+python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "langchain_core-0.3.36-py3-none-any.whl", hash = "sha256:8410311862c7c674e4f3f120cfd8d1f3d003d6e7d8cb8f934746e222f7e865d9"},
-    {file = "langchain_core-0.3.36.tar.gz", hash = "sha256:dffdce8a554905f53f33c1d6a40633a45a8d47c17c5792753891dd73941cd57a"},
+    {file = "langchain_core-0.3.63-py3-none-any.whl", hash = "sha256:f91db8221b1bc6808f70b2e72fded1a94d50ee3f1dff1636fb5a5a514c64b7f5"},
+    {file = "langchain_core-0.3.63.tar.gz", hash = "sha256:e2e30cfbb7684a5a0319f6cbf065fc3c438bfd1060302f085a122527890fb01e"},
 ]
 
 [package.dependencies]
 jsonpatch = ">=1.33,<2.0"
-langsmith = ">=0.1.125,<0.4"
+langsmith = ">=0.1.126,<0.4"
 packaging = ">=23.2,<25"
-pydantic = [
-    {version = ">=2.5.2,<3.0.0", markers = "python_full_version < \"3.12.4\""},
-    {version = ">=2.7.4,<3.0.0", markers = "python_full_version >= \"3.12.4\""},
-]
+pydantic = ">=2.7.4"
 PyYAML = ">=5.3"
 tenacity = ">=8.1.0,<8.4.0 || >8.4.0,<10.0.0"
 typing-extensions = ">=4.7"
@@ -2110,34 +2102,35 @@ tiktoken = ">=0.7,<1"
 
 [[package]]
 name = "langchain-text-splitters"
-version = "0.3.6"
+version = "0.3.8"
 description = "LangChain text splitting utilities"
 optional = false
 python-versions = "<4.0,>=3.9"
 groups = ["main"]
 files = [
-    {file = "langchain_text_splitters-0.3.6-py3-none-any.whl", hash = "sha256:e5d7b850f6c14259ea930be4a964a65fa95d9df7e1dbdd8bad8416db72292f4e"},
-    {file = "langchain_text_splitters-0.3.6.tar.gz", hash = "sha256:c537972f4b7c07451df431353a538019ad9dadff7a1073ea363946cea97e1bee"},
+    {file = "langchain_text_splitters-0.3.8-py3-none-any.whl", hash = "sha256:e75cc0f4ae58dcf07d9f18776400cf8ade27fadd4ff6d264df6278bb302f6f02"},
+    {file = "langchain_text_splitters-0.3.8.tar.gz", hash = "sha256:116d4b9f2a22dda357d0b79e30acf005c5518177971c66a9f1ab0edfdb0f912e"},
 ]
 
 [package.dependencies]
-langchain-core = ">=0.3.34,<1.0.0"
+langchain-core = ">=0.3.51,<1.0.0"
 
 [[package]]
 name = "langgraph"
-version = "0.2.74"
+version = "0.3.18"
 description = "Building stateful, multi-actor applications with LLMs"
 optional = false
 python-versions = "<4.0,>=3.9.0"
 groups = ["main"]
 files = [
-    {file = "langgraph-0.2.74-py3-none-any.whl", hash = "sha256:91a522df764e66068f1a6de09ea748cea0687912838f29218c1d1b92b1ca025f"},
-    {file = "langgraph-0.2.74.tar.gz", hash = "sha256:db6e63e0771e2e8fb17dc0e040007b32f009e0f114e35d8348e336eb15f068e5"},
+    {file = "langgraph-0.3.18-py3-none-any.whl", hash = "sha256:6f6baee7f0914329113fdb33fc5c7f24ef8b657eb664edee58ab1250bd38fa08"},
+    {file = "langgraph-0.3.18.tar.gz", hash = "sha256:432fb4fcda95b27921b7069b4425eca525d6e03418fdc1082a34265c136d272d"},
 ]
 
 [package.dependencies]
-langchain-core = ">=0.2.43,<0.3.0 || >0.3.0,<0.3.1 || >0.3.1,<0.3.2 || >0.3.2,<0.3.3 || >0.3.3,<0.3.4 || >0.3.4,<0.3.5 || >0.3.5,<0.3.6 || >0.3.6,<0.3.7 || >0.3.7,<0.3.8 || >0.3.8,<0.3.9 || >0.3.9,<0.3.10 || >0.3.10,<0.3.11 || >0.3.11,<0.3.12 || >0.3.12,<0.3.13 || >0.3.13,<0.3.14 || >0.3.14,<0.3.15 || >0.3.15,<0.3.16 || >0.3.16,<0.3.17 || >0.3.17,<0.3.18 || >0.3.18,<0.3.19 || >0.3.19,<0.3.20 || >0.3.20,<0.3.21 || >0.3.21,<0.3.22 || >0.3.22,<0.4.0"
+langchain-core = ">=0.1,<0.4"
 langgraph-checkpoint = ">=2.0.10,<3.0.0"
+langgraph-prebuilt = ">=0.1.1,<0.2"
 langgraph-sdk = ">=0.1.42,<0.2.0"
 
 [[package]]
@@ -2173,6 +2166,22 @@ click = ">=8.1.7,<9.0.0"
 
 [package.extras]
 inmem = ["langgraph-api (>=0.0.12,<0.1.0)", "python-dotenv (>=0.8.0)"]
+
+[[package]]
+name = "langgraph-prebuilt"
+version = "0.1.8"
+description = "Library with high-level APIs for creating and executing LangGraph agents and tools."
+optional = false
+python-versions = "<4.0.0,>=3.9.0"
+groups = ["main"]
+files = [
+    {file = "langgraph_prebuilt-0.1.8-py3-none-any.whl", hash = "sha256:ae97b828ae00be2cefec503423aa782e1bff165e9b94592e224da132f2526968"},
+    {file = "langgraph_prebuilt-0.1.8.tar.gz", hash = "sha256:4de7659151829b2b955b6798df6800e580e617782c15c2c5b29b139697491831"},
+]
+
+[package.dependencies]
+langchain-core = ">=0.2.43,<0.3.0 || >0.3.0,<0.3.1 || >0.3.1,<0.3.2 || >0.3.2,<0.3.3 || >0.3.3,<0.3.4 || >0.3.4,<0.3.5 || >0.3.5,<0.3.6 || >0.3.6,<0.3.7 || >0.3.7,<0.3.8 || >0.3.8,<0.3.9 || >0.3.9,<0.3.10 || >0.3.10,<0.3.11 || >0.3.11,<0.3.12 || >0.3.12,<0.3.13 || >0.3.13,<0.3.14 || >0.3.14,<0.3.15 || >0.3.15,<0.3.16 || >0.3.16,<0.3.17 || >0.3.17,<0.3.18 || >0.3.18,<0.3.19 || >0.3.19,<0.3.20 || >0.3.20,<0.3.21 || >0.3.21,<0.3.22 || >0.3.22,<0.4.0"
+langgraph-checkpoint = ">=2.0.10,<3.0.0"
 
 [[package]]
 name = "langgraph-sdk"
@@ -5397,4 +5406,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.13"
-content-hash = "1a34c1949a7a7aa2957b9a803374bfdb4b3ac716eb9d1d7fb48e54707ec5b8da"
+content-hash = "2a9d7adcfd55c2c38b690fa5bf931c455d0bf87608e7d060ff8e587da144a373"
