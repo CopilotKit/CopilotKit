@@ -18,6 +18,7 @@
     "tsconfig": "1.4.6"
   },
   "changesets": [
+    "happy-camels-tan",
     "hip-ghosts-drum",
     "late-eyes-drive",
     "ninety-cameras-prove",
