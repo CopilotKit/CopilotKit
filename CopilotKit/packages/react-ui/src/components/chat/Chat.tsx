@@ -67,9 +67,9 @@ import {
   useCopilotContext,
   useCopilotMessagesContext,
 } from "@copilotkit/react-core";
-import { reloadSuggestions } from "./Suggestion";
+import type { SuggestionItem } from "@copilotkit/react-core";
 import { CopilotChatSuggestion } from "../../types/suggestions";
-import { Message, Role, TextMessage, ImageMessage } from "@copilotkit/runtime-client-gql";
+import { Message, Role, TextMessage, ImageMessage, aguiToGQL, aguiTextMessageToGQLMessage, gqlToAGUI, gqlTextMessageToAGUIMessage } from "@copilotkit/runtime-client-gql";
 import { randomId } from "@copilotkit/shared";
 import {
   AssistantMessageProps,
@@ -398,15 +398,16 @@ export function CopilotChat({
       ...additionalInstructions.map((instruction) => `- ${instruction}`),
     ];
 
-    console.log("combinedAdditionalInstructions", combinedAdditionalInstructions);
-
     setChatInstructions(combinedAdditionalInstructions.join("\n") || "");
   }, [instructions, additionalInstructions]);
 
   const {
+    suggestions
+  } = useCopilotChat();
+
+  const {
     visibleMessages,
     isLoading,
-    currentSuggestions,
     sendMessage,
     stopGeneration,
     reloadMessages,
@@ -494,7 +495,7 @@ export function CopilotChat({
         RenderAgentStateMessage={RenderAgentStateMessage}
         RenderResultMessage={RenderResultMessage}
         RenderImageMessage={RenderImageMessage}
-        messages={visibleMessages}
+        messages={aguiToGQL(visibleMessages)}
         inProgress={isLoading}
         onRegenerate={handleRegenerate}
         onCopy={handleCopy}
@@ -502,10 +503,10 @@ export function CopilotChat({
         onThumbsDown={onThumbsDown}
         markdownTagRenderers={markdownTagRenderers}
       >
-        {currentSuggestions.length > 0 && (
+        {suggestions.length > 0 && (
           <RenderSuggestionsList
             onSuggestionClick={handleSendMessage}
-            suggestions={currentSuggestions}
+            suggestions={suggestions}
           />
         )}
       </Messages>
@@ -558,8 +559,6 @@ export function WrappedCopilotChat({
   return <>{children}</>;
 }
 
-const SUGGESTIONS_DEBOUNCE_TIMEOUT = 1000;
-
 export const useCopilotChatLogic = (
   makeSystemMessage?: SystemMessageFunction,
   onInProgress?: (isLoading: boolean) => void,
@@ -574,54 +573,23 @@ export const useCopilotChatLogic = (
     stopGeneration: defaultStopGeneration,
     runChatCompletion,
     isLoading,
+    suggestions,
+    setSuggestions,
   } = useCopilotChat({
     id: randomId(),
     makeSystemMessage,
   });
 
-  const [currentSuggestions, setCurrentSuggestions] = useState<CopilotChatSuggestion[]>([]);
-  const suggestionsAbortControllerRef = useRef<AbortController | null>(null);
-  const debounceTimerRef = useRef<any>();
-
-  const abortSuggestions = () => {
-    suggestionsAbortControllerRef.current?.abort();
-    suggestionsAbortControllerRef.current = null;
-  };
-
   const generalContext = useCopilotContext();
   const messagesContext = useCopilotMessagesContext();
   const context = { ...generalContext, ...messagesContext };
 
+  // Get actions from context for message conversion
+  const { actions } = generalContext;
+
   useEffect(() => {
     onInProgress?.(isLoading);
-
-    abortSuggestions();
-
-    debounceTimerRef.current = setTimeout(
-      () => {
-        if (!isLoading && Object.keys(context.chatSuggestionConfiguration).length !== 0) {
-          suggestionsAbortControllerRef.current = new AbortController();
-          reloadSuggestions(
-            context,
-            context.chatSuggestionConfiguration,
-            setCurrentSuggestions,
-            suggestionsAbortControllerRef,
-          );
-        }
-      },
-      currentSuggestions.length == 0 ? 0 : SUGGESTIONS_DEBOUNCE_TIMEOUT,
-    );
-
-    return () => {
-      clearTimeout(debounceTimerRef.current);
-    };
-  }, [
-    isLoading,
-    context.chatSuggestionConfiguration,
-    // hackish way to trigger suggestions reload on reset, but better than moving suggestions to the
-    // global context
-    visibleMessages.length == 0,
-  ]);
+  }, [onInProgress, isLoading]);
 
   const sendMessage = async (
     messageContent: string,
@@ -630,8 +598,8 @@ export const useCopilotChatLogic = (
     // Use images passed in the call OR the ones from the state (passed via props)
     const images = imagesToUse || [];
 
-    abortSuggestions();
-    setCurrentSuggestions([]);
+    // Clear suggestions when sending a message
+    setSuggestions([]);
 
     let firstMessage: Message | null = null;
 
@@ -651,7 +619,7 @@ export const useCopilotChatLogic = (
         }
       }
 
-      await appendMessage(textMessage, { followUp: images.length === 0 });
+      await appendMessage(gqlTextMessageToAGUIMessage(textMessage), { followUp: images.length === 0 });
 
       if (!firstMessage) {
         firstMessage = textMessage;
@@ -666,7 +634,8 @@ export const useCopilotChatLogic = (
           bytes: images[i].bytes,
           role: Role.User,
         });
-        await appendMessage(imageMessage, { followUp: i === images.length - 1 });
+        // TODO
+        // await appendMessage(imageMessage, { followUp: i === images.length - 1 });
         if (!firstMessage) {
           firstMessage = imageMessage;
         }
@@ -738,7 +707,7 @@ export const useCopilotChatLogic = (
   function stopGeneration() {
     if (onStopGeneration) {
       onStopGeneration({
-        messages,
+        messages: aguiToGQL(messages),
         setMessages,
         stopGeneration: defaultStopGeneration,
         currentAgentName,
@@ -754,7 +723,7 @@ export const useCopilotChatLogic = (
   function reloadMessages(messageId: string) {
     if (onReloadMessages) {
       onReloadMessages({
-        messages,
+        messages: aguiToGQL(messages),
         setMessages,
         stopGeneration: defaultStopGeneration,
         currentAgentName,
@@ -770,11 +739,14 @@ export const useCopilotChatLogic = (
   }
 
   return {
+    messages,
     visibleMessages,
     isLoading,
-    currentSuggestions,
+    suggestions,
     sendMessage,
     stopGeneration,
     reloadMessages,
+    context,
+    actions,
   };
 };

@@ -42,15 +42,26 @@
  * } = useCopilotChat();
  * ```
  */
-import { useRef, useEffect, useCallback, useState } from "react";
-import { AgentSession, useCopilotContext } from "../context/copilot-context";
-import { Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
+import { useRef, useEffect, useCallback, useState, useMemo } from "react";
+import { AgentSession, useCopilotContext, CopilotContextParams } from "../context/copilot-context";
+import { useCopilotMessagesContext, CopilotMessagesContextParams } from "../context";
 import { SystemMessageFunction } from "../types";
 import { useChat, AppendMessageOptions } from "./use-chat";
 import { defaultCopilotContextCategories } from "../components";
 import { CoAgentStateRenderHandlerArguments } from "@copilotkit/shared";
-import { useCopilotMessagesContext } from "../context";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
+import { reloadSuggestions } from "../utils";
+import type { SuggestionItem } from "../utils";
+import { LangGraphInterruptAction } from "../types/interrupt-action";
+
+import { Message } from "@copilotkit/shared";
+import {
+  Role as gqlRole, 
+  TextMessage,
+  aguiToGQL,
+  gqlToAGUI,
+} from "@copilotkit/runtime-client-gql";
+import { useLangGraphInterruptRender } from "./use-langgraph-interrupt-render";
 
 export interface UseCopilotChatOptions {
   /**
@@ -81,7 +92,7 @@ export interface MCPServerConfig {
 }
 
 export interface UseCopilotChatReturn {
-  visibleMessages: Message[];
+  visibleMessages: (Message)[];
   appendMessage: (message: Message, options?: AppendMessageOptions) => Promise<void>;
   setMessages: (messages: Message[]) => void;
   deleteMessage: (messageId: string) => void;
@@ -92,7 +103,13 @@ export interface UseCopilotChatReturn {
   runChatCompletion: () => Promise<Message[]>;
   mcpServers: MCPServerConfig[];
   setMcpServers: (mcpServers: MCPServerConfig[]) => void;
+  suggestions: SuggestionItem[];
+  setSuggestions: (suggestions: SuggestionItem[]) => void;
+  reloadSuggestions: () => Promise<void>;
+  interrupt: string | React.ReactElement | null;
 }
+
+const SUGGESTIONS_DEBOUNCE_TIMEOUT = 1000;
 
 export function useCopilotChat({
   makeSystemMessage,
@@ -122,11 +139,67 @@ export function useCopilotChat({
     setExtensions,
     langGraphInterruptAction,
     setLangGraphInterruptAction,
+    chatSuggestionConfiguration,
+    suggestions,
+    setSuggestions,
   } = useCopilotContext();
   const { messages, setMessages } = useCopilotMessagesContext();
 
   // Simple state for MCP servers (keep for interface compatibility)
   const [mcpServers, setLocalMcpServers] = useState<MCPServerConfig[]>([]);
+
+  // Add suggestion state - same as useCopilotChatLogic
+  const suggestionsAbortControllerRef = useRef<AbortController | null>(null);
+  const debounceTimerRef = useRef<any>();
+  const isLoadingSuggestionsRef = useRef<boolean>(false);
+
+  const abortSuggestions = () => {
+    suggestionsAbortControllerRef.current?.abort();
+    suggestionsAbortControllerRef.current = null;
+    isLoadingSuggestionsRef.current = false;
+  };
+
+  // Create combined context for suggestions - memoize to prevent infinite loops
+  const generalContext = useCopilotContext();
+  const messagesContext = useCopilotMessagesContext();
+  
+  // Only include the specific properties needed for suggestions to avoid infinite re-renders
+  const context = useMemo(() => ({
+    actions: generalContext.actions,
+    copilotApiConfig: generalContext.copilotApiConfig,
+    chatSuggestionConfiguration: generalContext.chatSuggestionConfiguration,
+    messages: messagesContext.messages,
+    setMessages: messagesContext.setMessages,
+    getContextString: generalContext.getContextString,
+    runtimeClient: generalContext.runtimeClient,
+  }), [
+    generalContext.actions,
+    generalContext.chatSuggestionConfiguration,
+    messagesContext.messages,
+    generalContext.runtimeClient,
+  ]);
+
+  // Use the shared reloadSuggestions function
+  const reloadSuggestionsFunc = useCallback(async () => {
+    if (isLoadingSuggestionsRef.current) {
+      return;
+    }
+
+    try {
+      isLoadingSuggestionsRef.current = true;
+      await reloadSuggestions(
+        context as CopilotContextParams & CopilotMessagesContextParams,
+        chatSuggestionConfiguration,
+        setSuggestions,
+        suggestionsAbortControllerRef,
+      );
+    } catch (error) {
+      console.error("Error in reloadSuggestions:", error);
+      // Don't rethrow to prevent infinite retries
+    } finally {
+      isLoadingSuggestionsRef.current = false;
+    }
+  }, [context, chatSuggestionConfiguration]);
 
   // This effect directly updates the context when mcpServers state changes
   useEffect(() => {
@@ -176,7 +249,7 @@ export function useCopilotChat({
 
     return new TextMessage({
       content: systemMessageMaker(contextString, chatInstructions),
-      role: Role.System,
+      role: gqlRole.System,
     });
   }, [getContextString, makeSystemMessage, chatInstructions]);
 
@@ -192,7 +265,7 @@ export function useCopilotChat({
     ...options,
     actions: Object.values(actions),
     copilotConfig: copilotApiConfig,
-    initialMessages: options.initialMessages || [],
+    initialMessages: aguiToGQL(options.initialMessages || []),
     onFunctionCall: getFunctionCallHandler(),
     onCoAgentStateRender,
     messages,
@@ -220,7 +293,7 @@ export function useCopilotChat({
   const latestAppend = useUpdatedRef(append);
   const latestAppendFunc = useAsyncCallback(
     async (message: Message, options?: AppendMessageOptions) => {
-      return await latestAppend.current(message, options);
+      return await latestAppend.current(aguiToGQL([message])[0], options);
     },
     [latestAppend],
   );
@@ -249,7 +322,7 @@ export function useCopilotChat({
   const latestSetMessages = useUpdatedRef(setMessages);
   const latestSetMessagesFunc = useCallback(
     (messages: Message[]) => {
-      return latestSetMessages.current(messages);
+      return latestSetMessages.current(aguiToGQL(messages));
     },
     [latestSetMessages],
   );
@@ -285,8 +358,10 @@ export function useCopilotChat({
     return latestReset.current();
   }, [latestReset]);
 
+  const interrupt = useLangGraphInterruptRender();
+
   return {
-    visibleMessages: messages,
+    visibleMessages: gqlToAGUI(messages, actions, coAgentStateRenders),
     appendMessage: latestAppendFunc,
     setMessages: latestSetMessagesFunc,
     reloadMessages: latestReloadFunc,
@@ -297,6 +372,10 @@ export function useCopilotChat({
     isLoading,
     mcpServers,
     setMcpServers,
+    suggestions,
+    setSuggestions,
+    reloadSuggestions: reloadSuggestionsFunc,
+    interrupt,
   };
 }
 
