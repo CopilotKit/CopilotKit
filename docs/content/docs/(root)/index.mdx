@@ -19,26 +19,36 @@ import { LinkToCopilotCloud } from "@/components/react/link-to-copilot-cloud";
 import { QuickstartDropdown } from "@/components/react/quickstart-dropdown";
 import { IntegrationsGrid } from "@/components/react/integrations";
 
-# What is CopilotKit?
+<div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+  <div className="flex flex-col gap-2">
+    <h1>What is CopilotKit?</h1>
+    <div>
+      CopilotKit is the easiest way to add AI copilots - intelligent, context-aware assistants - into your app.
 
-CopilotKit is the easiest way to add AI copilots - intelligent, context-aware assistants - into your app.
+      CopilotKit connects your app's **logic, state, and user context** to the **AI agents** that deliver the animated and interactive part of your app experience — across both embedded UIs and fully headless interfaces. It gives you the tools to build, deploy, and monitor AI-assisted features that feel intuitive, helpful, and deeply integrated.
 
-CopilotKit connects your app's **logic, state, and user context** to the **AI agents** that deliver the animated and interactive part of your app experience — across both embedded UIs and fully headless interfaces. It gives you the tools to build, deploy, and monitor AI-assisted features that feel intuitive, helpful, and deeply integrated.
-
-By decoupling your application from any specific model or agent architecture, CopilotKit gives you the freedom to evolve your AI stack without rethinking your user experience.
-
-<video
-  src="/images/coagents/tutorials/ai-travel-app/demo.mp4"
-  autoPlay
-  loop
-  muted
-  playsInline
-  className="rounded-2xl w-full"
-/>
-
-<Callout title="Want to build your own travel app?">
-  Check out our [Travel App Tutorial](/coagents/tutorials/ai-travel-app) to see how to build your own travel app with CopilotKit.
-</Callout>
+      By decoupling your application from any specific model or agent architecture, CopilotKit gives you the freedom to evolve your AI stack without rethinking your user experience.
+    </div>
+  </div>
+  <div className="flex flex-col items-center">
+    <div className="relative w-full max-w-md">
+        <div className="absolute -inset-1 rounded-3xl bg-gradient-to-r from-cyan-400 to-pink-500 opacity-75 blur-xl"></div>
+        <video
+            src="/images/coagents/tutorials/ai-travel-app/demo.mp4"
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="relative rounded-2xl w-full"
+        />
+    </div>
+    <div className="w-full max-w-md mt-6">
+        <Callout title="Want to build your own travel app?">
+        Check out our [Travel App Tutorial](/coagents/tutorials/ai-travel-app) to see how to build your own travel app with CopilotKit.
+        </Callout>
+    </div>
+  </div>
+</div>
 
 ## Get Started Now
 Get started with CopilotKit in minutes.
