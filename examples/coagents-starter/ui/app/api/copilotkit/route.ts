@@ -24,9 +24,9 @@ const runtime = new CopilotRuntime({
     //     },
     //   ],
     // }),
-    // {
-    //   url: process.env.REMOTE_ACTION_URL || "http://localhost:8000/copilotkit",
-    // },
+    {
+      url: process.env.REMOTE_ACTION_URL || "http://localhost:8000/copilotkit",
+    },
   ],
 });
 

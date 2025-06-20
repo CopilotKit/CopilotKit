@@ -298,22 +298,19 @@ export class CopilotKitAgentDiscoveryError extends CopilotKitError {
     const { agentName, availableAgents } = params;
     const code = CopilotKitErrorCode.AGENT_NOT_FOUND;
 
-    let message = "Failed to find any agents.";
-    const configMessage = "Please verify the agent name exists and is properly configured.";
     const seeMore = getSeeMoreMarkdown(ERROR_CONFIG[code].troubleshootingUrl);
+    let message;
 
     if (availableAgents.length) {
-      message = agentName
-        ? `Failed to find agent '${agentName}'. ${configMessage}`
-        : `Failed to find agent. ${configMessage}`;
+      const agentList = availableAgents.map((agent) => agent.name).join(", ");
 
-      const bulletList = availableAgents
-        .map((agent) => `• ${agent.name} (ID: \`${agent.id}\`)`)
-        .join("\n");
-
-      message += `\n\nThe available agents are:\n\n${bulletList}\n\n${seeMore}`;
+      if (agentName) {
+        message = `Agent '${agentName}' was not found. Available agents are: ${agentList}. Please verify the agent name in your configuration and ensure it matches one of the available agents.\n\n${seeMore}`;
+      } else {
+        message = `The requested agent was not found. Available agents are: ${agentList}. Please verify the agent name in your configuration and ensure it matches one of the available agents.\n\n${seeMore}`;
+      }
     } else {
-      message += `\n\n${seeMore}`;
+      message = `${agentName ? `Agent '${agentName}'` : "The requested agent"} was not found. Please set up at least one agent before proceeding. ${seeMore}`;
     }
 
     super({ message, code });

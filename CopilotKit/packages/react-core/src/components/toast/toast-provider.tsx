@@ -183,11 +183,11 @@ export function ToastProvider({
                 border: `1px solid ${colors.border}`,
                 borderLeft: `4px solid ${colors.border}`,
                 borderRadius: "8px",
-                padding: "10px 14px",
+                padding: "12px 16px",
                 fontSize: "13px",
                 boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
                 backdropFilter: "blur(8px)",
-                maxWidth: "500px",
+                maxWidth: "min(90vw, 650px)",
                 minWidth: "350px",
               }}
             >
@@ -213,7 +213,7 @@ export function ToastProvider({
                     <div
                       style={{
                         color: colors.text,
-                        lineHeight: "1.4",
+                        lineHeight: "1.5",
                         fontWeight: "400",
                         fontSize: "13px",
                         flex: 1,
@@ -235,11 +235,7 @@ export function ToastProvider({
                           .replace(/\s+/g, " ") // Clean up extra spaces
                           .trim();
 
-                        // Truncate very long messages for better display
-                        if (cleanMessage.length > 120) {
-                          cleanMessage = cleanMessage.substring(0, 117) + "...";
-                        }
-
+                        // No truncation - show the full message
                         return cleanMessage;
                       })()}
                     </div>
