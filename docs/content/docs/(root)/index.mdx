@@ -44,8 +44,8 @@ import { MaximizableVideo } from "@/components/react/maximizable-video";
 </div>
 
 ## Get Started Now
-<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-  <div className="border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-10 gap-6 mb-12">
+  <div className="lg:col-span-3 border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
     <div>
       <h3 className="text-xl font-bold mb-3 text-foreground">Quickstart</h3>
       <p className="text-sm text-muted-foreground mb-8">Start with an LLM<br /> or Agent Framework</p>
@@ -54,7 +54,7 @@ import { MaximizableVideo } from "@/components/react/maximizable-video";
       <QuickstartDropdown />
     </div>
   </div>
-  <div className="border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
+  <div className="lg:col-span-4 border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
     <div>
       <h3 className="text-xl font-bold mb-3 text-foreground">CLI</h3>
       <p className="text-sm text-muted-foreground mb-4">Bootstrap your NextJS<br />application with CopilotKit</p>
@@ -66,7 +66,7 @@ npx copilotkit@latest init
 ```
     </div>
   </div>
-  <div className="border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
+  <div className="lg:col-span-3 border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
     <div>
       <h3 className="text-xl font-bold mb-3 text-foreground">Platform</h3>
       <p className="text-sm text-muted-foreground mb-4">Start the easiest way<br /> with our hosted service</p>
