@@ -22,6 +22,20 @@
     @apply text-white hover:text-black dark:text-white dark:hover:bg-white dark:hover:text-black;
   }
 
+  /* Add custom font size for text editor */
+  .copilotKitInput > input,
+  .copilotKitInput > textarea {
+    font-size: 0.875rem !important; /* 14px */
+  }
+
+  .copilotKitMessage {
+    font-size: 0.875rem !important; /* 14px */
+  }
+
+  .copilotKitMarkdown {
+    font-size: 0.875rem !important; /* 14px */
+  }
+
   :root {
     --fd-sidebar-width: 330px !important;
     --background: 0 0% 100%;
@@ -139,4 +153,9 @@
   article {
     @apply lg:mt-10;
   }
+}
+
+
+[data-toc] {
+  display: none !important;
 } 

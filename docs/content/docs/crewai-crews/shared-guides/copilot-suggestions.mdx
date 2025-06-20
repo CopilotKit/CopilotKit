@@ -1,0 +1,80 @@
+---
+title: "Copilot Suggestions"
+description: "Learn how to auto-generate suggestions in the chat window based on real time application state."
+icon: "lucide/CopyCheck"
+---
+
+import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
+
+<Callout type="warn">
+  useCopilotChatSuggestions is experimental. The interface is not final and can
+  change without notice.
+</Callout>
+
+[`useCopilotChatSuggestions`](/reference/hooks/useCopilotChatSuggestions) is a React hook that generates suggestions in the chat window based on real time application state.
+
+<Frame>
+  <img
+    src="/images/use-copilot-chat-suggestions/use-copilot-chat-suggestions.gif"
+    width="500"
+  />
+</Frame>
+
+
+<Steps>
+
+<Step>
+### Simple Usage
+ 
+```tsx
+import { useCopilotChatSuggestions } from "@copilotkit/react-ui"; // [!code highlight]
+ 
+export function MyComponent() {
+  // [!code highlight:9]
+  useCopilotChatSuggestions(
+    {
+      instructions: "Suggest the most relevant next actions.",
+      minSuggestions: 1,
+      maxSuggestions: 2,
+    },
+    [relevantState],
+  );
+}
+```
+</Step>
+
+<Step>
+### Dependency Management
+ 
+```tsx
+import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
+ 
+export function MyComponent() {
+  useCopilotChatSuggestions(
+    {
+      instructions: "Suggest the most relevant next actions.",
+      minSuggestions: 1,
+      maxSuggestions: 2,
+    },
+    [relevantState], // [!code highlight]
+  );
+}
+```
+ 
+In the example above, the suggestions are generated based on the given instructions.
+The hook monitors `relevantState`, and updates suggestions accordingly whenever it changes.
+
+</Step>
+
+
+<Step>
+  <UseClientCalloutSnippet components={props.components} />
+</Step>
+
+
+</Steps>
+
+## Next Steps
+
+- Check out [how to customize the suggestions look](/guides/custom-look-and-feel/bring-your-own-components#suggestions).
+- Check out the [useCopilotChatSuggestions reference](/reference/hooks/useCopilotChatSuggestions) for more details.

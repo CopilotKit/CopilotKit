@@ -5,7 +5,7 @@ description: Render your agent's behavior with custom UI components.
 ---
 
 import { CTACards } from "@/components/react/cta-cards";
-import { WrenchIcon, BotIcon } from "lucide-react";
+import { UserIcon, PaintbrushIcon, WrenchIcon, RepeatIcon } from "lucide-react";
 
 <Frame>
   <img
@@ -30,10 +30,11 @@ agents and user interfaces. As your agent processes information and makes decisi
 - Create interactive elements for user input
 - Animate transitions between different states
 
+---
 
 <Cards className="gap-6">
   <Card
-    className="p-6 rounded-xl text-base border-[#FF3C1A]"
+    className="p-6 rounded-xl text-base"
     icon={<WrenchIcon className="text-[#FF3C1A]" />}
     title="Tool-based"
     description="Render your agent's tool calls with custom UI components."

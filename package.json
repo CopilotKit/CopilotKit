@@ -18,6 +18,7 @@
     "@copilotkit/react-core": "1.8.11",
     "@copilotkit/react-textarea": "1.8.11",
     "@copilotkit/react-ui": "1.8.11",
-    "@copilotkit/runtime": "1.8.11"
+    "@copilotkit/runtime": "1.8.11",
+    "nvm": "^0.0.4"
   }
 }

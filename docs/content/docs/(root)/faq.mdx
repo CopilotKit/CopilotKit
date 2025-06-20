@@ -1,0 +1,80 @@
+---
+title: Common Questions
+description: We've got answers to some common questions!
+---
+
+import { Accordions } from 'fumadocs-ui/components/accordion';
+import { Accordion } from 'fumadocs-ui/components/accordion';
+
+# Common Questions
+
+We've got answers to some common questions!
+
+<Accordions>
+  <Accordion title="What is a Copilot?">
+    A Copilot is a trusted partner that lives in your application to help your users get things done.
+    There are two main types, the **Concierge** and the **Worker**.
+
+    ### Concierge
+
+    The Concierge Copilot understands your application's capabilities and full user context. It translates 
+    high-level user intent into actions by serving as an intelligent intermediary.
+
+    For example, our [Banking Assistant](https://github.com/CopilotKit/demo-banking) implements Concierge Copilots 
+    to help users manage their (_fake_) banking needs.
+    
+
+    ### Worker
+
+    The Worker Copilot is a domain-specific agent that can help users perform their core work tasks.
+    It serves as a partner to the user that is better at performing some tasks and worse at others. 
+    Ultimately, it amplifies your users to produce better work than they thought possible. This pattern
+    is often used in backoffice copilots.
+
+    Think of the Worker Copilot as Cursor, Replit Agent, or Windsurf, but for any domain. For example, 
+    see our [Open Researcher ANA](https://github.com/CopilotKit/open-research-ana).
+  </Accordion>
+  <Accordion title="What are the main features of CopilotKit?">
+    ### Batteries included chat components
+    Beautiful, powerful and customizable chat components just an import away.
+    | | |
+    |---------|-------------|
+    | [**Chat**](/reference/components/chat/CopilotChat) | Simple and powerful chat interface |
+    | [**Pop-up**](/reference/components/chat/CopilotPopup) | The Chat component in a pop-up format |
+    | [**Sidebar**](/reference/components/chat/CopilotSidebar) | The Chat component in a sidebar format |
+    | [**Copilot Textarea**](/reference/components/CopilotTextarea) | Powerful AI autocompletion as a drop-in replacement for any textarea |
+    | [**Headless**](/guides/custom-look-and-feel/customize-built-in-ui-components) | Full customization of the chat interfaces |
+
+    ### Deeply integrated Copilots
+    Give Copilots the ability to take actions directly in your application.
+    |  |  |
+    |---------|-------------|
+    | [**Copilot Readable State**](/reference/hooks/useCopilotReadable) | Enables Copilots to read and understand the application state |
+    | [**Copilot Actions**](/reference/hooks/useCopilotAction) | Copilots can perform actions in the application |
+    | [**Generative UI**](/guides/generative-ui) | Render any component in the copilot chat interface |
+    | [**AI Autosuggestions**](/reference/hooks/useCopilotChatSuggestions) | AI-powered autosuggestions in your AI chat interface |
+    | [**Copilot Tasks**](/reference/classes/CopilotTask) | Let your copilots take actions proactively based on application state |
+
+    ### Rich agentic experiences
+    Integrate your LangGraph agents into your product with ease.
+    | |  |
+    |---------|-------------|
+    | [**Deep support for LangGraph**](/coagents/quickstart/langgraph) | Bring your LangGraph agents directly into your product |
+    | [**Human-in-the-loop**](/coagents/human-in-the-loop) | Allow your users to work with your agents to solve complex problems |
+    | [**Shared state**](/coagents/shared-state) | Render the state of your LangGraph agents with less than 10 lines of code |
+    | [**Multi-agent**](/coagents/multi-agent-flows) | Build multi-agent experiences with ease |
+  </Accordion>
+  <Accordion title="How does it all work?">
+    Great question! CopilotKit has three main components:
+    1. **CopilotKit UI**: The UI components that you use to build your Copilots and Agents.
+    2. **CopilotKit Runtime**: The runtime that you use to build your Copilots and Agents. This serves as the backend for your Copilots and Agents.
+    3. **CopilotKit SDK**: In more complex applications, you'll use the SDK to deeply integrate CopilotKit into your agents.
+  </Accordion>
+
+  <Accordion title="Can I use any LLM with CopilotKit?">
+    Yes! CopilotKit supports most LLMs, including OpenAI, Anthropic, Google, and more. In addition, you can use any LLM that is supported by LangGraph or
+    LangChain.
+
+    For more information, checkout our documentation on [bringing your own LLM](/guides/bring-your-own-llm).
+  </Accordion>
+</Accordions> 

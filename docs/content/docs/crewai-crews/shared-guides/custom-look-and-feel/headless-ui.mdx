@@ -1,0 +1,125 @@
+---
+title: "Fully Headless UI"
+description: "Fully customize your Copilot's UI from the ground up using headless UI"
+icon: "lucide/Settings"
+---
+
+import { ImageAndCode } from "@/components/react/image-and-code"
+
+The built-in Copilot UI can be customized in many ways -- both through CSS and by passing in custom sub-components.
+
+CopilotKit also offers **fully custom headless UI** through the `useCopilotChat` hook. Everything built with the built-in UI (and more) can be implemented with the headless UI, providing deep customizability.
+
+```tsx
+import { useCopilotChat } from "@copilotkit/react-core";
+import { Role, TextMessage } from "@copilotkit/runtime-client-gql";
+
+export function CustomChatInterface() {
+  const {
+    visibleMessages,
+    appendMessage,
+    setMessages,
+    deleteMessage,
+    reloadMessages,
+    stopGeneration,
+    isLoading,
+  } = useCopilotChat();
+
+  const sendMessage = (content: string) => {
+    appendMessage(new TextMessage({ content, role: Role.User }));
+  };
+
+  return (
+    <div>
+      {/* Implement your custom chat UI here */}
+    </div>
+  );
+}
+```
+
+## Resetting the chat history
+In some cases, users may want to reset the chat to clear the conversation history and start fresh. This can be useful when:
+- The current conversation has become too long or confusing.
+- You want to test different prompts or approaches from a clean slate.
+- A user needs to reset the context to ensure the AI responds appropriately.
+
+This simple method allows you to reset the chat state with a button click.
+
+<Callout title="Why Reset the Chat?">
+Resetting the chat clears all conversation history, helping you start fresh or troubleshoot AI responses.
+</Callout>
+
+<ImageAndCode preview="/images/concepts/customize-look-and-feel/reset-chat.gif" >
+
+```tsx
+
+"use client"; // only necessary if you are using Next.js with the App Router.
+
+import { InputProps, CopilotSidebar } from "@copilotkit/react-ui";
+import { useCopilotChat } from "@copilotkit/react-core";
+import "@copilotkit/react-ui/styles.css";
+
+function CustomInput({ inProgress, onSend, isVisible }: InputProps) {
+  const { reset } = useCopilotChat(); // Get reset function
+
+  return (
+    <div style={{ display: isVisible ? "flex" : "none", alignItems: "center", gap: "10px", padding: "10px", borderTop: "1px solid #eee" }}>
+      {/* Text Input */}
+      <input
+        disabled={inProgress}
+        type="text"
+        placeholder="Ask your question here..."
+        style={{
+          flex: 1,
+          padding: "8px",
+          borderRadius: "4px",
+          border: "1px solid #ccc",
+          outline: "none",
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            onSend(e.currentTarget.value);
+            e.currentTarget.value = "";
+          }
+        }}
+      />
+
+      {/* Send Button */}
+      <button
+        disabled={inProgress}
+        style={{
+          padding: "8px 12px",
+          border: "none",
+          borderRadius: "4px",
+          background: "#007bff",
+          color: "white",
+          cursor: "pointer",
+        }}
+        onClick={(e) => {
+          const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+          onSend(input.value);
+          input.value = "";
+        }}
+      >
+        Send
+      </button>
+
+      {/* Reset Chat Button */}
+      <button
+        style={{
+          padding: "8px 12px",
+          border: "none",
+          borderRadius: "4px",
+          background: "#f44336",
+          color: "white",
+          cursor: "pointer",
+        }}
+        onClick={() => reset()}
+      >
+        Reset
+      </button>
+    </div>
+  );
+}
+```
+</ImageAndCode> 

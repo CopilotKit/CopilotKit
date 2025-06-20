@@ -66,14 +66,9 @@ export default async function Page({
   const cloudOnly = cloudOnlyFeatures.includes(page.data.title);
   return (
     <DocsPage
-      toc={page.data.toc}
+      toc={[]}
       full={page.data.full}
-      editOnGithub={{
-        owner: "CopilotKit",
-        repo: "CopilotKit",
-        sha: "main",
-        path: `/docs/content/docs/${page.file.path}`,
-      }}
+
     >
       <div className="flex items-center gap-3">
         <DocsTitle className="flex items-center">

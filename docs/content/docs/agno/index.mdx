@@ -1,5 +1,5 @@
 ---
-title: Introduction
+title: Agno Integration
 icon: "lucide/Sparkles"
 description: Build Agent-Native Applications (ANAs) powered by CopilotKit and Agno Agents.
 ---
@@ -20,18 +20,14 @@ import {
   LuPlane,
   LuBookOpen,
   LuLightbulb,
-  LuLayoutTemplate,
   LuBrainCog,
-  LuUserCog,
-  LuWand2,
-  LuPlay,
-  LuMessageSquare,
   LuWrench,
 } from "react-icons/lu";
 import { CoAgentsExamples } from "@/components/react/examples-carousel";
 import { CTACards } from "@/components/react/cta-cards";
 import { FaSync } from "react-icons/fa";
 import { Socials } from "@/components/react/socials";
+import { LuLayoutTemplate, LuMessageSquare, LuWand, LuPlay } from "react-icons/lu";
 
 # Copilot Infrastructure for Agno Agents
 
@@ -43,22 +39,22 @@ Everything you need to build Agent-Native Applications (ANAs), right out of the 
 
 <Cards className="gap-6">
   <Card
-    className="p-6 rounded-xl text-base border-[#FF3C1A]"
+    className="p-6 rounded-xl text-base"
     icon={<LuMessageSquare className="text-[#FF3C1A]" />}
     title="Agentic Chat UI"
     description="In-app chat powered by your agent."
     href="/agno/agentic-chat-ui"
   />
   <Card
-    className="p-6 rounded-xl text-base border-[#FF3C1A]"
+    className="p-6 rounded-xl text-base"
     icon={<LuLayoutTemplate className="text-[#FF3C1A]" />}
     title="Generative UI"
     description="UI that updates in real-time based on your agent's state."
     href="/agno/generative-ui"
   />
   <Card
-    className="p-6 rounded-xl text-base border-[#FF3C1A]"
-    icon={<LuWand2 className="text-[#FF3C1A]" />}
+    className="p-6 rounded-xl text-base"
+    icon={<LuWand className="text-[#FF3C1A]" />}
     title="Multi-Agent Coordination"
     description="Route your agent to the right agent based on the user's request."
     href="/agno/multi-agent-flows"
@@ -73,7 +69,7 @@ Get started with CoAgents in as little as 5 minutes with one of our guides or tu
 
 <Cards className="gap-6">
   <Card
-    className="p-6 rounded-xl text-base border-[#FF3C1A]"
+    className="p-6 rounded-xl text-base"
     icon={<LuPlay className="text-[#FF3C1A]" />}
     title="Quickstart"
     description="Learn how to build your first CoAgent in 10 minutes."

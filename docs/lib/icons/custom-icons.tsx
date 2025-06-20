@@ -14,7 +14,6 @@ export const AG2Icon = (props: IconBaseProps) => (
     height="3em"
     fill="none"
     viewBox="0 0 90 50"
-    style={{ transform: "scale(1.5)" }}
     {...props}
   >
     <path
@@ -35,6 +34,7 @@ export const MastraIcon = (props: IconBaseProps) => (
     viewBox="0 0 34 34"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
+    {...props}
   >
     <circle
       cx="16.6532"
@@ -98,7 +98,7 @@ export const AgnoIcon = (props: IconBaseProps) => (
   </svg>
 );
 
-export const AgnoIconBlack = (props: IconBaseProps) => (
+export const AgnoIconBlack = (props: IconBaseProps, className?: string) => (
   <svg
     width="195"
     height="75"

@@ -1,0 +1,36 @@
+---
+title: "Customize UI"
+description: "Customize the look, feel, and functionality of CopilotKit's UI components."
+icon: "lucide/Settings"
+---
+import { MessageCircleIcon, BrushIcon, PuzzleIcon, SettingsIcon } from "lucide-react";
+
+CopilotKit offers a variety of ways to create a UI interface for your Copilots and CoAgents. This ranges
+from using our built-in UI components to fully customizing the UI with headless UI.
+
+<Cards>
+  <Card
+    title="Prebuilt Copilot UI"
+    icon={<MessageCircleIcon />}
+    description="Get started quickly with CopilotKit's ready-to-use UI components."
+    href="./built-in-ui-components"
+  />
+  <Card
+    title="Styling Copilot UI"
+    icon={<BrushIcon />}
+    description="Customize the appearance of CopilotKit's pre-built components with your own styles."
+    href="./customize-built-in-ui-components"
+  />
+  <Card
+    title="Custom Components"
+    icon={<PuzzleIcon />}
+    description="Replace the Copilot UI components with your own while keeping the core functionality."
+    href="./bring-your-own-components"
+  />
+  <Card
+    title="Fully Custom UI"
+    icon={<SettingsIcon />}
+    description="Build your UI from scratch using CopilotKit's hooks and core functionality."
+    href="./headless-ui"
+  />
+</Cards>

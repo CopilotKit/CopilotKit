@@ -3,9 +3,10 @@
   "root": true,
   "pages": [
     "index",
+    "---Getting Started---",
     "quickstart",
     "[lucide/Telescope][Feature Viewer](https://demo-viewer-five.vercel.app/ )",
-    "---Guides---",
+    "...shared-guides",
     "agentic-chat-ui",
     "generative-ui",
     "human-in-the-loop",
@@ -15,6 +16,12 @@
     "persistence",
     "advanced",
     "---Learn---",
-    "...concepts"
+    "...concepts",
+    "---Troubleshooting CoAgent Copilots---",
+    "...flows-troubleshooting",
+    "---Troubleshooting Copilots---",
+    "...troubleshooting",
+    "---Other---",
+    "...(other)"
   ]
 }

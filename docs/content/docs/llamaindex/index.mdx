@@ -1,5 +1,5 @@
 ---
-title: Introduction
+title: LlamaIndex Integration
 icon: "lucide/Sparkles"
 description: Build Agent-Native Applications (ANAs) powered by CopilotKit and LlamaIndex Agents.
 ---
@@ -21,18 +21,14 @@ import {
   LuPlane,
   LuBookOpen,
   LuLightbulb,
-  LuLayoutTemplate,
   LuBrainCog,
-  LuUserCog,
-  LuWand2,
-  LuPlay,
-  LuMessageSquare,
   LuWrench,
 } from "react-icons/lu";
 import { CoAgentsExamples } from "@/components/react/examples-carousel";
 import { CTACards } from "@/components/react/cta-cards";
 import { FaSync } from "react-icons/fa";
 import { Socials } from "@/components/react/socials";
+import { LuLayoutTemplate, LuMessageSquare, LuWand, LuPlay, LuUserCog } from "react-icons/lu";
 
 # Copilot Infrastructure for LlamaIndex Agents
 
@@ -45,35 +41,35 @@ Everything you need to build Agent-Native Applications (ANAs), right out of the 
 
 <Cards className="gap-6">
   <Card
-    className="p-6 rounded-xl text-base border-pink-500"
+    className="p-6 rounded-xl text-base"
     icon={<LuMessageSquare className="text-pink-500" />}
     title="Agentic Chat UI"
     description="In-app chat powered by your agent."
     href="/llamaindex/agentic-chat-ui"
   />
   <Card
-    className="p-6 rounded-xl text-base border-pink-500"
+    className="p-6 rounded-xl text-base"
     icon={<LuLayoutTemplate className="text-pink-500" />}
     title="Generative UI"
     description="UI that updates in real-time based on your agent's state."
     href="/llamaindex/generative-ui"
   />
   <Card
-    className="p-6 rounded-xl text-base border-pink-500"
-    icon={<LuWand2 className="text-pink-500" />}
+    className="p-6 rounded-xl text-base"
+    icon={<LuWand className="text-pink-500" />}
     title="Frontend Tools"
     description="Give your agent the ability to take action in your application."
     href="/llamaindex/frontend-actions"
   />
   <Card
-    className="p-6 rounded-xl text-base border-pink-500"
-    icon={<LuWand2 className="text-pink-500" />}
+    className="p-6 rounded-xl text-base"
+    icon={<LuWand className="text-pink-500" />}
     title="Multi-Agent Coordination"
     description="Route your agent to the right agent based on the user's request."
     href="/llamaindex/multi-agent-flows"
   />
   <Card
-    className="p-6 rounded-xl text-base border-pink-500"
+    className="p-6 rounded-xl text-base"
     icon={<LuUserCog className="text-pink-500" />}
     title="Human-in-the-Loop"
     description="Set smart checkpoints where humans can guide your agents."
@@ -87,7 +83,7 @@ Get started with CoAgents in as little as 5 minutes with one of our guides or tu
 
 <Cards className="gap-6">
   <Card
-    className="p-6 rounded-xl text-base border-pink-500"
+    className="p-6 rounded-xl text-base"
     icon={<LuPlay className="text-pink-500" />}
     title="Quickstart"
     description="Learn how to build your first CoAgent in 10 minutes."

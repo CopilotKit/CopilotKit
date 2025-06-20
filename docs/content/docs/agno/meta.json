@@ -3,8 +3,9 @@
   "root": true,
   "pages": [
     "index",
-    "quickstart",
-    "---Guides---",
+    "---Getting Started---",
+    "...quickstart",
+    "...shared-guides",
     "agentic-chat-ui",
     "generative-ui",
     "shared-state",
@@ -12,6 +13,10 @@
     "multi-agent-flows",
     "persistence",
     "---Learn---",
-    "...concepts"
+    "...concepts",
+    "---Troubleshooting Copilots---",
+    "...troubleshooting",
+    "---Other---",
+    "...(other)"
   ]
 }
