@@ -328,7 +328,9 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       params?.remoteEndpoints.some((e) => e.type === EndpointType.LangGraphPlatform)
     ) {
       console.warn("Actions set in runtime instance will not be available for the agent");
-      console.warn(`LangGraph Platform remote endpoints are deprecated in favor of the "agents" property`)
+      console.warn(
+        `LangGraph Platform remote endpoints are deprecated in favor of the "agents" property`,
+      );
     }
 
     // TODO: finalize
@@ -924,8 +926,8 @@ please use an LLM adapter instead.`,
     }
 
     if (
-      'endpoint' in agent && (agent.endpoint.type === EndpointType.CopilotKit ||
-        !("type" in agent.endpoint))
+      "endpoint" in agent &&
+      (agent.endpoint.type === EndpointType.CopilotKit || !("type" in agent.endpoint))
     ) {
       const cpkEndpoint = agent.endpoint as CopilotKitEndpoint;
       const fetchUrl = `${cpkEndpoint.url}/agents/state`;
@@ -970,19 +972,19 @@ please use an LLM adapter instead.`,
       : null;
 
     let client: LangGraphClient;
-    if ('endpoint' in agent && agent.endpoint.type === EndpointType.LangGraphPlatform) {
+    if ("endpoint" in agent && agent.endpoint.type === EndpointType.LangGraphPlatform) {
       client = new LangGraphClient({
         apiUrl: agent.endpoint.deploymentUrl,
         apiKey: agent.endpoint.langsmithApiKey,
         defaultHeaders: { ...propertyHeaders },
       });
     } else {
-      const aguiAgent = graphqlContext._copilotkit.runtime.agents[agent.name] as LangGraphAgent
+      const aguiAgent = graphqlContext._copilotkit.runtime.agents[agent.name] as LangGraphAgent;
       if (!aguiAgent) {
-        throw new Error(`Agent: ${agent.name} could not be resolved`)
+        throw new Error(`Agent: ${agent.name} could not be resolved`);
       }
       // @ts-expect-error -- both clients are the same
-      client = aguiAgent.client
+      client = aguiAgent.client;
     }
     let state: any = {};
     try {
