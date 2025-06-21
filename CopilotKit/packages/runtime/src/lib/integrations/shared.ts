@@ -137,7 +137,8 @@ export function getCommonConfig(options: CreateCopilotRuntimeServerOptions): Com
 
         // Suppress logging for user errors based on error code
         if (errorCode && userErrorCodes.includes(errorCode)) {
-          // Don't log user errors - they're handled on frontend
+          // Log user configuration errors at debug level instead
+          console.debug("User configuration error:", error.message);
           return error;
         }
 
@@ -146,7 +147,8 @@ export function getCommonConfig(options: CreateCopilotRuntimeServerOptions): Com
           originalError instanceof CopilotKitError &&
           userErrorCodes.includes(originalError.code)
         ) {
-          // Don't log user errors - they're handled on frontend
+          // Log user configuration errors at debug level instead
+          console.debug("User configuration error:", error.message);
           return error;
         }
 

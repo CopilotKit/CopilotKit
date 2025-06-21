@@ -21,8 +21,8 @@ const defaultIcons: Record<Severity, JSX.Element> = {
   [Severity.CRITICAL]: (
     <svg
       viewBox="0 0 24 24"
-      width="18"
-      height="18"
+      width="16"
+      height="16"
       stroke="currentColor"
       strokeWidth="2.5"
       fill="none"
@@ -37,8 +37,8 @@ const defaultIcons: Record<Severity, JSX.Element> = {
   [Severity.WARNING]: (
     <svg
       viewBox="0 0 24 24"
-      width="18"
-      height="18"
+      width="16"
+      height="16"
       stroke="currentColor"
       strokeWidth="2.5"
       fill="none"
@@ -53,8 +53,8 @@ const defaultIcons: Record<Severity, JSX.Element> = {
   [Severity.INFO]: (
     <svg
       viewBox="0 0 24 24"
-      width="18"
-      height="18"
+      width="16"
+      height="16"
       stroke="currentColor"
       strokeWidth="2.5"
       fill="none"
@@ -79,23 +79,46 @@ export function UsageBanner({
     return null;
   }
 
-  // Parse markdown links from message and clean it up
+  // Enhanced message parsing to clean up technical details
   const parseMessage = (rawMessage: string) => {
-    // Extract markdown links: [text](url)
-    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-    const matches = Array.from(rawMessage.matchAll(linkRegex));
+    // console.log("Raw message:", rawMessage); // Debug
 
-    if (matches.length > 0) {
-      // Remove "See more:" and markdown links from the main message
-      let cleanMessage = rawMessage
-        .replace(/\.\s*See more:\s*\[([^\]]+)\]\(([^)]+)\)/g, ".")
-        .replace(/See more:\s*\[([^\]]+)\]\(([^)]+)\)/g, "")
-        .trim();
-
-      return cleanMessage;
+    // Super aggressive cleaning - handle common error patterns first
+    if (
+      rawMessage.toLowerCase().includes("authentication") ||
+      rawMessage.toLowerCase().includes("api key")
+    ) {
+      return "Authentication failed. Please check your API key.";
     }
 
-    return rawMessage;
+    if (rawMessage.toLowerCase().includes("rate limit")) {
+      return "Rate limit exceeded. Please try again later.";
+    }
+
+    if (rawMessage.toLowerCase().includes("checkpointer")) {
+      return "Agent configuration error. Please check your setup.";
+    }
+
+    // For any other error, extract just the main error type
+    let cleanMessage = rawMessage;
+
+    // Remove everything after the first " - " or ":" followed by technical details
+    cleanMessage = cleanMessage.split(" - ")[0];
+    cleanMessage = cleanMessage.split(": Error code")[0];
+    cleanMessage = cleanMessage.split(": 401")[0];
+    cleanMessage = cleanMessage.split(": 403")[0];
+    cleanMessage = cleanMessage.split(": 404")[0];
+    cleanMessage = cleanMessage.split(": 500")[0];
+
+    // Remove "See more" links
+    cleanMessage = cleanMessage.replace(/See more:.*$/g, "").trim();
+
+    // If still too technical, just show a generic message
+    if (cleanMessage.includes("{") || cleanMessage.includes("'") || cleanMessage.length > 60) {
+      return "Configuration error. Please check your setup.";
+    }
+
+    return cleanMessage || "An error occurred. Please check your configuration.";
   };
 
   const cleanMessage = parseMessage(message);
@@ -103,7 +126,7 @@ export function UsageBanner({
 
   const themeConfigs = {
     [Severity.INFO]: {
-      bg: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)",
+      bg: "rgba(239, 246, 255, 0.95)",
       border: "#93c5fd",
       text: "#1e40af",
       icon: "#3b82f6",
@@ -111,7 +134,7 @@ export function UsageBanner({
       primaryBtnHover: "#2563eb",
     },
     [Severity.WARNING]: {
-      bg: "linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)",
+      bg: "rgba(255, 251, 235, 0.95)",
       border: "#fbbf24",
       text: "#92400e",
       icon: "#f59e0b",
@@ -119,7 +142,7 @@ export function UsageBanner({
       primaryBtnHover: "#d97706",
     },
     [Severity.CRITICAL]: {
-      bg: "linear-gradient(135deg, #fef2f2 0%, #fecaca 100%)",
+      bg: "rgba(254, 242, 242, 0.95)",
       border: "#f87171",
       text: "#991b1b",
       icon: "#ef4444",
@@ -134,13 +157,13 @@ export function UsageBanner({
     <div
       style={{
         position: "fixed",
-        bottom: "20px",
+        bottom: "24px",
         left: "50%",
         transform: "translateX(-50%)",
-        maxWidth: "min(95vw, 680px)",
-        width: "100%",
+        width: "400px",
+        maxWidth: "90vw",
         zIndex: 10000,
-        animation: "bannerSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+        animation: "bannerSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
       }}
     >
       <style>
@@ -148,28 +171,29 @@ export function UsageBanner({
           @keyframes bannerSlideIn {
             from {
               opacity: 0;
-              transform: translateX(-50%) translateY(10px);
+              transform: translateX(-50%) translateY(20px);
+              scale: 0.95;
             }
             to {
               opacity: 1;
               transform: translateX(-50%) translateY(0);
+              scale: 1;
             }
           }
         `}
       </style>
       <div
         style={{
-          display: "flex",
-          alignItems: "flex-start",
-          gap: "14px",
-          borderRadius: "16px",
+          borderRadius: "12px",
           border: `1px solid ${themeConfig.border}`,
           background: themeConfig.bg,
-          padding: "18px 20px",
-          boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
+          padding: "14px",
+          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08)",
           position: "relative",
-          backdropFilter: "blur(10px)",
-          WebkitBackdropFilter: "blur(10px)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          boxSizing: "border-box",
+          overflow: "hidden",
         }}
       >
         {/* Close button */}
@@ -178,144 +202,117 @@ export function UsageBanner({
             onClick={onClose}
             style={{
               position: "absolute",
-              top: "12px",
-              right: "12px",
-              background: "rgba(255, 255, 255, 0.8)",
+              top: "8px",
+              right: "8px",
+              background: "rgba(255, 255, 255, 0.9)",
               border: "none",
               color: themeConfig.text,
               cursor: "pointer",
-              fontSize: "18px",
+              fontSize: "16px",
               lineHeight: "1",
-              padding: "6px",
-              borderRadius: "8px",
-              opacity: 0.7,
-              transition: "all 0.2s ease",
+              padding: "4px",
+              borderRadius: "4px",
+              width: "20px",
+              height: "20px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              width: "28px",
-              height: "28px",
             }}
             title="Close"
-            onMouseOver={(e) => {
-              e.currentTarget.style.opacity = "1";
-              e.currentTarget.style.background = "rgba(255, 255, 255, 1)";
-              e.currentTarget.style.transform = "scale(1.05)";
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.opacity = "0.7";
-              e.currentTarget.style.background = "rgba(255, 255, 255, 0.8)";
-              e.currentTarget.style.transform = "scale(1)";
-            }}
           >
             ×
           </button>
         )}
 
-        {/* Icon */}
+        {/* Message */}
         <div
           style={{
-            color: themeConfig.icon,
-            flexShrink: 0,
-            marginTop: "1px",
-            padding: "6px",
-            borderRadius: "10px",
-            background: "rgba(255, 255, 255, 0.7)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+            fontSize: "14px",
+            fontWeight: 500,
+            color: themeConfig.text,
+            lineHeight: "1.4",
+            fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+            paddingRight: onClose ? "30px" : "0",
+            marginBottom: actions ? "12px" : "0",
+            wordBreak: "break-word",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
           }}
         >
-          {Icon}
+          {cleanMessage}
         </div>
 
-        {/* Content */}
-        <div style={{ flex: 1, paddingRight: onClose ? "40px" : "0" }}>
-          {/* Message */}
+        {/* Actions */}
+        {actions && (
           <div
             style={{
-              fontSize: "15px",
-              fontWeight: 600,
-              color: themeConfig.text,
-              lineHeight: "1.5",
-              marginBottom: actions ? "12px" : "0",
-              fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+              display: "flex",
+              gap: "8px",
+              flexWrap: "wrap",
             }}
           >
-            {cleanMessage}
+            {actions.secondary && (
+              <button
+                onClick={actions.secondary.onClick}
+                style={{
+                  borderRadius: "8px",
+                  padding: "6px 12px",
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  color: themeConfig.text,
+                  backgroundColor: "rgba(255, 255, 255, 0.9)",
+                  border: `1px solid ${themeConfig.border}`,
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 1)";
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.9)";
+                  e.currentTarget.style.transform = "translateY(0)";
+                }}
+              >
+                {actions.secondary.label}
+              </button>
+            )}
+            {actions.primary && (
+              <button
+                onClick={actions.primary.onClick}
+                style={{
+                  borderRadius: "8px",
+                  padding: "6px 12px",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  color: "#fff",
+                  backgroundColor: themeConfig.primaryBtn,
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
+                  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.backgroundColor = themeConfig.primaryBtnHover;
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.2)";
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.backgroundColor = themeConfig.primaryBtn;
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "0 2px 8px rgba(0, 0, 0, 0.15)";
+                }}
+              >
+                {actions.primary.label}
+              </button>
+            )}
           </div>
-
-          {/* Actions */}
-          {actions && (
-            <div
-              style={{
-                display: "flex",
-                gap: "10px",
-                flexWrap: "wrap",
-              }}
-            >
-              {actions.secondary && (
-                <button
-                  onClick={actions.secondary.onClick}
-                  style={{
-                    borderRadius: "10px",
-                    padding: "8px 16px",
-                    fontSize: "14px",
-                    fontWeight: 500,
-                    color: themeConfig.text,
-                    backgroundColor: "rgba(255, 255, 255, 0.8)",
-                    border: `1.5px solid ${themeConfig.border}`,
-                    cursor: "pointer",
-                    transition: "all 0.2s ease",
-                    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-                  }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 1)";
-                    e.currentTarget.style.transform = "translateY(-1px)";
-                    e.currentTarget.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.15)";
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.8)";
-                    e.currentTarget.style.transform = "translateY(0)";
-                    e.currentTarget.style.boxShadow = "none";
-                  }}
-                >
-                  {actions.secondary.label}
-                </button>
-              )}
-              {actions.primary && (
-                <button
-                  onClick={actions.primary.onClick}
-                  style={{
-                    borderRadius: "10px",
-                    padding: "8px 16px",
-                    fontSize: "14px",
-                    fontWeight: 600,
-                    color: "#fff",
-                    backgroundColor: themeConfig.primaryBtn,
-                    border: "none",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease",
-                    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-                    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-                  }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.backgroundColor = themeConfig.primaryBtnHover;
-                    e.currentTarget.style.transform = "translateY(-1px)";
-                    e.currentTarget.style.boxShadow = "0 6px 16px rgba(0, 0, 0, 0.2)";
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.backgroundColor = themeConfig.primaryBtn;
-                    e.currentTarget.style.transform = "translateY(0)";
-                    e.currentTarget.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.15)";
-                  }}
-                >
-                  {actions.primary.label}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );

@@ -64,15 +64,11 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
     return new CopilotRuntimeClient({
       ...runtimeOptions,
       handleGQLErrors: (error) => {
-        console.log("🚨 handleGQLErrors called with:", error);
-
         if ((error as any).graphQLErrors?.length) {
           const graphQLErrors = (error as any).graphQLErrors as GraphQLError[];
-          console.log("🚨 Processing GraphQL errors:", graphQLErrors);
 
           // Route all errors to banners for consistent UI
           const routeError = (gqlError: GraphQLError) => {
-            console.log("🚨 Routing individual error:", gqlError);
             const extensions = gqlError.extensions;
             const visibility = extensions?.visibility as ErrorVisibility;
             const isDev = shouldShowDevConsole(showDevConsole ?? false);

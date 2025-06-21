@@ -82,13 +82,6 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
   // Helper function to trace UI errors (similar to useCopilotRuntimeClient)
   const traceUIError = useCallback(
     async (error: CopilotKitError, originalError?: any) => {
-      console.log("🔍 CopilotMessages traceUIError called", {
-        hasOnTrace: !!onTrace,
-        hasPublicApiKey: !!copilotApiConfig.publicApiKey,
-        publicApiKey: copilotApiConfig.publicApiKey,
-        error: error.message,
-      });
-
       // Just check if onTrace and publicApiKey are defined
       if (!onTrace || !copilotApiConfig.publicApiKey) return;
 
@@ -111,10 +104,7 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
           },
           error,
         };
-
-        console.log("🚀 CopilotMessages about to call onTrace with:", traceEvent);
         await onTrace(traceEvent);
-        console.log("✅ CopilotMessages onTrace completed successfully");
       } catch (traceError) {
         console.error("Error in CopilotMessages onTrace handler:", traceError);
       }

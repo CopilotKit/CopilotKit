@@ -256,8 +256,6 @@ export class CopilotResolver {
         metaEvents: data.metaEvents,
       });
     } catch (error) {
-      console.log("🚨 Caught error at mutation level:", error);
-
       // Catch structured CopilotKit errors at the main mutation level and re-throw as GraphQL errors
       if (
         error instanceof CopilotKitError ||
@@ -265,7 +263,6 @@ export class CopilotResolver {
         (error instanceof Error && error.name && error.name.includes("CopilotKit")) ||
         (error as any)?.extensions?.visibility
       ) {
-        console.log("🚨 Throwing structured error as GraphQL error:", error);
         throw new GraphQLError(error.message || "Agent error occurred", {
           extensions: {
             ...(error as any).extensions,

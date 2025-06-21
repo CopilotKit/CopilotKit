@@ -392,11 +392,11 @@ export class ResolvedCopilotKitError extends CopilotKitError {
             : new CopilotKitApiDiscoveryError({ message, url });
         default:
           resolvedCode = CopilotKitErrorCode.UNKNOWN;
-          super({ message, code: resolvedCode, visibility: ErrorVisibility.BANNER });
+          break;
       }
-    } else {
-      super({ message, code: resolvedCode });
     }
+
+    super({ message, code: resolvedCode });
     this.name = ERROR_NAMES.RESOLVED_COPILOT_KIT_ERROR;
   }
 }

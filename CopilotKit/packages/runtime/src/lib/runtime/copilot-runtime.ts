@@ -65,7 +65,7 @@ import { ExtensionsInput } from "../../graphql/inputs/extensions.input";
 import { ExtensionsResponse } from "../../graphql/types/extensions-response.type";
 import { LoadAgentStateResponse } from "../../graphql/types/load-agent-state-response.type";
 import { Client as LangGraphClient } from "@langchain/langgraph-sdk";
-import { langchainMessagesToCopilotKit } from "./remote-lg-action";
+import { langchainMessagesToCopilotKit, isUserConfigurationError } from "./remote-lg-action";
 import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 import {
   CopilotObservabilityConfig,
@@ -950,10 +950,24 @@ please use an LLM adapter instead.`,
           if (response.status === 404) {
             throw new CopilotKitApiDiscoveryError({ url: fetchUrl });
           }
+
+          // Extract semantic error information from response body
+          let errorMessage = `HTTP ${response.status} error`;
+          try {
+            const errorBody = await response.text();
+            const parsedError = JSON.parse(errorBody);
+            if (parsedError.error && typeof parsedError.error === "string") {
+              errorMessage = parsedError.error;
+            }
+          } catch {
+            // If parsing fails, fall back to generic message
+          }
+
           throw new ResolvedCopilotKitError({
             status: response.status,
             url: fetchUrl,
             isRemoteEndpoint: true,
+            message: errorMessage,
           });
         }
 
@@ -994,7 +1008,20 @@ please use an LLM adapter instead.`,
     let state: any = {};
     try {
       state = (await client.threads.getState(threadId)).values as any;
-    } catch (error) {}
+    } catch (error) {
+      // All errors from agent state loading are user configuration issues
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      // Log user configuration errors at debug level to reduce noise
+      console.debug(`Agent '${agentName}' configuration issue: ${errorMessage}`);
+
+      // Throw a configuration error - all agent state loading failures are user setup issues
+      throw new ResolvedCopilotKitError({
+        status: 400,
+        message: `Agent '${agentName}' failed to execute: ${errorMessage}`,
+        code: CopilotKitErrorCode.CONFIGURATION_ERROR,
+      });
+    }
 
     if (Object.keys(state).length === 0) {
       return {
