@@ -19,10 +19,6 @@ export default function RootLayout({ children }: { children: any }) {
           agent="sample_agent"
           runtimeUrl="/api/copilotkit"
           showDevConsole={true}
-          publicApiKey="blah"
-          onTrace={(event) => {
-            console.log("onTraceUI", event);
-          }}
         >
           {children}
         </CopilotKit>
