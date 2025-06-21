@@ -1216,8 +1216,11 @@ please use an LLM adapter instead.`,
               }
             }
 
-            // Convert network termination errors to structured errors
-            const structuredError = this.convertStreamingErrorToStructured(err);
+            // Preserve structured CopilotKit errors, only convert unstructured errors
+            const structuredError =
+              err instanceof CopilotKitError || err instanceof CopilotKitLowLevelError
+                ? err
+                : this.convertStreamingErrorToStructured(err);
 
             // Trace streaming errors
             await this.trace(
@@ -1513,11 +1516,11 @@ please use an LLM adapter instead.`,
   ): Promise<void> {
     if (!this.onTrace) return;
 
+    // Just check if publicApiKey is defined (regardless of validity)
     if (!publicApiKey) {
       if (!this.hasWarnedAboutTracing) {
         console.warn(
-          "CopilotKit: onTrace handler provided but requires publicApiKey for tracing to work. " +
-            "This is a CopilotKit Cloud feature. See: https://docs.copilotkit.ai/cloud",
+          "CopilotKit: onTrace handler provided but requires publicApiKey to be defined for tracing to work.",
         );
         this.hasWarnedAboutTracing = true;
       }

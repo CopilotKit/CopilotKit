@@ -32,6 +32,7 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
 
   // Helper function to trace UI errors
   const traceUIError = async (error: CopilotKitError, originalError?: any) => {
+    // Just check if onTrace and publicApiKey are defined
     if (!onTrace || !runtimeOptions.publicApiKey) return;
 
     try {
@@ -46,7 +47,7 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
             startTime: Date.now(),
           },
           technical: {
-            environment: process.env.NODE_ENV,
+            environment: "browser",
             userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
             stackTrace: originalError instanceof Error ? originalError.stack : undefined,
           },
@@ -63,11 +64,15 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
     return new CopilotRuntimeClient({
       ...runtimeOptions,
       handleGQLErrors: (error) => {
+        console.log("🚨 handleGQLErrors called with:", error);
+
         if ((error as any).graphQLErrors?.length) {
           const graphQLErrors = (error as any).graphQLErrors as GraphQLError[];
+          console.log("🚨 Processing GraphQL errors:", graphQLErrors);
 
           // Route all errors to banners for consistent UI
           const routeError = (gqlError: GraphQLError) => {
+            console.log("🚨 Routing individual error:", gqlError);
             const extensions = gqlError.extensions;
             const visibility = extensions?.visibility as ErrorVisibility;
             const isDev = shouldShowDevConsole(showDevConsole ?? false);
@@ -78,7 +83,6 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
               return;
             }
 
-            // Respect showDevConsole setting for ALL errors
             if (!isDev) {
               console.error("CopilotKit Error (hidden in production):", gqlError.message);
               return;

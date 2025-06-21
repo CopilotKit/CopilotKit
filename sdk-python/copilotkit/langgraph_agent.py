@@ -500,7 +500,21 @@ class LangGraphAgent(Agent):
                 except:
                     pass
 
-            # Emit the error event through the streaming protocol
+            # Emit error events in both formats to support both LangGraph Platform and direct LangGraph modes
+
+            # Format for LangGraph Platform (remote-lg-action.ts)
+            yield langchain_dumps({
+                "event": "error",
+                "data": {
+                    "message": f"{error_type}: {error_message}",
+                    "error_details": error_details,
+                    "thread_id": thread_id,
+                    "agent_name": self.name,
+                    "node_name": node_name or "unknown"
+                }
+            }) + "\n"
+
+            # Format for direct LangGraph mode (event-source.ts)
             yield langchain_dumps({
                 "event": "on_copilotkit_error",
                 "data": {

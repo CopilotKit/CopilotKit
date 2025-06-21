@@ -53,8 +53,11 @@ export async function writeJsonLineResponseToEventStream<T>(
       }
     }
   } catch (error) {
-    // Convert network termination errors to structured errors
-    const structuredError = convertStreamingErrorToStructured(error);
+    // Preserve already structured CopilotKit errors, only convert unstructured errors
+    const structuredError =
+      error instanceof CopilotKitError || error instanceof CopilotKitLowLevelError
+        ? error
+        : convertStreamingErrorToStructured(error);
     eventStream$.error(structuredError);
     return;
   }

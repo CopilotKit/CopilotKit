@@ -432,8 +432,11 @@ async function executeAction(
     from(stream).subscribe({
       next: (event) => eventStream$.next(event),
       error: (err) => {
-        // Convert streaming errors to structured errors
-        const structuredError = convertStreamingErrorToStructured(err);
+        // Preserve already structured CopilotKit errors, only convert unstructured errors
+        const structuredError =
+          err instanceof CopilotKitError || err instanceof CopilotKitLowLevelError
+            ? err
+            : convertStreamingErrorToStructured(err);
         eventStream$.sendActionExecutionResult({
           actionExecutionId,
           actionName: action.name,

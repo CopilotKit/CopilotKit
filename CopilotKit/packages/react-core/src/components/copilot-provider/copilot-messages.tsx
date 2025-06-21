@@ -89,6 +89,7 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
         error: error.message,
       });
 
+      // Just check if onTrace and publicApiKey are defined
       if (!onTrace || !copilotApiConfig.publicApiKey) return;
 
       try {
@@ -103,7 +104,7 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
               startTime: Date.now(),
             },
             technical: {
-              environment: process.env.NODE_ENV,
+              environment: "browser",
               userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
               stackTrace: originalError instanceof Error ? originalError.stack : undefined,
             },
@@ -163,7 +164,6 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
           const visibility = extensions?.visibility as ErrorVisibility;
           const isDev = shouldShowDevConsole(showDevConsole);
 
-          // If dev console is disabled, don't show ANY error UI to users
           if (!isDev) {
             console.error("CopilotKit Error (hidden in production):", gqlError.message);
             return;

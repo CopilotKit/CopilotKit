@@ -63,13 +63,13 @@ export const ERROR_CONFIG = {
   [CopilotKitErrorCode.NETWORK_ERROR]: {
     statusCode: 503,
     troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#i-am-getting-a-network-errors--api-not-found`,
-    visibility: ErrorVisibility.TOAST,
+    visibility: ErrorVisibility.BANNER,
     severity: Severity.CRITICAL,
   },
   [CopilotKitErrorCode.NOT_FOUND]: {
     statusCode: 404,
     troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#i-am-getting-a-network-errors--api-not-found`,
-    visibility: ErrorVisibility.TOAST,
+    visibility: ErrorVisibility.BANNER,
     severity: Severity.CRITICAL,
   },
   [CopilotKitErrorCode.AGENT_NOT_FOUND]: {
