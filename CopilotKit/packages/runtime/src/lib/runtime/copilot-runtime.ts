@@ -65,7 +65,7 @@ import { ExtensionsInput } from "../../graphql/inputs/extensions.input";
 import { ExtensionsResponse } from "../../graphql/types/extensions-response.type";
 import { LoadAgentStateResponse } from "../../graphql/types/load-agent-state-response.type";
 import { Client as LangGraphClient } from "@langchain/langgraph-sdk";
-import { langchainMessagesToCopilotKit } from "./remote-lg-action";
+import { langchainMessagesToCopilotKit, isUserConfigurationError } from "./remote-lg-action";
 import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 import {
   CopilotObservabilityConfig,
@@ -88,6 +88,8 @@ import { LangGraphAgent } from "./langgraph/langgraph-agent";
 // Define the function type alias here or import if defined elsewhere
 type CreateMCPClientFunction = (config: MCPEndpointConfig) => Promise<MCPClient>;
 // --- MCP Imports ---
+
+import { generateHelpfulErrorMessage } from "../streaming";
 
 export interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
@@ -948,10 +950,24 @@ please use an LLM adapter instead.`,
           if (response.status === 404) {
             throw new CopilotKitApiDiscoveryError({ url: fetchUrl });
           }
+
+          // Extract semantic error information from response body
+          let errorMessage = `HTTP ${response.status} error`;
+          try {
+            const errorBody = await response.text();
+            const parsedError = JSON.parse(errorBody);
+            if (parsedError.error && typeof parsedError.error === "string") {
+              errorMessage = parsedError.error;
+            }
+          } catch {
+            // If parsing fails, fall back to generic message
+          }
+
           throw new ResolvedCopilotKitError({
             status: response.status,
             url: fetchUrl,
             isRemoteEndpoint: true,
+            message: errorMessage,
           });
         }
 
@@ -992,7 +1008,20 @@ please use an LLM adapter instead.`,
     let state: any = {};
     try {
       state = (await client.threads.getState(threadId)).values as any;
-    } catch (error) {}
+    } catch (error) {
+      // All errors from agent state loading are user configuration issues
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      // Log user configuration errors at debug level to reduce noise
+      console.debug(`Agent '${agentName}' configuration issue: ${errorMessage}`);
+
+      // Throw a configuration error - all agent state loading failures are user setup issues
+      throw new ResolvedCopilotKitError({
+        status: 400,
+        message: `Agent '${agentName}' failed to execute: ${errorMessage}`,
+        code: CopilotKitErrorCode.CONFIGURATION_ERROR,
+      });
+    }
 
     if (Object.keys(state).length === 0) {
       return {
@@ -1193,8 +1222,6 @@ please use an LLM adapter instead.`,
         from(stream).subscribe({
           next: (event) => eventStream$.next(event),
           error: async (err) => {
-            console.error("Error in stream", err);
-
             // Log error with observability if enabled
             if (this.observability?.enabled && publicApiKey) {
               try {
@@ -1216,8 +1243,11 @@ please use an LLM adapter instead.`,
               }
             }
 
-            // Convert network termination errors to structured errors
-            const structuredError = this.convertStreamingErrorToStructured(err);
+            // Preserve structured CopilotKit errors, only convert unstructured errors
+            const structuredError =
+              err instanceof CopilotKitError || err instanceof CopilotKitLowLevelError
+                ? err
+                : this.convertStreamingErrorToStructured(err);
 
             // Trace streaming errors
             await this.trace(
@@ -1477,50 +1507,30 @@ please use an LLM adapter instead.`,
   }
 
   private convertStreamingErrorToStructured(error: any): CopilotKitError {
-    // Handle network termination errors
+    // Determine a more helpful error message based on context
+    let helpfulMessage = generateHelpfulErrorMessage(error, "agent streaming connection");
+
+    // For network-related errors, use CopilotKitLowLevelError to preserve the original error
     if (
+      error?.message?.includes("fetch failed") ||
+      error?.message?.includes("ECONNREFUSED") ||
+      error?.message?.includes("ENOTFOUND") ||
+      error?.message?.includes("ETIMEDOUT") ||
       error?.message?.includes("terminated") ||
       error?.cause?.code === "UND_ERR_SOCKET" ||
       error?.message?.includes("other side closed") ||
       error?.code === "UND_ERR_SOCKET"
     ) {
-      return new CopilotKitError({
-        message:
-          "Connection to agent was unexpectedly terminated. This may be due to the agent service being restarted or network issues. Please try again.",
-        code: CopilotKitErrorCode.NETWORK_ERROR,
-      });
-    }
-
-    // Handle other network-related errors
-    if (
-      error?.message?.includes("fetch failed") ||
-      error?.message?.includes("ECONNREFUSED") ||
-      error?.message?.includes("ENOTFOUND") ||
-      error?.message?.includes("ETIMEDOUT")
-    ) {
       return new CopilotKitLowLevelError({
         error: error instanceof Error ? error : new Error(String(error)),
         url: "agent streaming connection",
-        message:
-          "Network error occurred during agent streaming. Please check your connection and try again.",
+        message: helpfulMessage,
       });
     }
 
-    // Handle abort/cancellation errors (these are usually normal)
-    if (
-      error?.message?.includes("aborted") ||
-      error?.message?.includes("canceled") ||
-      error?.message?.includes("signal is aborted")
-    ) {
-      return new CopilotKitError({
-        message: "Agent request was cancelled",
-        code: CopilotKitErrorCode.UNKNOWN,
-      });
-    }
-
-    // Default: convert unknown streaming errors
+    // For all other errors, preserve the raw error in a basic CopilotKitError
     return new CopilotKitError({
-      message: `Agent streaming error: ${error?.message || String(error)}`,
+      message: helpfulMessage,
       code: CopilotKitErrorCode.UNKNOWN,
     });
   }
@@ -1533,11 +1543,11 @@ please use an LLM adapter instead.`,
   ): Promise<void> {
     if (!this.onTrace) return;
 
+    // Just check if publicApiKey is defined (regardless of validity)
     if (!publicApiKey) {
       if (!this.hasWarnedAboutTracing) {
         console.warn(
-          "CopilotKit: onTrace handler provided but requires publicApiKey for tracing to work. " +
-            "This is a CopilotKit Cloud feature. See: https://docs.copilotkit.ai/cloud",
+          "CopilotKit: onTrace handler provided but requires publicApiKey to be defined for tracing to work.",
         );
         this.hasWarnedAboutTracing = true;
       }

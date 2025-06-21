@@ -10,6 +10,7 @@ import { createYoga } from "graphql-yoga";
 import telemetry from "../telemetry-client";
 import { StateResolver } from "../../graphql/resolvers/state.resolver";
 import * as packageJson from "../../../package.json";
+import { CopilotKitError, CopilotKitErrorCode } from "@copilotkit/shared";
 
 const logger = createLogger();
 
@@ -79,6 +80,9 @@ export type CommonConfig = {
   schema: ReturnType<typeof buildSchema>;
   plugins: Parameters<typeof createYoga>[0]["plugins"];
   context: (ctx: YogaInitialContext) => Promise<Partial<GraphQLContext>>;
+  maskedErrors: {
+    maskError: (error: any, message: string, isDev?: boolean) => any;
+  };
 };
 
 export function getCommonConfig(options: CreateCopilotRuntimeServerOptions): CommonConfig {
@@ -108,11 +112,50 @@ export function getCommonConfig(options: CreateCopilotRuntimeServerOptions): Com
     },
   });
 
+  // User error codes that should not be logged as server errors
+  const userErrorCodes = [
+    CopilotKitErrorCode.AGENT_NOT_FOUND,
+    CopilotKitErrorCode.API_NOT_FOUND,
+    CopilotKitErrorCode.REMOTE_ENDPOINT_NOT_FOUND,
+    CopilotKitErrorCode.CONFIGURATION_ERROR,
+    CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR,
+  ];
+
   return {
     logging: createLogger({ component: "Yoga GraphQL", level: logLevel }),
     schema: buildSchema(),
     plugins: [useDeferStream(), addCustomHeaderPlugin],
     context: (ctx: YogaInitialContext): Promise<Partial<GraphQLContext>> =>
       createContext(ctx, options, contextLogger, options.properties),
+    // Suppress logging for user configuration errors
+    maskedErrors: {
+      maskError: (error: any, message: string, isDev?: boolean) => {
+        // Check if this is a user configuration error (could be wrapped in GraphQLError)
+        const originalError = error.originalError || error;
+        const extensions = error.extensions;
+        const errorCode = extensions?.code;
+
+        // Suppress logging for user errors based on error code
+        if (errorCode && userErrorCodes.includes(errorCode)) {
+          // Log user configuration errors at debug level instead
+          console.debug("User configuration error:", error.message);
+          return error;
+        }
+
+        // Check if the original error is a user error
+        if (
+          originalError instanceof CopilotKitError &&
+          userErrorCodes.includes(originalError.code)
+        ) {
+          // Log user configuration errors at debug level instead
+          console.debug("User configuration error:", error.message);
+          return error;
+        }
+
+        // For application errors, log normally and mask if needed
+        console.error("Application error:", error);
+        return error;
+      },
+    },
   };
 }

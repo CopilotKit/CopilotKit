@@ -278,6 +278,11 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
         agentName: name,
       });
 
+      // Runtime client handles errors automatically via handleGQLErrors
+      if (result.error) {
+        return; // Don't process data on error
+      }
+
       const newState = result.data?.loadAgentState?.state;
       if (newState === lastLoadedState.current) return;
 

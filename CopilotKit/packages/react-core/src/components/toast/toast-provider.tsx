@@ -183,12 +183,14 @@ export function ToastProvider({
                 border: `1px solid ${colors.border}`,
                 borderLeft: `4px solid ${colors.border}`,
                 borderRadius: "8px",
-                padding: "10px 14px",
+                padding: "12px 16px",
                 fontSize: "13px",
                 boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
                 backdropFilter: "blur(8px)",
-                maxWidth: "500px",
-                minWidth: "350px",
+                maxWidth: "min(90vw, 700px)",
+                width: "100%",
+                boxSizing: "border-box",
+                overflow: "hidden",
               }}
             >
               <div
@@ -199,7 +201,15 @@ export function ToastProvider({
                   gap: "10px",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    flex: 1,
+                    minWidth: 0,
+                  }}
+                >
                   <div
                     style={{
                       width: "12px",
@@ -209,7 +219,15 @@ export function ToastProvider({
                       flexShrink: 0,
                     }}
                   />
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px", flex: 1 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      flex: 1,
+                      minWidth: 0,
+                    }}
+                  >
                     <div
                       style={{
                         color: colors.text,
@@ -217,30 +235,37 @@ export function ToastProvider({
                         fontWeight: "400",
                         fontSize: "13px",
                         flex: 1,
-                        wordWrap: "break-word",
+                        wordBreak: "break-all",
                         overflowWrap: "break-word",
-                        hyphens: "auto",
+                        maxWidth: "550px",
+                        overflow: "hidden",
+                        display: "-webkit-box",
+                        WebkitLineClamp: 10,
+                        WebkitBoxOrient: "vertical",
                       }}
                     >
                       {(() => {
-                        const message = bannerError.message;
-                        const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-                        const plainUrlRegex = /(https?:\/\/[^\s)]+)/g;
+                        let message = bannerError.message;
 
-                        // Remove URLs and markdown links from the message, keep just the text
-                        let cleanMessage = message
-                          .replace(markdownLinkRegex, "") // Remove [text](url)
-                          .replace(plainUrlRegex, "") // Remove plain URLs
-                          .replace(/See more:\s*/g, "") // Remove "See more:" text
-                          .replace(/\s+/g, " ") // Clean up extra spaces
-                          .trim();
-
-                        // Truncate very long messages for better display
-                        if (cleanMessage.length > 120) {
-                          cleanMessage = cleanMessage.substring(0, 117) + "...";
+                        // Try to extract the useful message from JSON first
+                        const jsonMatch = message.match(/'message':\s*'([^']+)'/);
+                        if (jsonMatch) {
+                          return jsonMatch[1]; // Return the actual error message
                         }
 
-                        return cleanMessage;
+                        // Strip technical garbage but keep the meaningful message
+                        message = message.split(" - ")[0]; // Remove everything after " - {"
+                        message = message.split(": Error code")[0]; // Remove ": Error code: 401"
+                        message = message.replace(/:\s*\d{3}$/, ""); // Remove trailing ": 401"
+                        message = message.replace(/See more:.*$/g, ""); // Remove "See more" links
+                        message = message.trim();
+
+                        // If it's still garbage (contains { or '), use fallback
+                        // if (message.includes("{") || message.includes("'")) {
+                        //   return "Configuration error.... Please check your setup.";
+                        // }
+
+                        return message || "Configuration error occurred.";
                       })()}
                     </div>
 
@@ -262,7 +287,7 @@ export function ToastProvider({
                         // Check for plain URLs
                         const urlMatch = plainUrlRegex.exec(message);
                         if (urlMatch) {
-                          url = urlMatch[0];
+                          url = urlMatch[0].replace(/[.,;:'"]*$/, ""); // Remove trailing punctuation
                           buttonText = "See More";
                         }
                       }

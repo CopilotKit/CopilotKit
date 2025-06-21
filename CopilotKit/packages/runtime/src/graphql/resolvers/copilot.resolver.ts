@@ -54,7 +54,7 @@ import telemetry from "../../lib/telemetry-client";
 import { randomId } from "@copilotkit/shared";
 import { AgentsResponse } from "../types/agents-response.type";
 import { LangGraphEventTypes } from "../../agents/langgraph/events";
-import { CopilotKitError } from "@copilotkit/shared";
+import { CopilotKitError, CopilotKitLowLevelError } from "@copilotkit/shared";
 
 const invokeGuardrails = async ({
   baseUrl,
@@ -235,6 +235,46 @@ export class CopilotResolver {
     }
 
     logger.debug("Processing");
+    let runtimeResponse;
+    try {
+      runtimeResponse = await copilotRuntime.processRuntimeRequest({
+        serviceAdapter,
+        messages: data.messages,
+        actions: data.frontend.actions.filter(
+          (action) => action.available !== ActionInputAvailability.disabled,
+        ),
+        threadId: data.threadId,
+        runId: data.runId,
+        publicApiKey: copilotCloudPublicApiKey,
+        outputMessagesPromise,
+        graphqlContext: ctx,
+        forwardedParameters: data.forwardedParameters,
+        agentSession: data.agentSession,
+        agentStates: data.agentStates,
+        url: data.frontend.url,
+        extensions: data.extensions,
+        metaEvents: data.metaEvents,
+      });
+    } catch (error) {
+      // Catch structured CopilotKit errors at the main mutation level and re-throw as GraphQL errors
+      if (
+        error instanceof CopilotKitError ||
+        error instanceof CopilotKitLowLevelError ||
+        (error instanceof Error && error.name && error.name.includes("CopilotKit")) ||
+        (error as any)?.extensions?.visibility
+      ) {
+        throw new GraphQLError(error.message || "Agent error occurred", {
+          extensions: {
+            ...(error as any).extensions,
+            code: (error as any).code || (error as any).extensions?.code || "AGENT_ERROR",
+            originalError: error,
+          },
+        });
+      }
+      console.log("🚨 Re-throwing non-CopilotKit error:", error);
+      throw error; // Re-throw non-CopilotKit errors as-is
+    }
+
     const {
       eventSource,
       threadId = randomId(),
@@ -242,24 +282,7 @@ export class CopilotResolver {
       serverSideActions,
       actionInputsWithoutAgents,
       extensions,
-    } = await copilotRuntime.processRuntimeRequest({
-      serviceAdapter,
-      messages: data.messages,
-      actions: data.frontend.actions.filter(
-        (action) => action.available !== ActionInputAvailability.disabled,
-      ),
-      threadId: data.threadId,
-      runId: data.runId,
-      publicApiKey: copilotCloudPublicApiKey,
-      outputMessagesPromise,
-      graphqlContext: ctx,
-      forwardedParameters: data.forwardedParameters,
-      agentSession: data.agentSession,
-      agentStates: data.agentStates,
-      url: data.frontend.url,
-      extensions: data.extensions,
-      metaEvents: data.metaEvents,
-    });
+    } = runtimeResponse;
 
     logger.debug("Event source created, creating response");
     // run and process the event stream
@@ -357,12 +380,21 @@ export class CopilotResolver {
             }
           },
           error: (err) => {
-            logger.error({ err }, "Error in meta events stream");
-            responseStatus$.next(
-              new UnknownErrorResponse({
-                description: `An unknown error has occurred in the event stream`,
-              }),
-            );
+            // For structured CopilotKit errors, set proper error response status
+            if (err?.name?.includes("CopilotKit") || err?.extensions?.visibility) {
+              responseStatus$.next(
+                new UnknownErrorResponse({
+                  description: err.message || "Agent error occurred",
+                }),
+              );
+            } else {
+              responseStatus$.next(
+                new UnknownErrorResponse({
+                  description: `An unknown error has occurred in the event stream`,
+                }),
+              );
+            }
+
             eventStreamSubscription?.unsubscribe();
             stop();
           },
@@ -444,20 +476,20 @@ export class CopilotResolver {
                 // create a sub stream that contains the message content
                 const textMessageContentStream = eventStream.pipe(
                   // skip until this message start event
-                  skipWhile((e) => e !== event),
+                  skipWhile((e: RuntimeEvent) => e !== event),
                   // take until the message end event
                   takeWhile(
-                    (e) =>
+                    (e: RuntimeEvent) =>
                       !(
                         e.type === RuntimeEventTypes.TextMessageEnd &&
-                        e.messageId == event.messageId
+                        (e as any).messageId == event.messageId
                       ),
                   ),
                   // filter out any other message events or message ids
                   filter(
-                    (e) =>
+                    (e: RuntimeEvent) =>
                       e.type == RuntimeEventTypes.TextMessageContent &&
-                      e.messageId == event.messageId,
+                      (e as any).messageId == event.messageId,
                   ),
                 );
 
@@ -539,20 +571,20 @@ export class CopilotResolver {
               case RuntimeEventTypes.ActionExecutionStart:
                 logger.debug("Action execution start event received");
                 const actionExecutionArgumentStream = eventStream.pipe(
-                  skipWhile((e) => e !== event),
+                  skipWhile((e: RuntimeEvent) => e !== event),
                   // take until the action execution end event
                   takeWhile(
-                    (e) =>
+                    (e: RuntimeEvent) =>
                       !(
                         e.type === RuntimeEventTypes.ActionExecutionEnd &&
-                        e.actionExecutionId == event.actionExecutionId
+                        (e as any).actionExecutionId == event.actionExecutionId
                       ),
                   ),
                   // filter out any other action execution events or action execution ids
                   filter(
-                    (e) =>
+                    (e: RuntimeEvent) =>
                       e.type == RuntimeEventTypes.ActionExecutionArgs &&
-                      e.actionExecutionId == event.actionExecutionId,
+                      (e as any).actionExecutionId == event.actionExecutionId,
                   ),
                 );
                 const streamingArgumentsStatus = new Subject<typeof MessageStatusUnion>();
@@ -665,16 +697,21 @@ export class CopilotResolver {
             }
           },
           error: (err) => {
-            logger.error({ err }, "Error in event stream");
-
-            // If it's a structured CopilotKitError, stop the repeater with the error so frontend can handle it
+            // For structured CopilotKit errors, set proper error response status
             if (
               err instanceof CopilotKitError ||
-              (err instanceof Error && err.name && err.name.includes("CopilotKit"))
+              err instanceof CopilotKitLowLevelError ||
+              (err instanceof Error && err.name && err.name.includes("CopilotKit")) ||
+              err?.extensions?.visibility
             ) {
+              responseStatus$.next(
+                new UnknownErrorResponse({
+                  description: err.message || "Agent error occurred",
+                }),
+              );
               eventStreamSubscription?.unsubscribe();
               rejectOutputMessagesPromise(err);
-              stopStreamingMessages(err); // Pass the error to stop the GraphQL stream with this error
+              stopStreamingMessages();
               return;
             }
 

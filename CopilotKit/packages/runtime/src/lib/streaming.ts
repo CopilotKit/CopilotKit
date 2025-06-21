@@ -1,5 +1,6 @@
 import { ReplaySubject } from "rxjs";
 import { CopilotKitLowLevelError, CopilotKitError, CopilotKitErrorCode } from "@copilotkit/shared";
+import { errorConfig, getFallbackMessage } from "./error-messages";
 
 export async function writeJsonLineResponseToEventStream<T>(
   response: ReadableStream<Uint8Array>,
@@ -52,10 +53,11 @@ export async function writeJsonLineResponseToEventStream<T>(
       }
     }
   } catch (error) {
-    console.error("Error in stream", error);
-
-    // Convert network termination errors to structured errors
-    const structuredError = convertStreamingErrorToStructured(error);
+    // Preserve already structured CopilotKit errors, only convert unstructured errors
+    const structuredError =
+      error instanceof CopilotKitError || error instanceof CopilotKitLowLevelError
+        ? error
+        : convertStreamingErrorToStructured(error);
     eventStream$.error(structuredError);
     return;
   }
@@ -63,50 +65,135 @@ export async function writeJsonLineResponseToEventStream<T>(
 }
 
 function convertStreamingErrorToStructured(error: any): CopilotKitError {
-  // Handle network termination errors
+  // Determine a more helpful error message based on context
+  let helpfulMessage = generateHelpfulErrorMessage(error);
+
+  // For network-related errors, use CopilotKitLowLevelError to preserve the original error
   if (
+    error?.message?.includes("fetch failed") ||
+    error?.message?.includes("ECONNREFUSED") ||
+    error?.message?.includes("ENOTFOUND") ||
+    error?.message?.includes("ETIMEDOUT") ||
     error?.message?.includes("terminated") ||
     error?.cause?.code === "UND_ERR_SOCKET" ||
     error?.message?.includes("other side closed") ||
     error?.code === "UND_ERR_SOCKET"
   ) {
-    return new CopilotKitError({
-      message:
-        "Connection to agent was unexpectedly terminated. This is likely due to the agent service being down or experiencing issues. Please check your agent logs and try again.",
-      code: CopilotKitErrorCode.NETWORK_ERROR,
-    });
-  }
-
-  // Handle other network-related errors
-  if (
-    error?.message?.includes("fetch failed") ||
-    error?.message?.includes("ECONNREFUSED") ||
-    error?.message?.includes("ENOTFOUND") ||
-    error?.message?.includes("ETIMEDOUT")
-  ) {
     return new CopilotKitLowLevelError({
       error: error instanceof Error ? error : new Error(String(error)),
       url: "streaming connection",
-      message:
-        "Network error occurred during streaming. Please check your connection and try again.",
+      message: helpfulMessage,
     });
   }
 
-  // Handle abort/cancellation errors (these are usually normal)
-  if (
-    error?.message?.includes("aborted") ||
-    error?.message?.includes("canceled") ||
-    error?.message?.includes("signal is aborted")
-  ) {
-    return new CopilotKitError({
-      message: "Request was cancelled",
-      code: CopilotKitErrorCode.UNKNOWN,
-    });
-  }
-
-  // Default: convert unknown streaming errors
+  // For all other errors, preserve the raw error in a basic CopilotKitError
   return new CopilotKitError({
-    message: `Streaming error: ${error?.message || String(error)}`,
+    message: helpfulMessage,
     code: CopilotKitErrorCode.UNKNOWN,
   });
+}
+
+/**
+ * Generates a helpful error message based on error patterns and context
+ */
+export function generateHelpfulErrorMessage(error: any, context: string = "connection"): string {
+  const baseMessage = error?.message || String(error);
+
+  // Check for preserved error information from Python agent
+  const originalErrorType = error?.originalErrorType || error?.extensions?.originalErrorType;
+  const statusCode = error?.statusCode || error?.extensions?.statusCode;
+  const responseData = error?.responseData || error?.extensions?.responseData;
+
+  // First, try to match by original error type if available (more specific)
+  if (originalErrorType) {
+    const typeConfig = errorConfig.errorPatterns[originalErrorType];
+    if (typeConfig) {
+      return typeConfig.message.replace("{context}", context);
+    }
+  }
+
+  // Check for specific error patterns from configuration
+  for (const [pattern, config] of Object.entries(errorConfig.errorPatterns)) {
+    const shouldMatch =
+      baseMessage?.includes(pattern) ||
+      error?.cause?.code === pattern ||
+      error?.code === pattern ||
+      statusCode === parseInt(pattern) ||
+      (pattern === "other_side_closed" && baseMessage?.includes("other side closed")) ||
+      (pattern === "fetch_failed" && baseMessage?.includes("fetch failed")) ||
+      (responseData && JSON.stringify(responseData).includes(pattern));
+
+    if (shouldMatch) {
+      // Replace {context} placeholder with actual context
+      return config.message.replace("{context}", context);
+    }
+  }
+
+  // Try to match by category for fallback messages
+  if (isNetworkError(error)) {
+    return getFallbackMessage("network");
+  }
+
+  if (isConnectionError(error)) {
+    return getFallbackMessage("connection");
+  }
+
+  if (isAuthenticationError(error)) {
+    return getFallbackMessage("authentication");
+  }
+
+  // Default fallback
+  return getFallbackMessage("default");
+}
+
+/**
+ * Determines if an error is network-related
+ */
+function isNetworkError(error: any): boolean {
+  const networkPatterns = ["ECONNREFUSED", "ENOTFOUND", "ETIMEDOUT", "fetch_failed"];
+  return networkPatterns.some(
+    (pattern) =>
+      error?.message?.includes(pattern) ||
+      error?.cause?.code === pattern ||
+      error?.code === pattern,
+  );
+}
+
+/**
+ * Determines if an error is connection-related
+ */
+function isConnectionError(error: any): boolean {
+  const connectionPatterns = ["terminated", "UND_ERR_SOCKET", "other side closed"];
+  return connectionPatterns.some(
+    (pattern) =>
+      error?.message?.includes(pattern) ||
+      error?.cause?.code === pattern ||
+      error?.code === pattern,
+  );
+}
+
+/**
+ * Determines if an error is authentication-related
+ */
+function isAuthenticationError(error: any): boolean {
+  const authPatterns = [
+    "401",
+    "api key",
+    "unauthorized",
+    "authentication",
+    "AuthenticationError",
+    "PermissionDeniedError",
+  ];
+  const baseMessage = error?.message || String(error);
+  const originalErrorType = error?.originalErrorType || error?.extensions?.originalErrorType;
+  const statusCode = error?.statusCode || error?.extensions?.statusCode;
+
+  return authPatterns.some(
+    (pattern) =>
+      baseMessage?.toLowerCase().includes(pattern.toLowerCase()) ||
+      originalErrorType === pattern ||
+      statusCode === 401 ||
+      error?.status === 401 ||
+      error?.statusCode === 401,
+  );
 }
