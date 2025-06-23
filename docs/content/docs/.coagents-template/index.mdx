@@ -20,17 +20,11 @@ import {
   LuPlane,
   LuBookOpen,
   LuLightbulb,
-  LuLayoutTemplate,
   LuBrainCog,
-  LuUserCog,
-  LuWand2,
-  LuPlay,
-  LuMessageSquare,
   LuWrench,
 } from "react-icons/lu";
 import { CoAgentsExamples } from "@/components/react/examples-carousel";
 import { CTACards } from "@/components/react/cta-cards";
-import { FaSync } from "react-icons/fa";
 import { Socials } from "@/components/react/socials";
 
 # Copilot Infrastructure for --YOUR-FRAMEWORK-- Agents
@@ -59,39 +53,39 @@ Everything you need to build Agent-Native Applications (ANAs), right out of the 
   columns={2}
   cards={[
     {
-      icon: LuMessageSquare,
+      iconKey: "message-square",
       title: "Agentic Chat UI",
       description: "In-app chat powered by your agent.",
       href: "/--YOUR-FRAMEWORK--/agentic-chat-ui",
     },
     {
-      icon: FaSync,
+      iconKey: "share2",
       title: "Shared State",
       description: "Your agent can see everything in your app, and vice versa.",
       href: "/--YOUR-FRAMEWORK--/shared-state",
     },
     {
-      icon: LuLayoutTemplate,
+      iconKey: "layout-template",
       title: "Generative UI",
       description: "UI that updates in real-time based on your agent's state.",
       href: "/--YOUR-FRAMEWORK--/generative-ui",
     },
     {
-      icon: LuWand2,
+      iconKey: "wand",
       title: "Frontend Tools",
       description:
         "Give your agent the ability to take action in your application.",
       href: "/--YOUR-FRAMEWORK--/frontend-actions",
     },
     {
-      icon: LuWand2,
+      iconKey: "wand",
       title: "Multi-Agent Coordination",
       description:
         "Route your agent to the right agent based on the user's request.",
       href: "/--YOUR-FRAMEWORK--/multi-agent-flows",
     },
     {
-      icon: LuUserCog,
+      iconKey: "user-cog",
       title: "Human-in-the-Loop",
       description: "Set smart checkpoints where humans can guide your agents.",
       href: "/--YOUR-FRAMEWORK--/human-in-the-loop",
@@ -109,7 +103,7 @@ Get started with CoAgents in as little as 5 minutes with one of our guides or tu
   columns={1}
   cards={[
     {
-      icon: LuPlay,
+      iconKey: "play",
       title: "Quickstart",
       description: "Learn how to build your first CoAgent in 10 minutes.",
       href: "/--YOUR-FRAMEWORK--/quickstart/your-framework",
