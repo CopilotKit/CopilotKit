@@ -1,0 +1,53 @@
+---
+title: Migrate to 1.8.2
+description: Migration guide for CopilotKit 1.8.2
+---
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import { CopilotKit } from "@copilotkit/react-core";
+import "@copilotkit/react-ui/styles.css";
+import { NewLookAndFeelPreview } from "@/components/react/component-previews/new-look-and-feel";
+
+## What's changed?
+
+### New Look and Feel
+
+CopilotKit 1.8.2 introduces a new default look and feel. This includes new use of theming variables, new components, and generally a fresh look.
+
+**Click the button in the bottom right to see the new look and feel in action!**
+
+### Thumbs Up/Down Handlers
+
+The chat components now have `onThumbsUp` and `onThumbsDown` handlers. Specifying these will add icons to each message
+on hover allowing the user to provide feedback.
+
+```tsx
+<CopilotChat 
+  onThumbsUp={(message) => console.log(message)} 
+  onThumbsDown={(message) => console.log(message)}     
+/>
+```
+
+This was previously achievable in our framework, but we're making it first class now! You can use this to help fine-tune your model through CopilotKit
+or just generally track user feedback.
+
+### ResponseButton prop removed
+
+The `ResponseButton` prop has been removed. This was a prop that was used to customize the button that appears after a response was generated
+in the chat. 
+
+In its place, we now place buttons below each message for:
+- Thumbs up
+- Thumbs down
+- Copy
+- Regenerate
+
+The behvior, icons and styling for each of these buttons can be customized. Checkout our [look and feel guides](/guides/custom-look-and-feel) for more details.
+
+### Out-of-the-box dark mode support
+
+CopilotKit now has out-of-the-box dark mode support. This is controlled by the `.dark` class (Tailwind) as well as the 
+`color-scheme` CSS selector.
+
+If you would like to make a custom theme, you can do so by checking out the [custom look and feel](/guides/custom-look-and-feel) guides.
+
+<NewLookAndFeelPreview/>

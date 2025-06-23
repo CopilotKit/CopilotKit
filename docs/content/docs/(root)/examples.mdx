@@ -1,0 +1,47 @@
+---
+title: CopilotKit in Action
+description: Need some inspiration? Check out some things we've built with CopilotKit.
+---
+
+import { FileSpreadsheet, Banknote, Plane, BookOpen } from "lucide-react";
+
+# CopilotKit in Action
+
+Need some inspiration? Check out some things we've built with CopilotKit.
+
+<Cards className="gap-6">
+  <Card
+    className="md:col-span-2 p-6 py-10 rounded-xl text-base" 
+    title="Feature Viewer"
+    description="Learn about all of the best features CopilotKit has to offer with an interactive experience."
+    href="https://feature-viewer-langgraph.vercel.app/"
+  />
+  <Card 
+    className="p-6 rounded-xl text-base"
+    title="Spreadsheet Copilot"
+    description="A powerful spreadsheet assistant that helps users analyze data, create formulas, and generate insights."
+    href="https://spreadsheet-demo-tau.vercel.app/"
+    icon={<FileSpreadsheet className="text-indigo-500 dark:text-indigo-300" />}
+  />
+  <Card 
+    className="p-6 rounded-xl text-base"
+    title="SaaS Copilot"
+    description="An AI-powered banking interface that helps users understand and interact with their finances."
+    href="https://brex-demo-temp.vercel.app/"
+    icon={<Banknote className="text-indigo-500 dark:text-indigo-300" />}
+  />
+  <Card 
+    className="p-6 rounded-xl text-base"
+    title="Agent-Native Travel Planner"
+    description="Interactive travel planning assistant that helps users generate and build travel itineraries."
+    href="https://examples-coagents-ai-travel-app.vercel.app/"
+    icon={<Plane className="text-indigo-500 dark:text-indigo-300" />}
+  />
+  <Card 
+    className="p-6 rounded-xl text-base"
+    title="Agent-Native Research Canvas"
+    description="An intelligent research assistant that helps users synthesize information across multiple sources."
+    href="https://examples-coagents-research-canvas-ui.vercel.app/"
+    icon={<BookOpen className="text-indigo-500 dark:text-indigo-300" />}
+  />
+</Cards> 
