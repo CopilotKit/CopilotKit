@@ -22,6 +22,9 @@ import { parseJson, tryMap } from "@copilotkit/shared";
 import { ActionInput } from "../../graphql/inputs/action.input";
 import { fetchWithRetry } from "./retry-utils";
 
+// Import the utility function from remote-lg-action
+import { isUserConfigurationError } from "./remote-lg-action";
+
 export function constructLGCRemoteAction({
   endpoint,
   graphqlContext,
@@ -93,11 +96,33 @@ export function constructLGCRemoteAction({
         writeJsonLineResponseToEventStream(response, eventSource.eventStream$);
         return eventSource.processLangGraphEvents();
       } catch (error) {
+        // Preserve structured CopilotKit errors with semantic information
+        if (error instanceof CopilotKitError || error instanceof CopilotKitLowLevelError) {
+          // Distinguish between user errors and system errors for logging
+          if (isUserConfigurationError(error)) {
+            logger.debug(
+              { url: endpoint.deploymentUrl, error: error.message, code: error.code },
+              "User configuration error in LangGraph Platform agent",
+            );
+          } else {
+            logger.error(
+              { url: endpoint.deploymentUrl, error: error.message, type: error.constructor.name },
+              "LangGraph Platform agent error",
+            );
+          }
+          throw error; // Re-throw the structured error to preserve semantic information
+        }
+
+        // For other errors, log and wrap them
         logger.error(
           { url: endpoint.deploymentUrl, status: 500, body: error.message },
           "Failed to execute LangGraph Platform agent",
         );
-        throw new Error("Failed to execute LangGraph Platform agent");
+        throw new CopilotKitLowLevelError({
+          error: error instanceof Error ? error : new Error(String(error)),
+          url: endpoint.deploymentUrl,
+          message: "Failed to execute LangGraph Platform agent",
+        });
       }
     },
   }));
@@ -180,7 +205,7 @@ export function constructRemoteActions({
         logger.debug({ actionName: action.name, result }, "Executed remote action");
         return result;
       } catch (error) {
-        if (error instanceof CopilotKitError) {
+        if (error instanceof CopilotKitError || error instanceof CopilotKitLowLevelError) {
           throw error;
         }
         throw new CopilotKitLowLevelError({ error, url: fetchUrl });
@@ -275,7 +300,7 @@ export function constructRemoteActions({
               throw new Error("Unsupported agent type");
             }
           } catch (error) {
-            if (error instanceof CopilotKitError) {
+            if (error instanceof CopilotKitError || error instanceof CopilotKitLowLevelError) {
               throw error;
             }
             throw new CopilotKitLowLevelError({ error, url: fetchUrl });
