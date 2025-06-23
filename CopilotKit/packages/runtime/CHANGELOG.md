@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.9.2-next.9
+
+### Patch Changes
+
+- 1d1c51d: - feat: surface all errors in structured format
+- Updated dependencies [1d1c51d]
+  - @copilotkit/shared@1.9.2-next.9
+
 ## 1.9.2-next.8
 
 ### Patch Changes
