@@ -119,7 +119,7 @@ for package in "${PACKAGES[@]}"; do
 done
 
 # Display results table
-echo "📊 Test Results Summary"
+echo "📊 Unit Test Results Summary"
 echo "======================="
 echo ""
 

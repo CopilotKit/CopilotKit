@@ -6,7 +6,6 @@
     "lint": "turbo lint",
     "clean": "turbo clean",
     "test": "turbo test",
-    "test:summary": "turbo test --output-logs=errors-only --summarize",
     "test:clean": "bash scripts/test-clean.sh",
     "docs": "ts-node ./scripts/docs/gen.ts",
     "check-types": "turbo check-types",
