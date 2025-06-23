@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.9.2-next.8
+
+### Patch Changes
+
+- 9b986ba: - fix: use active interrupt from thread instead of saving to global state
+  - @copilotkit/shared@1.9.2-next.8
+
 ## 1.9.2-next.7
 
 ### Patch Changes
