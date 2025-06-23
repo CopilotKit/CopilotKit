@@ -13,6 +13,7 @@
     "guardrails",
     "copilot-suggestions",
     "bring-your-own-llm",
+    "aiml-api-integration",
     "copilot-textarea",
     "self-hosting",
     "messages-localstorage"

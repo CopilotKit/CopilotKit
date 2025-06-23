@@ -1,0 +1,36 @@
+---
+title: "AI/ML API Integration"
+description: "Use the AI/ML API with CopilotKit via the OpenAIAdapter."
+icon: "lucide/Brain"
+---
+
+The **AI/ML API** exposes an OpenAI compatible Chat Completion endpoint. This means you can reuse the
+existing `OpenAIAdapter` by pointing the OpenAI client at the custom base URL.
+
+## Example
+
+```ts title="app/api/copilotkit/route.ts" showLineNumbers
+import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
+import OpenAI from "openai";
+import { NextRequest } from "next/server";
+
+const openai = new OpenAI({
+  apiKey: process.env.AIML_API_KEY,
+  baseURL: "https://api.aimlapi.com/v1",
+});
+
+const serviceAdapter = new OpenAIAdapter({ openai, model: "<model-id>" });
+const runtime = new CopilotRuntime();
+
+export const POST = async (req: NextRequest) => {
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    serviceAdapter,
+    endpoint: "/api/copilotkit",
+  });
+
+  return handleRequest(req);
+};
+```
+
+Replace `AIML_API_KEY` and the `baseURL` with the credentials provided by your AI/ML API deployment.

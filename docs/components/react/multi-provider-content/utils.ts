@@ -15,6 +15,23 @@ export const quickStartProviders: ProvidersConfig = {
     adapterImport: "OpenAIAdapter",
     adapterSetup: "const serviceAdapter = new OpenAIAdapter();",
   },
+  "aiml-api": {
+    id: "aiml-api",
+    title: "AI/ML API",
+    icon: "/icons/aimlapi.png",
+    packageName: "openai",
+    envVarName: "AIML_API_KEY",
+    adapterImport: "OpenAIAdapter",
+    extraImports: `
+            import OpenAI from 'openai';
+        `,
+    clientSetup: `
+const openai = new OpenAI({
+  apiKey: process.env.AIML_API_KEY,
+  baseURL: 'https://api.aimlapi.com/v1'
+});`,
+    adapterSetup: "const serviceAdapter = new OpenAIAdapter({ openai });",
+  },
   azure: {
     id: "azure",
     title: "Azure OpenAI",
