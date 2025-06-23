@@ -1,6 +1,7 @@
 import { ForwardedParametersInput } from "@copilotkit/runtime-client-gql";
 import { ReactNode } from "react";
 import { AuthState } from "../../context/copilot-context";
+import { CopilotTraceHandler } from "@copilotkit/shared";
 /**
  * Props for CopilotKit.
  */
@@ -83,9 +84,10 @@ export interface CopilotKitProps {
   /**
    * Whether to show the dev console.
    *
-   * If set to "auto", the dev console will be show on localhost only.
+   * Set to `true` to show error banners and toasts, `false` to hide all error UI.
+   * Defaults to `false` for production safety.
    */
-  showDevConsole?: boolean | "auto";
+  showDevConsole?: boolean;
 
   /**
    * The name of the agent to use.
@@ -113,4 +115,24 @@ export interface CopilotKitProps {
    * The thread id to use for the CopilotKit.
    */
   threadId?: string;
+
+  /**
+   * Optional trace handler for comprehensive debugging and observability.
+   *
+   * **Requires publicApiKey**: Tracing only works when publicApiKey is provided.
+   * This is a premium CopilotKit Cloud feature.
+   *
+   * @param traceEvent - Structured trace event with rich debugging context
+   *
+   * @example
+   * ```typescript
+   * <CopilotKit
+   *   publicApiKey="ck_pub_your_key"
+   *   onTrace={(traceEvent) => {
+   *     debugDashboard.capture(traceEvent);
+   *   }}
+   * >
+   * ```
+   */
+  onTrace?: CopilotTraceHandler;
 }

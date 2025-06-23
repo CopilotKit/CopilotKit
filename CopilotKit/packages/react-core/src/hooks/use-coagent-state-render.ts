@@ -43,7 +43,7 @@
 
 import { useRef, useContext, useEffect } from "react";
 import { CopilotContext } from "../context/copilot-context";
-import { randomId } from "@copilotkit/shared";
+import { randomId, CopilotKitAgentDiscoveryError } from "@copilotkit/shared";
 import { CoAgentStateRender } from "../types/coagent-action";
 import { useToast } from "../components/toast/toast-provider";
 
@@ -70,12 +70,18 @@ export function useCoAgentStateRender<T = any>(
     availableAgents,
   } = useContext(CopilotContext);
   const idRef = useRef<string>(randomId());
-  const { addToast } = useToast();
+  const { setBannerError, addToast } = useToast();
 
   useEffect(() => {
     if (availableAgents?.length && !availableAgents.some((a) => a.name === action.name)) {
       const message = `(useCoAgentStateRender): Agent "${action.name}" not found. Make sure the agent exists and is properly configured.`;
-      addToast({ type: "warning", message });
+
+      // Route to banner instead of toast for consistency
+      const agentError = new CopilotKitAgentDiscoveryError({
+        agentName: action.name,
+        availableAgents: availableAgents.map((a) => ({ name: a.name, id: a.id })),
+      });
+      setBannerError(agentError);
     }
   }, [availableAgents]);
 

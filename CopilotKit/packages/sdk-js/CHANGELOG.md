@@ -1,5 +1,83 @@
 # @copilotkit/sdk-js
 
+## 1.9.2-next.8
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.8
+
+## 1.9.2-next.7
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.7
+
+## 1.9.2-next.6
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.6
+
+## 1.9.2-next.5
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.5
+
+## 1.9.2-next.4
+
+### Patch Changes
+
+- Updated dependencies [9169ad7]
+- Updated dependencies [9169ad7]
+  - @copilotkit/shared@1.9.2-next.4
+
+## 1.9.2-next.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.3
+
+## 1.9.2-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.2
+
+## 1.9.2-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.1
+
+## 1.9.2-next.0
+
+### Patch Changes
+
+- 10345a5: - feat: structured error visibility system for streaming errors
+- Updated dependencies [10345a5]
+  - @copilotkit/shared@1.9.2-next.0
+
+## 1.9.1
+
+### Patch Changes
+
+- Updated dependencies [deaeca0]
+  - @copilotkit/shared@1.9.1
+
+## 1.9.1-next.0
+
+### Patch Changes
+
+- Updated dependencies [deaeca0]
+  - @copilotkit/shared@1.9.1-next.0
+
+## 1.9.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.0
+
 ## 1.9.0-next.2
 
 ### Patch Changes

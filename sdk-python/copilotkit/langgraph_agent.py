@@ -10,7 +10,7 @@ from langgraph.types import Command
 from langchain.load.dump import dumps as langchain_dumps
 from langchain.schema import BaseMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig, ensure_config
-from langchain_core.messages import RemoveMessage
+from langchain_core.messages import RemoveMessage, AIMessage, ToolMessage
 
 from partialjson.json_parser import JSONParser
 
@@ -72,8 +72,13 @@ def langgraph_default_merge_state( # pylint: disable=unused-argument
     message_ids = {message.id for message in messages}
     removed_messages = []
     if len(messages) < len(existing_messages):
-        # messages were removed
-        removed_messages = [RemoveMessage(id=existing_message.id) for existing_message in existing_messages if existing_message.id not in message_ids]
+        # messages were removed - need to handle complete tool sessions
+        removed_message_ids = {msg.id for msg in existing_messages if msg.id not in message_ids}
+        
+        # Find complete tool sessions to remove
+        tool_session_ids = _find_complete_tool_sessions(existing_messages, removed_message_ids)
+
+        removed_messages = [RemoveMessage(id=message_id) for message_id in tool_session_ids]
 
     new_messages = removed_messages + [message for message in messages if message.id not in existing_message_ids]
 
@@ -84,6 +89,52 @@ def langgraph_default_merge_state( # pylint: disable=unused-argument
             "actions": actions
         }
     }
+
+
+def _find_complete_tool_sessions(existing_messages: List[BaseMessage], removed_message_ids: set) -> set:
+    """
+    Find complete tool sessions that should be removed together.
+    
+    A tool session consists of:
+    1. AI message with tool calls (no content or minimal content)
+    2. One or more ToolMessage results
+    3. Optional AI summary message
+    
+    If any message in a tool session is marked for removal, the entire session should be removed.
+    """
+    all_ids_to_remove = set(removed_message_ids)
+    
+    # Group messages into potential tool sessions
+    i = 0
+    while i < len(existing_messages):
+        msg = existing_messages[i]
+        
+        # Look for AI messages with tool calls
+        if isinstance(msg, AIMessage) and hasattr(msg, 'tool_calls') and msg.tool_calls:
+            tool_session_ids = [msg.id]
+            j = i + 1
+            
+            # Collect consecutive ToolMessages
+            while j < len(existing_messages) and isinstance(existing_messages[j], ToolMessage):
+                tool_session_ids.append(existing_messages[j].id)
+                j += 1
+            
+            # Check if there's a summary AI message (AI message after tool results)
+            if (j < len(existing_messages) and 
+                isinstance(existing_messages[j], AIMessage) and 
+                (not hasattr(existing_messages[j], 'tool_calls') or not existing_messages[j].tool_calls)):
+                tool_session_ids.append(existing_messages[j].id)
+                j += 1
+            
+            # If any message in this tool session is marked for removal, remove the entire session
+            if any(msg_id in removed_message_ids for msg_id in tool_session_ids):
+                all_ids_to_remove.update(tool_session_ids)
+            
+            i = j
+        else:
+            i += 1
+    
+    return all_ids_to_remove
 
 class LangGraphAgent(Agent):
     """
@@ -266,6 +317,7 @@ class LangGraphAgent(Agent):
         config["configurable"]["thread_id"] = thread_id
 
         agent_state = await self.graph.aget_state(config)
+        active_interrupts = agent_state.tasks[0].interrupts if agent_state.tasks and agent_state.tasks[0].interrupts else None
         state["messages"] = agent_state.values.get("messages", [])
         langchain_messages = self.convert_messages(messages)
         state = cast(Callable, self.merge_state)(
@@ -274,28 +326,25 @@ class LangGraphAgent(Agent):
             actions=actions,
             agent_name=self.name
         )
+        lg_interrupt_meta_event = next((ev for ev in (meta_events or []) if ev.get("name") == "LangGraphInterruptEvent"), None)
+        has_active_interrupts = active_interrupts is not None and len(active_interrupts) > 0
 
-        # Handle meta events for interrupts
-        interrupt_from_meta_events = next((ev for ev in (meta_events or []) if ev.get("name") == "LangGraphInterruptEvent"), None)
         resume_input = None
 
          # An active interrupt event that runs through messages. Use latest message as response
-        if self.active_interrupt_event and interrupt_from_meta_events is None:
+        if has_active_interrupts and lg_interrupt_meta_event is None:
             # state["messages"] only includes the messages we need to add at this point, tool call+result if applicable, and user text
             resume_input = Command(resume=state["messages"])
 
-        if interrupt_from_meta_events and "response" in interrupt_from_meta_events:
-            resume_input = Command(resume=interrupt_from_meta_events["response"])
+        if lg_interrupt_meta_event and "response" in lg_interrupt_meta_event:
+            resume_input = Command(resume=lg_interrupt_meta_event["response"])
 
         mode = "continue" if thread_id and node_name != "__end__" and node_name is not None else "start"
         thread_id = thread_id or str(uuid.uuid4())
         config["configurable"]["thread_id"] = thread_id
 
-        if mode == "continue" and self.active_interrupt_event is False:
+        if mode == "continue" and not has_active_interrupts:
             await self.graph.aupdate_state(config, state, as_node=node_name)
-
-        # Before running the stream again, always flush status of active interrupt
-        self.active_interrupt_event = False
 
         streaming_state_extractor = _StreamingStateExtractor([])
         initial_state = state if mode == "start" else None
@@ -315,6 +364,12 @@ class LangGraphAgent(Agent):
 
         stream_input = self.filter_state_on_schema_keys(stream_input, 'input')
         config["configurable"] = filter_by_schema_keys(config["configurable"], config_keys)
+
+        if has_active_interrupts and (not resume_input):
+            value = active_interrupts[0].value
+            yield self.get_interrupt_event(value)
+            return
+
         async for event in self.graph.astream_events(stream_input, config, version="v2"):
             current_node_name = event.get("name")
             event_type = event.get("event")
@@ -330,19 +385,8 @@ class LangGraphAgent(Agent):
                 else None
             )
             if interrupt_event:
-                self.active_interrupt_event = True
                 value = interrupt_event[0].value
-                if not isinstance(value, str) and "__copilotkit_interrupt_value__" in value:
-                    ev_value = value["__copilotkit_interrupt_value__"]
-                    yield langchain_dumps({
-                        "event": "on_copilotkit_interrupt",
-                        "data": { "value": ev_value if isinstance(ev_value, str) else json.dumps(ev_value), "messages": langchain_messages_to_copilotkit(value["__copilotkit_messages__"]) }
-                    }) + "\n"
-                else:
-                    yield langchain_dumps({
-                        "event": "on_interrupt",
-                        "value": value if isinstance(value, str) else json.dumps(value)
-                    }) + "\n"
+                yield self.get_interrupt_event(value)
                 continue
 
             should_exit = should_exit or (
@@ -526,6 +570,18 @@ class LangGraphAgent(Agent):
         except Exception:
             return state
 
+    def get_interrupt_event(self, value):
+        if not isinstance(value, str) and "__copilotkit_interrupt_value__" in value:
+            ev_value = value["__copilotkit_interrupt_value__"]
+            return langchain_dumps({
+                "event": "on_copilotkit_interrupt",
+                "data": { "value": ev_value if isinstance(ev_value, str) else json.dumps(ev_value), "messages": langchain_messages_to_copilotkit(value["__copilotkit_messages__"]) }
+            }) + "\n"
+        else:
+            return langchain_dumps({
+                "event": "on_interrupt",
+                "value": value if isinstance(value, str) else json.dumps(value)
+            }) + "\n"
 
 class _StreamingStateExtractor:
     def __init__(self, emit_intermediate_state: List[dict]):

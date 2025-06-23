@@ -79,10 +79,11 @@ Indicates whether the user agent should send or receive cookies from the other d
   in the case of cross-origin requests.
 </PropertyReference>
 
-<PropertyReference name="showDevConsole" type="boolean | 'auto'"  > 
+<PropertyReference name="showDevConsole" type="boolean"  > 
 Whether to show the dev console.
  
-  If set to "auto", the dev console will be show on localhost only.
+  Set to `true` to show error banners and toasts, `false` to hide all error UI.
+  Defaults to `false` for production safety.
 </PropertyReference>
 
 <PropertyReference name="agent" type="string"  > 
@@ -102,5 +103,24 @@ The auth config to use for the CopilotKit.
 
 <PropertyReference name="threadId" type="string"  > 
 The thread id to use for the CopilotKit.
+</PropertyReference>
+
+<PropertyReference name="onTrace" type="CopilotTraceHandler"  > 
+Optional trace handler for comprehensive debugging and observability.
+ 
+  Requires publicApiKey: Tracing only works when publicApiKey is provided.
+  This is a premium CopilotKit Cloud feature.
+ 
+  @param traceEvent - Structured trace event with rich debugging context
+ 
+  @example
+  ```typescript
+  <CopilotKit
+    publicApiKey="ck_pub_your_key"
+    onTrace={(traceEvent) => {
+      debugDashboard.capture(traceEvent);
+    }}
+  >
+  ```
 </PropertyReference>
 

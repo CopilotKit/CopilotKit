@@ -1,5 +1,111 @@
 # ui
 
+## 1.9.2-next.8
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.8
+- @copilotkit/react-core@1.9.2-next.8
+- @copilotkit/shared@1.9.2-next.8
+
+## 1.9.2-next.7
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.7
+- @copilotkit/react-core@1.9.2-next.7
+- @copilotkit/shared@1.9.2-next.7
+
+## 1.9.2-next.6
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.6
+- @copilotkit/react-core@1.9.2-next.6
+- @copilotkit/shared@1.9.2-next.6
+
+## 1.9.2-next.5
+
+### Patch Changes
+
+- abe23c3: - feat: enable hiding stop button
+  - @copilotkit/react-core@1.9.2-next.5
+  - @copilotkit/runtime-client-gql@1.9.2-next.5
+  - @copilotkit/shared@1.9.2-next.5
+
+## 1.9.2-next.4
+
+### Patch Changes
+
+- Updated dependencies [9169ad7]
+- Updated dependencies [9169ad7]
+  - @copilotkit/react-core@1.9.2-next.4
+  - @copilotkit/shared@1.9.2-next.4
+  - @copilotkit/runtime-client-gql@1.9.2-next.4
+
+## 1.9.2-next.3
+
+### Patch Changes
+
+- 35537f1: - fix: memoize nested components to not rerender when content changes
+- Updated dependencies [35537f1]
+  - @copilotkit/react-core@1.9.2-next.3
+  - @copilotkit/runtime-client-gql@1.9.2-next.3
+  - @copilotkit/shared@1.9.2-next.3
+
+## 1.9.2-next.2
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.2
+- @copilotkit/react-core@1.9.2-next.2
+- @copilotkit/shared@1.9.2-next.2
+
+## 1.9.2-next.1
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.1
+- @copilotkit/react-core@1.9.2-next.1
+- @copilotkit/shared@1.9.2-next.1
+
+## 1.9.2-next.0
+
+### Patch Changes
+
+- 10345a5: - feat: structured error visibility system for streaming errors
+- Updated dependencies [10345a5]
+  - @copilotkit/react-core@1.9.2-next.0
+  - @copilotkit/runtime-client-gql@1.9.2-next.0
+  - @copilotkit/shared@1.9.2-next.0
+
+## 1.9.1
+
+### Patch Changes
+
+- Updated dependencies [deaeca0]
+  - @copilotkit/shared@1.9.1
+  - @copilotkit/runtime-client-gql@1.9.1
+  - @copilotkit/react-core@1.9.1
+
+## 1.9.1-next.0
+
+### Patch Changes
+
+- Updated dependencies [deaeca0]
+  - @copilotkit/shared@1.9.1-next.0
+  - @copilotkit/runtime-client-gql@1.9.1-next.0
+  - @copilotkit/react-core@1.9.1-next.0
+
+## 1.9.0
+
+### Patch Changes
+
+- Updated dependencies [54cae30]
+  - @copilotkit/react-core@1.9.0
+  - @copilotkit/runtime-client-gql@1.9.0
+  - @copilotkit/shared@1.9.0
+
 ## 1.9.0-next.2
 
 ### Patch Changes

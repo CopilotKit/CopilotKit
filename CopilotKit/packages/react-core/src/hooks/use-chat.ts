@@ -37,6 +37,7 @@ import { FrontendAction, processActionsForRuntimeRequest } from "../types/fronte
 import { CoagentState } from "../types/coagent-state";
 import { AgentSession } from "../context/copilot-context";
 import { useCopilotRuntimeClient } from "./use-copilot-runtime-client";
+import { useCopilotContext } from "../context/copilot-context";
 import { useAsyncCallback, useErrorToast } from "../components/error-boundary/error-utils";
 import {
   LangGraphInterruptAction,
@@ -235,11 +236,14 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     ...(publicApiKey ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicApiKey } : {}),
   };
 
+  const { showDevConsole } = useCopilotContext();
+
   const runtimeClient = useCopilotRuntimeClient({
     url: copilotConfig.chatApiEndpoint,
     publicApiKey: copilotConfig.publicApiKey,
     headers,
     credentials: copilotConfig.credentials,
+    showDevConsole,
   });
 
   const pendingAppendsRef = useRef<{ message: Message; followUp: boolean }[]>([]);

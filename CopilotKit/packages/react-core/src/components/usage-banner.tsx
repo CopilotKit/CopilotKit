@@ -1,9 +1,10 @@
-import { Severity, CopilotKitError, ERROR_NAMES } from "@copilotkit/shared";
+import { Severity, CopilotKitError, ERROR_NAMES, ErrorVisibility } from "@copilotkit/shared";
 
 interface UsageBannerProps {
   severity?: Severity;
   message?: string;
   icon?: React.ReactNode;
+  onClose?: () => void;
   actions?: {
     primary?: {
       label: string;
@@ -17,13 +18,13 @@ interface UsageBannerProps {
 }
 
 const defaultIcons: Record<Severity, JSX.Element> = {
-  [Severity.Error]: (
+  [Severity.CRITICAL]: (
     <svg
       viewBox="0 0 24 24"
-      width="20"
-      height="20"
+      width="18"
+      height="18"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="2.5"
       fill="none"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -33,133 +34,286 @@ const defaultIcons: Record<Severity, JSX.Element> = {
       <line x1="9" y1="9" x2="15" y2="15" />
     </svg>
   ),
+  [Severity.WARNING]: (
+    <svg
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      fill="none"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  ),
+  [Severity.INFO]: (
+    <svg
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      fill="none"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="16" x2="12" y2="12" />
+      <line x1="12" y1="8" x2="12.01" y2="8" />
+    </svg>
+  ),
 };
 
 export function UsageBanner({
-  severity = Severity.Error,
+  severity = Severity.CRITICAL,
   message = "",
   icon,
+  onClose,
   actions,
 }: UsageBannerProps) {
   if (!message || !severity) {
     return null;
   }
 
+  // Parse markdown links from message and clean it up
+  const parseMessage = (rawMessage: string) => {
+    // Extract markdown links: [text](url)
+    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+    const matches = Array.from(rawMessage.matchAll(linkRegex));
+
+    if (matches.length > 0) {
+      // Remove "See more:" and markdown links from the main message
+      let cleanMessage = rawMessage
+        .replace(/\.\s*See more:\s*\[([^\]]+)\]\(([^)]+)\)/g, ".")
+        .replace(/See more:\s*\[([^\]]+)\]\(([^)]+)\)/g, "")
+        .trim();
+
+      return cleanMessage;
+    }
+
+    return rawMessage;
+  };
+
+  const cleanMessage = parseMessage(message);
   const Icon = icon || defaultIcons[severity];
 
-  const bgColor = {
-    info: "#dbeafe",
-    warning: "#fef3c7",
-    error: "#fee2e2",
-  }[severity];
+  const themeConfigs = {
+    [Severity.INFO]: {
+      bg: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)",
+      border: "#93c5fd",
+      text: "#1e40af",
+      icon: "#3b82f6",
+      primaryBtn: "#3b82f6",
+      primaryBtnHover: "#2563eb",
+    },
+    [Severity.WARNING]: {
+      bg: "linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)",
+      border: "#fbbf24",
+      text: "#92400e",
+      icon: "#f59e0b",
+      primaryBtn: "#f59e0b",
+      primaryBtnHover: "#d97706",
+    },
+    [Severity.CRITICAL]: {
+      bg: "linear-gradient(135deg, #fef2f2 0%, #fecaca 100%)",
+      border: "#f87171",
+      text: "#991b1b",
+      icon: "#ef4444",
+      primaryBtn: "#ef4444",
+      primaryBtnHover: "#dc2626",
+    },
+  };
 
-  const textColor = {
-    info: "#1e40af",
-    warning: "#854d0e",
-    error: "#991b1b",
-  }[severity];
-
-  const iconColor = {
-    info: "#3b82f6",
-    warning: "#eab308",
-    error: "#ef4444",
-  }[severity];
-
-  const primaryButtonColor = {
-    info: "#3b82f6",
-    warning: "#eab308",
-    error: "#ef4444",
-  }[severity];
-
-  const primaryButtonHoverColor = {
-    info: "#2563eb",
-    warning: "#ca8a04",
-    error: "#dc2626",
-  }[severity];
+  const themeConfig = themeConfigs[severity] || themeConfigs[Severity.CRITICAL];
 
   return (
     <div
       style={{
         position: "fixed",
-        bottom: "16px",
+        bottom: "20px",
         left: "50%",
         transform: "translateX(-50%)",
-        maxWidth: "90%",
-        zIndex: 9999,
+        maxWidth: "min(95vw, 680px)",
+        width: "100%",
+        zIndex: 10000,
+        animation: "bannerSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
       }}
     >
+      <style>
+        {`
+          @keyframes bannerSlideIn {
+            from {
+              opacity: 0;
+              transform: translateX(-50%) translateY(10px);
+            }
+            to {
+              opacity: 1;
+              transform: translateX(-50%) translateY(0);
+            }
+          }
+        `}
+      </style>
       <div
         style={{
           display: "flex",
-          flexWrap: "wrap",
-          alignItems: "center",
-          gap: "12px",
-          borderRadius: "9999px",
-          border: "1px solid #e5e7eb",
-          backgroundColor: bgColor,
-          padding: "8px 16px",
-          boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+          alignItems: "flex-start",
+          gap: "14px",
+          borderRadius: "16px",
+          border: `1px solid ${themeConfig.border}`,
+          background: themeConfig.bg,
+          padding: "18px 20px",
+          boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
+          position: "relative",
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
         }}
       >
-        <div style={{ color: iconColor }}>{Icon}</div>
-        <span
-          style={{
-            flex: 1,
-            fontSize: "14px",
-            fontWeight: 500,
-            color: textColor,
-            whiteSpace: "normal",
-            wordBreak: "break-word",
-          }}
-        >
-          {message}
-        </span>
+        {/* Close button */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            style={{
+              position: "absolute",
+              top: "12px",
+              right: "12px",
+              background: "rgba(255, 255, 255, 0.8)",
+              border: "none",
+              color: themeConfig.text,
+              cursor: "pointer",
+              fontSize: "18px",
+              lineHeight: "1",
+              padding: "6px",
+              borderRadius: "8px",
+              opacity: 0.7,
+              transition: "all 0.2s ease",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "28px",
+              height: "28px",
+            }}
+            title="Close"
+            onMouseOver={(e) => {
+              e.currentTarget.style.opacity = "1";
+              e.currentTarget.style.background = "rgba(255, 255, 255, 1)";
+              e.currentTarget.style.transform = "scale(1.05)";
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.opacity = "0.7";
+              e.currentTarget.style.background = "rgba(255, 255, 255, 0.8)";
+              e.currentTarget.style.transform = "scale(1)";
+            }}
+          >
+            ×
+          </button>
+        )}
+
+        {/* Icon */}
         <div
           style={{
+            color: themeConfig.icon,
+            flexShrink: 0,
+            marginTop: "1px",
+            padding: "6px",
+            borderRadius: "10px",
+            background: "rgba(255, 255, 255, 0.7)",
             display: "flex",
-            gap: "8px",
-            flexWrap: "wrap",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
-          {actions?.secondary && (
-            <button
-              onClick={actions.secondary.onClick}
+          {Icon}
+        </div>
+
+        {/* Content */}
+        <div style={{ flex: 1, paddingRight: onClose ? "40px" : "0" }}>
+          {/* Message */}
+          <div
+            style={{
+              fontSize: "15px",
+              fontWeight: 600,
+              color: themeConfig.text,
+              lineHeight: "1.5",
+              marginBottom: actions ? "12px" : "0",
+              fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+            }}
+          >
+            {cleanMessage}
+          </div>
+
+          {/* Actions */}
+          {actions && (
+            <div
               style={{
-                borderRadius: "9999px",
-                padding: "4px 12px",
-                fontSize: "14px",
-                fontWeight: 500,
-                color: textColor,
-                backgroundColor: "transparent",
-                border: "none",
-                cursor: "pointer",
-                transition: "background-color 0.2s",
+                display: "flex",
+                gap: "10px",
+                flexWrap: "wrap",
               }}
-              onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.5)")}
-              onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
             >
-              {actions.secondary.label}
-            </button>
-          )}
-          {actions?.primary && (
-            <button
-              onClick={actions.primary.onClick}
-              style={{
-                borderRadius: "9999px",
-                padding: "4px 12px",
-                fontSize: "14px",
-                fontWeight: 500,
-                color: "#fff",
-                backgroundColor: primaryButtonColor,
-                border: "none",
-                cursor: "pointer",
-                transition: "background-color 0.2s",
-              }}
-              onMouseOver={(e) => (e.currentTarget.style.backgroundColor = primaryButtonHoverColor)}
-              onMouseOut={(e) => (e.currentTarget.style.backgroundColor = primaryButtonColor)}
-            >
-              {actions.primary.label}
-            </button>
+              {actions.secondary && (
+                <button
+                  onClick={actions.secondary.onClick}
+                  style={{
+                    borderRadius: "10px",
+                    padding: "8px 16px",
+                    fontSize: "14px",
+                    fontWeight: 500,
+                    color: themeConfig.text,
+                    backgroundColor: "rgba(255, 255, 255, 0.8)",
+                    border: `1.5px solid ${themeConfig.border}`,
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 1)";
+                    e.currentTarget.style.transform = "translateY(-1px)";
+                    e.currentTarget.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.15)";
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.8)";
+                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
+                >
+                  {actions.secondary.label}
+                </button>
+              )}
+              {actions.primary && (
+                <button
+                  onClick={actions.primary.onClick}
+                  style={{
+                    borderRadius: "10px",
+                    padding: "8px 16px",
+                    fontSize: "14px",
+                    fontWeight: 600,
+                    color: "#fff",
+                    backgroundColor: themeConfig.primaryBtn,
+                    border: "none",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+                    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.backgroundColor = themeConfig.primaryBtnHover;
+                    e.currentTarget.style.transform = "translateY(-1px)";
+                    e.currentTarget.style.boxShadow = "0 6px 16px rgba(0, 0, 0, 0.2)";
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.backgroundColor = themeConfig.primaryBtn;
+                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.15)";
+                  }}
+                >
+                  {actions.primary.label}
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -167,39 +321,65 @@ export function UsageBanner({
   );
 }
 
-export function renderCopilotKitUsage(error: CopilotKitError) {
-  switch (error.name) {
-    case ERROR_NAMES.CONFIGURATION_ERROR:
-      return <UsageBanner severity={error.severity} message={error.message} />;
-    case ERROR_NAMES.MISSING_PUBLIC_API_KEY_ERROR:
-      return (
-        <UsageBanner
-          severity={error.severity}
-          message={error.message}
-          actions={{
-            primary: {
-              label: "Sign In",
-              onClick: () => {
-                window.location.href = "https://cloud.copilotkit.ai";
-              },
-            },
-          }}
-        />
-      );
-    case ERROR_NAMES.UPGRADE_REQUIRED_ERROR:
-      return (
-        <UsageBanner
-          severity={error.severity}
-          message={error.message}
-          actions={{
-            primary: {
-              label: "Upgrade",
-              onClick: () => {
-                window.location.href = "https://copilotkit.ai/";
-              },
-            },
-          }}
-        />
-      );
+export function renderCopilotKitUsage(error: CopilotKitError, onClose?: () => void) {
+  // Route based on error visibility level
+  if (error.visibility !== ErrorVisibility.BANNER) {
+    return null;
   }
+
+  // Extract URL from markdown links in the message
+  const extractUrlFromMessage = (message: string): string | null => {
+    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+    const match = linkRegex.exec(message);
+    return match ? match[2] : null;
+  };
+
+  // Get action button based on error type
+  const getErrorActions = (error: CopilotKitError) => {
+    switch (error.name) {
+      case ERROR_NAMES.MISSING_PUBLIC_API_KEY_ERROR:
+        return {
+          primary: {
+            label: "Sign In",
+            onClick: () => (window.location.href = "https://cloud.copilotkit.ai"),
+          },
+        };
+      case ERROR_NAMES.UPGRADE_REQUIRED_ERROR:
+        return {
+          primary: {
+            label: "Upgrade",
+            onClick: () => (window.location.href = "https://copilotkit.ai/"),
+          },
+        };
+      case ERROR_NAMES.COPILOT_API_DISCOVERY_ERROR:
+      case ERROR_NAMES.COPILOT_REMOTE_ENDPOINT_DISCOVERY_ERROR:
+      case ERROR_NAMES.COPILOT_KIT_AGENT_DISCOVERY_ERROR:
+        return {
+          primary: {
+            label: "View Docs",
+            onClick: () => {
+              // Try to get URL from the error message first, then extensions, then default
+              const urlFromMessage = extractUrlFromMessage(error.message);
+              const urlFromExtensions = (error.extensions as any)?.troubleshootingUrl;
+              const url =
+                urlFromMessage ||
+                urlFromExtensions ||
+                "https://docs.copilotkit.ai/troubleshooting/common-issues";
+              window.open(url, "_blank");
+            },
+          },
+        };
+      default:
+        return undefined;
+    }
+  };
+
+  return (
+    <UsageBanner
+      severity={error.severity || Severity.CRITICAL}
+      message={error.message}
+      onClose={onClose}
+      actions={getErrorActions(error)}
+    />
+  );
 }

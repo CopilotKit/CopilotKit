@@ -7,7 +7,12 @@ import { TerminalIcon, RocketIcon } from "lucide-react";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
 import { TopBar } from "@/components/layout/top-bar";
 import { SiLangchain } from "react-icons/si";
-import { AG2Icon, MastraIcon } from "@/lib/icons/custom-icons";
+import {
+  AG2Icon,
+  MastraIcon,
+  AgnoIcon,
+  LlamaIndexIcon,
+} from "@/lib/icons/custom-icons";
 
 export default function Layout({ children }: { children: ReactNode }) {
   return (
@@ -70,7 +75,8 @@ export default function Layout({ children }: { children: ReactNode }) {
                       icon: <MastraIcon className="w-4 h-4 text-bold" />,
                       bgGradient:
                         "bg-gradient-to-b from-black to-zinc-800 text-white",
-                      selectedStyle: "ring-zinc-800 dark:ring-white ring-2 rounded-sm",
+                      selectedStyle:
+                        "ring-zinc-800 dark:ring-white ring-2 rounded-sm",
                     },
                     {
                       title: "CoAgents (AG2)",
@@ -80,6 +86,25 @@ export default function Layout({ children }: { children: ReactNode }) {
                       bgGradient:
                         "bg-gradient-to-b from-indigo-700 to-indigo-400 text-indigo-100",
                       selectedStyle: "ring-indigo-500/70 ring-2 rounded-sm",
+                    },
+                    {
+                      title: "CoAgents (Agno)",
+                      description: "Documentation for CoAgents with Agno",
+                      url: "/agno",
+                      icon: <AgnoIcon className="w-4 h-4 text-bold" />,
+                      bgGradient: "bg-[#FF3C1A] text-white",
+                      selectedStyle:
+                        "ring-[#FF3C1A] ring-2 rounded-sm",
+                    },
+                    {
+                      title: "CoAgents (LlamaIndex)",
+                      description: "Documentation for CoAgents with LlamaIndex",
+                      url: "/llamaindex",
+                      icon: <LlamaIndexIcon className="w-4 h-4 text-bold" />,
+                      bgGradient:
+                        "bg-gradient-to-b from-pink-500 via-purple-500 to-blue-400 text-pink-100",
+                      selectedStyle:
+                        "ring-pink-500/70 ring-2 rounded-sm",
                     },
                   ],
                 },

@@ -9,9 +9,9 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@copilotkit/react-core": "1.8.13",
-    "@copilotkit/react-ui": "1.8.13",
-    "@copilotkit/runtime": "1.8.13",
+    "@copilotkit/react-core": "1.9.2-next.7",
+    "@copilotkit/react-ui": "1.9.2-next.7",
+    "@copilotkit/runtime": "1.9.2-next.7",
     "@radix-ui/react-dialog": "^1.1.2",
     "@radix-ui/react-icons": "^1.3.2",
     "@radix-ui/react-select": "^2.1.2",

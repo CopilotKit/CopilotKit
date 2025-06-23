@@ -9,25 +9,19 @@ import { RiNextjsLine } from "react-icons/ri";
     ```ts
     import { 
       CopilotRuntime,
-      langGraphPlatformEndpoint  // [!code highlight]
+      LangGraphAgent  // [!code highlight]
       // ...
     } from "@copilotkit/runtime";
     // ...
     const runtime = new CopilotRuntime({
-      remoteEndpoints: [
-        // [!code highlight:12]
-        langGraphPlatformEndpoint({
-          deploymentUrl: "your-api-url", // make sure to replace with your real deployment url,
-          langsmithApiKey: process.env.LANGSMITH_API_KEY, // only used in LangGraph Platform deployments
-          agents: [ // List any agents available under "graphs" list in your langgraph.json file; give each a description explaining when it should be called.
-            {
-              name: 'sample_agent', 
-              description: 'A helpful LLM agent.',
-              assistantId: 'your-assistant-ID' // optional, but recommended!
-            }
-          ]
-        }),
-      ],
+      agents: { // [!code highlight:8]
+          // New agent entry per agent you wish to use
+          'sample_agent': new LangGraphAgent({
+              deploymentUrl: '<your-api-url>',
+              graphId: 'sample_agent',
+              langsmithApiKey: '<your-langsmith-api-key>' // Optional
+          }),
+      },
     });
     // ...
     ```
@@ -54,25 +48,19 @@ import { RiNextjsLine } from "react-icons/ri";
     ```ts
     import { 
       CopilotRuntime,
-      langGraphPlatformEndpoint  // [!code highlight]
+      LangGraphAgent  // [!code highlight]
       // ...
     } from "@copilotkit/runtime";
     // ...
     const runtime = new CopilotRuntime({
-      remoteEndpoints: [
-        // [!code highlight:12]
-        langGraphPlatformEndpoint({
-          deploymentUrl: "your-api-url", // make sure to replace with your real deployment url,
-          langsmithApiKey: process.env.LANGSMITH_API_KEY, // only used in LangGraph Platform deployments
-          agents: [ // List any agents available under "graphs" list in your langgraph.json file; give each a description explaining when it should be called.
-            {
-              name: 'sample_agent', 
-              description: 'A helpful LLM agent.',
-              assistantId: 'your-assistant-ID' // optional, but recommended!
-            }
-          ]
-        }),
-      ],
+      agents: { // [!code highlight:8]
+          // New agent entry per agent you wish to use
+          'sample_agent': new LangGraphAgent({
+              deploymentUrl: '<your-api-url>',
+              graphId: 'sample_agent',
+              langsmithApiKey: '<your-langsmith-api-key>' // Optional
+          }),
+      },
     });
     // ...
     ```

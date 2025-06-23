@@ -167,6 +167,16 @@ const config = {
         destination: "/ag2/quickstart",
         permanent: true,
       },
+      {
+        source: "/llamaindex/",
+        destination: "/llamaindex",
+        permanent: true,
+      },
+      {
+        source: "/agno/quickstart/agno",
+        destination: "/agno/quickstart",
+        permanent: true,
+      },
     ];
   },
 };

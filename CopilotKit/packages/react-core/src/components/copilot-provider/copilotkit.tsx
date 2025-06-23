@@ -49,9 +49,10 @@ import {
   LangGraphInterruptAction,
   LangGraphInterruptActionSetterArgs,
 } from "../../types/interrupt-action";
+import { StatusChecker } from "../../lib/status-checker";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
-  const showDevConsole = props.showDevConsole === undefined ? "auto" : props.showDevConsole;
+  const showDevConsole = props.showDevConsole ?? false;
   const enabled = shouldShowDevConsole(showDevConsole);
 
   return (
@@ -95,6 +96,10 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     removeElement: removeDocument,
     allElements: allDocuments,
   } = useFlatCategoryStore<DocumentPointer>();
+
+  const statusChecker = useMemo(() => new StatusChecker(), []);
+
+  const [usageBannerStatus, setUsageBannerStatus] = useState<any>(null);
 
   // Compute all the functions and properties that we need to pass
 
@@ -266,6 +271,8 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     publicApiKey: copilotApiConfig.publicApiKey,
     headers,
     credentials: copilotApiConfig.credentials,
+    showDevConsole: props.showDevConsole ?? false,
+    onTrace: props.onTrace,
   });
 
   const [chatSuggestionConfiguration, setChatSuggestionConfiguration] = useState<{
@@ -360,7 +367,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
 
   const chatAbortControllerRef = useRef<AbortController | null>(null);
 
-  const showDevConsole = props.showDevConsole === undefined ? "auto" : props.showDevConsole;
+  const showDevConsole = props.showDevConsole ?? false;
 
   const [langGraphInterruptAction, _setLangGraphInterruptAction] =
     useState<LangGraphInterruptAction | null>(null);
@@ -379,6 +386,8 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   const removeLangGraphInterruptAction = useCallback((): void => {
     setLangGraphInterruptAction(null);
   }, []);
+
+  const memoizedChildren = useMemo(() => children, [children]);
 
   return (
     <CopilotContext.Provider
@@ -432,9 +441,10 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         langGraphInterruptAction,
         setLangGraphInterruptAction,
         removeLangGraphInterruptAction,
+        onTrace: props.onTrace,
       }}
     >
-      <CopilotMessages>{children}</CopilotMessages>
+      <CopilotMessages>{memoizedChildren}</CopilotMessages>
     </CopilotContext.Provider>
   );
 }

@@ -32,10 +32,7 @@ export function copilotRuntimeNextJSPagesRouterEndpoint(
     });
   }
 
-  telemetry.capture(
-    "oss.runtime.instance_created",
-    getRuntimeInstanceTelemetryInfo(options.runtime),
-  );
+  telemetry.capture("oss.runtime.instance_created", getRuntimeInstanceTelemetryInfo(options));
 
   const logger = commonConfig.logging;
   logger.debug("Creating NextJS Pages Router endpoint");

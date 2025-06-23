@@ -237,7 +237,7 @@ export async function copilotkitEmitToolCall(
   );
 }
 
-export function convertActionToDynamicStructuredTool(actionInput: any) {
+export function convertActionToDynamicStructuredTool(actionInput: any): DynamicStructuredTool<any> {
   return new DynamicStructuredTool({
     name: actionInput.name,
     description: actionInput.description,
@@ -264,7 +264,7 @@ export function convertActionsToDynamicStructuredTools(
    * The list of actions to convert.
    */
   actions: any[],
-) {
+): DynamicStructuredTool<any>[] {
   return actions.map((action) => convertActionToDynamicStructuredTool(action));
 }
 

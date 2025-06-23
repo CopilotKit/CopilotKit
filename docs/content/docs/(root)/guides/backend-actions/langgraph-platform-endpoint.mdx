@@ -59,25 +59,27 @@ import { FaCloud, FaServer } from "react-icons/fa";
                     <FindCopilotRuntimeSnippet components={props.components} />
                 </Step>
                 <Step>
-                    Update the `CopilotRuntime` config to include the `remoteEndpoints` property:
+                    Update the `CopilotRuntime` config to include the `agents` property:
 
                     ```tsx
+                    import {
+                        CopilotRuntime,
+                        LangGraphAgent  // [!code highlight]
+                        // ...
+                    } from "@copilotkit/runtime";
+
                     const runtime = new CopilotRuntime({
                         // ...existing configuration
-                        remoteEndpoints: [ // [!code highlight:9]
-                            langGraphPlatformEndpoint({
-                                deploymentUrl: "your-api-url",
-                                langsmithApiKey: "your-langsmith-api-key",
-                                // List of all agents which are available under "graphs" list in your langgraph.json file.
-                                agents: [{ name: 'my_agent', description: 'A helpful LLM agent', assistantId: 'ID-of-the-agent' }]
+                        agents: { // [!code highlight:8]
+                            // New agent entry per agent you wish to use
+                            'my-agent': new LangGraphAgent({
+                                deploymentUrl: '<your-api-url>',
+                                graphId: '<my-agent>',
+                                langsmithApiKey: '<your-langsmith-api-key>' // Optional
                             }),
-                        ],
+                        },
                     });
                     ```
-
-                    <Callout type="info">
-                        Tip: Use the `langGraphPlatformEndpoint` type constructor function
-                    </Callout>
                 </Step>
             </Steps>
         </TailoredContentOption>

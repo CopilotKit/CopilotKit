@@ -54,6 +54,7 @@ import telemetry from "../../lib/telemetry-client";
 import { randomId } from "@copilotkit/shared";
 import { AgentsResponse } from "../types/agents-response.type";
 import { LangGraphEventTypes } from "../../agents/langgraph/events";
+import { CopilotKitError } from "@copilotkit/shared";
 
 const invokeGuardrails = async ({
   baseUrl,
@@ -144,6 +145,19 @@ export class CopilotResolver {
     telemetry.capture("oss.runtime.copilot_request_created", {
       "cloud.guardrails.enabled": data.cloud?.guardrails !== undefined,
       requestType: data.metadata.requestType,
+      "cloud.api_key_provided": !!ctx.request.headers.get("x-copilotcloud-public-api-key"),
+      ...(ctx.request.headers.get("x-copilotcloud-public-api-key")
+        ? {
+            "cloud.public_api_key": ctx.request.headers.get("x-copilotcloud-public-api-key"),
+          }
+        : {}),
+      ...(ctx._copilotkit.baseUrl
+        ? {
+            "cloud.base_url": ctx._copilotkit.baseUrl,
+          }
+        : {
+            "cloud.base_url": "https://api.cloud.copilotkit.ai",
+          }),
     });
 
     let logger = ctx.logger.child({ component: "CopilotResolver.generateCopilotResponse" });
@@ -160,15 +174,34 @@ export class CopilotResolver {
     let copilotCloudPublicApiKey: string | null = null;
     let copilotCloudBaseUrl: string;
 
+    // Extract publicApiKey from headers for both cloud and non-cloud requests
+    // This enables onTrace functionality regardless of cloud configuration
+    const publicApiKeyFromHeaders = ctx.request.headers.get("x-copilotcloud-public-api-key");
+    if (publicApiKeyFromHeaders) {
+      copilotCloudPublicApiKey = publicApiKeyFromHeaders;
+    }
+
     if (data.cloud) {
       logger = logger.child({ cloud: true });
       logger.debug("Cloud configuration provided, checking for public API key in headers");
-      const key = ctx.request.headers.get("x-copilotcloud-public-api-key");
-      if (key) {
-        logger.debug("Public API key found in headers");
-        copilotCloudPublicApiKey = key;
-      } else {
+
+      if (!copilotCloudPublicApiKey) {
         logger.error("Public API key not found in headers");
+
+        // Trace the validation error for debugging visibility
+        await copilotRuntime.traceGraphQLError(
+          {
+            message: "X-CopilotCloud-Public-API-Key header is required",
+            code: "MISSING_PUBLIC_API_KEY",
+            type: "GraphQLError",
+          },
+          {
+            operation: "generateCopilotResponse",
+            cloudConfigPresent: Boolean(data.cloud),
+            guardrailsEnabled: Boolean(data.cloud?.guardrails),
+          },
+        );
+
         throw new GraphQLError("X-CopilotCloud-Public-API-Key header is required");
       }
 
@@ -633,6 +666,18 @@ export class CopilotResolver {
           },
           error: (err) => {
             logger.error({ err }, "Error in event stream");
+
+            // If it's a structured CopilotKitError, stop the repeater with the error so frontend can handle it
+            if (
+              err instanceof CopilotKitError ||
+              (err instanceof Error && err.name && err.name.includes("CopilotKit"))
+            ) {
+              eventStreamSubscription?.unsubscribe();
+              rejectOutputMessagesPromise(err);
+              stopStreamingMessages(err); // Pass the error to stop the GraphQL stream with this error
+              return;
+            }
+
             responseStatus$.next(
               new UnknownErrorResponse({
                 description: `An unknown error has occurred in the event stream`,

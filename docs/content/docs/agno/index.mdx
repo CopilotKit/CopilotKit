@@ -1,0 +1,106 @@
+---
+title: Introduction
+icon: "lucide/Sparkles"
+description: Build Agent-Native Applications (ANAs) powered by CopilotKit and Agno Agents.
+---
+
+import { BiSolidMessage as TextIcon } from "react-icons/bi";
+import { VscJson as JsonIcon } from "react-icons/vsc";
+import { FaDiscord } from "react-icons/fa";
+import Link from "next/link";
+import { YouTubeVideo } from "@/components/react/youtube-video";
+import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
+import {
+  CoAgentsFeatureToggle,
+  CoAgentsFeatureRender,
+} from "@/components/react/coagents/coagents-features.tsx";
+import { DynamicContentWrapper } from "@/components/react/dynamic-content-wrapper";
+import { ExamplesCarousel } from "@/components/react/examples-carousel";
+import {
+  LuPlane,
+  LuBookOpen,
+  LuLightbulb,
+  LuLayoutTemplate,
+  LuBrainCog,
+  LuUserCog,
+  LuWand2,
+  LuPlay,
+  LuMessageSquare,
+  LuWrench,
+} from "react-icons/lu";
+import { CoAgentsExamples } from "@/components/react/examples-carousel";
+import { CTACards } from "@/components/react/cta-cards";
+import { FaSync } from "react-icons/fa";
+import { Socials } from "@/components/react/socials";
+
+# Copilot Infrastructure for Agno Agents
+
+Full user-interaction infrastructure for your agents, to turn your agents into Copilot Agents (CoAgents).
+
+## Building blocks of a CoAgent
+
+Everything you need to build Agent-Native Applications (ANAs), right out of the box.
+
+<Cards className="gap-6">
+  <Card
+    className="p-6 rounded-xl text-base border-[#FF3C1A]"
+    icon={<LuMessageSquare className="text-[#FF3C1A]" />}
+    title="Agentic Chat UI"
+    description="In-app chat powered by your agent."
+    href="/agno/agentic-chat-ui"
+  />
+  <Card
+    className="p-6 rounded-xl text-base border-[#FF3C1A]"
+    icon={<LuLayoutTemplate className="text-[#FF3C1A]" />}
+    title="Generative UI"
+    description="UI that updates in real-time based on your agent's state."
+    href="/agno/generative-ui"
+  />
+  <Card
+    className="p-6 rounded-xl text-base border-[#FF3C1A]"
+    icon={<LuWand2 className="text-[#FF3C1A]" />}
+    title="Multi-Agent Coordination"
+    description="Route your agent to the right agent based on the user's request."
+    href="/agno/multi-agent-flows"
+  />
+</Cards>
+
+{/* TODO: Add CoAgents in action section for Agno Agents */}
+
+## Ready to get started?
+
+Get started with CoAgents in as little as 5 minutes with one of our guides or tutorials.
+
+<Cards className="gap-6">
+  <Card
+    className="p-6 rounded-xl text-base border-[#FF3C1A]"
+    icon={<LuPlay className="text-[#FF3C1A]" />}
+    title="Quickstart"
+    description="Learn how to build your first CoAgent in 10 minutes."
+    href="/agno/quickstart/agno"
+  />
+</Cards>
+
+## Common Questions
+
+Have a question about CoAgents? You're in the right place!
+
+<Accordions>
+<Accordion title="Can you explain what a CoAgent is in more detail?">
+Sure! CoAgents are what we call "agentic copilots". Well, what's an agentic copilot then?
+
+Think of a Copilot as a simple and fully LLM controlled assistant that has relatively limited capabilities. An Agentic Copilot then is a copilot
+that has been enhanced with the ability to use Agno agents to perform more complex tasks. This is an extremely powerful way to build AI
+powered applications because it gives you, the developer, the ability to control the agent's behavior in a deterministic way while still letting
+the agent do its magic.
+
+For more on this topic, checkout our [agentic copilot](/agno/concepts/agentic-copilots) concept page.
+
+</Accordion>
+<Accordion title="Can I attach to an existing thread?">
+Development of CoAgents is ongoing. One part of this is the ability to attach to an existing thread which is a high priority on our roadmap.
+
+Stay tuned for updates!
+
+</Accordion>
+</Accordions> 
