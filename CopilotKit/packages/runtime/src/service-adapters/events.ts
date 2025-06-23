@@ -4,6 +4,7 @@ import {
   CopilotKitError,
   CopilotKitErrorCode,
   CopilotKitLowLevelError,
+  Severity,
 } from "@copilotkit/shared";
 import {
   of,
@@ -32,6 +33,7 @@ import {
 import { plainToInstance } from "class-transformer";
 import { MessageRole } from "../graphql/types/enums";
 import { parseJson, tryMap } from "@copilotkit/shared";
+import { generateHelpfulErrorMessage } from "../lib/streaming";
 
 export enum RuntimeEventTypes {
   TextMessageStart = "TextMessageStart",
@@ -273,8 +275,6 @@ export class RuntimeEventSource {
     threadId: string;
   }) {
     this.callback(this.eventStream$).catch((error) => {
-      console.error("Error in event source callback", error);
-
       // Convert streaming errors to structured errors
       const structuredError = convertStreamingErrorToStructured(error);
       this.eventStream$.error(structuredError);
@@ -330,15 +330,11 @@ export class RuntimeEventSource {
             eventWithState.actionExecutionId,
             actionInputsWithoutAgents,
             threadId,
-          ).catch((error) => {
-            console.error(error);
-          });
+          ).catch((error) => {});
 
           telemetry.capture("oss.runtime.server_action_executed", {});
           return concat(of(eventWithState.event!), toolCallEventStream$).pipe(
             catchError((error) => {
-              console.error("Error in tool call stream", error);
-
               // Convert streaming errors to structured errors and send as action result
               const structuredError = convertStreamingErrorToStructured(error);
               toolCallEventStream$.sendActionExecutionResult({
@@ -436,10 +432,11 @@ async function executeAction(
     from(stream).subscribe({
       next: (event) => eventStream$.next(event),
       error: (err) => {
-        console.error("Error in stream", err);
-
-        // Convert streaming errors to structured errors
-        const structuredError = convertStreamingErrorToStructured(err);
+        // Preserve already structured CopilotKit errors, only convert unstructured errors
+        const structuredError =
+          err instanceof CopilotKitError || err instanceof CopilotKitLowLevelError
+            ? err
+            : convertStreamingErrorToStructured(err);
         eventStream$.sendActionExecutionResult({
           actionExecutionId,
           actionName: action.name,
@@ -480,65 +477,31 @@ async function executeAction(
 }
 
 function convertStreamingErrorToStructured(error: any): CopilotKitError {
-  // Handle network termination errors
+  // Determine a more helpful error message based on context
+  let helpfulMessage = generateHelpfulErrorMessage(error, "event streaming connection");
+
+  // For network-related errors, use CopilotKitLowLevelError to preserve the original error
   if (
+    error?.message?.includes("fetch failed") ||
+    error?.message?.includes("ECONNREFUSED") ||
+    error?.message?.includes("ENOTFOUND") ||
+    error?.message?.includes("ETIMEDOUT") ||
     error?.message?.includes("terminated") ||
     error?.cause?.code === "UND_ERR_SOCKET" ||
     error?.message?.includes("other side closed") ||
     error?.code === "UND_ERR_SOCKET"
   ) {
-    return new CopilotKitError({
-      message:
-        "Connection to agent was unexpectedly terminated. This may be due to the agent service being restarted or network issues. Please try again.",
-      code: CopilotKitErrorCode.NETWORK_ERROR,
-    });
-  }
-
-  // Handle other network-related errors
-  if (
-    error?.message?.includes("fetch failed") ||
-    error?.message?.includes("ECONNREFUSED") ||
-    error?.message?.includes("ENOTFOUND") ||
-    error?.message?.includes("ETIMEDOUT")
-  ) {
     return new CopilotKitLowLevelError({
       error: error instanceof Error ? error : new Error(String(error)),
       url: "event streaming connection",
-      message:
-        "Network error occurred during event streaming. Please check your connection and try again.",
+      message: helpfulMessage,
     });
   }
 
-  // Handle abort/cancellation errors (these are usually normal)
-  if (
-    error?.message?.includes("aborted") ||
-    error?.message?.includes("canceled") ||
-    error?.message?.includes("signal is aborted")
-  ) {
-    return new CopilotKitError({
-      message: "Request was cancelled",
-      code: CopilotKitErrorCode.UNKNOWN,
-    });
-  }
-
-  // Handle API key errors (authentication/authorization issues)
-  const errorMessage = error?.message || String(error);
-  if (
-    errorMessage.includes("401") ||
-    errorMessage.toLowerCase().includes("api key") ||
-    errorMessage.toLowerCase().includes("unauthorized") ||
-    errorMessage.toLowerCase().includes("authentication") ||
-    errorMessage.toLowerCase().includes("incorrect api key")
-  ) {
-    return new CopilotKitError({
-      message: `Event streaming error: ${errorMessage}`,
-      code: CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR,
-    });
-  }
-
-  // Default: convert unknown streaming errors
+  // For all other errors, preserve the raw error in a basic CopilotKitError
   return new CopilotKitError({
-    message: `Event streaming error: ${errorMessage}`,
+    message: helpfulMessage,
     code: CopilotKitErrorCode.UNKNOWN,
+    severity: Severity.CRITICAL,
   });
 }

@@ -5,6 +5,8 @@ import {
   CoAgentStateRenderHandler,
   randomId,
   parseJson,
+  CopilotKitError,
+  CopilotKitErrorCode,
 } from "@copilotkit/shared";
 import {
   Message,
@@ -39,6 +41,7 @@ import { AgentSession } from "../context/copilot-context";
 import { useCopilotRuntimeClient } from "./use-copilot-runtime-client";
 import { useCopilotContext } from "../context/copilot-context";
 import { useAsyncCallback, useErrorToast } from "../components/error-boundary/error-utils";
+import { useToast } from "../components/toast/toast-provider";
 import {
   LangGraphInterruptAction,
   LangGraphInterruptActionSetter,
@@ -218,6 +221,41 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   } = options;
   const runChatCompletionRef = useRef<(previousMessages: Message[]) => Promise<Message[]>>();
   const addErrorToast = useErrorToast();
+  const { setBannerError } = useToast();
+
+  // Get onTrace from context since it's not part of copilotConfig
+  const { onTrace } = useCopilotContext();
+
+  // Add tracing functionality to use-chat
+  const traceUIError = async (error: CopilotKitError, originalError?: any) => {
+    // Just check if onTrace and publicApiKey are defined
+    if (!onTrace || !copilotConfig?.publicApiKey) return;
+
+    try {
+      const traceEvent = {
+        type: "error" as const,
+        timestamp: Date.now(),
+        context: {
+          source: "ui" as const,
+          request: {
+            operation: "useChatCompletion",
+            url: copilotConfig.chatApiEndpoint,
+            startTime: Date.now(),
+          },
+          technical: {
+            environment: "browser",
+            userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+            stackTrace: originalError instanceof Error ? originalError.stack : undefined,
+          },
+        },
+        error,
+      };
+
+      await onTrace(traceEvent);
+    } catch (traceError) {
+      console.error("Error in use-chat onTrace handler:", traceError);
+    }
+  };
   // We need to keep a ref of coagent states and session because of renderAndWait - making sure
   // the latest state is sent to the API
   // This is a workaround and needs to be addressed in the future
@@ -464,13 +502,56 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             value.generateCopilotResponse.status?.__typename === "FailedResponseStatus" &&
             value.generateCopilotResponse.status.reason === "GUARDRAILS_VALIDATION_FAILED"
           ) {
+            const guardrailsReason =
+              value.generateCopilotResponse.status.details?.guardrailsReason || "";
+
             newMessages = [
               new TextMessage({
                 role: MessageRole.Assistant,
-                content: value.generateCopilotResponse.status.details?.guardrailsReason || "",
+                content: guardrailsReason,
               }),
             ];
+
+            // Trace guardrails validation failure
+            const guardrailsError = new CopilotKitError({
+              message: `Guardrails validation failed: ${guardrailsReason}`,
+              code: CopilotKitErrorCode.MISUSE,
+            });
+            await traceUIError(guardrailsError, {
+              statusReason: value.generateCopilotResponse.status.reason,
+              statusDetails: value.generateCopilotResponse.status.details,
+            });
+
             setMessages([...previousMessages, ...newMessages]);
+            break;
+          }
+
+          // Handle UNKNOWN_ERROR failures (like authentication errors) by routing to banner error system
+          if (
+            value.generateCopilotResponse.status?.__typename === "FailedResponseStatus" &&
+            value.generateCopilotResponse.status.reason === "UNKNOWN_ERROR"
+          ) {
+            const errorMessage =
+              value.generateCopilotResponse.status.details?.description ||
+              "An unknown error occurred";
+
+            // Create a structured CopilotKitError and route to banner system
+            const structuredError = new CopilotKitError({
+              message: errorMessage,
+              code: CopilotKitErrorCode.NETWORK_ERROR,
+            });
+
+            // Display the error in the banner
+            setBannerError(structuredError);
+
+            // Trace the error for debugging/observability
+            await traceUIError(structuredError, {
+              statusReason: value.generateCopilotResponse.status.reason,
+              statusDetails: value.generateCopilotResponse.status.details,
+            });
+
+            // Stop processing and break from the loop
+            setIsLoading(false);
             break;
           }
 

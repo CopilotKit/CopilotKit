@@ -46,6 +46,7 @@ export enum CopilotKitErrorCode {
   AGENT_NOT_FOUND = "AGENT_NOT_FOUND",
   API_NOT_FOUND = "API_NOT_FOUND",
   REMOTE_ENDPOINT_NOT_FOUND = "REMOTE_ENDPOINT_NOT_FOUND",
+  AUTHENTICATION_ERROR = "AUTHENTICATION_ERROR",
   MISUSE = "MISUSE",
   UNKNOWN = "UNKNOWN",
   VERSION_MISMATCH = "VERSION_MISMATCH",
@@ -62,14 +63,14 @@ export const ERROR_CONFIG = {
   [CopilotKitErrorCode.NETWORK_ERROR]: {
     statusCode: 503,
     troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#i-am-getting-a-network-errors--api-not-found`,
-    visibility: ErrorVisibility.TOAST,
-    severity: Severity.INFO,
+    visibility: ErrorVisibility.BANNER,
+    severity: Severity.CRITICAL,
   },
   [CopilotKitErrorCode.NOT_FOUND]: {
     statusCode: 404,
     troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#i-am-getting-a-network-errors--api-not-found`,
-    visibility: ErrorVisibility.TOAST,
-    severity: Severity.INFO,
+    visibility: ErrorVisibility.BANNER,
+    severity: Severity.CRITICAL,
   },
   [CopilotKitErrorCode.AGENT_NOT_FOUND]: {
     statusCode: 500,
@@ -89,6 +90,12 @@ export const ERROR_CONFIG = {
     visibility: ErrorVisibility.BANNER,
     severity: Severity.CRITICAL,
   },
+  [CopilotKitErrorCode.AUTHENTICATION_ERROR]: {
+    statusCode: 401,
+    troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#authentication-errors`,
+    visibility: ErrorVisibility.BANNER,
+    severity: Severity.CRITICAL,
+  },
   [CopilotKitErrorCode.MISUSE]: {
     statusCode: 400,
     troubleshootingUrl: null,
@@ -98,7 +105,7 @@ export const ERROR_CONFIG = {
   [CopilotKitErrorCode.UNKNOWN]: {
     statusCode: 500,
     visibility: ErrorVisibility.TOAST,
-    severity: Severity.INFO,
+    severity: Severity.CRITICAL,
   },
   [CopilotKitErrorCode.CONFIGURATION_ERROR]: {
     statusCode: 400,
@@ -298,22 +305,19 @@ export class CopilotKitAgentDiscoveryError extends CopilotKitError {
     const { agentName, availableAgents } = params;
     const code = CopilotKitErrorCode.AGENT_NOT_FOUND;
 
-    let message = "Failed to find any agents.";
-    const configMessage = "Please verify the agent name exists and is properly configured.";
     const seeMore = getSeeMoreMarkdown(ERROR_CONFIG[code].troubleshootingUrl);
+    let message;
 
     if (availableAgents.length) {
-      message = agentName
-        ? `Failed to find agent '${agentName}'. ${configMessage}`
-        : `Failed to find agent. ${configMessage}`;
+      const agentList = availableAgents.map((agent) => agent.name).join(", ");
 
-      const bulletList = availableAgents
-        .map((agent) => `• ${agent.name} (ID: \`${agent.id}\`)`)
-        .join("\n");
-
-      message += `\n\nThe available agents are:\n\n${bulletList}\n\n${seeMore}`;
+      if (agentName) {
+        message = `Agent '${agentName}' was not found. Available agents are: ${agentList}. Please verify the agent name in your configuration and ensure it matches one of the available agents.\n\n${seeMore}`;
+      } else {
+        message = `The requested agent was not found. Available agents are: ${agentList}. Please verify the agent name in your configuration and ensure it matches one of the available agents.\n\n${seeMore}`;
+      }
     } else {
-      message += `\n\n${seeMore}`;
+      message = `${agentName ? `Agent '${agentName}'` : "The requested agent"} was not found. Please set up at least one agent before proceeding. ${seeMore}`;
     }
 
     super({ message, code });
@@ -388,11 +392,11 @@ export class ResolvedCopilotKitError extends CopilotKitError {
             : new CopilotKitApiDiscoveryError({ message, url });
         default:
           resolvedCode = CopilotKitErrorCode.UNKNOWN;
-          super({ message, code: resolvedCode, visibility: ErrorVisibility.BANNER });
+          break;
       }
-    } else {
-      super({ message, code: resolvedCode });
     }
+
+    super({ message, code: resolvedCode });
     this.name = ERROR_NAMES.RESOLVED_COPILOT_KIT_ERROR;
   }
 }

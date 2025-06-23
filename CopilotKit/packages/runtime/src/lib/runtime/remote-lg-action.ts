@@ -19,9 +19,28 @@ import { CustomEventNames, LangGraphEventTypes } from "../../agents/langgraph/ev
 import telemetry from "../telemetry-client";
 import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 import { MetaEventName } from "../../graphql/types/meta-events.type";
-import { parseJson, CopilotKitMisuseError } from "@copilotkit/shared";
+import {
+  parseJson,
+  CopilotKitMisuseError,
+  CopilotKitLowLevelError,
+  CopilotKitError,
+} from "@copilotkit/shared";
 import { RemoveMessage } from "@langchain/core/messages";
 import { RETRY_CONFIG, isRetryableError, sleep, calculateDelay } from "./retry-utils";
+import { generateHelpfulErrorMessage } from "../streaming";
+
+// Utility to determine if an error is a user configuration issue vs system error
+export function isUserConfigurationError(error: any): boolean {
+  return (
+    (error instanceof CopilotKitError || error instanceof CopilotKitLowLevelError) &&
+    (error.code === "NETWORK_ERROR" ||
+      error.code === "AUTHENTICATION_ERROR" ||
+      error.statusCode === 401 ||
+      error.statusCode === 403 ||
+      error.message?.toLowerCase().includes("authentication") ||
+      error.message?.toLowerCase().includes("api key"))
+  );
+}
 
 type State = Record<string, any>;
 
@@ -128,6 +147,15 @@ export async function execute(args: ExecutionArgs): Promise<ReadableStream<Uint8
             See more: https://docs.copilotkit.ai/troubleshooting/common-issues`,
         });
       } else {
+        // Preserve already structured CopilotKit errors with semantic information
+        if (
+          lastError instanceof CopilotKitError ||
+          lastError instanceof CopilotKitLowLevelError ||
+          (lastError instanceof Error && lastError.name && lastError.name.includes("CopilotKit"))
+        ) {
+          throw lastError; // Re-throw to preserve semantic information and visibility settings
+        }
+
         throw new CopilotKitMisuseError({
           message: `
             The LangGraph client threw unhandled error ${lastError}.
@@ -341,7 +369,43 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       if (!["events", "values", "error", "updates"].includes(streamResponseChunk.event)) continue;
 
       if (streamResponseChunk.event === "error") {
-        throw new Error(`Error event thrown: ${streamResponseChunk.data.message}`);
+        const errorData = streamResponseChunk.data;
+
+        // Check if this is a structured error from our Python agent
+        if (errorData && typeof errorData === "object" && "error_details" in errorData) {
+          const errorDetails = (errorData as any).error_details;
+
+          // Create a structured error with preserved semantic information
+          const preservedError = new CopilotKitLowLevelError({
+            error: new Error(errorDetails.message),
+            url: "langgraph platform agent",
+            message: `${errorDetails.type}: ${errorDetails.message}`,
+          });
+
+          // Add additional error context
+          if (errorDetails.status_code) {
+            (preservedError as any).statusCode = errorDetails.status_code;
+          }
+          if (errorDetails.response_data) {
+            (preservedError as any).responseData = errorDetails.response_data;
+          }
+          (preservedError as any).agentName = errorDetails.agent_name;
+          (preservedError as any).originalErrorType = errorDetails.type;
+
+          throw preservedError;
+        }
+
+        // Fallback for generic error messages
+        const helpfulMessage = generateHelpfulErrorMessage(
+          new Error(errorData.message),
+          "LangGraph Platform agent",
+        );
+
+        throw new CopilotKitLowLevelError({
+          error: new Error(errorData.message),
+          url: "langgraph platform agent",
+          message: helpfulMessage,
+        });
       }
 
       // Force event type, as data is not properly defined on the LG side.
@@ -507,11 +571,29 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
 
     return Promise.resolve();
   } catch (e) {
-    logger.error(e);
+    // Distinguish between user errors and system errors for logging
+    if (isUserConfigurationError(e)) {
+      // Log user errors at debug level to reduce noise
+      logger.debug({ error: e.message, code: e.code }, "User configuration error");
+    } else {
+      // Log actual system errors at error level
+      logger.error(e);
+    }
+
     telemetry.capture("oss.runtime.agent_execution_stream_errored", {
       ...streamInfo,
       error: e.message,
     });
+
+    // Re-throw CopilotKit errors so they can be handled properly at higher levels
+    if (
+      e instanceof CopilotKitError ||
+      e instanceof CopilotKitLowLevelError ||
+      (e instanceof Error && e.name && e.name.includes("CopilotKit"))
+    ) {
+      throw e;
+    }
+
     return Promise.resolve();
   }
 }

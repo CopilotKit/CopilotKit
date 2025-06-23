@@ -244,7 +244,6 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
             eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
           }
         } catch (error) {
-          console.error("[OpenAI] Error processing stream:", error);
           throw error;
         }
 
