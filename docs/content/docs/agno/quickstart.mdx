@@ -216,7 +216,7 @@ Before you begin, you'll need the following:
                 CopilotKit requires a Copilot Runtime endpoint to safely communicate with your agent. This can be served
                 anywhere that Node.js can run, but for this example we'll just use Next.js.
 
-                ```ts title="api/copilotkit/route.ts"
+                ```ts title="app/api/copilotkit/route.ts"
                 import {
                   CopilotRuntime,
                   ExperimentalEmptyAdapter,
@@ -271,7 +271,7 @@ Before you begin, you'll need the following:
                         /* [!code highlight:7] */
                         <CopilotKit 
                           runtimeUrl="/api/copilotkit" 
-                          agentName="agno_agent"
+                          agent="agno_agent"
                         >
                           {children}
                         </CopilotKit>
