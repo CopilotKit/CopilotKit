@@ -29,6 +29,7 @@ import {
 } from "./utils";
 
 import { randomId, randomUUID } from "@copilotkit/shared";
+import { convertServiceAdapterError } from "../shared";
 
 const DEFAULT_MODEL = "claude-3-5-sonnet-latest";
 
@@ -220,15 +221,13 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
             }
           }
         } catch (error) {
-          console.error("[Anthropic] Error processing stream:", error);
-          throw error;
+          throw convertServiceAdapterError(error, "Anthropic");
         }
 
         eventStream$.complete();
       });
     } catch (error) {
-      console.error("[Anthropic] Error during API call:", error);
-      throw error;
+      throw convertServiceAdapterError(error, "Anthropic");
     }
 
     return {

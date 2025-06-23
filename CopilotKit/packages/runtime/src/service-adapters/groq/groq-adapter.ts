@@ -27,6 +27,7 @@ import {
   limitMessagesToTokenCount,
 } from "../openai/utils";
 import { randomUUID } from "@copilotkit/shared";
+import { convertServiceAdapterError } from "../shared";
 
 const DEFAULT_MODEL = "llama-3.3-70b-versatile";
 
@@ -94,76 +95,85 @@ export class GroqAdapter implements CopilotServiceAdapter {
         function: { name: forwardedParameters.toolChoiceFunctionName },
       };
     }
-    const stream = await this.groq.chat.completions.create({
-      model: model,
-      stream: true,
-      messages: openaiMessages as unknown as ChatCompletionMessageParam[],
-      ...(tools.length > 0 && { tools }),
-      ...(forwardedParameters?.maxTokens && {
-        max_tokens: forwardedParameters.maxTokens,
-      }),
-      ...(forwardedParameters?.stop && { stop: forwardedParameters.stop }),
-      ...(toolChoice && { tool_choice: toolChoice }),
-      ...(this.disableParallelToolCalls && { parallel_tool_calls: false }),
-      ...(forwardedParameters?.temperature && { temperature: forwardedParameters.temperature }),
-    });
+    let stream;
+    try {
+      stream = await this.groq.chat.completions.create({
+        model: model,
+        stream: true,
+        messages: openaiMessages as unknown as ChatCompletionMessageParam[],
+        ...(tools.length > 0 && { tools }),
+        ...(forwardedParameters?.maxTokens && {
+          max_tokens: forwardedParameters.maxTokens,
+        }),
+        ...(forwardedParameters?.stop && { stop: forwardedParameters.stop }),
+        ...(toolChoice && { tool_choice: toolChoice }),
+        ...(this.disableParallelToolCalls && { parallel_tool_calls: false }),
+        ...(forwardedParameters?.temperature && { temperature: forwardedParameters.temperature }),
+      });
+    } catch (error) {
+      throw convertServiceAdapterError(error, "Groq");
+    }
 
     eventSource.stream(async (eventStream$) => {
       let mode: "function" | "message" | null = null;
       let currentMessageId: string;
       let currentToolCallId: string;
 
-      for await (const chunk of stream) {
-        const toolCall = chunk.choices[0].delta.tool_calls?.[0];
-        const content = chunk.choices[0].delta.content;
+      try {
+        for await (const chunk of stream) {
+          const toolCall = chunk.choices[0].delta.tool_calls?.[0];
+          const content = chunk.choices[0].delta.content;
 
-        // When switching from message to function or vice versa,
-        // send the respective end event.
-        // If toolCall?.id is defined, it means a new tool call starts.
-        if (mode === "message" && toolCall?.id) {
-          mode = null;
-          eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
-        } else if (mode === "function" && (toolCall === undefined || toolCall?.id)) {
-          mode = null;
-          eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
-        }
+          // When switching from message to function or vice versa,
+          // send the respective end event.
+          // If toolCall?.id is defined, it means a new tool call starts.
+          if (mode === "message" && toolCall?.id) {
+            mode = null;
+            eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
+          } else if (mode === "function" && (toolCall === undefined || toolCall?.id)) {
+            mode = null;
+            eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
+          }
 
-        // If we send a new message type, send the appropriate start event.
-        if (mode === null) {
-          if (toolCall?.id) {
-            mode = "function";
-            currentToolCallId = toolCall!.id;
-            eventStream$.sendActionExecutionStart({
-              actionExecutionId: currentToolCallId,
-              actionName: toolCall!.function!.name,
-              parentMessageId: chunk.id,
+          // If we send a new message type, send the appropriate start event.
+          if (mode === null) {
+            if (toolCall?.id) {
+              mode = "function";
+              currentToolCallId = toolCall!.id;
+              eventStream$.sendActionExecutionStart({
+                actionExecutionId: currentToolCallId,
+                actionName: toolCall!.function!.name,
+                parentMessageId: chunk.id,
+              });
+            } else if (content) {
+              mode = "message";
+              currentMessageId = chunk.id;
+              eventStream$.sendTextMessageStart({ messageId: currentMessageId });
+            }
+          }
+
+          // send the content events
+          if (mode === "message" && content) {
+            eventStream$.sendTextMessageContent({
+              messageId: currentMessageId,
+              content,
             });
-          } else if (content) {
-            mode = "message";
-            currentMessageId = chunk.id;
-            eventStream$.sendTextMessageStart({ messageId: currentMessageId });
+          } else if (mode === "function" && toolCall?.function?.arguments) {
+            eventStream$.sendActionExecutionArgs({
+              actionExecutionId: currentToolCallId,
+              args: toolCall.function.arguments,
+            });
           }
         }
 
-        // send the content events
-        if (mode === "message" && content) {
-          eventStream$.sendTextMessageContent({
-            messageId: currentMessageId,
-            content,
-          });
-        } else if (mode === "function" && toolCall?.function?.arguments) {
-          eventStream$.sendActionExecutionArgs({
-            actionExecutionId: currentToolCallId,
-            args: toolCall.function.arguments,
-          });
+        // send the end events
+        if (mode === "message") {
+          eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
+        } else if (mode === "function") {
+          eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
         }
-      }
-
-      // send the end events
-      if (mode === "message") {
-        eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
-      } else if (mode === "function") {
-        eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
+      } catch (error) {
+        throw convertServiceAdapterError(error, "Groq");
       }
 
       eventStream$.complete();

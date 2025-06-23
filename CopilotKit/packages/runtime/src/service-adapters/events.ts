@@ -1,39 +1,32 @@
 import {
   Action,
-  randomId,
   CopilotKitError,
   CopilotKitErrorCode,
   CopilotKitLowLevelError,
+  ensureStructuredError,
+  randomId,
   Severity,
 } from "@copilotkit/shared";
+import { plainToInstance } from "class-transformer";
 import {
-  of,
+  catchError,
   concat,
-  scan,
   concatMap,
-  ReplaySubject,
-  Subject,
+  EMPTY,
   firstValueFrom,
   from,
-  catchError,
-  EMPTY,
-  BehaviorSubject,
+  of,
+  ReplaySubject,
+  scan,
+  Subject,
 } from "rxjs";
-import { streamLangChainResponse } from "./langchain/utils";
-import { GuardrailsResult } from "../graphql/types/guardrails-result.type";
-import telemetry from "../lib/telemetry-client";
-import { isRemoteAgentAction } from "../lib/runtime/remote-actions";
 import { ActionInput } from "../graphql/inputs/action.input";
-import {
-  ActionExecutionMessage,
-  ResultMessage,
-  TextMessage,
-  Message,
-} from "../graphql/types/converted";
-import { plainToInstance } from "class-transformer";
-import { MessageRole } from "../graphql/types/enums";
-import { parseJson, tryMap } from "@copilotkit/shared";
+import { ActionExecutionMessage, ResultMessage, TextMessage } from "../graphql/types/converted";
+import { GuardrailsResult } from "../graphql/types/guardrails-result.type";
+import { isRemoteAgentAction } from "../lib/runtime/remote-actions";
 import { generateHelpfulErrorMessage } from "../lib/streaming";
+import telemetry from "../lib/telemetry-client";
+import { streamLangChainResponse } from "./langchain/utils";
 
 export enum RuntimeEventTypes {
   TextMessageStart = "TextMessageStart",
@@ -275,8 +268,8 @@ export class RuntimeEventSource {
     threadId: string;
   }) {
     this.callback(this.eventStream$).catch((error) => {
-      // Convert streaming errors to structured errors
-      const structuredError = convertStreamingErrorToStructured(error);
+      // Convert streaming errors to structured errors, but preserve already structured ones
+      const structuredError = ensureStructuredError(error, convertStreamingErrorToStructured);
       this.eventStream$.error(structuredError);
       this.eventStream$.complete();
     });
@@ -335,8 +328,11 @@ export class RuntimeEventSource {
           telemetry.capture("oss.runtime.server_action_executed", {});
           return concat(of(eventWithState.event!), toolCallEventStream$).pipe(
             catchError((error) => {
-              // Convert streaming errors to structured errors and send as action result
-              const structuredError = convertStreamingErrorToStructured(error);
+              // Convert streaming errors to structured errors and send as action result, but preserve already structured ones
+              const structuredError = ensureStructuredError(
+                error,
+                convertStreamingErrorToStructured,
+              );
               toolCallEventStream$.sendActionExecutionResult({
                 actionExecutionId: eventWithState.actionExecutionId!,
                 actionName: eventWithState.action!.name,
@@ -433,10 +429,7 @@ async function executeAction(
       next: (event) => eventStream$.next(event),
       error: (err) => {
         // Preserve already structured CopilotKit errors, only convert unstructured errors
-        const structuredError =
-          err instanceof CopilotKitError || err instanceof CopilotKitLowLevelError
-            ? err
-            : convertStreamingErrorToStructured(err);
+        const structuredError = ensureStructuredError(err, convertStreamingErrorToStructured);
         eventStream$.sendActionExecutionResult({
           actionExecutionId,
           actionName: action.name,

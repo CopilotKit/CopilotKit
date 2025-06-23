@@ -425,6 +425,37 @@ export class UpgradeRequiredError extends ConfigurationError {
   }
 }
 
+/**
+ * Checks if an error is already a structured CopilotKit error.
+ * This utility centralizes the logic for detecting structured errors across the codebase.
+ *
+ * @param error - The error to check
+ * @returns true if the error is already structured, false otherwise
+ */
+export function isStructuredCopilotKitError(error: any): boolean {
+  return (
+    error instanceof CopilotKitError ||
+    error instanceof CopilotKitLowLevelError ||
+    (error?.name && error.name.includes("CopilotKit")) ||
+    error?.extensions?.code !== undefined // Check if it has our structured error properties
+  );
+}
+
+/**
+ * Returns the error as-is if it's already structured, otherwise converts it using the provided converter function.
+ * This utility centralizes the pattern of preserving structured errors while converting unstructured ones.
+ *
+ * @param error - The error to process
+ * @param converter - Function to convert unstructured errors to structured ones
+ * @returns The structured error
+ */
+export function ensureStructuredError<T extends CopilotKitError>(
+  error: any,
+  converter: (error: any) => T,
+): T | any {
+  return isStructuredCopilotKitError(error) ? error : converter(error);
+}
+
 interface VersionMismatchResponse {
   runtimeVersion?: string;
   runtimeClientGqlVersion: string;

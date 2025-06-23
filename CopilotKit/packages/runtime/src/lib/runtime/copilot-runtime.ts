@@ -28,6 +28,7 @@ import {
   CopilotTraceHandler,
   CopilotTraceEvent,
   CopilotRequestContext,
+  ensureStructuredError,
 } from "@copilotkit/shared";
 import {
   CopilotServiceAdapter,
@@ -748,9 +749,10 @@ please use an LLM adapter instead.`,
       if (error instanceof CopilotKitError) {
         structuredError = error;
       } else {
-        // Convert non-CopilotKitErrors to structured errors
-        console.error("Error getting response:", error);
-        structuredError = this.convertStreamingErrorToStructured(error);
+        // Convert non-CopilotKitErrors to structured errors, but preserve already structured ones
+        structuredError = ensureStructuredError(error, (err) =>
+          this.convertStreamingErrorToStructured(err),
+        );
       }
 
       // Trace the error
@@ -1244,10 +1246,9 @@ please use an LLM adapter instead.`,
             }
 
             // Preserve structured CopilotKit errors, only convert unstructured errors
-            const structuredError =
-              err instanceof CopilotKitError || err instanceof CopilotKitLowLevelError
-                ? err
-                : this.convertStreamingErrorToStructured(err);
+            const structuredError = ensureStructuredError(err, (error) =>
+              this.convertStreamingErrorToStructured(error),
+            );
 
             // Trace streaming errors
             await this.trace(
@@ -1355,12 +1356,9 @@ please use an LLM adapter instead.`,
       }
 
       // Ensure error is structured
-      let structuredError: CopilotKitError;
-      if (error instanceof CopilotKitError) {
-        structuredError = error;
-      } else {
-        structuredError = this.convertStreamingErrorToStructured(error);
-      }
+      const structuredError = ensureStructuredError(error, (err) =>
+        this.convertStreamingErrorToStructured(err),
+      );
 
       // Trace the agent error
       await this.trace(

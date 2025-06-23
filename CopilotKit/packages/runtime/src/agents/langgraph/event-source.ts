@@ -1,4 +1,4 @@
-import { CopilotKitError, CopilotKitLowLevelError } from "@copilotkit/shared";
+import { CopilotKitLowLevelError, isStructuredCopilotKitError } from "@copilotkit/shared";
 import { catchError, mergeMap, ReplaySubject, scan } from "rxjs";
 import { generateHelpfulErrorMessage } from "../../lib/streaming";
 import {
@@ -310,10 +310,7 @@ export class RemoteLangGraphEventSource {
       }),
       catchError((error) => {
         // If it's a structured CopilotKitError, re-throw it to be handled by the frontend error system
-        if (
-          error instanceof CopilotKitError ||
-          (error?.name && error.name.includes("CopilotKit"))
-        ) {
+        if (isStructuredCopilotKitError(error)) {
           throw error;
         }
 

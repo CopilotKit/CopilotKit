@@ -54,7 +54,11 @@ import telemetry from "../../lib/telemetry-client";
 import { randomId } from "@copilotkit/shared";
 import { AgentsResponse } from "../types/agents-response.type";
 import { LangGraphEventTypes } from "../../agents/langgraph/events";
-import { CopilotKitError, CopilotKitLowLevelError } from "@copilotkit/shared";
+import {
+  CopilotKitError,
+  CopilotKitLowLevelError,
+  isStructuredCopilotKitError,
+} from "@copilotkit/shared";
 
 const invokeGuardrails = async ({
   baseUrl,
@@ -257,12 +261,7 @@ export class CopilotResolver {
       });
     } catch (error) {
       // Catch structured CopilotKit errors at the main mutation level and re-throw as GraphQL errors
-      if (
-        error instanceof CopilotKitError ||
-        error instanceof CopilotKitLowLevelError ||
-        (error instanceof Error && error.name && error.name.includes("CopilotKit")) ||
-        (error as any)?.extensions?.visibility
-      ) {
+      if (isStructuredCopilotKitError(error) || (error as any)?.extensions?.visibility) {
         throw new GraphQLError(error.message || "Agent error occurred", {
           extensions: {
             ...(error as any).extensions,
@@ -271,7 +270,6 @@ export class CopilotResolver {
           },
         });
       }
-      console.log("🚨 Re-throwing non-CopilotKit error:", error);
       throw error; // Re-throw non-CopilotKit errors as-is
     }
 
@@ -707,6 +705,15 @@ export class CopilotResolver {
               responseStatus$.next(
                 new UnknownErrorResponse({
                   description: err.message || "Agent error occurred",
+                  // Include original error information for frontend to extract
+                  originalError: {
+                    code: err.code || err.extensions?.code,
+                    statusCode: err.statusCode || err.extensions?.statusCode,
+                    severity: err.severity || err.extensions?.severity,
+                    visibility: err.visibility || err.extensions?.visibility,
+                    originalErrorType: err.originalErrorType || err.extensions?.originalErrorType,
+                    extensions: err.extensions,
+                  },
                 }),
               );
               eventStreamSubscription?.unsubscribe();

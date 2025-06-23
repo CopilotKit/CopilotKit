@@ -1,5 +1,10 @@
 import { ReplaySubject } from "rxjs";
-import { CopilotKitLowLevelError, CopilotKitError, CopilotKitErrorCode } from "@copilotkit/shared";
+import {
+  CopilotKitLowLevelError,
+  CopilotKitError,
+  CopilotKitErrorCode,
+  ensureStructuredError,
+} from "@copilotkit/shared";
 import { errorConfig, getFallbackMessage } from "./error-messages";
 
 export async function writeJsonLineResponseToEventStream<T>(
@@ -54,10 +59,7 @@ export async function writeJsonLineResponseToEventStream<T>(
     }
   } catch (error) {
     // Preserve already structured CopilotKit errors, only convert unstructured errors
-    const structuredError =
-      error instanceof CopilotKitError || error instanceof CopilotKitLowLevelError
-        ? error
-        : convertStreamingErrorToStructured(error);
+    const structuredError = ensureStructuredError(error, convertStreamingErrorToStructured);
     eventStream$.error(structuredError);
     return;
   }

@@ -491,11 +491,10 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             filterAdjacentAgentStateMessages(rawMessagesResponse),
           );
 
-          if (messages.length === 0) {
-            continue;
-          }
-
           newMessages = [];
+
+          // Handle error statuses BEFORE checking if there are messages
+          // (errors can come in chunks with no messages)
 
           // request failed, display error message and quit
           if (
@@ -535,10 +534,28 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               value.generateCopilotResponse.status.details?.description ||
               "An unknown error occurred";
 
-            // Create a structured CopilotKitError and route to banner system
+            // Try to extract original error information from the response details
+            const statusDetails = value.generateCopilotResponse.status.details;
+            const originalError = statusDetails?.originalError || statusDetails?.error;
+
+            // Extract structured error information if available (prioritize top-level over extensions)
+            const originalCode = originalError?.code || originalError?.extensions?.code;
+            const originalSeverity = originalError?.severity || originalError?.extensions?.severity;
+            const originalVisibility =
+              originalError?.visibility || originalError?.extensions?.visibility;
+
+            // Use the original error code if available, otherwise default to NETWORK_ERROR
+            let errorCode = CopilotKitErrorCode.NETWORK_ERROR;
+            if (originalCode && Object.values(CopilotKitErrorCode).includes(originalCode)) {
+              errorCode = originalCode;
+            }
+
+            // Create a structured CopilotKitError preserving original error information
             const structuredError = new CopilotKitError({
               message: errorMessage,
-              code: CopilotKitErrorCode.NETWORK_ERROR,
+              code: errorCode,
+              severity: originalSeverity,
+              visibility: originalVisibility,
             });
 
             // Display the error in the banner
@@ -548,6 +565,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             await traceUIError(structuredError, {
               statusReason: value.generateCopilotResponse.status.reason,
               statusDetails: value.generateCopilotResponse.status.details,
+              originalErrorCode: originalCode,
+              preservedStructure: !!originalCode,
             });
 
             // Stop processing and break from the loop
@@ -556,7 +575,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           }
 
           // add messages to the chat
-          else {
+          else if (messages.length > 0) {
             newMessages = [...messages];
 
             for (const message of messages) {
