@@ -46,7 +46,8 @@
         "coverage/**",
         "!.next/**",
         "!.next/cache/**"
-      ]
+      ],
+      "outputLogs": "errors-only"
     },
     "lint": {},
     "check-types": {

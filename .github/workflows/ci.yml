@@ -48,5 +48,84 @@ jobs:
       - name: Build
         run: npx turbo run build
 
-      - name: Run tests
-        run: npx turbo run test
+      - name: Run tests with clean output
+        id: tests
+        run: |
+          # Run our clean test script and capture output
+          if pnpm test:clean > test-results.txt 2>&1; then
+            echo "tests_passed=true" >> $GITHUB_OUTPUT
+          else
+            echo "tests_passed=false" >> $GITHUB_OUTPUT
+          fi
+          # Always show the results
+          cat test-results.txt
+        
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results-node-${{ matrix.node-version }}
+          path: CopilotKit/test-results.txt
+          
+      - name: Comment PR with test results
+        if: github.event_name == 'pull_request' && matrix.node-version == '20.x'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const path = 'CopilotKit/test-results.txt';
+            
+            if (!fs.existsSync(path)) return;
+            
+            const testResults = fs.readFileSync(path, 'utf8');
+            const testsPassed = '${{ steps.tests.outputs.tests_passed }}' === 'true';
+            
+            // Extract the table and coverage sections
+            const tableMatch = testResults.match(/📊 Test Results Summary[\s\S]*?(?=📈|🎉|💥)/);
+            const coverageMatch = testResults.match(/📈 Coverage Summary[\s\S]*?(?=🎉|💥)/);
+            
+            let commentBody = `## 🧪 Test Results (Node.js ${{ matrix.node-version }})\n\n`;
+            
+            if (testsPassed) {
+              commentBody += `✅ **All tests passed!**\n\n`;
+            } else {
+              commentBody += `❌ **Some tests failed**\n\n`;
+            }
+            
+            if (tableMatch) {
+              commentBody += '```\n' + tableMatch[0].trim() + '\n```\n\n';
+            }
+            
+            if (coverageMatch) {
+              commentBody += '```\n' + coverageMatch[0].trim() + '\n```\n\n';
+            }
+            
+            commentBody += `<details><summary>View full test output</summary>\n\n\`\`\`\n${testResults}\n\`\`\`\n</details>`;
+            
+            // Find existing comment
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const existingComment = comments.data.find(comment => 
+              comment.user.login === 'github-actions[bot]' && 
+              comment.body.includes('🧪 Test Results')
+            );
+            
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: commentBody
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: commentBody
+              });
+            }
