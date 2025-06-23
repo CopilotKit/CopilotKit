@@ -185,7 +185,11 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     await client.threads.get(threadId);
   } catch (error) {
     wasInitiatedWithExistingThread = false;
-    await client.threads.create({ threadId });
+    const threadMetadata = properties.threadMetadata as Record<string, any>;
+    await client.threads.create({ 
+      threadId,
+      metadata: threadMetadata 
+    });
   }
 
   let agentState = { values: {} };
