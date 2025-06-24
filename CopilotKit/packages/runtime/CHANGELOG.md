@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.9.2-next.10
+
+### Patch Changes
+
+- 20e8c3c: - fix(anthropic-adapter): resolve infinite loop caused by duplicate result messages
+  - @copilotkit/shared@1.9.2-next.10
+
 ## 1.9.2-next.9
 
 ### Patch Changes
