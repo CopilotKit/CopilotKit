@@ -1,0 +1,26 @@
+# CopilotKit Shared Dependencies Template for pip compatibility
+# Use this template for all Python agent examples 
+# Copy and modify as needed for project-specific dependencies
+
+# Core CopilotKit dependency - exact version
+copilotkit==0.1.49
+
+# LangChain ecosystem - exact versions from main SDK  
+langchain==0.3.21
+langgraph==0.4.8
+langsmith==0.3.18
+
+# OpenAI - compatible range with main SDK
+openai>=1.68.2,<2.0.0
+
+# FastAPI/Web framework - compatible ranges
+fastapi>=0.115.5,<1.0.0
+uvicorn>=0.29.0,<1.0.0
+
+# Utilities - compatible ranges
+python-dotenv>=1.0.0,<2.0.0
+
+# Project-specific dependencies should be added below
+# Examples:
+# crewai==0.118.0
+# tavily-python>=0.5.1,<1.0.0 

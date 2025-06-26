@@ -5,7 +5,6 @@ description: Render your agent's behavior with custom UI components.
 ---
 
 import { CTACards } from "@/components/react/cta-cards";
-import { WrenchIcon, BotIcon } from "lucide-react";
 
 <Frame>
   <img
@@ -38,14 +37,14 @@ There are two main variants of Generative UI.
   columns={2}
   cards={[
     {
-      icon: BotIcon,
+      iconKey: "bot",
       title: "Agentic",
       description:
         "Render your agent's state, progress, and outputs with custom UI components.",
       href: "/crewai-flows/generative-ui/agentic",
     },
     {
-      icon: WrenchIcon,
+      iconKey: "wrench",
       title: "Tool-based",
       description: "Render your agent's tool calls with custom UI components.",
       href: "/crewai-flows/generative-ui/tool-based",

@@ -101,7 +101,7 @@ import { Message } from "@copilotkit/runtime-client-gql";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
 import { useToast } from "../components/toast/toast-provider";
 import { useCopilotRuntimeClient } from "./use-copilot-runtime-client";
-import { parseJson } from "@copilotkit/shared";
+import { parseJson, CopilotKitAgentDiscoveryError } from "@copilotkit/shared";
 
 interface UseCoagentOptionsBase {
   /**
@@ -214,7 +214,7 @@ export type HintFunction = (params: HintFunctionParams) => Message | undefined;
 export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentReturnType<T> {
   const generalContext = useCopilotContext();
   const { availableAgents } = generalContext;
-  const { addToast } = useToast();
+  const { setBannerError } = useToast();
   const lastLoadedThreadId = useRef<string>();
   const lastLoadedState = useRef<any>();
 
@@ -223,7 +223,13 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     if (availableAgents?.length && !availableAgents.some((a) => a.name === name)) {
       const message = `(useCoAgent): Agent "${name}" not found. Make sure the agent exists and is properly configured.`;
       console.warn(message);
-      addToast({ type: "warning", message });
+
+      // Route to banner instead of toast for consistency
+      const agentError = new CopilotKitAgentDiscoveryError({
+        agentName: name,
+        availableAgents: availableAgents.map((a) => ({ name: a.name, id: a.id })),
+      });
+      setBannerError(agentError);
     }
   }, [availableAgents]);
 
@@ -241,6 +247,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     publicApiKey: copilotApiConfig.publicApiKey,
     headers,
     credentials: copilotApiConfig.credentials,
+    showDevConsole: context.showDevConsole,
   });
 
   // if we manage state internally, we need to provide a function to set the state
@@ -270,6 +277,11 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
         threadId,
         agentName: name,
       });
+
+      // Runtime client handles errors automatically via handleGQLErrors
+      if (result.error) {
+        return; // Don't process data on error
+      }
 
       const newState = result.data?.loadAgentState?.state;
       if (newState === lastLoadedState.current) return;

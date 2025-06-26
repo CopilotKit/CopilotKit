@@ -29,6 +29,7 @@ import {
 } from "./utils";
 
 import { randomId, randomUUID } from "@copilotkit/shared";
+import { convertServiceAdapterError } from "../shared";
 
 const DEFAULT_MODEL = "claude-3-5-sonnet-latest";
 
@@ -58,6 +59,36 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
     if (params?.model) {
       this.model = params.model;
     }
+  }
+
+  private shouldGenerateFallbackResponse(messages: Anthropic.Messages.MessageParam[]): boolean {
+    if (messages.length === 0) return false;
+
+    const lastMessage = messages[messages.length - 1];
+
+    // Check if the last message is a tool result
+    const endsWithToolResult =
+      lastMessage.role === "user" &&
+      Array.isArray(lastMessage.content) &&
+      lastMessage.content.some((content: any) => content.type === "tool_result");
+
+    // Also check if we have a recent pattern of user message -> assistant tool use -> user tool result
+    // This indicates a completed action that might not need a response
+    if (messages.length >= 3 && endsWithToolResult) {
+      const lastThree = messages.slice(-3);
+      const hasRecentToolPattern =
+        lastThree[0]?.role === "user" && // Initial user message
+        lastThree[1]?.role === "assistant" && // Assistant tool use
+        Array.isArray(lastThree[1].content) &&
+        lastThree[1].content.some((content: any) => content.type === "tool_use") &&
+        lastThree[2]?.role === "user" && // Tool result
+        Array.isArray(lastThree[2].content) &&
+        lastThree[2].content.some((content: any) => content.type === "tool_result");
+
+      return hasRecentToolPattern;
+    }
+
+    return endsWithToolResult;
   }
 
   async process(
@@ -94,24 +125,30 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
     }
 
     // Step 2: Map each message to an Anthropic message, eliminating invalid tool_results
+    const processedToolResultIds = new Set<string>();
     const anthropicMessages = messages
       .map((message) => {
-        // For tool results, only include if they match a valid tool_use ID
+        // For tool results, only include if they match a valid tool_use ID AND haven't been processed
         if (message.isResultMessage()) {
           // Skip if there's no corresponding tool_use
           if (!validToolUseIds.has(message.actionExecutionId)) {
             return null; // Will be filtered out later
           }
 
-          // Remove this ID from valid IDs so we don't process duplicates
-          validToolUseIds.delete(message.actionExecutionId);
+          // Skip if we've already processed a result for this tool_use ID
+          if (processedToolResultIds.has(message.actionExecutionId)) {
+            return null; // Will be filtered out later
+          }
+
+          // Mark this tool result as processed
+          processedToolResultIds.add(message.actionExecutionId);
 
           return {
             role: "user",
             content: [
               {
                 type: "tool_result",
-                content: message.result,
+                content: message.result || "Action completed successfully",
                 tool_use_id: message.actionExecutionId,
               },
             ],
@@ -121,11 +158,25 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
         // For non-tool-result messages, convert normally
         return convertMessageToAnthropicMessage(message);
       })
-      .filter(Boolean) as Anthropic.Messages.MessageParam[]; // Explicitly cast after filtering nulls
+      .filter(Boolean) // Remove nulls
+      .filter((msg) => {
+        // Filter out assistant messages with empty text content
+        if (msg.role === "assistant" && Array.isArray(msg.content)) {
+          const hasEmptyTextOnly =
+            msg.content.length === 1 &&
+            msg.content[0].type === "text" &&
+            (!(msg.content[0] as any).text || (msg.content[0] as any).text.trim() === "");
+
+          // Keep messages that have tool_use or non-empty text
+          return !hasEmptyTextOnly;
+        }
+        return true;
+      }) as Anthropic.Messages.MessageParam[];
 
     // Apply token limits
     const limitedMessages = limitMessagesToTokenCount(anthropicMessages, tools, model);
 
+    // We'll check if we need a fallback response after seeing what Anthropic returns
     // We skip grouping by role since we've already ensured uniqueness of tool_results
 
     let toolChoice: any = forwardedParameters?.toolChoice;
@@ -158,12 +209,14 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
         let currentMessageId = randomId();
         let currentToolCallId = randomId();
         let filterThinkingTextBuffer = new FilterThinkingTextBuffer();
+        let hasReceivedContent = false;
 
         try {
           for await (const chunk of stream as AsyncIterable<any>) {
             if (chunk.type === "message_start") {
               currentMessageId = chunk.message.id;
             } else if (chunk.type === "content_block_start") {
+              hasReceivedContent = true;
               if (chunk.content_block.type === "text") {
                 didOutputText = false;
                 filterThinkingTextBuffer.reset();
@@ -207,15 +260,34 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
             }
           }
         } catch (error) {
-          console.error("[Anthropic] Error processing stream:", error);
-          throw error;
+          throw convertServiceAdapterError(error, "Anthropic");
+        }
+
+        // Generate fallback response only if Anthropic produced no content
+        if (!hasReceivedContent && this.shouldGenerateFallbackResponse(limitedMessages)) {
+          // Extract the tool result content for a more contextual response
+          let fallbackContent = "Task completed successfully.";
+          const lastMessage = limitedMessages[limitedMessages.length - 1];
+          if (lastMessage?.role === "user" && Array.isArray(lastMessage.content)) {
+            const toolResult = lastMessage.content.find((c: any) => c.type === "tool_result");
+            if (toolResult?.content && toolResult.content !== "Action completed successfully") {
+              fallbackContent = toolResult.content;
+            }
+          }
+
+          currentMessageId = randomId();
+          eventStream$.sendTextMessageStart({ messageId: currentMessageId });
+          eventStream$.sendTextMessageContent({
+            messageId: currentMessageId,
+            content: fallbackContent,
+          });
+          eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
         }
 
         eventStream$.complete();
       });
     } catch (error) {
-      console.error("[Anthropic] Error during API call:", error);
-      throw error;
+      throw convertServiceAdapterError(error, "Anthropic");
     }
 
     return {

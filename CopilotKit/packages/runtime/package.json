@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.8.14-next.4",
+  "version": "1.9.2-next.10",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -50,10 +50,12 @@
     "@ag-ui/client": "0.0.28",
     "@ag-ui/core": "0.0.28",
     "@ag-ui/encoder": "0.0.28",
+    "@ag-ui/langgraph": "0.0.4",
     "@ag-ui/proto": "0.0.28",
     "@anthropic-ai/sdk": "^0.27.3",
     "@copilotkit/shared": "workspace:*",
     "@graphql-yoga/plugin-defer-stream": "^3.3.1",
+    "@langchain/aws": "^0.1.9",
     "@langchain/community": "^0.3.29",
     "@langchain/core": "^0.3.38",
     "@langchain/google-gauth": "^0.1.0",
@@ -72,7 +74,7 @@
     "pino": "^9.2.0",
     "pino-pretty": "^11.2.1",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1",
+    "rxjs": "7.8.1",
     "type-graphql": "2.0.0-rc.1",
     "zod": "^3.23.3"
   },

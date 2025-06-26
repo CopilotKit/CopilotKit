@@ -5363,4 +5363,4 @@ crewai = ["crewai"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.13"
-content-hash = "f22098b5f1379a7e08995ad25d742285de8539f70574eba32e1a5dc0e382c78f"
+content-hash = "2309096a25dfbae039f0dcde47d0b2467c9ed1c0e65b0fedabfb25a55b5db394"

@@ -1,5 +1,173 @@
 # @copilotkit/runtime
 
+## 1.9.2-next.10
+
+### Patch Changes
+
+- 20e8c3c: - fix(anthropic-adapter): resolve infinite loop caused by duplicate result messages
+  - @copilotkit/shared@1.9.2-next.10
+
+## 1.9.2-next.9
+
+### Patch Changes
+
+- 1d1c51d: - feat: surface all errors in structured format
+- Updated dependencies [1d1c51d]
+  - @copilotkit/shared@1.9.2-next.9
+
+## 1.9.2-next.8
+
+### Patch Changes
+
+- 9b986ba: - fix: use active interrupt from thread instead of saving to global state
+  - @copilotkit/shared@1.9.2-next.8
+
+## 1.9.2-next.7
+
+### Patch Changes
+
+- 54b62f0: - fix: add default schema keys for input and output of agui langgraph
+  - @copilotkit/shared@1.9.2-next.7
+
+## 1.9.2-next.6
+
+### Patch Changes
+
+- 4fd92d1: - fix: enable resolving of langgraph agents when cpk starts
+  - @copilotkit/shared@1.9.2-next.6
+
+## 1.9.2-next.5
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.5
+
+## 1.9.2-next.4
+
+### Patch Changes
+
+- 9169ad7: - feat: add onTrace handler for runtime and UI error/event tracking
+- 9169ad7: - feat: add onTrace handler for comprehensive debugging and observability - Add CopilotTraceEvent interfaces with rich debugging context, implement runtime-side tracing with publicApiKey gating, add UI-side error tracing, include comprehensive test coverage, and fix tsup build config to exclude test files
+  - fix: extract publicApiKey for all requests + trace GraphQL errors
+- Updated dependencies [9169ad7]
+- Updated dependencies [9169ad7]
+  - @copilotkit/shared@1.9.2-next.4
+
+## 1.9.2-next.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.3
+
+## 1.9.2-next.2
+
+### Patch Changes
+
+- 9b81464: - fix: use latest langgraph agui
+  - @copilotkit/shared@1.9.2-next.2
+
+## 1.9.2-next.1
+
+### Patch Changes
+
+- f295375: - fix: remove all agents as tools when there is an active agent session
+  - fix formatting
+  - @copilotkit/shared@1.9.2-next.1
+
+## 1.9.2-next.0
+
+### Patch Changes
+
+- 10345a5: - feat: structured error visibility system for streaming errors
+- Updated dependencies [10345a5]
+  - @copilotkit/shared@1.9.2-next.0
+
+## 1.9.1
+
+### Patch Changes
+
+- deaeca0: - feat: Add public key
+
+  Signed-off-by: Luis Valdes <luis@copilotkit.ai>
+
+- Updated dependencies [deaeca0]
+  - @copilotkit/shared@1.9.1
+
+## 1.9.1-next.0
+
+### Patch Changes
+
+- deaeca0: - feat: Add public key
+
+  Signed-off-by: Luis Valdes <luis@copilotkit.ai>
+
+- Updated dependencies [deaeca0]
+  - @copilotkit/shared@1.9.1-next.0
+
+## 1.9.0
+
+### Minor Changes
+
+- 8408d58: - feat: create copilotkit agui langgraph agent
+  - docs: replace remote endpoint with AGUI agent
+
+### Patch Changes
+
+- c120e07: - refactor(react-ui): pass full message to onThumbsUp and onThumbsDown handlers
+- 54cae30: - fix(react-core): allow custom toolChoice in forwardedParameters to override default
+  - fix: move react-dom to peerDependencies in @copilotkit/react-textarea
+  - feat: add amazon bedrock adapter support
+  - @copilotkit/shared@1.9.0
+
+## 1.9.0-next.2
+
+### Minor Changes
+
+- 8408d58: - feat: create copilotkit agui langgraph agent
+  - docs: replace remote endpoint with AGUI agent
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.0-next.2
+
+## 1.8.15-next.1
+
+### Patch Changes
+
+- 54cae30: - fix(react-core): allow custom toolChoice in forwardedParameters to override default
+  - fix: move react-dom to peerDependencies in @copilotkit/react-textarea
+  - feat: add amazon bedrock adapter support
+  - @copilotkit/shared@1.8.15-next.1
+
+## 1.8.15-next.0
+
+### Patch Changes
+
+- c120e07: - refactor(react-ui): pass full message to onThumbsUp and onThumbsDown handlers
+  - @copilotkit/shared@1.8.15-next.0
+
+## 1.8.14
+
+### Patch Changes
+
+- ddd4165: - fix(runtime): filter empty AIMessages in GoogleGenerativeAIAdapter
+  - fix(runtime): filter empty text messages in AnthropicAdapter
+- 9d33836: - fix: prepare cpk agui wiring for ag-ui langgraph support
+- 12b8ca8: - fix: fix cpk agui wiring for langgraph
+- ddd4165: - fix(runtime): filter empty AIMessages in GoogleGenerativeAIAdapter
+- 1af7333: - docs: updates ag-ui agent interface
+- Updated dependencies [34a78d8]
+  - @copilotkit/shared@1.8.14
+
+## 1.8.14-next.5
+
+### Patch Changes
+
+- ddd4165: - fix(runtime): filter empty AIMessages in GoogleGenerativeAIAdapter
+  - fix(runtime): filter empty text messages in AnthropicAdapter
+- ddd4165: - fix(runtime): filter empty AIMessages in GoogleGenerativeAIAdapter
+  - @copilotkit/shared@1.8.14-next.5
+
 ## 1.8.14-next.4
 
 ### Patch Changes

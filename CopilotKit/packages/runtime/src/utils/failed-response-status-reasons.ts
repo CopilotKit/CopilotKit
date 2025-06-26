@@ -37,12 +37,34 @@ export class UnknownErrorResponse extends FailedResponseStatus {
   reason = FailedResponseStatusReason.UNKNOWN_ERROR;
   declare details: {
     description?: string;
+    originalError?: {
+      code?: string;
+      statusCode?: number;
+      severity?: string;
+      visibility?: string;
+      originalErrorType?: string;
+      extensions?: any;
+    };
   };
 
-  constructor({ description }: { description?: string }) {
+  constructor({
+    description,
+    originalError,
+  }: {
+    description?: string;
+    originalError?: {
+      code?: string;
+      statusCode?: number;
+      severity?: string;
+      visibility?: string;
+      originalErrorType?: string;
+      extensions?: any;
+    };
+  }) {
     super();
     this.details = {
       description,
+      originalError,
     };
   }
 }

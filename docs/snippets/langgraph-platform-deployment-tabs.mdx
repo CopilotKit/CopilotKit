@@ -5,10 +5,20 @@
     <Callout type="info">
       You will need a [LangSmith account](https://smith.langchain.com) to use this method.
     </Callout>
-  
+
+    <Callout type="warning">
+      **Python agents only**: If you encounter a "No checkpointer set" error, prefix your command with `LANGGRAPH_API=true`:
+
+      ```bash
+      LANGGRAPH_API=true langgraph dev --host localhost --port 8000
+      ```
+
+      This tells your agent to run without a custom checkpointer, relying on LangGraph's built-in state management instead.
+    </Callout>
+
     ```bash
     # For Python 3.11 or above
-    langgraph dev --host localhost --port 8000 
+    langgraph dev --host localhost --port 8000
     ```
 
     ```bash
@@ -23,7 +33,15 @@
             If you cannot run the `langgraph dev` command, or encounter any issues with it, try this one instead:
             `uvx --refresh --from "langgraph-cli[inmem]" --with-editable . --python 3.12 langgraph dev`
         </Accordion>
+        <Accordion title='"No checkpointer set" error with langgraph dev'>
+          Python agents automatically detect their runtime environment, but sometimes need explicit guidance:
+
+          - **With `langgraph dev`**: Set `LANGGRAPH_API=true` to disable custom checkpointer
+          - **With local FastAPI**: Don't set this flag; uses MemorySaver automatically
+          - **JavaScript agents**: Not affected by this issue
+        </Accordion>
     </Accordions>
+
   </Tab>
 
   <Tab value="Self hosted (FastAPI)">
@@ -36,7 +54,7 @@
     ```plaintext title=".env"
     LANGSMITH_API_KEY=your_langsmith_api_key
     ```
-    
+
     2. Next, use CopilotKit's FastAPI integration to serve your LangGraph agent.
 
     ```python title="server.py"
@@ -46,7 +64,7 @@
     from copilotkit.integrations.fastapi import add_fastapi_endpoint # [!code highlight]
     from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent # [!code highlight]
     from sample_agent.agent import graph # the coagents-starter path, replace this if its different # [!code highlight]
-    
+
     from dotenv import load_dotenv
     load_dotenv()
 
@@ -82,6 +100,7 @@
         )
 
     ```
+
   </Tab>
 
   <Tab value="LangGraph Platform">
@@ -93,6 +112,6 @@
       A successful deployment will yield an API URL (often referred to here as "deployment URL").
       In LangGraph Platform, it will look like this: `https://{project-identifiers}.langgraph.app`.
     </Callout>
+
   </Tab>
 </Tabs>
-

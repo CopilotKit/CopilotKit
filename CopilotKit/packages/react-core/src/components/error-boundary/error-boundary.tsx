@@ -1,9 +1,8 @@
 import React, { useEffect } from "react";
-import { Severity, CopilotKitError } from "@copilotkit/shared";
+import { Severity, CopilotKitError, ErrorVisibility } from "@copilotkit/shared";
 import { StatusChecker } from "../../lib/status-checker";
 import { renderCopilotKitUsage, UsageBanner } from "../usage-banner";
 import { useErrorToast } from "./error-utils";
-import { COPILOT_CLOUD_ERROR_NAMES } from "@copilotkit/shared";
 
 const statusChecker = new StatusChecker();
 
@@ -58,11 +57,13 @@ export class CopilotErrorBoundary extends React.Component<Props, State> {
   render() {
     if (this.state.hasError) {
       if (this.state.error instanceof CopilotKitError) {
-        // @ts-expect-error -- It's a copilotkit error at this state. Name is valid
-        if (COPILOT_CLOUD_ERROR_NAMES.includes(this.state.error.name)) {
+        // Check if error should be shown as banner based on visibility
+        if (this.state.error.visibility === ErrorVisibility.BANNER) {
           return (
             <ErrorToast error={this.state.error}>
-              {renderCopilotKitUsage(this.state.error)}
+              {renderCopilotKitUsage(this.state.error, () =>
+                this.setState({ hasError: false, error: undefined }),
+              )}
             </ErrorToast>
           );
         }

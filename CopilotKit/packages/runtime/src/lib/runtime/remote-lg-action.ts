@@ -2,7 +2,9 @@ import {
   Client as LangGraphClient,
   EventsStreamEvent,
   GraphSchema,
+  Interrupt,
   StreamMode,
+  ThreadState,
 } from "@langchain/langgraph-sdk";
 import { createHash } from "node:crypto";
 import { isValidUUID, randomUUID } from "@copilotkit/shared";
@@ -17,8 +19,28 @@ import { CustomEventNames, LangGraphEventTypes } from "../../agents/langgraph/ev
 import telemetry from "../telemetry-client";
 import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 import { MetaEventName } from "../../graphql/types/meta-events.type";
-import { parseJson, CopilotKitMisuseError } from "@copilotkit/shared";
+import {
+  parseJson,
+  CopilotKitMisuseError,
+  CopilotKitLowLevelError,
+  CopilotKitError,
+} from "@copilotkit/shared";
 import { RemoveMessage } from "@langchain/core/messages";
+import { RETRY_CONFIG, isRetryableError, sleep, calculateDelay } from "./retry-utils";
+import { generateHelpfulErrorMessage } from "../streaming";
+
+// Utility to determine if an error is a user configuration issue vs system error
+export function isUserConfigurationError(error: any): boolean {
+  return (
+    (error instanceof CopilotKitError || error instanceof CopilotKitLowLevelError) &&
+    (error.code === "NETWORK_ERROR" ||
+      error.code === "AUTHENTICATION_ERROR" ||
+      error.statusCode === 401 ||
+      error.statusCode === 403 ||
+      error.message?.toLowerCase().includes("authentication") ||
+      error.message?.toLowerCase().includes("api key"))
+  );
+}
 
 type State = Record<string, any>;
 
@@ -83,36 +105,63 @@ type SchemaKeys = {
   config: string[] | null;
 } | null;
 
-let activeInterruptEvent = false;
-
 export async function execute(args: ExecutionArgs): Promise<ReadableStream<Uint8Array>> {
   return new ReadableStream({
     async start(controller) {
-      try {
-        await streamEvents(controller, args);
-        controller.close();
-      } catch (err) {
-        // Unwrap the possible cause
-        const cause = err?.cause;
+      let lastError: any;
 
-        // Check code directly if it exists
-        const errorCode = cause?.code || err?.code;
+      // Retry logic for transient connection errors
+      for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
+        try {
+          await streamEvents(controller, args);
+          controller.close();
+          return; // Success - exit retry loop
+        } catch (err) {
+          lastError = err;
 
-        if (errorCode === "ECONNREFUSED") {
-          throw new CopilotKitMisuseError({
-            message: `
-              The LangGraph client could not connect to the graph. Please further check previous logs, which includes further details.
-              
-              See more: https://docs.copilotkit.ai/troubleshooting/common-issues`,
-          });
-        } else {
-          throw new CopilotKitMisuseError({
-            message: `
-              The LangGraph client threw unhandled error ${err}.
-              
-              See more: https://docs.copilotkit.ai/troubleshooting/common-issues`,
-          });
+          // Check if this is a retryable error
+          if (isRetryableError(err) && attempt < RETRY_CONFIG.maxRetries) {
+            const delay = calculateDelay(attempt);
+            console.warn(
+              `LangGraph connection attempt ${attempt + 1}/${RETRY_CONFIG.maxRetries + 1} failed. ` +
+                `Retrying in ${delay}ms. Error: ${err?.message || String(err)}`,
+            );
+            await sleep(delay);
+            continue; // Retry
+          }
+
+          // Not retryable or max retries exceeded - handle error
+          break;
         }
+      }
+
+      // Handle the final error after retries exhausted
+      const cause = lastError?.cause;
+      const errorCode = cause?.code || lastError?.code;
+
+      if (errorCode === "ECONNREFUSED") {
+        throw new CopilotKitMisuseError({
+          message: `
+            The LangGraph client could not connect to the graph after ${RETRY_CONFIG.maxRetries + 1} attempts. Please further check previous logs, which includes further details.
+            
+            See more: https://docs.copilotkit.ai/troubleshooting/common-issues`,
+        });
+      } else {
+        // Preserve already structured CopilotKit errors with semantic information
+        if (
+          lastError instanceof CopilotKitError ||
+          lastError instanceof CopilotKitLowLevelError ||
+          (lastError instanceof Error && lastError.name && lastError.name.includes("CopilotKit"))
+        ) {
+          throw lastError; // Re-throw to preserve semantic information and visibility settings
+        }
+
+        throw new CopilotKitMisuseError({
+          message: `
+            The LangGraph client threw unhandled error ${lastError}.
+            
+            See more: https://docs.copilotkit.ai/troubleshooting/common-issues`,
+        });
       }
     },
   });
@@ -167,7 +216,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     await client.threads.create({ threadId });
   }
 
-  let agentState = { values: {} };
+  let agentState = { values: {} } as ThreadState;
   if (wasInitiatedWithExistingThread) {
     agentState = await client.threads.getState(threadId);
   }
@@ -197,16 +246,14 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   const lgInterruptMetaEvent = metaEvents?.find(
     (ev) => ev.name === MetaEventName.LangGraphInterruptEvent,
   );
-  if (activeInterruptEvent && !lgInterruptMetaEvent) {
-    // state.messages includes only messages that were not processed by the agent, which are the interrupt messages
-    payload.command = { resume: state.messages };
-  }
+
   if (lgInterruptMetaEvent?.response) {
     let response = lgInterruptMetaEvent.response;
     payload.command = { resume: parseJson(response, response) };
   }
 
-  if (mode === "continue" && !activeInterruptEvent) {
+  const interrupts = (agentState.tasks?.[0]?.interrupts ?? []) as Interrupt[];
+  if (mode === "continue" && !interrupts.length) {
     await client.threads.updateState(threadId, { values: state, asNode: nodeName });
   }
 
@@ -290,9 +337,23 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   let shouldExit = false;
   let externalRunId = null;
 
-  const streamResponse = client.runs.stream(threadId, assistantId, payload);
-
   const emit = (message: string) => controller.enqueue(new TextEncoder().encode(message));
+
+  // If there are still outstanding unresolved interrupts, we must force resolution of them before moving forward
+  if (interrupts?.length && !payload.command?.resume) {
+    // If the interrupt is "by message" we assume the upcoming user message is a resoluton for the interrupt
+    if (!lgInterruptMetaEvent) {
+      // state.messages includes only messages that were not processed by the agent, which are the interrupt messages
+      payload.command = { resume: state.messages };
+    } else {
+      interrupts.forEach((interrupt) => {
+        emitInterrupt(interrupt.value, emit);
+      });
+      return Promise.resolve();
+    }
+  }
+
+  const streamResponse = client.runs.stream(threadId, assistantId, payload);
 
   let latestStateValues = {};
   let updatedState = state;
@@ -300,7 +361,6 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   // Therefore, this value should either hold null, or the only edition of state that should be used.
   let manuallyEmittedState = null;
 
-  activeInterruptEvent = false;
   try {
     telemetry.capture("oss.runtime.agent_execution_stream_started", {
       hashedLgcKey: streamInfo.hashedLgcKey,
@@ -309,7 +369,43 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       if (!["events", "values", "error", "updates"].includes(streamResponseChunk.event)) continue;
 
       if (streamResponseChunk.event === "error") {
-        throw new Error(`Error event thrown: ${streamResponseChunk.data.message}`);
+        const errorData = streamResponseChunk.data;
+
+        // Check if this is a structured error from our Python agent
+        if (errorData && typeof errorData === "object" && "error_details" in errorData) {
+          const errorDetails = (errorData as any).error_details;
+
+          // Create a structured error with preserved semantic information
+          const preservedError = new CopilotKitLowLevelError({
+            error: new Error(errorDetails.message),
+            url: "langgraph platform agent",
+            message: `${errorDetails.type}: ${errorDetails.message}`,
+          });
+
+          // Add additional error context
+          if (errorDetails.status_code) {
+            (preservedError as any).statusCode = errorDetails.status_code;
+          }
+          if (errorDetails.response_data) {
+            (preservedError as any).responseData = errorDetails.response_data;
+          }
+          (preservedError as any).agentName = errorDetails.agent_name;
+          (preservedError as any).originalErrorType = errorDetails.type;
+
+          throw preservedError;
+        }
+
+        // Fallback for generic error messages
+        const helpfulMessage = generateHelpfulErrorMessage(
+          new Error(errorData.message),
+          "LangGraph Platform agent",
+        );
+
+        throw new CopilotKitLowLevelError({
+          error: new Error(errorData.message),
+          url: "langgraph platform agent",
+          message: helpfulMessage,
+        });
       }
 
       // Force event type, as data is not properly defined on the LG side.
@@ -324,33 +420,8 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
 
       const interruptEvents = chunk.data.__interrupt__;
       if (interruptEvents?.length) {
-        activeInterruptEvent = true;
         const interruptValue = interruptEvents?.[0].value;
-        if (
-          typeof interruptValue != "string" &&
-          "__copilotkit_interrupt_value__" in interruptValue
-        ) {
-          const evValue = interruptValue.__copilotkit_interrupt_value__;
-          emit(
-            JSON.stringify({
-              event: LangGraphEventTypes.OnCopilotKitInterrupt,
-              data: {
-                value: typeof evValue === "string" ? evValue : JSON.stringify(evValue),
-                messages: langchainMessagesToCopilotKit(interruptValue.__copilotkit_messages__),
-              },
-            }) + "\n",
-          );
-        } else {
-          emit(
-            JSON.stringify({
-              event: LangGraphEventTypes.OnInterrupt,
-              value:
-                typeof interruptValue === "string"
-                  ? interruptValue
-                  : JSON.stringify(interruptValue),
-            }) + "\n",
-          );
-        }
+        emitInterrupt(interruptValue, emit);
         continue;
       }
       if (streamResponseChunk.event === "updates") continue;
@@ -500,11 +571,29 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
 
     return Promise.resolve();
   } catch (e) {
-    logger.error(e);
+    // Distinguish between user errors and system errors for logging
+    if (isUserConfigurationError(e)) {
+      // Log user errors at debug level to reduce noise
+      logger.debug({ error: e.message, code: e.code }, "User configuration error");
+    } else {
+      // Log actual system errors at error level
+      logger.error(e);
+    }
+
     telemetry.capture("oss.runtime.agent_execution_stream_errored", {
       ...streamInfo,
       error: e.message,
     });
+
+    // Re-throw CopilotKit errors so they can be handled properly at higher levels
+    if (
+      e instanceof CopilotKitError ||
+      e instanceof CopilotKitLowLevelError ||
+      (e instanceof Error && e.name && e.name.includes("CopilotKit"))
+    ) {
+      throw e;
+    }
+
     return Promise.resolve();
   }
 }
@@ -887,4 +976,26 @@ function getSchemaKeys(graphSchema: GraphSchema): SchemaKeys {
 
 function filterObjectBySchemaKeys(obj: Record<string, any>, schemaKeys: string[]) {
   return Object.fromEntries(Object.entries(obj).filter(([key]) => schemaKeys.includes(key)));
+}
+
+function emitInterrupt(interruptValue: any, emit: (data: string) => void) {
+  if (typeof interruptValue != "string" && "__copilotkit_interrupt_value__" in interruptValue) {
+    const evValue = interruptValue.__copilotkit_interrupt_value__;
+    emit(
+      JSON.stringify({
+        event: LangGraphEventTypes.OnCopilotKitInterrupt,
+        data: {
+          value: typeof evValue === "string" ? evValue : JSON.stringify(evValue),
+          messages: langchainMessagesToCopilotKit(interruptValue.__copilotkit_messages__),
+        },
+      }) + "\n",
+    );
+  } else {
+    emit(
+      JSON.stringify({
+        event: LangGraphEventTypes.OnInterrupt,
+        value: typeof interruptValue === "string" ? interruptValue : JSON.stringify(interruptValue),
+      }) + "\n",
+    );
+  }
 }

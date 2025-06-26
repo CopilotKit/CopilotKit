@@ -11,9 +11,8 @@ import { SharedTestsProvider } from "@/lib/shared-tests-context"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Enterprise SaaS Dashboard",
-  description: "Enterprise SaaS Dashboard with persistent chat",
-  generator: 'v0.dev'
+  title: "Dynamic SaaS Dashboard",
+  description: "Dynamic SaaS Dashboard with persistent chat",
 }
 
 export default function RootLayout({

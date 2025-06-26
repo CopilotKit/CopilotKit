@@ -1,0 +1,11 @@
+# CopilotKit standardized dependencies for pip compatibility
+# Generated from pyproject.toml - keep these versions synchronized
+
+copilotkit==0.1.49
+langchain==0.3.21
+langgraph==0.3.18
+langsmith==0.3.18
+openai>=1.68.2,<2.0.0
+fastapi>=0.115.5,<1.0.0
+uvicorn>=0.29.0,<1.0.0
+python-dotenv>=1.0.0,<2.0.0 

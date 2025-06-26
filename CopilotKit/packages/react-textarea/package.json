@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.8.14-next.4",
+  "version": "1.9.2-next.10",
   "sideEffects": [
     "**/*.css"
   ],
@@ -35,7 +35,8 @@
     "unlink:global": "pnpm unlink --global"
   },
   "peerDependencies": {
-    "react": "^18 || ^19 || ^19.0.0-rc"
+    "react": "^18 || ^19 || ^19.0.0-rc",
+    "react-dom": "^18 || ^19 || ^19.0.0-rc"
   },
   "devDependencies": {
     "@types/jest": "^29.5.4",
@@ -49,6 +50,7 @@
     "postcss": "^8.4.20",
     "postcss-prefix-selector": "^1.16.1",
     "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "tailwind-config": "workspace:*",
     "tailwindcss": "^3.3.0",
     "ts-jest": "^29.1.1",
@@ -74,7 +76,6 @@
     "lodash.merge": "^4.6.2",
     "lucide-react": "^0.274.0",
     "material-icons": "^1.13.10",
-    "react-dom": "^18.2.0",
     "slate": "^0.94.1",
     "slate-history": "^0.93.0",
     "slate-react": "^0.98.1",

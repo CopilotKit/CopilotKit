@@ -90,11 +90,11 @@ A callback function to regenerate the assistant's response
 A callback function when the message is copied
 </PropertyReference>
 
-<PropertyReference name="onThumbsUp" type="(message: string) => void"  > 
+<PropertyReference name="onThumbsUp" type="(message: TextMessage) => void"  > 
 A callback function for thumbs up feedback
 </PropertyReference>
 
-<PropertyReference name="onThumbsDown" type="(message: string) => void"  > 
+<PropertyReference name="onThumbsDown" type="(message: TextMessage) => void"  > 
 A callback function for thumbs down feedback
 </PropertyReference>
 
@@ -173,5 +173,9 @@ A class name to apply to the root element.
 
 <PropertyReference name="children" type="React.ReactNode"  > 
 Children to render.
+</PropertyReference>
+
+<PropertyReference name="hideStopButton" type="boolean"  > 
+
 </PropertyReference>
 

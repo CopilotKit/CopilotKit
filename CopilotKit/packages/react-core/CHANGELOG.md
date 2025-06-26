@@ -1,5 +1,161 @@
 # ui
 
+## 1.9.2-next.10
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.10
+- @copilotkit/shared@1.9.2-next.10
+
+## 1.9.2-next.9
+
+### Patch Changes
+
+- 1d1c51d: - feat: surface all errors in structured format
+- Updated dependencies [1d1c51d]
+  - @copilotkit/runtime-client-gql@1.9.2-next.9
+  - @copilotkit/shared@1.9.2-next.9
+
+## 1.9.2-next.8
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.8
+- @copilotkit/shared@1.9.2-next.8
+
+## 1.9.2-next.7
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.7
+- @copilotkit/shared@1.9.2-next.7
+
+## 1.9.2-next.6
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.6
+- @copilotkit/shared@1.9.2-next.6
+
+## 1.9.2-next.5
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.5
+- @copilotkit/shared@1.9.2-next.5
+
+## 1.9.2-next.4
+
+### Patch Changes
+
+- 9169ad7: - feat: add onTrace handler for runtime and UI error/event tracking
+- 9169ad7: - feat: add onTrace handler for comprehensive debugging and observability - Add CopilotTraceEvent interfaces with rich debugging context, implement runtime-side tracing with publicApiKey gating, add UI-side error tracing, include comprehensive test coverage, and fix tsup build config to exclude test files
+  - fix: extract publicApiKey for all requests + trace GraphQL errors
+- Updated dependencies [9169ad7]
+- Updated dependencies [9169ad7]
+  - @copilotkit/shared@1.9.2-next.4
+  - @copilotkit/runtime-client-gql@1.9.2-next.4
+
+## 1.9.2-next.3
+
+### Patch Changes
+
+- 35537f1: - fix: memoize nested components to not rerender when content changes
+  - @copilotkit/runtime-client-gql@1.9.2-next.3
+  - @copilotkit/shared@1.9.2-next.3
+
+## 1.9.2-next.2
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.2
+- @copilotkit/shared@1.9.2-next.2
+
+## 1.9.2-next.1
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.1
+- @copilotkit/shared@1.9.2-next.1
+
+## 1.9.2-next.0
+
+### Patch Changes
+
+- 10345a5: - feat: structured error visibility system for streaming errors
+- Updated dependencies [10345a5]
+  - @copilotkit/runtime-client-gql@1.9.2-next.0
+  - @copilotkit/shared@1.9.2-next.0
+
+## 1.9.1
+
+### Patch Changes
+
+- Updated dependencies [deaeca0]
+  - @copilotkit/shared@1.9.1
+  - @copilotkit/runtime-client-gql@1.9.1
+
+## 1.9.1-next.0
+
+### Patch Changes
+
+- Updated dependencies [deaeca0]
+  - @copilotkit/shared@1.9.1-next.0
+  - @copilotkit/runtime-client-gql@1.9.1-next.0
+
+## 1.9.0
+
+### Patch Changes
+
+- 54cae30: - fix(react-core): allow custom toolChoice in forwardedParameters to override default
+  - fix: move react-dom to peerDependencies in @copilotkit/react-textarea
+  - feat: add amazon bedrock adapter support
+  - @copilotkit/runtime-client-gql@1.9.0
+  - @copilotkit/shared@1.9.0
+
+## 1.9.0-next.2
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.0-next.2
+- @copilotkit/shared@1.9.0-next.2
+
+## 1.8.15-next.1
+
+### Patch Changes
+
+- 54cae30: - fix(react-core): allow custom toolChoice in forwardedParameters to override default
+  - fix: move react-dom to peerDependencies in @copilotkit/react-textarea
+  - feat: add amazon bedrock adapter support
+  - @copilotkit/runtime-client-gql@1.8.15-next.1
+  - @copilotkit/shared@1.8.15-next.1
+
+## 1.8.15-next.0
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.15-next.0
+- @copilotkit/shared@1.8.15-next.0
+
+## 1.8.14
+
+### Patch Changes
+
+- 9cf1fda: - fix append follow-up when actions disable followUp
+  - Create stupid-nails-travel.md
+  - fixup
+- 9cf1fda: - fix append follow-up when actions disable followUp
+- Updated dependencies [34a78d8]
+  - @copilotkit/shared@1.8.14
+  - @copilotkit/runtime-client-gql@1.8.14
+
+## 1.8.14-next.5
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.14-next.5
+- @copilotkit/shared@1.8.14-next.5
+
 ## 1.8.14-next.4
 
 ### Patch Changes

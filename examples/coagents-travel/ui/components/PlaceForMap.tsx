@@ -54,6 +54,7 @@ export function PlaceForMap({ place, number, map }: PlaceProps) {
 
   return (
     <PlaceCard 
+      shouldShowCheckbox={false}
       place={place}
       number={number}
       actions={actions}

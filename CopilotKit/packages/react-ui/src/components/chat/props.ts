@@ -1,4 +1,4 @@
-import { Message } from "@copilotkit/runtime-client-gql";
+import { Message, TextMessage } from "@copilotkit/runtime-client-gql";
 import { CopilotChatSuggestion } from "../../types/suggestions";
 import { ReactNode } from "react";
 
@@ -50,12 +50,12 @@ export interface MessagesProps {
   /**
    * Callback function for thumbs up feedback
    */
-  onThumbsUp?: (message: string) => void;
+  onThumbsUp?: (message: TextMessage) => void;
 
   /**
    * Callback function for thumbs down feedback
    */
-  onThumbsDown?: (message: string) => void;
+  onThumbsDown?: (message: TextMessage) => void;
 
   /**
    * A list of markdown components to render in assistant message.
@@ -121,12 +121,12 @@ export interface AssistantMessageProps {
   /**
    * Callback function for thumbs up feedback
    */
-  onThumbsUp?: (message: string) => void;
+  onThumbsUp?: (message: TextMessage) => void;
 
   /**
    * Callback function for thumbs down feedback
    */
-  onThumbsDown?: (message: string) => void;
+  onThumbsDown?: (message: TextMessage) => void;
 
   /**
    * A list of markdown components to render in assistant message.
@@ -157,12 +157,12 @@ export interface RenderMessageProps {
   /**
    * Callback function for thumbs up feedback
    */
-  onThumbsUp?: (message: string) => void;
+  onThumbsUp?: (message: TextMessage) => void;
 
   /**
    * Callback function for thumbs down feedback
    */
-  onThumbsDown?: (message: string) => void;
+  onThumbsDown?: (message: TextMessage) => void;
 
   /**
    * A list of markdown components to render in assistant message.
@@ -177,6 +177,7 @@ export interface InputProps {
   isVisible?: boolean;
   onStop?: () => void;
   onUpload?: () => void;
+  hideStopButton?: boolean;
 }
 
 export interface RenderSuggestionsListProps {

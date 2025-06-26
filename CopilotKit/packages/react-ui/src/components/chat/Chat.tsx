@@ -132,12 +132,12 @@ export interface CopilotChatProps {
   /**
    * A callback function for thumbs up feedback
    */
-  onThumbsUp?: (message: string) => void;
+  onThumbsUp?: (message: TextMessage) => void;
 
   /**
    * A callback function for thumbs down feedback
    */
-  onThumbsDown?: (message: string) => void;
+  onThumbsDown?: (message: TextMessage) => void;
 
   /**
    * A list of markdown components to render in assistant message.
@@ -233,6 +233,8 @@ export interface CopilotChatProps {
    * Children to render.
    */
   children?: React.ReactNode;
+
+  hideStopButton?: boolean;
 }
 
 interface OnStopGenerationArguments {
@@ -320,6 +322,7 @@ export function CopilotChat({
   UserMessage = DefaultUserMessage,
   imageUploadsEnabled,
   inputFileAccept = "image/*",
+  hideStopButton,
 }: CopilotChatProps) {
   const { additionalInstructions, setChatInstructions } = useCopilotContext();
   const [selectedImages, setSelectedImages] = useState<Array<ImageUpload>>([]);
@@ -527,6 +530,7 @@ export function CopilotChat({
         isVisible={isVisible}
         onStop={stopGeneration}
         onUpload={imageUploadsEnabled ? () => fileInputRef.current?.click() : undefined}
+        hideStopButton={hideStopButton}
       />
     </WrappedCopilotChat>
   );

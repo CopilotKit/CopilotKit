@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { ChatContextProvider } from "./ChatContext";
 import { ButtonProps, HeaderProps, WindowProps } from "./props";
 import { Window as DefaultWindow } from "./Window";
@@ -94,9 +94,12 @@ export const CopilotModal = ({
     setOpenState(open);
   };
 
+  const memoizedHeader = useMemo(() => <Header />, [Header]);
+  const memoizedChildren = useMemo(() => children, [children]);
+
   return (
     <ChatContextProvider icons={icons} labels={labels} open={openState} setOpen={setOpen}>
-      {children}
+      {memoizedChildren}
       <div className={className}>
         <Button></Button>
         <Window
@@ -104,7 +107,7 @@ export const CopilotModal = ({
           shortcut={shortcut}
           hitEscapeToClose={hitEscapeToClose}
         >
-          <Header />
+          {memoizedHeader}
           <CopilotChat
             {...props}
             instructions={instructions}

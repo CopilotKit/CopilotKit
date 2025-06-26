@@ -1,5 +1,73 @@
 # @copilotkit/shared
 
+## 1.9.2-next.10
+
+## 1.9.2-next.9
+
+### Patch Changes
+
+- 1d1c51d: - feat: surface all errors in structured format
+
+## 1.9.2-next.8
+
+## 1.9.2-next.7
+
+## 1.9.2-next.6
+
+## 1.9.2-next.5
+
+## 1.9.2-next.4
+
+### Patch Changes
+
+- 9169ad7: - feat: add onTrace handler for runtime and UI error/event tracking
+- 9169ad7: - feat: add onTrace handler for comprehensive debugging and observability - Add CopilotTraceEvent interfaces with rich debugging context, implement runtime-side tracing with publicApiKey gating, add UI-side error tracing, include comprehensive test coverage, and fix tsup build config to exclude test files
+  - fix: extract publicApiKey for all requests + trace GraphQL errors
+
+## 1.9.2-next.3
+
+## 1.9.2-next.2
+
+## 1.9.2-next.1
+
+## 1.9.2-next.0
+
+### Patch Changes
+
+- 10345a5: - feat: structured error visibility system for streaming errors
+
+## 1.9.1
+
+### Patch Changes
+
+- deaeca0: - feat: Add public key
+
+  Signed-off-by: Luis Valdes <luis@copilotkit.ai>
+
+## 1.9.1-next.0
+
+### Patch Changes
+
+- deaeca0: - feat: Add public key
+
+  Signed-off-by: Luis Valdes <luis@copilotkit.ai>
+
+## 1.9.0
+
+## 1.9.0-next.2
+
+## 1.8.15-next.1
+
+## 1.8.15-next.0
+
+## 1.8.14
+
+### Patch Changes
+
+- 34a78d8: - jsonSchemaToActionParameters implementation
+
+## 1.8.14-next.5
+
 ## 1.8.14-next.4
 
 ## 1.8.14-next.3

@@ -25,7 +25,7 @@ const groupedConfigs = groupConfigsByDescription(researchCanvasConfigs);
 export const cloudVariants = variants.filter((variant) => variant.isCloud);
 export const nonCloudVariants = variants.filter((variant) => !variant.isCloud);
 
-test.describe.configure({ mode: 'parallel' });
+test.describe.configure({ mode: "parallel" });
 
 Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
   test.describe(`${projectName}`, () => {
@@ -37,7 +37,8 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               {
                 ...config,
               },
-              nonCloudVariants
+              nonCloudVariants,
+              true
             ),
             ...cloudVariants,
           ].forEach((variant) => {
@@ -108,7 +109,10 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               await page.waitForTimeout(5000);
 
               // Pirate agent
-              await sendChatMessage(page, "Turn on pirate mode! Remember to explicitly call the tool that sets pirate mode to on.");
+              await sendChatMessage(
+                page,
+                "Turn on pirate mode! Remember to explicitly call the tool that sets pirate mode to on."
+              );
               await waitForResponse(page);
 
               await page.waitForTimeout(5000);

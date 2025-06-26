@@ -20,7 +20,14 @@ export default function WaterBnb() {
 
   return (
     <CopilotKit {...copilotKitProps}>
-      <CopilotSidebar>
+      <CopilotSidebar
+        onThumbsUp={(message) => {
+          console.log("thumbs up", message);
+        }}
+        onThumbsDown={(message) => {
+          console.log("thumbs down", message);
+        }}
+      >
         <VacationList />
       </CopilotSidebar>
     </CopilotKit>

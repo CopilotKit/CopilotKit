@@ -1,4 +1,4 @@
-import { CopilotCloudConfig, FunctionCallHandler } from "@copilotkit/shared";
+import { CopilotCloudConfig, FunctionCallHandler, CopilotTraceHandler } from "@copilotkit/shared";
 import {
   ActionRenderProps,
   CatchAllActionRenderProps,
@@ -162,7 +162,7 @@ export interface CopilotContextParams {
   // api endpoints
   copilotApiConfig: CopilotApiConfig;
 
-  showDevConsole: boolean | "auto";
+  showDevConsole: boolean;
 
   // agents
   coagentStates: Record<string, CoagentState>;
@@ -218,6 +218,11 @@ export interface CopilotContextParams {
   langGraphInterruptAction: LangGraphInterruptAction | null;
   setLangGraphInterruptAction: LangGraphInterruptActionSetter;
   removeLangGraphInterruptAction: () => void;
+
+  /**
+   * Optional trace handler for comprehensive debugging and observability.
+   */
+  onTrace?: CopilotTraceHandler;
 }
 
 const emptyCopilotContext: CopilotContextParams = {
@@ -268,7 +273,7 @@ const emptyCopilotContext: CopilotContextParams = {
   chatSuggestionConfiguration: {},
   addChatSuggestionConfiguration: () => {},
   removeChatSuggestionConfiguration: () => {},
-  showDevConsole: "auto",
+  showDevConsole: false,
   coagentStates: {},
   setCoagentStates: () => {},
   coagentStatesRef: { current: {} },
@@ -288,6 +293,7 @@ const emptyCopilotContext: CopilotContextParams = {
   langGraphInterruptAction: null,
   setLangGraphInterruptAction: () => null,
   removeLangGraphInterruptAction: () => null,
+  onTrace: undefined,
 };
 
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);

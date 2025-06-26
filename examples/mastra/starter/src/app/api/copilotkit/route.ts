@@ -5,23 +5,17 @@ import {
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 
+import { MastraAgent } from "@ag-ui/mastra";
+
 import { NextRequest } from "next/server";
 
 export const POST = async (req: NextRequest) => {
-  // Clone the request before reading the body
-  const clonedReq = req.clone();
-  const body = await clonedReq.json();
-  const resourceId = body.resourceId || "TEST";
-
   const baseUrl = process.env.MASTRA_BASE_URL || "http://localhost:4111";
-
-  const mastra = new MastraClient({
+  const mastraClient = new MastraClient({
     baseUrl,
   });
 
-  const mastraAgents = await mastra.getAGUI({
-    resourceId,
-  });
+  const mastraAgents = await MastraAgent.getRemoteAgents({ mastraClient });
 
   const runtime = new CopilotRuntime({
     agents: mastraAgents,

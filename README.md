@@ -17,17 +17,24 @@
 <br/>
 
 <div align="center">
+
+<div style="display:flex;justify-content:center;gap:8px;">
   <a href="https://www.npmjs.com/package/@copilotkit/react-core" target="_blank">
     <img src="https://img.shields.io/npm/v/%40copilotkit%2Freact-core?logo=npm&logoColor=%23FFFFFF&label=Version&color=%236963ff" alt="NPM">
   </a>
-  <img src="https://img.shields.io/github/license/copilotkit/copilotkit?color=%236963ff&label=License" alt="MIT">
+
+  <a href="https://github.com/copilotkit/copilotkit/blob/main/LICENSE" target="_blank">
+    <img src="https://img.shields.io/github/license/copilotkit/copilotkit?color=%236963ff&label=License" alt="MIT">
+  </a>
+
   <a href="https://discord.gg/6dffbvGU3D" target="_blank">
     <img src="https://img.shields.io/discord/1122926057641742418?logo=discord&logoColor=%23FFFFFF&label=Discord&color=%236963ff" alt="Discord">
   </a>
 </div>
 <br/>
 
-<div align="center">
+
+  
   <a href="https://discord.gg/6dffbvGU3D?ref=github_readme" target="_blank">
     <img src="./assets/btn_discord.png" alt="CopilotKit Discord" height="40px">
   </a>
@@ -56,6 +63,9 @@ Stay up to date with our latest releases!
 
 <br/>
 <div align="center">
+  <a href="https://trendshift.io/repositories/5730" target="_blank">
+    <img src="https://trendshift.io/api/badge/repositories/5730" alt="Trendshift Metrics" width="250" height="55" />
+  </a>  
   <a href="https://www.producthunt.com/posts/copilotkit" target="_blank">
     <img src="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=428778&theme=light&period=daily">
   </a>

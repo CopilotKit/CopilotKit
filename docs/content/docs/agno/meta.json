@@ -1,0 +1,22 @@
+{
+  "title": "CoAgents",
+  "root": true,
+  "pages": [
+    "index",
+    "---Getting Started---",
+    "...quickstart",
+    "...shared-guides",
+    "agentic-chat-ui",
+    "generative-ui",
+    "shared-state",
+    "frontend-actions",
+    "multi-agent-flows",
+    "persistence",
+    "---Learn---",
+    "...concepts",
+    "---Troubleshooting Copilots---",
+    "...troubleshooting",
+    "---Other---",
+    "...(other)"
+  ]
+}

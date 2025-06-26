@@ -1,0 +1,364 @@
+---
+title: Common CoAgent Issues
+description: Common issues you may encounter when using CoAgents.
+---
+
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+
+Welcome to the CoAgents Troubleshooting Guide! If you're having trouble getting tool calls to work, you've come to the right place.
+
+<Callout>
+    Have an issue not listed here? Open a ticket on [GitHub](https://github.com/CopilotKit/CopilotKit/issues) or reach out on [Discord](https://discord.com/invite/6dffbvGU3D)
+    and we'll be happy to help.
+
+    We also highly encourage any open source contributors that want to add their own troubleshooting issues to [Github as a pull request](https://github.com/CopilotKit/CopilotKit/blob/main/CONTRIBUTING.md).
+
+</Callout>
+
+## My tool calls are not being streamed
+
+This could be due to a few different reasons.
+
+First, we strongly recommend checking out our [Human In the Loop](/coagents/human-in-the-loop) guide to follow a more in depth example of how to stream tool calls
+in your LangGraph agents. You can also check out our [travel tutorial](/coagents/tutorials/ai-travel-app/step-6-human-in-the-loop) which talks about how to stream
+tool calls in a more complex example.
+
+If you have already done that, you can check the following:
+
+<Accordions>
+    <Accordion title="You have not specified the tool call in the `copilotkit_customize_config`">
+        In your LangGraph agent, you have must specify which tool calls will be emitted to the CopilotKit runtime. By default,
+        only streamed messages are emitted. You can fix this by adding the following to the node making the tool call.
+
+        ```python
+        from copilotkit.langgraph import copilotkit_customize_config, copilotkit_emit_message
+        from langgraph_core.runnables import RunnableConfig
+        from langchain.tools import tool
+
+        @tool
+        def say_hello_to(name: str) -> str:
+            return f"Hello, {name}!"
+
+        async def my_node(state: State, config: RunnableConfig) -> State:
+            # ...
+            config = copilotkit_customize_config(config, emit_tool_calls=["say_hello_to"]) # [code highlight]
+            # ...
+            return state
+        ```
+    </Accordion>
+    <Accordion title="You're using llm.invoke() instead of llm.ainvoke()">
+        <p>
+            When you invoke your LangGraph agent, you can invoke it synchronously or asynchronously. If you invoke it synchronously,
+            the tool calls will not be streamed progressively, only the final result will be streamed. If you invoke it asynchronously,
+            the tool calls will be streamed progressively.
+
+            ```python
+            config = copilotkit_customize_config(config, emit_tool_calls=["say_hello_to"])
+            response = await llm_with_tools.ainvoke(
+                [ SystemMessage(content=system_message), *state["messages"] ],
+                config=config
+            )
+            ```
+        </p>
+    </Accordion>
+
+</Accordions>
+
+## Error: `'AzureOpenAI' object has no attribute 'bind_tools'`
+
+This error is typically due to the use of an incorrect import from LangGraph. Instead of importing `AzureOpenAI` import `AzureChatOpenAI` and your
+issue will be resolved.
+
+```python
+from langchain_openai import AzureOpenAI # [!code --]
+from langchain_openai import AzureChatOpenAI # [!code ++]
+```
+
+## I am getting "agent not found" error
+
+If you're seeing this error, it means CopilotKit couldn't find the LangGraph agent you're trying to use. Here's how to fix it:
+
+<Accordions>
+    <Accordion title="Verify your agent lock mode configuration">
+        If you're using [agent lock mode](/coagents/multi-agent-flows),
+        check that the agent defined in `langgraph.json` matches what's defined in the CopilotKit provider:
+
+        ```json title="langgraph.json"
+        {
+            "python_version": "3.12",
+            "dockerfile_lines": [],
+            "dependencies": ["."],
+            "graphs": {
+                "my_agent": "./src/agent.py:graph"// In this case, "my_agent" is the agent you're using // [!code highlight]
+            },
+            "env": ".env"
+        }
+        ```
+
+        ```tsx title="layout.tsx"
+        <CopilotKit agent="my_agent"> // [!code highlight]
+            {/* Your application components */}
+        </CopilotKit>
+        ```
+
+        Common issues:
+        - Typos in agent names
+        - Case sensitivity mismatches
+        - Missing entries in `langgraph.json`
+    </Accordion>
+    <Accordion title="Check your agent registration on a LangGraph Platform endpoint">
+        When using LangGraph Platform endpoint, make sure your agents are properly specified and are following the definition in your `langgraph.json`:
+
+        ```json title="langgraph.json"
+        {
+            "python_version": "3.12",
+            "dockerfile_lines": [],
+            "dependencies": ["."],
+            "graphs": {
+                "my_agent": "./src/agent.py:graph"// In this case, "my_agent" is the agent you're using // [!code highlight]
+            },
+            "env": ".env"
+        }
+        ```
+
+        ```typescript title="/copilotkit/api/route.ts"
+        const runtime = new CopilotRuntime({
+          // ... The rest of your CopilotRuntime definition
+          agents: { // [!code highlight:7]
+            'my_agent': new LangGraphAgent({
+              deploymentUrl: '<your-api-url>',
+              graphId: 'my_agent',
+              langsmithApiKey: '<your-langsmith-api-key>' // Optional
+            }),
+          },
+        });
+        ```
+    </Accordion>
+    <Accordion title="Check your agent name in useCoAgent">
+        Make sure the that the agent defined in `langgraph.json` matches what you use n `useCoAgent` hook:
+
+        ```json title="langgraph.json"
+        {
+            "python_version": "3.12",
+            "dockerfile_lines": [],
+            "dependencies": ["."],
+            "graphs": {
+                "my_agent": "./src/agent.py:graph"// In this case, "my_agent" is the agent you're using // [!code highlight]
+            },
+            "env": ".env"
+        }
+        ```
+
+        ```tsx title="MyComponent.tsx"
+        // Your React component
+        useCoAgent({
+            name: "my_agent", // [!code focus] This must match exactly
+        });
+        ```
+    </Accordion>
+    <Accordion title="Check your agent name in useCoAgentStateRender">
+        Make sure the that the agent defined in `langgraph.json` matches what you use n `useCoAgent` hook:
+
+        ```json title="langgraph.json"
+        {
+            "python_version": "3.12",
+            "dockerfile_lines": [],
+            "dependencies": ["."],
+            "graphs": {
+                "my_agent": "./src/agent.py:graph"// In this case, "my_agent" is the agent you're using // [!code highlight]
+            },
+            "env": ".env"
+        }
+        ```
+
+        ```tsx title="MyComponent.tsx"
+        // Your React component
+        useCoAgentStateRender({
+            name: "my_agent", // [!code focus] This must match exactly
+        });
+        ```
+    </Accordion>
+
+</Accordions>
+
+## Connection issues with tunnel creation
+
+If you notice the tunnel creation process spinning indefinitely, your router or ISP might be blocking the connection to CopilotKit's tunnel service.
+
+<Accordions>
+    <Accordion title="Router or ISP blocking tunnel connections">
+        To verify connectivity to the tunnel service, try these commands:
+
+        ```bash
+        ping tunnels.devcopilotkit.com
+        curl -I https://tunnels.devcopilotkit.com
+        telnet tunnels.devcopilotkit.com 443
+        ```
+
+        If these fail, your router's security features or ISP might be blocking the connection. Common solutions:
+        - Check router security settings
+        - Consider checking with your ISP about any connection restrictions
+        - Try using a mobile hotspot
+    </Accordion>
+
+</Accordions>
+
+## I am getting "Failed to find or contact remote endpoint at url, Make sure the API is running and that it's indeed a LangGraph platform url" error
+
+If you're seeing this error, it means the LangGraph platform client cannot connect to your endpoint.
+
+<Accordions>
+    <Accordion title="Verify the endpoint is reachable">
+        Check the logs for the backend API running on the remote endpoint url. Make sure it is up and ready to receive requests
+    </Accordion>
+    <Accordion title="Verify running a LangGraph platform endpoint using LangGraph deployment tools">
+        Verify that the backend API is running using `langgraph dev`, `langgraph up`, on a LangGraph cloud url or equivalent methods supplied by LangGraph
+    </Accordion>
+    <Accordion title="Verify the remote endpoint matches the endpoint definition type">
+        If you are running your remote endpoint using FastAPI, even if it uses LangGraph for the agent, it is not considered a LangGraph platform endpoint.
+        You may need to change your `remoteEndpoints` definition for this endpoint to match the expected format.
+
+        Change the endpoint definition, from:
+        ```
+        new CopilotRuntime({
+          remoteEndpoints: [
+            langGraphPlatformEndpoint({
+            deploymentUrl: "https://your-fastapi-endpoint:port",
+            langsmithApiKey: '<langsmith API key>' // optional
+            agents: [], // Your previous agents definition
+          ],
+        });
+
+        // or
+
+        new CopilotRuntime({
+          agents: {
+            'agent-name': new LangGraphAgent({
+              deploymentUrl: "https://your-fastapi-endpoint:port",
+              langsmithApiKey: '<langsmith API key>', // optional
+              graphId: 'langgraph.json graph id', // Your previous graphId definition
+            }),
+          }
+        });
+        ```
+
+        To:
+        ```
+        new CopilotRuntime({
+          remoteEndpoints: [
+            copilotKitEndpoint({ url: "https://your-fastapi-endpoint:port/copilotkit" });
+          ]
+        });
+        ```
+    </Accordion>
+</Accordions>
+
+## I am getting a "No checkpointer set" error when using LangGraph with FastAPI
+
+If you're encountering this error, it means you are missing a checkpointer in your compiled graph.
+You can visit the [LangGraph Persistence guide](https://langchain-ai.github.io/langgraph/concepts/persistence/#checkpoints) to understand what a checkpointer is and how to add it.
+
+## I see messages being streamed and disappear
+
+LangGraph agents are stateful. As a graph is traversed, the state is saved at the end of each node. CopilotKit uses the agent's state as
+the source of truth for what to display in the frontend chat. However, since state is only emitted at the end of a node,  CopilotKit allows
+you to stream predictive state updates *in the middle of a node*. By default, CopilotKit will stream messages and tool calls being actively
+generated to the frontend chat that initiated the interaction. **If this predictive state is not persisted at the end of the node, it will 
+disappear in the frontend chat**.
+
+In this situation, the most likely scenario is that the `messages` property in the state is being updated in the middle of a node but those edits are not being
+persisted at the end of a node. 
+
+<img src="/images/coagents/message-state-diagram.png" />
+
+<Accordions>
+    <Accordion title="I want these messages to be persisted">
+        To fix this, you can simply persist the messages by returning the new messages at the end of the node.
+
+         <Tabs groupId="language" items={["Python", "TypeScript"]}>
+            <Tab value="Python">
+                ```python
+                from copilotkit.langgraph import copilotkit_customize_config
+ 
+                async def chat_node(state: AgentState, config: RunnableConfig):
+                    # 1) Call the model with CopilotKit's modified config
+                    model = ChatOpenAI(model="gpt-4o")
+                    response = await model.ainvoke(state["messages"], modifiedConfig) 
+                
+                    # 2) Make sure to return the new messages
+                    return {
+                        messages: response,
+                    }
+                ```
+            </Tab>
+            <Tab value="TypeScript">
+                ```typescript
+                import { copilotkitCustomizeConfig } from '@copilotkit/sdk-js/langgraph';
+ 
+                async function chatNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
+                    // 1) Call the model with CopilotKit's modified config
+                    const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
+                    const response = await model.invoke(state.messages, modifiedConfig);
+                
+                    // 2) Make sure to return the new messages
+                    return {
+                        messages: response,
+                    }
+                }
+                ```
+            </Tab>
+        </Tabs>
+    </Accordion>
+    <Accordion title="I don't want these messages to streamed at all">
+        In this case, you can reference our document on [disabling streaming](/coagents/advanced/disabling-state-streaming). More specifically,
+        you can use the copilotkit config to disable emitting messages anywhere you'd like a message to not be streamed.
+
+        <Tabs groupId="language" items={["Python", "TypeScript"]}>
+            <Tab value="Python">
+                ```python
+                from copilotkit.langgraph import copilotkit_customize_config
+ 
+                async def chat_node(state: AgentState, config: RunnableConfig):
+                    # 1) Configure CopilotKit not to emit messages
+                    modifiedConfig = copilotkit_customize_config(
+                        config,
+                        emit_messages=False, # if you want to disable message streaming
+                    )
+                
+                    # 2) Call the model with CopilotKit's modified config
+                    model = ChatOpenAI(model="gpt-4o")
+                    response = await model.ainvoke(state["messages"], modifiedConfig) 
+                
+                    # 3) Don't return the new response to hide it from the user
+                    return state
+                ```
+            </Tab>
+            <Tab value="TypeScript">
+                ```typescript
+                import { copilotkitCustomizeConfig } from '@copilotkit/sdk-js/langgraph';
+ 
+                async function chatNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
+                    // 1) Configure CopilotKit not to emit messages
+                    const modifiedConfig = copilotkitCustomizeConfig(config, {
+                        emitMessages: false, // if you want to disable message streaming
+                    });
+                
+                    // 2) Call the model with CopilotKit's modified config
+                    const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
+                    const response = await model.invoke(state.messages, modifiedConfig);
+                
+                    // 3) Don't return the new response to hide it from the user
+                    return state;
+                }
+                ```
+            </Tab>
+        </Tabs>
+
+        <Callout title="Running a subgraph or langchain?">
+            Just make sure to pass the modified config we defined above as your `RunnableConfig` for the subgraph or langchain!
+        </Callout>
+    </Accordion>
+</Accordions>
+
+
+

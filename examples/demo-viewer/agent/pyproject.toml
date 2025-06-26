@@ -1,23 +1,21 @@
 [tool.poetry]
-name = "demo"
+name = "agent"
 version = "0.1.0"
 description = ""
-authors = ["Markus Ecker <markus.ecker@gmail.com>"]
+authors = ["CopilotKit"]
 readme = "README.md"
+packages = [{include = "demo"}]
 
 [tool.poetry.dependencies]
-python = ">=3.12,<3.13"
-copilotkit = "0.1.46"
-tavily-python = "^0.5.1"
-uvicorn = "^0.34.0"
-dotenv = "^0.9.9"
-crewai = "0.118.0"
-langchain = ">=0.1.0"
-langchain-core = ">=0.1.5"
-langchain-community = ">=0.0.1"
-langchain-experimental = ">=0.0.11"
-langchain-openai = ">=0.0.1"
-langgraph = "^0.3.25"
+python = ">=3.10,<3.13"
+copilotkit = "0.1.49"
+langchain = "0.3.21"
+langgraph = "0.4.8"
+langsmith = "0.3.18"
+openai = "^1.68.2"
+fastapi = "^0.115.5"
+uvicorn = "^0.29.0"
+python-dotenv = "^1.0.0"
 
 [build-system]
 requires = ["poetry-core"]

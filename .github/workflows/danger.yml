@@ -3,8 +3,8 @@ name: Danger
 on:
   pull_request:
     paths:
-      - 'sdk-python/copilotkit/langgraph_agent.py'
-      - 'CopilotKit/packages/runtime/src/lib/runtime/remote-lg-cloud-action.ts'
+      - "sdk-python/copilotkit/langgraph_agent.py"
+      - "CopilotKit/packages/sdk-js/src/langgraph.ts"
 
 jobs:
   danger:
@@ -23,8 +23,8 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'pnpm'
-          cache-dependency-path: '**/pnpm-lock.yaml'
+          cache: "pnpm"
+          cache-dependency-path: "**/pnpm-lock.yaml"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
