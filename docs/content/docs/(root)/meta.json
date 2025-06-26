@@ -7,8 +7,6 @@
     "[lucide/Play][LLM Quickstart](../direct-to-llm/guides/quickstart)",
     "[lucide/Play][CoAgent Quickstart](../coagents/quickstart)",
     "...shared-guides",
-    "---LLM UI Customization---",
-    "../../shared/guides/copilot-suggestions",
     "../direct-to-llm/guides/custom-ai-assistant-behavior",
     "---LLM Actions & Integration---",
     "../direct-to-llm/guides/frontend-actions",
