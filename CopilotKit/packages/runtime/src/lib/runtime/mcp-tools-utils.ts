@@ -51,7 +51,7 @@ export function extractParametersFromSchema(
       ? (toolOrSchema as MCPTool).schema
       : (toolOrSchema as MCPTool["schema"]);
 
-  const toolParameters = schema?.parameters || schema?.parameters?.jsonSchema;
+  const toolParameters = schema?.parameters?.jsonSchema || schema?.parameters;
   const properties = toolParameters?.properties;
   const requiredParams = new Set(toolParameters?.required || []);
 
