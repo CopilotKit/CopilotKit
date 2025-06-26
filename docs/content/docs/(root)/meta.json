@@ -12,6 +12,7 @@
     "../direct-to-llm/guides/frontend-actions",
     "../direct-to-llm/guides/backend-actions",
     "../direct-to-llm/guides/frontend-backend-action-pairing",
+    "../direct-to-llm/guides/human-in-the-loop",
     "../direct-to-llm/guides/generative-ui",
     "../direct-to-llm/guides/model-context-protocol",
     "../direct-to-llm/guides/connect-your-data",
