@@ -6,7 +6,6 @@
     "self-hosting",
     "---UI & Customization---",
     "../../shared/guides/custom-look-and-feel",
-    "copilot-textarea",
     "../../shared/guides/copilot-suggestions",
     "custom-ai-assistant-behavior",
     "---Actions & Integration---",
@@ -20,6 +19,8 @@
     "bring-your-own-llm",
     "model-context-protocol",
     "guardrails",
-    "messages-localstorage"
+    "messages-localstorage",
+    "---Legacy Features---",
+    "copilot-textarea"
   ]
 }
