@@ -1,0 +1,114 @@
+---
+title: Backend Actions
+icon: "lucide/Server"
+description: Enable AI agents to execute server-side operations, access databases, and integrate with external services.
+---
+
+## What are Backend Actions?
+
+Backend Actions are server-side functions that AI agents can call to perform operations that require backend resources, such as database queries, API calls, file operations, or complex computations. They extend agent capabilities beyond the frontend to access the full power of your server infrastructure.
+
+Unlike frontend actions that modify UI state, backend actions handle data processing, external integrations, and operations that require server-side security or resources.
+
+## Why Use Backend Actions?
+
+Backend Actions enable agents to perform sophisticated operations:
+
+### **Data Access and Manipulation**
+Agents can query databases, update records, and perform complex data operations that require server-side processing.
+
+### **External Service Integration**
+Connect with third-party APIs, services, and systems that require server-side authentication or processing.
+
+### **Security and Privacy**
+Perform sensitive operations server-side where credentials and sensitive data can be properly secured.
+
+### **Complex Processing**
+Execute computationally intensive tasks, data analysis, or operations that would be inefficient on the client side.
+
+### **Business Logic Execution**
+Implement and execute complex business rules, workflows, and processes that span multiple systems.
+
+## Common Backend Action Patterns
+
+### **Database Operations**
+Actions that create, read, update, or delete data from databases, often with complex queries and relationships.
+
+### **API Integrations**
+Actions that call external APIs, process responses, and integrate data from third-party services.
+
+### **File Operations**
+Actions that handle file uploads, downloads, processing, or storage operations on the server.
+
+### **Authentication and Authorization**
+Actions that manage user authentication, permissions, and access control for sensitive operations.
+
+### **Data Processing**
+Actions that perform data transformation, analysis, aggregation, or complex computations.
+
+### **Workflow Orchestration**
+Actions that coordinate multiple backend services or trigger complex business processes.
+
+## Types of Backend Actions
+
+### **Synchronous Actions**
+Actions that execute and return results immediately, suitable for quick database queries or simple API calls.
+
+### **Asynchronous Actions**
+Actions that handle long-running operations, often with progress tracking and completion notifications.
+
+### **Streaming Actions**
+Actions that return data progressively, useful for real-time updates or large data sets.
+
+### **Batch Actions**
+Actions that process multiple items or operations together for efficiency.
+
+### **Transactional Actions**
+Actions that ensure data consistency across multiple operations, with rollback capabilities on failure.
+
+## When to Use Backend Actions
+
+Consider Backend Actions when agents need to:
+
+- **Access sensitive data** that shouldn't be exposed to the frontend
+- **Perform complex queries** across multiple data sources
+- **Integrate with external services** requiring server-side authentication
+- **Execute business logic** that involves multiple systems
+- **Process large amounts of data** efficiently
+- **Maintain data consistency** across operations
+- **Handle file operations** or media processing
+- **Implement security controls** and access management
+
+## Implementation Considerations
+
+### **Security**
+- Implement proper authentication and authorization for all actions
+- Validate and sanitize all input parameters
+- Use secure communication channels for sensitive operations
+- Apply principle of least privilege for action permissions
+
+### **Performance**
+- Optimize database queries and external API calls
+- Implement caching strategies for frequently accessed data
+- Consider connection pooling for database operations
+- Handle rate limiting for external service integrations
+
+### **Reliability**
+- Implement proper error handling and recovery mechanisms
+- Use transactions where data consistency is critical
+- Provide meaningful error messages for debugging
+- Implement retry logic for transient failures
+
+### **Scalability**
+- Design actions to handle concurrent requests efficiently
+- Consider asynchronous processing for long-running operations
+- Implement proper resource management and cleanup
+- Plan for horizontal scaling of backend services
+
+---
+
+## Ready to Implement Backend Actions?
+
+Backend Actions can be implemented across all CopilotKit integrations, with each framework providing different approaches for connecting AI agents to your server-side functionality.
+
+**Choose your integration above to see framework-specific implementation guides and examples.** 
