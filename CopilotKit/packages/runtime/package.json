@@ -23,8 +23,8 @@
     "dev": "tsup --watch --onSuccess \"pnpm run generate-graphql-schema\"",
     "test": "jest --passWithNoTests",
     "check-types": "tsc --noEmit",
-    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next && rm -rf __snapshots__",
-    "generate-graphql-schema": "rm -rf __snapshots__ && ts-node ./scripts/generate-gql-schema.ts",
+    "clean": "rimraf .turbo node_modules dist .next __snapshots__",
+    "generate-graphql-schema": "rimraf __snapshots__ && ts-node ./scripts/generate-gql-schema.ts",
     "link:global": "pnpm link --global",
     "unlink:global": "pnpm unlink --global"
   },
@@ -39,6 +39,7 @@
     "eslint-config-custom": "workspace:*",
     "jest": "^29.6.4",
     "nodemon": "^3.1.3",
+    "rimraf": "^5.0.5",
     "ts-jest": "^29.1.1",
     "ts-node": "^10.9.2",
     "tsconfig": "workspace:*",

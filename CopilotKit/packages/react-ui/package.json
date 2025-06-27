@@ -30,7 +30,7 @@
     "dev": "tsup --watch --no-splitting",
     "test": "jest",
     "check-types": "tsc --noEmit",
-    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next",
+    "clean": "rimraf .turbo node_modules dist .next",
     "link:global": "pnpm link --global",
     "unlink:global": "pnpm unlink --global"
   },
@@ -46,6 +46,7 @@
     "jest": "^29.6.4",
     "postcss": "^8.4.20",
     "react": "^18.2.0",
+    "rimraf": "^5.0.5",
     "tailwind-config": "workspace:*",
     "tailwindcss": "^3.3.0",
     "ts-jest": "^29.1.1",

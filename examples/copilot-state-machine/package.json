@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"
+    "clean": "rimraf .turbo node_modules dist .next"
   },
   "dependencies": {
     "@copilotkit/react-core": "1.8.13",
@@ -29,6 +29,7 @@
     "eslint": "^8",
     "eslint-config-next": "14.2.1",
     "postcss": "^8",
+    "rimraf": "^5.0.5",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"
   }
