@@ -149,7 +149,7 @@ Before you begin, you'll need the following:
                 ### Install CopilotKit packages
 
                 ```package-install
-                @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/mastra
+                @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/mastra @mastra/client-js
                 ```
             </Step>
             <Step>
@@ -244,7 +244,7 @@ Before you begin, you'll need the following:
                         /* [!code highlight:7] */
                         <CopilotKit 
                           runtimeUrl="/api/copilotkit" 
-                          agentName="your-mastra-agent-name"
+                          agent="your-mastra-agent-name"
                         >
                           {children}
                         </CopilotKit>
