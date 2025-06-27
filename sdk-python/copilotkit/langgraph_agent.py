@@ -369,6 +369,7 @@ class LangGraphAgent(Agent):
             return
 
         try:
+            updated_state = None
             async for event in stream:
                 current_node_name = event.get("name")
                 event_type = event.get("event")
@@ -434,7 +435,9 @@ class LangGraphAgent(Agent):
                     # reset the streaming state extractor
                     streaming_state_extractor = _StreamingStateExtractor(emit_intermediate_state)
 
-                updated_state = manually_emitted_state or (await self.graph.aget_state(config)).values
+                # Get the latest update of state, only if we don't have one or whenever a node exists
+                if exiting_node or manually_emitted_state or updated_state is None:
+                    updated_state = manually_emitted_state or (await self.graph.aget_state(config)).values
 
                 if emit_intermediate_state and event_type == "on_chat_model_stream":
                     streaming_state_extractor.buffer_tool_calls(event)
