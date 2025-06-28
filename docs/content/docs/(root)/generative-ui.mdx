@@ -3,6 +3,7 @@ title: Generative UI
 icon: "lucide/Sparkles"
 description: Create dynamic, AI-driven user interfaces that adapt and respond to user interactions and agent state.
 ---
+import { IntegrationsGrid } from "@/components/react/integrations";
 
 ## What is Generative UI?
 
@@ -12,87 +13,53 @@ Generative UI is a paradigm where user interface components are dynamically crea
 
 This approach enables AI agents to not just respond with text, but to create rich, interactive experiences tailored to each user's specific needs and context.
 
-## Why Use Generative UI?
+<Callout title="Ready to Implement Generative UI?">
+Generative UI can be implemented with any Agent Framework, with each framework offering different approaches for creating dynamic, AI-driven interfaces.
 
-Generative UI transforms how users interact with AI applications:
+**Choose your integration to see framework-specific implementation guides and examples.** 
+<IntegrationsGrid targetPage="generative-ui" />
+</Callout>
 
-### **Contextual Interfaces**
-UI components adapt to the current conversation, user needs, and application state, providing exactly the right interface at the right time.
+<div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 
-### **Rich Interactions**
-Move beyond text-only responses to create forms, visualizations, interactive elements, and custom components that enhance user experience.
+<div>
 
-### **Real-time Adaptation**
-Interfaces update dynamically as agent state changes, providing users with live feedback and visibility into agent progress.
+## Key Features
 
-### **Personalized Experiences**
-Each user can receive UI components tailored to their specific context, preferences, and current task.
+### **Dynamic Component Generation**
+AI agents create UI components in real-time based on context, user needs, and application state.
 
-### **Enhanced Engagement**
-Interactive elements keep users engaged and provide multiple ways to interact with and guide AI agents.
+### **Real-time State Visualization**
+Interfaces update dynamically as agent state changes, providing live feedback and progress visibility.
 
-## Common Generative UI Patterns
+### **Interactive Elements**
+Move beyond text responses to create forms, visualizations, buttons, and custom interactive components.
 
-### **Dynamic Forms**
-AI agents generate forms based on the information they need to collect, adapting fields and validation based on user responses.
+### **Contextual Adaptation**
+UI components adapt to current conversations and user context, providing exactly the right interface at the right time.
 
-### **Interactive Visualizations**
-Charts, graphs, and visual representations that update in real-time as agents process data or user inputs change.
+### **Rich Data Visualization**
+Charts, graphs, and visual representations that update in real-time as agents process data.
 
-### **Contextual Actions**
-Buttons and controls that appear based on current context, offering relevant actions users can take at each step.
+### **Multi-modal Interfaces**
+Support for various UI patterns including forms, workflows, progressive disclosure, and embedded actions.
 
-### **Progressive Disclosure**
-Interfaces that reveal additional options and information as users progress through workflows or as agents gather more context.
+</div>
 
-### **State Visualization**
-UI components that show the current state of agent processing, including progress indicators, status updates, and intermediate results.
-
-## Types of Generative UI
-
-### **Tool-based Generative UI**
-UI components generated as part of agent tool calls, creating interfaces for specific actions or data collection.
-
-### **State-based Generative UI**
-Interfaces that reflect and visualize the current state of AI agents, updating as agent state changes.
-
-### **Response-embedded UI**
-Interactive components embedded directly within agent responses, creating rich, actionable content.
-
-### **Workflow UI**
-Multi-step interfaces that guide users through complex processes, adapting based on user choices and agent recommendations.
+<div>
 
 ## When to Use Generative UI
 
-Consider Generative UI when your application needs:
+Consider Generative UI when you want to:
 
-- **Rich user interactions** beyond simple text exchange
-- **Dynamic data collection** with forms that adapt to context
-- **Real-time feedback** showing agent progress and state
-- **Complex workflows** that benefit from guided interfaces
-- **Data visualization** that updates based on agent analysis
-- **User engagement** through interactive elements
-- **Contextual actions** that change based on current state
+- **Create rich user interactions** beyond simple text exchange
+- **Build dynamic data collection** with forms that adapt to context
+- **Provide real-time feedback** showing agent progress and state
+- **Design complex workflows** that benefit from guided interfaces
+- **Enable data visualization** that updates based on agent analysis
+- **Increase user engagement** through interactive elements
+- **Offer contextual actions** that change based on current application state
 
-## Implementation Considerations
+</div>
 
-### **User Experience**
-- Ensure generated UI follows consistent design patterns
-- Provide clear feedback when interfaces are updating
-- Maintain accessibility standards across generated components
-
-### **Performance**
-- Consider the impact of dynamic UI generation on application performance
-- Implement efficient state management for real-time updates
-
-### **Flexibility**
-- Design systems that can accommodate various types of generated content
-- Plan for graceful degradation when UI generation fails
-
----
-
-## Ready to Implement Generative UI?
-
-Generative UI can be implemented across all CopilotKit integrations, with each framework offering different approaches for creating dynamic, AI-driven interfaces.
-
-**Choose your integration above to see framework-specific implementation guides and examples.** 
+</div> 
