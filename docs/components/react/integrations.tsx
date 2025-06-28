@@ -110,13 +110,36 @@ const IntegrationCard: React.FC<IntegrationCardProps> = ({
   );
 };
 
-const IntegrationsGrid: React.FC = () => {
+interface IntegrationsGridProps {
+  targetPage?: string;
+  suppressDirectToLLM?: boolean;
+}
+
+const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppressDirectToLLM = false }) => {
+  const getHref = (integration: Integration) => {
+    if (!targetPage) {
+      return integration.href;
+    }
+    
+    // For Direct to LLM, we don't have agentic-chat-ui, so fall back to the base href
+    if (integration.title === "Direct to LLM") {
+      return integration.href;
+    }
+    
+    // For other frameworks, append the target page
+    return `${integration.href}/${targetPage}`;
+  };
+
+  const filteredIntegrations = suppressDirectToLLM 
+    ? integrations.filter(integration => integration.title !== "Direct to LLM")
+    : integrations;
+
   return (
     <div className="flex flex-row flex-wrap justify-center items-center gap-x-6 gap-y-6 my-8">
-      {integrations.map((integration, index) => (
+      {filteredIntegrations.map((integration, index) => (
         <a 
           key={index}
-          href={integration.href}
+          href={getHref(integration)}
           className="flex flex-col items-center gap-3 text-center no-underline group"
         >
           <div className={`w-16 h-16 flex items-center justify-center rounded-2xl transition-all duration-200 group-hover:scale-105 ${integration.bgGradient}`}>
@@ -132,3 +155,4 @@ const IntegrationsGrid: React.FC = () => {
 };
 
 export { IntegrationCard, IntegrationsGrid, integrations };
+export type { IntegrationsGridProps };
