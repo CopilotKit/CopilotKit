@@ -121,8 +121,18 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
       return integration.href;
     }
     
-    // For Direct to LLM, we don't have agentic-chat-ui, so fall back to the base href
+    // Special cases where certain frameworks don't have specific pages
     if (integration.title === "Direct to LLM") {
+      // Direct to LLM has generative-ui in guides/ subdirectory
+      if (targetPage === "generative-ui") {
+        return `${integration.href}/generative-ui`;
+      }
+      // For other pages like agentic-chat-ui, fall back to base href
+      return integration.href;
+    }
+    
+    if (integration.title === "AutoGen2" && targetPage === "generative-ui") {
+      // AG2 doesn't have generative-ui yet, fall back to base href
       return integration.href;
     }
     
@@ -142,7 +152,7 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
           href={getHref(integration)}
           className="flex flex-col items-center gap-3 text-center no-underline group"
         >
-          <div className={`w-16 h-16 flex items-center justify-center rounded-2xl transition-all duration-200 group-hover:scale-105 ${integration.bgGradient}`}>
+          <div className={`w-12 h-12 flex items-center justify-center rounded-2xl transition-all duration-200 group-hover:scale-105 ${integration.bgGradient}`}>
             {integration.logo}
           </div>
           <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300 group-hover:text-black dark:group-hover:text-white transition-colors duration-200">
