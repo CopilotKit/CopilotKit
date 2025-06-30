@@ -167,6 +167,20 @@ const config: DemoConfig[] = [
       "Use collaboration to edit a document in real time with your Copilot",
     tags: ["State", "Streaming", "Tools"],
   }),
+  createDemoConfig({
+    id: "standard_mcp_server_chat",
+    name: "MCP Server Chat",
+    description:
+      "Chat with your Copilot and call frontend tools",
+    tags: ["Chat", "Tools", "Streaming"],
+  }),
+  createDemoConfig({
+    id: "standard_guardrails",
+    name: "Guardrails",
+    description:
+      "Chat with your Copilot with guardrails",
+    tags: ["Chat", "Tools", "Streaming"],
+  }),
   // TODO: Re-enable after revisiting demo
   // createDemoConfig({
   //     id: 'multi_agent_flows',
