@@ -733,14 +733,14 @@ cron = ["capturer (>=2.4)"]
 
 [[package]]
 name = "copilotkit"
-version = "0.1.52a4"
+version = "0.1.52a5"
 description = "CopilotKit python SDK"
 optional = false
 python-versions = "<3.13,>=3.10"
 groups = ["main"]
 files = [
-    {file = "copilotkit-0.1.52a4-py3-none-any.whl", hash = "sha256:ab39400de43f143e915b25f0197eae490828bb43e5379c01eff8473a06aef617"},
-    {file = "copilotkit-0.1.52a4.tar.gz", hash = "sha256:5c5fdfa290264da8969c6a654940f380797fd59240f9c79374c153cf47f76544"},
+    {file = "copilotkit-0.1.52a5-py3-none-any.whl", hash = "sha256:5948ac6722822a1d5021689e35d626c06da7f74c2ed1c8a26702730696db4f31"},
+    {file = "copilotkit-0.1.52a5.tar.gz", hash = "sha256:e95defeb660890eea801fa9b98b0c565dfd635ed57a3452e4d838e4914b7ffd8"},
 ]
 
 [package.dependencies]
@@ -5921,4 +5921,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<3.13"
-content-hash = "e90a580ab1b3c75ff8adff96addd3688b2a3831dea6ff35fbf927de854e5b844"
+content-hash = "a7481b04fa6746f60e46e6b319c33624803a29611c7013d821aeb8aaae698620"
