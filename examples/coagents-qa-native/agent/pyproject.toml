@@ -16,7 +16,7 @@ dependencies = [
   "langchain",
   "openai",
   "langchain-community",
-  "copilotkit[crewai]>=0.1.52a1",
+  "copilotkit[crewai]>=0.1.52a5",
 ]
 
 [build-system]
