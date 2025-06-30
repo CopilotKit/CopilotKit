@@ -116,36 +116,56 @@ interface IntegrationsGridProps {
 }
 
 const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppressDirectToLLM = false }) => {
+  const hasTargetPage = (integration: Integration, targetPage: string): boolean => {
+    // Direct to LLM special cases
+    if (integration.title === "Direct to LLM") {
+      return targetPage === "generative-ui" || targetPage === "frontend-actions";
+    }
+    
+    // AutoGen2 missing pages
+    if (integration.title === "AutoGen2") {
+      return targetPage !== "generative-ui" && targetPage !== "shared-state";
+    }
+    
+    // Frameworks that don't have shared-state pages
+    if (targetPage === "shared-state") {
+      return !["LlamaIndex", "Mastra", "AutoGen2", "Agno"].includes(integration.title);
+    }
+    
+    // All other frameworks have the standard pages
+    return true;
+  };
+
   const getHref = (integration: Integration) => {
     if (!targetPage) {
       return integration.href;
     }
     
-    // Special cases where certain frameworks don't have specific pages
+    // Special cases where certain frameworks have pages in different locations
     if (integration.title === "Direct to LLM") {
-      // Direct to LLM has pages in guides/ subdirectory
       if (targetPage === "generative-ui") {
         return "/direct-to-llm/guides/generative-ui";
       }
       if (targetPage === "frontend-actions") {
         return "/direct-to-llm/guides/frontend-actions";
       }
-      // For other pages like agentic-chat-ui, fall back to base href
-      return integration.href;
-    }
-    
-    if (integration.title === "AutoGen2" && targetPage === "generative-ui") {
-      // AG2 doesn't have generative-ui yet, fall back to base href
-      return integration.href;
     }
     
     // For other frameworks, append the target page
     return `${integration.href}/${targetPage}`;
   };
 
-  const filteredIntegrations = suppressDirectToLLM 
-    ? integrations.filter(integration => integration.title !== "Direct to LLM")
-    : integrations;
+  let filteredIntegrations = integrations;
+  
+  // Filter out Direct to LLM if suppressed
+  if (suppressDirectToLLM) {
+    filteredIntegrations = filteredIntegrations.filter(integration => integration.title !== "Direct to LLM");
+  }
+  
+  // Filter out integrations that don't have the target page
+  if (targetPage) {
+    filteredIntegrations = filteredIntegrations.filter(integration => hasTargetPage(integration, targetPage));
+  }
 
   return (
     <div className="flex flex-row flex-wrap justify-center items-center gap-x-6 gap-y-6 my-8">

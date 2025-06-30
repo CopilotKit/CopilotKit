@@ -1,108 +1,42 @@
 ---
 title: Shared State
-icon: "lucide/RefreshCw"
-description: Enable bidirectional data flow between your application and AI agents for seamless collaboration.
+description: Create a two-way connection between your UI and agent state.
+icon: "lucide/Repeat"
 ---
 
-## What is Shared State?
+import { ImageZoom } from "fumadocs-ui/components/image-zoom";
+import { IntegrationsGrid } from "@/components/react/integrations";
 
-Shared State is a bidirectional data synchronization system that allows your application and AI agents to share information in real-time. It creates a unified data layer where both your frontend application and AI agents can read from and write to the same state, enabling seamless collaboration and context awareness.
+<ImageZoom
+  src="/images/coagents/SharedStateCoAgents.gif"
+  alt="Shared State Demo"
+  width={1000}
+  height={1000}
+  className="rounded-lg shadow-lg border mt-0"
+/>
 
-<video src="/images/coagents/SharedStateCoAgents.gif" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<Callout>
+  This video demonstrates the [Research
+  Canvas](/crewai-crews/examples/research-canvas) utilizing shared state.
+</Callout>
 
-This shared context allows agents to understand your application's current state and make more informed decisions, while your application can react to agent state changes in real-time.
+## What is shared state?
 
-## Why Use Shared State?
+Agentic Copilots maintain a shared state that seamlessly connects your UI with the agent's execution. This shared state system allows you to:
 
-Shared State creates a foundation for intelligent, context-aware AI interactions:
+- Display the agent's current progress and intermediate results
+- Update the agent's state through UI interactions
+- React to state changes in real-time across your application
 
-### **Context Awareness**
-Agents have access to your application's current state, enabling them to provide more relevant and contextual responses and actions.
+<Callout title="Ready to Implement Shared State?">
+Shared State can be implemented with many supported Agent Frameworks, with each framework providing different approaches for creating bidirectional data flow between your application and AI agents.
 
-### **Real-time Synchronization**
-Changes made by agents are immediately reflected in your application, and vice versa, creating a seamless collaborative experience.
+**Choose your integration to see framework-specific implementation guides and examples.** 
+<IntegrationsGrid targetPage="shared-state" />
+</Callout>
 
-### **Persistent Memory**
-Agents can remember information across interactions, building up context and understanding over time.
+## When should I use this?
 
-### **Collaborative Workflows**
-Users and agents can work together on the same data, with each party's changes visible to the other in real-time.
+Shared state is perfect when you want to facilitate collaboration between your agent and the user. Updates to the outputs will be automatically shared by the UI. Similarly, any `inputs` that the user updates in the UI will be automatically reflected in the crews execution.
 
-### **Enhanced User Experience**
-Applications can provide immediate visual feedback as agents process information and update their internal state.
-
-## Common Shared State Patterns
-
-### **Application State Sharing**
-Your application shares its current state with agents, allowing them to understand context like current user, selected items, or active workflows.
-
-### **Agent State Visualization**
-Agents share their internal state with your application, enabling you to show users what the agent is thinking or working on.
-
-### **Collaborative Data Editing**
-Both users and agents can modify the same data structures, with changes synchronized in real-time.
-
-### **Progress Tracking**
-Agents share their progress on long-running tasks, allowing applications to show real-time status updates.
-
-### **Context Preservation**
-State persists across agent interactions, maintaining context and continuity in conversations.
-
-## Types of Shared State
-
-### **Read-only State**
-Application state that agents can read but not modify, useful for providing context without allowing agent modifications.
-
-### **Write-only State**
-State that agents can update but applications only consume, common for agent outputs and results.
-
-### **Bidirectional State**
-State that both applications and agents can read and write, enabling true collaborative editing and interaction.
-
-### **Ephemeral State**
-State that exists only during active sessions, useful for temporary context and working data.
-
-### **Persistent State**
-State that survives across sessions, enabling agents to build long-term memory and context.
-
-## When to Use Shared State
-
-Consider Shared State when you need:
-
-- **Context-aware agents** that understand your application's current state
-- **Real-time collaboration** between users and agents
-- **Visual feedback** showing agent progress and thinking
-- **Persistent memory** across agent interactions
-- **Seamless data flow** between application and agent workflows
-- **Collaborative editing** where both parties modify the same data
-- **Enhanced user experience** with immediate visual updates
-
-## Implementation Considerations
-
-### **Data Synchronization**
-- Ensure consistent data formats between application and agent state
-- Handle conflicts when both parties modify the same data simultaneously
-- Implement efficient update mechanisms to avoid performance issues
-
-### **State Management**
-- Design clear boundaries for what state should be shared vs. private
-- Consider state size and complexity to avoid overwhelming agents or applications
-- Implement proper state validation and error handling
-
-### **Performance**
-- Optimize state synchronization to minimize latency
-- Consider batching updates for frequently changing state
-- Implement efficient diffing algorithms for large state objects
-
-### **Security and Privacy**
-- Carefully control what application state is exposed to agents
-- Implement proper access controls for sensitive state information
-- Consider data privacy implications of persistent state storage
-
----
-
-## Ready to Implement Shared State?
-
-Shared State can be implemented across all CopilotKit integrations, with each framework providing different approaches for creating bidirectional data flow between your application and AI agents.
-
-**Choose your integration above to see framework-specific implementation guides and examples.** 
+This allows for a consistent experience where both the agent and the user are on the same page.
