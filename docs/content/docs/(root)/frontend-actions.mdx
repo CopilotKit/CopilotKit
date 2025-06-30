@@ -1,105 +1,34 @@
 ---
 title: Frontend Actions
-icon: "lucide/MousePointer"
-description: Enable AI agents to interact with and control your application's user interface and functionality.
+icon: "lucide/Wrench"
+description: Create frontend actions and use them within your agent.
 ---
+import { IntegrationsGrid } from "@/components/react/integrations";
 
-## What are Frontend Actions?
+<video src="/images/frontend-actions-demo.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<Callout>
+    This video shows the [coagents starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter) repo with the [implementation](#implementation) section applied to it!
+</Callout>
 
-Frontend Actions are functions that AI agents can call to interact with your application's user interface, modify application state, or trigger specific behaviors in the frontend. They bridge the gap between AI agent capabilities and your application's functionality.
+## What is this?
 
-<video src="/images/use-copilot-action/useCopilotAction.gif" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+Frontend actions are powerful tools that allow your AI agents to directly interact with and update your application's user interface. Think of them as bridges that connect your agent's decision-making capabilities with your frontend's interactive elements.
 
-Instead of just responding with text, agents can take concrete actions within your application, creating more interactive and useful AI experiences.
+## When should I use this?
 
-## Why Use Frontend Actions?
+Frontend actions are essential when you want to create truly interactive AI applications where your agent needs to:
 
-Frontend Actions transform AI agents from passive responders to active participants in your application:
+- Dynamically update UI elements
+- Trigger frontend animations or transitions
+- Show alerts or notifications
+- Modify application state
+- Handle user interactions programmatically
 
-### **Direct Application Control**
-Agents can manipulate your application's state, update UI components, and trigger specific functionality based on user requests.
+Without frontend actions, agents are limited to just processing and returning data. By implementing frontend actions, you can create rich, interactive experiences where your agent actively drives the user interface.
 
-### **Contextual Interactions**
-Actions are aware of current application state and can make intelligent decisions about what actions to take and when.
+<Callout title="Ready to Implement Frontend Actions?">
+Frontend actions can be implemented with any Agent Framework, with each framework providing different approaches for connecting agents to your UI.
 
-### **Enhanced User Experience**
-Users can accomplish complex tasks through natural language without manually navigating through multiple UI elements.
-
-### **Workflow Automation**
-Agents can execute multi-step processes, combining multiple actions to complete complex user requests.
-
-### **Real-time Responsiveness**
-Actions execute immediately, providing users with instant feedback and results within the application interface.
-
-## Common Frontend Action Patterns
-
-### **State Manipulation**
-Actions that modify application state, such as updating user preferences, changing view modes, or modifying data structures.
-
-### **Navigation Control**
-Actions that navigate between different parts of your application, open specific pages, or change the current view.
-
-### **Data Operations**
-Actions that create, read, update, or delete data within your application, often reflecting changes immediately in the UI.
-
-### **UI Component Control**
-Actions that show/hide elements, trigger animations, open modals, or modify the appearance of interface components.
-
-### **External Integrations**
-Actions that trigger integrations with external services while updating the frontend to reflect the results.
-
-## Types of Frontend Actions
-
-### **Synchronous Actions**
-Actions that execute immediately and return results directly, suitable for simple state changes or UI updates.
-
-### **Asynchronous Actions**
-Actions that handle longer-running operations, often providing progress updates and handling completion states.
-
-### **Parameterized Actions**
-Actions that accept parameters from the AI agent, allowing for flexible and contextual execution based on user requests.
-
-### **Conditional Actions**
-Actions that include logic to determine whether they should execute based on current application state or user permissions.
-
-## When to Use Frontend Actions
-
-Consider Frontend Actions when you want agents to:
-
-- **Modify application state** based on user requests
-- **Trigger specific functionality** without user manual interaction
-- **Automate workflows** that span multiple UI interactions
-- **Provide immediate feedback** through UI changes
-- **Access application-specific features** that enhance agent capabilities
-- **Create shortcuts** for complex user operations
-- **Integrate with application data** in real-time
-
-## Implementation Considerations
-
-### **Security**
-- Validate all action parameters to prevent malicious input
-- Implement proper authorization checks for sensitive actions
-- Consider rate limiting for actions that could impact performance
-
-### **User Experience**
-- Provide clear feedback when actions are executing
-- Handle action failures gracefully with appropriate error messages
-- Ensure actions don't disrupt ongoing user interactions
-
-### **Performance**
-- Optimize action execution to avoid blocking the UI
-- Consider caching strategies for frequently called actions
-- Implement proper loading states for longer-running actions
-
-### **Maintainability**
-- Keep actions focused and single-purpose
-- Document action parameters and expected behaviors
-- Design actions to be testable and debuggable
-
----
-
-## Ready to Implement Frontend Actions?
-
-Frontend Actions can be implemented across all CopilotKit integrations, with each framework providing different approaches for connecting AI agents to your application's functionality.
-
-**Choose your integration above to see framework-specific implementation guides and examples.** 
+**Choose your integration to see framework-specific implementation guides and examples.** 
+<IntegrationsGrid targetPage="frontend-actions" />
+</Callout> 
