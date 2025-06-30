@@ -10,24 +10,9 @@ Backend Actions are server-side functions that AI agents can call to perform ope
 
 Unlike frontend actions that modify UI state, backend actions handle data processing, external integrations, and operations that require server-side security or resources.
 
-## Why Use Backend Actions?
+<div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 
-Backend Actions enable agents to perform sophisticated operations:
-
-### **Data Access and Manipulation**
-Agents can query databases, update records, and perform complex data operations that require server-side processing.
-
-### **External Service Integration**
-Connect with third-party APIs, services, and systems that require server-side authentication or processing.
-
-### **Security and Privacy**
-Perform sensitive operations server-side where credentials and sensitive data can be properly secured.
-
-### **Complex Processing**
-Execute computationally intensive tasks, data analysis, or operations that would be inefficient on the client side.
-
-### **Business Logic Execution**
-Implement and execute complex business rules, workflows, and processes that span multiple systems.
+<div>
 
 ## Common Backend Action Patterns
 
@@ -49,6 +34,10 @@ Actions that perform data transformation, analysis, aggregation, or complex comp
 ### **Workflow Orchestration**
 Actions that coordinate multiple backend services or trigger complex business processes.
 
+</div>
+
+<div>
+
 ## Types of Backend Actions
 
 ### **Synchronous Actions**
@@ -66,6 +55,10 @@ Actions that process multiple items or operations together for efficiency.
 ### **Transactional Actions**
 Actions that ensure data consistency across multiple operations, with rollback capabilities on failure.
 
+</div>
+
+</div>
+
 ## When to Use Backend Actions
 
 Consider Backend Actions when agents need to:
@@ -79,36 +72,27 @@ Consider Backend Actions when agents need to:
 - **Handle file operations** or media processing
 - **Implement security controls** and access management
 
-## Implementation Considerations
 
-### **Security**
-- Implement proper authentication and authorization for all actions
-- Validate and sanitize all input parameters
-- Use secure communication channels for sensitive operations
-- Apply principle of least privilege for action permissions
+## Implementation Approach by Integration Type
 
-### **Performance**
-- Optimize database queries and external API calls
-- Implement caching strategies for frequently accessed data
-- Consider connection pooling for database operations
-- Handle rate limiting for external service integrations
+### **Direct to LLM Applications**
 
-### **Reliability**
-- Implement proper error handling and recovery mechanisms
-- Use transactions where data consistency is critical
-- Provide meaningful error messages for debugging
-- Implement retry logic for transient failures
+Backend Actions are primarily designed for Direct to LLM applications, where you need explicit server-side functions that the LLM can call. CopilotKit provides multiple implementation approaches:
 
-### **Scalability**
-- Design actions to handle concurrent requests efficiently
-- Consider asynchronous processing for long-running operations
-- Implement proper resource management and cleanup
-- Plan for horizontal scaling of backend services
+- **TypeScript/Node.js Actions** - Implement actions directly in your runtime
+- **LangChain.js Integration** - Use LangChain chains as backend actions  
+- **LangServe Integration** - Connect to hosted LangChain services
+- **Python SDK** - Create remote actions using the Python SDK
 
----
+**[Explore Direct to LLM Backend Actions →](/direct-to-llm/guides/backend-actions)**
 
-## Ready to Implement Backend Actions?
+### **Agent Framework Applications**
 
-Backend Actions can be implemented across all CopilotKit integrations, with each framework providing different approaches for connecting AI agents to your server-side functionality.
+Agent frameworks (LangGraph, CrewAI, LlamaIndex, etc.) typically handle backend operations through their native agent architectures rather than explicit backend actions. These frameworks provide their own mechanisms for:
 
-**Choose your integration above to see framework-specific implementation guides and examples.** 
+- Tool calling and external service integration
+- Database access and data manipulation  
+- Complex workflow orchestration
+- Multi-step reasoning and planning
+
+For agent-based applications, backend functionality is usually implemented as **agent tools** or **framework-specific integrations** rather than CopilotKit backend actions. 
