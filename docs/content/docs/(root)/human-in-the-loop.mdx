@@ -4,6 +4,7 @@ icon: "lucide/User"
 description: Allow your agent and users to collaborate on complex tasks.
 ---
 import { CTACards } from "@/components/react/cta-cards"
+import { IntegrationsGrid } from "@/components/react/integrations"
 
 <video src="/images/coagents/human-in-the-loop-example.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
 
@@ -28,28 +29,9 @@ HITL combines the efficiency of AI with human judgment, creating a system that's
 - **Expert Input**: Leverage human expertise when needed
 - **Reliability**: More robust system for real-world use
 
-## How can I use this?
+<Callout title="Ready to Implement Human in the Loop?">
+Human in the Loop can be implemented with any integration.
 
-Copilotkit provides two main approaches for HITL workflows - custom UI component and node-based.
-
-<Callout>
-  Unsure which approach to use? We recommend starting with the [UI Component](/direct-to-llm/guides/generative-ui?gen-ui-type=renderAndWaitForResponse+%28HITL%29).
+**Choose your integration to see specific implementation guides and examples.** 
+<IntegrationsGrid targetPage="human-in-the-loop" />
 </Callout>
-
-<CTACards
-  columns={2}
-  cards={[
-    {
-      iconKey: "share2",
-      title: "Custom UI Component (Direct to LLM)",
-      description: "Enable the AI assistant to prompt the end-user with a choice (rendered inside the chat UI)",
-      href: "/direct-to-llm/guides/generative-ui?gen-ui-type=renderAndWaitForResponse+%28HITL%29"
-    },
-    {
-      iconKey: "pause",
-      title: "Interrupt (Agent Framework)",
-      description: "Utilize LangGraph's (or the framework of your choice) interrupt function to pause the agent and wait for user input.",
-      href: "/coagents/human-in-the-loop/interrupt-flow"
-    }
-  ]}
-/>

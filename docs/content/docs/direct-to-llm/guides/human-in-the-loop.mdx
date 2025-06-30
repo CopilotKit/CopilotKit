@@ -5,12 +5,6 @@ description: Allow your agent and users to collaborate on complex tasks.
 ---
 import { CTACards } from "@/components/react/cta-cards"
 
-<video src="/images/coagents/human-in-the-loop-example.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
-
-<Callout>
-  This video shows an example of our [AI Travel App](/coagents/tutorials/ai-travel-app) using HITL to get user feedback.
-</Callout>
-
 ## What is Human-in-the-Loop (HITL)?
 
 Human-in-the-loop (HITL) allows agents to request human input or approval during execution, making AI systems more reliable and trustworthy. This pattern is essential when building AI applications that need to handle complex decisions or actions that require human judgment.
@@ -28,13 +22,7 @@ HITL combines the efficiency of AI with human judgment, creating a system that's
 - **Expert Input**: Leverage human expertise when needed
 - **Reliability**: More robust system for real-world use
 
-## How can I use this?
-
-Copilotkit provides two main approaches for HITL workflows - custom UI component and node-based.
-
-<Callout>
-  Unsure which approach to use? We recommend starting with the [UI Component](/direct-to-llm/guides/generative-ui?gen-ui-type=renderAndWaitForResponse+%28HITL%29).
-</Callout>
+## How can I use this with my Direct to LLM Copilot?
 
 <CTACards
   columns={2}
@@ -44,12 +32,6 @@ Copilotkit provides two main approaches for HITL workflows - custom UI component
       title: "Custom UI Component (Direct to LLM)",
       description: "Enable the AI assistant to prompt the end-user with a choice (rendered inside the chat UI)",
       href: "/direct-to-llm/guides/generative-ui?gen-ui-type=renderAndWaitForResponse+%28HITL%29"
-    },
-    {
-      iconKey: "pause",
-      title: "Interrupt (Agent Framework)",
-      description: "Utilize LangGraph's (or the framework of your choice) interrupt function to pause the agent and wait for user input.",
-      href: "/coagents/human-in-the-loop/interrupt-flow"
     }
   ]}
 />
