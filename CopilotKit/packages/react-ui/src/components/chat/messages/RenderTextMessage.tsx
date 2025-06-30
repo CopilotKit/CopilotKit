@@ -46,6 +46,10 @@ export function RenderTextMessage({
           markdownTagRenderers={markdownTagRenderers}
         />
       );
+    } else {
+      return null;
     }
-  }
+  } else {
+    return null;
+  } 
 }
