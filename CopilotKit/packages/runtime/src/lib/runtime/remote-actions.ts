@@ -6,11 +6,7 @@ import { RuntimeEvent } from "../../service-adapters/events";
 import { Observable } from "rxjs";
 import { ActionInput } from "../../graphql/inputs/action.input";
 import { AgentStateInput } from "../../graphql/inputs/agent-state.input";
-import {
-  constructLGCRemoteAction,
-  constructRemoteActions,
-  createHeaders,
-} from "./remote-action-constructors";
+import { constructRemoteActions, createHeaders } from "./remote-action-constructors";
 import {
   CopilotKitLowLevelError,
   ResolvedCopilotKitError,
@@ -19,6 +15,7 @@ import {
 import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 import { AbstractAgent } from "@ag-ui/client";
 import { constructAGUIRemoteAction } from "./agui-action";
+import { LangGraphAgent } from "./langgraph/langgraph-agent";
 
 export type EndpointDefinition = CopilotKitEndpoint | LangGraphPlatformEndpoint;
 
@@ -129,7 +126,7 @@ export async function setupRemoteActions({
   messages,
   agentStates,
   frontendUrl,
-  agents,
+  agents: agentsInput,
   metaEvents,
 }: {
   remoteEndpointDefinitions: EndpointDefinition[];
@@ -140,33 +137,40 @@ export async function setupRemoteActions({
   agents: Record<string, AbstractAgent>;
   metaEvents?: MetaEventInput[];
 }): Promise<Action[]> {
+  let agents = agentsInput;
   const logger = graphqlContext.logger.child({ component: "remote-actions.fetchRemoteActions" });
   logger.debug({ remoteEndpointDefinitions }, "Fetching from remote endpoints");
 
   // Remove duplicates of remoteEndpointDefinitions.url
-  const filtered = remoteEndpointDefinitions.filter((value, index, self) => {
-    if (value.type === EndpointType.LangGraphPlatform) {
-      return value;
+  const filtered = remoteEndpointDefinitions.filter((endpoint, index, self) => {
+    if (endpoint.type === EndpointType.LangGraphPlatform) {
+      const aguiAgentsFromEndpoint = endpoint.agents.reduce((acc, agent) => {
+        acc[agent.name] = new LangGraphAgent({
+          deploymentUrl: endpoint.deploymentUrl,
+          langsmithApiKey: endpoint.langsmithApiKey,
+          agentName: agent.name,
+          description: agent.description,
+          graphId: agent.name,
+        });
+        return acc;
+      }, {});
+      agents = {
+        ...agents,
+        ...aguiAgentsFromEndpoint,
+      };
+      return false;
     }
-    return index === self.findIndex((t: CopilotKitEndpoint) => t.url === value.url);
+    return index === self.findIndex((t: CopilotKitEndpoint) => t.url === endpoint.url);
   });
 
   const result = await Promise.all(
     filtered.map(async (endpoint) => {
-      // Check for properties that can distinguish LG platform from other actions
       if (endpoint.type === EndpointType.LangGraphPlatform) {
-        return constructLGCRemoteAction({
-          endpoint,
-          messages,
-          graphqlContext,
-          logger: logger.child({
-            component: "remote-actions.constructLGCRemoteAction",
-            endpoint,
-          }),
-          agentStates,
-        });
+        console.error("Error: found unmapped (remoteEndpoint<->AGUI) LangGraph endpoint");
+        return [];
       }
 
+      // Check for properties that can distinguish LG platform from other actions
       const json = await fetchRemoteInfo({
         url: endpoint.url,
         onBeforeRequest: endpoint.onBeforeRequest,

@@ -1,13 +1,7 @@
 import "reflect-metadata";
 import { TextEncoder } from "util";
 import { RemoteLangGraphEventSource } from "../../../agents/langgraph/event-source";
-import telemetry from "../../telemetry-client";
-import {
-  constructLGCRemoteAction,
-  constructRemoteActions,
-  createHeaders,
-} from "../remote-action-constructors";
-import { execute } from "../remote-lg-action";
+import { constructRemoteActions, createHeaders } from "../remote-action-constructors";
 import { ReplaySubject } from "rxjs";
 
 // Mock external dependencies
@@ -50,67 +44,6 @@ beforeEach(() => {
 });
 
 describe("remote action constructors", () => {
-  describe("constructLGCRemoteAction", () => {
-    it("should create an agent with remoteAgentHandler that processes events", async () => {
-      // Arrange: simulate execute returning a dummy ReadableStream
-      const dummyEncodedEvent = new TextEncoder().encode(JSON.stringify({ event: "test" }) + "\n");
-      const readerMock = {
-        read: jest
-          .fn()
-          .mockResolvedValueOnce({ done: false, value: dummyEncodedEvent })
-          .mockResolvedValueOnce({ done: true, value: new Uint8Array() }),
-      };
-
-      const dummyResponse = {
-        getReader: () => readerMock,
-      };
-
-      (execute as jest.Mock).mockResolvedValue(dummyResponse);
-
-      // Mock RemoteLangGraphEventSource to return a dummy processed result
-      const processLangGraphEventsMock = jest.fn(() => "processed events");
-      (RemoteLangGraphEventSource as jest.Mock).mockImplementation(() => ({
-        eventStream$: { next: jest.fn(), complete: jest.fn(), error: jest.fn() },
-        processLangGraphEvents: processLangGraphEventsMock,
-      }));
-
-      // Act: build the action and call remoteAgentHandler
-      const actions = constructLGCRemoteAction({
-        endpoint,
-        graphqlContext,
-        logger,
-        messages: [],
-        agentStates,
-      });
-      expect(actions).toHaveLength(1);
-      const action = actions[0];
-      expect(action.name).toEqual(dummyAgent.name);
-
-      const result = await action.remoteAgentHandler({
-        name: dummyAgent.name,
-        actionInputsWithoutAgents: [],
-        threadId: "thread1",
-        nodeName: "node1",
-        additionalMessages: [],
-        metaEvents: [],
-      });
-
-      // Assert: processLangGraphEvents is called and result returned
-      expect(processLangGraphEventsMock).toHaveBeenCalled();
-      expect(result).toBe("processed events");
-
-      // Check telemetry.capture was called with agentExecution true
-      expect(telemetry.capture).toHaveBeenCalledWith(
-        "oss.runtime.remote_action_executed",
-        expect.objectContaining({
-          agentExecution: true,
-          type: "langgraph-platform",
-          agentsAmount: 1,
-        }),
-      );
-    });
-  });
-
   describe("constructRemoteActions", () => {
     const json = {
       agents: [{ name: "agent2", description: "agent desc" }],
