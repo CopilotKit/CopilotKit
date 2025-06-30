@@ -9,7 +9,7 @@ license = "MIT"
 name = "research_canvas"
 version = "0.0.1"
 dependencies = [
-    "copilotkit>=0.1.44",
+    "copilotkit>=0.1.52a1",
     "crewai==0.118.0",
     "langchain-openai>=0.2.3",
     "langchain-community>=0.3.1",
@@ -23,7 +23,7 @@ dependencies = [
     "requests>=2.32.3",
     "html2text>=2024.2.26",
     "langchain-core>=0.3.25",
-    "langgraph-cli[inmem]>=0.1.64",
+    "langgraph-cli[inmem]>=0.3.3",
     "langgraph-checkpoint-sqlite>=2.0.1",
     "aiosqlite>=0.20.0",
     "aiohttp>=3.9.3"
@@ -35,7 +35,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.poetry.dependencies]
 python = ">=3.12,<3.13"
-copilotkit = "^0.1.44"
+copilotkit = "^0.1.52a1"
 crewai = "0.118.0"
 langchain-openai = "0.2.3"
 langchain-community = "^0.3.1"
@@ -49,7 +49,7 @@ uvicorn = "^0.31.0"
 requests = "^2.32.3"
 html2text = "^2024.2.26"
 langchain-core = "^0.3.25"
-langgraph-cli = {extras = ["inmem"], version = "^0.1.64"}
+langgraph-cli = {extras = ["inmem"], version = "^0.3.3"}
 langgraph-checkpoint-sqlite = "^2.0.1"
 aiosqlite = "^0.20.0"
 aiohttp = "^3.9.3"
