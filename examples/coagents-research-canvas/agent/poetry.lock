@@ -2337,20 +2337,20 @@ langchain-core = ">=0.3.51,<1.0.0"
 
 [[package]]
 name = "langgraph"
-version = "0.5.0"
+version = "0.4.8"
 description = "Building stateful, multi-actor applications with LLMs"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "langgraph-0.5.0-py3-none-any.whl", hash = "sha256:74e33efb6527602b79bfcc4e3d0bfbb15b8d86fa25bb417fdd8d3306456cf8de"},
-    {file = "langgraph-0.5.0.tar.gz", hash = "sha256:7ad6d42f2a44e93e225cc65c59fac51c55ae549c9824adc22971d00e5ac26443"},
+    {file = "langgraph-0.4.8-py3-none-any.whl", hash = "sha256:273b02782669a474ba55ef4296607ac3bac9e93639d37edc0d32d8cf1a41a45b"},
+    {file = "langgraph-0.4.8.tar.gz", hash = "sha256:48445ac8a351b7bdc6dee94e2e6a597f8582e0516ebd9dea0fd0164ae01b915e"},
 ]
 
 [package.dependencies]
 langchain-core = ">=0.1"
-langgraph-checkpoint = ">=2.1.0"
-langgraph-prebuilt = ">=0.5.0"
+langgraph-checkpoint = ">=2.0.26"
+langgraph-prebuilt = ">=0.2.0"
 langgraph-sdk = ">=0.1.42"
 pydantic = ">=2.7.4"
 xxhash = ">=3.5.0"
@@ -5921,4 +5921,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<3.13"
-content-hash = "f6556c9b3e3a3e2fb1e855a2099393076461ca065d9981ebc1077ccd54e5c43f"
+content-hash = "7bf0ec7fcccacd2765766ec7be3a69f9623d82b6a3f37d7f2b496600fc1ad24c"
