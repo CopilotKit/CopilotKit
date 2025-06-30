@@ -529,6 +529,8 @@ class LangGraphAgent(Agent):
             pass
         elif "writes" in state.metadata and state.metadata["writes"]:
             node_name = list(state.metadata["writes"].keys())[0]
+        elif hasattr(state, "next") and state.next and state.next[0]:
+            node_name = state.next[0]
         else:
             node_name = "__end__"
         is_end_node = state.next == () and not interrupts
