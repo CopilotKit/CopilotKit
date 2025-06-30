@@ -524,7 +524,13 @@ class LangGraphAgent(Agent):
         state = await self.graph.aget_state(config)
         tasks = state.tasks
         interrupts = tasks[0].interrupts if tasks and len(tasks) > 0 else None
-        node_name = node_name if interrupts else list(state.metadata["writes"].keys())[0]
+        if interrupts:
+            # node_name is already set earlier from the interrupt origin
+            pass
+        elif "writes" in state.metadata and state.metadata["writes"]:
+            node_name = list(state.metadata["writes"].keys())[0]
+        else:
+            node_name = "__end__"
         is_end_node = state.next == () and not interrupts
 
         yield self._emit_state_sync_event(
