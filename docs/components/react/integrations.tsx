@@ -123,9 +123,12 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
     
     // Special cases where certain frameworks don't have specific pages
     if (integration.title === "Direct to LLM") {
-      // Direct to LLM has generative-ui in guides/ subdirectory
+      // Direct to LLM has pages in guides/ subdirectory
       if (targetPage === "generative-ui") {
-        return `${integration.href}/generative-ui`;
+        return "/direct-to-llm/guides/generative-ui";
+      }
+      if (targetPage === "frontend-actions") {
+        return "/direct-to-llm/guides/frontend-actions";
       }
       // For other pages like agentic-chat-ui, fall back to base href
       return integration.href;
