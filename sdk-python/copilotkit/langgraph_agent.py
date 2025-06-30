@@ -3,9 +3,10 @@
 import uuid
 import json
 from typing import Optional, List, Callable, Any, cast, Union, TypedDict, Literal
+
+from langgraph.graph.state import CompiledStateGraph
 from typing_extensions import NotRequired
 
-from langgraph.graph.graph import CompiledGraph
 from langgraph.types import Command
 from langchain.load.dump import dumps as langchain_dumps
 from langchain.schema import BaseMessage, SystemMessage
@@ -176,7 +177,7 @@ class LangGraphAgent(Agent):
     ----------
     name : str
         The name of the agent.
-    graph : CompiledGraph
+    graph : CompiledStateGraph
         The LangGraph graph to use with the agent.
     description : Optional[str]
         The description of the agent.
@@ -189,7 +190,7 @@ class LangGraphAgent(Agent):
             self,
             *,
             name: str,
-            graph: Optional[CompiledGraph] = None,
+            graph: Optional[CompiledStateGraph] = None,
             description: Optional[str] = None,
             langgraph_config:  Union[Optional[RunnableConfig], dict] = None,
             copilotkit_config: Optional[CopilotKitConfig] = None,
@@ -197,7 +198,7 @@ class LangGraphAgent(Agent):
             # deprecated - use langgraph_config instead
             config: Union[Optional[RunnableConfig], dict] = None,
             # deprecated - use graph instead
-            agent: Optional[CompiledGraph] = None,
+            agent: Optional[CompiledStateGraph] = None,
             # deprecated - use copilotkit_config instead
             merge_state: Optional[Callable] = None,
 
@@ -236,7 +237,7 @@ class LangGraphAgent(Agent):
 
         self.langgraph_config = langgraph_config or config
 
-        self.graph = cast(CompiledGraph, graph or agent)
+        self.graph = cast(CompiledStateGraph, graph or agent)
         self.active_interrupt_event = False
 
     def _emit_state_sync_event(
@@ -523,7 +524,15 @@ class LangGraphAgent(Agent):
         state = await self.graph.aget_state(config)
         tasks = state.tasks
         interrupts = tasks[0].interrupts if tasks and len(tasks) > 0 else None
-        node_name = node_name if interrupts else list(state.metadata["writes"].keys())[0]
+        if interrupts:
+            # node_name is already set earlier from the interrupt origin
+            pass
+        elif "writes" in state.metadata and state.metadata["writes"]:
+            node_name = list(state.metadata["writes"].keys())[0]
+        elif hasattr(state, "next") and state.next and state.next[0]:
+            node_name = state.next[0]
+        else:
+            node_name = "__end__"
         is_end_node = state.next == () and not interrupts
 
         yield self._emit_state_sync_event(
