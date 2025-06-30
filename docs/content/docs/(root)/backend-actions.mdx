@@ -3,12 +3,38 @@ title: Backend Actions
 icon: "lucide/Server"
 description: Enable AI agents to execute server-side operations, access databases, and integrate with external services.
 ---
+import { RocketIcon } from "lucide-react";
 
 ## What are Backend Actions?
 
 Backend Actions are server-side functions that AI agents can call to perform operations that require backend resources, such as database queries, API calls, file operations, or complex computations. They extend agent capabilities beyond the frontend to access the full power of your server infrastructure.
 
 Unlike frontend actions that modify UI state, backend actions handle data processing, external integrations, and operations that require server-side security or resources.
+
+<Callout>
+**Ready to get started with Backend Actions?**
+
+  <div className="flex items-center gap-6">
+    <div className="flex-shrink-0">
+      <a 
+        href="/direct-to-llm/guides/backend-actions"
+        className="flex flex-col items-center gap-1 text-center no-underline group"
+      >
+        <div className="w-12 h-12 flex items-center justify-center rounded-2xl transition-all duration-200 group-hover:scale-105 bg-gradient-to-b from-green-700 to-green-400 text-green-100">
+          <RocketIcon className="w-8 h-8" />
+        </div>
+        <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300 group-hover:text-black dark:group-hover:text-white transition-colors duration-200">
+          Direct to LLM
+        </span>
+      </a>
+    </div>
+    <div className="flex-1">
+      <p className="text-base leading-relaxed mb-4">
+        Backend Actions are primarily designed for Direct to LLM applications, where you need explicit server-side functions that the LLM can call. CopilotKit provides multiple implementation approaches.
+      </p>
+    </div>
+  </div>
+</Callout>
 
 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 
@@ -71,20 +97,6 @@ Consider Backend Actions when agents need to:
 - **Maintain data consistency** across operations
 - **Handle file operations** or media processing
 - **Implement security controls** and access management
-
-
-## Implementation Approach by Integration Type
-
-### **Direct to LLM Applications**
-
-Backend Actions are primarily designed for Direct to LLM applications, where you need explicit server-side functions that the LLM can call. CopilotKit provides multiple implementation approaches:
-
-- **TypeScript/Node.js Actions** - Implement actions directly in your runtime
-- **LangChain.js Integration** - Use LangChain chains as backend actions  
-- **LangServe Integration** - Connect to hosted LangChain services
-- **Python SDK** - Create remote actions using the Python SDK
-
-**[Explore Direct to LLM Backend Actions →](/direct-to-llm/guides/backend-actions)**
 
 ### **Agent Framework Applications**
 
