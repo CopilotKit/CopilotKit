@@ -167,6 +167,7 @@ export async function setupRemoteActions({
     filtered.map(async (endpoint) => {
       if (endpoint.type === EndpointType.LangGraphPlatform) {
         console.error("Error: found unmapped (remoteEndpoint<->AGUI) LangGraph endpoint");
+        logger.error("Error: found unmapped (remoteEndpoint<->AGUI) LangGraph endpoint");
         return [];
       }
 
