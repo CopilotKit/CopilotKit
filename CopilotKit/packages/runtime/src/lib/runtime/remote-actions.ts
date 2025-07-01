@@ -143,7 +143,7 @@ export async function setupRemoteActions({
   const logger = graphqlContext.logger.child({ component: "remote-actions.fetchRemoteActions" });
   logger.debug({ remoteEndpointDefinitions }, "Fetching from remote endpoints");
 
-  const threadMetadata = graphqlContext.properties.threadMetadata as Record<string, any>;
+  const threadMetadata = (graphqlContext.properties?.threadMetadata as Record<string, any>) || {};
 
   // Remove duplicates of remoteEndpointDefinitions.url
   const filtered = remoteEndpointDefinitions.filter((value, index, self) => {

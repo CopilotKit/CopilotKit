@@ -70,7 +70,7 @@ export function constructAGUIRemoteAction({
       });
 
       const forwardedProps = {
-        ...(metaEvents.length ? { command: { resume: metaEvents[0]?.response } } : {}),
+        ...(metaEvents?.length ? { command: { resume: metaEvents[0]?.response } } : {}),
         ...(threadMetadata ? { threadMetadata } : {}),
       };
 
