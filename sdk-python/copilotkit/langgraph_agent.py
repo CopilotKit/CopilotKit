@@ -222,6 +222,7 @@ class LangGraphAgent(Agent):
         agent_state = await self.graph.aget_state(config)
         active_interrupts = agent_state.tasks[0].interrupts if agent_state.tasks and agent_state.tasks[0].interrupts else None
         state["messages"] = agent_state.values.get("messages", [])
+        current_graph_state = agent_state.values
         langchain_messages = self.convert_messages(messages)
         state = cast(Callable, self.merge_state)(
             state=state,
@@ -229,6 +230,7 @@ class LangGraphAgent(Agent):
             actions=actions,
             agent_name=self.name
         )
+        current_graph_state.update(state)
         lg_interrupt_meta_event = next((ev for ev in (meta_events or []) if ev.get("name") == "LangGraphInterruptEvent"), None)
         has_active_interrupts = active_interrupts is not None and len(active_interrupts) > 0
 
@@ -369,7 +371,6 @@ class LangGraphAgent(Agent):
             return
 
         try:
-            updated_state = None
             async for event in stream:
                 current_node_name = event.get("name")
                 event_type = event.get("event")
@@ -393,6 +394,12 @@ class LangGraphAgent(Agent):
                     event_type == "on_custom_event" and
                     event["name"] == "copilotkit_exit"
                 )
+
+                # OPTIMIZATION: Update local state from chain_end events to avoid checkpointer calls
+                if event_type == "on_chain_end" and isinstance(
+                    event.get("data", {}).get("output"), dict
+                ):
+                    current_graph_state.update(event["data"]["output"])
 
                 emit_intermediate_state = metadata.get("copilotkit:emit-intermediate-state")
                 manually_emit_intermediate_state = (
@@ -435,9 +442,8 @@ class LangGraphAgent(Agent):
                     # reset the streaming state extractor
                     streaming_state_extractor = _StreamingStateExtractor(emit_intermediate_state)
 
-                # Get the latest update of state, only if we don't have one or whenever a node exists
-                if exiting_node or manually_emitted_state or updated_state is None:
-                    updated_state = manually_emitted_state or (await self.graph.aget_state(config)).values
+                # OPTIMIZATION: Use locally maintained state instead of hitting checkpointer repeatedly
+                updated_state = manually_emitted_state or current_graph_state
 
                 if emit_intermediate_state and event_type == "on_chat_model_stream":
                     streaming_state_extractor.buffer_tool_calls(event)
@@ -461,6 +467,7 @@ class LangGraphAgent(Agent):
                 if updated_state != state or prev_node_name != node_name or exiting_node:
                     state = updated_state
                     prev_node_name = node_name
+                    current_graph_state.update(updated_state)
                     yield self._emit_state_sync_event(
                         thread_id=thread_id,
                         run_id=run_id,
