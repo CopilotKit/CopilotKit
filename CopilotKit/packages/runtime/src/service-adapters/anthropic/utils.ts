@@ -1,11 +1,6 @@
-import {
-  ActionExecutionMessage,
-  Message,
-  ResultMessage,
-  TextMessage,
-} from "../../graphql/types/converted";
-import { ActionInput } from "../../graphql/inputs/action.input";
 import { Anthropic } from "@anthropic-ai/sdk";
+import { ActionInput } from "../../graphql/inputs/action.input";
+import { Message } from "../../graphql/types/converted";
 
 export function limitMessagesToTokenCount(
   messages: any[],
@@ -148,7 +143,7 @@ export function convertMessageToAnthropicMessage(
       content: [
         {
           type: "tool_result",
-          content: message.result,
+          content: message.result || "Action completed successfully",
           tool_use_id: message.actionExecutionId,
         },
       ],

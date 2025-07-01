@@ -1,195 +1,150 @@
 ---
-title: Introduction
-description: "Build production-ready Copilots and Agents effortlessly."
+title: What is CopilotKit?
+description: "The Agentic Application Framework:  Open source framework and hosted service for AI-assisted applications."
 icon: "lucide/Sparkles"
 ---
 import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
 import { ExamplesCarousel } from "@/components/react/examples-carousel";
 import { CTACards } from "@/components/react/cta-cards";
 import { YouTubeVideo } from "@/components/react/youtube-video";
-
 import { MdMessage } from "react-icons/md";
 import { TbSparkles } from "react-icons/tb";
 import { SiLangchain } from "react-icons/si";
 import { AG2Icon } from "@/lib/icons/custom-icons";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
 import { FileSpreadsheet, Banknote, Plane, BookOpen, Telescope, Play } from "lucide-react";
+import { Accordions } from 'fumadocs-ui/components/accordion';
+import { Accordion } from 'fumadocs-ui/components/accordion';
+import { LinkToCopilotCloud } from "@/components/react/link-to-copilot-cloud";
+import { QuickstartDropdown } from "@/components/react/quickstart-dropdown";
+import { IntegrationsGrid } from "@/components/react/integrations";
+import { MaximizableVideo } from "@/components/react/maximizable-video";
 
-# What is CopilotKit?
+<div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start -mt-6">
+  <div className="[&>p]:mb-4">
+    <div>
+      CopilotKit is the easiest way to add AI copilots - intelligent, context-aware assistants - into your app.
 
-At its core, CopilotKit is a set of tools that make it easy to **let your users work
-alongside Large Language Models (LLMs) to accomplish generative tasks** directly in
-your application. Instead of just using the LLM to generate content, you can let it
-take direct action alongside your users.
+      CopilotKit connects your app's **logic, state, and user context** to the **AI agents** that deliver the animated and interactive part of your app experience — across both embedded UIs and fully headless interfaces. It gives you the tools to build, deploy, and monitor AI-assisted features that feel intuitive, helpful, and deeply integrated.
 
-Interacting with these models can be done directly (**Standard**) or through agents (**CoAgents**).
+      By decoupling your application from any specific model or agent architecture, CopilotKit gives you the freedom to evolve your AI stack without rethinking your user experience.
+    </div>
+  </div>
+  <div className="flex flex-col items-center">
+    <MaximizableVideo 
+      src="/images/coagents/tutorials/ai-travel-app/demo.mp4"
+      className="w-full max-w-md"
+    />
+    <div className="w-full max-w-md mt-6">
+        <Callout title="Want to build your own travel app?">
+        Check out our [Travel App Tutorial](/coagents/tutorials/ai-travel-app) to see how to build your own travel app with CopilotKit.
+        </Callout>
+    </div>
+  </div>
+</div>
 
-## Standard
-Utilize CopilotKit's standard agentic runloop to get started quickly.
+## Get Started Now
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-10 gap-6 mb-12">
+  <div className="lg:col-span-3 border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
+    <div>
+      <h3 className="text-xl font-bold mb-3 text-foreground">Quickstart</h3>
+      <p className="text-sm text-muted-foreground mb-8">Start with an LLM<br /> or Agent Framework</p>
+    </div>
+    <div className="h-12 flex items-center justify-center">
+      <QuickstartDropdown />
+    </div>
+  </div>
+  <div className="lg:col-span-4 border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
+    <div>
+      <h3 className="text-xl font-bold mb-3 text-foreground">CLI</h3>
+      <p className="text-sm text-muted-foreground mb-4">Bootstrap your NextJS<br />application with CopilotKit</p>
+    </div>
+    <div className="h-12 flex items-center justify-center">
+      
+```bash
+npx copilotkit@latest init
+```
+    </div>
+  </div>
+  <div className="lg:col-span-3 border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
+    <div>
+      <h3 className="text-xl font-bold mb-3 text-foreground">Platform</h3>
+      <p className="text-sm text-muted-foreground mb-4">Start the easiest way<br /> with our hosted service</p>
+    </div>
+    <div className="h-12 flex items-center justify-center">
+      <LinkToCopilotCloud asButton={true} />
+    </div>
+  </div>
+  
+</div>
 
-<Cards className="gap-6">
-  <Card
-    className="p-6 rounded-xl text-base"
-    title="Quickstart"
-    description="Get started with CopilotKit directly in your application."
-    href="/quickstart"
-    icon={<Play className="text-indigo-500 dark:text-indigo-300" />}
-  />
-  <Card 
-    className="p-6 rounded-xl text-base"
-    title="Tutorial"
-    description="Build an AI todo app with CopilotKit in minutes."
-    href="/tutorials/ai-todo-app/overview"
-    icon={<BookOpen className="text-indigo-500 dark:text-indigo-300" />}
-  />
-</Cards>
+## Integrations
 
-## CoAgents
-When you need **complete control** over the agentic runloop, you can use **CoAgents**. Bridge the remaining gap between demos and production-ready experiences.
+CopilotKit works with any LLM or agent framework.  Choose an integration to see the full feature set.
 
-<Cards className="gap-6">
-  <Card
-    className="p-6 rounded-xl text-base"
-    title="LangGraph"
-    description="User-interactive agents with LangGraph."
-    href="/coagents"
-    icon={<SiLangchain className="text-indigo-500 dark:text-indigo-300" />}
-  />
-  <Card 
-    className="p-6 rounded-xl text-base"
-    title="CrewAI Crews"
-    description="Build multi-agent workflows with CrewAI."
-    href="/crewai-crews"
-    icon={<SiCrewai className="text-indigo-500 dark:text-indigo-300" />}
-  />
-  <Card 
-    className="p-6 rounded-xl text-base"
-    title="CrewAI Flows"
-    description="User-interactive agents with CrewAI."
-    href="/crewai-flows"
-    icon={<SiCrewai className="text-indigo-500 dark:text-indigo-300" />}
-  />
-  <Card 
-    className="p-6 rounded-xl text-base"
-    title="AG2"
-    description="Autonomous, collaborative AI agents with AG2."
-    href="/ag2"
-    icon={<AG2Icon className="text-indigo-500 dark:text-indigo-300 h-6 w-6" />}
-  />
-</Cards>
+<IntegrationsGrid />
 
-## CopilotKit in Action
-Need some inspiration? Check out somethings we've built with CopilotKit.
+## Key Features
+Learn why CopilotKit is used by thousands of developers around the world.
 
-<Cards className="gap-6">
-  <Card
-    className="md:col-span-2 p-6 py-10 rounded-xl text-base" 
-    title="Feature Viewer"
-    description="Learn about all of the best features CopilotKit has to offer with an interactive experience."
-    href="https://feature-viewer-langgraph.vercel.app/"
-  />
-  <Card 
-    className="p-6 rounded-xl text-base"
-    title="Spreadsheet Copilot"
-    description="A powerful spreadsheet assistant that helps users analyze data, create formulas, and generate insights."
-    href="https://spreadsheet-demo-tau.vercel.app/"
-    icon={<FileSpreadsheet className="text-indigo-500 dark:text-indigo-300" />}
-  />
-  <Card 
-    className="p-6 rounded-xl text-base"
-    title="SaaS Copilot"
-    description="An AI-powered banking interface that helps users understand and interact with their finances."
-    href="https://brex-demo-temp.vercel.app/"
-    icon={<Banknote className="text-indigo-500 dark:text-indigo-300" />}
-  />
-  <Card 
-    className="p-6 rounded-xl text-base"
-    title="Agent-Native Travel Planner"
-    description="Interactive travel planning assistant that helps users generate and build travel itineraries."
-    href="https://examples-coagents-ai-travel-app.vercel.app/"
-    icon={<Plane className="text-indigo-500 dark:text-indigo-300" />}
-  />
-  <Card 
-    className="p-6 rounded-xl text-base"
-    title="Agent-Native Research Canvas"
-    description="An intelligent research assistant that helps users synthesize information across multiple sources."
-    href="https://examples-coagents-research-canvas-ui.vercel.app/"
-    icon={<BookOpen className="text-indigo-500 dark:text-indigo-300" />}
-  />
-</Cards>
+<div className="flex flex-row gap-8 my-8">
+  <div className="w-1/2">
+    <Accordions>
+      <Accordion title="Designed for Agentic Applications">
+        Unlike general-purpose frameworks, CopilotKit is designed from the ground up to support agent-driven user experiences.
+      </Accordion>
+      <Accordion title="Context Injection">
+        Automatically sync app state, user input, and environmental data to give agents meaningful grounding.
+      </Accordion>
+      <Accordion title="AGUI Protocol">
+        Maintain real-time synchronization between agent actions and user interfaces.
+      </Accordion>
+      <Accordion title="MCP Support">
+        Integrate with MCP servers to support secure, multi-agent coordination and external orchestration.
+      </Accordion>
+      <Accordion title="UI Integration">
+        Drop-in React components for chat UIs, inline assistants, and guided workflows.
+      </Accordion>
+      <Accordion title="Headless Mode">
+        Use CopilotKit logic and messaging infrastructure without a proscribed visual interface—full programmatic control.
+      </Accordion>
+      <Accordion title="LLM & Agent Framework Agnostic">
+        Unlocks the power of LangGraph, CrewAI, Autogen2, and more. Swap out backends with no UI rewrite.
+      </Accordion>
+      <Accordion title="Hosted or Self-Hosted">
+        Use the hosted cloud service for simplicity, or run the open source stack in your environment.
+      </Accordion>
+    </Accordions>
+  </div>
+  <div className="w-1/2">
+    <Accordions>
+      <Accordion title="Full Flexibility">
+        Bring your own LLMs, tools, and agents — CopilotKit doesn't lock you into a specific stack.
+      </Accordion>
+      <Accordion title="Real-Time Interaction">
+        Syncs seamlessly between user inputs, UI state, and AI agent responses.
+      </Accordion>
+      <Accordion title="Unified DevX">
+        Declarative APIs and React-native paradigms that feel familiar and productive.
+      </Accordion>
+      <Accordion title="Production-Ready">
+        Built-in observability, debugging, and extensibility to support real-world deployment and scaling.
+      </Accordion>
+      <Accordion title="Cloud or OSS">
+        Use our hosted platform or run it entirely within your own infrastructure.
+      </Accordion>
+      <Accordion title="Community & Extensibility">
+        Open source with growing integrations, patterns, and examples.
+      </Accordion>
+      <Accordion title="Observability & Debugging">
+        Built-in tools to trace agent decisions, model responses, and message flows.
+      </Accordion>
+      <Accordion title="Composable Architecture">
+        Mix and match UI, logic, and AI components like building blocks.
+      </Accordion>
+    </Accordions>
+  </div>
+</div>
 
-## How does CopilotKit work?
-CopilotKit is thoughtfully architected to scale with you, your teams, and your product.
-<ImageZoom src="/images/architecture-diagram.png" className="rounded-2xl" width={1000} height={1000}/>
+ 
 
-## Common Questions
-We've got answers to some common questions!
-
-<Accordions>
-  <Accordion title="What is a Copilot?">
-    A Copilot is a trusted partner that lives in your application to help your users get things done.
-    There are two main types, the **Concierge** and the **Worker**.
-
-    ### Concierge
-
-    The Concierge Copilot understands your application's capabilities and full user context. It translates 
-    high-level user intent into actions by serving as an intelligent intermediary.
-
-    For example, our [Banking Assistant](https://github.com/CopilotKit/demo-banking) implements Concierge Copilots 
-    to help users manage their (_fake_) banking needs.
-    
-
-    ### Worker
-
-    The Worker Copilot is a domain-specific agent that can help users perform their core work tasks.
-    It serves as a partner to the user that is better at performing some tasks and worse at others. 
-    Ultimately, it amplifies your users to produce better work than they thought possible. This pattern
-    is often used in backoffice copilots.
-
-    Think of the Worker Copilot as Cursor, Replit Agent, or Windsurf, but for any domain. For example, 
-    see our [Open Researcher ANA](https://github.com/CopilotKit/open-research-ana).
-  </Accordion>
-  <Accordion title="What are the main features of CopilotKit?">
-    ### Batteries included chat components
-    Beautiful, powerful and customizable chat components just an import away.
-    | | |
-    |---------|-------------|
-    | [**Chat**](/reference/components/chat/CopilotChat) | Simple and powerful chat interface |
-    | [**Pop-up**](/reference/components/chat/CopilotPopup) | The Chat component in a pop-up format |
-    | [**Sidebar**](/reference/components/chat/CopilotSidebar) | The Chat component in a sidebar format |
-    | [**Copilot Textarea**](/reference/components/CopilotTextarea) | Powerful AI autocompletion as a drop-in replacement for any textarea |
-    | [**Headless**](/guides/custom-look-and-feel/customize-built-in-ui-components) | Full customization of the chat interfaces |
-
-    ### Deeply integrated Copilots
-    Give Copilots the ability to take actions directly in your application.
-    |  |  |
-    |---------|-------------|
-    | [**Copilot Readable State**](/reference/hooks/useCopilotReadable) | Enables Copilots to read and understand the application state |
-    | [**Copilot Actions**](/reference/hooks/useCopilotAction) | Copilots can perform actions in the application |
-    | [**Generative UI**](/guides/generative-ui) | Render any component in the copilot chat interface |
-    | [**AI Autosuggestions**](/reference/hooks/useCopilotChatSuggestions) | AI-powered autosuggestions in your AI chat interface |
-    | [**Copilot Tasks**](/reference/classes/CopilotTask) | Let your copilots take actions proactively based on application state |
-
-    ### Rich agentic experiences
-    Integrate your LangGraph agents into your product with ease.
-    | |  |
-    |---------|-------------|
-    | [**Deep support for LangGraph**](/coagents/quickstart/langgraph) | Bring your LangGraph agents directly into your product |
-    | [**Human-in-the-loop**](/coagents/human-in-the-loop) | Allow your users to work with your agents to solve complex problems |
-    | [**Shared state**](/coagents/shared-state) | Render the state of your LangGraph agents with less than 10 lines of code |
-    | [**Multi-agent**](/coagents/multi-agent-flows) | Build multi-agent experiences with ease |
-  </Accordion>
-  <Accordion title="How does it all work?">
-    Great question! CopilotKit has three main components:
-    1. **CopilotKit UI**: The UI components that you use to build your Copilots and Agents.
-    2. **CopilotKit Runtime**: The runtime that you use to build your Copilots and Agents. This serves as the backend for your Copilots and Agents.
-    3. **CopilotKit SDK**: In more complex applications, you'll use the SDK to deeply integrate CopilotKit into your agents.
-  </Accordion>
-
-  <Accordion title="Can I use any LLM with CopilotKit?">
-    Yes! CopilotKit supports most LLMs, including OpenAI, Anthropic, Google, and more. In addition, you can use any LLM that is supported by LangGraph or
-    LangChain.
-
-    For more information, checkout our documentation on [bringing your own LLM](/guides/bring-your-own-llm).
-  </Accordion>
-</Accordions>

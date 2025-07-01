@@ -1,5 +1,17 @@
 # @copilotkit/shared
 
+## 1.9.2-next.11
+
+## 1.9.2-next.10
+
+## 1.9.2-next.9
+
+### Patch Changes
+
+- 1d1c51d: - feat: surface all errors in structured format
+
+## 1.9.2-next.8
+
 ## 1.9.2-next.7
 
 ## 1.9.2-next.6

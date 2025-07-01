@@ -1,5 +1,34 @@
 # @copilotkit/runtime
 
+## 1.9.2-next.11
+
+### Patch Changes
+
+- 1f4949a: - fix: remove agent discovery for agui agents
+  - @copilotkit/shared@1.9.2-next.11
+
+## 1.9.2-next.10
+
+### Patch Changes
+
+- 20e8c3c: - fix(anthropic-adapter): resolve infinite loop caused by duplicate result messages
+  - @copilotkit/shared@1.9.2-next.10
+
+## 1.9.2-next.9
+
+### Patch Changes
+
+- 1d1c51d: - feat: surface all errors in structured format
+- Updated dependencies [1d1c51d]
+  - @copilotkit/shared@1.9.2-next.9
+
+## 1.9.2-next.8
+
+### Patch Changes
+
+- 9b986ba: - fix: use active interrupt from thread instead of saving to global state
+  - @copilotkit/shared@1.9.2-next.8
+
 ## 1.9.2-next.7
 
 ### Patch Changes

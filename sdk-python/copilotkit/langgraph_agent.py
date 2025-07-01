@@ -3,9 +3,10 @@
 import uuid
 import json
 from typing import Optional, List, Callable, Any, cast, Union, TypedDict, Literal
+
+from langgraph.graph.state import CompiledStateGraph
 from typing_extensions import NotRequired
 
-from langgraph.graph.graph import CompiledGraph
 from langgraph.types import Command
 from langchain.load.dump import dumps as langchain_dumps
 from langchain.schema import BaseMessage, SystemMessage
@@ -74,7 +75,7 @@ def langgraph_default_merge_state( # pylint: disable=unused-argument
     if len(messages) < len(existing_messages):
         # messages were removed - need to handle complete tool sessions
         removed_message_ids = {msg.id for msg in existing_messages if msg.id not in message_ids}
-        
+
         # Find complete tool sessions to remove
         tool_session_ids = _find_complete_tool_sessions(existing_messages, removed_message_ids)
 
@@ -94,46 +95,46 @@ def langgraph_default_merge_state( # pylint: disable=unused-argument
 def _find_complete_tool_sessions(existing_messages: List[BaseMessage], removed_message_ids: set) -> set:
     """
     Find complete tool sessions that should be removed together.
-    
+
     A tool session consists of:
     1. AI message with tool calls (no content or minimal content)
     2. One or more ToolMessage results
     3. Optional AI summary message
-    
+
     If any message in a tool session is marked for removal, the entire session should be removed.
     """
     all_ids_to_remove = set(removed_message_ids)
-    
+
     # Group messages into potential tool sessions
     i = 0
     while i < len(existing_messages):
         msg = existing_messages[i]
-        
+
         # Look for AI messages with tool calls
         if isinstance(msg, AIMessage) and hasattr(msg, 'tool_calls') and msg.tool_calls:
             tool_session_ids = [msg.id]
             j = i + 1
-            
+
             # Collect consecutive ToolMessages
             while j < len(existing_messages) and isinstance(existing_messages[j], ToolMessage):
                 tool_session_ids.append(existing_messages[j].id)
                 j += 1
-            
+
             # Check if there's a summary AI message (AI message after tool results)
-            if (j < len(existing_messages) and 
-                isinstance(existing_messages[j], AIMessage) and 
+            if (j < len(existing_messages) and
+                isinstance(existing_messages[j], AIMessage) and
                 (not hasattr(existing_messages[j], 'tool_calls') or not existing_messages[j].tool_calls)):
                 tool_session_ids.append(existing_messages[j].id)
                 j += 1
-            
+
             # If any message in this tool session is marked for removal, remove the entire session
             if any(msg_id in removed_message_ids for msg_id in tool_session_ids):
                 all_ids_to_remove.update(tool_session_ids)
-            
+
             i = j
         else:
             i += 1
-    
+
     return all_ids_to_remove
 
 class LangGraphAgent(Agent):
@@ -148,8 +149,8 @@ class LangGraphAgent(Agent):
 
     ### Examples
 
-    Every agent must have the `name` and `graph` properties defined. An optional `description` 
-    can also be provided. This is used when CopilotKit is dynamically routing requests to the 
+    Every agent must have the `name` and `graph` properties defined. An optional `description`
+    can also be provided. This is used when CopilotKit is dynamically routing requests to the
     agent.
 
     ```python
@@ -162,7 +163,7 @@ class LangGraphAgent(Agent):
     )
     ```
 
-    If you have a custom LangGraph/LangChain config that you want to use with the agent, you can 
+    If you have a custom LangGraph/LangChain config that you want to use with the agent, you can
     pass it in as the `langgraph_config` parameter.
 
     ```python
@@ -176,12 +177,12 @@ class LangGraphAgent(Agent):
     ----------
     name : str
         The name of the agent.
-    graph : CompiledGraph
+    graph : CompiledStateGraph
         The LangGraph graph to use with the agent.
     description : Optional[str]
         The description of the agent.
     langgraph_config : Optional[RunnableConfig]
-        The LangGraph/LangChain config to use with the agent. 
+        The LangGraph/LangChain config to use with the agent.
     copilotkit_config : Optional[CopilotKitConfig]
         The CopilotKit config to use with the agent.
     """
@@ -189,7 +190,7 @@ class LangGraphAgent(Agent):
             self,
             *,
             name: str,
-            graph: Optional[CompiledGraph] = None,
+            graph: Optional[CompiledStateGraph] = None,
             description: Optional[str] = None,
             langgraph_config:  Union[Optional[RunnableConfig], dict] = None,
             copilotkit_config: Optional[CopilotKitConfig] = None,
@@ -197,7 +198,7 @@ class LangGraphAgent(Agent):
             # deprecated - use langgraph_config instead
             config: Union[Optional[RunnableConfig], dict] = None,
             # deprecated - use graph instead
-            agent: Optional[CompiledGraph] = None,
+            agent: Optional[CompiledStateGraph] = None,
             # deprecated - use copilotkit_config instead
             merge_state: Optional[Callable] = None,
 
@@ -236,7 +237,7 @@ class LangGraphAgent(Agent):
 
         self.langgraph_config = langgraph_config or config
 
-        self.graph = cast(CompiledGraph, graph or agent)
+        self.graph = cast(CompiledStateGraph, graph or agent)
         self.active_interrupt_event = False
 
     def _emit_state_sync_event(
@@ -276,7 +277,7 @@ class LangGraphAgent(Agent):
             "role": "assistant"
         })
 
-    def execute( # pylint: disable=too-many-arguments            
+    def execute( # pylint: disable=too-many-arguments
         self,
         *,
         state: dict,
@@ -317,6 +318,7 @@ class LangGraphAgent(Agent):
         config["configurable"]["thread_id"] = thread_id
 
         agent_state = await self.graph.aget_state(config)
+        active_interrupts = agent_state.tasks[0].interrupts if agent_state.tasks and agent_state.tasks[0].interrupts else None
         state["messages"] = agent_state.values.get("messages", [])
         langchain_messages = self.convert_messages(messages)
         state = cast(Callable, self.merge_state)(
@@ -325,28 +327,25 @@ class LangGraphAgent(Agent):
             actions=actions,
             agent_name=self.name
         )
+        lg_interrupt_meta_event = next((ev for ev in (meta_events or []) if ev.get("name") == "LangGraphInterruptEvent"), None)
+        has_active_interrupts = active_interrupts is not None and len(active_interrupts) > 0
 
-        # Handle meta events for interrupts
-        interrupt_from_meta_events = next((ev for ev in (meta_events or []) if ev.get("name") == "LangGraphInterruptEvent"), None)
         resume_input = None
 
          # An active interrupt event that runs through messages. Use latest message as response
-        if self.active_interrupt_event and interrupt_from_meta_events is None:
+        if has_active_interrupts and lg_interrupt_meta_event is None:
             # state["messages"] only includes the messages we need to add at this point, tool call+result if applicable, and user text
             resume_input = Command(resume=state["messages"])
 
-        if interrupt_from_meta_events and "response" in interrupt_from_meta_events:
-            resume_input = Command(resume=interrupt_from_meta_events["response"])
+        if lg_interrupt_meta_event and "response" in lg_interrupt_meta_event:
+            resume_input = Command(resume=lg_interrupt_meta_event["response"])
 
         mode = "continue" if thread_id and node_name != "__end__" and node_name is not None else "start"
         thread_id = thread_id or str(uuid.uuid4())
         config["configurable"]["thread_id"] = thread_id
 
-        if mode == "continue" and self.active_interrupt_event is False:
+        if mode == "continue" and not has_active_interrupts:
             await self.graph.aupdate_state(config, state, as_node=node_name)
-
-        # Before running the stream again, always flush status of active interrupt
-        self.active_interrupt_event = False
 
         streaming_state_extractor = _StreamingStateExtractor([])
         initial_state = state if mode == "start" else None
@@ -366,121 +365,174 @@ class LangGraphAgent(Agent):
 
         stream_input = self.filter_state_on_schema_keys(stream_input, 'input')
         config["configurable"] = filter_by_schema_keys(config["configurable"], config_keys)
-        async for event in self.graph.astream_events(stream_input, config, version="v2"):
-            current_node_name = event.get("name")
-            event_type = event.get("event")
-            run_id = event.get("run_id")
-            metadata = event.get("metadata", {})
 
-            interrupt_event = (
-                event["data"].get("chunk", {}).get("__interrupt__", None)
-                if (
-                    isinstance(event.get("data"), dict) and 
-                    isinstance(event["data"].get("chunk"), dict)
+        if has_active_interrupts and (not resume_input):
+            value = active_interrupts[0].value
+            yield self.get_interrupt_event(value)
+            return
+
+        try:
+            async for event in self.graph.astream_events(stream_input, config, version="v2"):
+                current_node_name = event.get("name")
+                event_type = event.get("event")
+                run_id = event.get("run_id")
+                metadata = event.get("metadata", {})
+
+                interrupt_event = (
+                    event["data"].get("chunk", {}).get("__interrupt__", None)
+                    if (
+                        isinstance(event.get("data"), dict) and
+                        isinstance(event["data"].get("chunk"), dict)
+                    )
+                    else None
                 )
-                else None
-            )
-            if interrupt_event:
-                self.active_interrupt_event = True
-                value = interrupt_event[0].value
-                if not isinstance(value, str) and "__copilotkit_interrupt_value__" in value:
-                    ev_value = value["__copilotkit_interrupt_value__"]
-                    yield langchain_dumps({
-                        "event": "on_copilotkit_interrupt",
-                        "data": { "value": ev_value if isinstance(ev_value, str) else json.dumps(ev_value), "messages": langchain_messages_to_copilotkit(value["__copilotkit_messages__"]) }
-                    }) + "\n"
-                else:
-                    yield langchain_dumps({
-                        "event": "on_interrupt",
-                        "value": value if isinstance(value, str) else json.dumps(value)
-                    }) + "\n"
-                continue
+                if interrupt_event:
+                    value = interrupt_event[0].value
+                    yield self.get_interrupt_event(value)
+                    continue
 
-            should_exit = should_exit or (
-                event_type == "on_custom_event" and
-                event["name"] == "copilotkit_exit"
-            )
+                should_exit = should_exit or (
+                    event_type == "on_custom_event" and
+                    event["name"] == "copilotkit_exit"
+                )
 
-            emit_intermediate_state = metadata.get("copilotkit:emit-intermediate-state")
-            manually_emit_intermediate_state = (
-                event_type == "on_custom_event" and
-                event["name"] == "copilotkit_manually_emit_intermediate_state"
-            )
+                emit_intermediate_state = metadata.get("copilotkit:emit-intermediate-state")
+                manually_emit_intermediate_state = (
+                    event_type == "on_custom_event" and
+                    event["name"] == "copilotkit_manually_emit_intermediate_state"
+                )
 
 
-            # we only want to update the node name under certain conditions
-            # since we don't need any internal node names to be sent to the frontend
-            if current_node_name in self.graph.nodes.keys():
-                node_name = current_node_name
+                # we only want to update the node name under certain conditions
+                # since we don't need any internal node names to be sent to the frontend
+                if current_node_name in self.graph.nodes.keys():
+                    node_name = current_node_name
 
-            # we don't have a node name yet, so we can't update the state
-            if node_name is None:
-                continue
+                # we don't have a node name yet, so we can't update the state
+                if node_name is None:
+                    continue
 
-            exiting_node = node_name == current_node_name and event_type == "on_chain_end"
+                exiting_node = node_name == current_node_name and event_type == "on_chain_end"
 
-            if exiting_node:
-                manually_emitted_state = None
+                if exiting_node:
+                    manually_emitted_state = None
 
-            if manually_emit_intermediate_state:
-                manually_emitted_state = cast(Any, event["data"])
-                yield self._emit_state_sync_event(
-                    thread_id=thread_id,
-                    run_id=run_id,
-                    node_name=node_name,
-                    state=manually_emitted_state,
-                    running=True,
-                    active=True
-                ) + "\n"
-                continue
+                if manually_emit_intermediate_state:
+                    manually_emitted_state = cast(Any, event["data"])
+                    yield self._emit_state_sync_event(
+                        thread_id=thread_id,
+                        run_id=run_id,
+                        node_name=node_name,
+                        state=manually_emitted_state,
+                        running=True,
+                        active=True
+                    ) + "\n"
+                    continue
 
 
-            if emit_intermediate_state and emit_intermediate_state_until_end is None:
-                emit_intermediate_state_until_end = node_name
+                if emit_intermediate_state and emit_intermediate_state_until_end is None:
+                    emit_intermediate_state_until_end = node_name
 
-            if emit_intermediate_state and event_type == "on_chat_model_start":
-                # reset the streaming state extractor
-                streaming_state_extractor = _StreamingStateExtractor(emit_intermediate_state)
+                if emit_intermediate_state and event_type == "on_chat_model_start":
+                    # reset the streaming state extractor
+                    streaming_state_extractor = _StreamingStateExtractor(emit_intermediate_state)
 
-            updated_state = manually_emitted_state or (await self.graph.aget_state(config)).values
+                updated_state = manually_emitted_state or (await self.graph.aget_state(config)).values
 
-            if emit_intermediate_state and event_type == "on_chat_model_stream":
-                streaming_state_extractor.buffer_tool_calls(event)
+                if emit_intermediate_state and event_type == "on_chat_model_stream":
+                    streaming_state_extractor.buffer_tool_calls(event)
 
-            if emit_intermediate_state_until_end is not None:
-                updated_state = {
-                    **updated_state,
-                    **streaming_state_extractor.extract_state()
+                if emit_intermediate_state_until_end is not None:
+                    updated_state = {
+                        **updated_state,
+                        **streaming_state_extractor.extract_state()
+                    }
+
+                if (not emit_intermediate_state and
+                    current_node_name == emit_intermediate_state_until_end and
+                    event_type == "on_chain_end"):
+                    # stop emitting function call state
+                    emit_intermediate_state_until_end = None
+
+                # we send state sync events when:
+                #   a) the state has changed
+                #   b) the node has changed
+                #   c) the node is ending
+                if updated_state != state or prev_node_name != node_name or exiting_node:
+                    state = updated_state
+                    prev_node_name = node_name
+                    yield self._emit_state_sync_event(
+                        thread_id=thread_id,
+                        run_id=run_id,
+                        node_name=node_name,
+                        state=state,
+                        running=True,
+                        active=not exiting_node
+                    ) + "\n"
+
+                yield langchain_dumps(event) + "\n"
+        except Exception as error:
+            # Emit error information through streaming protocol before terminating
+            # This preserves the semantic error details that would otherwise be lost
+            error_message = str(error)
+            error_type = type(error).__name__
+
+            # Extract additional error details for common error types
+            error_details = {
+                "message": error_message,
+                "type": error_type,
+                "agent_name": self.name,
+            }
+
+            # Add specific details for OpenAI errors
+            if hasattr(error, 'status_code'):
+                error_details["status_code"] = error.status_code
+            if hasattr(error, 'response') and hasattr(error.response, 'json'):
+                try:
+                    error_details["response_data"] = error.response.json()
+                except:
+                    pass
+
+            # Emit error events in both formats to support both LangGraph Platform and direct LangGraph modes
+
+            # Format for LangGraph Platform (remote-lg-action.ts)
+            yield langchain_dumps({
+                "event": "error",
+                "data": {
+                    "message": f"{error_type}: {error_message}",
+                    "error_details": error_details,
+                    "thread_id": thread_id,
+                    "agent_name": self.name,
+                    "node_name": node_name or "unknown"
                 }
+            }) + "\n"
 
-            if (not emit_intermediate_state and
-                current_node_name == emit_intermediate_state_until_end and
-                event_type == "on_chain_end"):
-                # stop emitting function call state
-                emit_intermediate_state_until_end = None
+            # Format for direct LangGraph mode (event-source.ts)
+            yield langchain_dumps({
+                "event": "on_copilotkit_error",
+                "data": {
+                    "error": error_details,
+                    "thread_id": thread_id,
+                    "agent_name": self.name,
+                    "node_name": node_name or "unknown"
+                }
+            }) + "\n"
 
-            # we send state sync events when:
-            #   a) the state has changed
-            #   b) the node has changed
-            #   c) the node is ending
-            if updated_state != state or prev_node_name != node_name or exiting_node:
-                state = updated_state
-                prev_node_name = node_name
-                yield self._emit_state_sync_event(
-                    thread_id=thread_id,
-                    run_id=run_id,
-                    node_name=node_name,
-                    state=state,
-                    running=True,
-                    active=not exiting_node
-                ) + "\n"
-
-            yield langchain_dumps(event) + "\n"
+            # Re-raise the exception to maintain normal error handling flow
+            raise
 
         state = await self.graph.aget_state(config)
         tasks = state.tasks
         interrupts = tasks[0].interrupts if tasks and len(tasks) > 0 else None
-        node_name = node_name if interrupts else list(state.metadata["writes"].keys())[0]
+        if interrupts:
+            # node_name is already set earlier from the interrupt origin
+            pass
+        elif "writes" in state.metadata and state.metadata["writes"]:
+            node_name = list(state.metadata["writes"].keys())[0]
+        elif hasattr(state, "next") and state.next and state.next[0]:
+            node_name = state.next[0]
+        else:
+            node_name = "__end__"
         is_end_node = state.next == () and not interrupts
 
         yield self._emit_state_sync_event(
@@ -577,6 +629,18 @@ class LangGraphAgent(Agent):
         except Exception:
             return state
 
+    def get_interrupt_event(self, value):
+        if not isinstance(value, str) and "__copilotkit_interrupt_value__" in value:
+            ev_value = value["__copilotkit_interrupt_value__"]
+            return langchain_dumps({
+                "event": "on_copilotkit_interrupt",
+                "data": { "value": ev_value if isinstance(ev_value, str) else json.dumps(ev_value), "messages": langchain_messages_to_copilotkit(value["__copilotkit_messages__"]) }
+            }) + "\n"
+        else:
+            return langchain_dumps({
+                "event": "on_interrupt",
+                "value": value if isinstance(value, str) else json.dumps(value)
+            }) + "\n"
 
 class _StreamingStateExtractor:
     def __init__(self, emit_intermediate_state: List[dict]):
