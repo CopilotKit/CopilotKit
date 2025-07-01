@@ -235,6 +235,22 @@ export interface CopilotChatProps {
   children?: React.ReactNode;
 
   hideStopButton?: boolean;
+
+  /**
+   * Whether the assistant's response can be regenerated.
+   */
+  canRegenerateAssistantMessage?: AssistantMessageProps["canRegenerate"];
+
+  /**
+   * Whether the assistant message can be copied.
+   */
+  canCopyAssistantMessage?: AssistantMessageProps["canCopy"];
+
+  /**
+   * Whether the first assistant message has its controls disabled.
+   * The controls are the buttons for thumbs up, thumbs down, copy, and regenerate.
+   */
+  disableFirstAssistantMessageControls?: AssistantMessageProps["disableFirstMessageControls"];
 }
 
 interface OnStopGenerationArguments {
@@ -323,6 +339,9 @@ export function CopilotChat({
   imageUploadsEnabled,
   inputFileAccept = "image/*",
   hideStopButton,
+  canRegenerateAssistantMessage,
+  canCopyAssistantMessage,
+  disableFirstAssistantMessageControls
 }: CopilotChatProps) {
   const { additionalInstructions, setChatInstructions } = useCopilotContext();
   const [selectedImages, setSelectedImages] = useState<Array<ImageUpload>>([]);
@@ -387,7 +406,7 @@ export function CopilotChat({
     /*
       Will result in a prompt like:
 
-      You are a helpful assistant. 
+      You are a helpful assistant.
       Additionally, follow these instructions:
       - Do not answer questions about the weather.
       - Do not answer questions about the stock market."
@@ -501,6 +520,9 @@ export function CopilotChat({
         onThumbsUp={onThumbsUp}
         onThumbsDown={onThumbsDown}
         markdownTagRenderers={markdownTagRenderers}
+        canCopyAssistantMessage={canCopyAssistantMessage}
+        canRegenerateAssistantMessage={canRegenerateAssistantMessage}
+        disableFirstAssistantMessageControls={disableFirstAssistantMessageControls}
       >
         {currentSuggestions.length > 0 && (
           <RenderSuggestionsList

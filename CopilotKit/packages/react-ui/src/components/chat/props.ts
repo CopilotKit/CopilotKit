@@ -29,6 +29,9 @@ export interface MessagesProps {
   messages: Message[];
   inProgress: boolean;
   children?: React.ReactNode;
+  canRegenerateAssistantMessage?: AssistantMessageProps["canRegenerate"];
+  canCopyAssistantMessage?: AssistantMessageProps["canCopy"];
+  disableFirstAssistantMessageControls?: AssistantMessageProps["disableFirstMessageControls"];
   AssistantMessage: React.ComponentType<AssistantMessageProps>;
   UserMessage: React.ComponentType<UserMessageProps>;
   RenderTextMessage: React.ComponentType<RenderMessageProps>;
@@ -133,6 +136,24 @@ export interface AssistantMessageProps {
    * Useful when you want to render custom elements in the message (e.g a reference tag element)
    */
   markdownTagRenderers?: ComponentsMap;
+
+  /**
+   * Whether the assistant's response can be regenerated.
+   */
+  canRegenerate?: false;
+
+  /**
+   * Whether the message can be copied.
+   */
+  canCopy?: false;
+
+  /**
+   * Whether the first assistant message has its controls disabled.
+   * The controls are the buttons for thumbs up, thumbs down, copy, and regenerate.
+   */
+  disableFirstMessageControls?: boolean;
+
+  index?: number;
 }
 
 export interface RenderMessageProps {
@@ -169,6 +190,22 @@ export interface RenderMessageProps {
    * Useful when you want to render custom elements in the message (e.g a reference tag element)
    */
   markdownTagRenderers?: ComponentsMap;
+
+  /**
+   * Whether the assistant's response can be regenerated.
+   */
+  canRegenerateAssistantMessage?: AssistantMessageProps["canRegenerate"];
+
+  /**
+   * Whether the message can be copied.
+   */
+  canCopyAssistantMessage?: AssistantMessageProps["canCopy"];
+
+  /**
+   * Whether the first assistant message has its controls disabled.
+   * The controls are the buttons for thumbs up, thumbs down, copy, and regenerate.
+   */
+  disableFirstAssistantMessageControls?: AssistantMessageProps["disableFirstMessageControls"];
 }
 
 export interface InputProps {

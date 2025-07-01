@@ -20,6 +20,9 @@ export const Messages = ({
   onThumbsUp,
   onThumbsDown,
   markdownTagRenderers,
+  canRegenerateAssistantMessage,
+  canCopyAssistantMessage,
+  disableFirstAssistantMessageControls
 }: MessagesProps) => {
   const context = useChatContext();
   const initialMessages = useMemo(
@@ -69,6 +72,9 @@ export const Messages = ({
                 onThumbsUp={onThumbsUp}
                 onThumbsDown={onThumbsDown}
                 markdownTagRenderers={markdownTagRenderers}
+                canRegenerateAssistantMessage={canRegenerateAssistantMessage}
+                canCopyAssistantMessage={canCopyAssistantMessage}
+                disableFirstAssistantMessageControls={disableFirstAssistantMessageControls}
               />
             );
           } else if (message.isActionExecutionMessage()) {
@@ -82,6 +88,9 @@ export const Messages = ({
                 actionResult={actionResults[message.id]}
                 AssistantMessage={AssistantMessage}
                 UserMessage={UserMessage}
+                canRegenerateAssistantMessage={canRegenerateAssistantMessage}
+                canCopyAssistantMessage={canCopyAssistantMessage}
+                disableFirstAssistantMessageControls={disableFirstAssistantMessageControls}
               />
             );
           } else if (message.isAgentStateMessage()) {
@@ -94,6 +103,9 @@ export const Messages = ({
                 isCurrentMessage={isCurrentMessage}
                 AssistantMessage={AssistantMessage}
                 UserMessage={UserMessage}
+                canRegenerateAssistantMessage={canRegenerateAssistantMessage}
+                canCopyAssistantMessage={canCopyAssistantMessage}
+                disableFirstAssistantMessageControls={disableFirstAssistantMessageControls}
               />
             );
           } else if (message.isResultMessage()) {
@@ -106,6 +118,9 @@ export const Messages = ({
                 isCurrentMessage={isCurrentMessage}
                 AssistantMessage={AssistantMessage}
                 UserMessage={UserMessage}
+                canRegenerateAssistantMessage={canRegenerateAssistantMessage}
+                canCopyAssistantMessage={canCopyAssistantMessage}
+                disableFirstAssistantMessageControls={disableFirstAssistantMessageControls}
               />
             );
           } else if (message.isImageMessage && message.isImageMessage()) {
@@ -122,6 +137,9 @@ export const Messages = ({
                 onCopy={onCopy}
                 onThumbsUp={onThumbsUp}
                 onThumbsDown={onThumbsDown}
+                canRegenerateAssistantMessage={canRegenerateAssistantMessage}
+                canCopyAssistantMessage={canCopyAssistantMessage}
+                disableFirstAssistantMessageControls={disableFirstAssistantMessageControls}
               />
             );
           }

@@ -17,6 +17,9 @@ export function RenderTextMessage({
     onThumbsUp,
     onThumbsDown,
     markdownTagRenderers,
+    canRegenerateAssistantMessage,
+    canCopyAssistantMessage,
+    disableFirstAssistantMessageControls = true
   } = props;
 
   if (message.isTextMessage()) {
@@ -33,7 +36,7 @@ export function RenderTextMessage({
       return (
         <AssistantMessage
           key={index}
-          data-message-role="assistant"
+          index={index}
           message={message.content}
           rawData={message}
           isLoading={inProgress && isCurrentMessage && !message.content}
@@ -44,6 +47,9 @@ export function RenderTextMessage({
           onThumbsUp={onThumbsUp}
           onThumbsDown={onThumbsDown}
           markdownTagRenderers={markdownTagRenderers}
+          canRegenerate={canRegenerateAssistantMessage}
+          canCopy={canCopyAssistantMessage}
+          disableFirstMessageControls={disableFirstAssistantMessageControls && index === 0}
         />
       );
     }

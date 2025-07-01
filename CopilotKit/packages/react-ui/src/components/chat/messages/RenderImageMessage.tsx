@@ -16,6 +16,9 @@ export function RenderImageMessage({
     onCopy,
     onThumbsUp,
     onThumbsDown,
+    canRegenerateAssistantMessage,
+    canCopyAssistantMessage,
+    disableFirstAssistantMessageControls = true
   } = props;
 
   if (message.isImageMessage()) {
@@ -44,7 +47,7 @@ export function RenderImageMessage({
       return (
         <AssistantMessage
           key={index}
-          data-message-role="assistant"
+          index={index}
           message=""
           rawData={message}
           subComponent={imageComponent}
@@ -55,6 +58,9 @@ export function RenderImageMessage({
           onCopy={onCopy}
           onThumbsUp={onThumbsUp}
           onThumbsDown={onThumbsDown}
+          canRegenerate={canRegenerateAssistantMessage}
+          canCopy={canCopyAssistantMessage}
+          disableFirstMessageControls={disableFirstAssistantMessageControls && index === 0}
         />
       );
     }
