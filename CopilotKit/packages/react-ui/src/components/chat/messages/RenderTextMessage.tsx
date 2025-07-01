@@ -19,7 +19,7 @@ export function RenderTextMessage({
     markdownTagRenderers,
     canRegenerateAssistantMessage,
     canCopyAssistantMessage,
-    disableFirstAssistantMessageControls = true
+    disableFirstAssistantMessageControls = true,
   } = props;
 
   if (message.isTextMessage()) {

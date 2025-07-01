@@ -22,7 +22,7 @@ export const Messages = ({
   markdownTagRenderers,
   canRegenerateAssistantMessage,
   canCopyAssistantMessage,
-  disableFirstAssistantMessageControls
+  disableFirstAssistantMessageControls,
 }: MessagesProps) => {
   const context = useChatContext();
   const initialMessages = useMemo(

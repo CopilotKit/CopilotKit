@@ -20,7 +20,7 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
     canRegenerate = true,
     canCopy = true,
     index,
-    disableFirstMessageControls
+    disableFirstMessageControls,
   } = props;
   const [copied, setCopied] = useState(false);
 
@@ -62,14 +62,15 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
   return (
     <>
       {(message || isLoading) && (
-        <div 
+        <div
           className="copilotKitMessage copilotKitAssistantMessage"
           data-message-role="assistant"
-          data-message-index={index}>
+          data-message-index={index}
+        >
           {message && <Markdown content={message || ""} components={markdownTagRenderers} />}
           {isLoading && <LoadingIcon />}
 
-          {!disableFirstMessageControls &&message && !isLoading && (
+          {!disableFirstMessageControls && message && !isLoading && (
             <div
               className={`copilotKitMessageControls ${isCurrentMessage ? "currentMessage" : ""}`}
             >

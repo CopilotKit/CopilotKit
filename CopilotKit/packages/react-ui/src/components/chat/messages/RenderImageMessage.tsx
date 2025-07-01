@@ -18,7 +18,7 @@ export function RenderImageMessage({
     onThumbsDown,
     canRegenerateAssistantMessage,
     canCopyAssistantMessage,
-    disableFirstAssistantMessageControls = true
+    disableFirstAssistantMessageControls = true,
   } = props;
 
   if (message.isImageMessage()) {

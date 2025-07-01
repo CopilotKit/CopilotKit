@@ -341,7 +341,7 @@ export function CopilotChat({
   hideStopButton,
   canRegenerateAssistantMessage,
   canCopyAssistantMessage,
-  disableFirstAssistantMessageControls
+  disableFirstAssistantMessageControls,
 }: CopilotChatProps) {
   const { additionalInstructions, setChatInstructions } = useCopilotContext();
   const [selectedImages, setSelectedImages] = useState<Array<ImageUpload>>([]);
