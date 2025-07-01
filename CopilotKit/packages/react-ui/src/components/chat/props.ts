@@ -140,12 +140,12 @@ export interface AssistantMessageProps {
   /**
    * Whether the assistant's response can be regenerated.
    */
-  canRegenerate?: false;
+  canRegenerate?: boolean;
 
   /**
    * Whether the message can be copied.
    */
-  canCopy?: false;
+  canCopy?: boolean;
 
   /**
    * Whether the first assistant message has its controls disabled.
