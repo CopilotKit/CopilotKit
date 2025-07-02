@@ -211,7 +211,8 @@ class LangGraphAgent(Agent):
     async def prepare_stream( # pylint: disable=too-many-arguments
             self,
             *,
-            state: Any,
+            state_input: Any,
+            agent_state: Any,
             config: Optional[dict] = None,
             messages: List[Message],
             thread_id: str,
@@ -219,13 +220,12 @@ class LangGraphAgent(Agent):
             node_name: Optional[str] = None,
             meta_events: Optional[List[MetaEvent]] = None,
     ):
-        agent_state = await self.graph.aget_state(config)
         active_interrupts = agent_state.tasks[0].interrupts if agent_state.tasks and agent_state.tasks[0].interrupts else None
-        state["messages"] = agent_state.values.get("messages", [])
+        state_input["messages"] = agent_state.values.get("messages", [])
         current_graph_state = agent_state.values
         langchain_messages = self.convert_messages(messages)
         state = cast(Callable, self.merge_state)(
-            state=state,
+            state=state_input,
             messages=langchain_messages,
             actions=actions,
             agent_name=self.name
@@ -268,12 +268,15 @@ class LangGraphAgent(Agent):
         if has_active_interrupts and (not resume_input):
             value = active_interrupts[0].value
             return {
+                "stream": None,
+                "state": None,
+                "config": None,
                 "interrupt_event": self.get_interrupt_event(value),
             }
 
         return {
             "stream": self.graph.astream_events(stream_input, config, version="v2"),
-            "state": state,
+            "state": current_graph_state,
             "config": config
         }
 
@@ -285,7 +288,8 @@ class LangGraphAgent(Agent):
             actions: Optional[List[ActionDict]] = None,
             message_checkpoint: HumanMessage
     ):
-        time_travel_checkpoint = await self.get_checkpoint_before_message(message_checkpoint.id, config)
+        thread_id = config.get("configurable", {}).get("thread_id")
+        time_travel_checkpoint = await self.get_checkpoint_before_message(message_checkpoint.id, thread_id)
         if time_travel_checkpoint is None:
             return None
 
@@ -332,8 +336,10 @@ class LangGraphAgent(Agent):
         manually_emitted_state = None
         thread_id = cast(Any, config)["configurable"]["thread_id"]
 
+        agent_state = await self.graph.aget_state(config)
         prepared_stream_response = await self.prepare_stream(
-            state=state,
+            state_input=state,
+            agent_state=agent_state,
             config=config,
             messages=messages,
             actions=actions,
@@ -342,7 +348,6 @@ class LangGraphAgent(Agent):
             meta_events=meta_events
         )
 
-        agent_state = await self.graph.aget_state(config)
         langchain_messages = self.convert_messages(messages)
         non_system_messages = [msg for msg in langchain_messages if not isinstance(msg, SystemMessage)]
         if len(agent_state.values.get("messages", [])) > len(non_system_messages):
@@ -362,6 +367,7 @@ class LangGraphAgent(Agent):
                 )
 
         state = prepared_stream_response["state"]
+        current_graph_state = prepared_stream_response["state"]
         stream = prepared_stream_response["stream"]
         config = prepared_stream_response["config"]
         interrupt_event = prepared_stream_response.get('interrupt_event', None)
@@ -686,8 +692,7 @@ class LangGraphAgent(Agent):
                 "value": value if isinstance(value, str) else json.dumps(value)
             }) + "\n"
 
-    async def get_checkpoint_before_message(self, message_id: str, config: RunnableConfig):
-        thread_id = config.get("configurable", {}).get("thread_id")
+    async def get_checkpoint_before_message(self, message_id: str, thread_id: str):
         if not thread_id:
             raise ValueError("Missing thread_id in config")
 
