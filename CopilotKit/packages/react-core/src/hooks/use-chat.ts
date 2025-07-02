@@ -892,25 +892,47 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   );
 
   const reload = useAsyncCallback(
-    async (messageId: string): Promise<void> => {
+    async (reloadMessageId: string): Promise<void> => {
       if (isLoading || messages.length === 0) {
         return;
       }
 
-      const index = messages.findIndex((msg) => msg.id === messageId);
-      if (index === -1) {
-        console.warn(`Message with id ${messageId} not found`);
+      const reloadMessageIndex = messages.findIndex((msg) => msg.id === reloadMessageId);
+      if (reloadMessageIndex === -1) {
+        console.warn(`Message with id ${reloadMessageId} not found`);
         return;
       }
 
-      let newMessages = messages.slice(0, index); // excludes the message with messageId
-      if (newMessages.length > 0 && newMessages[newMessages.length - 1].isAgentStateMessage()) {
-        newMessages = newMessages.slice(0, newMessages.length - 1); // remove last one too
+      // @ts-expect-error -- message has role
+      const reloadMessageRole = messages[reloadMessageIndex].role;
+      if (reloadMessageRole !== MessageRole.Assistant) {
+        console.warn(`Regenerate cannot be performed on ${reloadMessageRole} role`);
+        return;
       }
 
-      setMessages(newMessages);
+      let historyCutoff: Message[] = [];
+      if (messages.length > 2) {
+        // message to regenerate from is now first.
+        // Work backwards to find the first the closest user message
+        const lastUserMessageBeforeRegenerate = messages
+          .slice(0, reloadMessageIndex)
+          .reverse()
+          .find(
+            (msg) =>
+              // @ts-expect-error -- message has role
+              msg.role === MessageRole.User,
+          );
+        const indexOfLastUserMessageBeforeRegenerate = messages.findIndex(
+          (msg) => msg.id === lastUserMessageBeforeRegenerate!.id,
+        );
 
-      return runChatCompletionAndHandleFunctionCall(newMessages);
+        // Include the user message, remove everything after it
+        historyCutoff = messages.slice(0, indexOfLastUserMessageBeforeRegenerate + 1);
+      }
+
+      setMessages(historyCutoff);
+
+      return runChatCompletionAndHandleFunctionCall(historyCutoff);
     },
     [isLoading, messages, setMessages, runChatCompletionAndHandleFunctionCall],
   );
