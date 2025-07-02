@@ -146,7 +146,6 @@ class LangGraphAgent(Agent):
             agent: Optional[CompiledStateGraph] = None,
             # deprecated - use copilotkit_config instead
             merge_state: Optional[Callable] = None,
-
         ):
         if config is not None:
             logger.warning("Warning: config is deprecated, use langgraph_config instead")
@@ -166,7 +165,7 @@ class LangGraphAgent(Agent):
         )
 
         self.merge_state = None
-
+        self.thread_state = {}
         if copilotkit_config is not None:
             self.merge_state = copilotkit_config.get("merge_state")
         if not self.merge_state and merge_state is not None:
@@ -614,7 +613,10 @@ class LangGraphAgent(Agent):
         config["configurable"] = config.get("configurable", {})
         config["configurable"]["thread_id"] = thread_id
 
-        state = {**(await self.graph.aget_state(config)).values}
+        if self.thread_state.get(thread_id, None) is None:
+            self.thread_state[thread_id] = {**(await self.graph.aget_state(config)).values}
+
+        state = self.thread_state[thread_id]
         if state == {}:
             return {
                 "threadId": thread_id or "",
