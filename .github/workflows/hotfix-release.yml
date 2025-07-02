@@ -1,0 +1,230 @@
+name: Hotfix Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_tag:
+        description: "Tag to create hotfix from (e.g., v1.2.3)"
+        required: true
+        type: string
+      fix_commit:
+        description: "Commit hash or PR number containing the fix"
+        required: true
+        type: string
+      fix_type:
+        description: "Type of fix source"
+        required: true
+        type: choice
+        options:
+          - commit
+          - pr
+
+jobs:
+  hotfix:
+    name: Hotfix Release
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: "CopilotKit"
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Validate base tag exists
+        run: |
+          if ! git rev-parse --verify "${{ github.event.inputs.base_tag }}" >/dev/null 2>&1; then
+            echo "❌ Error: Tag ${{ github.event.inputs.base_tag }} does not exist"
+            echo "Available recent tags:"
+            git tag --sort=-version:refname | head -10
+            exit 1
+          fi
+          echo "✅ Tag ${{ github.event.inputs.base_tag }} exists"
+
+      - name: Validate fix commit/PR exists
+        run: |
+          if [ "${{ github.event.inputs.fix_type }}" = "commit" ]; then
+            if ! git rev-parse --verify "${{ github.event.inputs.fix_commit }}" >/dev/null 2>&1; then
+              echo "❌ Error: Commit ${{ github.event.inputs.fix_commit }} does not exist"
+              exit 1
+            fi
+            echo "✅ Commit ${{ github.event.inputs.fix_commit }} exists"
+          elif [ "${{ github.event.inputs.fix_type }}" = "pr" ]; then
+            if ! gh pr view "${{ github.event.inputs.fix_commit }}" >/dev/null 2>&1; then
+              echo "❌ Error: PR #${{ github.event.inputs.fix_commit }} does not exist"
+              exit 1
+            fi
+            echo "✅ PR #${{ github.event.inputs.fix_commit }} exists"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout base tag
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.base_tag }}
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          registry-url: https://registry.npmjs.org
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "9.5"
+
+      - name: Get current version
+        id: current-version
+        run: |
+          echo "version=$(node -p "require('./packages/react-core/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Calculate new patch version
+        id: new-version
+        run: |
+          CURRENT="${{ steps.current-version.outputs.version }}"
+          NEW_VERSION=$(node -e "
+            const current = '$CURRENT';
+            const parts = current.split('.');
+            parts[2] = (parseInt(parts[2]) + 1).toString();
+            console.log(parts.join('.'));
+          ")
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Create hotfix branch
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          git checkout -b hotfix/${{ steps.new-version.outputs.version }}
+
+      - name: Apply fix from commit
+        if: ${{ github.event.inputs.fix_type == 'commit' }}
+        run: |
+          echo "Cherry-picking commit ${{ github.event.inputs.fix_commit }}"
+          git cherry-pick ${{ github.event.inputs.fix_commit }}
+
+      - name: Apply fix from PR
+        if: ${{ github.event.inputs.fix_type == 'pr' }}
+        run: |
+          echo "Getting commits from PR #${{ github.event.inputs.fix_commit }}"
+          COMMITS=$(gh pr view ${{ github.event.inputs.fix_commit }} --json commits --jq '.commits[].oid')
+          for commit in $COMMITS; do
+            echo "Cherry-picking commit $commit"
+            git cherry-pick $commit
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update package versions
+        run: |
+          NEW_VERSION="${{ steps.new-version.outputs.version }}"
+          echo "Updating package versions to $NEW_VERSION"
+
+          # Update all package.json files in packages directory
+          find packages -name "package.json" -exec node -e "
+            const fs = require('fs');
+            const path = process.argv[1];
+            const pkg = JSON.parse(fs.readFileSync(path, 'utf8'));
+            pkg.version = '$NEW_VERSION';
+            
+            // Update internal dependencies
+            const copilotKitPackages = [
+              '@copilotkit/react-core',
+              '@copilotkit/react-textarea', 
+              '@copilotkit/react-ui',
+              '@copilotkit/runtime',
+              '@copilotkit/runtime-client-gql',
+              '@copilotkit/sdk-js',
+              '@copilotkit/shared'
+            ];
+            
+            ['dependencies', 'devDependencies', 'peerDependencies'].forEach(depType => {
+              if (pkg[depType]) {
+                copilotKitPackages.forEach(pkgName => {
+                  if (pkg[depType][pkgName]) {
+                    pkg[depType][pkgName] = '$NEW_VERSION';
+                  }
+                });
+              }
+            });
+            
+            fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + '\n');
+            console.log('Updated:', path);
+          " {} \;
+
+      - name: Install dependencies
+        run: pnpm i
+
+      - name: Build packages
+        run: pnpm run build
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Publish to npm
+        run: |
+          echo "Publishing packages..."
+          pnpm changeset publish --no-git-tag 2>&1 | tee publish-output.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Check if published
+        id: check-published
+        run: |
+          sleep 3
+          PUBLISHED=$(node -p "const fs = require('fs'); fs.readFileSync('./publish-output.txt', 'utf-8').includes('packages published successfully:')")
+          echo "published=$PUBLISHED" >> "$GITHUB_OUTPUT"
+
+      - name: Commit and tag
+        if: ${{ steps.check-published.outputs.published == 'true' }}
+        run: |
+          git add .
+          git commit -m "hotfix: release v${{ steps.new-version.outputs.version }}
+
+          Cherry-picked from: ${{ github.event.inputs.fix_commit }}
+          Base version: ${{ github.event.inputs.base_tag }}"
+
+          git tag -a v${{ steps.new-version.outputs.version }} -m "Hotfix release ${{ steps.new-version.outputs.version }}"
+          git push origin hotfix/${{ steps.new-version.outputs.version }}
+          git push origin v${{ steps.new-version.outputs.version }}
+
+      - name: Create GitHub Release
+        if: ${{ steps.check-published.outputs.published == 'true' }}
+        uses: comnoco/create-release-action@v2.0.5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.new-version.outputs.version }}
+          release_name: v${{ steps.new-version.outputs.version }} (Hotfix)
+          body: |
+            🔥 **Hotfix Release**
+
+            **Base version**: ${{ github.event.inputs.base_tag }}
+            **Fix applied**: ${{ github.event.inputs.fix_commit }} (${{ github.event.inputs.fix_type }})
+
+            This is a patch release containing critical fixes.
+
+            ## Changes
+            - Cherry-picked fix from ${{ github.event.inputs.fix_type }} ${{ github.event.inputs.fix_commit }}
+
+            ## Installation
+            ```bash
+            npm install @copilotkit/react-core@${{ steps.new-version.outputs.version }}
+            ```
+          draft: false
+          prerelease: false
+
+      - name: Print summary
+        if: always()
+        run: |
+          echo "## Hotfix Summary"
+          echo "Base version: ${{ steps.current-version.outputs.version }}"
+          echo "New version: ${{ steps.new-version.outputs.version }}"
+          echo "Published: ${{ steps.check-published.outputs.published }}"
+          echo "Fix source: ${{ github.event.inputs.fix_type }} ${{ github.event.inputs.fix_commit }}"
