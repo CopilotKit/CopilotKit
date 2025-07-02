@@ -18,8 +18,10 @@
     "tsconfig": "1.4.6"
   },
   "changesets": [
+    "big-bears-grow",
     "happy-camels-tan",
     "hip-ghosts-drum",
+    "hungry-carrots-count",
     "late-eyes-drive",
     "ninety-cameras-prove",
     "ninety-items-scream",

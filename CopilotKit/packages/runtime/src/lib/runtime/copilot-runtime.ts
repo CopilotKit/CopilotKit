@@ -787,10 +787,8 @@ please use an LLM adapter instead.`,
   }
 
   async getAllAgents(graphqlContext: GraphQLContext): Promise<(AgentWithEndpoint | Agent)[]> {
-    const [agentsWithEndpoints, aguiAgents] = await Promise.all([
-      this.discoverAgentsFromEndpoints(graphqlContext),
-      this.discoverAgentsFromAgui(),
-    ]);
+    const agentsWithEndpoints = await this.discoverAgentsFromEndpoints(graphqlContext);
+    const aguiAgents = this.discoverAgentsFromAgui();
 
     this.availableAgents = [...agentsWithEndpoints, ...aguiAgents].map((a) => ({
       name: a.name,
@@ -885,39 +883,12 @@ please use an LLM adapter instead.`,
     return agents;
   }
 
-  async discoverAgentsFromAgui(): Promise<AgentWithEndpoint[]> {
-    const agents: Promise<AgentWithEndpoint[]> = Object.values(this.agents ?? []).reduce(
-      async (acc: Promise<Agent[]>, agent: LangGraphAgent) => {
-        const agents = await acc;
-
-        const client = agent.client;
-        let data: Array<{ assistant_id: string; graph_id: string }> | { detail: string } = [];
-        try {
-          data = await client.assistants.search();
-
-          if (data && "detail" in data && (data.detail as string).toLowerCase() === "not found") {
-            throw new CopilotKitAgentDiscoveryError({ availableAgents: this.availableAgents });
-          }
-        } catch (e) {
-          throw new CopilotKitMisuseError({
-            message: `
-              Failed to find or contact agent ${agent.graphId}.
-              Make sure the LangGraph API is running and the agent is defined in langgraph.json
-              
-              See more: https://docs.copilotkit.ai/troubleshooting/common-issues`,
-          });
-        }
-        const endpointAgents = data.map((entry) => ({
-          name: entry.graph_id,
-          id: entry.assistant_id,
-          description: "",
-        }));
-        return [...agents, ...endpointAgents];
-      },
-      Promise.resolve([]),
-    );
-
-    return agents;
+  discoverAgentsFromAgui(): Agent[] {
+    return Object.values(this.agents ?? []).map((agent: LangGraphAgent) => ({
+      name: agent.agentName,
+      id: agent.agentId,
+      description: "",
+    }));
   }
 
   async loadAgentState(

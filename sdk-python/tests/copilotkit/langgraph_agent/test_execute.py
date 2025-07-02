@@ -47,7 +47,7 @@ async def test_execute():
     async for event in agent.execute(
         state={"messages": langchain_messages_to_copilotkit(current_state.values.get("messages", []))},
         config=LANGGRAPH_CONFIG,
-        messages=[{"type": "TextMessage", "role": "user", "content": HUMAN_FEEDBACK_AFTER_INTERRUPT, "id": "123"}],
+        messages=[],
         thread_id=LANGGRAPH_CONFIG["thread_id"],
         meta_events=[meta_event],
         node_name="interrupted_node"
