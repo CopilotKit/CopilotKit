@@ -171,18 +171,6 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
       };
     }
 
-    console.log("INPUT", {
-      model: model,
-      stream: true,
-      messages: openaiMessages,
-      ...(tools.length > 0 && { tools }),
-      ...(forwardedParameters?.maxTokens && { max_tokens: forwardedParameters.maxTokens }),
-      ...(forwardedParameters?.stop && { stop: forwardedParameters.stop }),
-      ...(toolChoice && { tool_choice: toolChoice }),
-      ...(this.disableParallelToolCalls && { parallel_tool_calls: false }),
-      ...(forwardedParameters?.temperature && { temperature: forwardedParameters.temperature }),
-    });
-
     try {
       const stream = this.openai.beta.chat.completions.stream({
         model: model,
