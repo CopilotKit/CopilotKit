@@ -884,10 +884,10 @@ please use an LLM adapter instead.`,
   }
 
   discoverAgentsFromAgui(): Agent[] {
-    return Object.values(this.agents ?? []).map((agent: LangGraphAgent) => ({
-      name: agent.agentName,
-      id: agent.agentId,
-      description: "",
+    return Object.entries(this.agents ?? []).map(([key, agent]) => ({
+      name: (agent as any).agentName ?? key,
+      id: agent.agentId ?? key,
+      description: agent.description ?? "",
     }));
   }
 
@@ -963,7 +963,7 @@ please use an LLM adapter instead.`,
       ? { authorization: `Bearer ${graphqlContext.properties.authorization}` }
       : null;
 
-    let client: LangGraphClient;
+    let client: LangGraphClient | undefined;
     if ("endpoint" in agent && agent.endpoint.type === EndpointType.LangGraphPlatform) {
       client = new LangGraphClient({
         apiUrl: agent.endpoint.deploymentUrl,
@@ -975,46 +975,57 @@ please use an LLM adapter instead.`,
       if (!aguiAgent) {
         throw new Error(`Agent: ${agent.name} could not be resolved`);
       }
-      // @ts-expect-error -- both clients are the same
-      client = aguiAgent.client;
+      if ("client" in aguiAgent) {
+        client = aguiAgent.client as unknown as LangGraphClient;
+      }
     }
     let state: any = {};
-    try {
-      state = (await client.threads.getState(threadId)).values as any;
-    } catch (error) {
-      // All errors from agent state loading are user configuration issues
-      const errorMessage = error instanceof Error ? error.message : String(error);
+    if (client) {
+      try {
+        state = (await client.threads.getState(threadId)).values as any;
+      } catch (error) {
+        // All errors from agent state loading are user configuration issues
+        const errorMessage = error instanceof Error ? error.message : String(error);
 
-      // Log user configuration errors at debug level to reduce noise
-      console.debug(`Agent '${agentName}' configuration issue: ${errorMessage}`);
+        // Log user configuration errors at debug level to reduce noise
+        console.debug(`Agent '${agentName}' configuration issue: ${errorMessage}`);
 
-      // Throw a configuration error - all agent state loading failures are user setup issues
-      throw new ResolvedCopilotKitError({
-        status: 400,
-        message: `Agent '${agentName}' failed to execute: ${errorMessage}`,
-        code: CopilotKitErrorCode.CONFIGURATION_ERROR,
-      });
+        // Throw a configuration error - all agent state loading failures are user setup issues
+        throw new ResolvedCopilotKitError({
+          status: 400,
+          message: `Agent '${agentName}' failed to execute: ${errorMessage}`,
+          code: CopilotKitErrorCode.CONFIGURATION_ERROR,
+        });
+      }
+
+      if (Object.keys(state).length === 0) {
+        return {
+          threadId: threadId || "",
+          threadExists: false,
+          state: JSON.stringify({}),
+          messages: JSON.stringify([]),
+        };
+      } else {
+        const { messages, ...stateWithoutMessages } = state;
+        const copilotkitMessages = langchainMessagesToCopilotKit(messages);
+        return {
+          threadId: threadId || "",
+          threadExists: true,
+          state: JSON.stringify(stateWithoutMessages),
+          messages: JSON.stringify(copilotkitMessages),
+        };
+      }
+      // this is unreachable code?
+      throw new Error(`Agent: ${agent.name} could not be resolved`);
     }
-
-    if (Object.keys(state).length === 0) {
+    else {
       return {
         threadId: threadId || "",
         threadExists: false,
         state: JSON.stringify({}),
         messages: JSON.stringify([]),
       };
-    } else {
-      const { messages, ...stateWithoutMessages } = state;
-      const copilotkitMessages = langchainMessagesToCopilotKit(messages);
-      return {
-        threadId: threadId || "",
-        threadExists: true,
-        state: JSON.stringify(stateWithoutMessages),
-        messages: JSON.stringify(copilotkitMessages),
-      };
     }
-
-    throw new Error(`Agent: ${agent.name} could not be resolved`);
   }
 
   private async processAgentRequest(
