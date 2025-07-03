@@ -884,10 +884,10 @@ please use an LLM adapter instead.`,
   }
 
   discoverAgentsFromAgui(): Agent[] {
-    return Object.values(this.agents ?? []).map((agent: LangGraphAgent) => ({
-      name: agent.agentName,
-      id: agent.agentId,
-      description: "",
+    return Object.entries(this.agents ?? []).map(([key, agent]: [string, AbstractAgent]) => ({
+      name: (agent as any).agentName ?? key,
+      id: agent.agentId ?? key,
+      description: agent.description ?? "",
     }));
   }
 
