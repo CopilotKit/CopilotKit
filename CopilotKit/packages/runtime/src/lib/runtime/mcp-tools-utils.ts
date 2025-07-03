@@ -148,12 +148,14 @@ export function generateMcpToolInstructions(toolsMap: Record<string, MCPTool>): 
         if (tool.schema && typeof tool.schema === "object") {
           const schema = tool.schema as any;
 
-          // Extract parameters from JSON Schema
-          if (schema.properties) {
-            const requiredParams = schema.required || [];
+          // Extract parameters from JSON Schema - check both schema.parameters.properties and schema.properties
+          const toolParameters = schema.parameters?.jsonSchema || schema.parameters;
+          const properties = toolParameters?.properties || schema.properties;
+          const requiredParams = toolParameters?.required || schema.required || [];
 
+          if (properties) {
             // Build parameter documentation from properties
-            const paramsList = Object.entries(schema.properties).map(([paramName, propSchema]) => {
+            const paramsList = Object.entries(properties).map(([paramName, propSchema]) => {
               const propDetails = propSchema as any;
               const requiredMark = requiredParams.includes(paramName) ? "*" : "";
               const typeInfo = propDetails.type || "any";
