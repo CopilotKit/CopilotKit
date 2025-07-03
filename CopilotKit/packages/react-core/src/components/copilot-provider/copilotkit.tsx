@@ -50,6 +50,7 @@ import {
   LangGraphInterruptActionSetterArgs,
 } from "../../types/interrupt-action";
 import { StatusChecker } from "../../lib/status-checker";
+import { SuggestionItem } from "../../utils/suggestions";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const showDevConsole = props.showDevConsole ?? false;
@@ -388,6 +389,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   }, []);
 
   const memoizedChildren = useMemo(() => children, [children]);
+  const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
 
   return (
     <CopilotContext.Provider
@@ -442,6 +444,8 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         setLangGraphInterruptAction,
         removeLangGraphInterruptAction,
         onTrace: props.onTrace,
+        suggestions,
+        setSuggestions,
       }}
     >
       <CopilotMessages>{memoizedChildren}</CopilotMessages>
