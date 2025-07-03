@@ -279,19 +279,19 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     [key: string]: CopilotChatSuggestionConfiguration;
   }>({});
 
-  const addChatSuggestionConfiguration = (
+  const addChatSuggestionConfiguration = useCallback((
     id: string,
     suggestion: CopilotChatSuggestionConfiguration,
   ) => {
     setChatSuggestionConfiguration((prev) => ({ ...prev, [id]: suggestion }));
-  };
+  }, [setChatSuggestionConfiguration]);
 
-  const removeChatSuggestionConfiguration = (id: string) => {
+  const removeChatSuggestionConfiguration = useCallback((id: string) => {
     setChatSuggestionConfiguration((prev) => {
       const { [id]: _, ...rest } = prev;
       return rest;
     });
-  };
+  }, [setChatSuggestionConfiguration]);
 
   const [availableAgents, setAvailableAgents] = useState<Agent[]>([]);
   const [coagentStates, setCoagentStates] = useState<Record<string, CoagentState>>({});
@@ -389,6 +389,37 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
 
   const memoizedChildren = useMemo(() => children, [children]);
 
+  const agentLock = useMemo(() => (
+    props.agent ?? null
+  ), [props.agent])
+
+  const forwardedParameters = useMemo(() => (
+    props.forwardedParameters ?? {}
+  ), [props.forwardedParameters])
+
+  const updateExtensions = useCallback((newExtensions: ExtensionsInput) => {
+    setExtensions(prev => {
+      const isSameLength = Object.keys(newExtensions).length === Object.keys(prev).length;
+      const isEqual = isSameLength &&
+        // @ts-ignore
+        Object.entries(newExtensions).every(([key, value]) => prev[key] === value);
+
+      return isEqual ? prev : newExtensions;
+    });
+  }, [setExtensions]);
+
+  const updateAuthStates = useCallback((newAuthStates: Record<string, AuthState>) => {
+    setAuthStates(prev => {
+      const isSameLength = Object.keys(newAuthStates).length === Object.keys(prev).length;
+      const isEqual = isSameLength &&
+        // @ts-ignore
+        Object.entries(newAuthStates).every(([key, value]) => prev[key] === value);
+
+      return isEqual ? prev : newAuthStates;
+    });
+  }, [setAuthStates]);
+
+
   return (
     <CopilotContext.Provider
       value={{
@@ -425,8 +456,8 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         agentSession,
         setAgentSession,
         runtimeClient,
-        forwardedParameters: props.forwardedParameters || {},
-        agentLock: props.agent || null,
+        forwardedParameters,
+        agentLock,
         threadId: internalThreadId,
         setThreadId,
         runId,
@@ -435,9 +466,9 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         availableAgents,
         authConfig_c: props.authConfig_c,
         authStates_c: authStates,
-        setAuthStates_c: setAuthStates,
+        setAuthStates_c: updateAuthStates,
         extensions,
-        setExtensions,
+        setExtensions: updateExtensions,
         langGraphInterruptAction,
         setLangGraphInterruptAction,
         removeLangGraphInterruptAction,
