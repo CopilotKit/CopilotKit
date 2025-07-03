@@ -1,6 +1,6 @@
 ---
-description:
-globs:
+description: 
+globs: 
 alwaysApply: false
 ---
 # CopilotKit Development Workflow
@@ -8,19 +8,19 @@ alwaysApply: false
 ## Workspace Setup
 CopilotKit uses a monorepo structure with:
 - **[CopilotKit/package.json](mdc:CopilotKit/package.json)** - Main workspace configuration
-- **[CopilotKit/packages/](mdc:CopilotKit/packages/)** - Core library packages
-- **[examples/](mdc:examples/)** - Example applications
+- **[CopilotKit/packages/](mdc:CopilotKit/packages)** - Core library packages
+- **[examples/](mdc:examples)** - Example applications
 
 ## Development Scripts
-Located in [CopilotKit/scripts/](mdc:CopilotKit/scripts/):
+Located in [CopilotKit/scripts/](mdc:CopilotKit/scripts):
 
 ### Development Scripts
-- **[develop/](mdc:CopilotKit/scripts/develop/)** - Development environment setup
-- **[qa/](mdc:CopilotKit/scripts/qa/)** - Quality assurance and testing scripts
-- **[release/](mdc:CopilotKit/scripts/release/)** - Release automation scripts
+- **[develop/](mdc:CopilotKit/scripts/develop)** - Development environment setup
+- **[qa/](mdc:CopilotKit/scripts/qa)** - Quality assurance and testing scripts
+- **[release/](mdc:CopilotKit/scripts/release)** - Release automation scripts
 
 ### Documentation Scripts
-- **[docs/](mdc:CopilotKit/scripts/docs/)** - Documentation generation and management
+- **[docs/](mdc:CopilotKit/scripts/docs)** - Documentation generation and management
 
 ## Package Management
 - Uses pnpm workspaces for package management
@@ -28,34 +28,33 @@ Located in [CopilotKit/scripts/](mdc:CopilotKit/scripts/):
 - Examples reference local packages via workspace protocol
 
 ## Testing
-- **[e2e/](mdc:examples/e2e/)** - End-to-end testing setup with Playwright
+- **[e2e/](mdc:examples/e2e)** - End-to-end testing setup with Playwright
 - **[playwright.config.ts](mdc:examples/e2e/playwright.config.ts)** - Playwright configuration
-- Test results in [test-results/](mdc:examples/e2e/test-results/)
+- Test results in [test-results/](mdc:examples/e2e/test-results)
 
 ## Documentation Site
-- **[docs/](mdc:docs/)** - Documentation website built with Next.js
-- **[content/docs/](mdc:docs/content/docs/)** - Markdown documentation files
-- **[components/react/](mdc:docs/components/react/)** - React component examples
-- **[snippets/](mdc:docs/snippets/)** - Code snippets for documentation
+- **[docs/](mdc:docs)** - Documentation website built with Next.js
+- **[content/docs/](mdc:docs/content/docs)** - Markdown documentation files
+- **[components/react/](mdc:docs/components/react)** - React component examples
+- **[snippets/](mdc:docs/snippets)** - Code snippets for documentation
 
 ## Configuration Files
 - **[CopilotKit.code-workspace](mdc:CopilotKit/CopilotKit.code-workspace)** - VS Code workspace settings
-- **[utilities/](mdc:CopilotKit/utilities/)** - Shared utilities:
-  - [eslint-config-custom/](mdc:CopilotKit/utilities/eslint-config-custom/) - ESLint configuration
-  - [tailwind-config/](mdc:CopilotKit/utilities/tailwind-config/) - Tailwind CSS configuration  
-  - [tsconfig/](mdc:CopilotKit/utilities/tsconfig/) - TypeScript configurations
+- **[utilities/](mdc:CopilotKit/utilities)** - Shared utilities:
+  - [eslint-config-custom/](mdc:CopilotKit/utilities/eslint-config-custom) - ESLint configuration
+  - [tailwind-config/](mdc:CopilotKit/utilities/tailwind-config) - Tailwind CSS configuration  
+  - [tsconfig/](mdc:CopilotKit/utilities/tsconfig) - TypeScript configurations
 
 ## Infrastructure
-- **[infra/](mdc:infra/)** - AWS CDK infrastructure code
-- **[helmfile/](mdc:examples/helmfile/)** - Kubernetes deployment configuration
+- **[infra/](mdc:infra)** - AWS CDK infrastructure code
+- **[helmfile/](mdc:examples/helmfile)** - Kubernetes deployment configuration
 - **[Dockerfile.*](mdc:examples/Dockerfile.agent-js)** - Docker configurations for different components
 
 ## Component Registry
-- **[registry/](mdc:registry/)** - Component registry for reusable components
-- **[registry/registry/](mdc:registry/registry/)** - Registry content:
-  - [chat/](mdc:registry/registry/chat/) - Chat components
-  - [crews/](mdc:registry/registry/crews/) - CrewAI components
-  - [quickstarts/](mdc:registry/registry/quickstarts/) - Quick start templates
+- **[registry/](mdc:registry)** - Component registry for reusable components
+- **[registry/registry/](mdc:registry/registry)** - Registry content:
+  - [chat/](mdc:registry/registry/chat) - Chat components
+  - [quickstarts/](mdc:registry/registry/quickstarts) - Quick start templates
 
 ## Development Best Practices
 1. Work within the monorepo structure
