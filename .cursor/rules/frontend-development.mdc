@@ -83,9 +83,12 @@ function ChatInterface() {
 ### Actions and State
 ```typescript
 import { useCopilotAction, useCopilotReadable } from '@copilotkit/react-core'
+import { useState } from 'react'
 
 function MyComponent() {
   const [state, setState] = useState({})
+  // …
+}
   
   useCopilotReadable({
     name: "current_state",
