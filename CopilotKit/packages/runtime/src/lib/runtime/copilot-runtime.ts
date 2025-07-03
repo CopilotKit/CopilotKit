@@ -884,10 +884,10 @@ please use an LLM adapter instead.`,
   }
 
   discoverAgentsFromAgui(): Agent[] {
-    return Object.values(this.agents ?? []).map((agent: LangGraphAgent) => ({
-      name: agent.agentName,
-      id: agent.agentId,
-      description: "",
+    return Object.entries(this.agents ?? []).map(([key, agent]: [string, AbstractAgent]) => ({
+      name: (agent as any).agentName ?? key,
+      id: agent.agentId ?? key,
+      description: agent.description ?? "",
     }));
   }
 
@@ -963,11 +963,6 @@ please use an LLM adapter instead.`,
       ? { authorization: `Bearer ${graphqlContext.properties.authorization}` }
       : null;
 
-    const aguiAgent = graphqlContext._copilotkit.runtime.agents[agent.name] as LangGraphAgent;
-    if (!aguiAgent) {
-      throw new Error(`Agent: ${agent.name} could not be resolved`);
-    }
-
     let state: any = {};
     try {
       let client: LangGraphClient | null;
@@ -978,6 +973,10 @@ please use an LLM adapter instead.`,
           defaultHeaders: { ...propertyHeaders },
         });
       } else {
+        const aguiAgent = graphqlContext._copilotkit.runtime.agents[agent.name] as LangGraphAgent;
+        if (!aguiAgent) {
+          throw new Error(`Agent: ${agent.name} could not be resolved`);
+        }
         // @ts-expect-error -- both clients are the same
         client = aguiAgent.client ?? null;
       }
