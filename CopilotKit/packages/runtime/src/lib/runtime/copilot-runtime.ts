@@ -963,24 +963,26 @@ please use an LLM adapter instead.`,
       ? { authorization: `Bearer ${graphqlContext.properties.authorization}` }
       : null;
 
-    let client: LangGraphClient;
-    if ("endpoint" in agent && agent.endpoint.type === EndpointType.LangGraphPlatform) {
-      client = new LangGraphClient({
-        apiUrl: agent.endpoint.deploymentUrl,
-        apiKey: agent.endpoint.langsmithApiKey,
-        defaultHeaders: { ...propertyHeaders },
-      });
-    } else {
-      const aguiAgent = graphqlContext._copilotkit.runtime.agents[agent.name] as LangGraphAgent;
-      if (!aguiAgent) {
-        throw new Error(`Agent: ${agent.name} could not be resolved`);
-      }
-      // @ts-expect-error -- both clients are the same
-      client = aguiAgent.client;
+    const aguiAgent = graphqlContext._copilotkit.runtime.agents[agent.name] as LangGraphAgent;
+    if (!aguiAgent) {
+      throw new Error(`Agent: ${agent.name} could not be resolved`);
     }
+
     let state: any = {};
     try {
-      state = (await client.threads.getState(threadId)).values as any;
+      let client: LangGraphClient | null;
+      if ("endpoint" in agent && agent.endpoint.type === EndpointType.LangGraphPlatform) {
+        client = new LangGraphClient({
+          apiUrl: agent.endpoint.deploymentUrl,
+          apiKey: agent.endpoint.langsmithApiKey,
+          defaultHeaders: { ...propertyHeaders },
+        });
+      } else {
+        // @ts-expect-error -- both clients are the same
+        client = aguiAgent.client ?? null;
+      }
+
+      state = client ? ((await client.threads.getState(threadId)).values as any) : {};
     } catch (error) {
       // All errors from agent state loading are user configuration issues
       const errorMessage = error instanceof Error ? error.message : String(error);
