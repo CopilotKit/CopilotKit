@@ -49,9 +49,30 @@ export function isActive(
   nested = true,
   root = false
 ): boolean {
-  const isActive =
-    url === pathname || (nested && pathname.startsWith(root ? url : `${url}/`));
-  return isActive;
+  // Exact match
+  if (url === pathname) return true;
+  
+  // For nested matching
+  if (nested) {
+    // Special handling for root URL
+    if (root && url === "/") {
+      return pathname === "/";
+    }
+    
+    // For non-root URLs, check if pathname starts with the URL followed by a slash
+    // This ensures /direct-to-llm/guides/quickstart matches /direct-to-llm/guides/frontend-actions
+    if (url !== "/" && pathname.startsWith(`${url}/`)) {
+      return true;
+    }
+    
+    // Special case for direct-to-llm: if the option URL is /direct-to-llm/guides/quickstart
+    // and the current path is anywhere under /direct-to-llm/, consider it active
+    if (url.includes('/direct-to-llm/') && pathname.startsWith('/direct-to-llm/')) {
+      return true;
+    }
+  }
+  
+  return false;
 }
 
 export interface Option {
@@ -324,7 +345,7 @@ function SubdocsMenuItemDropdown({
   );
 
   // Check if we're on a page that should reset the dropdown
-  const topLevelPages = ["/", "/reference", "/quickstart"];
+  const topLevelPages = ["/", "/reference"];
   const shouldResetDropdown = topLevelPages.some(page => 
     page === "/" ? pathname === "/" : pathname.startsWith(page)
   );
