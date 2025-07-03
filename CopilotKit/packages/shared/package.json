@@ -27,7 +27,7 @@
     "dev": "tsup --watch --no-splitting",
     "test": "jest --passWithNoTests",
     "check-types": "tsc --noEmit",
-    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next",
+    "clean": "rimraf .turbo node_modules dist .next",
     "link:global": "pnpm link --global",
     "unlink:global": "pnpm unlink --global"
   },
@@ -37,6 +37,7 @@
     "eslint": "^8.56.0",
     "eslint-config-custom": "workspace:*",
     "jest": "^29.6.4",
+    "rimraf": "^5.0.5",
     "ts-jest": "^29.1.1",
     "tsconfig": "workspace:*",
     "tsup": "^6.7.0",

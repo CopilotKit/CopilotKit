@@ -7,7 +7,7 @@
     "example-build": "next build",
     "example-start": "next start",
     "lint": "next lint",
-    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"
+    "clean": "rimraf .turbo node_modules dist .next"
   },
   "dependencies": {
     "@copilotkit/react-core": "workspace:*",
@@ -35,6 +35,7 @@
     "@types/react-dom": "^18.2.4",
     "postcss": "^8.4.20",
     "autoprefixer": "^10.4.13",
+    "rimraf": "^5.0.5",
     "tailwind-config": "workspace:*",
     "tailwindcss": "^3.2.4",
     "eslint": "^8",
