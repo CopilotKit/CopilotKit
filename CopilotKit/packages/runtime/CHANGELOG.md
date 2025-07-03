@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.9.2-next.13
+
+### Patch Changes
+
+- dec5527: - fix: only fetch agent state for langgraph agents
+  - @copilotkit/shared@1.9.2-next.13
+
 ## 1.9.2-next.12
 
 ### Patch Changes

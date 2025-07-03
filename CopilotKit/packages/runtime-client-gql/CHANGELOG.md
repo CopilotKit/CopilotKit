@@ -1,5 +1,11 @@
 # @copilotkit/runtime-client-gql
 
+## 1.9.2-next.13
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.13
+
 ## 1.9.2-next.12
 
 ### Patch Changes
