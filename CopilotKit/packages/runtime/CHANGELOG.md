@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.9.2-next.17
+
+### Patch Changes
+
+- 7ca7023: - feat: send node name to agui agent
+  - @copilotkit/shared@1.9.2-next.17
+
 ## 1.9.2-next.16
 
 ### Patch Changes
