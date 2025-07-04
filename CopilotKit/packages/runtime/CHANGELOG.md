@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.9.2-next.16
+
+### Patch Changes
+
+- fe9009c: - feat(langgraph): new thread metadata
+  - @copilotkit/shared@1.9.2-next.16
+
 ## 1.9.2-next.15
 
 ### Patch Changes
