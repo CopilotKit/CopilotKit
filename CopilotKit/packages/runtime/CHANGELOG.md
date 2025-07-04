@@ -1,5 +1,19 @@
 # @copilotkit/runtime
 
+## 1.9.2-next.14
+
+### Patch Changes
+
+- 3a7f45f: - fix: resolve agui agents only after all other endpoints
+  - @copilotkit/shared@1.9.2-next.14
+
+## 1.9.2-next.13
+
+### Patch Changes
+
+- dec5527: - fix: only fetch agent state for langgraph agents
+  - @copilotkit/shared@1.9.2-next.13
+
 ## 1.9.2-next.12
 
 ### Patch Changes

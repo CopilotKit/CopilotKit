@@ -110,16 +110,72 @@ const IntegrationCard: React.FC<IntegrationCardProps> = ({
   );
 };
 
-const IntegrationsGrid: React.FC = () => {
+interface IntegrationsGridProps {
+  targetPage?: string;
+  suppressDirectToLLM?: boolean;
+}
+
+const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppressDirectToLLM = false }) => {
+  const hasTargetPage = (integration: Integration, targetPage: string): boolean => {
+    // Direct to LLM special cases
+    if (integration.title === "Direct to LLM") {
+      return targetPage === "generative-ui" || targetPage === "frontend-actions";
+    }
+    
+    // AutoGen2 missing pages
+    if (integration.title === "AutoGen2") {
+      return targetPage !== "generative-ui" && targetPage !== "shared-state";
+    }
+    
+    // Frameworks that don't have shared-state pages
+    if (targetPage === "shared-state") {
+      return !["LlamaIndex", "Mastra", "AutoGen2", "Agno"].includes(integration.title);
+    }
+    
+    // All other frameworks have the standard pages
+    return true;
+  };
+
+  const getHref = (integration: Integration) => {
+    if (!targetPage) {
+      return integration.href;
+    }
+    
+    // Special cases where certain frameworks have pages in different locations
+    if (integration.title === "Direct to LLM") {
+      if (targetPage === "generative-ui") {
+        return "/direct-to-llm/guides/generative-ui";
+      }
+      if (targetPage === "frontend-actions") {
+        return "/direct-to-llm/guides/frontend-actions";
+      }
+    }
+    
+    // For other frameworks, append the target page
+    return `${integration.href}/${targetPage}`;
+  };
+
+  let filteredIntegrations = integrations;
+  
+  // Filter out Direct to LLM if suppressed
+  if (suppressDirectToLLM) {
+    filteredIntegrations = filteredIntegrations.filter(integration => integration.title !== "Direct to LLM");
+  }
+  
+  // Filter out integrations that don't have the target page
+  if (targetPage) {
+    filteredIntegrations = filteredIntegrations.filter(integration => hasTargetPage(integration, targetPage));
+  }
+
   return (
     <div className="flex flex-row flex-wrap justify-center items-center gap-x-6 gap-y-6 my-8">
-      {integrations.map((integration, index) => (
+      {filteredIntegrations.map((integration, index) => (
         <a 
           key={index}
-          href={integration.href}
+          href={getHref(integration)}
           className="flex flex-col items-center gap-3 text-center no-underline group"
         >
-          <div className={`w-16 h-16 flex items-center justify-center rounded-2xl transition-all duration-200 group-hover:scale-105 ${integration.bgGradient}`}>
+          <div className={`w-12 h-12 flex items-center justify-center rounded-2xl transition-all duration-200 group-hover:scale-105 ${integration.bgGradient}`}>
             {integration.logo}
           </div>
           <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300 group-hover:text-black dark:group-hover:text-white transition-colors duration-200">
@@ -132,3 +188,4 @@ const IntegrationsGrid: React.FC = () => {
 };
 
 export { IntegrationCard, IntegrationsGrid, integrations };
+export type { IntegrationsGridProps };
