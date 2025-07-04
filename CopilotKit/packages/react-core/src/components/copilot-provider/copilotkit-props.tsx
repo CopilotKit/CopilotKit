@@ -65,11 +65,16 @@ export interface CopilotKitProps {
   children: ReactNode;
 
   /**
-   * Custom properties to be sent with the request
+   * Custom properties to be sent with the request.
+   * Can include threadMetadata for thread creation.
    * For example:
    * ```js
    * {
    *   'user_id': 'users_id',
+   *   threadMetadata: {
+   *     'account_id': '123',
+   *     'user_type': 'premium'
+   *   }
    * }
    * ```
    */
