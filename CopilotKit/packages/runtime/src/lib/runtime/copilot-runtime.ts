@@ -1392,6 +1392,7 @@ please use an LLM adapter instead.`,
       frontendUrl: url,
       agents: this.agents,
       metaEvents: request.metaEvents,
+      nodeName: request.agentSession?.nodeName,
     });
 
     const configuredActions =
