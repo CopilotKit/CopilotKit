@@ -1,5 +1,13 @@
 # ui
 
+## 1.9.2-next.15
+
+### Patch Changes
+
+- cbeccb5: - fix: refrain repeated api calls by memoizing state
+  - @copilotkit/runtime-client-gql@1.9.2-next.15
+  - @copilotkit/shared@1.9.2-next.15
+
 ## 1.9.2-next.14
 
 ### Patch Changes

@@ -1,5 +1,14 @@
 # ui
 
+## 1.9.2-next.15
+
+### Patch Changes
+
+- Updated dependencies [cbeccb5]
+  - @copilotkit/react-core@1.9.2-next.15
+  - @copilotkit/runtime-client-gql@1.9.2-next.15
+  - @copilotkit/shared@1.9.2-next.15
+
 ## 1.9.2-next.14
 
 ### Patch Changes
