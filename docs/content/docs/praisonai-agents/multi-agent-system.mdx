@@ -1,0 +1,63 @@
+---
+title: "Multi-agent System"
+description: "Learn how PraisonAI Agents work together in this example"
+---
+
+# Multi-agent System
+
+This example uses two specialized agents that work together to produce comprehensive research:
+
+## Agent Roles
+
+### Researcher Agent
+```python
+from praisonaiagents import Agent
+
+researcher = Agent(
+    instructions="Conduct thorough research on topics. Find relevant and current information."
+)
+```
+
+The Researcher Agent:
+- Analyzes the research topic
+- Gathers key information
+- Produces structured findings
+
+### Reporting Analyst
+```python
+reporting_analyst = Agent(
+    instructions="Create detailed, structured reports from research findings."
+)
+```
+
+The Reporting Analyst:
+- Takes researcher's findings
+- Organizes information
+- Creates comprehensive reports
+
+## Agent Coordination
+
+```python
+from praisonaiagents import PraisonAIAgents
+
+agents = PraisonAIAgents(
+    agents=[researcher, reporting_analyst]
+)
+```
+
+The agents work sequentially:
+1. Researcher conducts initial research
+2. Reporting Analyst creates final report
+3. Results stream to the UI in real-time
+
+## Example Usage
+
+```python
+# Define research topic
+topic = "Artificial Intelligence in 2025"
+
+# Start the research process
+result = agents.start(topic)
+```
+
+The UI will show real-time progress as agents work through these steps. 
