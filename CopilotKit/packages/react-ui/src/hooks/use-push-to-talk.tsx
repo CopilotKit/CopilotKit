@@ -56,11 +56,15 @@ const stopRecording = (mediaRecorderRef: MutableRefObject<MediaRecorder | null>)
   }
 };
 
-const transcribeAudio = async (recordedChunks: Blob[], transcribeAudioUrl: string) => {
-  const completeBlob = new Blob(recordedChunks, { type: "audio/mp4" });
-  const formData = new FormData();
-  formData.append("file", completeBlob, "recording.mp4");
+export type supportedMimeTypes = 'audio/mp4' | 'audio/wav' | 'audio/webm' | 'audio/ogg';
 
+
+const transcribeAudio = async (recordedChunks: Blob[], transcribeAudioUrl: string, audioMimeType?: supportedMimeTypes) => {
+  let extension = audioMimeType?.split('/')[1];
+  const completeBlob = new Blob(recordedChunks, { type: audioMimeType? audioMimeType: "audio/mp4" });
+  const formData = new FormData();
+  formData.append("file", completeBlob, audioMimeType ? `recording.${extension}`: "recording.mp4");
+  
   const response = await fetch(transcribeAudioUrl, {
     method: "POST",
     body: formData,
@@ -99,9 +103,11 @@ export type SendFunction = (text: string) => Promise<Message>;
 export const usePushToTalk = ({
   sendFunction,
   inProgress,
+  audioMimeType,
 }: {
   sendFunction: SendFunction;
   inProgress: boolean;
+  audioMimeType?: supportedMimeTypes;
 }) => {
   const [pushToTalkState, setPushToTalkState] = useState<PushToTalkState>("idle");
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -127,7 +133,7 @@ export const usePushToTalk = ({
     } else {
       stopRecording(mediaRecorderRef);
       if (pushToTalkState === "transcribing") {
-        transcribeAudio(recordedChunks.current, context.copilotApiConfig.transcribeAudioUrl!).then(
+        transcribeAudio(recordedChunks.current, context.copilotApiConfig.transcribeAudioUrl!,audioMimeType).then(
           async (transcription) => {
             recordedChunks.current = [];
             setPushToTalkState("idle");
