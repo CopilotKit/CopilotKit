@@ -1,0 +1,152 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# CopilotKit Frontend Development Guide
+
+## Core React Packages
+
+### React Components
+- **[react-core/](mdc:CopilotKit/packages/react-core/)** - Core React components and hooks
+  - `CopilotProvider` - Main provider component
+  - `useCopilotChat` - Chat functionality hook
+  - `useCopilotAction` - Action definition hook
+  - `useCopilotReadable` - State reading hook
+
+### UI Components
+- **[react-ui/](mdc:CopilotKit/packages/react-ui/)** - Pre-built UI components
+  - `CopilotChat` - Chat interface component
+  - `CopilotPopup` - Popup chat component
+  - `CopilotSidebar` - Sidebar chat component
+
+### Specialized Components
+- **[react-textarea/](mdc:CopilotKit/packages/react-textarea/)** - AI-enhanced textarea
+  - `CopilotTextarea` - Smart textarea with AI suggestions
+  - Auto-completion and suggestions
+
+## Frontend Example Categories
+
+### Basic Integration Examples
+- **[copilot-chat-with-your-data/](mdc:examples/copilot-chat-with-your-data/)** - Chat with custom data
+- **[copilot-form-filling/](mdc:examples/copilot-form-filling/)** - AI-powered form filling
+- **[copilot-fully-custom/](mdc:examples/copilot-fully-custom/)** - Custom copilot implementation
+
+### Advanced UI Examples
+- **[copilot-state-machine/](mdc:examples/copilot-state-machine/)** - State machine integration
+- **[demo-viewer/](mdc:examples/demo-viewer/)** - Demo viewer application
+- **[saas-dynamic-dashboards/frontend/](mdc:examples/saas-dynamic-dashboards/frontend/)** - Dynamic dashboard UI
+
+### Coagents UI Examples
+Most coagents examples have a `ui/` folder with Next.js applications:
+- **[coagents-starter/ui/](mdc:examples/coagents-starter/ui/)** - Basic coagents UI
+- **[coagents-travel/ui/](mdc:examples/coagents-travel/ui/)** - Travel planning UI
+- **[coagents-research-canvas/ui/](mdc:examples/coagents-research-canvas/ui/)** - Research canvas UI
+
+## Component Registry
+- **[registry/](mdc:registry/)** - Reusable component registry
+- **[registry/registry/chat/](mdc:registry/registry/chat/)** - Chat components
+- **[registry/registry/layout/](mdc:registry/registry/layout/)** - Layout components
+- **[registry/registry/quickstarts/](mdc:registry/registry/quickstarts/)** - Quick start templates
+
+## Common Frontend Patterns
+
+### Provider Setup
+```typescript
+import { CopilotProvider } from '@copilotkit/react-core'
+
+function App() {
+  return (
+    <CopilotProvider runtimeUrl="/api/copilotkit">
+      {/* Your app components */}
+    </CopilotProvider>
+  )
+}
+```
+
+### Chat Integration
+```typescript
+import { CopilotChat } from '@copilotkit/react-ui'
+
+function ChatInterface() {
+  return (
+    <CopilotChat
+      labels={{
+        title: "Your AI Assistant",
+        initial: "Hello! How can I help you today?"
+      }}
+    />
+  )
+}
+```
+
+### Actions and State
+```typescript
+import { useCopilotAction, useCopilotReadable } from '@copilotkit/react-core'
+import { useState } from 'react'
+
+function MyComponent() {
+  const [state, setState] = useState({})
+  // …
+}
+  
+  useCopilotReadable({
+    name: "current_state",
+    description: "Current application state",
+    value: state
+  })
+  
+  useCopilotAction({
+    name: "update_state",
+    description: "Update application state",
+    parameters: [/* ... */],
+    handler: (args) => {
+      setState(args.newState)
+    }
+  })
+}
+```
+
+## Documentation Components
+- **[docs/components/react/](mdc:docs/components/react/)** - React component documentation
+- **[docs/components/ui/](mdc:docs/components/ui/)** - UI component library
+- **[docs/snippets/](mdc:docs/snippets/)** - Code snippets and examples
+
+## Integration with Agents
+
+### Runtime Configuration
+- **[runtime/](mdc:CopilotKit/packages/runtime/)** - Core runtime for agent communication
+- **[runtime-client-gql/](mdc:CopilotKit/packages/runtime-client-gql/)** - GraphQL client
+
+### Agent Communication
+- Frontend components communicate with agents via the runtime
+- Actions defined in frontend are executed by backend agents
+- State is synchronized between frontend and agents
+
+## Development Best Practices
+
+### Component Development
+1. Use TypeScript for better type safety
+2. Follow the established component patterns
+3. Implement proper error handling
+4. Use the provided hooks and utilities
+
+### UI/UX Guidelines
+1. Maintain consistent styling with Tailwind CSS
+2. Use the component registry for reusable components
+3. Implement responsive design
+4. Provide clear user feedback
+
+### Testing and Quality
+1. Test components with different agent configurations
+2. Use the E2E testing setup in [examples/e2e/](mdc:examples/e2e/)
+3. Follow accessibility best practices
+4. Validate agent integration flows
+
+### Styling and Theming
+- Uses Tailwind CSS for styling
+- Shared configuration in [utilities/tailwind-config/](mdc:CopilotKit/utilities/tailwind-config/)
+- Custom components in [components.json](mdc:docs/components.json)
+- UI components follow modern design patterns
+
+

@@ -1,0 +1,105 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# CopilotKit Agent Development Guide
+
+## Agent Types
+
+### Python Agents
+Python agents are typically in folders named `agent-py/` or `agent/` and use the [sdk-python/](mdc:sdk-python/) package.
+
+#### Core Python SDK Components
+- **[copilotkit/agent.py](mdc:sdk-python/copilotkit/agent.py)** - Main agent class
+- **[copilotkit/action.py](mdc:sdk-python/copilotkit/action.py)** - Action definitions
+- **[copilotkit/crewai/](mdc:sdk-python/copilotkit/crewai/)** - CrewAI integration
+- **[copilotkit/integrations/](mdc:sdk-python/copilotkit/integrations/)** - Third-party integrations
+
+#### Python Agent Examples
+- **[coagents-starter/agent-py/](mdc:examples/coagents-starter/agent-py/)** - Basic Python agent setup
+- **[coagents-ai-researcher/agent/](mdc:examples/coagents-ai-researcher/agent/)** - Research agent with web scraping
+- **[coagents-travel/agent/](mdc:examples/coagents-travel/agent/)** - Travel planning agent
+- **[langgraph-tutorial-quickstart/agent-py/](mdc:examples/langgraph-tutorial-quickstart/agent-py/)** - LangGraph integration
+
+### JavaScript Agents
+JavaScript agents are in folders named `agent-js/` and use the [sdk-js/](mdc:CopilotKit/packages/sdk-js/) package.
+
+#### JavaScript Agent Examples
+- **[coagents-starter/agent-js/](mdc:examples/coagents-starter/agent-js/)** - Basic JavaScript agent setup
+- **[coagents-qa-native/agent-js/](mdc:examples/coagents-qa-native/agent-js/)** - Native JavaScript QA agent
+- **[coagents-routing/agent-js/](mdc:examples/coagents-routing/agent-js/)** - Routing agent
+
+## Agent Patterns
+
+### Single Agent Pattern
+Simple agents that handle specific tasks:
+- File structure: `agent/main.py` or `agent/index.js`
+- Direct communication with frontend
+- Good for focused use cases
+
+### Multi-Agent (Coagents) Pattern
+Complex systems with multiple cooperating agents:
+- Multiple agent files or classes
+- Shared state management
+- Agent routing and coordination
+- Examples: [coagents-routing/](mdc:examples/coagents-routing/), [coagents-shared-state/](mdc:examples/coagents-shared-state/)
+
+### CrewAI Integration Pattern
+Using CrewAI for agent orchestration:
+- **Crews**: [coagents-starter-crewai-crews/](mdc:examples/coagents-starter-crewai-crews/)
+- **Flows**: [coagents-starter-crewai-flows/](mdc:examples/coagents-starter-crewai-flows/)
+- **Enterprise**: [coagents-enterprise-crewai-crews/](mdc:examples/coagents-enterprise-crewai-crews/)
+
+### LangGraph Integration Pattern
+Using LangGraph for agent state management:
+- **[langgraph-tutorial-quickstart/](mdc:examples/langgraph-tutorial-quickstart/)** - Basic LangGraph setup
+- **[langgraph-tutorial-customer-support/](mdc:examples/langgraph-tutorial-customer-support/)** - Customer support bot
+- Uses [langgraph.json](mdc:sdk-python/langgraph.json) for configuration
+
+## Agent Setup
+
+### Python Agent Setup
+1. Use [requirements-template.txt](mdc:examples/shared/requirements-template.txt) as a starting point
+2. Configure [pyproject-template.toml](mdc:examples/shared/pyproject-template.toml)
+3. Import from `copilotkit` package
+4. Define actions and agent logic
+
+### JavaScript Agent Setup
+1. Install `@copilotkit/sdk-js` package
+2. Configure TypeScript with proper types
+3. Define actions and agent endpoints
+4. Set up Express.js server or similar
+
+## Common Agent Features
+
+### Actions
+- Define functions that agents can call
+- Handle user interactions
+- Modify application state
+- Examples in action.py files across examples
+
+### State Management
+- Shared state between agents
+- Persistent state across conversations
+- Example: [coagents-shared-state/](mdc:examples/coagents-shared-state/)
+
+### User Input Handling
+- Wait for user input during agent execution
+- Interactive workflows
+- Example: [coagents-wait-user-input/](mdc:examples/coagents-wait-user-input/)
+
+### Integration Patterns
+- Vector databases (Pinecone, MongoDB Atlas)
+- LLM providers (OpenAI, Anthropic)
+- External APIs and services
+
+## Development Best Practices
+1. Start with a simple agent template
+2. Define clear actions and interfaces
+3. Handle errors gracefully
+4. Test with the corresponding UI example
+5. Use shared utilities from [examples/shared/](mdc:examples/shared/)
+6. Follow the established patterns in existing examples
+
+

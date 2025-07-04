@@ -1,0 +1,59 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# CopilotKit Examples and Demos Guide
+
+## Example Categories
+
+### Coagents Examples
+Multi-agent systems with complex workflows:
+- **[coagents-starter/](mdc:examples/coagents-starter)** - Basic coagents setup with both JS and Python agents
+- **[coagents-ai-researcher/](mdc:examples/coagents-ai-researcher)** - AI research assistant with web scraping
+- **[coagents-travel/](mdc:examples/coagents-travel)** - Travel planning assistant
+- **[coagents-qa/](mdc:examples/coagents-qa)** - Question-answering system
+- **[coagents-research-canvas/](mdc:examples/coagents-research-canvas)** - Research canvas with collaborative editing
+
+### CrewAI Integration Examples
+- **[coagents-starter-crewai-crews/](mdc:examples/coagents-starter-crewai-crews)** - CrewAI crews integration
+- **[coagents-starter-crewai-flows/](mdc:examples/coagents-starter-crewai-flows)** - CrewAI flows integration
+
+### Frontend-Focused Examples
+- **[copilot-chat-with-your-data/](mdc:examples/copilot-chat-with-your-data)** - Chat interface with custom data
+- **[copilot-form-filling/](mdc:examples/copilot-form-filling)** - AI-powered form filling
+- **[copilot-fully-custom/](mdc:examples/copilot-fully-custom)** - Fully customized copilot implementation
+- **[copilot-state-machine/](mdc:examples/copilot-state-machine)** - State machine integration
+
+### Integration Examples
+- **[copilot-openai-mongodb-atlas-vector-search/](mdc:examples/copilot-openai-mongodb-atlas-vector-search)** - OpenAI + MongoDB Atlas vector search
+- **[copilot-anthropic-pinecone/](mdc:examples/copilot-anthropic-pinecone)** - Anthropic + Pinecone integration
+
+### Framework Examples
+- **[ag2/](mdc:examples/ag2)** - AG2 framework integration
+- **[mastra/](mdc:examples/mastra)** - Mastra framework integration
+- **[llamaindex/](mdc:examples/llamaindex)** - LlamaIndex integration
+
+## Common Example Structure
+Most examples follow this pattern:
+```
+example-name/
+├── agent/ (or agent-py/)     # Backend agent implementation
+├── ui/                       # Frontend Next.js application
+├── README.md                 # Setup instructions
+└── package.json             # Dependencies
+```
+
+## Running Examples
+1. Navigate to the example directory
+2. Install dependencies: `npm install` or `pip install -r requirements.txt`
+3. Follow the README.md instructions for setup
+4. Run the frontend: `npm run dev`
+5. Run the agent: `npm run agent` or `python agent.py`
+
+## Demo Projects
+Community demos are stored in:
+- **[demos_2024/](mdc:community/demos_2024)** - 2024 community demos
+- **[demos_2025/](mdc:community/demos_2025)** - 2025 community demos
+
+

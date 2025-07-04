@@ -1,0 +1,45 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# CopilotKit Architecture Overview
+
+## Core Library Structure
+The main CopilotKit library is located in [CopilotKit/](mdc:CopilotKit/) with the following key packages:
+
+### React Packages
+- **[react-core/](mdc:CopilotKit/packages/react-core/)** - Core React components and hooks for CopilotKit
+- **[react-textarea/](mdc:CopilotKit/packages/react-textarea/)** - Textarea component with AI integration
+- **[react-ui/](mdc:CopilotKit/packages/react-ui/)** - UI components for copilot interfaces
+
+### Runtime & SDK
+- **[runtime/](mdc:CopilotKit/packages/runtime/)** - Core runtime for executing copilot actions
+- **[runtime-client-gql/](mdc:CopilotKit/packages/runtime-client-gql/)** - GraphQL client for runtime communication
+- **[sdk-js/](mdc:CopilotKit/packages/sdk-js/)** - JavaScript SDK for backend integration
+- **[shared/](mdc:CopilotKit/packages/shared/)** - Shared utilities and types
+
+### Python SDK
+- **[sdk-python/](mdc:sdk-python/)** - Python SDK with integrations for:
+  - CrewAI agents in [crewai/](mdc:sdk-python/copilotkit/crewai/)
+  - LangGraph integrations
+  - OpenAI integrations in [openai/](mdc:sdk-python/copilotkit/openai/)
+
+## Key Concepts
+- **Copilots**: AI assistants that can read and write application state
+- **Actions**: Functions that copilots can call to interact with your application
+- **Agents**: Backend AI agents that process complex tasks
+- **Coagents**: Multi-agent systems for complex workflows
+
+## Examples Structure
+All examples are in [examples/](mdc:examples/) and typically follow this pattern:
+- `agent/` or `agent-py/` - Backend agent implementation
+- `ui/` - Frontend Next.js application
+- `README.md` - Setup and usage instructions
+
+## Development Workflow
+- Examples use the local packages via workspace references
+- [package.json](mdc:CopilotKit/package.json) contains workspace configuration
+- Scripts in [scripts/](mdc:CopilotKit/scripts/) for development, testing, and releases
+
+
