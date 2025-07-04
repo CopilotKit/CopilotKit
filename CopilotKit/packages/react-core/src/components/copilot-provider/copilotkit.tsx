@@ -279,19 +279,22 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     [key: string]: CopilotChatSuggestionConfiguration;
   }>({});
 
-  const addChatSuggestionConfiguration = useCallback((
-    id: string,
-    suggestion: CopilotChatSuggestionConfiguration,
-  ) => {
-    setChatSuggestionConfiguration((prev) => ({ ...prev, [id]: suggestion }));
-  }, [setChatSuggestionConfiguration]);
+  const addChatSuggestionConfiguration = useCallback(
+    (id: string, suggestion: CopilotChatSuggestionConfiguration) => {
+      setChatSuggestionConfiguration((prev) => ({ ...prev, [id]: suggestion }));
+    },
+    [setChatSuggestionConfiguration],
+  );
 
-  const removeChatSuggestionConfiguration = useCallback((id: string) => {
-    setChatSuggestionConfiguration((prev) => {
-      const { [id]: _, ...rest } = prev;
-      return rest;
-    });
-  }, [setChatSuggestionConfiguration]);
+  const removeChatSuggestionConfiguration = useCallback(
+    (id: string) => {
+      setChatSuggestionConfiguration((prev) => {
+        const { [id]: _, ...rest } = prev;
+        return rest;
+      });
+    },
+    [setChatSuggestionConfiguration],
+  );
 
   const [availableAgents, setAvailableAgents] = useState<Agent[]>([]);
   const [coagentStates, setCoagentStates] = useState<Record<string, CoagentState>>({});
@@ -389,36 +392,44 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
 
   const memoizedChildren = useMemo(() => children, [children]);
 
-  const agentLock = useMemo(() => (
-    props.agent ?? null
-  ), [props.agent])
+  const agentLock = useMemo(() => props.agent ?? null, [props.agent]);
 
-  const forwardedParameters = useMemo(() => (
-    props.forwardedParameters ?? {}
-  ), [props.forwardedParameters])
+  const forwardedParameters = useMemo(
+    () => props.forwardedParameters ?? {},
+    [props.forwardedParameters],
+  );
 
-  const updateExtensions = useCallback((newExtensions: ExtensionsInput) => {
-    setExtensions(prev => {
-      const isSameLength = Object.keys(newExtensions).length === Object.keys(prev).length;
-      const isEqual = isSameLength &&
-        // @ts-ignore
-        Object.entries(newExtensions).every(([key, value]) => prev[key] === value);
+  const updateExtensions = useCallback(
+    (newExtensions: SetStateAction<ExtensionsInput>) => {
+      setExtensions((prev: ExtensionsInput) => {
+        const resolved = typeof newExtensions === "function" ? newExtensions(prev) : newExtensions;
+        const isSameLength = Object.keys(resolved).length === Object.keys(prev).length;
+        const isEqual =
+          isSameLength &&
+          // @ts-ignore
+          Object.entries(resolved).every(([key, value]) => prev[key] === value);
 
-      return isEqual ? prev : newExtensions;
-    });
-  }, [setExtensions]);
+        return isEqual ? prev : resolved;
+      });
+    },
+    [setExtensions],
+  );
 
-  const updateAuthStates = useCallback((newAuthStates: Record<string, AuthState>) => {
-    setAuthStates(prev => {
-      const isSameLength = Object.keys(newAuthStates).length === Object.keys(prev).length;
-      const isEqual = isSameLength &&
-        // @ts-ignore
-        Object.entries(newAuthStates).every(([key, value]) => prev[key] === value);
+  const updateAuthStates = useCallback(
+    (newAuthStates: SetStateAction<Record<string, AuthState>>) => {
+      setAuthStates((prev) => {
+        const resolved = typeof newAuthStates === "function" ? newAuthStates(prev) : newAuthStates;
+        const isSameLength = Object.keys(resolved).length === Object.keys(prev).length;
+        const isEqual =
+          isSameLength &&
+          // @ts-ignore
+          Object.entries(resolved).every(([key, value]) => prev[key] === value);
 
-      return isEqual ? prev : newAuthStates;
-    });
-  }, [setAuthStates]);
-
+        return isEqual ? prev : resolved;
+      });
+    },
+    [setAuthStates],
+  );
 
   return (
     <CopilotContext.Provider
@@ -483,7 +494,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
 export const defaultCopilotContextCategories = ["global"];
 
 function entryPointsToFunctionCallHandler(actions: FrontendAction<any>[]): FunctionCallHandler {
-  return async ({ name, args }) => {
+  return async ({ name, args }: { name: string; args: Record<string, any> }) => {
     let actionsByFunctionName: Record<string, FrontendAction<any>> = {};
     for (let action of actions) {
       actionsByFunctionName[action.name] = action;
