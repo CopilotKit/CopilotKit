@@ -23,6 +23,7 @@ export function constructAGUIRemoteAction({
   agent,
   metaEvents,
   threadMetadata,
+  nodeName,
 }: {
   logger: Logger;
   messages: Message[];
@@ -30,6 +31,7 @@ export function constructAGUIRemoteAction({
   agent: AbstractAgent;
   metaEvents?: MetaEventInput[];
   threadMetadata?: Record<string, any>;
+  nodeName?: string;
 }) {
   const action = {
     name: agent.agentId,
@@ -72,6 +74,7 @@ export function constructAGUIRemoteAction({
       const forwardedProps = {
         ...(metaEvents?.length ? { command: { resume: metaEvents[0]?.response } } : {}),
         ...(threadMetadata ? { threadMetadata } : {}),
+        ...(nodeName ? { nodeName } : {}),
       };
 
       return agent.legacy_to_be_removed_runAgentBridged({
