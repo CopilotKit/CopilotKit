@@ -487,6 +487,8 @@ def copilotkit_interrupt(
         "__copilotkit_interrupt_value__": interrupt_values,
         "__copilotkit_messages__": [interrupt_message]
     })
+    handler = copilotkit_messages_to_langchain()
+    response = handler(response)
     answer = response[-1].content
 
     return answer, response
