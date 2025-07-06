@@ -60,8 +60,9 @@ export type supportedMimeTypes = 'audio/mp4' | 'audio/wav' | 'audio/webm' | 'aud
 
 
 const transcribeAudio = async (recordedChunks: Blob[], transcribeAudioUrl: string, audioMimeType?: supportedMimeTypes) => {
-  let extension = audioMimeType?.split('/')[1];
-  const completeBlob = new Blob(recordedChunks, { type: audioMimeType? audioMimeType: "audio/mp4" });
+  const mimeType = audioMimeType ?? "audio/mp4";
+  let extension = audioMimeType?.split('/')[1] ?? "mp4";
+  const completeBlob = new Blob(recordedChunks, { type: mimeType });
   const formData = new FormData();
   formData.append("file", completeBlob, audioMimeType ? `recording.${extension}`: "recording.mp4");
   
