@@ -31,9 +31,8 @@ export default function App() {
 ```
 
 <Callout type="tip">
-  The dev console shows error banners and toasts directly in your UI, making it
-  easy to spot issues during development. **No API key required** for this
-  feature.
+  The dev console shows error banner directly in your UI, making it easy to spot
+  issues during development. **No API key required** for this feature.
 </Callout>
 
 </Step>
@@ -41,7 +40,7 @@ export default function App() {
 <Step>
 ### Production Error Handling
 
-For production applications, use the `onError` handler with CopilotKit Cloud:
+For production applications, use the `onError` handler (requires `publicApiKey`):
 
 ```tsx
 import { CopilotKit } from "@copilotkit/react-core";
@@ -74,7 +73,7 @@ export default function App() {
 <Callout type="info">
   **Need a publicApiKey?** Go to
   [https://cloud.copilotkit.ai](https://cloud.copilotkit.ai) and get one for
-  free! The `onError` handler is a premium CopilotKit Cloud feature.
+  free!
 </Callout>
 
 </Step>
@@ -96,7 +95,7 @@ The dev console provides immediate visual feedback during development:
 **Features:**
 
 - ✅ **No API key required** - works with any setup
-- ✅ **Visual error banners** - errors appear as toasts in your UI
+- ✅ **Visual error banner** - errors appear as banner in your UI
 - ✅ **Real-time feedback** - see errors immediately as they occur
 - ✅ **Development-focused** - detailed error information for debugging
 
@@ -152,7 +151,6 @@ import { CopilotErrorEvent } from "@copilotkit/shared";
 **Requirements:**
 
 - Requires `publicApiKey` from [CopilotKit Cloud](https://cloud.copilotkit.ai)
-- Premium CopilotKit Cloud feature
 
 ## Error Event Structure
 
@@ -206,14 +204,16 @@ interface CopilotErrorEvent {
 <CopilotKit
   publicApiKey="ck_pub_your_key"
   onError={(errorEvent) => {
-    console.error('[CopilotKit Error]', {
+    console.error("[CopilotKit Error]", {
       type: errorEvent.type,
       timestamp: new Date(errorEvent.timestamp).toISOString(),
       context: errorEvent.context,
-      error: errorEvent.error
+      error: errorEvent.error,
     });
   }}
 >
+  {/* Your app */}
+</CopilotKit>
 ```
 
 ### Integration with Monitoring Services
@@ -225,7 +225,7 @@ import * as Sentry from "@sentry/react";
 <CopilotKit
   publicApiKey="ck_pub_your_key"
   onError={(errorEvent) => {
-    if (errorEvent.type === 'error') {
+    if (errorEvent.type === "error") {
       Sentry.captureException(errorEvent.error, {
         tags: {
           source: errorEvent.context.source,
@@ -234,11 +234,13 @@ import * as Sentry from "@sentry/react";
         extra: {
           context: errorEvent.context,
           timestamp: errorEvent.timestamp,
-        }
+        },
       });
     }
   }}
 >
+  {/* Your app */}
+</CopilotKit>;
 ```
 
 ### Custom Error Analytics
@@ -248,16 +250,18 @@ import * as Sentry from "@sentry/react";
   publicApiKey="ck_pub_your_key"
   onError={(errorEvent) => {
     // Track different error types
-    analytics.track('copilotkit_event', {
+    analytics.track("copilotkit_event", {
       event_type: errorEvent.type,
       source: errorEvent.context.source,
       agent_name: errorEvent.context.agent?.name,
       latency: errorEvent.context.response?.latency,
       error_message: errorEvent.error?.message,
-      timestamp: errorEvent.timestamp
+      timestamp: errorEvent.timestamp,
     });
   }}
 >
+  {/* Your app */}
+</CopilotKit>
 ```
 
 ## Development vs Production Setup
@@ -270,9 +274,11 @@ import * as Sentry from "@sentry/react";
   showDevConsole={true} // Show visual errors
   onError={(errorEvent) => {
     // Simple console logging for development
-    console.log('CopilotKit Event:', errorEvent);
+    console.log("CopilotKit Event:", errorEvent);
   }}
 >
+  {/* Your app */}
+</CopilotKit>
 ```
 
 ### Production Environment
@@ -284,21 +290,23 @@ import * as Sentry from "@sentry/react";
   showDevConsole={false} // Hide from users
   onError={(errorEvent) => {
     // Production error handling
-    if (errorEvent.type === 'error') {
+    if (errorEvent.type === "error") {
       // Log critical errors
-      logger.error('CopilotKit Error', {
+      logger.error("CopilotKit Error", {
         error: errorEvent.error,
         context: errorEvent.context,
-        timestamp: errorEvent.timestamp
+        timestamp: errorEvent.timestamp,
       });
 
       // Send to monitoring service
       monitoring.captureError(errorEvent.error, {
-        extra: errorEvent.context
+        extra: errorEvent.context,
       });
     }
   }}
 >
+  {/* Your app */}
+</CopilotKit>
 ```
 
 ## Getting Started with CopilotKit Cloud
@@ -314,6 +322,8 @@ To use the `onError` handler, you'll need a CopilotKit Cloud account:
 4. **Use it in your CopilotKit provider**:
    ```tsx
    <CopilotKit publicApiKey={process.env.NEXT_PUBLIC_COPILOTKIT_API_KEY}>
+     {/* Your app */}
+   </CopilotKit>
    ```
 
 <Callout type="info">
