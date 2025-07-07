@@ -1,8 +1,8 @@
-import { CopilotTraceEvent, CopilotRequestContext, CopilotTraceHandler } from "@copilotkit/shared";
+import { CopilotErrorEvent, CopilotRequestContext, CopilotErrorHandler } from "@copilotkit/shared";
 
-describe("CopilotRuntime onTrace types", () => {
+describe("CopilotRuntime onError types", () => {
   it("should have correct CopilotTraceEvent type structure", () => {
-    const traceEvent: CopilotTraceEvent = {
+    const errorEvent: CopilotErrorEvent = {
       type: "error",
       timestamp: Date.now(),
       context: {
@@ -18,10 +18,10 @@ describe("CopilotRuntime onTrace types", () => {
       error: new Error("Test error"),
     };
 
-    expect(traceEvent.type).toBe("error");
-    expect(traceEvent.timestamp).toBeGreaterThan(0);
-    expect(traceEvent.context.threadId).toBe("test-123");
-    expect(traceEvent.error).toBeInstanceOf(Error);
+    expect(errorEvent.type).toBe("error");
+    expect(errorEvent.timestamp).toBeGreaterThan(0);
+    expect(errorEvent.context.threadId).toBe("test-123");
+    expect(errorEvent.error).toBeInstanceOf(Error);
   });
 
   it("should have correct CopilotRequestContext type structure", () => {
@@ -76,8 +76,8 @@ describe("CopilotRuntime onTrace types", () => {
     expect(context.metadata?.testFlag).toBe(true);
   });
 
-  it("should support all trace event types", () => {
-    const eventTypes: CopilotTraceEvent["type"][] = [
+  it("should support all error event types", () => {
+    const eventTypes: CopilotErrorEvent["type"][] = [
       "error",
       "request",
       "response",
@@ -88,7 +88,7 @@ describe("CopilotRuntime onTrace types", () => {
     ];
 
     eventTypes.forEach((type) => {
-      const event: CopilotTraceEvent = {
+      const event: CopilotErrorEvent = {
         type,
         timestamp: Date.now(),
         context: {
@@ -108,37 +108,37 @@ describe("CopilotRuntime onTrace types", () => {
   });
 
   describe("publicApiKey gating logic", () => {
-    type ShouldTrace = (onTrace?: CopilotTraceHandler, publicApiKey?: string) => boolean;
+    type ShouldHandleError = (onError?: CopilotErrorHandler, publicApiKey?: string) => boolean;
 
-    const shouldTrace: ShouldTrace = (onTrace, publicApiKey) => {
-      return Boolean(onTrace && publicApiKey);
+    const shouldHandleError: ShouldHandleError = (onError, publicApiKey) => {
+      return Boolean(onError && publicApiKey);
     };
 
-    it("should return true when both onTrace and publicApiKey are provided", () => {
-      const onTrace = jest.fn();
-      const result = shouldTrace(onTrace, "valid-api-key");
+    it("should return true when both onError and publicApiKey are provided", () => {
+      const onError = jest.fn();
+      const result = shouldHandleError(onError, "valid-api-key");
       expect(result).toBe(true);
     });
 
-    it("should return false when onTrace is missing", () => {
-      const result = shouldTrace(undefined, "valid-api-key");
+    it("should return false when onError is missing", () => {
+      const result = shouldHandleError(undefined, "valid-api-key");
       expect(result).toBe(false);
     });
 
     it("should return false when publicApiKey is missing", () => {
-      const onTrace = jest.fn();
-      const result = shouldTrace(onTrace, undefined);
+      const onError = jest.fn();
+      const result = shouldHandleError(onError, undefined);
       expect(result).toBe(false);
     });
 
     it("should return false when publicApiKey is empty string", () => {
-      const onTrace = jest.fn();
-      const result = shouldTrace(onTrace, "");
+      const onError = jest.fn();
+      const result = shouldHandleError(onError, "");
       expect(result).toBe(false);
     });
 
     it("should return false when both are missing", () => {
-      const result = shouldTrace(undefined, undefined);
+      const result = shouldHandleError(undefined, undefined);
       expect(result).toBe(false);
     });
 
@@ -160,10 +160,10 @@ describe("CopilotRuntime onTrace types", () => {
       const nonCloudKey = extractPublicApiKey(mockHeaders, false);
       expect(nonCloudKey).toBe("test-key-123");
 
-      // Both should enable tracing when onTrace is present
-      const onTrace = jest.fn();
-      expect(shouldTrace(onTrace, cloudKey)).toBe(true);
-      expect(shouldTrace(onTrace, nonCloudKey)).toBe(true);
+      // Both should enable error handling when onError is present
+      const onError = jest.fn();
+      expect(shouldHandleError(onError, cloudKey)).toBe(true);
+      expect(shouldHandleError(onError, nonCloudKey)).toBe(true);
     });
   });
 });

@@ -1,7 +1,7 @@
 import { ForwardedParametersInput } from "@copilotkit/runtime-client-gql";
 import { ReactNode } from "react";
 import { AuthState } from "../../context/copilot-context";
-import { CopilotTraceHandler } from "@copilotkit/shared";
+import { CopilotErrorHandler } from "@copilotkit/shared";
 /**
  * Props for CopilotKit.
  */
@@ -122,22 +122,22 @@ export interface CopilotKitProps {
   threadId?: string;
 
   /**
-   * Optional trace handler for comprehensive debugging and observability.
+   * Optional error handler for comprehensive debugging and observability.
    *
-   * **Requires publicApiKey**: Tracing only works when publicApiKey is provided.
+   * **Requires publicApiKey**: Error handling only works when publicApiKey is provided.
    * This is a premium CopilotKit Cloud feature.
    *
-   * @param traceEvent - Structured trace event with rich debugging context
+   * @param errorEvent - Structured error event with rich debugging context
    *
    * @example
    * ```typescript
    * <CopilotKit
    *   publicApiKey="ck_pub_your_key"
-   *   onTrace={(traceEvent) => {
-   *     debugDashboard.capture(traceEvent);
+   *   onError={(errorEvent) => {
+   *     debugDashboard.capture(errorEvent);
    *   }}
    * >
    * ```
    */
-  onTrace?: CopilotTraceHandler;
+  onError?: CopilotErrorHandler;
 }

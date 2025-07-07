@@ -1,4 +1,4 @@
-export interface CopilotTraceEvent {
+export interface CopilotErrorEvent {
   type: "error" | "request" | "response" | "agent_state" | "action" | "message" | "performance";
   timestamp: number;
   context: CopilotRequestContext;
@@ -67,4 +67,4 @@ export interface CopilotRequestContext {
   metadata?: Record<string, any>;
 }
 
-export type CopilotTraceHandler = (traceEvent: CopilotTraceEvent) => void | Promise<void>;
+export type CopilotErrorHandler = (errorEvent: CopilotErrorEvent) => void | Promise<void>;

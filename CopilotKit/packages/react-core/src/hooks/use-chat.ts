@@ -223,13 +223,13 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   const addErrorToast = useErrorToast();
   const { setBannerError } = useToast();
 
-  // Get onTrace from context since it's not part of copilotConfig
-  const { onTrace } = useCopilotContext();
+  // Get onError from context since it's not part of copilotConfig
+  const { onError } = useCopilotContext();
 
   // Add tracing functionality to use-chat
   const traceUIError = async (error: CopilotKitError, originalError?: any) => {
-    // Just check if onTrace and publicApiKey are defined
-    if (!onTrace || !copilotConfig?.publicApiKey) return;
+    // Just check if onError and publicApiKey are defined
+    if (!onError || !copilotConfig?.publicApiKey) return;
 
     try {
       const traceEvent = {
@@ -251,9 +251,9 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         error,
       };
 
-      await onTrace(traceEvent);
+      await onError(traceEvent);
     } catch (traceError) {
-      console.error("Error in use-chat onTrace handler:", traceError);
+      console.error("Error in use-chat onError handler:", traceError);
     }
   };
   // We need to keep a ref of coagent states and session because of renderAndWait - making sure

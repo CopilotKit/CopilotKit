@@ -1,23 +1,23 @@
 /// <reference types="jest" />
-import { CopilotTraceEvent, CopilotTraceHandler } from "@copilotkit/shared";
+import { CopilotErrorEvent, CopilotErrorHandler } from "@copilotkit/shared";
 
-describe("CopilotKit onTrace types", () => {
-  let mockTrace: jest.Mock;
+describe("CopilotKit onError types", () => {
+  let mockError: jest.Mock;
 
   beforeEach(() => {
-    mockTrace = jest.fn();
+    mockError = jest.fn();
   });
 
-  describe("onTrace type checking", () => {
-    it("should accept CopilotTraceHandler type", () => {
+  describe("onError type checking", () => {
+    it("should accept CopilotErrorHandler type", () => {
       // RED: Will fail - testing type compatibility
-      const handler: CopilotTraceHandler = mockTrace;
+      const handler: CopilotErrorHandler = mockError;
       expect(handler).toBeDefined();
     });
 
-    it("should validate trace event structure", () => {
+    it("should validate error event structure", () => {
       // RED: Will fail - validating event structure
-      const mockEvent: CopilotTraceEvent = {
+      const mockEvent: CopilotErrorEvent = {
         type: "error",
         timestamp: Date.now(),
         context: {
@@ -34,9 +34,9 @@ describe("CopilotKit onTrace types", () => {
       expect(mockEvent.context.source).toBe("ui");
     });
 
-    it("should validate trace event types", () => {
+    it("should validate error event types", () => {
       // RED: Will fail - ensuring all event types are valid
-      const validTypes: CopilotTraceEvent["type"][] = [
+      const validTypes: CopilotErrorEvent["type"][] = [
         "error",
         "request",
         "response",
@@ -52,19 +52,19 @@ describe("CopilotKit onTrace types", () => {
     });
   });
 
-  describe("trace handler functionality", () => {
-    it("should accept trace handler with proper signature", () => {
+  describe("error handler functionality", () => {
+    it("should accept error handler with proper signature", () => {
       // RED: Will fail - testing handler function signature
-      const handler: CopilotTraceHandler = (traceEvent: CopilotTraceEvent) => {
-        console.log("Trace:", traceEvent.type);
+      const handler: CopilotErrorHandler = (errorEvent: CopilotErrorEvent) => {
+        console.log("Error:", errorEvent.type);
       };
 
       expect(typeof handler).toBe("function");
     });
 
-    it("should handle async trace handlers", async () => {
+    it("should handle async error handlers", async () => {
       // RED: Will fail - testing async handler support
-      const asyncHandler: CopilotTraceHandler = async (traceEvent: CopilotTraceEvent) => {
+      const asyncHandler: CopilotErrorHandler = async (errorEvent: CopilotErrorEvent) => {
         await Promise.resolve();
         return;
       };
