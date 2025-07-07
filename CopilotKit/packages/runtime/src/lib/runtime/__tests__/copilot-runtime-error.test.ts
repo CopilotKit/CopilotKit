@@ -1,8 +1,8 @@
-import { CopilotTraceEvent, CopilotRequestContext, CopilotTraceHandler } from "@copilotkit/shared";
+import { CopilotErrorEvent, CopilotRequestContext, CopilotErrorHandler } from "@copilotkit/shared";
 
 describe("CopilotRuntime onError types", () => {
   it("should have correct CopilotTraceEvent type structure", () => {
-    const errorEvent: CopilotTraceEvent = {
+    const errorEvent: CopilotErrorEvent = {
       type: "error",
       timestamp: Date.now(),
       context: {
@@ -77,7 +77,7 @@ describe("CopilotRuntime onError types", () => {
   });
 
   it("should support all error event types", () => {
-    const eventTypes: CopilotTraceEvent["type"][] = [
+    const eventTypes: CopilotErrorEvent["type"][] = [
       "error",
       "request",
       "response",
@@ -88,7 +88,7 @@ describe("CopilotRuntime onError types", () => {
     ];
 
     eventTypes.forEach((type) => {
-      const event: CopilotTraceEvent = {
+      const event: CopilotErrorEvent = {
         type,
         timestamp: Date.now(),
         context: {
@@ -108,7 +108,7 @@ describe("CopilotRuntime onError types", () => {
   });
 
   describe("publicApiKey gating logic", () => {
-    type ShouldHandleError = (onError?: CopilotTraceHandler, publicApiKey?: string) => boolean;
+    type ShouldHandleError = (onError?: CopilotErrorHandler, publicApiKey?: string) => boolean;
 
     const shouldHandleError: ShouldHandleError = (onError, publicApiKey) => {
       return Boolean(onError && publicApiKey);
