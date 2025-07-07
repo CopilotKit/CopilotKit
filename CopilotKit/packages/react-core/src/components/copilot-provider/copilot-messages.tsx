@@ -75,15 +75,15 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
   const lastLoadedAgentName = useRef<string>();
   const lastLoadedMessages = useRef<string>();
 
-  const { threadId, agentSession, runtimeClient, showDevConsole, onTrace, copilotApiConfig } =
+  const { threadId, agentSession, runtimeClient, showDevConsole, onError, copilotApiConfig } =
     useCopilotContext();
   const { setBannerError } = useToast();
 
   // Helper function to trace UI errors (similar to useCopilotRuntimeClient)
   const traceUIError = useCallback(
     async (error: CopilotKitError, originalError?: any) => {
-      // Just check if onTrace and publicApiKey are defined
-      if (!onTrace || !copilotApiConfig.publicApiKey) return;
+      // Just check if onError and publicApiKey are defined
+      if (!onError || !copilotApiConfig.publicApiKey) return;
 
       try {
         const traceEvent = {
@@ -104,12 +104,12 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
           },
           error,
         };
-        await onTrace(traceEvent);
+        await onError(traceEvent);
       } catch (traceError) {
-        console.error("Error in CopilotMessages onTrace handler:", traceError);
+        console.error("Error in CopilotMessages onError handler:", traceError);
       }
     },
-    [onTrace, copilotApiConfig.publicApiKey, copilotApiConfig.chatApiEndpoint],
+    [onError, copilotApiConfig.publicApiKey, copilotApiConfig.chatApiEndpoint],
   );
 
   const createStructuredError = (gqlError: GraphQLError): CopilotKitError | null => {

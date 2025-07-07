@@ -192,8 +192,7 @@ export class CopilotResolver {
       if (!copilotCloudPublicApiKey) {
         logger.error("Public API key not found in headers");
 
-        // Trace the validation error for debugging visibility
-        await copilotRuntime.traceGraphQLError(
+        await copilotRuntime.errorGraphQLError(
           {
             message: "X-CopilotCloud-Public-API-Key header is required",
             code: "MISSING_PUBLIC_API_KEY",
