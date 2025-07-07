@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.9.2-next.19
+
+### Patch Changes
+
+- 8e67158: - fixes gemini adapter
+  - @copilotkit/shared@1.9.2-next.19
+
 ## 1.9.2-next.18
 
 ### Patch Changes
