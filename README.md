@@ -175,8 +175,23 @@ Connect agent workflow to user-facing apps, with deep partnerships and 1st-party
 
 ## 🤝 Community
 <h3>Have questions or need help?</h3>
+  <a href="https://discord.gg/6dffbvGU3D?ref=github_readme" target="_blank">
+   Join our Discord →
+  </a> </br>
+    <a href="https://docs.copilotkit.ai/?ref=github_readme" target="_blank">
+  Read the Docs →
+  </a> </br>
+    <a href="https://cloud.copilotkit.ai?ref=github_readme" target="_blank">
+   Try Copilot Cloud →
+  </a>
 <h3>Stay up to date with our latest releases!</h3>
-
+  <a href="https://www.linkedin.com/company/copilotkit/" target="_blank">
+   Follow us on LinkedIn →
+  </a> </br>
+    <a href="https://x.com/copilotkit" target="_blank">
+   Follow us on X →
+  </a> 
+  
 ## 🙋🏽‍♂️ Contributing
 
 Thanks for your interest in contributing to CopilotKit! 💜
