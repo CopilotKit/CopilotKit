@@ -1,0 +1,69 @@
+---
+title: Chat
+description: Chat for CopilotKit
+---
+import { AgentFeature } from "@/components/content/agent-feature";
+// features
+import LanggraphChat from "@/snippets/agent-integrations/langgraph/chat.mdx";
+import AgnoChat from "@/snippets/agent-integrations/agno/chat.mdx";
+import CrewsChat from "@/snippets/agent-integrations/crewai-crews/chat.mdx";
+import FlowsChat from "@/snippets/agent-integrations/crewai-flows/chat.mdx";
+import MastraChat from "@/snippets/agent-integrations/mastra/chat.mdx";
+import Ag2Chat from "@/snippets/agent-integrations/ag2/chat.mdx";
+import LlamaindexChat from "@/snippets/agent-integrations/llamaindex/chat.mdx";
+// icons
+import { integrationIcons } from "@/media/icons/integrations";
+
+## Introduction
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
+## Supported Integrations
+Select an integration to get started.
+
+<AgentFeature
+  integrations={[
+    {
+      id: "langgraph",
+      name: "Langgraph",
+      icon: <integrationIcons.langgraph />,
+      component: <LanggraphChat components={props.components} />,
+    },
+    {
+      id: "mastra",
+      name: "Mastra",
+      icon: <integrationIcons.mastra />,
+      component: <MastraChat components={props.components} />,
+    },
+    {
+      id: "agno",
+      name: "Agno",
+      icon: <integrationIcons.agno />,
+      component: <AgnoChat components={props.components} />,
+    },
+    {
+      id: "crews",
+      name: "Crews",
+      icon: <integrationIcons.crewai />,
+      component: <CrewsChat components={props.components} />,
+    },
+    {
+      id: "flows",
+      name: "Flows",
+      icon: <integrationIcons.crewai />,
+      component: <FlowsChat components={props.components} />,
+    },
+    {
+      id: "ag2",
+      name: "Ag2",
+      icon: <integrationIcons.ag2 />,
+      component: <Ag2Chat components={props.components} />,
+    },
+    {
+      id: "llamaindex",
+      name: "Llamaindex",
+      icon: <integrationIcons.llamaindex />,
+      component: <LlamaindexChat components={props.components} />,
+    },
+  ]}
+  defaultActive="langgraph"
+/>

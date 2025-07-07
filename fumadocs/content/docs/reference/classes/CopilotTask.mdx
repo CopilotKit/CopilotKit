@@ -1,0 +1,93 @@
+---
+title: "CopilotTask"
+description: "CopilotTask is used to execute one-off tasks, for example on button click."
+---
+
+{
+ /*
+  * ATTENTION! DO NOT MODIFY THIS FILE!
+  * This page is auto-generated. If you want to make any changes to this page, changes must be made at:
+  * CopilotKit/packages/react-core/src/lib/copilot-task.ts
+  */
+}
+This class is used to execute one-off tasks, for example on button press. It can use the context available via [useCopilotReadable](/reference/hooks/useCopilotReadable) and the actions provided by [useCopilotAction](/reference/hooks/useCopilotAction), or you can provide your own context and actions.
+ 
+## Example
+In the simplest case, use CopilotTask in the context of your app by giving it instructions on what to do.
+ 
+```tsx
+import { CopilotTask, useCopilotContext } from "@copilotkit/react-core";
+ 
+export function MyComponent() {
+  const context = useCopilotContext();
+ 
+  const task = new CopilotTask({
+    instructions: "Set a random message",
+    actions: [
+      {
+        name: "setMessage",
+      description: "Set the message.",
+      argumentAnnotations: [
+        {
+          name: "message",
+          type: "string",
+          description:
+            "A message to display.",
+          required: true,
+        },
+      ],
+     }
+    ]
+  });
+ 
+  const executeTask = async () => {
+    await task.run(context, action);
+  }
+ 
+  return (
+    <>
+      <button onClick={executeTask}>
+        Execute task
+      </button>
+    </>
+  )
+}
+```
+ 
+Have a look at the [Presentation Example App](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/examples/next-openai/src/app/presentation/page.tsx) for a more complete example.
+
+## Constructor Parameters
+
+<PropertyReference name="instructions" type="string" required > 
+The instructions to be given to the assistant.
+</PropertyReference>
+
+<PropertyReference name="actions" type="FrontendAction<any>[]"  > 
+An array of action definitions that can be called.
+</PropertyReference>
+
+<PropertyReference name="includeCopilotReadable" type="boolean"  > 
+Whether to include the copilot readable context in the task.
+</PropertyReference>
+
+<PropertyReference name="includeCopilotActions" type="boolean"  > 
+Whether to include actions defined via useCopilotAction in the task.
+</PropertyReference>
+
+<PropertyReference name="forwardedParameters" type="ForwardedParametersInput"  > 
+The forwarded parameters to use for the task.
+</PropertyReference>
+
+<PropertyReference name="run" type="context: CopilotContextParams, data?: T">
+Run the task.
+
+  <PropertyReference name="context" type="CopilotContextParams" required>
+  The CopilotContext to use for the task. Use `useCopilotContext` to obtain the current context.
+  </PropertyReference>
+
+  <PropertyReference name="data" type="T" >
+  The data to use for the task.
+  </PropertyReference>
+
+</PropertyReference>
+

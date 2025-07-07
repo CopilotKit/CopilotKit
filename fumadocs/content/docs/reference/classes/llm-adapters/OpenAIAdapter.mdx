@@ -1,0 +1,84 @@
+---
+title: "OpenAIAdapter"
+description: "Copilot Runtime adapter for OpenAI."
+---
+
+{
+ /*
+  * ATTENTION! DO NOT MODIFY THIS FILE!
+  * This page is auto-generated. If you want to make any changes to this page, changes must be made at:
+  * CopilotKit/packages/runtime/src/service-adapters/openai/openai-adapter.ts
+  */
+}
+Copilot Runtime adapter for OpenAI.
+ 
+## Example
+ 
+```ts
+import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
+import OpenAI from "openai";
+ 
+const copilotKit = new CopilotRuntime();
+ 
+const openai = new OpenAI({
+  organization: "<your-organization-id>", // optional
+  apiKey: "<your-api-key>",
+});
+ 
+return new OpenAIAdapter({ openai });
+```
+ 
+## Example with Azure OpenAI
+ 
+```ts
+import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
+import OpenAI from "openai";
+ 
+// The name of your Azure OpenAI Instance.
+// https://learn.microsoft.com/en-us/azure/cognitive-services/openai/how-to/create-resource?pivots=web-portal#create-a-resource
+const instance = "<your instance name>";
+ 
+// Corresponds to your Model deployment within your OpenAI resource, e.g. my-gpt35-16k-deployment
+// Navigate to the Azure OpenAI Studio to deploy a model.
+const model = "<your model>";
+ 
+const apiKey = process.env["AZURE_OPENAI_API_KEY"];
+if (!apiKey) {
+  throw new Error("The AZURE_OPENAI_API_KEY environment variable is missing or empty.");
+}
+ 
+const copilotKit = new CopilotRuntime();
+ 
+const openai = new OpenAI({
+  apiKey,
+  baseURL: `https://${instance}.openai.azure.com/openai/deployments/${model}`,
+  defaultQuery: { "api-version": "2024-04-01-preview" },
+  defaultHeaders: { "api-key": apiKey },
+});
+ 
+return new OpenAIAdapter({ openai });
+```
+
+## Constructor Parameters
+
+<PropertyReference name="openai" type="OpenAI"  > 
+An optional OpenAI instance to use.  If not provided, a new instance will be
+  created.
+</PropertyReference>
+
+<PropertyReference name="model" type="string"  > 
+The model to use.
+</PropertyReference>
+
+<PropertyReference name="disableParallelToolCalls" type="boolean"  default="false"> 
+Whether to disable parallel tool calls.
+  You can disable parallel tool calls to force the model to execute tool calls sequentially.
+  This is useful if you want to execute tool calls in a specific order so that the state changes
+  introduced by one tool call are visible to the next tool call. (i.e. new actions or readables)
+</PropertyReference>
+
+<PropertyReference name="keepSystemRole" type="boolean"  default="false"> 
+Whether to keep the role in system messages as "System".
+  By default, it is converted to "developer", which is used by newer OpenAI models
+</PropertyReference>
+

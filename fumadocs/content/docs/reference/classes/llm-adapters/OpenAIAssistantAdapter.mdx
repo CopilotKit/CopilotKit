@@ -1,0 +1,65 @@
+---
+title: "OpenAIAssistantAdapter"
+description: "Copilot Runtime adapter for OpenAI Assistant API."
+---
+
+{
+ /*
+  * ATTENTION! DO NOT MODIFY THIS FILE!
+  * This page is auto-generated. If you want to make any changes to this page, changes must be made at:
+  * CopilotKit/packages/runtime/src/service-adapters/openai/openai-assistant-adapter.ts
+  */
+}
+Copilot Runtime adapter for the OpenAI Assistant API.
+ 
+## Example
+ 
+```ts
+import { CopilotRuntime, OpenAIAssistantAdapter } from "@copilotkit/runtime";
+import OpenAI from "openai";
+ 
+const copilotKit = new CopilotRuntime();
+ 
+const openai = new OpenAI({
+  organization: "<your-organization-id>",
+  apiKey: "<your-api-key>",
+});
+ 
+return new OpenAIAssistantAdapter({
+  openai,
+  assistantId: "<your-assistant-id>",
+  codeInterpreterEnabled: true,
+  fileSearchEnabled: true,
+});
+```
+
+## Constructor Parameters
+
+<PropertyReference name="assistantId" type="string" required > 
+The ID of the assistant to use.
+</PropertyReference>
+
+<PropertyReference name="openai" type="OpenAI"  > 
+An optional OpenAI instance to use. If not provided, a new instance will be created.
+</PropertyReference>
+
+<PropertyReference name="codeInterpreterEnabled" type="boolean"  default="true"> 
+Whether to enable code interpretation.
+</PropertyReference>
+
+<PropertyReference name="fileSearchEnabled" type="boolean"  default="true"> 
+Whether to enable file search.
+</PropertyReference>
+
+<PropertyReference name="disableParallelToolCalls" type="boolean"  default="false"> 
+Whether to disable parallel tool calls.
+  You can disable parallel tool calls to force the model to execute tool calls sequentially.
+  This is useful if you want to execute tool calls in a specific order so that the state changes
+  introduced by one tool call are visible to the next tool call. (i.e. new actions or readables)
+</PropertyReference>
+
+<PropertyReference name="keepSystemRole" type="boolean"  default="false"> 
+Whether to keep the role in system messages as "System".
+  By default, it is converted to "developer", which is used by newer OpenAI models
+</PropertyReference>
+

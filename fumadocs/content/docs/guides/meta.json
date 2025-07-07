@@ -1,0 +1,16 @@
+{
+  "root": true,
+  "pages": [
+    "---Getting started---",
+    "index",
+    "...getting-started",
+    "---Components---",
+    "...components",
+    "---Headless UI---",
+    "...headless-ui",
+    "---Agents---",
+    "...agents",
+    "---LLMs---",
+    "...llms"
+  ]
+}

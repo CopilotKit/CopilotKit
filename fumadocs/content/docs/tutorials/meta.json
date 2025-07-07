@@ -1,0 +1,16 @@
+{
+  "root": true,
+  "pages": [
+    "---Getting started---",
+    "index",
+    "---Code alongs---",
+    "ai-todo-list",
+    "agentic-travel-app",
+    "agentic-researcher",
+    "---Cookbook---",
+    "llm-state-machine",
+    "---Video guides---",
+    "perplexity-clone",
+    "research-canvas"
+  ]
+}
