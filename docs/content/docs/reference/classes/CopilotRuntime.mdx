@@ -4,17 +4,14 @@ description: "Copilot Runtime is the back-end component of CopilotKit, enabling 
 ---
 
 {
-/\*
-
-- ATTENTION! DO NOT MODIFY THIS FILE!
-- This page is auto-generated. If you want to make any changes to this page, changes must be made at:
-- CopilotKit/packages/runtime/src/lib/runtime/copilot-runtime.ts
-  \*/
+ /*
+  * ATTENTION! DO NOT MODIFY THIS FILE!
+  * This page is auto-generated. If you want to make any changes to this page, changes must be made at:
+  * CopilotKit/packages/runtime/src/lib/runtime/copilot-runtime.ts
+  */
 }
 <Callout type="info">
-    This is the reference for the `CopilotRuntime` class. For more information
-    and example code snippets, please see [Concept: Copilot
-    Runtime](/concepts/copilot-runtime).
+  This is the reference for the `CopilotRuntime` class. For more information and example code snippets, please see [Concept: Copilot Runtime](/concepts/copilot-runtime).
 </Callout>
  
 ## Usage
@@ -50,20 +47,19 @@ Middleware to be used by the runtime.
   ```
 </PropertyReference>
 
-<PropertyReference name="actions" type="ActionsConfiguration<T>">
-  A list of server side actions that can be executed. Will be ignored when
-  remoteActions are set
+<PropertyReference name="actions" type="ActionsConfiguration<T>"  > 
+A list of server side actions that can be executed. Will be ignored when remoteActions are set
 </PropertyReference>
 
-<PropertyReference name="remoteActions" type="CopilotKitEndpoint[]">
+<PropertyReference name="remoteActions" type="CopilotKitEndpoint[]"  > 
 Deprecated: Use `remoteEndpoints`.
 </PropertyReference>
 
-<PropertyReference name="remoteEndpoints" type="EndpointDefinition[]">
+<PropertyReference name="remoteEndpoints" type="EndpointDefinition[]"  > 
 A list of remote actions that can be executed.
 </PropertyReference>
 
-<PropertyReference name="langserve" type="RemoteChainParameters[]">
+<PropertyReference name="langserve" type="RemoteChainParameters[]"  > 
 An array of LangServer URLs.
 </PropertyReference>
 
@@ -80,12 +76,10 @@ A map of agent names to AGUI agents.
   ```
 </PropertyReference>
 
-<PropertyReference
-  name="delegateAgentProcessingToServiceAdapter"
-  type="boolean"
->
-  Delegates agent state processing to the service adapter. When enabled,
-  individual agent state requests will not be processed by the agent itself.
+<PropertyReference name="delegateAgentProcessingToServiceAdapter" type="boolean"  > 
+Delegates agent state processing to the service adapter.
+ 
+  When enabled, individual agent state requests will not be processed by the agent itself.
   Instead, all processing will be handled by the service adapter.
 </PropertyReference>
 
@@ -111,10 +105,11 @@ Configuration for LLM request/response logging.
   ```
 </PropertyReference>
 
-<PropertyReference name="mcpServers" type="MCPEndpointConfig[]">
-  Configuration for connecting to Model Context Protocol (MCP) servers. Allows
-  fetching and using tools defined on external MCP-compliant servers. Requires
-  providing the `createMCPClient` function during instantiation. @experimental
+<PropertyReference name="mcpServers" type="MCPEndpointConfig[]"  > 
+Configuration for connecting to Model Context Protocol (MCP) servers.
+  Allows fetching and using tools defined on external MCP-compliant servers.
+  Requires providing the `createMCPClient` function during instantiation.
+  @experimental
 </PropertyReference>
 
 <PropertyReference name="createMCPClient" type="CreateMCPClientFunction"  > 
@@ -143,19 +138,19 @@ A function that creates an MCP client instance for a given endpoint configuratio
   ```
 </PropertyReference>
 
-<PropertyReference name="onError" type="CopilotTraceHandler"  > 
-Optional trace handler for comprehensive debugging and observability.
+<PropertyReference name="onError" type="CopilotErrorHandler"  > 
+Optional error handler for comprehensive debugging and observability.
  
-  Requires publicApiKey: Tracing only works when requests include a valid publicApiKey.
+  Requires publicApiKey: Error handling only works when requests include a valid publicApiKey.
   This is a premium CopilotKit Cloud feature.
  
-  @param traceEvent - Structured trace event with rich debugging context
+  @param errorEvent - Structured error event with rich debugging context
  
   @example
   ```typescript
   const runtime = new CopilotRuntime({
-          onError: (errorEvent) => {
-        debugDashboard.capture(errorEvent);
+    onError: (errorEvent) => {
+      debugDashboard.capture(errorEvent);
     }
   });
   ```
@@ -163,51 +158,45 @@ Optional trace handler for comprehensive debugging and observability.
 
 <PropertyReference name="processRuntimeRequest" type="request: CopilotRuntimeRequest">
 
-{" "}
-<PropertyReference
-  name="request"
-  type="CopilotRuntimeRequest"
-  required
-></PropertyReference>
+
+  <PropertyReference name="request" type="CopilotRuntimeRequest" required>
+  
+  </PropertyReference>
 
 </PropertyReference>
 
 <PropertyReference name="getAllAgents" type="graphqlContext: GraphQLContext">
 
-{" "}
-<PropertyReference
-  name="graphqlContext"
-  type="GraphQLContext"
-  required
-></PropertyReference>
+
+  <PropertyReference name="graphqlContext" type="GraphQLContext" required>
+  
+  </PropertyReference>
 
 </PropertyReference>
 
 <PropertyReference name="discoverAgentsFromEndpoints" type="graphqlContext: GraphQLContext">
 
-{" "}
-<PropertyReference
-  name="graphqlContext"
-  type="GraphQLContext"
-  required
-></PropertyReference>
+
+  <PropertyReference name="graphqlContext" type="GraphQLContext" required>
+  
+  </PropertyReference>
 
 </PropertyReference>
 
 <PropertyReference name="loadAgentState" type="graphqlContext: GraphQLContext, threadId: string, agentName: string">
 
-{" "}
-<PropertyReference
-  name="graphqlContext"
-  type="GraphQLContext"
-  required
-></PropertyReference>
 
-{" "}
-<PropertyReference name="threadId" type="string" required></PropertyReference>
+  <PropertyReference name="graphqlContext" type="GraphQLContext" required>
+  
+  </PropertyReference>
 
-{" "}
-<PropertyReference name="agentName" type="string" required></PropertyReference>
+  <PropertyReference name="threadId" type="string" required>
+  
+  </PropertyReference>
+
+  <PropertyReference name="agentName" type="string" required>
+  
+  </PropertyReference>
 
 </PropertyReference>
 
@@ -216,24 +205,19 @@ Optional trace handler for comprehensive debugging and observability.
       cloudConfigPresent: boolean;
       guardrailsEnabled: boolean;
     }">
-Public method to trace GraphQL validation errors
+Public method to handle GraphQL validation errors
 
-{" "}
-<PropertyReference
-  name="error"
-  type="{ message: string; code: string; type: string }"
-  required
-></PropertyReference>
+  <PropertyReference name="error" type="{ message: string; code: string; type: string }" required>
+  
+  </PropertyReference>
 
-{" "}
-<PropertyReference
-  name="context"
-  type="{
+  <PropertyReference name="context" type="{
       operation: string;
       cloudConfigPresent: boolean;
       guardrailsEnabled: boolean;
-    }"
-  required
-></PropertyReference>
+    }" required>
+  
+  </PropertyReference>
 
 </PropertyReference>
+
