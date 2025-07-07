@@ -154,9 +154,17 @@ const response = await ChatOpenAI({ model: "gpt-4o" }).invoke(messages, modified
 ```
 ## 🏆 Featured Examples
 
-![form-filling-copilot](https://github.com/user-attachments/assets/428767a2-dbcc-4887-86b2-fa020e2c2384)
-![state-machine-copilot](https://github.com/user-attachments/assets/a697ef35-3d52-4d9c-9dac-9f73325980dd)
-![chat-with-your-data](https://github.com/user-attachments/assets/79c199af-f622-4dc3-8a61-4ef68d1492e4)
+<p align="center">
+  <a href="https://www.copilotkit.ai/examples/form-filling-copilot" target="_blank">
+    <img src="https://github.com/user-attachments/assets/428767a2-dbcc-4887-86b2-fa020e2c2384" />
+  </a>
+  <a href="https://www.copilotkit.ai/examples/state-machine-copilot" target="_blank">
+    <img src="https://github.com/user-attachments/assets/a697ef35-3d52-4d9c-9dac-9f73325980dd" />
+  </a>
+  <a href="https://www.copilotkit.ai/examples/chat-with-your-data" target="_blank">
+    <img src="https://github.com/user-attachments/assets/79c199af-f622-4dc3-8a61-4ef68d1492e4" />
+  </a>
+</p>
 
 ## 🖥️ AG-UI: The Agent–User Interaction Protocol
 Connect agent workflow to user-facing apps, with deep partnerships and 1st-party integrations across the agentic stack—including LangGraph, CrewAI, and more.
