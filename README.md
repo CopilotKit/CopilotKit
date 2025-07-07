@@ -28,9 +28,9 @@
 
 <br/>
 
-[Read the Docs →](https://docs.copilotkit.ai/?ref=github_readme) |
-[Try Copilot Cloud →](https://cloud.copilotkit.ai?ref=github_readme) |
-[Join our Discord →](https://discord.gg/6dffbvGU3D?ref=github_readme)
+<a href="https://docs.copilotkit.ai/?ref=github_readme">Read the Docs →</a>&nbsp;&nbsp;&nbsp;
+<a href="https://cloud.copilotkit.ai?ref=github_readme">Try Copilot Cloud →</a>&nbsp;&nbsp;&nbsp;
+<a href="https://discord.gg/6dffbvGU3D?ref=github_readme">Join our Discord →</a>
 
 ## 🚀 Getting Started
 
