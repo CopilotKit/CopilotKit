@@ -1,0 +1,13 @@
+{
+  "title": "hooks",
+  "pages": [
+    "useCopilotReadable",
+    "useCopilotAction",
+    "useCopilotAdditionalInstructions",
+    "useCopilotChat",
+    "useCopilotChatSuggestions",
+    "useCoAgent",
+    "useCoAgentStateRender",
+    "useLangGraphInterrupt"
+  ]
+}
