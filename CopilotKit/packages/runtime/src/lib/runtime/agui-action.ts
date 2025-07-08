@@ -49,6 +49,11 @@ export function constructAGUIRemoteAction({
       const freshAgent = Object.create(Object.getPrototypeOf(agent));
       Object.assign(freshAgent, agent);
 
+      // Reset any internal AG-UI state that might cause step tracking issues
+      if (freshAgent.activeRun) {
+        freshAgent.activeRun = { manuallyEmittedState: null };
+      }
+
       const agentWireMessages = convertMessagesToAGUIMessage(messages);
       freshAgent.messages = agentWireMessages;
       freshAgent.threadId = threadId;
