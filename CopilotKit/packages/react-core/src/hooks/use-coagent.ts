@@ -322,7 +322,17 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     if (newConfig === undefined) return;
 
     setCoagentStatesWithRef((prev) => {
-      const existing = prev[name] ?? getCoagentState({ coagentStates: prev, name, options });
+      const existing = prev[name] ?? {
+        name,
+        state: isInternalStateManagementWithInitial(options) ? options.initialState : {},
+        config: {},
+        running: false,
+        active: false,
+        threadId: undefined,
+        nodeName: undefined,
+        runId: undefined,
+      };
+
       if (JSON.stringify(existing.config) === JSON.stringify(newConfig)) {
         return prev;
       }

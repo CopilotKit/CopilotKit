@@ -133,30 +133,11 @@ describe("useCoAgent config synchronization", () => {
   });
 
   it("should update config while preserving other state properties", () => {
-    mockSetCoagentStatesWithRef.mockImplementation((updater) => {
-      if (typeof updater === "function") {
-        const prevState = {
-          "test-agent": {
-            name: "test-agent",
-            state: { count: 5 },
-            config: { configurable: { model: "gpt-4" } },
-            running: true,
-            threadId: "thread-123",
-          },
-        };
-        const newState = updater(prevState);
+    let capturedUpdater: any = null;
 
-        // Verify the state is updated correctly
-        expect(newState).toEqual({
-          "test-agent": {
-            name: "test-agent",
-            state: { count: 5 }, // State preserved
-            config: { configurable: { model: "gpt-4o" } }, // Config updated
-            running: true, // Other properties preserved
-            threadId: "thread-123",
-          },
-        });
-      }
+    mockSetCoagentStatesWithRef.mockImplementation((updater) => {
+      capturedUpdater = updater;
+      return updater;
     });
 
     const { rerender } = renderHook(
@@ -171,13 +152,97 @@ describe("useCoAgent config synchronization", () => {
       },
     );
 
-    // Clear the initial calls
+    // Clear the initial calls and reset captured updater
     mockSetCoagentStatesWithRef.mockClear();
+    capturedUpdater = null;
 
     // Change config
     rerender({ config: { configurable: { model: "gpt-4o" } } });
 
+    // Should have called setCoagentStatesWithRef
     expect(mockSetCoagentStatesWithRef).toHaveBeenCalledWith(expect.any(Function));
+    expect(capturedUpdater).toBeTruthy();
+
+    // Test the updater function behavior
+    const prevState = {
+      "test-agent": {
+        name: "test-agent",
+        state: { count: 5 },
+        config: { configurable: { model: "gpt-4" } },
+        running: true,
+        active: true,
+        threadId: "thread-123",
+        nodeName: "test-node",
+        runId: "run-456",
+      },
+    };
+
+    const newState = capturedUpdater(prevState);
+
+    // Verify the state is updated correctly
+    expect(newState).toEqual({
+      "test-agent": {
+        name: "test-agent",
+        state: { count: 5 }, // State preserved
+        config: { configurable: { model: "gpt-4o" } }, // Config updated
+        running: true, // Other properties preserved
+        active: true,
+        threadId: "thread-123",
+        nodeName: "test-node",
+        runId: "run-456",
+      },
+    });
+  });
+
+  it("should create new agent state when agent doesn't exist", () => {
+    let capturedUpdater: any = null;
+
+    mockSetCoagentStatesWithRef.mockImplementation((updater) => {
+      capturedUpdater = updater;
+      return updater;
+    });
+
+    const { rerender } = renderHook(
+      ({ config }) =>
+        useCoAgent({
+          name: "test-agent",
+          initialState: { count: 0 },
+          config,
+        }),
+      {
+        initialProps: { config: { configurable: { model: "gpt-4" } } },
+      },
+    );
+
+    // Clear the initial calls and reset captured updater
+    mockSetCoagentStatesWithRef.mockClear();
+    capturedUpdater = null;
+
+    // Change config
+    rerender({ config: { configurable: { model: "gpt-4o" } } });
+
+    // Should have called setCoagentStatesWithRef
+    expect(mockSetCoagentStatesWithRef).toHaveBeenCalledWith(expect.any(Function));
+    expect(capturedUpdater).toBeTruthy();
+
+    // Test the updater function behavior with empty previous state
+    const prevState = {}; // No existing agent state
+
+    const newState = capturedUpdater(prevState);
+
+    // Verify the state creates a new agent state with default values
+    expect(newState).toEqual({
+      "test-agent": {
+        name: "test-agent",
+        state: { count: 0 }, // Uses initialState
+        config: { configurable: { model: "gpt-4o" } }, // New config
+        running: false, // Default values
+        active: false,
+        threadId: undefined,
+        nodeName: undefined,
+        runId: undefined,
+      },
+    });
   });
 
   it("should handle deeply nested config changes", () => {
