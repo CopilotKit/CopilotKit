@@ -160,7 +160,9 @@ class LangGraphAGUIAgent(LangGraphAgent):
         
         # First, check if this is a raw event that should generate a PredictState event
         if event.get("event") == LangGraphEventTypes.OnChatModelStream.value:
-            tool_call_data = event["data"]["chunk"].tool_call_chunks[0] if event["data"]["chunk"].tool_call_chunks else None
+            chunk = event.get("data", {}).get("chunk")
+            tool_call_chunks = getattr(chunk, "tool_call_chunks", []) if chunk else []
+            tool_call_data = tool_call_chunks[0] if tool_call_chunks else None
             predict_state_metadata = event.get("metadata", {}).get("copilotkit:emit-intermediate-state", [])
 
             tool_call_used_to_predict_state = False
