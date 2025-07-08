@@ -5,7 +5,7 @@ This example shows how to create an Agno Agent with tools (YFinanceTools) and ex
 To run the example:
 1. Install the dependencies:
 ```bash
-pip install agno openai yfinance
+pip install agno openai yfinance ag-ui-protocol
 ```
 2. Run the example:
 ```bash
