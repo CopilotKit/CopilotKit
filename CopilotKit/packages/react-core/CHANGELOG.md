@@ -1,5 +1,23 @@
 # ui
 
+## 1.9.2-next.20
+
+### Patch Changes
+
+- e1de032: - fix: synchronously execute renderAndWaitForResponse
+
+  Previously, it was impossible to execute multiple human-in-the-loop (renderAndWaitForResponse)
+  calls in a row. Ultimately this was due to an issue with how CopilotKit was rendering the updates
+  when multiple renderAndWaitForResponse actions appeared on screen due to a reference based approach.
+
+  With this change, actions will be executed in a synchronous way appearing almost queue like. This
+  works with any combination of action given much more freedom when asking for user input.
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+  - @copilotkit/runtime-client-gql@1.9.2-next.20
+  - @copilotkit/shared@1.9.2-next.20
+
 ## 1.9.2-next.19
 
 ### Patch Changes
