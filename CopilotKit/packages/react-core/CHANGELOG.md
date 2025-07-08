@@ -1,5 +1,13 @@
 # ui
 
+## 1.9.2-next.21
+
+### Patch Changes
+
+- 92e8d1c: - fix infinite loop
+  - @copilotkit/runtime-client-gql@1.9.2-next.21
+  - @copilotkit/shared@1.9.2-next.21
+
 ## 1.9.2-next.20
 
 ### Patch Changes
