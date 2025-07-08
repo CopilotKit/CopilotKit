@@ -44,9 +44,14 @@ export function constructAGUIRemoteAction({
     }: RemoteAgentHandlerParams): Promise<Observable<RuntimeEvent>> => {
       logger.debug({ actionName: agent.agentId }, "Executing remote agent");
 
+      // CREATE FRESH INSTANCE - clone the agent to avoid state pollution between requests
+      // This prevents AG-UI's internal step tracking state from being shared between requests
+      const freshAgent = Object.create(Object.getPrototypeOf(agent));
+      Object.assign(freshAgent, agent);
+
       const agentWireMessages = convertMessagesToAGUIMessage(messages);
-      agent.messages = agentWireMessages;
-      agent.threadId = threadId;
+      freshAgent.messages = agentWireMessages;
+      freshAgent.threadId = threadId;
 
       telemetry.capture("oss.runtime.remote_action_executed", {
         agentExecution: true,
@@ -61,7 +66,7 @@ export function constructAGUIRemoteAction({
           state = parseJson(jsonState.state, {});
         }
       }
-      agent.state = state;
+      freshAgent.state = state;
 
       const tools = actionInputsWithoutAgents.map((input) => {
         return {
@@ -77,7 +82,7 @@ export function constructAGUIRemoteAction({
         ...(nodeName ? { nodeName } : {}),
       };
 
-      return agent.legacy_to_be_removed_runAgentBridged({
+      return freshAgent.legacy_to_be_removed_runAgentBridged({
         tools,
         forwardedProps,
       }) as Observable<RuntimeEvent>;
