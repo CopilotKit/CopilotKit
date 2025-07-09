@@ -972,7 +972,9 @@ please use an LLM adapter instead.`,
           defaultHeaders: { ...propertyHeaders },
         });
       } else {
-        const aguiAgent = graphqlContext._copilotkit.runtime.agents[agent.name] as LangGraphAgent;
+        const aguiAgent = graphqlContext._copilotkit.runtime.agents[
+          agent.name
+        ] as unknown as LangGraphAgent;
         if (!aguiAgent) {
           throw new Error(`Agent: ${agent.name} could not be resolved`);
         }
