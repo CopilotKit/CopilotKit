@@ -623,6 +623,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                   threadId: lastAgentStateMessage.threadId,
                   nodeName: lastAgentStateMessage.nodeName,
                   runId: lastAgentStateMessage.runId,
+                  // Preserve existing config from previous state
+                  config: prevAgentStates[lastAgentStateMessage.agentName]?.config,
                 },
               }));
               if (lastAgentStateMessage.running) {
