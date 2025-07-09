@@ -14,7 +14,7 @@ export interface MCPTool {
     };
   };
   /** The function to call to execute the tool on the MCP server. */
-  execute(options: { params: any }): Promise<any>;
+  execute(params: any): Promise<any>;
 }
 
 /**
@@ -95,7 +95,7 @@ export function convertMCPToolsToActions(
 
     const handler = async (params: any): Promise<any> => {
       try {
-        const result = await tool.execute({ params });
+        const result = await tool.execute(params);
         // Ensure the result is a string or stringify it, as required by many LLMs.
         // This might need adjustment depending on how different LLMs handle tool results.
         return typeof result === "string" ? result : JSON.stringify(result);

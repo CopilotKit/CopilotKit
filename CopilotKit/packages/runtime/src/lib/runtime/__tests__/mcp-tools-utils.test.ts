@@ -201,7 +201,7 @@ describe("MCP Tools Utils", () => {
               required: ["input"],
             },
           },
-          execute: async ({ params }) => `Result: ${params.input}`,
+          execute: async (params) => `Result: ${params.input}`,
         },
       };
 
@@ -233,7 +233,7 @@ describe("MCP Tools Utils", () => {
               required: ["message"],
             },
           },
-          execute: async ({ params }) => `Echo: ${params.message}`,
+          execute: async (params) => `Echo: ${params.message}`,
         },
       };
 
