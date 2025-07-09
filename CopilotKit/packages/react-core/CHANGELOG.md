@@ -1,5 +1,15 @@
 # ui
 
+## 1.9.2-next.22
+
+### Patch Changes
+
+- c75a04f: - Fix dynamic runtime configuration updates in useCoAgent
+  - In use-chat.ts, agent state updates from AgentStateMessage now preserve existing config property
+- c75a04f: - Fix dynamic runtime configuration updates in useCoAgent
+  - @copilotkit/runtime-client-gql@1.9.2-next.22
+  - @copilotkit/shared@1.9.2-next.22
+
 ## 1.9.2-next.21
 
 ### Patch Changes
