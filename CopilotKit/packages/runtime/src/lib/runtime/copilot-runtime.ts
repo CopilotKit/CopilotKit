@@ -439,9 +439,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     }
 
     const instructions =
-      "You have access to the following tools provided by external Model Context Protocol (MCP) servers:\n" +
-      mcpToolInstructions +
-      "\nUse them when appropriate to fulfill the user's request.";
+      mcpToolInstructions + "\nUse them when appropriate to fulfill the user's request.";
 
     const systemMessageIndex = messages.findIndex((msg) => msg.textMessage?.role === "system");
 

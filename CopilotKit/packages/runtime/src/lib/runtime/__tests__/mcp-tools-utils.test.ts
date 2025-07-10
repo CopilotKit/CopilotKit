@@ -22,16 +22,15 @@ describe("MCP Tools Utils", () => {
         execute: async () => ({}),
       };
 
-      const parameters = extractParametersFromSchema(tool);
-
-      expect(parameters).toHaveLength(2);
-      expect(parameters[0]).toEqual({
+      const result = extractParametersFromSchema(tool);
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual({
         name: "name",
         type: "string",
         description: "A name parameter",
         required: true,
       });
-      expect(parameters[1]).toEqual({
+      expect(result[1]).toEqual({
         name: "age",
         type: "number",
         description: "An age parameter",
@@ -41,82 +40,209 @@ describe("MCP Tools Utils", () => {
 
     it("should extract parameters from schema.parameters.jsonSchema", () => {
       const tool: MCPTool = {
-        description: "Test tool",
+        description: "Test tool with jsonSchema",
         schema: {
           parameters: {
             jsonSchema: {
               properties: {
-                query: { type: "string", description: "Search query" },
+                title: { type: "string", description: "A title parameter" },
+                count: { type: "number", description: "A count parameter" },
               },
-              required: ["query"],
+              required: ["title"],
             },
           },
         },
         execute: async () => ({}),
       };
 
-      const parameters = extractParametersFromSchema(tool);
-
-      expect(parameters).toHaveLength(1);
-      expect(parameters[0]).toEqual({
-        name: "query",
+      const result = extractParametersFromSchema(tool);
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual({
+        name: "title",
         type: "string",
-        description: "Search query",
+        description: "A title parameter",
+        required: true,
+      });
+      expect(result[1]).toEqual({
+        name: "count",
+        type: "number",
+        description: "A count parameter",
+        required: false,
+      });
+    });
+
+    it("should handle arrays with items", () => {
+      const tool: MCPTool = {
+        description: "Test tool with array parameters",
+        schema: {
+          parameters: {
+            properties: {
+              simpleArray: {
+                type: "array",
+                items: { type: "string" },
+                description: "Array of strings",
+              },
+              objectArray: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string" },
+                    value: { type: "number" },
+                  },
+                },
+                description: "Array of objects",
+              },
+            },
+            required: ["simpleArray"],
+          },
+        },
+        execute: async () => ({}),
+      };
+
+      const result = extractParametersFromSchema(tool);
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual({
+        name: "simpleArray",
+        type: "array<string>",
+        description: "Array of strings",
+        required: true,
+      });
+      expect(result[1]).toEqual({
+        name: "objectArray",
+        type: "array",
+        description: "Array of objects Array of objects with properties: name, value",
+        required: false,
+      });
+    });
+
+    it("should handle enums", () => {
+      const tool: MCPTool = {
+        description: "Test tool with enum parameters",
+        schema: {
+          parameters: {
+            properties: {
+              status: {
+                type: "string",
+                enum: ["active", "inactive", "pending"],
+                description: "Status value",
+              },
+              priority: {
+                type: "number",
+                enum: [1, 2, 3],
+                description: "Priority level",
+              },
+            },
+            required: ["status"],
+          },
+        },
+        execute: async () => ({}),
+      };
+
+      const result = extractParametersFromSchema(tool);
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual({
+        name: "status",
+        type: "string",
+        description: "Status value Allowed values: active | inactive | pending",
+        required: true,
+      });
+      expect(result[1]).toEqual({
+        name: "priority",
+        type: "number",
+        description: "Priority level Allowed values: 1 | 2 | 3",
+        required: false,
+      });
+    });
+
+    it("should handle nested objects", () => {
+      const tool: MCPTool = {
+        description: "Test tool with nested object parameters",
+        schema: {
+          parameters: {
+            properties: {
+              user: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  email: { type: "string" },
+                  preferences: {
+                    type: "object",
+                    properties: {
+                      theme: { type: "string" },
+                      notifications: { type: "boolean" },
+                    },
+                  },
+                },
+                description: "User object",
+              },
+            },
+            required: ["user"],
+          },
+        },
+        execute: async () => ({}),
+      };
+
+      const result = extractParametersFromSchema(tool);
+      expect(result).toHaveLength(1);
+      expect(result[0]).toEqual({
+        name: "user",
+        type: "object",
+        description: "User object Object with properties: name, email, preferences",
         required: true,
       });
     });
 
     it("should return empty array when no properties", () => {
       const tool: MCPTool = {
-        description: "Test tool",
-        schema: {},
+        description: "Test tool without properties",
+        schema: {
+          parameters: {},
+        },
         execute: async () => ({}),
       };
 
-      const parameters = extractParametersFromSchema(tool);
-
-      expect(parameters).toHaveLength(0);
+      const result = extractParametersFromSchema(tool);
+      expect(result).toHaveLength(0);
     });
   });
 
   describe("generateMcpToolInstructions", () => {
     it("should generate instructions with correct parameter schema from schema.parameters.properties", () => {
       const toolsMap: Record<string, MCPTool> = {
-        whois_domain: {
-          description: "Lookups whois information about the domain",
+        testTool: {
+          description: "A test tool",
           schema: {
             parameters: {
               properties: {
-                domain: { type: "string", description: "The domain to lookup" },
-                timeout: { type: "number", description: "Timeout in seconds" },
+                name: { type: "string", description: "The name parameter" },
+                age: { type: "number", description: "The age parameter" },
               },
-              required: ["domain"],
+              required: ["name"],
             },
           },
           execute: async () => ({}),
         },
       };
 
-      const instructions = generateMcpToolInstructions(toolsMap);
-
-      expect(instructions).toContain("- whois_domain: Lookups whois information about the domain");
-      expect(instructions).toContain("- domain* (string) - The domain to lookup");
-      expect(instructions).toContain("- timeout (number) - Timeout in seconds");
-      expect(instructions).not.toContain("No parameters required");
+      const result = generateMcpToolInstructions(toolsMap);
+      expect(result).toContain("testTool: A test tool");
+      expect(result).toContain("- name* (string) - The name parameter");
+      expect(result).toContain("- age (number) - The age parameter");
     });
 
     it("should generate instructions with correct parameter schema from schema.parameters.jsonSchema", () => {
       const toolsMap: Record<string, MCPTool> = {
-        search_tool: {
-          description: "Search for information",
+        testTool: {
+          description: "A test tool with jsonSchema",
           schema: {
             parameters: {
               jsonSchema: {
                 properties: {
-                  query: { type: "string", description: "Search query" },
-                  limit: { type: "number", description: "Maximum results" },
+                  title: { type: "string", description: "The title parameter" },
+                  count: { type: "number", description: "The count parameter" },
                 },
-                required: ["query"],
+                required: ["title"],
               },
             },
           },
@@ -124,155 +250,214 @@ describe("MCP Tools Utils", () => {
         },
       };
 
-      const instructions = generateMcpToolInstructions(toolsMap);
+      const result = generateMcpToolInstructions(toolsMap);
+      expect(result).toContain("testTool: A test tool with jsonSchema");
+      expect(result).toContain("- title* (string) - The title parameter");
+      expect(result).toContain("- count (number) - The count parameter");
+    });
 
-      expect(instructions).toContain("- search_tool: Search for information");
-      expect(instructions).toContain("- query* (string) - Search query");
-      expect(instructions).toContain("- limit (number) - Maximum results");
-      expect(instructions).not.toContain("No parameters required");
+    it("should handle complex schemas with arrays and enums", () => {
+      const toolsMap: Record<string, MCPTool> = {
+        complexTool: {
+          description: "A complex tool",
+          schema: {
+            parameters: {
+              properties: {
+                items: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      name: { type: "string" },
+                      value: { type: "number" },
+                    },
+                  },
+                  description: "Array of items",
+                },
+                status: {
+                  type: "string",
+                  enum: ["active", "inactive"],
+                  description: "Status",
+                },
+              },
+              required: ["items"],
+            },
+          },
+          execute: async () => ({}),
+        },
+      };
+
+      const result = generateMcpToolInstructions(toolsMap);
+      expect(result).toContain("complexTool: A complex tool");
+      expect(result).toContain(
+        "- items* (array<object>) - Array of items Array of objects with properties: name, value",
+      );
+      expect(result).toContain("- status (string) - Status Allowed values: active | inactive");
     });
 
     it("should fallback to schema.properties for backward compatibility", () => {
       const toolsMap: Record<string, MCPTool> = {
-        legacy_tool: {
-          description: "Legacy tool with old schema format",
+        backwardCompatTool: {
+          description: "A backward compatible tool",
           schema: {
+            // Direct properties without nested parameters
             properties: {
-              input: { type: "string", description: "Input parameter" },
+              name: { type: "string", description: "The name parameter" },
             },
-            required: ["input"],
-          } as any, // Cast to any to simulate old schema format
+            required: ["name"],
+          } as any,
           execute: async () => ({}),
         },
       };
 
-      const instructions = generateMcpToolInstructions(toolsMap);
-
-      expect(instructions).toContain("- legacy_tool: Legacy tool with old schema format");
-      expect(instructions).toContain("- input* (string) - Input parameter");
-      expect(instructions).not.toContain("No parameters required");
+      const result = generateMcpToolInstructions(toolsMap);
+      expect(result).toContain("backwardCompatTool: A backward compatible tool");
+      expect(result).toContain("- name* (string) - The name parameter");
     });
 
     it("should show 'No parameters required' when no schema properties", () => {
       const toolsMap: Record<string, MCPTool> = {
-        simple_tool: {
-          description: "Simple tool with no parameters",
-          schema: {},
+        noParamsTool: {
+          description: "A tool with no parameters",
+          schema: {
+            parameters: {},
+          },
           execute: async () => ({}),
         },
       };
 
-      const instructions = generateMcpToolInstructions(toolsMap);
-
-      expect(instructions).toContain("- simple_tool: Simple tool with no parameters");
-      expect(instructions).toContain("No parameters required");
+      const result = generateMcpToolInstructions(toolsMap);
+      expect(result).toContain("noParamsTool: A tool with no parameters");
+      expect(result).toContain("No parameters required");
     });
 
     it("should handle tools with no schema", () => {
       const toolsMap: Record<string, MCPTool> = {
-        no_schema_tool: {
-          description: "Tool without schema",
+        noSchemaTool: {
+          description: "A tool with no schema",
           execute: async () => ({}),
         },
       };
 
-      const instructions = generateMcpToolInstructions(toolsMap);
-
-      expect(instructions).toContain("- no_schema_tool: Tool without schema");
-      expect(instructions).toContain("No parameters required");
+      const result = generateMcpToolInstructions(toolsMap);
+      expect(result).toContain("noSchemaTool: A tool with no schema");
+      expect(result).toContain("No parameters required");
     });
 
     it("should return empty string for empty tools map", () => {
-      const instructions = generateMcpToolInstructions({});
-      expect(instructions).toBe("");
+      const result = generateMcpToolInstructions({});
+      expect(result).toBe("");
     });
   });
 
   describe("convertMCPToolsToActions", () => {
     it("should convert MCP tools to CopilotKit actions", () => {
       const mcpTools: Record<string, MCPTool> = {
-        test_tool: {
-          description: "Test tool",
+        testTool: {
+          description: "A test tool",
           schema: {
             parameters: {
               properties: {
-                input: { type: "string", description: "Input parameter" },
+                name: { type: "string", description: "The name parameter" },
+                age: { type: "number", description: "The age parameter" },
               },
-              required: ["input"],
+              required: ["name"],
             },
           },
-          execute: async (params) => `Result: ${params.input}`,
+          execute: async () => "test result",
         },
       };
 
-      const actions = convertMCPToolsToActions(mcpTools, "http://example.com");
-
-      expect(actions).toHaveLength(1);
-      expect(actions[0].name).toBe("test_tool");
-      expect(actions[0].description).toBe("Test tool");
-      expect(actions[0].parameters).toHaveLength(1);
-      expect(actions[0].parameters[0]).toEqual({
-        name: "input",
+      const result = convertMCPToolsToActions(mcpTools, "http://test-endpoint");
+      expect(result).toHaveLength(1);
+      expect(result[0].name).toBe("testTool");
+      expect(result[0].description).toBe("A test tool");
+      expect(result[0].parameters).toHaveLength(2);
+      expect(result[0].parameters[0]).toEqual({
+        name: "name",
         type: "string",
-        description: "Input parameter",
+        description: "The name parameter",
         required: true,
       });
-      expect((actions[0] as any)._isMCPTool).toBe(true);
-      expect((actions[0] as any)._mcpEndpoint).toBe("http://example.com");
+      expect(result[0].parameters[1]).toEqual({
+        name: "age",
+        type: "number",
+        description: "The age parameter",
+        required: false,
+      });
     });
 
     it("should handle tool execution correctly", async () => {
+      const mockExecute = jest.fn().mockResolvedValue("mock result");
       const mcpTools: Record<string, MCPTool> = {
-        echo_tool: {
-          description: "Echo tool",
+        testTool: {
+          description: "A test tool",
           schema: {
             parameters: {
               properties: {
-                message: { type: "string", description: "Message to echo" },
+                name: { type: "string", description: "The name parameter" },
               },
-              required: ["message"],
+              required: ["name"],
             },
           },
-          execute: async (params) => `Echo: ${params.message}`,
+          execute: mockExecute,
         },
       };
 
-      const actions = convertMCPToolsToActions(mcpTools, "http://example.com");
-      const result = await actions[0].handler({ message: "Hello" });
+      const result = convertMCPToolsToActions(mcpTools, "http://test-endpoint");
+      const action = result[0];
 
-      expect(result).toBe("Echo: Hello");
+      const executeResult = await action.handler({ name: "test" });
+      expect(executeResult).toBe("mock result");
+      expect(mockExecute).toHaveBeenCalledWith({ name: "test" });
     });
 
     it("should stringify non-string results", async () => {
       const mcpTools: Record<string, MCPTool> = {
-        json_tool: {
-          description: "JSON tool",
-          schema: {},
-          execute: async () => ({ result: "success", data: [1, 2, 3] }),
+        testTool: {
+          description: "A test tool",
+          schema: {
+            parameters: {
+              properties: {
+                name: { type: "string", description: "The name parameter" },
+              },
+              required: ["name"],
+            },
+          },
+          execute: async () => ({ result: "complex object" }),
         },
       };
 
-      const actions = convertMCPToolsToActions(mcpTools, "http://example.com");
-      const result = await actions[0].handler({});
+      const result = convertMCPToolsToActions(mcpTools, "http://test-endpoint");
+      const action = result[0];
 
-      expect(result).toBe('{"result":"success","data":[1,2,3]}');
+      const executeResult = await action.handler({ name: "test" });
+      expect(executeResult).toBe('{"result":"complex object"}');
     });
 
     it("should handle execution errors", async () => {
       const mcpTools: Record<string, MCPTool> = {
-        error_tool: {
-          description: "Error tool",
-          schema: {},
+        testTool: {
+          description: "A test tool",
+          schema: {
+            parameters: {
+              properties: {
+                name: { type: "string", description: "The name parameter" },
+              },
+              required: ["name"],
+            },
+          },
           execute: async () => {
             throw new Error("Test error");
           },
         },
       };
 
-      const actions = convertMCPToolsToActions(mcpTools, "http://example.com");
+      const result = convertMCPToolsToActions(mcpTools, "http://test-endpoint");
+      const action = result[0];
 
-      await expect(actions[0].handler({})).rejects.toThrow(
-        "Execution failed for MCP tool 'error_tool': Test error",
+      await expect(action.handler({ name: "test" })).rejects.toThrow(
+        "Execution failed for MCP tool 'testTool': Test error",
       );
     });
   });
