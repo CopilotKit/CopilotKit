@@ -3,13 +3,6 @@ title: "Image Uploads"
 description: "Enable users to upload images in your CopilotKit chat interface"
 ---
 
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "fumadocs-ui/components/tabs";
-
 # Image Uploads
 
 CopilotKit supports image uploads in chat interfaces. Users can upload images that will be sent to your AI model.
@@ -18,51 +11,49 @@ CopilotKit supports image uploads in chat interfaces. Users can upload images th
 
 To enable image uploads in your chat interface, simply add the `imageUploadsEnabled` prop to your CopilotKit chat component:
 
-<Tabs defaultValue="sidebar" className="w-full">
-  <TabsList className="grid w-full grid-cols-3">
-    <TabsTrigger value="sidebar">CopilotSidebar</TabsTrigger>
-    <TabsTrigger value="chat">CopilotChat</TabsTrigger>
-    <TabsTrigger value="popup">CopilotPopup</TabsTrigger>
-  </TabsList>
-  <TabsContent value="sidebar">
-    ```tsx 
-    import {CopilotSidebar} from "@copilotkit/react-ui";
-    <CopilotSidebar
-      imageUploadsEnabled={true}
-      labels={{
-        title: "AI Assistant",
-        initial: "Hi! You can upload images to chat with me.",
-      }}
-    >
-      {/* Your app content */}
-    </CopilotSidebar>
-    ```
-  </TabsContent>
-  <TabsContent value="chat">
-    ```tsx 
-    import {CopilotChat} from "@copilotkit/react-ui";
-    <CopilotChat
-      imageUploadsEnabled={true}
-      labels={{
-        title: "AI Assistant",
-        initial: "Hi! You can upload images to chat with me.",
-      }}
-    />
-    ```
-  </TabsContent>
-  <TabsContent value="popup">
-    ```tsx 
-    import {CopilotPopup} from "@copilotkit/react-ui";
-    <CopilotPopup
-      imageUploadsEnabled={true}
-      labels={{
-        title: "AI Assistant",
-        initial: "Hi! You can upload images to chat with me.",
-      }}
-    />
-    ```
-  </TabsContent>
-</Tabs>
+### CopilotSidebar
+
+```tsx
+import { CopilotSidebar } from "@copilotkit/react-ui";
+
+<CopilotSidebar
+  imageUploadsEnabled={true}
+  labels={{
+    title: "AI Assistant",
+    initial: "Hi! You can upload images to chat with me.",
+  }}
+>
+  {/* Your app content */}
+</CopilotSidebar>;
+```
+
+### CopilotChat
+
+```tsx
+import { CopilotChat } from "@copilotkit/react-ui";
+
+<CopilotChat
+  imageUploadsEnabled={true}
+  labels={{
+    title: "AI Assistant",
+    initial: "Hi! You can upload images to chat with me.",
+  }}
+/>;
+```
+
+### CopilotPopup
+
+```tsx
+import { CopilotPopup } from "@copilotkit/react-ui";
+
+<CopilotPopup
+  imageUploadsEnabled={true}
+  labels={{
+    title: "AI Assistant",
+    initial: "Hi! You can upload images to chat with me.",
+  }}
+/>;
+```
 
 ## How It Works
 
