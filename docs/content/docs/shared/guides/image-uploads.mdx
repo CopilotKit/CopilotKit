@@ -3,10 +3,6 @@ title: "Image Uploads"
 description: "Enable users to upload images in your CopilotKit chat interface"
 ---
 
-# Image Uploads
-
-CopilotKit supports image uploads in chat interfaces. Users can upload images that will be sent to your AI model.
-
 ## Enable Image Uploads
 
 To enable image uploads in your chat interface, simply add the `imageUploadsEnabled` prop to your CopilotKit chat component:
@@ -86,43 +82,3 @@ By default, all image types are accepted (`image/*`).
 ## Model Compatibility
 
 Image uploads currently work with OpenAI and Anthropic models. Support for other providers may be added in future releases.
-
-## User Experience
-
-### Upload Flow
-
-1. User clicks the upload button or drags images
-2. Images appear in a preview queue
-3. User can remove images from the queue if needed
-4. User types a message (optional) and sends
-5. Both text and images are sent to the AI
-
-### Visual Feedback
-
-- Image thumbnails show in the upload queue
-- Remove buttons (×) allow users to delete images before sending
-- Clear visual distinction between text and image messages in chat history
-
-## Best Practices
-
-- **Inform Users**: Let users know image uploads are available
-- **File Formats**: Common formats like PNG, JPEG, and GIF work best
-- **Context**: Images work well when combined with descriptive text
-
-## Troubleshooting
-
-### Images Not Appearing
-
-- Verify `imageUploadsEnabled={true}` is set
-- Ensure image files are valid formats
-- Check console for any upload errors
-
-### Upload Button Missing
-
-- Confirm the `imageUploadsEnabled` prop is set to `true`
-- Check that you're using a compatible CopilotKit version
-
-### Large Images
-
-- Large images may fail to upload or process
-- Consider resizing images before upload if needed
