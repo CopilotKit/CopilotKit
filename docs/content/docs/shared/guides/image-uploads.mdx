@@ -1,0 +1,134 @@
+---
+title: "Image Uploads"
+description: "Enable users to upload images in your CopilotKit chat interface"
+---
+
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "fumadocs-ui/components/tabs";
+
+# Image Uploads
+
+CopilotKit supports image uploads in chat interfaces. Users can upload images that will be sent to your AI model.
+
+## Enable Image Uploads
+
+To enable image uploads in your chat interface, simply add the `imageUploadsEnabled` prop to your CopilotKit chat component:
+
+<Tabs defaultValue="sidebar" className="w-full">
+  <TabsList className="grid w-full grid-cols-3">
+    <TabsTrigger value="sidebar">CopilotSidebar</TabsTrigger>
+    <TabsTrigger value="chat">CopilotChat</TabsTrigger>
+    <TabsTrigger value="popup">CopilotPopup</TabsTrigger>
+  </TabsList>
+  <TabsContent value="sidebar">
+    ```tsx import {CopilotSidebar} from "@copilotkit/react-ui";
+    <CopilotSidebar
+      imageUploadsEnabled={true}
+      labels={{
+        title: "AI Assistant",
+        initial: "Hi! You can upload images to chat with me.",
+      }}
+    >
+      {/* Your app content */}
+    </CopilotSidebar>
+    ```
+  </TabsContent>
+  <TabsContent value="chat">
+    ```tsx import {CopilotChat} from "@copilotkit/react-ui";
+    <CopilotChat
+      imageUploadsEnabled={true}
+      labels={{
+        title: "AI Assistant",
+        initial: "Hi! You can upload images to chat with me.",
+      }}
+    />
+    ```
+  </TabsContent>
+  <TabsContent value="popup">
+    ```tsx import {CopilotPopup} from "@copilotkit/react-ui";
+    <CopilotPopup
+      imageUploadsEnabled={true}
+      labels={{
+        title: "AI Assistant",
+        initial: "Hi! You can upload images to chat with me.",
+      }}
+    />
+    ```
+  </TabsContent>
+</Tabs>
+
+## How It Works
+
+When image uploads are enabled:
+
+1. **Upload Button**: An upload button appears in the chat input area
+2. **File Picker**: Users can click to select images from their device
+3. **Drag & Drop**: Users can drag images directly into the chat interface
+4. **Clipboard Paste**: Users can paste images from their clipboard (Ctrl+V/Cmd+V)
+5. **Image Preview**: Selected images appear in a preview queue before sending
+6. **Multi-Image Support**: Users can upload multiple images at once
+
+## Customization Options
+
+### File Type Filtering
+
+Control which image formats users can upload:
+
+```tsx
+<CopilotChat
+  imageUploadsEnabled={true}
+  inputFileAccept="image/jpeg,image/png,image/gif" // Only allow specific formats
+/>
+```
+
+### Default File Types
+
+By default, all image types are accepted (`image/*`).
+
+## Model Compatibility
+
+Image uploads currently work with OpenAI and Anthropic models. Support for other providers may be added in future releases.
+
+## User Experience
+
+### Upload Flow
+
+1. User clicks the upload button or drags images
+2. Images appear in a preview queue
+3. User can remove images from the queue if needed
+4. User types a message (optional) and sends
+5. Both text and images are sent to the AI
+
+### Visual Feedback
+
+- Image thumbnails show in the upload queue
+- Remove buttons (×) allow users to delete images before sending
+- Clear visual distinction between text and image messages in chat history
+
+## Best Practices
+
+- **Inform Users**: Let users know image uploads are available
+- **File Formats**: Common formats like PNG, JPEG, and GIF work best
+- **Context**: Images work well when combined with descriptive text
+
+## Troubleshooting
+
+### Images Not Appearing
+
+- Verify `imageUploadsEnabled={true}` is set
+- Ensure image files are valid formats
+- Check console for any upload errors
+
+### Upload Button Missing
+
+- Confirm the `imageUploadsEnabled` prop is set to `true`
+- Check that you're using a compatible CopilotKit version
+
+### Large Images
+
+- Large images may fail to upload or process
+- Consider resizing images before upload if needed
