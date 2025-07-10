@@ -1,5 +1,17 @@
 # @copilotkit/runtime
 
+## 1.9.2-next.23
+
+### Patch Changes
+
+- fc6b653: - Fix extract toolParameters in extractParametersFromSchema
+  - Ensures consistency in how parameters are passed to the execute function across the codebase.
+- fc6b653: - Fix extract toolParameters in extractParametersFromSchema
+  - Fixed generateMcpToolInstructions to properly extract parameters from schema.parameters.properties
+  - fix: enhance MCP schema support for complex types and remove duplicate headers
+- fc6b653: - Fix extract toolParameters in extractParametersFromSchema
+  - @copilotkit/shared@1.9.2-next.23
+
 ## 1.9.2-next.22
 
 ### Patch Changes
