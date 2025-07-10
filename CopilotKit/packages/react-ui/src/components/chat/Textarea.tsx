@@ -6,11 +6,13 @@ interface AutoResizingTextareaProps {
   value: string;
   onChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
   onKeyDown?: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  onCompositionStart?: () => void;
+  onCompositionEnd?: () => void;
   autoFocus?: boolean;
 }
 
 const AutoResizingTextarea = forwardRef<HTMLTextAreaElement, AutoResizingTextareaProps>(
-  ({ maxRows = 1, placeholder, value, onChange, onKeyDown, autoFocus }, ref) => {
+  ({ maxRows = 1, placeholder, value, onChange, onKeyDown, onCompositionStart, onCompositionEnd, autoFocus }, ref) => {
     const internalTextareaRef = useRef<HTMLTextAreaElement>(null);
     const [maxHeight, setMaxHeight] = useState<number>(0);
 
@@ -46,6 +48,8 @@ const AutoResizingTextarea = forwardRef<HTMLTextAreaElement, AutoResizingTextare
         value={value}
         onChange={onChange}
         onKeyDown={onKeyDown}
+        onCompositionStart={onCompositionStart}
+        onCompositionEnd={onCompositionEnd}
         placeholder={placeholder}
         style={{
           overflow: "auto",
