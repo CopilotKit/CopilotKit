@@ -1,6 +1,7 @@
 import { Message, TextMessage } from "@copilotkit/runtime-client-gql";
 import { CopilotChatSuggestion } from "../../types/suggestions";
 import { ReactNode } from "react";
+import { supportedMimeTypes } from "../../hooks/use-push-to-talk";
 
 export interface ButtonProps {}
 
@@ -178,6 +179,7 @@ export interface InputProps {
   onStop?: () => void;
   onUpload?: () => void;
   hideStopButton?: boolean;
+  audioMimeType?: supportedMimeTypes;
 }
 
 export interface RenderSuggestionsListProps {

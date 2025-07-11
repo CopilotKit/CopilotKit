@@ -15,6 +15,7 @@ export const Input = ({
   onStop,
   onUpload,
   hideStopButton = false,
+  audioMimeType,
 }: InputProps) => {
   const context = useChatContext();
   const copilotContext = useCopilotContext();
@@ -67,6 +68,7 @@ export const Input = ({
   const { pushToTalkState, setPushToTalkState } = usePushToTalk({
     sendFunction: onSend,
     inProgress,
+   audioMimeType,
   });
 
   const isInProgress = inProgress || pushToTalkState === "transcribing";
