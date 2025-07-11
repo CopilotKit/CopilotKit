@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.9.2-next.24
+
+### Patch Changes
+
+- 8ef8199: - fix: use latest agui dependencies to include required fixes
+  - @copilotkit/shared@1.9.2-next.24
+
 ## 1.9.2-next.23
 
 ### Patch Changes
