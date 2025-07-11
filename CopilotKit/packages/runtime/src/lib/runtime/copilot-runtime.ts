@@ -486,16 +486,11 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       publicApiKey,
     } = request;
 
-    const eventSource = new RuntimeEventSource();
-    // Track request start time for logging
-    const requestStartTime = Date.now();
-    // For storing streamed chunks if progressive logging is enabled
-    const streamedChunks: any[] = [];
-
-    // Track request start
-    await this.error(
-      "request",
-      {
+    const eventSource = new RuntimeEventSource({
+      errorHandler: async (error, context) => {
+        await this.error("error", context, error, publicApiKey);
+      },
+      errorContext: {
         threadId,
         runId,
         source: "runtime",
@@ -503,20 +498,18 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
           operation: "processRuntimeRequest",
           method: "POST",
           url: url,
-          startTime: requestStartTime,
+          startTime: Date.now(),
         },
         agent: agentSession ? { name: agentSession.agentName } : undefined,
-        messages: {
-          input: rawMessages,
-          messageCount: rawMessages.length,
-        },
         technical: {
           environment: process.env.NODE_ENV,
         },
       },
-      undefined,
-      publicApiKey,
-    );
+    });
+    // Track request start time for logging
+    const requestStartTime = Date.now();
+    // For storing streamed chunks if progressive logging is enabled
+    const streamedChunks: any[] = [];
 
     try {
       if (
@@ -1129,7 +1122,27 @@ please use an LLM adapter instead.`,
     });
 
     try {
-      const eventSource = new RuntimeEventSource();
+      const eventSource = new RuntimeEventSource({
+        errorHandler: async (error, context) => {
+          await this.error("error", context, error, publicApiKey);
+        },
+        errorContext: {
+          threadId,
+          source: "agent",
+          request: {
+            operation: "processAgentRequest",
+            method: "POST",
+            startTime: requestStartTime,
+          },
+          agent: {
+            name: agentName,
+            nodeName: nodeName,
+          },
+          technical: {
+            environment: process.env.NODE_ENV,
+          },
+        },
+      });
       const stream = await currentAgent.remoteAgentHandler({
         name: agentName,
         threadId,
