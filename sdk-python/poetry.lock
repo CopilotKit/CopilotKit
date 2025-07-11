@@ -2,14 +2,14 @@
 
 [[package]]
 name = "ag-ui-langgraph"
-version = "0.0.1a5"
+version = "0.0.1"
 description = ""
 optional = false
 python-versions = "<3.14,>=3.10"
 groups = ["main"]
 files = [
-    {file = "ag_ui_langgraph-0.0.1a5-py3-none-any.whl", hash = "sha256:1e835da009efc2c05eddbcf86ffcec2c117c080db7286d658c9baa0ec9fa5dd1"},
-    {file = "ag_ui_langgraph-0.0.1a5.tar.gz", hash = "sha256:007a86b6c1aac7d519963731e3c93f8a69d33d6f6be28b5093373d3b23b538e4"},
+    {file = "ag_ui_langgraph-0.0.1-py3-none-any.whl", hash = "sha256:b7c90b90fb8d736fc7426219166fa63572bcc10171253d5c982544fa256b568f"},
+    {file = "ag_ui_langgraph-0.0.1.tar.gz", hash = "sha256:3208916af56f5c2dd395c85889d089f12c84207bc3e0ae12acc045abe845ce09"},
 ]
 
 [package.dependencies]
@@ -5441,4 +5441,4 @@ crewai = ["crewai"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.13"
-content-hash = "d90411fd355f0a9520974db0da613ff7ec988c28d80c48eb5404323f8cbc2284"
+content-hash = "34faeca57bc30a1afb3ff40156bb6810f6d20d7461a30670f7eee827ba6ecda6"
