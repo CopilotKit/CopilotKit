@@ -691,21 +691,21 @@ cron = ["capturer (>=2.4)"]
 
 [[package]]
 name = "copilotkit"
-version = "0.1.52"
+version = "0.1.54"
 description = "CopilotKit python SDK"
 optional = false
 python-versions = "<3.13,>=3.10"
 groups = ["main"]
 files = [
-    {file = "copilotkit-0.1.52-py3-none-any.whl", hash = "sha256:f832e9aa7537b3c7f98461f43d50cbdae8ac56d1be7276d5019ba8842b77a978"},
-    {file = "copilotkit-0.1.52.tar.gz", hash = "sha256:d4963085fa9b4947bd6e13c4fae1bda537014bb3466d6793c57ca5ae79d5e68c"},
+    {file = "copilotkit-0.1.54-py3-none-any.whl", hash = "sha256:0eece33a4ae47a8fea910325b00bbcc31e97fa8c5380e8ef14e6ed93a2ec61ff"},
+    {file = "copilotkit-0.1.54.tar.gz", hash = "sha256:51f77f97663108f7cd2a30552a2f6ab9ef2fb8a44056cd271c35d7a7e79e652a"},
 ]
 
 [package.dependencies]
 crewai = {version = "0.118.0", optional = true, markers = "extra == \"crewai\""}
 fastapi = ">=0.115.0,<0.116.0"
 langchain = ">=0.3.4,<=0.3.26"
-langgraph = ">=0.3.18,<=0.5.0"
+langgraph = ">=0.3.18,<0.5.0"
 partialjson = ">=0.0.8,<0.0.9"
 toml = ">=0.10.2,<0.11.0"
 
@@ -2111,20 +2111,20 @@ langchain-core = ">=0.3.51,<1.0.0"
 
 [[package]]
 name = "langgraph"
-version = "0.5.0"
+version = "0.4.10"
 description = "Building stateful, multi-actor applications with LLMs"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "langgraph-0.5.0-py3-none-any.whl", hash = "sha256:74e33efb6527602b79bfcc4e3d0bfbb15b8d86fa25bb417fdd8d3306456cf8de"},
-    {file = "langgraph-0.5.0.tar.gz", hash = "sha256:7ad6d42f2a44e93e225cc65c59fac51c55ae549c9824adc22971d00e5ac26443"},
+    {file = "langgraph-0.4.10-py3-none-any.whl", hash = "sha256:fa1257afba55778f222981362c1221fb0cc166467a543c13729eb104b9becbc9"},
+    {file = "langgraph-0.4.10.tar.gz", hash = "sha256:391dadf5051bab212d711da62b10ae6c97bbc912a9f812b4b27e92a934a401c6"},
 ]
 
 [package.dependencies]
 langchain-core = ">=0.1"
-langgraph-checkpoint = ">=2.1.0"
-langgraph-prebuilt = ">=0.5.0"
+langgraph-checkpoint = ">=2.0.26"
+langgraph-prebuilt = ">=0.2.0"
 langgraph-sdk = ">=0.1.42"
 pydantic = ">=2.7.4"
 xxhash = ">=3.5.0"
@@ -5550,4 +5550,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.13"
-content-hash = "86a64e7fd5639572545be63132c4b64bae703d0f1d9c443a70fade7a93a48098"
+content-hash = "7047de1359c8681bc71c4faffd116b7a74da9485df6712e2c663453a48720195"

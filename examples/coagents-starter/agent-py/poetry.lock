@@ -273,20 +273,20 @@ files = [
 
 [[package]]
 name = "copilotkit"
-version = "0.1.49"
+version = "0.1.54"
 description = "CopilotKit python SDK"
 optional = false
 python-versions = "<3.13,>=3.10"
 groups = ["main"]
 files = [
-    {file = "copilotkit-0.1.49-py3-none-any.whl", hash = "sha256:1a1d71850eb9f06396bfb34c39987cb2ad36ff8afad15aa10d2c647334629992"},
-    {file = "copilotkit-0.1.49.tar.gz", hash = "sha256:74afead7c4d80db72d35d22b5f88f3694efd814c1bb744d8cd259d8723d0ad51"},
+    {file = "copilotkit-0.1.54-py3-none-any.whl", hash = "sha256:0eece33a4ae47a8fea910325b00bbcc31e97fa8c5380e8ef14e6ed93a2ec61ff"},
+    {file = "copilotkit-0.1.54.tar.gz", hash = "sha256:51f77f97663108f7cd2a30552a2f6ab9ef2fb8a44056cd271c35d7a7e79e652a"},
 ]
 
 [package.dependencies]
 fastapi = ">=0.115.0,<0.116.0"
-langchain = ">=0.3.3,<0.4.0"
-langgraph = ">=0.2.50"
+langchain = ">=0.3.4,<=0.3.26"
+langgraph = ">=0.3.18,<0.5.0"
 partialjson = ">=0.0.8,<0.0.9"
 toml = ">=0.10.2,<0.11.0"
 
@@ -1585,4 +1585,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.13"
-content-hash = "136c4305cdb1ee5c05d90581e81d1a4374f9a0e4116b59f10934228e565d0a51"
+content-hash = "67b0e18d8d00426dcec80523dfefac1cefdfaf1578eb2299e76093a92265b6d5"
