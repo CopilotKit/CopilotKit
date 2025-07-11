@@ -511,32 +511,6 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     // For storing streamed chunks if progressive logging is enabled
     const streamedChunks: any[] = [];
 
-    // Track request start
-    await this.error(
-      "request",
-      {
-        threadId,
-        runId,
-        source: "runtime",
-        request: {
-          operation: "processRuntimeRequest",
-          method: "POST",
-          url: url,
-          startTime: requestStartTime,
-        },
-        agent: agentSession ? { name: agentSession.agentName } : undefined,
-        messages: {
-          input: rawMessages,
-          messageCount: rawMessages.length,
-        },
-        technical: {
-          environment: process.env.NODE_ENV,
-        },
-      },
-      undefined,
-      publicApiKey,
-    );
-
     try {
       if (
         Object.keys(this.agents).length &&
