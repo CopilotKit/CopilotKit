@@ -54,26 +54,23 @@ import {
 import { Messages as DefaultMessages } from "./Messages";
 import { Input as DefaultInput } from "./Input";
 import { RenderTextMessage as DefaultRenderTextMessage } from "./messages/RenderTextMessage";
-import { RenderActionExecutionMessage as DefaultRenderActionExecutionMessage } from "./messages/RenderActionExecutionMessage";
-import { RenderResultMessage as DefaultRenderResultMessage } from "./messages/RenderResultMessage";
-import { RenderAgentStateMessage as DefaultRenderAgentStateMessage } from "./messages/RenderAgentStateMessage";
-import { RenderImageMessage as DefaultRenderImageMessage } from "./messages/RenderImageMessage";
 import { AssistantMessage as DefaultAssistantMessage } from "./messages/AssistantMessage";
 import { UserMessage as DefaultUserMessage } from "./messages/UserMessage";
-import React, { useEffect, useRef, useState } from "react";
+import { ImageRenderer as DefaultImageRenderer } from "./messages/ImageRenderer";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   SystemMessageFunction,
   useCopilotChat,
   useCopilotContext,
   useCopilotMessagesContext,
 } from "@copilotkit/react-core";
-import { reloadSuggestions } from "./Suggestion";
-import { CopilotChatSuggestion } from "../../types/suggestions";
-import { Message, Role, TextMessage, ImageMessage } from "@copilotkit/runtime-client-gql";
+import type { SuggestionItem } from "@copilotkit/react-core";
+import { Message } from "@copilotkit/shared";
 import { randomId } from "@copilotkit/shared";
 import {
   AssistantMessageProps,
   ComponentsMap,
+  ImageRendererProps,
   InputProps,
   MessagesProps,
   RenderMessageProps,
@@ -84,7 +81,7 @@ import {
 import { HintFunction, runAgent, stopAgent } from "@copilotkit/react-core";
 import { ImageUploadQueue } from "./ImageUploadQueue";
 import { Suggestions as DefaultRenderSuggestionsList } from "./Suggestions";
-
+import { SUGGESTION_RETRY_CONFIG } from "@copilotkit/react-core";
 /**
  * Props for CopilotChat component.
  */
@@ -132,12 +129,12 @@ export interface CopilotChatProps {
   /**
    * A callback function for thumbs up feedback
    */
-  onThumbsUp?: (message: TextMessage) => void;
+  onThumbsUp?: (message: Message) => void;
 
   /**
    * A callback function for thumbs down feedback
    */
-  onThumbsDown?: (message: TextMessage) => void;
+  onThumbsDown?: (message: Message) => void;
 
   /**
    * A list of markdown components to render in assistant message.
@@ -195,26 +192,6 @@ export interface CopilotChatProps {
   RenderTextMessage?: React.ComponentType<RenderMessageProps>;
 
   /**
-   * A custom RenderActionExecutionMessage component to use instead of the default.
-   */
-  RenderActionExecutionMessage?: React.ComponentType<RenderMessageProps>;
-
-  /**
-   * A custom RenderAgentStateMessage component to use instead of the default.
-   */
-  RenderAgentStateMessage?: React.ComponentType<RenderMessageProps>;
-
-  /**
-   * A custom RenderResultMessage component to use instead of the default.
-   */
-  RenderResultMessage?: React.ComponentType<RenderMessageProps>;
-
-  /**
-   * A custom RenderImageMessage component to use instead of the default.
-   */
-  RenderImageMessage?: React.ComponentType<RenderMessageProps>;
-
-  /**
    * A custom suggestions list component to use instead of the default.
    */
   RenderSuggestionsList?: React.ComponentType<RenderSuggestionsListProps>;
@@ -223,6 +200,11 @@ export interface CopilotChatProps {
    * A custom Input component to use instead of the default.
    */
   Input?: React.ComponentType<InputProps>;
+
+  /**
+   * A custom image rendering component to use instead of the default.
+   */
+  ImageRenderer?: React.ComponentType<ImageRendererProps>;
 
   /**
    * A class name to apply to the root element.
@@ -309,10 +291,6 @@ export function CopilotChat({
   markdownTagRenderers,
   Messages = DefaultMessages,
   RenderTextMessage = DefaultRenderTextMessage,
-  RenderActionExecutionMessage = DefaultRenderActionExecutionMessage,
-  RenderAgentStateMessage = DefaultRenderAgentStateMessage,
-  RenderResultMessage = DefaultRenderResultMessage,
-  RenderImageMessage = DefaultRenderImageMessage,
   RenderSuggestionsList = DefaultRenderSuggestionsList,
   Input = DefaultInput,
   className,
@@ -320,6 +298,7 @@ export function CopilotChat({
   labels,
   AssistantMessage = DefaultAssistantMessage,
   UserMessage = DefaultUserMessage,
+  ImageRenderer = DefaultImageRenderer,
   imageUploadsEnabled,
   inputFileAccept = "image/*",
   hideStopButton,
@@ -398,25 +377,19 @@ export function CopilotChat({
       ...additionalInstructions.map((instruction) => `- ${instruction}`),
     ];
 
-    console.log("combinedAdditionalInstructions", combinedAdditionalInstructions);
-
     setChatInstructions(combinedAdditionalInstructions.join("\n") || "");
   }, [instructions, additionalInstructions]);
 
-  const {
-    visibleMessages,
-    isLoading,
-    currentSuggestions,
-    sendMessage,
-    stopGeneration,
-    reloadMessages,
-  } = useCopilotChatLogic(
-    makeSystemMessage,
-    onInProgress,
-    onSubmitMessage,
-    onStopGeneration,
-    onReloadMessages,
-  );
+  const { suggestions } = useCopilotChat();
+
+  const { visibleMessages, isLoading, sendMessage, stopGeneration, reloadMessages } =
+    useCopilotChatLogic(
+      makeSystemMessage,
+      onInProgress,
+      onSubmitMessage,
+      onStopGeneration,
+      onReloadMessages,
+    );
 
   // Wrapper for sendMessage to clear selected images
   const handleSendMessage = (text: string) => {
@@ -490,10 +463,6 @@ export function CopilotChat({
         AssistantMessage={AssistantMessage}
         UserMessage={UserMessage}
         RenderTextMessage={RenderTextMessage}
-        RenderActionExecutionMessage={RenderActionExecutionMessage}
-        RenderAgentStateMessage={RenderAgentStateMessage}
-        RenderResultMessage={RenderResultMessage}
-        RenderImageMessage={RenderImageMessage}
         messages={visibleMessages}
         inProgress={isLoading}
         onRegenerate={handleRegenerate}
@@ -501,12 +470,10 @@ export function CopilotChat({
         onThumbsUp={onThumbsUp}
         onThumbsDown={onThumbsDown}
         markdownTagRenderers={markdownTagRenderers}
+        ImageRenderer={ImageRenderer}
       >
-        {currentSuggestions.length > 0 && (
-          <RenderSuggestionsList
-            onSuggestionClick={handleSendMessage}
-            suggestions={currentSuggestions}
-          />
+        {suggestions.length > 0 && (
+          <RenderSuggestionsList onSuggestionClick={handleSendMessage} suggestions={suggestions} />
         )}
       </Messages>
 
@@ -523,7 +490,6 @@ export function CopilotChat({
           />
         </>
       )}
-
       <Input
         inProgress={isLoading}
         onSend={handleSendMessage}
@@ -558,8 +524,6 @@ export function WrappedCopilotChat({
   return <>{children}</>;
 }
 
-const SUGGESTIONS_DEBOUNCE_TIMEOUT = 1000;
-
 export const useCopilotChatLogic = (
   makeSystemMessage?: SystemMessageFunction,
   onInProgress?: (isLoading: boolean) => void,
@@ -574,53 +538,98 @@ export const useCopilotChatLogic = (
     stopGeneration: defaultStopGeneration,
     runChatCompletion,
     isLoading,
+    suggestions,
+    setSuggestions,
+    isLoadingSuggestions,
+    setMessages,
+    generateSuggestions,
+    resetSuggestions: resetSuggestionsFromHook,
   } = useCopilotChat({
     id: randomId(),
     makeSystemMessage,
   });
 
-  const [currentSuggestions, setCurrentSuggestions] = useState<CopilotChatSuggestion[]>([]);
-  const suggestionsAbortControllerRef = useRef<AbortController | null>(null);
-  const debounceTimerRef = useRef<any>();
-
-  const abortSuggestions = () => {
-    suggestionsAbortControllerRef.current?.abort();
-    suggestionsAbortControllerRef.current = null;
-  };
-
   const generalContext = useCopilotContext();
   const messagesContext = useCopilotMessagesContext();
   const context = { ...generalContext, ...messagesContext };
 
+  // Get actions from context for message conversion
+  const { actions } = generalContext;
+
+  // Add state to track suggestion retry attempts and prevent infinite loops
+  const [lastSuggestionAttempt, setLastSuggestionAttempt] = useState<number>(0);
+  const [suggestionsFailed, setSuggestionsFailed] = useState(false);
+  const suggestionRetryCountRef = useRef<number>(0);
+
+  // Constants for retry logic
+  const MAX_SUGGESTION_RETRIES = SUGGESTION_RETRY_CONFIG.MAX_RETRIES;
+  const SUGGESTION_RETRY_COOLDOWN_MS = SUGGESTION_RETRY_CONFIG.COOLDOWN_MS;
+
+  // Wrapper for resetSuggestions that also resets local state
+  const resetSuggestions = useCallback(() => {
+    resetSuggestionsFromHook();
+    setSuggestionsFailed(false);
+    suggestionRetryCountRef.current = 0;
+  }, [resetSuggestionsFromHook]);
+
   useEffect(() => {
     onInProgress?.(isLoading);
+  }, [onInProgress, isLoading]);
 
-    abortSuggestions();
+  useEffect(() => {
+    // Reset failed state when messages change (new conversation context)
+    if (visibleMessages.length > 0) {
+      setSuggestionsFailed(false);
+      suggestionRetryCountRef.current = 0;
+    }
+  }, [visibleMessages.length]);
 
-    debounceTimerRef.current = setTimeout(
-      () => {
-        if (!isLoading && Object.keys(context.chatSuggestionConfiguration).length !== 0) {
-          suggestionsAbortControllerRef.current = new AbortController();
-          reloadSuggestions(
-            context,
-            context.chatSuggestionConfiguration,
-            setCurrentSuggestions,
-            suggestionsAbortControllerRef,
-          );
+  useEffect(() => {
+    const now = Date.now();
+    const timeSinceLastAttempt = now - lastSuggestionAttempt;
+    const isFirstAttempt = suggestionRetryCountRef.current === 0;
+    const hasWaitedEnough = isFirstAttempt || timeSinceLastAttempt > SUGGESTION_RETRY_COOLDOWN_MS;
+
+    const shouldAttemptSuggestions =
+      !isLoadingSuggestions &&
+      suggestions.length === 0 &&
+      !isLoading &&
+      !suggestionsFailed &&
+      suggestionRetryCountRef.current < MAX_SUGGESTION_RETRIES &&
+      hasWaitedEnough;
+
+    if (shouldAttemptSuggestions) {
+      const attemptGenerateSuggestions = async () => {
+        try {
+          setLastSuggestionAttempt(now);
+          suggestionRetryCountRef.current += 1;
+
+          await generateSuggestions();
+          // Reset retry count on success
+          suggestionRetryCountRef.current = 0;
+          setSuggestionsFailed(false);
+        } catch (error) {
+          console.error("Failed to generate suggestions:", error);
+
+          // If we've exceeded retry limit, mark as failed
+          if (suggestionRetryCountRef.current >= MAX_SUGGESTION_RETRIES) {
+            setSuggestionsFailed(true);
+            console.warn(
+              "Suggestions generation failed after maximum retries. Suggestions will be disabled until messages change.",
+            );
+          }
         }
-      },
-      currentSuggestions.length == 0 ? 0 : SUGGESTIONS_DEBOUNCE_TIMEOUT,
-    );
+      };
 
-    return () => {
-      clearTimeout(debounceTimerRef.current);
-    };
+      attemptGenerateSuggestions();
+    }
   }, [
+    isLoadingSuggestions,
+    suggestions,
     isLoading,
-    context.chatSuggestionConfiguration,
-    // hackish way to trigger suggestions reload on reset, but better than moving suggestions to the
-    // global context
-    visibleMessages.length == 0,
+    lastSuggestionAttempt,
+    suggestionsFailed,
+    generateSuggestions,
   ]);
 
   const sendMessage = async (
@@ -630,17 +639,18 @@ export const useCopilotChatLogic = (
     // Use images passed in the call OR the ones from the state (passed via props)
     const images = imagesToUse || [];
 
-    abortSuggestions();
-    setCurrentSuggestions([]);
+    // Clear suggestions when sending a message
+    setSuggestions([]);
 
     let firstMessage: Message | null = null;
 
     // If there's text content, send a text message first
     if (messageContent.trim().length > 0) {
-      const textMessage = new TextMessage({
+      const textMessage: Message = {
+        id: randomId(),
+        role: "user",
         content: messageContent,
-        role: Role.User,
-      });
+      };
 
       if (onSubmitMessage) {
         try {
@@ -651,7 +661,7 @@ export const useCopilotChatLogic = (
         }
       }
 
-      await appendMessage(textMessage, { followUp: images.length === 0 });
+      await appendMessage(textMessage, { followUp: images.length === 0, reloadSuggestions: true });
 
       if (!firstMessage) {
         firstMessage = textMessage;
@@ -661,11 +671,14 @@ export const useCopilotChatLogic = (
     // Send image messages
     if (images.length > 0) {
       for (let i = 0; i < images.length; i++) {
-        const imageMessage = new ImageMessage({
-          format: images[i].contentType.replace("image/", ""),
-          bytes: images[i].bytes,
-          role: Role.User,
-        });
+        const imageMessage = {
+          id: randomId(),
+          role: "user" as const,
+          image: {
+            format: images[i].contentType.replace("image/", ""),
+            bytes: images[i].bytes,
+          },
+        } as unknown as Message;
         await appendMessage(imageMessage, { followUp: i === images.length - 1 });
         if (!firstMessage) {
           firstMessage = imageMessage;
@@ -675,7 +688,7 @@ export const useCopilotChatLogic = (
 
     if (!firstMessage) {
       // Should not happen if send button is properly disabled, but handle just in case
-      return new TextMessage({ content: "", role: Role.User }); // Return a dummy message
+      return { role: "user", content: "", id: randomId() } as Message; // Return a dummy message
     }
 
     // The hook implicitly triggers API call on appendMessage.
@@ -684,7 +697,6 @@ export const useCopilotChatLogic = (
   };
 
   const messages = visibleMessages;
-  const { setMessages } = messagesContext;
   const currentAgentName = generalContext.agentSession?.agentName;
   const restartCurrentAgent = async (hint?: HintFunction) => {
     if (generalContext.agentSession) {
@@ -736,9 +748,12 @@ export const useCopilotChatLogic = (
   };
 
   function stopGeneration() {
+    // Clear suggestions when stopping generation
+    setSuggestions([]);
+
     if (onStopGeneration) {
       onStopGeneration({
-        messages,
+        messages: messages,
         setMessages,
         stopGeneration: defaultStopGeneration,
         currentAgentName,
@@ -754,7 +769,7 @@ export const useCopilotChatLogic = (
   function reloadMessages(messageId: string) {
     if (onReloadMessages) {
       onReloadMessages({
-        messages,
+        messages: messages,
         setMessages,
         stopGeneration: defaultStopGeneration,
         currentAgentName,
@@ -770,11 +785,15 @@ export const useCopilotChatLogic = (
   }
 
   return {
+    messages,
     visibleMessages,
     isLoading,
-    currentSuggestions,
+    suggestions,
     sendMessage,
     stopGeneration,
     reloadMessages,
+    resetSuggestions,
+    context,
+    actions,
   };
 };

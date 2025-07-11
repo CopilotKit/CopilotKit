@@ -1,0 +1,29 @@
+---
+description: When working with suggesitons, always load this up.
+globs: 
+alwaysApply: false
+---
+# Suggestions development guide
+
+## Summary
+CopilotKit comes with suggestions behavior that allows an LLM generate (or the developer to statically program) suggestions that appear in the UI. When clicked, these suggestions will add a message. The logic for suggestions is currently divided between Headless UI or our Prebuilt components.
+
+### Prebuilt components
+Whenever a message is complete, suggestions should be triggered once. This includes at the start of the 
+chat, when the user opens it.
+
+### Headless UI
+Suggestions should have an "initial" option, otherwise the user can set them manually with setSuggestions or generate them using AI with generateSuggestions.
+
+## Core files
+
+- **@react-ui**
+  - [Suggestions.tsx](mdc:CopilotKit/packages/react-ui/src/components/chat/Suggestions.tsx) - How suggestions are rendered
+  - [Messages.tsx](mdc:CopilotKit/packages/react-ui/src/components/chat/Messages.tsx) - Includes relevant code for what renderes [Suggestions.tsx](mdc:CopilotKit/packages/react-ui/src/components/chat/Suggestions.tsx)
+  - [Chat.tsx](mdc:CopilotKit/packages/react-ui/src/components/chat/Chat.tsx) - Includes relevant logic for our prebuilt components loading suggestions
+  - [use-copilot-chat-suggestions.tsx](mdc:CopilotKit/packages/react-ui/src/hooks/use-copilot-chat-suggestions.tsx) - How users specify the configuration for their suggestions
+  - [suggestions.css](mdc:CopilotKit/packages/react-ui/src/css/suggestions.css) - Styling for suggestions
+- **@react-core**
+  - [copilot-context.tsx](mdc:CopilotKit/packages/react-core/src/context/copilot-context.tsx) - Where the actual suggestions are stored, the "provider" or "context"
+  - [use-copilot-chat.ts](mdc:CopilotKit/packages/react-core/src/hooks/use-copilot-chat.ts) - Hook that controls and contains logic for suggestions, often referred to as "headless UI"
+  - [suggestions.ts](mdc:CopilotKit/packages/react-ui/src/types/suggestions.ts) - Utilities for interacting with suggestions

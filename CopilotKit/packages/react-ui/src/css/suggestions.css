@@ -1,16 +1,17 @@
-.copilotKitMessages footer .suggestions {
+.suggestions {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  padding: 0px 12px 12px 12px;
 }
 
-.copilotKitMessages footer h6 {
+.suggestions footer h6 {
   font-weight: 500;
   font-size: 0.7rem;
   margin-bottom: 8px;
 }
 
-.copilotKitMessages footer .suggestions .suggestion {
+.suggestions .suggestion {
   padding: 6px 10px;
   font-size: 0.7rem;
   border-radius: 15px;
@@ -19,25 +20,25 @@
   box-shadow: 0 5px 5px 0px rgba(0,0,0,.01),0 2px 3px 0px rgba(0,0,0,.02);
 }
 
-.copilotKitMessages footer .suggestions .suggestion.loading {
+.suggestions .suggestion.loading {
   padding: 0;
   font-size: 0.7rem;
   border: none;
   color: var(--copilot-kit-secondary-contrast-color);
 }
 
-.copilotKitMessages footer .suggestions button {
+.suggestions button {
   transition: transform 0.3s ease;
 }
 
-.copilotKitMessages footer .suggestions button:not(:disabled):hover {
+.suggestions button:not(:disabled):hover {
   transform: scale(1.03);
 }
 
-.copilotKitMessages footer .suggestions button:disabled {
+.suggestions button:disabled {
   cursor: wait;
 }
 
-.copilotKitMessages footer .suggestions button svg {
+.suggestions button svg {
   margin-right: 6px;
 }

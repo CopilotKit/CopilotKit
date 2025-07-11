@@ -10,6 +10,9 @@ export interface CopilotKitCSSProperties extends CSSProperties {
   "--copilot-kit-secondary-contrast-color"?: string;
   "--copilot-kit-separator-color"?: string;
   "--copilot-kit-muted-color"?: string;
+  "--copilot-kit-error-background"?: string;
+  "--copilot-kit-error-border"?: string;
+  "--copilot-kit-error-text"?: string;
   "--copilot-kit-shadow-sm"?: string;
   "--copilot-kit-shadow-md"?: string;
   "--copilot-kit-shadow-lg"?: string;

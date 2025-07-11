@@ -1,5 +1,6 @@
 import { useCopilotContext, useCopilotMessagesContext } from "@copilotkit/react-core";
-import { Message, TextMessage } from "@copilotkit/runtime-client-gql";
+import { gqlToAGUI } from "@copilotkit/runtime-client-gql";
+import { Message } from "@copilotkit/shared";
 import { MutableRefObject, useEffect, useRef, useState } from "react";
 
 export const checkMicrophonePermission = async () => {
@@ -149,11 +150,11 @@ export const usePushToTalk = ({
         (message) => message.id === startReadingFromMessageId,
       );
 
-      const messagesAfterLast = context.messages
+      const aguiMessages = gqlToAGUI(context.messages);
+
+      const messagesAfterLast = aguiMessages
         .slice(lastMessageIndex + 1)
-        .filter(
-          (message) => message.isTextMessage() && message.role === "assistant",
-        ) as TextMessage[];
+        .filter((message) => message.role === "assistant");
 
       const text = messagesAfterLast.map((message) => message.content).join("\n");
       playAudioResponse(text, context.copilotApiConfig.textToSpeechUrl!, audioContextRef.current!);

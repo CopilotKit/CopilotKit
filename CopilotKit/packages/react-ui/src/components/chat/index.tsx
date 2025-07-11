@@ -5,7 +5,7 @@ export { CopilotChat } from "./Chat";
 export { Markdown } from "./Markdown";
 export { AssistantMessage } from "./messages/AssistantMessage";
 export { UserMessage } from "./messages/UserMessage";
+export { ImageRenderer } from "./messages/ImageRenderer";
 export { useChatContext } from "./ChatContext";
-export { RenderImageMessage } from "./messages/RenderImageMessage";
 export { Suggestions as RenderSuggestionsList } from "./Suggestions";
 export { Suggestion as RenderSuggestion } from "./Suggestion";

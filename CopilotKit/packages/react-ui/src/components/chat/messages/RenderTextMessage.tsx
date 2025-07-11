@@ -1,10 +1,12 @@
 import { RenderMessageProps } from "../props";
 import { UserMessage as DefaultUserMessage } from "./UserMessage";
 import { AssistantMessage as DefaultAssistantMessage } from "./AssistantMessage";
+import { ImageRenderer as DefaultImageRenderer } from "./ImageRenderer";
 
 export function RenderTextMessage({
   UserMessage = DefaultUserMessage,
   AssistantMessage = DefaultAssistantMessage,
+  ImageRenderer = DefaultImageRenderer,
   ...props
 }: RenderMessageProps) {
   const {
@@ -19,23 +21,22 @@ export function RenderTextMessage({
     markdownTagRenderers,
   } = props;
 
-  if (message.isTextMessage()) {
-    if (message.role === "user") {
+  switch (message.role) {
+    case "user":
       return (
         <UserMessage
           key={index}
           data-message-role="user"
-          message={message.content}
-          rawData={message}
+          message={message}
+          ImageRenderer={ImageRenderer}
         />
       );
-    } else if (message.role == "assistant") {
+    case "assistant":
       return (
         <AssistantMessage
           key={index}
           data-message-role="assistant"
-          message={message.content}
-          rawData={message}
+          message={message}
           isLoading={inProgress && isCurrentMessage && !message.content}
           isGenerating={inProgress && isCurrentMessage && !!message.content}
           isCurrentMessage={isCurrentMessage}
@@ -44,8 +45,8 @@ export function RenderTextMessage({
           onThumbsUp={onThumbsUp}
           onThumbsDown={onThumbsDown}
           markdownTagRenderers={markdownTagRenderers}
+          ImageRenderer={ImageRenderer}
         />
       );
-    }
   }
 }

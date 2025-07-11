@@ -23,6 +23,11 @@ WHEN MAKING ANY CHANGE, MAKE SURE TO INCLUDE IT IN ALL DUPLICATIONS.
   /* Muted color for disabled/inactive states */
   --copilot-kit-muted-color: rgb(200 200 200);
 
+  /* Error colors */
+  --copilot-kit-error-background: #fef2f2;
+  --copilot-kit-error-border: #fecaca;
+  --copilot-kit-error-text: #dc2626;
+
   /* Shadow tokens */
   /* Small shadow for subtle elevation */
   --copilot-kit-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
@@ -58,6 +63,11 @@ body[style*="color-scheme: dark"] :root {
   --copilot-kit-separator-color: rgb(45, 45, 45);
   /* Muted color for disabled/inactive states */
   --copilot-kit-muted-color: rgb(45, 45, 45);
+
+  /* Error colors */
+  --copilot-kit-error-background: #7f1d1d;
+  --copilot-kit-error-border: #dc2626;
+  --copilot-kit-error-text: #fca5a5;
 
   /* Small shadow for subtle elevation */
   --copilot-kit-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);

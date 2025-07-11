@@ -18,6 +18,7 @@ import { ModelSelector } from "./components/ModelSelector";
 import { MessageRole, TextMessage } from "@copilotkit/runtime-client-gql";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import { randomId } from "@copilotkit/shared";
 
 export default function ModelSelectorWrapper() {
   return (
@@ -131,11 +132,13 @@ function RunPirateMode() {
     <button
       onClick={() =>
         run(
-          () =>
-            new TextMessage({
+          () => {
+            return {
+              id: randomId(),
+              role: "user",
               content: "Run pirate mode",
-              role: MessageRole.User,
-            })
+            };
+          }
         )
       }
       className="bg-white text-black border border-gray-300 rounded px-4 py-2 shadow hover:bg-gray-100"

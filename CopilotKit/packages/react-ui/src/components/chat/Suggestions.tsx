@@ -1,5 +1,4 @@
 import { Suggestion } from "./Suggestion";
-import React from "react";
 import { RenderSuggestionsListProps } from "./props";
 
 export function Suggestions({ suggestions, onSuggestionClick }: RenderSuggestionsListProps) {
