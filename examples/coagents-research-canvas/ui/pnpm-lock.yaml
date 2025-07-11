@@ -12,6 +12,9 @@ importers:
 
   .:
     dependencies:
+      '@ag-ui/langgraph':
+        specifier: ^0.0.6
+        version: 0.0.6(openai@4.85.1(ws@8.18.0)(zod@3.23.8))(react@19.0.0)
       '@copilotkit/react-core':
         specifier: 1.9.2-next.24
         version: 1.9.2-next.24(@types/react@19.0.1)(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)

@@ -7,6 +7,7 @@ import {
 } from "@copilotkit/runtime";
 import OpenAI from "openai";
 import { NextRequest } from "next/server";
+import { LangGraphHttpAgent } from "@ag-ui/langgraph";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const llmAdapter = new OpenAIAdapter({ openai } as any);
@@ -20,12 +21,14 @@ export const POST = async (req: NextRequest) => {
   const isCrewAi = searchParams.get("coAgentsModel") === "crewai";
 
   let runtime = new CopilotRuntime({
-    remoteEndpoints: [
-      copilotKitEndpoint({
-        url:
-            process.env.REMOTE_ACTION_URL || "http://localhost:8000/copilotkit",
+    agents: {
+      'research_agent': new LangGraphHttpAgent({
+        url: "http://localhost:8000/agents/research_agent",
+      }),
+      'research_agent_google_genai': new LangGraphHttpAgent({
+        url: "http://localhost:8000/agents/research_agent_google_genai",
       })
-    ],
+    }
   })
 
   if (deploymentUrl && !isCrewAi) {
