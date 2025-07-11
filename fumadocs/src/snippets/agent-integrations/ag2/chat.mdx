@@ -1,0 +1,26 @@
+import ChatSnippet from "@/snippets/agent-integrations/shared/chat-snippet.mdx";
+
+## Prerequisites
+- [Quickstart](/guides/getting-started/quickstart/ag2) completed
+
+## Getting started
+
+<Steps>
+  <Step>
+    ### Select a chat component
+    Once you've completed the quickstart, any CopilotKit chat interface will automatically connect to your AG2 agent!
+
+    In this example, we'll build a [headless](/guides/headless-ui/introduction) chat, but feel free to use any of the [supported chat components](/guides/components/prebuilt)
+    to get started even faster.
+  </Step>
+  <Step>
+    ### Create a chat component
+    <ChatSnippet components={props.components} />
+
+  </Step>
+  <Step>
+    ### Give it a try!
+    And you're done! Go ahead and import your chat component anywhere within your `<CopilotKit>` provider
+    and you'll be chatting with your AG2 agent directly.
+  </Step>
+</Steps>

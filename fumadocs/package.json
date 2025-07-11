@@ -1,0 +1,44 @@
+{
+  "name": "fumadocs",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev --turbo",
+    "start": "next start",
+    "postinstall": "fumadocs-mdx"
+  },
+  "dependencies": {
+    "@codesandbox/sandpack-react": "^2.20.0",
+    "@copilotkit/react-core": "^1.9.1",
+    "@copilotkit/react-ui": "^1.9.1",
+    "@copilotkit/runtime": "^1.9.1",
+    "@copilotkit/runtime-client-gql": "^1.9.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "fumadocs-core": "15.6.1",
+    "fumadocs-mdx": "11.6.10",
+    "fumadocs-typescript": "^4.0.6",
+    "fumadocs-ui": "15.6.1",
+    "lucide-react": "^0.525.0",
+    "next": "15.3.4",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "shiki": "^3.7.0",
+    "tailwind-merge": "^3.3.1",
+    "ts-morph": "^26.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.11",
+    "@types/mdx": "^2.0.13",
+    "@types/node": "24.0.7",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "eslint": "^8",
+    "eslint-config-next": "15.3.4",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.11",
+    "tw-animate-css": "^1.3.5",
+    "typescript": "^5.8.3"
+  }
+}
