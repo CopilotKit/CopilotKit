@@ -1,5 +1,14 @@
 # @copilotkit/runtime
 
+## 1.9.2-next.25
+
+### Patch Changes
+
+- f3f0181: - fix: connect streaming errors to runtime onError handler
+  - remove request logging
+- f3f0181: - fix: connect streaming errors to runtime onError handler
+  - @copilotkit/shared@1.9.2-next.25
+
 ## 1.9.2-next.24
 
 ### Patch Changes
