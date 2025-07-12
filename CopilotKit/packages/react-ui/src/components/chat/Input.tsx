@@ -26,6 +26,7 @@ export const Input = ({
     copilotContext.copilotApiConfig.transcribeAudioUrl !== undefined;
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [isComposing, setIsComposing] = useState(false);
 
   const handleDivClick = (event: React.MouseEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
@@ -103,8 +104,10 @@ export const Input = ({
           maxRows={MAX_NEWLINES}
           value={text}
           onChange={(event) => setText(event.target.value)}
+          onCompositionStart={() => setIsComposing(true)}
+          onCompositionEnd={() => setIsComposing(false)}
           onKeyDown={(event) => {
-            if (event.key === "Enter" && !event.shiftKey) {
+            if (event.key === "Enter" && !event.shiftKey && !isComposing) {
               event.preventDefault();
               if (canSend) {
                 send();
