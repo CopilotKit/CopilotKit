@@ -1,3 +1,4 @@
+import { Tab } from "../components/react/tabs";
 <Tabs groupId="lg-deployment-type" items={['Local (LangGraph Studio)', 'Self hosted (FastAPI)', 'LangGraph Platform']}>
   <Tab value="Local (LangGraph Studio)">
     For local development, you can use the [LangGraph CLI](https://langchain-ai.github.io/langgraph/cloud/reference/cli/) to start a development server and LangGraph studio session.
@@ -61,8 +62,8 @@
     import os
     from fastapi import FastAPI
     import uvicorn
-    from copilotkit.integrations.fastapi import add_fastapi_endpoint # [!code highlight]
-    from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent # [!code highlight]
+    from copilotkit import LangGraphAGUIAgent # [!code highlight]
+    from ag_ui_langgraph import add_langgraph_fastapi_endpoint # [!code highlight]
     from sample_agent.agent import graph # the coagents-starter path, replace this if its different # [!code highlight]
 
     from dotenv import load_dotenv
@@ -70,18 +71,15 @@
 
     app = FastAPI()
     # [!code highlight:10]
-    sdk = CopilotKitRemoteEndpoint(
-        agents=[
-            LangGraphAgent(
-                name="sample_agent", # the name of your agent defined in langgraph.json
-                description="Describe your agent here, will be used for multi-agent orchestration",
-                graph=graph, # the graph object from your langgraph import
-            )
-        ],
+    add_langgraph_fastapi_endpoint(
+      app=app
+      agent=LangGraphAGUIAgent(
+        name="sample_agent", # the name of your agent defined in langgraph.json
+        description="Describe your agent here, will be used for multi-agent orchestration",
+        graph=graph, # the graph object from your langgraph import
+      )
+      path="/your-agent-path", # the endpoint you'd like to serve your agent on
     )
-
-    # Use CopilotKit's FastAPI integration to add a new endpoint for your LangGraph agents # [!code highlight:2]
-    add_fastapi_endpoint(app, sdk, "/copilotkit", use_thread_pool=False)
 
     # add new route for health check
     @app.get("/health")

@@ -10,8 +10,13 @@ icon: "lucide/Database"
 To persist LangGraph messages to a database, you can use either `AsyncPostgresSaver` or `AsyncSqliteSaver`. Set up the asynchronous memory by configuring the graph within a lifespan function, as follows:
 
 ```python
+from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from copilotkit import LangGraphAGUIAgent
+from ag_ui_langgraph import add_langgraph_fastapi_endpoint
+
+app = FastAPI(lifespan=lifespan)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -24,21 +29,16 @@ async def lifespan(app: FastAPI):
         graph = workflow.compile(checkpointer=checkpointer)
 
         # Create SDK with the graph
-        sdk = CopilotKitRemoteEndpoint(
-            agents=[
-                LangGraphAgent(
+        add_langgraph_fastapi_endpoint(
+            app=app,
+            agent=LangGraphAGUIAgent(
                     name="research_agent",
                     description="Research agent.",
                     graph=graph,
                 ),
-            ],
+            path="/agents/research_agent"
         )
-
-        # Add the CopilotKit FastAPI endpoint
-        add_fastapi_endpoint(app, sdk, "/copilotkit")
         yield
-
-app = FastAPI(lifespan=lifespan)
 ```
 
 To learn more about persistence in LangGraph, check out the [LangGraph documentation](https://langchain-ai.github.io/langgraph/how-tos/#persistence).
