@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.9.2-next.26
+
+### Patch Changes
+
+- 83822d2: - fix: do not show error on state loading if thread does not exist
+  - @copilotkit/shared@1.9.2-next.26
+
 ## 1.9.2-next.25
 
 ### Patch Changes
