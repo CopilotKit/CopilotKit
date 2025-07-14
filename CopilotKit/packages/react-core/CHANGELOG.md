@@ -1,5 +1,46 @@
 # ui
 
+## 1.9.2
+
+### Patch Changes
+
+- cbeccb5: - fix: refrain repeated api calls by memoizing state
+- 3f8c575: - fix: use time travel for regeneration of messages
+  - fix: use a better cutoff for regeneration request
+- fac89c2: - refactor: rename onTrace to onError throughout codebase
+
+  - Rename CopilotTraceEvent to CopilotErrorEvent and CopilotTraceHandler to CopilotErrorHandler
+
+- e1de032: - fix: synchronously execute renderAndWaitForResponse
+
+  Previously, it was impossible to execute multiple human-in-the-loop (renderAndWaitForResponse)
+  calls in a row. Ultimately this was due to an issue with how CopilotKit was rendering the updates
+  when multiple renderAndWaitForResponse actions appeared on screen due to a reference based approach.
+
+  With this change, actions will be executed in a synchronous way appearing almost queue like. This
+  works with any combination of action given much more freedom when asking for user input.
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+- 92e8d1c: - fix infinite loop
+- 9169ad7: - feat: add onTrace handler for runtime and UI error/event tracking
+- c75a04f: - Fix dynamic runtime configuration updates in useCoAgent
+  - In use-chat.ts, agent state updates from AgentStateMessage now preserve existing config property
+- c75a04f: - Fix dynamic runtime configuration updates in useCoAgent
+- fe9009c: - feat(langgraph): new thread metadata
+- 1d1c51d: - feat: surface all errors in structured format
+- 10345a5: - feat: structured error visibility system for streaming errors
+- 9169ad7: - feat: add onTrace handler for comprehensive debugging and observability - Add CopilotTraceEvent interfaces with rich debugging context, implement runtime-side tracing with publicApiKey gating, add UI-side error tracing, include comprehensive test coverage, and fix tsup build config to exclude test files
+  - fix: extract publicApiKey for all requests + trace GraphQL errors
+- 35537f1: - fix: memoize nested components to not rerender when content changes
+- Updated dependencies [fac89c2]
+- Updated dependencies [9169ad7]
+- Updated dependencies [1d1c51d]
+- Updated dependencies [10345a5]
+- Updated dependencies [9169ad7]
+  - @copilotkit/shared@1.9.2
+  - @copilotkit/runtime-client-gql@1.9.2
+
 ## 1.9.2-next.26
 
 ### Patch Changes

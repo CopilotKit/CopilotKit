@@ -1,5 +1,40 @@
 # ui
 
+## 1.9.2
+
+### Patch Changes
+
+- e1de032: - fix: synchronously execute renderAndWaitForResponse
+
+  Previously, it was impossible to execute multiple human-in-the-loop (renderAndWaitForResponse)
+  calls in a row. Ultimately this was due to an issue with how CopilotKit was rendering the updates
+  when multiple renderAndWaitForResponse actions appeared on screen due to a reference based approach.
+
+  With this change, actions will be executed in a synchronous way appearing almost queue like. This
+  works with any combination of action given much more freedom when asking for user input.
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+- 10345a5: - feat: structured error visibility system for streaming errors
+- abe23c3: - feat: enable hiding stop button
+- 35537f1: - fix: memoize nested components to not rerender when content changes
+- Updated dependencies [cbeccb5]
+- Updated dependencies [3f8c575]
+- Updated dependencies [fac89c2]
+- Updated dependencies [e1de032]
+- Updated dependencies [92e8d1c]
+- Updated dependencies [9169ad7]
+- Updated dependencies [c75a04f]
+- Updated dependencies [c75a04f]
+- Updated dependencies [fe9009c]
+- Updated dependencies [1d1c51d]
+- Updated dependencies [10345a5]
+- Updated dependencies [9169ad7]
+- Updated dependencies [35537f1]
+  - @copilotkit/react-core@1.9.2
+  - @copilotkit/shared@1.9.2
+  - @copilotkit/runtime-client-gql@1.9.2
+
 ## 1.9.2-next.26
 
 ### Patch Changes

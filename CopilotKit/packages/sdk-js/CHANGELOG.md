@@ -1,5 +1,18 @@
 # @copilotkit/sdk-js
 
+## 1.9.2
+
+### Patch Changes
+
+- 1d1c51d: - feat: surface all errors in structured format
+- 10345a5: - feat: structured error visibility system for streaming errors
+- Updated dependencies [fac89c2]
+- Updated dependencies [9169ad7]
+- Updated dependencies [1d1c51d]
+- Updated dependencies [10345a5]
+- Updated dependencies [9169ad7]
+  - @copilotkit/shared@1.9.2
+
 ## 1.9.2-next.26
 
 ### Patch Changes

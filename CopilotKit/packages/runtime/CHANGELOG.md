@@ -1,5 +1,49 @@
 # @copilotkit/runtime
 
+## 1.9.2
+
+### Patch Changes
+
+- f3f0181: - fix: connect streaming errors to runtime onError handler
+  - remove request logging
+- 3a7f45f: - fix: resolve agui agents only after all other endpoints
+- fac89c2: - refactor: rename onTrace to onError throughout codebase
+
+  - Rename CopilotTraceEvent to CopilotErrorEvent and CopilotTraceHandler to CopilotErrorHandler
+
+- 7ca7023: - feat: send node name to agui agent
+- 54b62f0: - fix: add default schema keys for input and output of agui langgraph
+- 4fd92d1: - fix: enable resolving of langgraph agents when cpk starts
+- 1f4949a: - fix: remove agent discovery for agui agents
+- 9169ad7: - feat: add onTrace handler for runtime and UI error/event tracking
+- f3f0181: - fix: connect streaming errors to runtime onError handler
+- 8e67158: - fixes gemini adapter
+- 83822d2: - fix: do not show error on state loading if thread does not exist
+- fe9009c: - feat(langgraph): new thread metadata
+- f295375: - fix: remove all agents as tools when there is an active agent session
+  - fix formatting
+- 9b986ba: - fix: use active interrupt from thread instead of saving to global state
+- 1d1c51d: - feat: surface all errors in structured format
+- dec5527: - fix: only fetch agent state for langgraph agents
+- 9b81464: - fix: use latest langgraph agui
+- 10345a5: - feat: structured error visibility system for streaming errors
+- 8ef8199: - fix: use latest agui dependencies to include required fixes
+- 20e8c3c: - fix(anthropic-adapter): resolve infinite loop caused by duplicate result messages
+- 9169ad7: - feat: add onTrace handler for comprehensive debugging and observability - Add CopilotTraceEvent interfaces with rich debugging context, implement runtime-side tracing with publicApiKey gating, add UI-side error tracing, include comprehensive test coverage, and fix tsup build config to exclude test files
+  - fix: extract publicApiKey for all requests + trace GraphQL errors
+- fc6b653: - Fix extract toolParameters in extractParametersFromSchema
+  - Ensures consistency in how parameters are passed to the execute function across the codebase.
+- fc6b653: - Fix extract toolParameters in extractParametersFromSchema
+  - Fixed generateMcpToolInstructions to properly extract parameters from schema.parameters.properties
+  - fix: enhance MCP schema support for complex types and remove duplicate headers
+- fc6b653: - Fix extract toolParameters in extractParametersFromSchema
+- Updated dependencies [fac89c2]
+- Updated dependencies [9169ad7]
+- Updated dependencies [1d1c51d]
+- Updated dependencies [10345a5]
+- Updated dependencies [9169ad7]
+  - @copilotkit/shared@1.9.2
+
 ## 1.9.2-next.26
 
 ### Patch Changes
