@@ -975,16 +975,21 @@ please use an LLM adapter instead.`,
     } catch (error) {
       // All errors from agent state loading are user configuration issues
       const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStatus = error?.response?.status || error?.status;
 
-      // Log user configuration errors at debug level to reduce noise
-      console.debug(`Agent '${agentName}' configuration issue: ${errorMessage}`);
+      if (errorStatus === 404) {
+        state = {};
+      } else {
+        // Log user configuration errors at debug level to reduce noise
+        console.debug(`Agent '${agentName}' configuration issue: ${errorMessage}`);
 
-      // Throw a configuration error - all agent state loading failures are user setup issues
-      throw new ResolvedCopilotKitError({
-        status: 400,
-        message: `Agent '${agentName}' failed to execute: ${errorMessage}`,
-        code: CopilotKitErrorCode.CONFIGURATION_ERROR,
-      });
+        // Throw a configuration error - all agent state loading failures are user setup issues
+        throw new ResolvedCopilotKitError({
+          status: 400,
+          message: `Agent '${agentName}' failed to execute: ${errorMessage}`,
+          code: CopilotKitErrorCode.CONFIGURATION_ERROR,
+        });
+      }
     }
 
     if (Object.keys(state).length === 0) {
