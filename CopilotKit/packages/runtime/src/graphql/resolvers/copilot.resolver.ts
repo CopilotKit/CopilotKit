@@ -28,7 +28,6 @@ import {
 } from "../../service-adapters/events";
 import {
   FailedMessageStatus,
-  MessageStatusCode,
   MessageStatusUnion,
   SuccessMessageStatus,
 } from "../types/message-status.type";
@@ -41,12 +40,12 @@ import {
   GuardrailsValidationFailureResponse,
   MessageStreamInterruptedResponse,
   UnknownErrorResponse,
+  getClientIp,
 } from "../../utils";
 import {
   ActionExecutionMessage,
   AgentStateMessage,
   Message,
-  MessageType,
   ResultMessage,
   TextMessage,
 } from "../types/converted";
@@ -150,6 +149,8 @@ export class CopilotResolver {
       "cloud.guardrails.enabled": data.cloud?.guardrails !== undefined,
       requestType: data.metadata.requestType,
       "cloud.api_key_provided": !!ctx.request.headers.get("x-copilotcloud-public-api-key"),
+      ip: getClientIp(ctx.request),
+      environment: process.env.NODE_ENV || "development",
       ...(ctx.request.headers.get("x-copilotcloud-public-api-key")
         ? {
             "cloud.public_api_key": ctx.request.headers.get("x-copilotcloud-public-api-key"),

@@ -1,6 +1,6 @@
 import { Analytics } from "@segment/analytics-node";
 import { AnalyticsEvents } from "./events";
-import { flattenObject, printSecurityNotice } from "./utils";
+import { flattenObject } from "./utils";
 import { v4 as uuidv4 } from "uuid";
 
 export class TelemetryClient {
@@ -10,7 +10,7 @@ export class TelemetryClient {
   packageName: string;
   packageVersion: string;
   private telemetryDisabled: boolean = false;
-  private sampleRate: number = 0.05;
+  private sampleRate: number = 1;
   private anonymousId = `anon_${uuidv4()}`;
 
   constructor({
