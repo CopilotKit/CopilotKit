@@ -72,12 +72,12 @@ import { Tab } from "../components/react/tabs";
     app = FastAPI()
     # [!code highlight:10]
     add_langgraph_fastapi_endpoint(
-      app=app
+      app=app,
       agent=LangGraphAGUIAgent(
         name="sample_agent", # the name of your agent defined in langgraph.json
         description="Describe your agent here, will be used for multi-agent orchestration",
         graph=graph, # the graph object from your langgraph import
-      )
+      ),
       path="/your-agent-path", # the endpoint you'd like to serve your agent on
     )
 

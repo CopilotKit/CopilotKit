@@ -39,7 +39,7 @@ import { Tab } from "../components/react/tabs";
       agents: {
           // [!code highlight:3]
           // Our FastAPI endpoint URL
-          new LangGraphHttpAgent({url: "http://localhost:8000/your-agent-endpoint"}),
+          'sample_agent': new LangGraphHttpAgent({url: "http://localhost:8000/your-agent-endpoint"}),
       },
     });
     // ...
