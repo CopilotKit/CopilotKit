@@ -119,3 +119,21 @@ const runtime = new CopilotRuntime({
 ```
 
 This allows you to send your logs to any system or service that you prefer.
+
+## Analytics & Privacy
+
+CopilotKit uses [Scarf](https://scarf.sh) for anonymous usage analytics to help improve the product. Scarf handles all privacy compliance and does not store raw IP addresses. This helps us understand how CopilotKit is being used and prioritize improvements.
+
+### Opting Out
+
+To disable analytics, set the environment variable:
+
+```bash
+export COPILOTKIT_TELEMETRY_DISABLED=true
+```
+
+Or use the `DO_NOT_TRACK` standard:
+
+```bash
+export DO_NOT_TRACK=1
+```
