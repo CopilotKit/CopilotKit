@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.9.3-next.0
+
+### Patch Changes
+
+- 88ceae2: - upgrade AG-UI packages
+  - @copilotkit/shared@1.9.3-next.0
+
 ## 1.9.2
 
 ### Patch Changes
