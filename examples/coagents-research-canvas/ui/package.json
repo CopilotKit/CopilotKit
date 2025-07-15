@@ -10,9 +10,9 @@
   },
   "dependencies": {
     "@ag-ui/langgraph": "^0.0.6",
-    "@copilotkit/react-core": "1.9.2",
-    "@copilotkit/react-ui": "1.9.2",
-    "@copilotkit/runtime": "1.9.2",
+    "@copilotkit/react-core": "1.9.3-next.0",
+    "@copilotkit/react-ui": "1.9.3-next.0",
+    "@copilotkit/runtime": "1.9.3-next.0",
     "@radix-ui/react-dialog": "^1.1.2",
     "@radix-ui/react-icons": "^1.3.2",
     "@radix-ui/react-select": "^2.1.2",
