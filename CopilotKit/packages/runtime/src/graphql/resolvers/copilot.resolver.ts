@@ -41,6 +41,7 @@ import {
   GuardrailsValidationFailureResponse,
   MessageStreamInterruptedResponse,
   UnknownErrorResponse,
+  getRequestOrigin,
 } from "../../utils";
 import {
   ActionExecutionMessage,
@@ -150,6 +151,8 @@ export class CopilotResolver {
       "cloud.guardrails.enabled": data.cloud?.guardrails !== undefined,
       requestType: data.metadata.requestType,
       "cloud.api_key_provided": !!ctx.request.headers.get("x-copilotcloud-public-api-key"),
+      origin: getRequestOrigin(ctx.request),
+      environment: process.env.NODE_ENV || "development",
       ...(ctx.request.headers.get("x-copilotcloud-public-api-key")
         ? {
             "cloud.public_api_key": ctx.request.headers.get("x-copilotcloud-public-api-key"),

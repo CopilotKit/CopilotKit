@@ -6,6 +6,8 @@ export type AnalyticsEvents = {
     "cloud.api_key_provided": boolean;
     "cloud.public_api_key"?: string;
     "cloud.base_url"?: string;
+    origin?: string;
+    environment?: string;
   };
   "oss.runtime.server_action_executed": {};
   "oss.runtime.remote_action_executed": RemoteActionExecutionInfo;
