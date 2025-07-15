@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.9.3-next.1
+
+### Patch Changes
+
+- 589ae52: - adds scarf deps to runtime
+  - @copilotkit/shared@1.9.3-next.1
+
 ## 1.9.3-next.0
 
 ### Patch Changes
