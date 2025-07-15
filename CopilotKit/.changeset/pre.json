@@ -18,6 +18,7 @@
     "tsconfig": "1.4.6"
   },
   "changesets": [
+    "six-emus-lie",
     "two-mayflies-rhyme"
   ]
 }
