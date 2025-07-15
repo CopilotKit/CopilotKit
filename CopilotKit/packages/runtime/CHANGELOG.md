@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.9.3-next.2
+
+### Patch Changes
+
+- df25f34: - feat: add agui fastAPI compatible langgraph agent
+  - chore: release 0.1.55 with agui langgraph fastapi support
+  - @copilotkit/shared@1.9.3-next.2
+
 ## 1.9.3-next.1
 
 ### Patch Changes
