@@ -12,7 +12,19 @@ interface AutoResizingTextareaProps {
 }
 
 const AutoResizingTextarea = forwardRef<HTMLTextAreaElement, AutoResizingTextareaProps>(
-  ({ maxRows = 1, placeholder, value, onChange, onKeyDown, onCompositionStart, onCompositionEnd, autoFocus }, ref) => {
+  (
+    {
+      maxRows = 1,
+      placeholder,
+      value,
+      onChange,
+      onKeyDown,
+      onCompositionStart,
+      onCompositionEnd,
+      autoFocus,
+    },
+    ref,
+  ) => {
     const internalTextareaRef = useRef<HTMLTextAreaElement>(null);
     const [maxHeight, setMaxHeight] = useState<number>(0);
 
