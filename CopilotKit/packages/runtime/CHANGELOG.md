@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.9.3-next.3
+
+### Patch Changes
+
+- 1bda332: - chore(telemetry): integrate Scarf for usage analytics
+- Updated dependencies [1bda332]
+  - @copilotkit/shared@1.9.3-next.3
+
 ## 1.9.3-next.2
 
 ### Patch Changes
