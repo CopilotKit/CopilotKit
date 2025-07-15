@@ -99,12 +99,7 @@ useCopilotAction({
 const { agentState } = useCoAgent({ 
   name: "basic_agent", 
   initialState: { input: "NYC" } 
-});![banner](https://github.com/user-attachments/assets/b4d76fab-7439-4010-9319-a5b16546b569)
-![class-support-ecosystem](https://github.com/user-attachments/assets/65de96b7-dc12-4c3d-a704-30c2d3b0ea3c)
-![form-filling-copilot](https://github.com/user-attachments/assets/46b0ad80-33dc-4a49-94ba-f270a32fc123)
-![chat-with-your-data](https://github.com/user-attachments/assets/4ffd9b7a-86d9-4b22-9c17-148de581e7c6)
-![state-machine-copilot](https://github.com/user-attachments/assets/65581290-f4bd-4486-840b-27d3d0c77bc8)
-
+});
 
 // agentic generative UI
 useCoAgentStateRender({
