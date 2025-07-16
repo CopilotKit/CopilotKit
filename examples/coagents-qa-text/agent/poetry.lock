@@ -2312,33 +2312,34 @@ xxhash = ">=3.5.0"
 
 [[package]]
 name = "langgraph-api"
-version = "0.2.1"
+version = "0.2.86"
 description = ""
 optional = false
 python-versions = ">=3.11"
 groups = ["main"]
 files = [
-    {file = "langgraph_api-0.2.1-py3-none-any.whl", hash = "sha256:8eee41eeceab462adc4c6f49816f69f2f452858ee373e6f3c12993e530172f78"},
-    {file = "langgraph_api-0.2.1.tar.gz", hash = "sha256:5f65cb9e4b2df0b52e0e207c2eb0b018e6bc8b58314e8a9c01488d6cec9cae6d"},
+    {file = "langgraph_api-0.2.86-py3-none-any.whl", hash = "sha256:b20ac26ef9c5323732012eed602290ca9ca268473341dcb3282b02ed6622ec8c"},
+    {file = "langgraph_api-0.2.86.tar.gz", hash = "sha256:220532a5a2232d32efef7e3b98be74ee6328d18f785e83949fa815ef2ac77f2f"},
 ]
 
 [package.dependencies]
-cloudpickle = ">=3.0.0,<4.0.0"
+cloudpickle = ">=3.0.0"
 cryptography = ">=42.0.0,<45.0"
 httpx = ">=0.25.0"
 jsonschema-rs = ">=0.20.0,<0.30"
-langchain-core = {version = ">=0.2.38", markers = "python_version < \"4.0\""}
-langgraph = {version = ">=0.2.56", markers = "python_version < \"4.0\""}
-langgraph-checkpoint = {version = ">=2.0.23", markers = "python_version < \"4.0\""}
-langgraph-runtime-inmem = ">=0.0.7"
-langgraph-sdk = {version = ">=0.1.66,<0.2.0", markers = "python_version < \"4.0\""}
-langsmith = ">=0.1.63"
+langchain-core = ">=0.3.64"
+langgraph = ">=0.3.27"
+langgraph-checkpoint = ">=2.0.23"
+langgraph-runtime-inmem = ">=0.3.0,<0.4"
+langgraph-sdk = ">=0.1.71"
+langsmith = ">=0.3.45"
 orjson = ">=3.9.7"
-pyjwt = ">=2.9.0,<3.0.0"
+pyjwt = ">=2.9.0"
 sse-starlette = ">=2.1.0,<2.2.0"
 starlette = ">=0.38.6"
 structlog = ">=24.1.0,<26"
 tenacity = ">=8.0.0"
+truststore = ">=0.1"
 uvicorn = ">=0.26.0"
 watchfiles = ">=0.13"
 
@@ -4915,6 +4916,18 @@ files = [
 [package.extras]
 docs = ["myst-parser", "pydata-sphinx-theme", "sphinx"]
 test = ["argcomplete (>=3.0.3)", "mypy (>=1.7.0)", "pre-commit", "pytest (>=7.0,<8.2)", "pytest-mock", "pytest-mypy-testing"]
+
+[[package]]
+name = "truststore"
+version = "0.10.1"
+description = "Verify certificates using native system trust stores"
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "truststore-0.10.1-py3-none-any.whl", hash = "sha256:b64e6025a409a43ebdd2807b0c41c8bff49ea7ae6550b5087ac6df6619352d4c"},
+    {file = "truststore-0.10.1.tar.gz", hash = "sha256:eda021616b59021812e800fa0a071e51b266721bef3ce092db8a699e21c63539"},
+]
 
 [[package]]
 name = "typer"
