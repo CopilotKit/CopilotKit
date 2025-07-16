@@ -2,8 +2,8 @@
   "title": "LangGraph",
   "root": true,
   "pages": [
-    "index",
     "---Getting Started---",
+    "index",
     "quickstart",
     "[lucide/Telescope][Feature Viewer](https://feature-viewer-langgraph.vercel.app/)",
     "---Custom Look and Feel---",

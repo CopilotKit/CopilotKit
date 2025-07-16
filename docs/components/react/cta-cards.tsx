@@ -1,13 +1,12 @@
 'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { IconType } from "react-icons";
 import { BotIcon, WrenchIcon, Pause, Share2, Bot, Wrench, MessageSquare, LayoutTemplate, Wand, UserCog, Play } from "lucide-react";
-import { ReactNode } from "react";
 
 // Icon resolver function for CTACards
-function getIconByKey(iconKey: string): React.ComponentType<any> {
+function getIconByKey(iconKey: string): React.ComponentType<{ className?: string }> {
   switch (iconKey) {
     case 'bot':
       return BotIcon;

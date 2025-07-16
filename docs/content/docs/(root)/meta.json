@@ -1,9 +1,8 @@
 {
   "title": "Overview",
-  "root": true,
   "pages": [
-    "index",
     "---Getting Started---",
+    "index",
     "[lucide/Play][LLM Quickstart](../direct-to-llm/guides/quickstart)",
     "[lucide/Play][CoAgent Quickstart](../coagents/quickstart)",
     "---Feature Overviews---",

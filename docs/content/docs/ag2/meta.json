@@ -2,8 +2,8 @@
   "title": "AutoGen2",
   "root": true,
   "pages": [
-    "index",
     "---Getting Started---",
+    "index",
     "quickstart",
     "---Custom Look and Feel---",
     "...custom-look-and-feel",

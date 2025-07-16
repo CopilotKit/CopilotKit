@@ -1,3 +1,4 @@
+<<<<<<< HEAD:docs/snippets/shared/guides/custom-look-and-feel/markdown-rendering.mdx
 import { Frame } from "@/components/react/frame"
 
 When rendering an assistant message, CopilotKit uses [`react-markdown`](https://remarkjs.github.io/react-markdown/) under the hood.
@@ -85,3 +86,12 @@ Now, let's add styles to the component
 
 If you wish to avoid the markdown renderer altogether, you can replace the `<AssistantMessage />` component, which is the one to use it.
 See [Custom Sub-Components](/guides/custom-look-and-feel/bring-your-own-components)
+=======
+---
+title: Markdown rendering
+icon: "lucide/MessageSquareCode"
+---
+import MarkdownRendering from "@/snippets/shared-guides/custom-look-and-feel/markdown-rendering.mdx";
+
+<MarkdownRendering components={props.components} />
+>>>>>>> c26321761 (refactor: upgrade, minimize and simplify docs):docs/content/docs/agno/shared-guides/custom-look-and-feel/markdown-rendering.mdx

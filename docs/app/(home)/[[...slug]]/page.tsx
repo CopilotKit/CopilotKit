@@ -10,7 +10,6 @@ import { notFound } from "next/navigation";
 import defaultMdxComponents from "fumadocs-ui/mdx";
 import { Badge } from "@/components/ui/badge";
 import { CloudIcon } from "lucide-react";
-import { getImageMeta } from "fumadocs-ui/og";
 
 import { Tabs, Tab } from "@/components/react/tabs";
 import { Steps, Step } from "fumadocs-ui/components/steps";
@@ -68,9 +67,10 @@ const mdxComponents = {
 export default async function Page({
   params,
 }: {
-  params: { slug?: string[] };
+  params: Promise<{ slug?: string[] }>;
 }) {
-  const page = source.getPage(params.slug);
+  const resolvedParams = await params;
+  const page = source.getPage(resolvedParams.slug);
   if (!page) notFound();
   const MDX = page.data.body;
   const cloudOnly = cloudOnlyFeatures.includes(page.data.title);
@@ -119,7 +119,7 @@ export default async function Page({
       </div>
       <DocsDescription>{page.data.description}</DocsDescription>
       <DocsBody>
-        <MDX components={mdxComponents} renderSmth={() => <div>test</div>} />
+        <MDX components={mdxComponents} />
       </DocsBody>
     </DocsPage>
   );
@@ -129,21 +129,13 @@ export async function generateStaticParams() {
   return source.generateParams();
 }
 
-export function generateMetadata({ params }: { params: { slug?: string[] } }) {
-  const page = source.getPage(params.slug);
+export async function generateMetadata({ params }: { params: Promise<{ slug?: string[] }> }) {
+  const resolvedParams = await params;
+  const page = source.getPage(resolvedParams.slug);
   if (!page) notFound();
-
-  const image = getImageMeta("og", page.slugs);
 
   return {
     title: page.data.title,
     description: page.data.description,
-    openGraph: {
-      images: image,
-    },
-    twitter: {
-      images: image,
-      card: "summary_large_image",
-    },
   } satisfies Metadata;
 }

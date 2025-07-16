@@ -1,9 +1,9 @@
 {
-  "title": "CoAgents",
+  "title": "CrewAI Flows",
   "root": true,
   "pages": [
-    "index",
     "---Getting Started---",
+    "index",
     "quickstart",
     "[lucide/Telescope][Feature Viewer](https://demo-viewer-five.vercel.app/ )",
     "---Custom Look and Feel---",

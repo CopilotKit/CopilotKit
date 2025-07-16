@@ -1,4 +1,4 @@
-import { DocsLayout } from "fumadocs-ui/layout";
+import { DocsLayout } from "fumadocs-ui/layouts/docs";
 import type { ReactNode } from "react";
 import { baseOptions } from "../layout.config";
 import { source } from "@/app/source";
@@ -18,10 +18,8 @@ import {
 export default function Layout({ children }: { children: ReactNode }) {
   return (
     <>
-      <TopBar />
       <DocsLayout
         tree={source.pageTree}
-        {...baseOptions}
         sidebar={{
           hideSearch: true,
           banner: (
@@ -166,6 +164,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             />
           ),
         }}
+        {...baseOptions}
       >
         {children}
       </DocsLayout>
