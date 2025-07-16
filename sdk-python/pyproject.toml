@@ -14,7 +14,7 @@ python = ">=3.10,<3.13"
 langgraph = {version = ">=0.3.18,<=0.5.0"}
 langchain = {version = ">=0.3.4,<=0.3.26"}
 crewai = { version = "0.118.0", optional = true }
-ag-ui-langgraph = { version = "0.0.1", extras = ["fastapi"] }
+ag-ui-langgraph = { version = "0.0.3", extras = ["fastapi"] }
 fastapi = "^0.115.0"
 partialjson = "^0.0.8"
 toml = "^0.10.2"
