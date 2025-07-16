@@ -10,7 +10,7 @@ export const quickStartProviders: ProvidersConfig = {
   openai: {
     id: "openai",
     title: "OpenAI",
-    icon: "/icons/openai.png",
+    icon: "https://cdn.copilotkit.ai/docs/copilotkit/icons/openai.png",
     envVarName: "OPENAI_API_KEY",
     adapterImport: "OpenAIAdapter",
     adapterSetup: "const serviceAdapter = new OpenAIAdapter();",
@@ -18,7 +18,7 @@ export const quickStartProviders: ProvidersConfig = {
   azure: {
     id: "azure",
     title: "Azure OpenAI",
-    icon: "/icons/azure.png",
+    icon: "https://cdn.copilotkit.ai/docs/copilotkit/icons/azure.png",
     packageName: "openai",
     envVarName: "AZURE_OPENAI_API_KEY",
     adapterImport: "OpenAIAdapter",
@@ -41,7 +41,7 @@ const openai = new OpenAI({
   anthropic: {
     id: "anthropic",
     title: "Anthropic (Claude)",
-    icon: "/icons/anthropic.png",
+    icon: "https://cdn.copilotkit.ai/docs/copilotkit/icons/anthropic.png",
     envVarName: "ANTHROPIC_API_KEY",
     adapterImport: "AnthropicAdapter",
     adapterSetup: "const serviceAdapter = new AnthropicAdapter();",
@@ -49,7 +49,7 @@ const openai = new OpenAI({
   groq: {
     id: "groq",
     title: "Groq",
-    icon: "/icons/groq.png",
+    icon: "https://cdn.copilotkit.ai/docs/copilotkit/icons/groq.png",
     envVarName: "GROQ_API_KEY",
     adapterImport: "GroqAdapter",
     adapterSetup:
@@ -58,7 +58,7 @@ const openai = new OpenAI({
   google: {
     id: "google",
     title: "Google Generative AI (Gemini)",
-    icon: "/icons/google.png",
+    icon: "https://cdn.copilotkit.ai/docs/copilotkit/icons/google.png",
     envVarName: "GOOGLE_API_KEY",
     adapterImport: "GoogleGenerativeAIAdapter",
     adapterSetup:
@@ -67,7 +67,7 @@ const openai = new OpenAI({
   bedrock: {
     id: "bedrock",
     title: "Amazon Bedrock",
-    icon: "/icons/amazon-aws.png",
+    icon: "https://cdn.copilotkit.ai/docs/copilotkit/icons/amazon-aws.png",
     adapterImport: "BedrockAdapter",
     adapterSetup:
       "const serviceAdapter = new BedrockAdapter({ model: <optional model choice> });",
@@ -78,7 +78,7 @@ const openai = new OpenAI({
   langchain: {
     id: "langchain",
     title: "LangChain (any model)",
-    icon: "/icons/langchain.png",
+    icon: "https://cdn.copilotkit.ai/docs/copilotkit/icons/langchain.png",
     packageName: "@langchain/openai",
     envVarName: "OPENAI_API_KEY",
     adapterImport: "LangChainAdapter",
@@ -99,7 +99,7 @@ const openai = new OpenAI({
   "openai-assistants": {
     id: "openai-assistants",
     title: "OpenAI Assistants API",
-    icon: "/icons/openai.png",
+    icon: "https://cdn.copilotkit.ai/docs/copilotkit/icons/openai.png",
     packageName: "openai",
     envVarName: "OPENAI_API_KEY",
     adapterImport: "OpenAIAssistantAdapter",
@@ -122,7 +122,7 @@ const openai = new OpenAI({
   empty: {
     id: "empty",
     title: "Empty Adapter (CoAgents Only)",
-    icon: "/icons/empty.svg",
+    icon: "https://cdn.copilotkit.ai/docs/copilotkit/icons/empty.svg",
     adapterImport: "EmptyAdapter",
     adapterSetup: "const serviceAdapter = new EmptyAdapter();",
   },

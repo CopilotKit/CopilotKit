@@ -9,7 +9,7 @@ export default function NotFound() {
       <div className="text-center">
         <div className="relative w-32 h-32 mx-auto mb-8 animate-bounce">
           <Image
-            src="/images/copilotkit-logo.svg"
+            src="https://cdn.copilotkit.ai/docs/copilotkit/images/copilotkit-logo.svg"
             alt="CopilotKit Logo"
             fill
             priority
@@ -20,7 +20,7 @@ export default function NotFound() {
           Page Not Found
         </h1>
         <p className="text-gray-600 dark:text-gray-300 mb-6 max-w-sm">
-          Oops! The page you're looking for doesn't exist.
+          Oops! The page you&apos;re looking for doesn&apos;t exist.
         </p>
         <Link 
           href="/" 

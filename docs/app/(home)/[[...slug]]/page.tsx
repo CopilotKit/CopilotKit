@@ -20,7 +20,6 @@ import { Frame } from "@/components/react/frame";
 import { Mermaid } from "@theguild/remark-mermaid/mermaid";
 import { Cards, Card } from "fumadocs-ui/components/card";
 import { PropertyReference } from "@/components/react/property-reference";
-import { getImageMeta } from "fumadocs-ui/og";
 import { InsecurePasswordProtected } from "@/components/react/insecure-password-protected";
 import { LinkToCopilotCloud } from "@/components/react/link-to-copilot-cloud";
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
@@ -58,9 +57,10 @@ const mdxComponents = {
 export default async function Page({
   params,
 }: {
-  params: { slug?: string[] };
+  params: Promise<{ slug?: string[] }>;
 }) {
-  const page = source.getPage(params.slug);
+  const resolvedParams = await params;
+  const page = source.getPage(resolvedParams.slug);
   if (!page) notFound();
   const MDX = page.data.body;
   const cloudOnly = cloudOnlyFeatures.includes(page.data.title);
@@ -68,26 +68,27 @@ export default async function Page({
     <DocsPage
       toc={[]}
       full={page.data.full}
-
     >
-      <div className="flex items-center gap-3">
-        <DocsTitle className="flex items-center">
-          {page.data.title}
-          {cloudOnly && (
-            <Badge
-              variant="secondary"
-              className="ml-3 mt-1 inline-flex items-center gap-1.5 py-1.5 px-3 bg-indigo-600/90 text-white hover:bg-indigo-600 border-0 rounded-md transition-colors"
-            >
-              <CloudIcon className="w-3 h-3" />
-              <span className="text-xs">Cloud Only</span>
-            </Badge>
-          )}
-        </DocsTitle>
+      <div className="min-h-screen">
+        <div className="flex items-center gap-3">
+          <DocsTitle className="flex items-center">
+            {page.data.title}
+            {cloudOnly && (
+              <Badge
+                variant="secondary"
+                className="ml-3 mt-1 inline-flex items-center gap-1.5 py-1.5 px-3 bg-indigo-600/90 text-white hover:bg-indigo-600 border-0 rounded-md transition-colors"
+              >
+                <CloudIcon className="w-3 h-3" />
+                <span className="text-xs">Cloud Only</span>
+              </Badge>
+            )}
+          </DocsTitle>
+        </div>
+        <DocsDescription>{page.data.description}</DocsDescription>
+        <DocsBody>
+          <MDX components={mdxComponents} renderSmth={() => <div>test</div>} />
+        </DocsBody>
       </div>
-      <DocsDescription>{page.data.description}</DocsDescription>
-      <DocsBody>
-        <MDX components={mdxComponents} renderSmth={() => <div>test</div>} />
-      </DocsBody>
     </DocsPage>
   );
 }
@@ -96,21 +97,13 @@ export async function generateStaticParams() {
   return source.generateParams();
 }
 
-export function generateMetadata({ params }: { params: { slug?: string[] } }) {
-  const page = source.getPage(params.slug);
+export async function generateMetadata({ params }: { params: Promise<{ slug?: string[] }> }) {
+  const resolvedParams = await params;
+  const page = source.getPage(resolvedParams.slug);
   if (!page) notFound();
-
-  const image = getImageMeta("og", page.slugs);
 
   return {
     title: page.data.title,
     description: page.data.description,
-    openGraph: {
-      images: image,
-    },
-    twitter: {
-      images: image,
-      card: "summary_large_image",
-    },
   } satisfies Metadata;
 }

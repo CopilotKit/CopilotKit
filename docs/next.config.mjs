@@ -17,6 +17,7 @@ const config = {
       "github-production-user-asset-6210df.s3.amazonaws.com",
       "fonts.gstatic.com",
       "docs.copilotkit.ai",
+      "cdn.copilotkit.ai",
     ],
     remotePatterns: [
       {
@@ -29,11 +30,7 @@ const config = {
   skipTrailingSlashRedirect: true,
   skipMiddlewareUrlNormalize: true,
 
-  optimizeFonts: false,
-
-  experimental: {
-    turbo: true,
-  },
+  turbopack: true,
 
   async redirects() {
     return [

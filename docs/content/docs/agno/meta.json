@@ -1,9 +1,9 @@
 {
-  "title": "CoAgents",
+  "title": "Agno",
   "root": true,
   "pages": [
-    "index",
     "---Getting Started---",
+    "index",
     "...quickstart",
     "...shared-guides",
     "agentic-chat-ui",
