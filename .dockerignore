@@ -12,6 +12,12 @@ infra
 docs
 **/.turbo
 **/.husky
-
+**/.next
+**/dist
+**/build
+**/__pycache__
+**/.pytest_cache
+**/.git
+**/.DS_Store
 **/node_modules
 **/.langgraph_api
