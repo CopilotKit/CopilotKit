@@ -32,6 +32,16 @@ export const POST = async (req: NextRequest) => {
     }
   })
 
+  if (isCrewAi) {
+    runtime = new CopilotRuntime({
+      remoteEndpoints: [
+        copilotKitEndpoint({
+          url: process.env.REMOTE_ACTION_URL || "http://localhost:8000/copilotkit",
+        })
+      ]
+    })
+  }
+
   if (deploymentUrl && !isCrewAi) {
     runtime = new CopilotRuntime({
       agents: {
