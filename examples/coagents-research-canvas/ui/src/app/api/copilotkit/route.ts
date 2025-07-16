@@ -20,13 +20,14 @@ export const POST = async (req: NextRequest) => {
 
   const isCrewAi = searchParams.get("coAgentsModel") === "crewai";
 
+  const baseUrl = process.env.REMOTE_ACTION_URL || "http://localhost:8000/copilotkit";
   let runtime = new CopilotRuntime({
     agents: {
       'research_agent': new LangGraphHttpAgent({
-        url: "http://localhost:8000/agents/research_agent",
+        url: `${baseUrl}/agents/research_agent`,
       }),
       'research_agent_google_genai': new LangGraphHttpAgent({
-        url: "http://localhost:8000/agents/research_agent_google_genai",
+        url: `${baseUrl}/agents/research_agent_google_genai`,
       })
     }
   })

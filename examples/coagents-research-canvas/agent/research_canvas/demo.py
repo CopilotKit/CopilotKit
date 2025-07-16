@@ -66,7 +66,7 @@ add_langgraph_fastapi_endpoint(
         description="Research agent.",
         graph=graph
     ),
-    path="/agents/research_agent"
+    path="/copilotkit/agents/research_agent"
 )
 add_langgraph_fastapi_endpoint(
     app=app,
@@ -75,7 +75,7 @@ add_langgraph_fastapi_endpoint(
         description="Research agent.",
         graph=graph
     ),
-    path="/agents/research_agent_google_genai"
+    path="/copilotkit/agents/research_agent_google_genai"
 )
 
 add_fastapi_endpoint(app, sdk, "/copilotkit")
