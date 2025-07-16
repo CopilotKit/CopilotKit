@@ -12,7 +12,6 @@ infra
 docs
 **/.turbo
 **/.husky
-**/.next
 **/dist
 **/build
 **/__pycache__
