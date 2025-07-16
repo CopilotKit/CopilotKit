@@ -84,6 +84,7 @@ import {
 import { HintFunction, runAgent, stopAgent } from "@copilotkit/react-core";
 import { ImageUploadQueue } from "./ImageUploadQueue";
 import { Suggestions as DefaultRenderSuggestionsList } from "./Suggestions";
+import { useToast } from "@copilotkit/react-core";
 
 /**
  * Props for CopilotChat component.
@@ -591,6 +592,7 @@ export const useCopilotChatLogic = (
   const generalContext = useCopilotContext();
   const messagesContext = useCopilotMessagesContext();
   const context = { ...generalContext, ...messagesContext };
+  const { setBannerError } = useToast();
 
   useEffect(() => {
     onInProgress?.(isLoading);
@@ -606,6 +608,9 @@ export const useCopilotChatLogic = (
             context.chatSuggestionConfiguration,
             setCurrentSuggestions,
             suggestionsAbortControllerRef,
+            setBannerError,
+            context.onError,
+            context.copilotApiConfig.publicApiKey,
           );
         }
       },
