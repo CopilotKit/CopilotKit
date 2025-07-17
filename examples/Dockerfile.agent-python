@@ -24,7 +24,10 @@ WORKDIR /asset
 # Copy pyproject + poetry.lock (if present) first for dependency caching
 COPY ${APP_DIR}/pyproject.toml ${APP_DIR}/poetry.lock* ./
 
-# Install all dependencies using Poetry
+RUN pip install -U "langgraph-cli[inmem]>=0.3.3"
+RUN pip install "crewai==0.118.0" "crewai-tools>=0.42.2" --force-reinstall
+RUN pip install "pydantic>=2.7.4,<3.0.0"
+# Install all other dependencies using Poetry
 RUN poetry install --no-root
 
 # Now copy the rest of the agent source
