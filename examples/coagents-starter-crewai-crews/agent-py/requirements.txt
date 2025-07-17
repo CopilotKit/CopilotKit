@@ -1,7 +1,7 @@
 # CopilotKit standardized dependencies for pip compatibility  
 # Generated from pyproject.toml - keep these versions synchronized
 
-copilotkit==0.1.49
+copilotkit==0.1.55
 langchain==0.3.21
 langgraph==0.3.18
 langsmith==0.3.18
