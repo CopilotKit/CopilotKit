@@ -1,5 +1,13 @@
 # ui
 
+## 1.9.3-next.4
+
+### Patch Changes
+
+- f83bda0: Fix: remote actions should never be executed to avoid duplicate result messages
+  - @copilotkit/runtime-client-gql@1.9.3-next.4
+  - @copilotkit/shared@1.9.3-next.4
+
 ## 1.9.3-next.3
 
 ### Patch Changes
