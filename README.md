@@ -60,7 +60,7 @@
 
 <span>Deploy deeply-integrated AI assistants & agents that work alongside your users inside your applications.</span>
 
-![headless-ui](https://github.com/user-attachments/assets/3b810240-e9f8-43ae-acec-31a58095e223)
+<img width="4096" height="2725" alt="Headless UI" src="https://github.com/user-attachments/assets/612119b3-2509-4fe7-960b-5d3d26423b3b" />
 
 ## 🖥️ Code Samples
 
