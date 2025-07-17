@@ -1,5 +1,17 @@
 # @copilotkit/runtime
 
+## 1.9.3
+
+### Patch Changes
+
+- 1bda332: - chore(telemetry): integrate Scarf for usage analytics
+- df25f34: - feat: add agui fastAPI compatible langgraph agent
+  - chore: release 0.1.55 with agui langgraph fastapi support
+- 589ae52: - adds scarf deps to runtime
+- 88ceae2: - upgrade AG-UI packages
+- Updated dependencies [1bda332]
+  - @copilotkit/shared@1.9.3
+
 ## 1.9.3-next.4
 
 ### Patch Changes
