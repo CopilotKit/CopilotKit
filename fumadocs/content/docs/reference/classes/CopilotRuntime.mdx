@@ -1,0 +1,223 @@
+---
+title: "CopilotRuntime"
+description: "Copilot Runtime is the back-end component of CopilotKit, enabling interaction with LLMs."
+---
+
+{
+ /*
+  * ATTENTION! DO NOT MODIFY THIS FILE!
+  * This page is auto-generated. If you want to make any changes to this page, changes must be made at:
+  * CopilotKit/packages/runtime/src/lib/runtime/copilot-runtime.ts
+  */
+}
+<Callout type="info">
+  This is the reference for the `CopilotRuntime` class. For more information and example code snippets, please see [Concept: Copilot Runtime](/concepts/copilot-runtime).
+</Callout>
+ 
+## Usage
+ 
+```tsx
+import { CopilotRuntime } from "@copilotkit/runtime";
+ 
+const copilotKit = new CopilotRuntime();
+```
+
+## Constructor Parameters
+
+<PropertyReference name="middleware" type="Middleware"  > 
+Middleware to be used by the runtime.
+ 
+  ```ts
+  onBeforeRequest: (options: {
+    threadId?: string;
+    runId?: string;
+    inputMessages: Message[];
+    properties: any;
+  }) => void | Promise<void>;
+  ```
+ 
+  ```ts
+  onAfterRequest: (options: {
+    threadId?: string;
+    runId?: string;
+    inputMessages: Message[];
+    outputMessages: Message[];
+    properties: any;
+  }) => void | Promise<void>;
+  ```
+</PropertyReference>
+
+<PropertyReference name="actions" type="ActionsConfiguration<T>"  > 
+A list of server side actions that can be executed. Will be ignored when remoteActions are set
+</PropertyReference>
+
+<PropertyReference name="remoteActions" type="CopilotKitEndpoint[]"  > 
+Deprecated: Use `remoteEndpoints`.
+</PropertyReference>
+
+<PropertyReference name="remoteEndpoints" type="EndpointDefinition[]"  > 
+A list of remote actions that can be executed.
+</PropertyReference>
+
+<PropertyReference name="langserve" type="RemoteChainParameters[]"  > 
+An array of LangServer URLs.
+</PropertyReference>
+
+<PropertyReference name="agents" type="Record<string, AbstractAgent>"  > 
+A map of agent names to AGUI agents.
+  Example agent config:
+  ```ts
+  import { AbstractAgent } from "@ag-ui/client";
+  // ...
+  agents: {
+    "support": new CustomerSupportAgent(),
+    "technical": new TechnicalAgent()
+  }
+  ```
+</PropertyReference>
+
+<PropertyReference name="delegateAgentProcessingToServiceAdapter" type="boolean"  > 
+Delegates agent state processing to the service adapter.
+ 
+  When enabled, individual agent state requests will not be processed by the agent itself.
+  Instead, all processing will be handled by the service adapter.
+</PropertyReference>
+
+<PropertyReference name="observability_c" type="CopilotObservabilityConfig"  > 
+Configuration for LLM request/response logging.
+  Requires publicApiKey from CopilotKit component to be set:
+ 
+  ```tsx
+  <CopilotKit publicApiKey="ck_pub_..." />
+  ```
+ 
+  Example logging config:
+  ```ts
+  logging: {
+    enabled: true, // Enable or disable logging
+    progressive: true, // Set to false for buffered logging
+    logger: {
+      logRequest: (data) => langfuse.trace({ name: "LLM Request", input: data }),
+      logResponse: (data) => langfuse.trace({ name: "LLM Response", output: data }),
+      logError: (errorData) => langfuse.trace({ name: "LLM Error", metadata: errorData }),
+    },
+  }
+  ```
+</PropertyReference>
+
+<PropertyReference name="mcpServers" type="MCPEndpointConfig[]"  > 
+Configuration for connecting to Model Context Protocol (MCP) servers.
+  Allows fetching and using tools defined on external MCP-compliant servers.
+  Requires providing the `createMCPClient` function during instantiation.
+  @experimental
+</PropertyReference>
+
+<PropertyReference name="createMCPClient" type="CreateMCPClientFunction"  > 
+A function that creates an MCP client instance for a given endpoint configuration.
+  This function is responsible for using the appropriate MCP client library
+  (e.g., `@copilotkit/runtime`, `ai`) to establish a connection.
+  Required if `mcpServers` is provided.
+ 
+  ```typescript
+  import { experimental_createMCPClient } from "ai"; // Import from vercel ai library
+  // ...
+  const runtime = new CopilotRuntime({
+    mcpServers: [{ endpoint: "..." }],
+    async createMCPClient(config) {
+      return await experimental_createMCPClient({
+        transport: {
+          type: "sse",
+          url: config.endpoint,
+          headers: config.apiKey
+            ? { Authorization: `Bearer ${config.apiKey}` }
+            : undefined,
+        },
+      });
+    }
+  });
+  ```
+</PropertyReference>
+
+<PropertyReference name="onTrace" type="CopilotTraceHandler"  > 
+Optional trace handler for comprehensive debugging and observability.
+ 
+  Requires publicApiKey: Tracing only works when requests include a valid publicApiKey.
+  This is a premium CopilotKit Cloud feature.
+ 
+  @param traceEvent - Structured trace event with rich debugging context
+ 
+  @example
+  ```typescript
+  const runtime = new CopilotRuntime({
+    onTrace: (traceEvent) => {
+      debugDashboard.capture(traceEvent);
+    }
+  });
+  ```
+</PropertyReference>
+
+<PropertyReference name="processRuntimeRequest" type="request: CopilotRuntimeRequest">
+
+
+  <PropertyReference name="request" type="CopilotRuntimeRequest" required>
+  
+  </PropertyReference>
+
+</PropertyReference>
+
+<PropertyReference name="getAllAgents" type="graphqlContext: GraphQLContext">
+
+
+  <PropertyReference name="graphqlContext" type="GraphQLContext" required>
+  
+  </PropertyReference>
+
+</PropertyReference>
+
+<PropertyReference name="discoverAgentsFromEndpoints" type="graphqlContext: GraphQLContext">
+
+
+  <PropertyReference name="graphqlContext" type="GraphQLContext" required>
+  
+  </PropertyReference>
+
+</PropertyReference>
+
+<PropertyReference name="loadAgentState" type="graphqlContext: GraphQLContext, threadId: string, agentName: string">
+
+
+  <PropertyReference name="graphqlContext" type="GraphQLContext" required>
+  
+  </PropertyReference>
+
+  <PropertyReference name="threadId" type="string" required>
+  
+  </PropertyReference>
+
+  <PropertyReference name="agentName" type="string" required>
+  
+  </PropertyReference>
+
+</PropertyReference>
+
+<PropertyReference name="traceGraphQLError" type="error: { message: string; code: string; type: string }, context: {
+      operation: string;
+      cloudConfigPresent: boolean;
+      guardrailsEnabled: boolean;
+    }">
+Public method to trace GraphQL validation errors
+
+  <PropertyReference name="error" type="{ message: string; code: string; type: string }" required>
+  
+  </PropertyReference>
+
+  <PropertyReference name="context" type="{
+      operation: string;
+      cloudConfigPresent: boolean;
+      guardrailsEnabled: boolean;
+    }" required>
+  
+  </PropertyReference>
+
+</PropertyReference>
+

@@ -1,0 +1,8 @@
+{
+  "title": "Copilot Runtime",
+  "pages": [
+    "CopilotRuntime",
+    "llm-adapters",
+    "CopilotTask"
+  ]
+}
