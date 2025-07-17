@@ -1,15 +1,19 @@
 FROM public.ecr.aws/docker/library/python:3.12-bookworm
+
+# Add Lambda adapter (if needed)
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4 /lambda-adapter /opt/extensions/lambda-adapter
 
+# Build arguments
 ARG APP_DIR
 ARG WITH_LOCAL_DEPS
 
+# Disable Poetry virtualenv creation
 ENV POETRY_VIRTUALENVS_CREATE=false
 
 # Install Poetry
 RUN pip install poetry
 
-# Copy SDK and install dependencies first
+# Copy SDK first and install it in editable mode
 COPY sdk-python/ /opt/sdk-python
 WORKDIR /opt/sdk-python
 RUN pip install -e .
@@ -17,33 +21,20 @@ RUN pip install -e .
 # Create working directory
 WORKDIR /asset
 
-# Copy entire agent directory
+# Copy pyproject + poetry.lock (if present) first for dependency caching
+COPY ${APP_DIR}/pyproject.toml ${APP_DIR}/poetry.lock* ./
+
+RUN pip install -U "langgraph-cli[inmem]>=0.3.3"
+RUN pip install "crewai==0.118.0" "crewai-tools>=0.42.2" --force-reinstall
+RUN pip install "pydantic>=2.7.4,<3.0.0"
+# Install all other dependencies using Poetry
+RUN poetry install --no-root
+
+# Now copy the rest of the agent source
 COPY ${APP_DIR}/ ./
 
-# Install dependencies step by step to avoid conflicts
-RUN pip install -U "langgraph-cli[inmem]>=0.1.64"
-RUN pip install "crewai==0.118.0" "crewai-tools>=0.42.2" --force-reinstall
-# Install pydantic first since langchain depends on specific versions
-RUN pip install "pydantic>=2.7.4,<3.0.0"
-# Now install langchain packages
-RUN pip install "langchain>=0.3.4,<0.4.0" \
-                "langchain-openai>=0.2.5,<0.3.0" \
-                "langchain-anthropic>=0.3.3,<0.4.0" \
-                "langchain-google-genai>=2.0.5,<3.0.0" \
-                "langchain-community>=0.3.1,<0.4.0" \
-                "langchain-core>=0.3.25,<0.4.0"
-# Install remaining dependencies
-RUN pip install "openai>=1.52.1,<2.0.0" \
-                "python-dotenv>=1.0.1,<2.0.0" \
-                requests \
-                "fastapi>=0.110.0,<0.111.0" \
-                "uvicorn>=0.31.0,<0.32.0" \
-                pandas \
-                typing-extensions \
-                tavily-python \
-                html2text
-
+# Make langgraph API directory if needed
 RUN mkdir -p .langgraph_api
 
-# Use poetry run for compatibility with example projects
+# Run the demo script (defined in pyproject.toml)
 CMD ["poetry", "run", "demo"]

@@ -8,10 +8,11 @@ load_dotenv()
 from fastapi import FastAPI
 import uvicorn
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
-from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent
+from copilotkit import CopilotKitRemoteEndpoint, LangGraphAGUIAgent
 from copilotkit.crewai import CrewAIAgent
 from research_canvas.crewai.agent import ResearchCanvasFlow
 from research_canvas.langgraph.agent import graph
+from ag_ui_langgraph import add_langgraph_fastapi_endpoint
 
 # from contextlib import asynccontextmanager
 # from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
@@ -55,17 +56,26 @@ sdk = CopilotKitRemoteEndpoint(
             description="Research agent.",
             flow=ResearchCanvasFlow(),
         ),
-        LangGraphAgent(
-            name="research_agent",
-            description="Research agent.",
-            graph=graph,
-        ),
-         LangGraphAgent(
-            name="research_agent_google_genai",
-            description="Research agent.",
-            graph=graph
-        ),
     ],
+)
+
+add_langgraph_fastapi_endpoint(
+    app=app,
+    agent=LangGraphAGUIAgent(
+        name="research_agent",
+        description="Research agent.",
+        graph=graph
+    ),
+    path="/copilotkit/agents/research_agent"
+)
+add_langgraph_fastapi_endpoint(
+    app=app,
+    agent=LangGraphAGUIAgent(
+        name="research_agent_google_genai",
+        description="Research agent.",
+        graph=graph
+    ),
+    path="/copilotkit/agents/research_agent_google_genai"
 )
 
 add_fastapi_endpoint(app, sdk, "/copilotkit")

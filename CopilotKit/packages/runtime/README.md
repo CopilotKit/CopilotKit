@@ -1,121 +1,76 @@
-<div align="center">
-  <a href="https://copilotkit.ai" target="_blank">
-    <img src="https://github.com/copilotkit/copilotkit/raw/main/assets/banner.png" alt="CopilotKit Logo">
-  </a>
+# CopilotKit - Runtime
 
-  <br/>
+<img src="https://github.com/user-attachments/assets/0a6b64d9-e193-4940-a3f6-60334ac34084" alt="banner" style="border-radius: 12px; border: 2px solid #d6d4fa;" />
 
-  <strong>
-    CopilotKit is the open-source framework for integrating powerful AI Copilots into any application. Easily implement custom AI Chatbots, AI Agents, AI Textareas, and more.
-  </strong>
-</div>
-
-<br/>
-
-<div align="center">
+<br>
+<div align="center" style="display:flex;justify-content:center;gap:16px;height:20px;margin: 0;">
   <a href="https://www.npmjs.com/package/@copilotkit/react-core" target="_blank">
-    <img src="https://img.shields.io/npm/v/%40copilotkit%2Freact-core?logo=npm&logoColor=%23FFFFFF&label=Version&color=%236963ff" alt="NPM">
+    <img src="https://img.shields.io/npm/v/%40copilotkit%2Fruntime?logo=npm&logoColor=%23FFFFFF&label=Version&color=%236963ff" alt="NPM">
   </a>
-  <img src="https://img.shields.io/github/license/copilotkit/copilotkit?color=%236963ff&label=License" alt="MIT">
+  <a href="https://github.com/copilotkit/copilotkit/blob/main/LICENSE" target="_blank">
+    <img src="https://img.shields.io/github/license/copilotkit/copilotkit?color=%236963ff&label=License" alt="MIT">
+  </a>
   <a href="https://discord.gg/6dffbvGU3D" target="_blank">
     <img src="https://img.shields.io/discord/1122926057641742418?logo=discord&logoColor=%23FFFFFF&label=Discord&color=%236963ff" alt="Discord">
   </a>
 </div>
 <br/>
-
 <div align="center">
-  <a href="https://discord.gg/6dffbvGU3D?ref=github_readme" target="_blank">
-    <img src="https://github.com/copilotkit/copilotkit/raw/main/assets/btn_discord.png" alt="CopilotKit Discord" height="40px">
-  </a>
-  <a href="https://docs.copilotkit.ai?ref=github_readme" target="_blank">
-    <img src="https://github.com/copilotkit/copilotkit/raw/main/assets/btn_docs.png" alt="CopilotKit GitHub" height="40px">
-  </a>
-  <a href="https://cloud.copilotkit.ai?ref=github_readme" target="_blank">
-    <img src="https://github.com/copilotkit/copilotkit/raw/main/assets/btn_cloud.png" alt="CopilotKit GitHub" height="40px">
+  <a href="https://www.producthunt.com/posts/copilotkit" target="_blank">
+    <img src="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=428778&theme=light&period=daily">
   </a>
 </div>
 
-<br />
+## ✨ Why CopilotKit?
 
-<div align="center">
-  <img src="https://github.com/CopilotKit/CopilotKit/raw/main/assets/animated-banner.gif" alt="CopilotKit Screenshot" style="border-radius: 15px;" />
-</div>
+- Minutes to integrate - Get started quickly with our CLI
+- Framework agnostic - Works with React, Next.js, AGUI and more
+- Production-ready UI - Use customizable components or build with headless UI
+- Built-in security - Prompt injection protection
+- Open source - Full transparency and community-driven
 
-# Documentation
+<img src="https://github.com/user-attachments/assets/6cb425f8-ffcb-49d2-9bbb-87cab5995b78" alt="class-support-ecosystem" style="border-radius: 12px; border: 2px solid #d6d4fa;">
+
+## 🧑‍💻 Real life use cases
+
+<span>Deploy deeply-integrated AI assistants & agents that work alongside your users inside your applications.</span>
+
+<img src="https://github.com/user-attachments/assets/3b810240-e9f8-43ae-acec-31a58095e223" alt="headless-ui" style="border-radius: 12px; border: 2px solid #d6d4fa;">
+
+
+## 🏆 Featured Examples
+
+<p align="center">
+  <a href="https://www.copilotkit.ai/examples/form-filling-copilot">
+    <img src="https://github.com/user-attachments/assets/874da84a-67ff-47fa-a6b4-cbc3c65eb704" width="300" style="border-radius: 16px;" />
+  </a>
+  <a href="https://www.copilotkit.ai/examples/state-machine-copilot">
+    <img src="https://github.com/user-attachments/assets/0b5e45b3-2704-4678-82dc-2f3e1c58e2dd" width="300" style="border-radius: 16px;" />
+  </a>
+  <a href="https://www.copilotkit.ai/examples/chat-with-your-data">
+    <img src="https://github.com/user-attachments/assets/0fed66be-a4c2-4093-8eab-75c0b27a62f6" width="300" style="border-radius: 16px;" />
+  </a>
+</p>
+
+## Documentation
 
 To get started with CopilotKit, please check out the [documentation](https://docs.copilotkit.ai).
 
-## LangFuse Logging Integration
 
-CopilotKit now supports LangFuse logging integration to help you monitor, analyze, and debug your LLM requests and responses.
+## Analytics & Privacy
 
-### Setup
+CopilotKit uses [Scarf](https://scarf.sh) for anonymous usage analytics to help improve the product. Scarf handles all privacy compliance and does not store raw IP addresses. This helps us understand how CopilotKit is being used and prioritize improvements.
 
-To enable LangFuse logging, you can configure it when initializing the CopilotRuntime:
+### Opting Out
 
-```typescript
-import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
-import { LangfuseClient } from "langfuse";
+To disable analytics, set the environment variable:
 
-// Initialize your LangFuse client
-const langfuse = new LangfuseClient({
-  publicKey: process.env.LANGFUSE_PUBLIC_KEY!,
-  secretKey: process.env.LANGFUSE_SECRET_KEY!,
-  baseUrl: process.env.LANGFUSE_BASE_URL,
-});
-
-// Create a CopilotRuntime with LangFuse logging enabled
-const runtime = new CopilotRuntime({
-  adapter: new OpenAIAdapter({ apiKey: process.env.OPENAI_API_KEY }),
-  logging: {
-    enabled: true,
-    progressive: true, // Set to false for buffered logging
-    logger: {
-      logRequest: (data) => langfuse.trace({ name: "LLM Request", input: data }),
-      logResponse: (data) => langfuse.trace({ name: "LLM Response", output: data }),
-      logError: (errorData) => langfuse.trace({ name: "LLM Error", metadata: errorData }),
-    },
-  },
-});
+```bash
+export COPILOTKIT_TELEMETRY_DISABLED=true
 ```
 
-### Configuration Options
+Or use the `DO_NOT_TRACK` standard:
 
-The logging configuration accepts the following options:
-
-- `enabled` (boolean): Enable or disable logging (default: false)
-- `progressive` (boolean): When true, logs each chunk as it's streamed. When false, logs the complete response (default: true)
-- `logger` (object): Contains callback functions for logging:
-  - `logRequest`: Called when an LLM request is made
-  - `logResponse`: Called when an LLM response is received
-  - `logError`: Called when an error occurs during an LLM request
-
-### Custom Logging Integrations
-
-You can integrate with any logging service by implementing the logger interface:
-
-```typescript
-const runtime = new CopilotRuntime({
-  adapter: new OpenAIAdapter({ apiKey: "YOUR_API_KEY" }),
-  logging: {
-    enabled: true,
-    progressive: false,
-    logger: {
-      logRequest: (data) => {
-        // Implement your custom logging logic
-        console.log("LLM Request:", JSON.stringify(data));
-      },
-      logResponse: (data) => {
-        // Implement your custom logging logic
-        console.log("LLM Response:", JSON.stringify(data));
-      },
-      logError: (error) => {
-        // Implement your custom error logging
-        console.error("LLM Error:", error);
-      },
-    },
-  },
-});
+```bash
+export DO_NOT_TRACK=1
 ```
-
-This allows you to send your logs to any system or service that you prefer.

@@ -1,16 +1,21 @@
 {
-  "title": "CoAgents",
+  "title": "LlamaIndex",
   "root": true,
   "pages": [
     "index",
+    "---Getting Started---",
     "quickstart",
-    "---Guides---",
+    "...shared-guides",
     "agentic-chat-ui",
     "generative-ui",
     "human-in-the-loop",
     "frontend-actions",
     "multi-agent-flows",
     "---Learn---",
-    "...concepts"
+    "...concepts",
+    "---Troubleshooting Copilots---",
+    "...troubleshooting",
+    "---Other---",
+    "...(other)"
   ]
 }

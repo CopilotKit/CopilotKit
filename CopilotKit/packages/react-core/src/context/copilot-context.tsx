@@ -1,4 +1,4 @@
-import { CopilotCloudConfig, FunctionCallHandler, CopilotTraceHandler } from "@copilotkit/shared";
+import { CopilotCloudConfig, FunctionCallHandler, CopilotErrorHandler } from "@copilotkit/shared";
 import {
   ActionRenderProps,
   CatchAllActionRenderProps,
@@ -195,7 +195,7 @@ export interface CopilotContextParams {
   /**
    * The forwarded parameters to use for the task.
    */
-  forwardedParameters?: Pick<ForwardedParametersInput, "temperature">;
+  forwardedParameters?: Partial<Pick<ForwardedParametersInput, "temperature">>;
   availableAgents: Agent[];
 
   /**
@@ -222,7 +222,7 @@ export interface CopilotContextParams {
   /**
    * Optional trace handler for comprehensive debugging and observability.
    */
-  onTrace?: CopilotTraceHandler;
+  onError?: CopilotErrorHandler;
 }
 
 const emptyCopilotContext: CopilotContextParams = {
@@ -293,7 +293,7 @@ const emptyCopilotContext: CopilotContextParams = {
   langGraphInterruptAction: null,
   setLangGraphInterruptAction: () => null,
   removeLangGraphInterruptAction: () => null,
-  onTrace: undefined,
+  onError: undefined,
 };
 
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);

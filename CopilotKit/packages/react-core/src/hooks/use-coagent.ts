@@ -278,6 +278,11 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
         agentName: name,
       });
 
+      // Runtime client handles errors automatically via handleGQLErrors
+      if (result.error) {
+        return; // Don't process data on error
+      }
+
       const newState = result.data?.loadAgentState?.state;
       if (newState === lastLoadedState.current) return;
 
@@ -305,6 +310,42 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     // reset initialstate on reset
     coagentStates[name] === undefined,
   ]);
+
+  // Sync config when runtime configuration changes
+  useEffect(() => {
+    const newConfig = options.config
+      ? options.config
+      : options.configurable
+        ? { configurable: options.configurable }
+        : undefined;
+
+    if (newConfig === undefined) return;
+
+    setCoagentStatesWithRef((prev) => {
+      const existing = prev[name] ?? {
+        name,
+        state: isInternalStateManagementWithInitial(options) ? options.initialState : {},
+        config: {},
+        running: false,
+        active: false,
+        threadId: undefined,
+        nodeName: undefined,
+        runId: undefined,
+      };
+
+      if (JSON.stringify(existing.config) === JSON.stringify(newConfig)) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        [name]: {
+          ...existing,
+          config: newConfig,
+        },
+      };
+    });
+  }, [JSON.stringify(options.config), JSON.stringify(options.configurable)]);
 
   const runAgentCallback = useAsyncCallback(
     async (hint?: HintFunction) => {

@@ -1,11 +1,11 @@
 ---
-title: Common Issues
-description: Common issues you may encounter when using CoAgents.
+title: Common Copilot Issues
+description: Common issues you may encounter when using Copilots.
 ---
 
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 
-Welcome to the CoAgents Troubleshooting Guide! If you're having trouble getting tool calls to work, you've come to the right place.
+Welcome to the CopilotKit Troubleshooting Guide! Here, you can find answers to common issues
 
 <Callout>
     Have an issue not listed here? Open a ticket on [GitHub](https://github.com/CopilotKit/CopilotKit/issues) or reach out on [Discord](https://discord.com/invite/6dffbvGU3D)
@@ -15,97 +15,107 @@ Welcome to the CoAgents Troubleshooting Guide! If you're having trouble getting 
 
 </Callout>
 
-## My tool calls are not being streamed
+## I am getting network errors / API not found error
 
-This could be due to a few different reasons.
-
-First, we strongly recommend checking out our [Human In the Loop](/coagents/human-in-the-loop) guide to follow a more in depth example of how to stream tool calls
-in your Flow agents. You can also check out our [travel tutorial](/coagents/tutorials/ai-travel-app/step-6-human-in-the-loop) which talks about how to stream
-tool calls in a more complex example.
-
-If you have already done that, you can check the following:
+If you're encountering network or API errors, here's how to troubleshoot:
 
 <Accordions>
-    <Accordion title="You have not specified the tool call in the `copilotkit_customize_config`">
-        In your Flow agent, you have must specify which tool calls will be emitted to the CopilotKit runtime. By default,
-        only streamed messages are emitted. You can fix this by adding the following to the node making the tool call.
+    <Accordion title="Check your endpoint configuration">
+        Verify your endpoint configuration in your CopilotKit setup:
 
-        ```python
-        from copilotkit.Flow import copilotkit_customize_config, copilotkit_emit_message
-        from langgraph_core.runnables import RunnableConfig
-        from langchain.tools import tool
-
-        @tool
-        def say_hello_to(name: str) -> str:
-            return f"Hello, {name}!"
-
-        async def my_node(state: State, config: RunnableConfig) -> State:
-            # ...
-            config = copilotkit_customize_config(config, emit_tool_calls=["say_hello_to"]) # [code highlight]
-            # ...
-            return state
-        ```
-    </Accordion>
-    <Accordion title="You're using llm.invoke() instead of llm.ainvoke()">
-        <p>
-            When you invoke your Flow agent, you can invoke it synchronously or asynchronously. If you invoke it synchronously,
-            the tool calls will not be streamed progressively, only the final result will be streamed. If you invoke it asynchronously,
-            the tool calls will be streamed progressively.
-
-            ```python
-            config = copilotkit_customize_config(config, emit_tool_calls=["say_hello_to"])
-            response = await llm_with_tools.ainvoke(
-                [ SystemMessage(content=system_message), *state["messages"] ],
-                config=config
-            )
-            ```
-        </p>
-    </Accordion>
-
-</Accordions>
-
-## Error: `'AzureOpenAI' object has no attribute 'bind_tools'`
-
-This error is typically due to the use of an incorrect import from Flow. Instead of importing `AzureOpenAI` import `AzureChatOpenAI` and your
-issue will be resolved.
-
-```python
-from langchain_openai import AzureOpenAI # [!code --]
-from langchain_openai import AzureChatOpenAI # [!code ++]
-```
-
-## I am getting "agent not found" error
-
-If you're seeing this error, it means CopilotKit couldn't find the Flow agent you're trying to use. Here's how to fix it:
-
-<Accordions>
-    <Accordion title="Verify your agent lock mode configuration">
-        If you're using [agent lock mode](/coagents/multi-agent-flows),
-        check that the agent defined in `Flow.json` matches what's defined in the CopilotKit provider:
-
-        ```json title="Flow.json"
-        {
-            "python_version": "3.12",
-            "dockerfile_lines": [],
-            "dependencies": ["."],
-            "graphs": {
-                "my_agent": "./src/agent.py:graph"// In this case, "my_agent" is the agent you're using // [!code highlight]
-            },
-            "env": ".env"
-        }
+        ```tsx
+        <CopilotKit
+          runtimeUrl="/api/copilotkit"
+        >
+          {/* Your app */}
+        </CopilotKit>
         ```
 
-        ```tsx title="layout.tsx"
-        <CopilotKit agent="my_agent"> // [!code highlight]
-            {/* Your application components */}
+        or, if using CopilotCloud
+        ```tsx
+        <CopilotKit
+            publicApiKey="<your-copilot-cloud-public-api-key>"
+        >
+            {/* Your app */}
         </CopilotKit>
         ```
 
         Common issues:
-        - Typos in agent names
-        - Case sensitivity mismatches
-        - Missing entries in `Flow.json`
+        - Missing leading slash in endpoint path
+        - Incorrect path relative to your app's base URL, or, if using absolute paths, incorrect full URL
+        - Typos in the endpoint path
+        - If using CopilotCloud, make sure to omit the `runtimeUrl` property and provide a valid API key
     </Accordion>
+    <Accordion title="localhost vs 127.0.0.1">
+        If you're running locally and getting connection errors, try using `127.0.0.1` instead of `localhost`:
+
+        ```bash
+        # If this doesn't work:
+        http://localhost:3000/api/copilotkit
+
+        # Try this instead:
+        http://127.0.0.1:3000/api/copilotkit
+        ```
+
+        This is often due to local DNS resolution issues in `/etc/hosts` or network configuration.
+    </Accordion>
+    <Accordion title="Verify your backend is running">
+        Make sure your backend server is:
+        - Running on the expected port
+        - Accessible from your frontend
+        - Not blocked by CORS or firewalls
+
+        Check the [quickstart](/quickstart) to see how to set it up
+    </Accordion>
+
+</Accordions>
+
+## I am getting "CopilotKit's Remote Endpoint" not found error
+
+If you're getting a "CopilotKit's Remote Endpoint not found" error, it usually means the server serving `/info` endpoint isn't accessible. Here's how to fix it:
+
+<Accordions>
+    <Accordion title="Check your FastAPI setup (if using python's FastAPI)">
+        Make sure your FastAPI app has the CopilotKitSDK properly set up.<br/>
+        Refer to [Remote Python Endpoint](/guides/backend-actions/remote-backend-endpoint) to see how to set it up
+    </Accordion>
+    <Accordion title="Test your endpoint">
+        The `/info` endpoint should return agent or action information. Test it directly:
+
+        ```bash
+        curl -v -d '{}' http://localhost:8000/copilotkit/info
+        ```
+        The response looks something like this:
+        ```bash
+        * Host localhost:8000 was resolved.
+        * IPv6: ::1
+        * IPv4: 127.0.0.1
+        *   Trying [::1]:8000...
+        * connect to ::1 port 8000 from ::1 port 55049 failed: Connection refused
+        *   Trying 127.0.0.1:8000...
+        * Connected to localhost (127.0.0.1) port 8000
+        > POST /copilotkit/info HTTP/1.1
+        > Host: localhost:8000
+        > User-Agent: curl/8.7.1
+        > Accept: */*
+        > Content-Length: 2
+        > Content-Type: application/x-www-form-urlencoded
+        >
+        * upload completely sent off: 2 bytes
+        < HTTP/1.1 200 OK
+        < date: Thu, 16 Jan 2025 17:45:05 GMT
+        < server: uvicorn
+        < content-length: 214
+        < content-type: application/json
+        <
+        * Connection #0 to host localhost left intact
+        {"actions":[],"agents":[{"name":"my_agent","description":"A helpful agent.","type":"langgraph"},],"sdkVersion":"0.1.32"}%
+        ```
+
+        As you can see, it's a JSON response with your registered agents and actions, as well as the `200 OK` HTTP response status.
+        If you see a different response, check your FastAPI logs for errors.
+    </Accordion>
+
 </Accordions>
 
 ## Connection issues with tunnel creation
@@ -124,8 +134,8 @@ If you notice the tunnel creation process spinning indefinitely, your router or 
 
         If these fail, your router's security features or ISP might be blocking the connection. Common solutions:
         - Check router security settings
-        - Consider checking with your ISP about any connection restrictions
-        - Try using a mobile hotspot
+        - Contact your ISP to verify if they're blocking the connection
+        - Try a different network to confirm the issue
     </Accordion>
 
 </Accordions>

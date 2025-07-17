@@ -1,0 +1,18 @@
+{
+  "title": "copilotkit",
+  "root": true,
+  "pages": [
+    "index",
+    "...guides",
+    "---Tutorials---",
+    "...tutorials",
+    "---Cookbook---",
+    "...cookbook",
+    "---Troubleshooting Copilots---",
+    "...../shared/troubleshooting",
+    "---Other---",
+    "../shared/(other)/contributing",
+    "../shared/(other)/telemetry",
+    "(other)/observability"
+  ]
+}

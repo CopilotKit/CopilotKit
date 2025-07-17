@@ -60,6 +60,7 @@ import {
   limitMessagesToTokenCount,
 } from "./utils";
 import { randomUUID } from "@copilotkit/shared";
+import { convertServiceAdapterError } from "../shared";
 
 const DEFAULT_MODEL = "gpt-4o";
 
@@ -244,15 +245,15 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
             eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
           }
         } catch (error) {
-          console.error("[OpenAI] Error processing stream:", error);
-          throw error;
+          console.error("[OpenAI] Error during API call:", error);
+          throw convertServiceAdapterError(error, "OpenAI");
         }
 
         eventStream$.complete();
       });
     } catch (error) {
       console.error("[OpenAI] Error during API call:", error);
-      throw error;
+      throw convertServiceAdapterError(error, "OpenAI");
     }
 
     return {

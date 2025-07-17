@@ -1,5 +1,246 @@
 # ui
 
+## 1.9.3-next.4
+
+### Patch Changes
+
+- Updated dependencies [f83bda0]
+  - @copilotkit/react-core@1.9.3-next.4
+  - @copilotkit/runtime-client-gql@1.9.3-next.4
+  - @copilotkit/shared@1.9.3-next.4
+
+## 1.9.3-next.3
+
+### Patch Changes
+
+- Updated dependencies [1bda332]
+  - @copilotkit/shared@1.9.3-next.3
+  - @copilotkit/runtime-client-gql@1.9.3-next.3
+  - @copilotkit/react-core@1.9.3-next.3
+
+## 1.9.3-next.2
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.3-next.2
+- @copilotkit/react-core@1.9.3-next.2
+- @copilotkit/shared@1.9.3-next.2
+
+## 1.9.3-next.1
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.3-next.1
+- @copilotkit/react-core@1.9.3-next.1
+- @copilotkit/shared@1.9.3-next.1
+
+## 1.9.3-next.0
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.3-next.0
+- @copilotkit/react-core@1.9.3-next.0
+- @copilotkit/shared@1.9.3-next.0
+
+## 1.9.2
+
+### Patch Changes
+
+- e1de032: - fix: synchronously execute renderAndWaitForResponse
+
+  Previously, it was impossible to execute multiple human-in-the-loop (renderAndWaitForResponse)
+  calls in a row. Ultimately this was due to an issue with how CopilotKit was rendering the updates
+  when multiple renderAndWaitForResponse actions appeared on screen due to a reference based approach.
+
+  With this change, actions will be executed in a synchronous way appearing almost queue like. This
+  works with any combination of action given much more freedom when asking for user input.
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+- 10345a5: - feat: structured error visibility system for streaming errors
+- abe23c3: - feat: enable hiding stop button
+- 35537f1: - fix: memoize nested components to not rerender when content changes
+- Updated dependencies [cbeccb5]
+- Updated dependencies [3f8c575]
+- Updated dependencies [fac89c2]
+- Updated dependencies [e1de032]
+- Updated dependencies [92e8d1c]
+- Updated dependencies [9169ad7]
+- Updated dependencies [c75a04f]
+- Updated dependencies [c75a04f]
+- Updated dependencies [fe9009c]
+- Updated dependencies [1d1c51d]
+- Updated dependencies [10345a5]
+- Updated dependencies [9169ad7]
+- Updated dependencies [35537f1]
+  - @copilotkit/react-core@1.9.2
+  - @copilotkit/shared@1.9.2
+  - @copilotkit/runtime-client-gql@1.9.2
+
+## 1.9.2-next.26
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.26
+- @copilotkit/react-core@1.9.2-next.26
+- @copilotkit/shared@1.9.2-next.26
+
+## 1.9.2-next.25
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.25
+- @copilotkit/react-core@1.9.2-next.25
+- @copilotkit/shared@1.9.2-next.25
+
+## 1.9.2-next.24
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.24
+- @copilotkit/react-core@1.9.2-next.24
+- @copilotkit/shared@1.9.2-next.24
+
+## 1.9.2-next.23
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.23
+- @copilotkit/react-core@1.9.2-next.23
+- @copilotkit/shared@1.9.2-next.23
+
+## 1.9.2-next.22
+
+### Patch Changes
+
+- Updated dependencies [c75a04f]
+- Updated dependencies [c75a04f]
+  - @copilotkit/react-core@1.9.2-next.22
+  - @copilotkit/runtime-client-gql@1.9.2-next.22
+  - @copilotkit/shared@1.9.2-next.22
+
+## 1.9.2-next.21
+
+### Patch Changes
+
+- Updated dependencies [92e8d1c]
+  - @copilotkit/react-core@1.9.2-next.21
+  - @copilotkit/runtime-client-gql@1.9.2-next.21
+  - @copilotkit/shared@1.9.2-next.21
+
+## 1.9.2-next.20
+
+### Patch Changes
+
+- e1de032: - fix: synchronously execute renderAndWaitForResponse
+
+  Previously, it was impossible to execute multiple human-in-the-loop (renderAndWaitForResponse)
+  calls in a row. Ultimately this was due to an issue with how CopilotKit was rendering the updates
+  when multiple renderAndWaitForResponse actions appeared on screen due to a reference based approach.
+
+  With this change, actions will be executed in a synchronous way appearing almost queue like. This
+  works with any combination of action given much more freedom when asking for user input.
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+- Updated dependencies [e1de032]
+  - @copilotkit/react-core@1.9.2-next.20
+  - @copilotkit/runtime-client-gql@1.9.2-next.20
+  - @copilotkit/shared@1.9.2-next.20
+
+## 1.9.2-next.19
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.19
+- @copilotkit/react-core@1.9.2-next.19
+- @copilotkit/shared@1.9.2-next.19
+
+## 1.9.2-next.18
+
+### Patch Changes
+
+- Updated dependencies [fac89c2]
+  - @copilotkit/react-core@1.9.2-next.18
+  - @copilotkit/shared@1.9.2-next.18
+  - @copilotkit/runtime-client-gql@1.9.2-next.18
+
+## 1.9.2-next.17
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.17
+- @copilotkit/react-core@1.9.2-next.17
+- @copilotkit/shared@1.9.2-next.17
+
+## 1.9.2-next.16
+
+### Patch Changes
+
+- Updated dependencies [fe9009c]
+  - @copilotkit/react-core@1.9.2-next.16
+  - @copilotkit/runtime-client-gql@1.9.2-next.16
+  - @copilotkit/shared@1.9.2-next.16
+
+## 1.9.2-next.15
+
+### Patch Changes
+
+- Updated dependencies [cbeccb5]
+  - @copilotkit/react-core@1.9.2-next.15
+  - @copilotkit/runtime-client-gql@1.9.2-next.15
+  - @copilotkit/shared@1.9.2-next.15
+
+## 1.9.2-next.14
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.14
+- @copilotkit/react-core@1.9.2-next.14
+- @copilotkit/shared@1.9.2-next.14
+
+## 1.9.2-next.13
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.13
+- @copilotkit/react-core@1.9.2-next.13
+- @copilotkit/shared@1.9.2-next.13
+
+## 1.9.2-next.12
+
+### Patch Changes
+
+- Updated dependencies [3f8c575]
+  - @copilotkit/react-core@1.9.2-next.12
+  - @copilotkit/runtime-client-gql@1.9.2-next.12
+  - @copilotkit/shared@1.9.2-next.12
+
+## 1.9.2-next.11
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.11
+- @copilotkit/react-core@1.9.2-next.11
+- @copilotkit/shared@1.9.2-next.11
+
+## 1.9.2-next.10
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.10
+- @copilotkit/react-core@1.9.2-next.10
+- @copilotkit/shared@1.9.2-next.10
+
+## 1.9.2-next.9
+
+### Patch Changes
+
+- Updated dependencies [1d1c51d]
+  - @copilotkit/react-core@1.9.2-next.9
+  - @copilotkit/runtime-client-gql@1.9.2-next.9
+  - @copilotkit/shared@1.9.2-next.9
+
 ## 1.9.2-next.8
 
 ### Patch Changes

@@ -1,12 +1,12 @@
 {
-  "title": "CoAgents",
+  "title": "LangGraph",
   "root": true,
   "pages": [
     "index",
+    "---Getting Started---",
     "quickstart",
     "[lucide/Telescope][Feature Viewer](https://feature-viewer-langgraph.vercel.app/)",
-    "---Guides---",
-    "custom-look-and-feel",
+    "...shared-guides",
     "agentic-chat-ui",
     "generative-ui",
     "human-in-the-loop",
@@ -21,6 +21,9 @@
     "---Learn---",
     "...concepts",
     "---Troubleshooting---",
-    "...troubleshooting"
+    "...coagent-troubleshooting",
+    "...troubleshooting",
+    "---Other---",
+    "...(other)"
   ]
 }

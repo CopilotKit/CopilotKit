@@ -75,8 +75,42 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
   const lastLoadedAgentName = useRef<string>();
   const lastLoadedMessages = useRef<string>();
 
-  const { threadId, agentSession, runtimeClient, showDevConsole } = useCopilotContext();
+  const { threadId, agentSession, runtimeClient, showDevConsole, onError, copilotApiConfig } =
+    useCopilotContext();
   const { setBannerError } = useToast();
+
+  // Helper function to trace UI errors (similar to useCopilotRuntimeClient)
+  const traceUIError = useCallback(
+    async (error: CopilotKitError, originalError?: any) => {
+      // Just check if onError and publicApiKey are defined
+      if (!onError || !copilotApiConfig.publicApiKey) return;
+
+      try {
+        const traceEvent = {
+          type: "error" as const,
+          timestamp: Date.now(),
+          context: {
+            source: "ui" as const,
+            request: {
+              operation: "loadAgentState",
+              url: copilotApiConfig.chatApiEndpoint,
+              startTime: Date.now(),
+            },
+            technical: {
+              environment: "browser",
+              userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+              stackTrace: originalError instanceof Error ? originalError.stack : undefined,
+            },
+          },
+          error,
+        };
+        await onError(traceEvent);
+      } catch (traceError) {
+        console.error("Error in CopilotMessages onError handler:", traceError);
+      }
+    },
+    [onError, copilotApiConfig.publicApiKey, copilotApiConfig.chatApiEndpoint],
+  );
 
   const createStructuredError = (gqlError: GraphQLError): CopilotKitError | null => {
     const extensions = gqlError.extensions;
@@ -120,7 +154,6 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
           const visibility = extensions?.visibility as ErrorVisibility;
           const isDev = shouldShowDevConsole(showDevConsole);
 
-          // If dev console is disabled, don't show ANY error UI to users
           if (!isDev) {
             console.error("CopilotKit Error (hidden in production):", gqlError.message);
             return;
@@ -136,6 +169,8 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
           const ckError = createStructuredError(gqlError);
           if (ckError) {
             setBannerError(ckError);
+            // Trace the structured error
+            traceUIError(ckError, gqlError);
           } else {
             // Fallback: create a generic error for unstructured GraphQL errors
             const fallbackError = new CopilotKitError({
@@ -143,6 +178,8 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
               code: CopilotKitErrorCode.UNKNOWN,
             });
             setBannerError(fallbackError);
+            // Trace the fallback error
+            traceUIError(fallbackError, gqlError);
           }
         };
 
@@ -159,10 +196,12 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
             code: CopilotKitErrorCode.UNKNOWN,
           });
           setBannerError(fallbackError);
+          // Trace the non-GraphQL error
+          traceUIError(fallbackError, error);
         }
       }
     },
-    [setBannerError, showDevConsole],
+    [setBannerError, showDevConsole, traceUIError],
   );
 
   useEffect(() => {
@@ -204,7 +243,7 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
       }
     };
     void fetchMessages();
-  }, [threadId, agentSession?.agentName, runtimeClient]); // handleGraphQLErrors should NOT be in deps - causes infinite loop
+  }, [threadId, agentSession?.agentName]);
 
   const memoizedChildren = useMemo(() => children, [children]);
 

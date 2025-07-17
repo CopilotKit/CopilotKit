@@ -272,26 +272,29 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     headers,
     credentials: copilotApiConfig.credentials,
     showDevConsole: props.showDevConsole ?? false,
-    onTrace: props.onTrace,
+    onError: props.onError,
   });
 
   const [chatSuggestionConfiguration, setChatSuggestionConfiguration] = useState<{
     [key: string]: CopilotChatSuggestionConfiguration;
   }>({});
 
-  const addChatSuggestionConfiguration = (
-    id: string,
-    suggestion: CopilotChatSuggestionConfiguration,
-  ) => {
-    setChatSuggestionConfiguration((prev) => ({ ...prev, [id]: suggestion }));
-  };
+  const addChatSuggestionConfiguration = useCallback(
+    (id: string, suggestion: CopilotChatSuggestionConfiguration) => {
+      setChatSuggestionConfiguration((prev) => ({ ...prev, [id]: suggestion }));
+    },
+    [setChatSuggestionConfiguration],
+  );
 
-  const removeChatSuggestionConfiguration = (id: string) => {
-    setChatSuggestionConfiguration((prev) => {
-      const { [id]: _, ...rest } = prev;
-      return rest;
-    });
-  };
+  const removeChatSuggestionConfiguration = useCallback(
+    (id: string) => {
+      setChatSuggestionConfiguration((prev) => {
+        const { [id]: _, ...rest } = prev;
+        return rest;
+      });
+    },
+    [setChatSuggestionConfiguration],
+  );
 
   const [availableAgents, setAvailableAgents] = useState<Agent[]>([]);
   const [coagentStates, setCoagentStates] = useState<Record<string, CoagentState>>({});
@@ -389,6 +392,45 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
 
   const memoizedChildren = useMemo(() => children, [children]);
 
+  const agentLock = useMemo(() => props.agent ?? null, [props.agent]);
+
+  const forwardedParameters = useMemo(
+    () => props.forwardedParameters ?? {},
+    [props.forwardedParameters],
+  );
+
+  const updateExtensions = useCallback(
+    (newExtensions: SetStateAction<ExtensionsInput>) => {
+      setExtensions((prev: ExtensionsInput) => {
+        const resolved = typeof newExtensions === "function" ? newExtensions(prev) : newExtensions;
+        const isSameLength = Object.keys(resolved).length === Object.keys(prev).length;
+        const isEqual =
+          isSameLength &&
+          // @ts-ignore
+          Object.entries(resolved).every(([key, value]) => prev[key] === value);
+
+        return isEqual ? prev : resolved;
+      });
+    },
+    [setExtensions],
+  );
+
+  const updateAuthStates = useCallback(
+    (newAuthStates: SetStateAction<Record<string, AuthState>>) => {
+      setAuthStates((prev) => {
+        const resolved = typeof newAuthStates === "function" ? newAuthStates(prev) : newAuthStates;
+        const isSameLength = Object.keys(resolved).length === Object.keys(prev).length;
+        const isEqual =
+          isSameLength &&
+          // @ts-ignore
+          Object.entries(resolved).every(([key, value]) => prev[key] === value);
+
+        return isEqual ? prev : resolved;
+      });
+    },
+    [setAuthStates],
+  );
+
   return (
     <CopilotContext.Provider
       value={{
@@ -425,8 +467,8 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         agentSession,
         setAgentSession,
         runtimeClient,
-        forwardedParameters: props.forwardedParameters || {},
-        agentLock: props.agent || null,
+        forwardedParameters,
+        agentLock,
         threadId: internalThreadId,
         setThreadId,
         runId,
@@ -435,13 +477,13 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         availableAgents,
         authConfig_c: props.authConfig_c,
         authStates_c: authStates,
-        setAuthStates_c: setAuthStates,
+        setAuthStates_c: updateAuthStates,
         extensions,
-        setExtensions,
+        setExtensions: updateExtensions,
         langGraphInterruptAction,
         setLangGraphInterruptAction,
         removeLangGraphInterruptAction,
-        onTrace: props.onTrace,
+        onError: props.onError,
       }}
     >
       <CopilotMessages>{memoizedChildren}</CopilotMessages>
@@ -452,7 +494,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
 export const defaultCopilotContextCategories = ["global"];
 
 function entryPointsToFunctionCallHandler(actions: FrontendAction<any>[]): FunctionCallHandler {
-  return async ({ name, args }) => {
+  return async ({ name, args }: { name: string; args: Record<string, any> }) => {
     let actionsByFunctionName: Record<string, FrontendAction<any>> = {};
     for (let action of actions) {
       actionsByFunctionName[action.name] = action;

@@ -1,4 +1,6 @@
+
 <img width="4096" height="1588" alt="header" src="https://github.com/user-attachments/assets/dd638592-fb74-4e22-8c55-49dfc4d0e462" />
+
 
 <br>
   <div align="start" style="display:flex;justify-content:start;gap:16px;height:20px;margin: 0;">
@@ -47,7 +49,9 @@
 <br />
 <br />
 
+
 <img width="4096" height="2341" alt="class-support-ecosystem" src="https://github.com/user-attachments/assets/11e8f9e9-2914-4b5c-a44e-06d74ed96aed" />
+
 
 ## ✨ Why CopilotKit?
 
@@ -62,6 +66,7 @@
 <span>Deploy deeply-integrated AI assistants & agents that work alongside your users inside your applications.</span>
 
 <img width="4096" height="2725" alt="Headless UI" src="https://github.com/user-attachments/assets/612119b3-2509-4fe7-960b-5d3d26423b3b" />
+
 
 ## 🖥️ Code Samples
 
@@ -155,6 +160,7 @@ const response = await ChatOpenAI({ model: "gpt-4o" }).invoke(messages, modified
 ```
 ## 🏆 Featured Examples
 
+
 <p align="center">
   <a href="https://www.copilotkit.ai/examples/form-filling-copilot">
     <img width="290" height="304" alt="Banner 2 A" src="https://github.com/user-attachments/assets/90c42b54-8931-45ad-9c0b-53f7f67453a1" />
@@ -169,6 +175,7 @@ const response = await ChatOpenAI({ model: "gpt-4o" }).invoke(messages, modified
 
 ## 🖥️ AG-UI: The Agent–User Interaction Protocol
 Connect agent workflow to user-facing apps, with deep partnerships and 1st-party integrations across the agentic stack—including LangGraph, CrewAI, and more.
+
 
   <a href="https://github.com/ag-ui-protocol/ag-ui" target="_blank">
    Learn more in the AG-UI README →

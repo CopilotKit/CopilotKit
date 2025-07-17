@@ -12,30 +12,30 @@ import {
   CopilotKitAgentDiscoveryError,
   CopilotKitError,
   CopilotKitErrorCode,
-  ERROR_CONFIG,
-  CopilotTraceHandler,
-  CopilotTraceEvent,
+  CopilotErrorHandler,
+  CopilotErrorEvent,
 } from "@copilotkit/shared";
 import { shouldShowDevConsole } from "../utils/dev-console";
 
 export interface CopilotRuntimeClientHookOptions extends CopilotRuntimeClientOptions {
   showDevConsole?: boolean;
-  onTrace?: CopilotTraceHandler;
+  onError?: CopilotErrorHandler;
 }
 
 export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions) => {
   const { setBannerError } = useToast();
-  const { showDevConsole, onTrace, ...runtimeOptions } = options;
+  const { showDevConsole, onError, ...runtimeOptions } = options;
 
   // Deduplication state for structured errors
   const lastStructuredErrorRef = useRef<{ message: string; timestamp: number } | null>(null);
 
   // Helper function to trace UI errors
   const traceUIError = async (error: CopilotKitError, originalError?: any) => {
-    if (!onTrace || !runtimeOptions.publicApiKey) return;
+    // Just check if onError and publicApiKey are defined
+    if (!onError || !runtimeOptions.publicApiKey) return;
 
     try {
-      const traceEvent: CopilotTraceEvent = {
+      const errorEvent: CopilotErrorEvent = {
         type: "error",
         timestamp: Date.now(),
         context: {
@@ -46,17 +46,16 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
             startTime: Date.now(),
           },
           technical: {
-            environment: process.env.NODE_ENV,
+            environment: "browser",
             userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
             stackTrace: originalError instanceof Error ? originalError.stack : undefined,
           },
         },
         error,
       };
-
-      await onTrace(traceEvent);
-    } catch (traceError) {
-      console.error("Error in onTrace handler:", traceError);
+      await onError(errorEvent);
+    } catch (error) {
+      console.error("Error in onError handler:", error);
     }
   };
 
@@ -79,7 +78,6 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
               return;
             }
 
-            // Respect showDevConsole setting for ALL errors
             if (!isDev) {
               console.error("CopilotKit Error (hidden in production):", gqlError.message);
               return;
@@ -143,46 +141,10 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
         setBannerError(warningError);
       },
     });
-  }, [runtimeOptions, setBannerError, showDevConsole, onTrace]);
+  }, [runtimeOptions, setBannerError, showDevConsole, onError]);
 
   return runtimeClient;
 };
-
-// Helper to determine if error should show as banner based on structured error system
-function shouldShowAsBanner(gqlError: GraphQLError): boolean {
-  const extensions = gqlError.extensions;
-  if (!extensions) return false;
-
-  // Primary: Check error code and use structured config
-  const code = extensions.code as CopilotKitErrorCode;
-  if (code && ERROR_CONFIG[code]?.visibility === ErrorVisibility.BANNER) {
-    return true;
-  }
-
-  // Fallback: Check for API key errors which should always be banners
-  const errorMessage = gqlError.message.toLowerCase();
-  if (
-    errorMessage.includes("api key") ||
-    errorMessage.includes("401") ||
-    errorMessage.includes("unauthorized") ||
-    errorMessage.includes("authentication") ||
-    errorMessage.includes("incorrect api key")
-  ) {
-    return true;
-  }
-
-  // Legacy: Check by stack trace for discovery errors (for backward compatibility)
-  const originalError = extensions.originalError as any;
-  if (originalError?.stack) {
-    return (
-      originalError.stack.includes("CopilotApiDiscoveryError") ||
-      originalError.stack.includes("CopilotKitRemoteEndpointDiscoveryError") ||
-      originalError.stack.includes("CopilotKitAgentDiscoveryError")
-    );
-  }
-
-  return false;
-}
 
 // Create appropriate structured error from GraphQL error
 function createStructuredError(gqlError: GraphQLError): CopilotKitError | null {
