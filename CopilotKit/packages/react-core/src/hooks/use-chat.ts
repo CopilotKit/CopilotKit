@@ -707,7 +707,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
           return resultMessage;
         };
-        // ----------------------------------------------------------------------
+        // ---------------------------------------------------------------------
 
         // execute regular action executions that are specific to the frontend (last actions)
         if (onFunctionCall) {
