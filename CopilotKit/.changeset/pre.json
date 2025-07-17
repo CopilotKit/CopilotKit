@@ -18,6 +18,7 @@
     "tsconfig": "1.4.6"
   },
   "changesets": [
+    "brown-readers-call",
     "fifty-goats-clap",
     "rotten-windows-kick",
     "six-emus-lie",
