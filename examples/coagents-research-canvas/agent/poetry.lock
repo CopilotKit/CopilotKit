@@ -2,14 +2,14 @@
 
 [[package]]
 name = "ag-ui-langgraph"
-version = "0.0.1"
-description = ""
+version = "0.0.3"
+description = "Implementation of the AG-UI protocol for LangGraph."
 optional = false
 python-versions = "<3.14,>=3.10"
 groups = ["main"]
 files = [
-    {file = "ag_ui_langgraph-0.0.1-py3-none-any.whl", hash = "sha256:b7c90b90fb8d736fc7426219166fa63572bcc10171253d5c982544fa256b568f"},
-    {file = "ag_ui_langgraph-0.0.1.tar.gz", hash = "sha256:3208916af56f5c2dd395c85889d089f12c84207bc3e0ae12acc045abe845ce09"},
+    {file = "ag_ui_langgraph-0.0.3-py3-none-any.whl", hash = "sha256:2c2a3441b7c04e78534642ab658c545a2266ab3557900465077c6a4ba86f7042"},
+    {file = "ag_ui_langgraph-0.0.3.tar.gz", hash = "sha256:22fa25413daaa86113791c27781da9379451598861fdd61d3a244412c7c60019"},
 ]
 
 [package.dependencies]
@@ -754,18 +754,18 @@ cron = ["capturer (>=2.4)"]
 
 [[package]]
 name = "copilotkit"
-version = "0.1.55"
+version = "0.1.56a0"
 description = "CopilotKit python SDK"
 optional = false
 python-versions = "<3.13,>=3.10"
 groups = ["main"]
 files = [
-    {file = "copilotkit-0.1.55-py3-none-any.whl", hash = "sha256:aa4a5026190760d6ba1dbd920849d62c3500a9c6d583adf4c02950aed75ffbf7"},
-    {file = "copilotkit-0.1.55.tar.gz", hash = "sha256:d095be62c58f5cc25ab9e34839ec16ef64e45a88378e5dbf4770efcb8e10ac43"},
+    {file = "copilotkit-0.1.56a0-py3-none-any.whl", hash = "sha256:3e305c8697ea28d596e65dd0c48fde7c033fc1ba2b455b2aa2d885c63d5c28f9"},
+    {file = "copilotkit-0.1.56a0.tar.gz", hash = "sha256:eb78ac21d119c6c07ddda9f8655a2635f65170b0a4e697acf64c57d024382b87"},
 ]
 
 [package.dependencies]
-ag-ui-langgraph = {version = "0.0.1", extras = ["fastapi"]}
+ag-ui-langgraph = {version = "0.0.3", extras = ["fastapi"]}
 fastapi = ">=0.115.0,<0.116.0"
 langchain = ">=0.3.4,<=0.3.26"
 langgraph = ">=0.3.18,<=0.5.0"
@@ -6022,4 +6022,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<3.13"
-content-hash = "8c4d01b1a153f575af9092229e763acb23b8a61c9f7439e742e210337ceb1069"
+content-hash = "f4d8747d60bb11a053c6aab27ece70995cd35c640ae0514fa7f4465f0766dcb1"
