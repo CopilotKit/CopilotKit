@@ -734,8 +734,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             const action = actions.find(
               (action) => action.name === (message as ActionExecutionMessage).name,
             );
-            if (action && action.available === "remote") {
-              // never execute remote actions
+            if (action && action.available === "frontend") {
+              // never execute frontend actions
               continue;
             }
             const currentResultMessagePairedFeAction = message.isResultMessage()
