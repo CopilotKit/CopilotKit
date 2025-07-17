@@ -10,7 +10,7 @@ importers:
     dependencies:
       '@copilotkit/sdk-js':
         specifier: ^1.5.13
-        version: 1.8.14(@langchain/anthropic@0.3.21(@langchain/core@0.3.57(openai@4.104.0(zod@3.25.58))))(@langchain/google-genai@0.1.12(@langchain/core@0.3.57(openai@4.104.0(zod@3.25.58)))(zod@3.25.58))(axios@1.9.0)(html-to-text@9.0.5)(openai@4.104.0(zod@3.25.58))
+        version: 1.9.3(@langchain/anthropic@0.3.21(@langchain/core@0.3.57(openai@4.104.0(zod@3.25.58))))(@langchain/google-genai@0.1.12(@langchain/core@0.3.57(openai@4.104.0(zod@3.25.58)))(zod@3.25.58))(axios@1.9.0)(html-to-text@9.0.5)(openai@4.104.0(zod@3.25.58))
       '@langchain/anthropic':
         specifier: ^0.3.8
         version: 0.3.21(@langchain/core@0.3.57(openai@4.104.0(zod@3.25.58)))
@@ -74,11 +74,11 @@ packages:
     peerDependencies:
       commander: ~13.1.0
 
-  '@copilotkit/sdk-js@1.8.14':
-    resolution: {integrity: sha512-NR6uvrSnawN9K8MnsyWreQ6xuIXjix0wdjbkmEHNkG6xGOJ7eIQNJfILEeCVe96ksunp8JDwMtDH0dOwD0+oCg==}
+  '@copilotkit/sdk-js@1.9.3':
+    resolution: {integrity: sha512-P3H9z36C034+avRZ/aBJT1ilT5IWVn9JSiP4GuG2OUT5cnZBows7gHdoR/jtNSDl/ib4jaOJza5Br9W9hGHuDg==}
 
-  '@copilotkit/shared@1.8.14':
-    resolution: {integrity: sha512-jWNMyZ5/csGN0Iim/Y3ZVSnUTGJL9CAToD5SaLy2/jqaEwcLQgsAZNeHw35lh8NYGp57VxKuNbBCuEF9YXvnvw==}
+  '@copilotkit/shared@1.9.3':
+    resolution: {integrity: sha512-6VpgvrBL1HKLV2RJ+n2l+eDyPKBUzIN+CJA8N6B0vioyUqZa3VWTRsGAKoTE9Mb112xJ/fKczN68Zo0oNNSWFw==}
 
   '@dabh/diagnostics@2.0.3':
     resolution: {integrity: sha512-hrlQOIi7hAfzsMqlGSFyVucrx38O+j6wiGOf//H2ecvIEqYN4ADBSS2iLMh5UFyDunCNniUIPk/q3riFv45xRA==}
@@ -619,15 +619,15 @@ packages:
   '@sec-ant/readable-stream@0.4.1':
     resolution: {integrity: sha512-831qok9r2t8AlxLko40y2ebgSDhenenCatLVeW/uBtnHPyhHOvG0C7TvfgecV+wHzIm5KUICgzmVpWS+IMEAeg==}
 
-  '@segment/analytics-core@1.8.1':
-    resolution: {integrity: sha512-EYcdBdhfi1pOYRX+Sf5orpzzYYFmDHTEu6+w0hjXpW5bWkWct+Nv6UJg1hF4sGDKEQjpZIinLTpQ4eioFM4KeQ==}
+  '@segment/analytics-core@1.8.2':
+    resolution: {integrity: sha512-5FDy6l8chpzUfJcNlIcyqYQq4+JTUynlVoCeCUuVz+l+6W0PXg+ljKp34R4yLVCcY5VVZohuW+HH0VLWdwYVAg==}
 
   '@segment/analytics-generic-utils@1.2.0':
     resolution: {integrity: sha512-DfnW6mW3YQOLlDQQdR89k4EqfHb0g/3XvBXkovH1FstUN93eL1kfW9CsDcVQyH3bAC5ZsFyjA/o/1Q2j0QeoWw==}
 
-  '@segment/analytics-node@2.2.1':
-    resolution: {integrity: sha512-J+p5r2BewzowI6YsnSH6U+W9IAvRbEyheqDOSUEwh6QDbxjwcBXwzuPwtz5DtEjbEGMu2QwrwoJvZlZ/n5fugw==}
-    engines: {node: '>=18'}
+  '@segment/analytics-node@2.3.0':
+    resolution: {integrity: sha512-fOXLL8uY0uAWw/sTLmezze80hj8YGgXXlAfvSS6TUmivk4D/SP0C0sxnbpFdkUzWg2zT64qWIZj26afEtSnxUA==}
+    engines: {node: '>=20'}
 
   '@selderee/plugin-htmlparser2@0.11.0':
     resolution: {integrity: sha512-P33hHGdldxGabLFjPPpaTxVolMrzrcegejx+0GxjrIb9Zv48D8yAIA/QTDR2dFl7Uz7urX8aX6+5bCZslr+gWQ==}
@@ -775,6 +775,9 @@ packages:
 
   console-table-printer@2.14.3:
     resolution: {integrity: sha512-X5OCFnjYlXzRuC8ac5hPA2QflRjJvNKJocMhlnqK/Ap7q3DHXr0NJ0TGzwmEKOiOdJrjsSwEd0m+a32JAYPrKQ==}
+
+  console-table-printer@2.14.6:
+    resolution: {integrity: sha512-MCBl5HNVaFuuHW6FGbL/4fB7N/ormCy+tQ+sxTrF6QtSbSNETvPuOVbkJBhzDgYhvjWGrTma4eYJa37ZuoQsPw==}
 
   copy-anything@3.0.5:
     resolution: {integrity: sha512-yCEafptTtb4bk7GLEQoM8KVJpxAfdBJYaXyzQEgQQQgYrZiDp8SJmGKlYza6CYjEDNstAdNdKA3UuoULlEbS6w==}
@@ -1083,15 +1086,15 @@ packages:
   kuler@2.0.0:
     resolution: {integrity: sha512-Xq9nH7KlWZmXAtodXDDRE7vs6DU1gTU8zYDHDiWLSip45Egwq3plLHzPn27NgvzL2r1LMPC1vdqh98sQxtqj4A==}
 
-  langchain@0.3.27:
-    resolution: {integrity: sha512-XfOuXetMSpkS11Mt6YJkDmvuSGTMPUsks5DJz4RCZ3y2dcbLkOe5kecjx2SWVJYqQIqcMMwsjsve3/ZjnRe7rQ==}
+  langchain@0.3.30:
+    resolution: {integrity: sha512-UyVsfwHDpHbrnWrjWuhJHqi8Non+Zcsf2kdpDTqyJF8NXrHBOpjdHT5LvPuW9fnE7miDTWf5mLcrWAGZgcrznQ==}
     engines: {node: '>=18'}
     peerDependencies:
       '@langchain/anthropic': '*'
       '@langchain/aws': '*'
       '@langchain/cerebras': '*'
       '@langchain/cohere': '*'
-      '@langchain/core': '>=0.2.21 <0.4.0'
+      '@langchain/core': '>=0.3.58 <0.4.0'
       '@langchain/deepseek': '*'
       '@langchain/google-genai': '*'
       '@langchain/google-vertexai': '*'
@@ -1162,6 +1165,23 @@ packages:
     peerDependencies:
       openai: '*'
     peerDependenciesMeta:
+      openai:
+        optional: true
+
+  langsmith@0.3.46:
+    resolution: {integrity: sha512-Hhi4/cMjhWIGpu0DW5eQrXBbeeKQWPYYQyJCYzhFjod+xinMry4i8QR0gxrrgjGOgfMuU6nyK79YqjGTEPVbDA==}
+    peerDependencies:
+      '@opentelemetry/api': '*'
+      '@opentelemetry/exporter-trace-otlp-proto': '*'
+      '@opentelemetry/sdk-trace-base': '*'
+      openai: '*'
+    peerDependenciesMeta:
+      '@opentelemetry/api':
+        optional: true
+      '@opentelemetry/exporter-trace-otlp-proto':
+        optional: true
+      '@opentelemetry/sdk-trace-base':
+        optional: true
       openai:
         optional: true
 
@@ -1368,6 +1388,9 @@ packages:
   simple-wcswidth@1.0.1:
     resolution: {integrity: sha512-xMO/8eNREtaROt7tJvWJqHBDTMFN4eiQ5I4JRMuilwfnFcV5W9u7RUkueNkdw0jPqGMX36iCywelS5yilTuOxg==}
 
+  simple-wcswidth@1.1.2:
+    resolution: {integrity: sha512-j7piyCjAeTDSjzTSQ7DokZtMNwNlEAyxqSZeCS+CXH7fJ4jx3FuJ/mTW3mE+6JLs4VJBbcll0Kjn+KXI5t21Iw==}
+
   stack-trace@0.0.10:
     resolution: {integrity: sha512-KGzahc7puUKkzyMt+IqAep+TVNbKP+k2Lmwhub39m1AsTSkaDutx56aDCo+HLDzf/D26BIHTJWNiTG1KAJiQCg==}
 
@@ -1495,6 +1518,11 @@ packages:
     peerDependencies:
       zod: ^3.24.1
 
+  zod-to-json-schema@3.24.6:
+    resolution: {integrity: sha512-h/z3PKvcTcTetyjl1fkj79MHNEjm+HpD6NXheWjzOekY7kV+lwDYnHw+ivHkijnCSMz1yJaWBD9vu/Fcmk+vEg==}
+    peerDependencies:
+      zod: ^3.24.1
+
   zod@3.25.58:
     resolution: {integrity: sha512-DVLmMQzSZwNYzQoMaM3MQWnxr2eq+AtM9Hx3w1/Yl0pH8sLTSjN4jGP7w6f7uand6Hw44tsnSu1hz1AOA6qI2Q==}
 
@@ -1528,13 +1556,13 @@ snapshots:
     dependencies:
       commander: 13.1.0
 
-  '@copilotkit/sdk-js@1.8.14(@langchain/anthropic@0.3.21(@langchain/core@0.3.57(openai@4.104.0(zod@3.25.58))))(@langchain/google-genai@0.1.12(@langchain/core@0.3.57(openai@4.104.0(zod@3.25.58)))(zod@3.25.58))(axios@1.9.0)(html-to-text@9.0.5)(openai@4.104.0(zod@3.25.58))':
+  '@copilotkit/sdk-js@1.9.3(@langchain/anthropic@0.3.21(@langchain/core@0.3.57(openai@4.104.0(zod@3.25.58))))(@langchain/google-genai@0.1.12(@langchain/core@0.3.57(openai@4.104.0(zod@3.25.58)))(zod@3.25.58))(axios@1.9.0)(html-to-text@9.0.5)(openai@4.104.0(zod@3.25.58))':
     dependencies:
-      '@copilotkit/shared': 1.8.14
+      '@copilotkit/shared': 1.9.3
       '@langchain/community': 0.0.53(html-to-text@9.0.5)(openai@4.104.0(zod@3.25.58))
       '@langchain/core': 0.3.57(openai@4.104.0(zod@3.25.58))
       '@langchain/langgraph': 0.2.44(@langchain/core@0.3.57(openai@4.104.0(zod@3.25.58)))
-      langchain: 0.3.27(@langchain/anthropic@0.3.21(@langchain/core@0.3.57(openai@4.104.0(zod@3.25.58))))(@langchain/core@0.3.57(openai@4.104.0(zod@3.25.58)))(@langchain/google-genai@0.1.12(@langchain/core@0.3.57(openai@4.104.0(zod@3.25.58)))(zod@3.25.58))(axios@1.9.0)(openai@4.104.0(zod@3.25.58))
+      langchain: 0.3.30(@langchain/anthropic@0.3.21(@langchain/core@0.3.57(openai@4.104.0(zod@3.25.58))))(@langchain/core@0.3.57(openai@4.104.0(zod@3.25.58)))(@langchain/google-genai@0.1.12(@langchain/core@0.3.57(openai@4.104.0(zod@3.25.58)))(zod@3.25.58))(axios@1.9.0)(openai@4.104.0(zod@3.25.58))
       zod: 3.25.58
     transitivePeerDependencies:
       - '@aws-crypto/sha256-js'
@@ -1573,6 +1601,9 @@ snapshots:
       - '@mozilla/readability'
       - '@neondatabase/serverless'
       - '@opensearch-project/opensearch'
+      - '@opentelemetry/api'
+      - '@opentelemetry/exporter-trace-otlp-proto'
+      - '@opentelemetry/sdk-trace-base'
       - '@pinecone-database/pinecone'
       - '@planetscale/database'
       - '@premai/prem-sdk'
@@ -1649,14 +1680,14 @@ snapshots:
       - web-auth-library
       - ws
 
-  '@copilotkit/shared@1.8.14':
+  '@copilotkit/shared@1.9.3':
     dependencies:
-      '@segment/analytics-node': 2.2.1
+      '@segment/analytics-node': 2.3.0
       chalk: 4.1.2
       graphql: 16.11.0
       uuid: 10.0.0
       zod: 3.25.58
-      zod-to-json-schema: 3.24.5(zod@3.25.58)
+      zod-to-json-schema: 3.24.6(zod@3.25.58)
     transitivePeerDependencies:
       - encoding
 
@@ -1775,7 +1806,7 @@ snapshots:
       langsmith: 0.1.68(openai@4.104.0(zod@3.25.58))
       uuid: 9.0.1
       zod: 3.25.58
-      zod-to-json-schema: 3.24.5(zod@3.25.58)
+      zod-to-json-schema: 3.24.6(zod@3.25.58)
     optionalDependencies:
       html-to-text: 9.0.5
     transitivePeerDependencies:
@@ -1795,7 +1826,7 @@ snapshots:
       p-retry: 4.6.2
       uuid: 9.0.1
       zod: 3.25.58
-      zod-to-json-schema: 3.24.5(zod@3.25.58)
+      zod-to-json-schema: 3.24.6(zod@3.25.58)
     transitivePeerDependencies:
       - openai
 
@@ -1912,7 +1943,7 @@ snapshots:
       js-tiktoken: 1.0.20
       openai: 4.104.0(zod@3.25.58)
       zod: 3.25.58
-      zod-to-json-schema: 3.24.5(zod@3.25.58)
+      zod-to-json-schema: 3.24.6(zod@3.25.58)
     transitivePeerDependencies:
       - encoding
       - ws
@@ -1941,7 +1972,7 @@ snapshots:
 
   '@sec-ant/readable-stream@0.4.1': {}
 
-  '@segment/analytics-core@1.8.1':
+  '@segment/analytics-core@1.8.2':
     dependencies:
       '@lukeed/uuid': 2.0.1
       '@segment/analytics-generic-utils': 1.2.0
@@ -1952,10 +1983,10 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
-  '@segment/analytics-node@2.2.1':
+  '@segment/analytics-node@2.3.0':
     dependencies:
       '@lukeed/uuid': 2.0.1
-      '@segment/analytics-core': 1.8.1
+      '@segment/analytics-core': 1.8.2
       '@segment/analytics-generic-utils': 1.2.0
       buffer: 6.0.3
       jose: 5.10.0
@@ -2114,6 +2145,10 @@ snapshots:
   console-table-printer@2.14.3:
     dependencies:
       simple-wcswidth: 1.0.1
+
+  console-table-printer@2.14.6:
+    dependencies:
+      simple-wcswidth: 1.1.2
 
   copy-anything@3.0.5:
     dependencies:
@@ -2414,7 +2449,7 @@ snapshots:
 
   kuler@2.0.0: {}
 
-  langchain@0.3.27(@langchain/anthropic@0.3.21(@langchain/core@0.3.57(openai@4.104.0(zod@3.25.58))))(@langchain/core@0.3.57(openai@4.104.0(zod@3.25.58)))(@langchain/google-genai@0.1.12(@langchain/core@0.3.57(openai@4.104.0(zod@3.25.58)))(zod@3.25.58))(axios@1.9.0)(openai@4.104.0(zod@3.25.58)):
+  langchain@0.3.30(@langchain/anthropic@0.3.21(@langchain/core@0.3.57(openai@4.104.0(zod@3.25.58))))(@langchain/core@0.3.57(openai@4.104.0(zod@3.25.58)))(@langchain/google-genai@0.1.12(@langchain/core@0.3.57(openai@4.104.0(zod@3.25.58)))(zod@3.25.58))(axios@1.9.0)(openai@4.104.0(zod@3.25.58)):
     dependencies:
       '@langchain/core': 0.3.57(openai@4.104.0(zod@3.25.58))
       '@langchain/openai': 0.3.17(@langchain/core@0.3.57(openai@4.104.0(zod@3.25.58)))
@@ -2422,18 +2457,20 @@ snapshots:
       js-tiktoken: 1.0.20
       js-yaml: 4.1.0
       jsonpointer: 5.0.1
-      langsmith: 0.3.31(openai@4.104.0(zod@3.25.58))
+      langsmith: 0.3.46(openai@4.104.0(zod@3.25.58))
       openapi-types: 12.1.3
       p-retry: 4.6.2
       uuid: 10.0.0
       yaml: 2.8.0
       zod: 3.25.58
-      zod-to-json-schema: 3.24.5(zod@3.25.58)
     optionalDependencies:
       '@langchain/anthropic': 0.3.21(@langchain/core@0.3.57(openai@4.104.0(zod@3.25.58)))
       '@langchain/google-genai': 0.1.12(@langchain/core@0.3.57(openai@4.104.0(zod@3.25.58)))(zod@3.25.58)
       axios: 1.9.0
     transitivePeerDependencies:
+      - '@opentelemetry/api'
+      - '@opentelemetry/exporter-trace-otlp-proto'
+      - '@opentelemetry/sdk-trace-base'
       - encoding
       - openai
       - ws
@@ -2465,6 +2502,18 @@ snapshots:
       '@types/uuid': 10.0.0
       chalk: 4.1.2
       console-table-printer: 2.14.3
+      p-queue: 6.6.2
+      p-retry: 4.6.2
+      semver: 7.7.2
+      uuid: 10.0.0
+    optionalDependencies:
+      openai: 4.104.0(zod@3.25.58)
+
+  langsmith@0.3.46(openai@4.104.0(zod@3.25.58)):
+    dependencies:
+      '@types/uuid': 10.0.0
+      chalk: 4.1.2
+      console-table-printer: 2.14.6
       p-queue: 6.6.2
       p-retry: 4.6.2
       semver: 7.7.2
@@ -2650,6 +2699,8 @@ snapshots:
 
   simple-wcswidth@1.0.1: {}
 
+  simple-wcswidth@1.1.2: {}
+
   stack-trace@0.0.10: {}
 
   stacktrace-parser@0.1.11:
@@ -2765,6 +2816,10 @@ snapshots:
   yoctocolors@2.1.1: {}
 
   zod-to-json-schema@3.24.5(zod@3.25.58):
+    dependencies:
+      zod: 3.25.58
+
+  zod-to-json-schema@3.24.6(zod@3.25.58):
     dependencies:
       zod: 3.25.58
 

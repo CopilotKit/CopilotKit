@@ -7,7 +7,7 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = ">=3.12,<3.13"
-copilotkit = "0.1.48"
+copilotkit = "0.1.55"
 langchain = ">=0.1.0"
 langchain-core = ">=0.1.5"
 langchain-community = ">=0.0.1"
