@@ -1,4 +1,5 @@
-![banner](https://github.com/user-attachments/assets/0a6b64d9-e193-4940-a3f6-60334ac34084)
+<img width="4096" height="1588" alt="header" src="https://github.com/user-attachments/assets/dd638592-fb74-4e22-8c55-49dfc4d0e462" />
+
 <br>
   <div align="start" style="display:flex;justify-content:start;gap:16px;height:20px;margin: 0;">
   <a href="https://www.npmjs.com/package/@copilotkit/react-core" target="_blank">
@@ -46,7 +47,7 @@
 <br />
 <br />
 
-![class-support-ecosystem](https://github.com/user-attachments/assets/6cb425f8-ffcb-49d2-9bbb-87cab5995b78)
+<img width="4096" height="2341" alt="class-support-ecosystem" src="https://github.com/user-attachments/assets/11e8f9e9-2914-4b5c-a44e-06d74ed96aed" />
 
 ## ✨ Why CopilotKit?
 
@@ -156,13 +157,13 @@ const response = await ChatOpenAI({ model: "gpt-4o" }).invoke(messages, modified
 
 <p align="center">
   <a href="https://www.copilotkit.ai/examples/form-filling-copilot">
-    <img src="https://github.com/user-attachments/assets/874da84a-67ff-47fa-a6b4-cbc3c65eb704" width="300" />
+    <img width="290" height="304" alt="Banner 2 A" src="https://github.com/user-attachments/assets/90c42b54-8931-45ad-9c0b-53f7f67453a1" />
   </a>
   <a href="https://www.copilotkit.ai/examples/state-machine-copilot">
-    <img src="https://github.com/user-attachments/assets/0b5e45b3-2704-4678-82dc-2f3e1c58e2dd" width="300" />
+    <img width="290" height="304" alt="Banner 2 A-1" src="https://github.com/user-attachments/assets/609c62eb-76af-4866-a353-5e3545470ec3" />
   </a>
   <a href="https://www.copilotkit.ai/examples/chat-with-your-data">
-    <img src="https://github.com/user-attachments/assets/0fed66be-a4c2-4093-8eab-75c0b27a62f6" width="300" />
+    <img width="290" height="304" alt="Banner 2 A-2" src="https://github.com/user-attachments/assets/c614ac4e-d2b3-4514-9ef1-fdba04c0a082" />
   </a>
 </p>
 
