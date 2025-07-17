@@ -8,7 +8,7 @@
       "type": "registry:block",
       "title": "LangGraph Platform Starter",
       "description": "Bootstrap your Next.js project with CopilotKit and LangGraph Platform.",
-      "dependencies": ["@copilotkit/runtime", "@copilotkit/react-core"],
+      "dependencies": ["@copilotkit/runtime", "@copilotkit/react-core", "@ag-ui/langgraph"],
       "files": [
         {
           "path": "registry/layout/agent-layout.tsx",
@@ -160,7 +160,7 @@
       "type": "registry:block",
       "title": "LangGraph Platform Runtime",
       "description": "A runtime for CopilotKit with LangGraph Platform.",
-      "dependencies": ["@copilotkit/runtime"],
+      "dependencies": ["@copilotkit/runtime", "@ag-ui/langgraph"],
       "files": [
         {
           "path": "registry/runtime/langgraph-platform.ts",
