@@ -1,4 +1,8 @@
 {
   "title": "Troubleshooting Copilots",
-  "pages": ["common-issues", "migrate-to-1.8.2", "error-handling"]
+  "pages": [
+    "common-issues",
+    "migrate-to-1.8.2",
+    "error-debugging-observability"
+  ]
 }
