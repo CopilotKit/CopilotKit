@@ -738,6 +738,11 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               ? getPairedFeAction(actions, message)
               : null;
 
+            if (action && action.available === "remote") {
+              // never execute remote actions
+              continue;
+            }
+
             // execution message which has an action registered with the hook (remote availability):
             // execute that action first, and then the "paired FE action"
             if (action && message.isActionExecutionMessage()) {
