@@ -40,7 +40,11 @@ import { FrontendAction, processActionsForRuntimeRequest } from "../types/fronte
 import { CoagentState } from "../types/coagent-state";
 import { AgentSession, useCopilotContext } from "../context/copilot-context";
 import { useCopilotRuntimeClient } from "./use-copilot-runtime-client";
-import { useAsyncCallback, useErrorToast } from "../components/error-boundary/error-utils";
+import {
+  useAsyncCallback,
+  useErrorToast,
+  traceUIError,
+} from "../components/error-boundary/error-utils";
 import { useToast } from "../components/toast/toast-provider";
 import {
   LangGraphInterruptAction,
@@ -226,36 +230,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   // Get onError from context since it's not part of copilotConfig
   const { onError } = useCopilotContext();
 
-  // Add tracing functionality to use-chat
-  const traceUIError = async (error: CopilotKitError, originalError?: any) => {
-    // Just check if onError and publicApiKey are defined
-    if (!onError || !copilotConfig?.publicApiKey) return;
-
-    try {
-      const traceEvent = {
-        type: "error" as const,
-        timestamp: Date.now(),
-        context: {
-          source: "ui" as const,
-          request: {
-            operation: "useChatCompletion",
-            url: copilotConfig.chatApiEndpoint,
-            startTime: Date.now(),
-          },
-          technical: {
-            environment: "browser",
-            userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
-            stackTrace: originalError instanceof Error ? originalError.stack : undefined,
-          },
-        },
-        error,
-      };
-
-      await onError(traceEvent);
-    } catch (traceError) {
-      console.error("Error in use-chat onError handler:", traceError);
-    }
-  };
   // We need to keep a ref of coagent states and session because of renderAndWait - making sure
   // the latest state is sent to the API
   // This is a workaround and needs to be addressed in the future
@@ -282,6 +256,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     headers,
     credentials: copilotConfig.credentials,
     showDevConsole,
+    onError,
   });
 
   const pendingAppendsRef = useRef<{ message: Message; followUp: boolean }[]>([]);
@@ -516,10 +491,17 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               message: `Guardrails validation failed: ${guardrailsReason}`,
               code: CopilotKitErrorCode.MISUSE,
             });
-            await traceUIError(guardrailsError, {
-              statusReason: value.generateCopilotResponse.status.reason,
-              statusDetails: value.generateCopilotResponse.status.details,
-            });
+            await traceUIError(
+              guardrailsError,
+              {
+                statusReason: value.generateCopilotResponse.status.reason,
+                statusDetails: value.generateCopilotResponse.status.details,
+              },
+              onError,
+              copilotConfig.publicApiKey,
+              "useChatCompletion",
+              copilotConfig.chatApiEndpoint,
+            );
 
             setMessages([...previousMessages, ...newMessages]);
             break;
@@ -562,12 +544,19 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             setBannerError(structuredError);
 
             // Trace the error for debugging/observability
-            await traceUIError(structuredError, {
-              statusReason: value.generateCopilotResponse.status.reason,
-              statusDetails: value.generateCopilotResponse.status.details,
-              originalErrorCode: originalCode,
-              preservedStructure: !!originalCode,
-            });
+            await traceUIError(
+              structuredError,
+              {
+                statusReason: value.generateCopilotResponse.status.reason,
+                statusDetails: value.generateCopilotResponse.status.details,
+                originalErrorCode: originalCode,
+                preservedStructure: !!originalCode,
+              },
+              onError,
+              copilotConfig.publicApiKey,
+              "useChatCompletion",
+              copilotConfig.chatApiEndpoint,
+            );
 
             // Stop processing and break from the loop
             setIsLoading(false);

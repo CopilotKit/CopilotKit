@@ -140,32 +140,94 @@ export async function extract<const T extends Parameter[]>({
   let isInitial = true;
 
   let actionExecutionMessage: ActionExecutionMessage | undefined = undefined;
+  let lastError: any = null;
 
-  while (true) {
-    const { done, value } = await reader.read();
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
 
-    if (done) {
-      break;
+      if (done) {
+        break;
+      }
+
+      if (abortSignal?.aborted) {
+        throw new Error("Aborted");
+      }
+
+      // Check if the response has a failed status
+      const response = value.generateCopilotResponse;
+      if (response.status?.code === "Failed") {
+        // Extract the original error from the failed status
+        const failedStatus = response.status as any;
+        const originalError = failedStatus.details?.originalError;
+        if (originalError) {
+          // Create an error with the original error message and properties
+          const error = new Error(
+            failedStatus.details.description || originalError.message || "Unknown error",
+          );
+          // Preserve the original error properties
+          Object.assign(error, originalError);
+          throw error;
+        } else {
+          // Fallback to description if no original error
+          throw new Error(failedStatus.details?.description || "Request failed");
+        }
+      }
+
+      const messages = convertGqlOutputToMessages(value.generateCopilotResponse.messages);
+
+      actionExecutionMessage = messages.find((msg) => msg.isActionExecutionMessage()) as
+        | ActionExecutionMessage
+        | undefined;
+
+      if (!actionExecutionMessage) {
+        continue;
+      }
+
+      stream?.({
+        status: isInitial ? "initial" : "inProgress",
+        args: actionExecutionMessage.arguments as Partial<MappedParameterTypes<T>>,
+      });
+
+      isInitial = false;
+    }
+  } catch (error) {
+    // Store the original error to re-throw it with more context
+    lastError = error;
+  }
+
+  // If we have an original error from stream reading, always re-throw it
+  // This preserves API errors like authentication failures instead of showing generic messages
+  if (lastError) {
+    // Try to extract the actual original error from various GraphQL error structures
+    let originalError = null;
+
+    // Check direct extensions.originalError
+    if ((lastError as any)?.extensions?.originalError) {
+      originalError = (lastError as any).extensions.originalError;
+    }
+    // Check graphQLErrors array (from CopilotRuntimeClient)
+    else if ((lastError as any)?.graphQLErrors?.length > 0) {
+      const graphQLError = (lastError as any).graphQLErrors[0];
+      if (graphQLError?.extensions?.originalError) {
+        originalError = graphQLError.extensions.originalError;
+      }
+    }
+    // Check if the error itself has the message we want
+    else if (
+      (lastError as any)?.message &&
+      !(lastError as any).message.includes("extract() failed") &&
+      !(lastError as any).message.includes("No function call occurred")
+    ) {
+      // Use the error as-is if it has a meaningful message
+      originalError = lastError;
     }
 
-    if (abortSignal?.aborted) {
-      throw new Error("Aborted");
+    if (originalError) {
+      // Re-throw the original error with its actual message
+      throw originalError;
     }
-
-    actionExecutionMessage = convertGqlOutputToMessages(
-      value.generateCopilotResponse.messages,
-    ).find((msg) => msg.isActionExecutionMessage()) as ActionExecutionMessage | undefined;
-
-    if (!actionExecutionMessage) {
-      continue;
-    }
-
-    stream?.({
-      status: isInitial ? "initial" : "inProgress",
-      args: actionExecutionMessage.arguments as Partial<MappedParameterTypes<T>>,
-    });
-
-    isInitial = false;
+    throw lastError;
   }
 
   if (!actionExecutionMessage) {

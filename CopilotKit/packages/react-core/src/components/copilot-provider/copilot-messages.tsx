@@ -12,6 +12,7 @@ import {
 import { useCopilotContext } from "../../context/copilot-context";
 import { useToast } from "../toast/toast-provider";
 import { shouldShowDevConsole } from "../../utils/dev-console";
+import { isAbortError } from "@copilotkit/shared";
 import {
   ErrorVisibility,
   CopilotKitApiDiscoveryError,
@@ -20,6 +21,7 @@ import {
   CopilotKitError,
   CopilotKitErrorCode,
 } from "@copilotkit/shared";
+import { traceUIError, createStructuredError } from "../error-boundary/error-utils";
 
 // Helper to determine if error should show as banner based on visibility and legacy patterns
 function shouldShowAsBanner(gqlError: GraphQLError): boolean {
@@ -27,44 +29,21 @@ function shouldShowAsBanner(gqlError: GraphQLError): boolean {
   if (!extensions) return false;
 
   // Priority 1: Check error code for discovery errors (these should always be banners)
-  const code = extensions.code as CopilotKitErrorCode;
-  if (
-    code === CopilotKitErrorCode.AGENT_NOT_FOUND ||
-    code === CopilotKitErrorCode.API_NOT_FOUND ||
-    code === CopilotKitErrorCode.REMOTE_ENDPOINT_NOT_FOUND ||
-    code === CopilotKitErrorCode.CONFIGURATION_ERROR ||
-    code === CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR ||
-    code === CopilotKitErrorCode.UPGRADE_REQUIRED_ERROR
-  ) {
-    return true;
-  }
+  if (extensions.code === CopilotKitErrorCode.API_NOT_FOUND) return true;
+  if (extensions.code === CopilotKitErrorCode.REMOTE_ENDPOINT_NOT_FOUND) return true;
+  if (extensions.code === CopilotKitErrorCode.AGENT_NOT_FOUND) return true;
 
-  // Priority 2: Check banner visibility
-  if (extensions.visibility === ErrorVisibility.BANNER) {
-    return true;
-  }
-
-  // Priority 3: Check for critical errors that should be banners regardless of formal classification
-  const errorMessage = gqlError.message.toLowerCase();
-  if (
-    errorMessage.includes("api key") ||
-    errorMessage.includes("401") ||
-    errorMessage.includes("unauthorized") ||
-    errorMessage.includes("authentication") ||
-    errorMessage.includes("incorrect api key")
-  ) {
-    return true;
-  }
-
-  // Priority 4: Legacy stack trace detection for discovery errors
+  // Priority 2: Check legacy stack trace patterns
   const originalError = extensions.originalError as any;
   if (originalError?.stack) {
-    return (
-      originalError.stack.includes("CopilotApiDiscoveryError") ||
-      originalError.stack.includes("CopilotKitRemoteEndpointDiscoveryError") ||
-      originalError.stack.includes("CopilotKitAgentDiscoveryError")
-    );
+    if (originalError.stack.includes("CopilotApiDiscoveryError")) return true;
+    if (originalError.stack.includes("CopilotKitRemoteEndpointDiscoveryError")) return true;
+    if (originalError.stack.includes("CopilotKitAgentDiscoveryError")) return true;
   }
+
+  // Priority 3: Check API key errors
+  if (extensions.code === CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR) return true;
+  if (extensions.code === CopilotKitErrorCode.UPGRADE_REQUIRED_ERROR) return true;
 
   return false;
 }
@@ -79,70 +58,6 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
     useCopilotContext();
   const { setBannerError } = useToast();
 
-  // Helper function to trace UI errors (similar to useCopilotRuntimeClient)
-  const traceUIError = useCallback(
-    async (error: CopilotKitError, originalError?: any) => {
-      // Just check if onError and publicApiKey are defined
-      if (!onError || !copilotApiConfig.publicApiKey) return;
-
-      try {
-        const traceEvent = {
-          type: "error" as const,
-          timestamp: Date.now(),
-          context: {
-            source: "ui" as const,
-            request: {
-              operation: "loadAgentState",
-              url: copilotApiConfig.chatApiEndpoint,
-              startTime: Date.now(),
-            },
-            technical: {
-              environment: "browser",
-              userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
-              stackTrace: originalError instanceof Error ? originalError.stack : undefined,
-            },
-          },
-          error,
-        };
-        await onError(traceEvent);
-      } catch (traceError) {
-        console.error("Error in CopilotMessages onError handler:", traceError);
-      }
-    },
-    [onError, copilotApiConfig.publicApiKey, copilotApiConfig.chatApiEndpoint],
-  );
-
-  const createStructuredError = (gqlError: GraphQLError): CopilotKitError | null => {
-    const extensions = gqlError.extensions;
-    const originalError = extensions?.originalError as any;
-
-    // Priority: Check stack trace for discovery errors first
-    if (originalError?.stack) {
-      if (originalError.stack.includes("CopilotApiDiscoveryError")) {
-        return new CopilotKitApiDiscoveryError({ message: originalError.message });
-      }
-      if (originalError.stack.includes("CopilotKitRemoteEndpointDiscoveryError")) {
-        return new CopilotKitRemoteEndpointDiscoveryError({ message: originalError.message });
-      }
-      if (originalError.stack.includes("CopilotKitAgentDiscoveryError")) {
-        return new CopilotKitAgentDiscoveryError({
-          agentName: "",
-          availableAgents: [],
-        });
-      }
-    }
-
-    // Fallback: Use the formal error code if available
-    const message = originalError?.message || gqlError.message;
-    const code = extensions?.code as CopilotKitErrorCode;
-
-    if (code) {
-      return new CopilotKitError({ message, code });
-    }
-
-    return null;
-  };
-
   const handleGraphQLErrors = useCallback(
     (error: any) => {
       if (error.graphQLErrors?.length) {
@@ -154,8 +69,8 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
           const visibility = extensions?.visibility as ErrorVisibility;
           const isDev = shouldShowDevConsole(showDevConsole);
 
-          if (!isDev) {
-            console.error("CopilotKit Error (hidden in production):", gqlError.message);
+          // Suppress abort errors from debounced autosuggestion requests
+          if (isAbortError(gqlError)) {
             return;
           }
 
@@ -165,28 +80,55 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
             return;
           }
 
-          // All other errors (including DEV_ONLY) show as banners for consistency
+          // Always show structured errors as banners regardless of dev mode
           const ckError = createStructuredError(gqlError);
           if (ckError) {
             setBannerError(ckError);
-            // Trace the structured error
-            traceUIError(ckError, gqlError);
-          } else {
-            // Fallback: create a generic error for unstructured GraphQL errors
-            const fallbackError = new CopilotKitError({
-              message: gqlError.message,
-              code: CopilotKitErrorCode.UNKNOWN,
-            });
-            setBannerError(fallbackError);
-            // Trace the fallback error
-            traceUIError(fallbackError, gqlError);
+            // Trace the structured error using shared utility
+            traceUIError(
+              ckError,
+              gqlError,
+              onError,
+              copilotApiConfig.publicApiKey,
+              "loadAgentState",
+              copilotApiConfig.chatApiEndpoint,
+            );
+            return;
           }
+
+          // For non-structured errors, only show in development
+          if (!isDev) {
+            console.error("CopilotKit Error (hidden in production):", gqlError.message);
+            return;
+          }
+
+          // Development-only: Show unstructured errors as banners
+          const fallbackError = new CopilotKitError({
+            message: gqlError.message,
+            code: CopilotKitErrorCode.UNKNOWN,
+          });
+          setBannerError(fallbackError);
+          // Trace the fallback error using shared utility
+          traceUIError(
+            fallbackError,
+            gqlError,
+            onError,
+            copilotApiConfig.publicApiKey,
+            "loadAgentState",
+            copilotApiConfig.chatApiEndpoint,
+          );
         };
 
         // Process all errors as banners
         graphQLErrors.forEach(routeError);
       } else {
         const isDev = shouldShowDevConsole(showDevConsole);
+
+        // Suppress abort errors from debounced autosuggestion requests
+        if (isAbortError(error)) {
+          return;
+        }
+
         if (!isDev) {
           console.error("CopilotKit Error (hidden in production):", error);
         } else {
@@ -196,12 +138,25 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
             code: CopilotKitErrorCode.UNKNOWN,
           });
           setBannerError(fallbackError);
-          // Trace the non-GraphQL error
-          traceUIError(fallbackError, error);
+          // Trace the non-GraphQL error using shared utility
+          traceUIError(
+            fallbackError,
+            error,
+            onError,
+            copilotApiConfig.publicApiKey,
+            "loadAgentState",
+            copilotApiConfig.chatApiEndpoint,
+          );
         }
       }
     },
-    [setBannerError, showDevConsole, traceUIError],
+    [
+      setBannerError,
+      showDevConsole,
+      onError,
+      copilotApiConfig.publicApiKey,
+      copilotApiConfig.chatApiEndpoint,
+    ],
   );
 
   useEffect(() => {

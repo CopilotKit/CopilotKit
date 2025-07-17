@@ -1,5 +1,6 @@
 export * from "./conditions";
 export * from "./errors";
+export * from "./error-utils";
 export * from "./json-schema";
 export * from "./random-id";
 

@@ -3,11 +3,18 @@ import {
   extract,
   CopilotChatSuggestionConfiguration,
   CopilotMessagesContextParams,
+  useToast,
 } from "@copilotkit/react-core";
 import { SmallSpinnerIcon } from "./Icons";
 import { CopilotChatSuggestion } from "../../types/suggestions";
-import { actionParametersToJsonSchema } from "@copilotkit/shared";
+import {
+  actionParametersToJsonSchema,
+  isAbortError,
+  CopilotKitError,
+  CopilotKitErrorCode,
+} from "@copilotkit/shared";
 import { CopilotRequestType } from "@copilotkit/runtime-client-gql";
+import { traceUIError, createStructuredErrorFromAny } from "@copilotkit/react-core";
 
 interface SuggestionsProps {
   title: string;
@@ -38,6 +45,9 @@ export const reloadSuggestions = async (
   chatSuggestionConfiguration: { [key: string]: CopilotChatSuggestionConfiguration },
   setCurrentSuggestions: (suggestions: { title: string; message: string }[]) => void,
   abortControllerRef: React.MutableRefObject<AbortController | null>,
+  setBannerError: (error: CopilotKitError | null) => void,
+  onError?: (errorEvent: any) => void,
+  publicApiKey?: string,
 ) => {
   const abortController = abortControllerRef.current;
 
@@ -122,7 +132,26 @@ export const reloadSuggestions = async (
       });
       allSuggestions.push(...result.suggestions);
     } catch (error) {
-      console.error("Error loading suggestions", error);
+      // Suppress abort errors - they're expected when requests are cancelled
+      if (isAbortError(error)) {
+        return;
+      }
+
+      // Create structured error and handle it consistently
+      const structuredError = createStructuredErrorFromAny(error);
+
+      // Show banner error
+      setBannerError(structuredError);
+
+      // Call onError handler using shared utility
+      await traceUIError(
+        structuredError,
+        error,
+        onError,
+        publicApiKey,
+        "loadSuggestions",
+        context.copilotApiConfig.chatApiEndpoint,
+      );
     }
   }
 

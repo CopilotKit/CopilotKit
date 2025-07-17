@@ -15,6 +15,7 @@ import {
   CopilotKitError,
   CopilotKitVersionMismatchError,
   getPossibleVersionMismatch,
+  isAbortError,
 } from "@copilotkit/shared";
 
 const createFetchFn =
@@ -49,10 +50,7 @@ const createFetchFn =
       return result;
     } catch (error) {
       // Let abort error pass through. It will be suppressed later
-      if (
-        (error as Error).message.includes("BodyStreamBuffer was aborted") ||
-        (error as Error).message.includes("signal is aborted without reason")
-      ) {
+      if (isAbortError(error)) {
         throw error;
       }
       if (error instanceof CopilotKitError) {
@@ -121,6 +119,10 @@ export class CopilotRuntimeClient {
     // Add error handling for GraphQL errors that occur during mutation execution
     result.subscribe(({ error }) => {
       if (error && this.handleGQLErrors) {
+        // Suppress abort errors - they're expected during rapid typing
+        if (isAbortError(error)) {
+          return;
+        }
         this.handleGQLErrors(error);
       }
     });
@@ -134,10 +136,7 @@ export class CopilotRuntimeClient {
       start(controller) {
         source.subscribe(({ data, hasNext, error }) => {
           if (error) {
-            if (
-              error.message.includes("BodyStreamBuffer was aborted") ||
-              error.message.includes("signal is aborted without reason")
-            ) {
+            if (isAbortError(error)) {
               // close the stream if there is no next item
               if (!hasNext) controller.close();
 
@@ -162,7 +161,9 @@ export class CopilotRuntimeClient {
               if (handleGQLErrors) {
                 handleGQLErrors(syntheticError);
               }
-              return; // Don't close the stream for structured errors, let the error handler decide
+              // Also propagate the error to the stream so extract() can catch it
+              controller.error(error);
+              return;
             }
 
             controller.error(error);
@@ -198,6 +199,10 @@ export class CopilotRuntimeClient {
       .toPromise()
       .then(({ error }) => {
         if (error && this.handleGQLErrors) {
+          // Suppress abort errors - they're expected during rapid typing
+          if (isAbortError(error)) {
+            return;
+          }
           this.handleGQLErrors(error);
         }
       })
