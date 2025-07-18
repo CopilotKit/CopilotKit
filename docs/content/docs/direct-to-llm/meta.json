@@ -4,6 +4,8 @@
   "pages": [
     "index",
     "...guides",
+    "---Enterprise Features---",
+    "...../enterprise",
     "---Tutorials---",
     "...tutorials",
     "---Cookbook---",
@@ -12,7 +14,6 @@
     "...../shared/troubleshooting",
     "---Other---",
     "../shared/(other)/contributing",
-    "../shared/(other)/telemetry",
-    "(other)/observability"
+    "../shared/(other)/telemetry"
   ]
 }
