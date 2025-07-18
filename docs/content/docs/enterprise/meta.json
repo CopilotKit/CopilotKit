@@ -1,0 +1,8 @@
+{
+  "title": "Enterprise",
+  "root": true,
+  "pages": [
+    "index",
+    "observability"
+  ]
+}
