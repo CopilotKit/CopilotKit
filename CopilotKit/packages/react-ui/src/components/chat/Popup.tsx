@@ -28,6 +28,26 @@
  * />
  * ```
  *
+ * ### With Event Hooks
+ *
+ * To monitor user interactions, provide the `eventHooks` prop.
+ * **Note:** This requires a `publicApiKey` in the `<CopilotKit>` provider.
+ *
+ * ```tsx
+ * <CopilotKit publicApiKey="YOUR_PUBLIC_API_KEY">
+ *   <CopilotPopup
+ *     eventHooks={{
+ *       onChatExpanded: () => {
+ *         console.log("Popup opened");
+ *       },
+ *       onChatMinimized: () => {
+ *         console.log("Popup closed");
+ *       },
+ *     }}
+ *   />
+ * </CopilotKit>
+ * ```
+ *
  * ### Look & Feel
  *
  * By default, CopilotKit components do not have any styles. You can import CopilotKit's stylesheet at the root of your project:
