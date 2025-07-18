@@ -37,6 +37,37 @@ export function YourComponent() {
 }
 ```
  
+### Working with Suggestions
+ 
+```tsx
+import { useCopilotChat, useCopilotChatSuggestions } from "@copilotkit/react-core";
+ 
+export function YourComponent() {
+  const {
+    suggestions,
+    setSuggestions,
+    generateSuggestions,
+    isLoadingSuggestions
+  } = useCopilotChat();
+ 
+  // Configure AI suggestion generation
+  useCopilotChatSuggestions({
+    instructions: "Suggest helpful actions based on the current context",
+    maxSuggestions: 3
+  });
+ 
+  // Manual suggestion control
+  const handleCustomSuggestion = () => {
+    setSuggestions([{ title: "Custom Action", message: "Perform custom action" }]);
+  };
+ 
+  // Trigger AI generation
+  const handleGenerateSuggestions = async () => {
+    await generateSuggestions();
+  };
+}
+```
+ 
 `useCopilotChat` returns an object with the following properties:
  
 ```tsx
@@ -49,6 +80,13 @@ const {
   stopGeneration, // A function to stop the generation of the next message.
   reset, // A function to reset the chat.
   isLoading, // A boolean indicating if the chat is loading.
+ 
+  // Suggestion control (headless UI)
+  suggestions, // Current suggestions array
+  setSuggestions, // Manually set suggestions
+  generateSuggestions, // Trigger AI suggestion generation
+  resetSuggestions, // Clear all suggestions
+  isLoadingSuggestions, // Whether suggestions are being generated
 } = useCopilotChat();
 ```
 
@@ -65,7 +103,7 @@ HTTP headers to be sent with the API request.
 </PropertyReference>
 
 <PropertyReference name="initialMessages" type="Message[]"  > 
-System messages of the chat. Defaults to an empty array.
+Initial messages to populate the chat with.
 </PropertyReference>
 
 <PropertyReference name="makeSystemMessage" type="SystemMessageFunction"  > 

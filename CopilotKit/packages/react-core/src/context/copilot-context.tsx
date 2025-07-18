@@ -20,6 +20,7 @@ import {
   LangGraphInterruptAction,
   LangGraphInterruptActionSetter,
 } from "../types/interrupt-action";
+import { SuggestionItem } from "../utils/suggestions";
 
 /**
  * Interface for the configuration of the Copilot API.
@@ -223,6 +224,9 @@ export interface CopilotContextParams {
    * Optional trace handler for comprehensive debugging and observability.
    */
   onError?: CopilotErrorHandler;
+  // suggestions state
+  suggestions: SuggestionItem[];
+  setSuggestions: React.Dispatch<React.SetStateAction<SuggestionItem[]>>;
 }
 
 const emptyCopilotContext: CopilotContextParams = {
@@ -294,6 +298,8 @@ const emptyCopilotContext: CopilotContextParams = {
   setLangGraphInterruptAction: () => null,
   removeLangGraphInterruptAction: () => null,
   onError: undefined,
+  suggestions: [],
+  setSuggestions: () => {},
 };
 
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);

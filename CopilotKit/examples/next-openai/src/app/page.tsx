@@ -27,6 +27,7 @@ export default function WaterBnb() {
         onThumbsDown={(message) => {
           console.log("thumbs down", message);
         }}
+        imageUploadsEnabled={true}
       >
         <VacationList />
       </CopilotSidebar>
