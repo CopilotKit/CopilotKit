@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback, useEffect, useRef } from "react";
 import { ChatContextProvider, useChatContext } from "./ChatContext";
-import { ButtonProps, HeaderProps, WindowProps, CopilotEventHooks } from "./props";
+import { ButtonProps, HeaderProps, WindowProps, CopilotObservabilityHooks } from "./props";
 import { Window as DefaultWindow } from "./Window";
 import { Button as DefaultButton } from "./Button";
 import { Header as DefaultHeader } from "./Header";
@@ -60,7 +60,7 @@ export interface CopilotModalProps extends CopilotChatProps {
 
 // Inner component that has access to the Copilot context
 const CopilotModalInner = ({
-  eventHooks,
+  observabilityHooks,
   onSetOpen,
   clickOutsideToClose,
   hitEscapeToClose,
@@ -82,13 +82,13 @@ const CopilotModalInner = ({
   const { copilotApiConfig } = useCopilotContext();
 
   // Helper function to trigger event hooks only if publicApiKey is provided
-  const triggerEventHook = useCallback(
-    (hookName: keyof CopilotEventHooks, ...args: any[]) => {
-      if (copilotApiConfig.publicApiKey && eventHooks?.[hookName]) {
-        (eventHooks[hookName] as any)(...args);
+  const triggerObservabilityHook = useCallback(
+    (hookName: keyof CopilotObservabilityHooks, ...args: any[]) => {
+      if (copilotApiConfig.publicApiKey && observabilityHooks?.[hookName]) {
+        (observabilityHooks[hookName] as any)(...args);
       }
     },
-    [copilotApiConfig.publicApiKey, eventHooks],
+    [copilotApiConfig.publicApiKey, observabilityHooks],
   );
 
   const { open } = useChatContext();
@@ -101,13 +101,13 @@ const CopilotModalInner = ({
 
       // Trigger chat minimize/expand events
       if (open) {
-        triggerEventHook("onChatExpanded");
+        triggerObservabilityHook("onChatExpanded");
       } else {
-        triggerEventHook("onChatMinimized");
+        triggerObservabilityHook("onChatMinimized");
       }
       prevOpen.current = open;
     }
-  }, [open, onSetOpen, triggerEventHook]);
+  }, [open, onSetOpen, triggerObservabilityHook]);
 
   const memoizedHeader = useMemo(() => <Header />, [Header]);
   const memoizedChildren = useMemo(() => children, [children]);
@@ -123,7 +123,7 @@ const CopilotModalInner = ({
           hitEscapeToClose={hitEscapeToClose}
         >
           {memoizedHeader}
-          <CopilotChat {...chatProps} eventHooks={eventHooks} />
+          <CopilotChat {...chatProps} observabilityHooks={observabilityHooks} />
         </Window>
       </div>
     </>
@@ -158,7 +158,7 @@ export const CopilotModal = ({
   markdownTagRenderers,
   className,
   children,
-  eventHooks,
+  observabilityHooks,
   ...props
 }: CopilotModalProps) => {
   const [openState, setOpenState] = React.useState(defaultOpen);
@@ -166,7 +166,7 @@ export const CopilotModal = ({
   return (
     <ChatContextProvider icons={icons} labels={labels} open={openState} setOpen={setOpenState}>
       <CopilotModalInner
-        eventHooks={eventHooks}
+        observabilityHooks={observabilityHooks}
         onSetOpen={onSetOpen}
         clickOutsideToClose={clickOutsideToClose ?? true}
         hitEscapeToClose={hitEscapeToClose ?? true}

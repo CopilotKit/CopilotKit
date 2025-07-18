@@ -1,6 +1,6 @@
 ---
 title: "Observability & Event Hooks"
-description: "Monitor your CopilotKit application with comprehensive event hooks and error observability. Track user interactions, chat events, and system errors."
+description: "Monitor your CopilotKit application with comprehensive observability hooks. Track user interactions, chat events, and system errors."
 icon: "lucide/Activity"
 ---
 
@@ -16,9 +16,9 @@ CopilotKit provides comprehensive observability capabilities to help you monitor
 <Steps>
 
 <Step>
-### Chat Event Hooks
+### Chat Observability Hooks
 
-Track user interactions and chat events with comprehensive event hooks:
+Track user interactions and chat events with comprehensive observability hooks:
 
 ```tsx
 import { CopilotModal } from "@copilotkit/react-ui";
@@ -30,7 +30,7 @@ export default function App() {
       publicApiKey="ck_pub_your_key" // [!code highlight]
     >
       <CopilotModal
-        eventHooks={{
+        observabilityHooks={{
           // [!code highlight]
           onMessageSent: (message) => {
             // [!code highlight]
@@ -120,15 +120,15 @@ For local development, enable the dev console to see errors directly in your UI:
 
 ## Observability Features
 
-## Chat Event Hooks
+## Chat Observability Hooks
 
-Track user interactions and chat behavior with comprehensive event hooks (requires `publicApiKey`):
+Track user interactions and chat behavior with comprehensive observability hooks (requires `publicApiKey`):
 
 ```tsx
 import { CopilotModal } from "@copilotkit/react-ui";
 
 <CopilotModal
-  eventHooks={{
+  observabilityHooks={{
     onMessageSent: (message) => {
       console.log("Message sent:", message);
       // Track message analytics
@@ -173,7 +173,7 @@ import { CopilotModal } from "@copilotkit/react-ui";
 />;
 ```
 
-**Available Event Hooks:**
+**Available Observability Hooks:**
 
 - `onMessageSent(message)` - User sends a message
 - `onChatExpanded()` - Chat is opened/expanded
@@ -191,7 +191,7 @@ import { CopilotModal } from "@copilotkit/react-ui";
 - ✅ Only triggers when `publicApiKey` is provided
 
 <Callout type="warn">
-  **Important:** Event hooks will **not trigger** without a valid
+  **Important:** Observability hooks will **not trigger** without a valid
   `publicApiKey`. This is a security feature to ensure observability hooks only
   work in authorized applications.
 </Callout>
@@ -326,7 +326,7 @@ interface CopilotErrorEvent {
 
 ```tsx
 <CopilotModal
-  eventHooks={{
+  observabilityHooks={{
     onMessageSent: (message) => {
       // Track message analytics
       analytics.track("chat_message_sent", {
@@ -371,7 +371,7 @@ interface CopilotErrorEvent {
   }}
 >
   <CopilotModal
-    eventHooks={{
+    observabilityHooks={{
       onMessageSent: (message) => {
         // Event tracking
         analytics.track("chat_message_sent", { message });
@@ -467,7 +467,7 @@ import * as Sentry from "@sentry/react";
   }}
 >
   <CopilotModal
-    eventHooks={{
+    observabilityHooks={{
       onMessageSent: (message) => {
         console.log("Message sent:", message);
       },
@@ -504,7 +504,7 @@ import * as Sentry from "@sentry/react";
   }}
 >
   <CopilotModal
-    eventHooks={{
+    observabilityHooks={{
       onMessageSent: (message) => {
         // Track production analytics
         analytics.track("chat_message_sent", {
@@ -538,7 +538,7 @@ To use observability hooks (event hooks and error observability), you'll need a 
    ```tsx
    <CopilotKit publicApiKey={process.env.NEXT_PUBLIC_COPILOTKIT_API_KEY}>
      <CopilotModal
-       eventHooks={{
+       observabilityHooks={{
          onMessageSent: (message) => console.log("Message:", message),
          onChatExpanded: () => console.log("Chat opened"),
        }}
@@ -557,7 +557,7 @@ To use observability hooks (event hooks and error observability), you'll need a 
 ### ✅ Do
 
 - **Always provide `publicApiKey`** for observability hooks to work
-- **Use event hooks for user analytics** - track message patterns, engagement, and feedback
+- **Use observability hooks for user analytics** - track message patterns, engagement, and feedback
 - **Implement error observability** with the `onError` hook for monitoring
 - **Use `showDevConsole={true}` during development** for immediate feedback
 - **Set `showDevConsole={false}` in production** to hide errors from users
@@ -575,9 +575,9 @@ To use observability hooks (event hooks and error observability), you'll need a 
 
 ## Troubleshooting
 
-### Event Hooks Not Working
+### Observability Hooks Not Working
 
-If your event hooks aren't being called:
+If your observability hooks aren't being called:
 
 1. **Check your publicApiKey** - all observability hooks require a valid API key
 2. **Verify the key format** - should start with `ck_pub_`
@@ -604,10 +604,10 @@ If the dev console isn't displaying errors:
 
 ### Common Issues
 
-**Event hooks not triggering:**
+**Observability hooks not triggering:**
 
 - Missing or invalid `publicApiKey`
-- Event hooks defined but not on the right components
+- Observability hooks defined but not on the right components
 - Network issues preventing validation
 
 **Error observability not working:**
@@ -619,7 +619,7 @@ If the dev console isn't displaying errors:
 ## Next Steps
 
 - **Get your publicApiKey** at [CopilotKit Cloud](https://cloud.copilotkit.ai) - required for all observability hooks
-- Explore the [CopilotModal reference](/reference/components/chat/CopilotModal) for event hooks
+- Explore the [CopilotModal reference](/reference/components/chat/CopilotModal) for observability hooks
 - Check out the [CopilotKit reference](/reference/components/CopilotKit) for error observability
 - Learn about [CopilotKit Cloud features](https://cloud.copilotkit.ai) for production monitoring
 - Review [troubleshooting guides](/troubleshooting/common-issues) for common issues
