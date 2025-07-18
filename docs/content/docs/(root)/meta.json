@@ -6,6 +6,8 @@
     "---Getting Started---",
     "[lucide/Play][LLM Quickstart](../direct-to-llm/guides/quickstart)",
     "[lucide/Play][CoAgent Quickstart](../coagents/quickstart)",
+    "---Enterprise---",
+    "...../enterprise",
     "---CopilotKit Feature Overviews---",
     "agentic-chat-ui",
     "...shared-guides",
