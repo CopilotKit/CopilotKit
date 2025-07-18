@@ -87,7 +87,7 @@ import { randomId } from "@copilotkit/shared";
 import {
   AssistantMessageProps,
   ComponentsMap,
-  CopilotEventHooks,
+  CopilotObservabilityHooks,
   ImageRendererProps,
   InputProps,
   MessagesProps,
@@ -273,7 +273,7 @@ export interface CopilotChatProps {
    * Event hooks for CopilotKit chat events.
    * These hooks only work when publicApiKey is provided.
    */
-  eventHooks?: CopilotEventHooks;
+  observabilityHooks?: CopilotObservabilityHooks;
 }
 
 interface OnStopGenerationArguments {
@@ -360,20 +360,20 @@ export function CopilotChat({
   imageUploadsEnabled,
   inputFileAccept = "image/*",
   hideStopButton,
-  eventHooks,
+  observabilityHooks,
 }: CopilotChatProps) {
   const { additionalInstructions, setChatInstructions, copilotApiConfig } = useCopilotContext();
   const [selectedImages, setSelectedImages] = useState<Array<ImageUpload>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Helper function to trigger event hooks only if publicApiKey is provided
-  const triggerEventHook = useCallback(
-    (hookName: keyof CopilotEventHooks, ...args: any[]) => {
-      if (copilotApiConfig.publicApiKey && eventHooks?.[hookName]) {
-        (eventHooks[hookName] as any)(...args);
+  const triggerObservabilityHook = useCallback(
+    (hookName: keyof CopilotObservabilityHooks, ...args: any[]) => {
+      if (copilotApiConfig.publicApiKey && observabilityHooks?.[hookName]) {
+        (observabilityHooks[hookName] as any)(...args);
       }
     },
-    [copilotApiConfig.publicApiKey, eventHooks],
+    [copilotApiConfig.publicApiKey, observabilityHooks],
   );
 
   // Clipboard paste handler
@@ -470,13 +470,13 @@ export function CopilotChat({
   useEffect(() => {
     if (prevIsLoading.current !== isLoading) {
       if (isLoading) {
-        triggerEventHook("onChatStarted");
+        triggerObservabilityHook("onChatStarted");
       } else {
-        triggerEventHook("onChatStopped");
+        triggerObservabilityHook("onChatStopped");
       }
       prevIsLoading.current = isLoading;
     }
-  }, [isLoading, triggerEventHook]);
+  }, [isLoading, triggerObservabilityHook]);
 
   // Wrapper for sendMessage to clear selected images
   const handleSendMessage = (text: string) => {
@@ -487,7 +487,7 @@ export function CopilotChat({
     }
 
     // Trigger message sent event
-    triggerEventHook("onMessageSent", text);
+    triggerObservabilityHook("onMessageSent", text);
 
     return sendMessage(text, images);
   };
@@ -501,7 +501,7 @@ export function CopilotChat({
     }
 
     // Trigger message regenerated event
-    triggerEventHook("onMessageRegenerated", messageId);
+    triggerObservabilityHook("onMessageRegenerated", messageId);
 
     reloadMessages(messageId);
   };
@@ -512,7 +512,7 @@ export function CopilotChat({
     }
 
     // Trigger message copied event
-    triggerEventHook("onMessageCopied", message);
+    triggerObservabilityHook("onMessageCopied", message);
   };
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -559,7 +559,7 @@ export function CopilotChat({
     }
 
     // Trigger feedback given event
-    triggerEventHook("onFeedbackGiven", message.id, "thumbsUp");
+    triggerObservabilityHook("onFeedbackGiven", message.id, "thumbsUp");
   };
 
   const handleThumbsDown = (message: Message) => {
@@ -568,7 +568,7 @@ export function CopilotChat({
     }
 
     // Trigger feedback given event
-    triggerEventHook("onFeedbackGiven", message.id, "thumbsDown");
+    triggerObservabilityHook("onFeedbackGiven", message.id, "thumbsDown");
   };
 
   return (

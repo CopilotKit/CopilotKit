@@ -7,7 +7,7 @@ import { ImageData } from "@copilotkit/shared";
  * Event hooks for CopilotKit chat events.
  * These hooks only work when publicApiKey is provided.
  */
-export interface CopilotEventHooks {
+export interface CopilotObservabilityHooks {
   /**
    * Called when a message is sent by the user
    */
