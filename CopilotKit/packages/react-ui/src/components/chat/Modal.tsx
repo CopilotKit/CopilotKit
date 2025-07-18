@@ -75,6 +75,9 @@ const CopilotModalInner = ({
   Window: React.ComponentType<WindowProps>;
   Button: React.ComponentType<ButtonProps>;
   Header: React.ComponentType<HeaderProps>;
+  clickOutsideToClose: boolean;
+  hitEscapeToClose: boolean;
+  shortcut: string;
 }) => {
   const { copilotApiConfig } = useCopilotContext();
 
