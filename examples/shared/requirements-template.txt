@@ -3,7 +3,7 @@
 # Copy and modify as needed for project-specific dependencies
 
 # Core CopilotKit dependency - exact version
-copilotkit==0.1.49
+copilotkit==0.1.55
 
 # LangChain ecosystem - exact versions from main SDK  
 langchain==0.3.21

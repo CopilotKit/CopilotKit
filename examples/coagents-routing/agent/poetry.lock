@@ -2,14 +2,14 @@
 
 [[package]]
 name = "ag-ui-langgraph"
-version = "0.0.3"
+version = "0.0.4"
 description = "Implementation of the AG-UI protocol for LangGraph."
 optional = false
 python-versions = "<3.14,>=3.10"
 groups = ["main"]
 files = [
-    {file = "ag_ui_langgraph-0.0.3-py3-none-any.whl", hash = "sha256:2c2a3441b7c04e78534642ab658c545a2266ab3557900465077c6a4ba86f7042"},
-    {file = "ag_ui_langgraph-0.0.3.tar.gz", hash = "sha256:22fa25413daaa86113791c27781da9379451598861fdd61d3a244412c7c60019"},
+    {file = "ag_ui_langgraph-0.0.4-py3-none-any.whl", hash = "sha256:1bbd818bc27b991a3e5f85554c19710cf326d8d91a0fc1cef820d65b7250c922"},
+    {file = "ag_ui_langgraph-0.0.4.tar.gz", hash = "sha256:99af5c1b300afc789bab08eafab6f36247a17da6d837e8fc7d2d69bd81439511"},
 ]
 
 [package.dependencies]
@@ -534,18 +534,18 @@ files = [
 
 [[package]]
 name = "copilotkit"
-version = "0.1.56a0"
+version = "0.1.56a4"
 description = "CopilotKit python SDK"
 optional = false
 python-versions = "<3.13,>=3.10"
 groups = ["main"]
 files = [
-    {file = "copilotkit-0.1.56a0-py3-none-any.whl", hash = "sha256:3e305c8697ea28d596e65dd0c48fde7c033fc1ba2b455b2aa2d885c63d5c28f9"},
-    {file = "copilotkit-0.1.56a0.tar.gz", hash = "sha256:eb78ac21d119c6c07ddda9f8655a2635f65170b0a4e697acf64c57d024382b87"},
+    {file = "copilotkit-0.1.56a4-py3-none-any.whl", hash = "sha256:a645aa980882f0298bf95b168a36c4d1755856bbc1d0f62b73f84c6e35f7b2af"},
+    {file = "copilotkit-0.1.56a4.tar.gz", hash = "sha256:e35a375e5f175df5af188b1e37894e6cbaac3a227decf1ae0a795177d24bca4e"},
 ]
 
 [package.dependencies]
-ag-ui-langgraph = {version = "0.0.3", extras = ["fastapi"]}
+ag-ui-langgraph = {version = "0.0.4", extras = ["fastapi"]}
 fastapi = ">=0.115.0,<0.116.0"
 langchain = ">=0.3.4,<=0.3.26"
 langgraph = ">=0.3.18,<=0.5.0"
@@ -3657,4 +3657,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.13"
-content-hash = "40fd0c857e631862790fdabf235b96ecdf67245515136f9e12811139ba68e73e"
+content-hash = "74c982a17b1346f53b8e4b6fbdb456c2778b57de4cfa25b160de390adb4c5a2a"
