@@ -1,46 +1,70 @@
 ---
-title: "Error Debugging & Observability"
-description: "Learn how to debug errors in CopilotKit with dev console and set up error observability for monitoring services."
-icon: "lucide/AlertTriangle"
+title: "Observability & Event Hooks"
+description: "Monitor your CopilotKit application with comprehensive event hooks and error observability. Track user interactions, chat events, and system errors."
+icon: "lucide/Activity"
 ---
 
-CopilotKit provides comprehensive error handling capabilities to help you debug issues and monitor your application's behavior. Whether you're developing locally or running in production, CopilotKit offers tools to capture, understand, and resolve errors effectively.
+CopilotKit provides comprehensive observability capabilities to help you monitor your application and understand user behavior. Track chat interactions, user events, and system errors with powerful hooks that only work when you provide a `publicApiKey`.
 
 ## Quick Start
+
+<Callout type="info">
+  **All observability hooks require `publicApiKey`** - Get yours free at
+  [https://cloud.copilotkit.ai](https://cloud.copilotkit.ai)
+</Callout>
 
 <Steps>
 
 <Step>
-### Local Development with Dev Console
+### Chat Event Hooks
 
-For local development, enable the dev console to see errors directly in your UI:
+Track user interactions and chat events with comprehensive event hooks:
 
 ```tsx
+import { CopilotModal } from "@copilotkit/react-ui";
 import { CopilotKit } from "@copilotkit/react-core";
 
 export default function App() {
   return (
     <CopilotKit
-      runtimeUrl="<your-runtime-url>"
-      showDevConsole={true} // [!code highlight]
+      publicApiKey="ck_pub_your_key" // [!code highlight]
     >
-      {/* Your app */}
+      <CopilotModal
+        eventHooks={{
+          // [!code highlight]
+          onMessageSent: (message) => {
+            // [!code highlight]
+            console.log("Message sent:", message);
+            analytics.track("chat_message_sent", { message });
+          }, // [!code highlight]
+          onChatExpanded: () => {
+            // [!code highlight]
+            console.log("Chat opened");
+            analytics.track("chat_expanded");
+          }, // [!code highlight]
+          onChatMinimized: () => {
+            // [!code highlight]
+            console.log("Chat closed");
+            analytics.track("chat_minimized");
+          }, // [!code highlight]
+          onFeedbackGiven: (messageId, type) => {
+            // [!code highlight]
+            console.log("Feedback:", type, messageId);
+            analytics.track("chat_feedback", { messageId, type });
+          }, // [!code highlight]
+        }} // [!code highlight]
+      />
     </CopilotKit>
   );
 }
 ```
 
-<Callout type="tip">
-  The dev console shows error banner directly in your UI, making it easy to spot
-  issues during development. **No API key required** for this feature.
-</Callout>
-
 </Step>
 
 <Step>
-### Production Error Observability
+### Error Observability
 
-For production applications, use error observability hooks to send errors to monitoring services (requires `publicApiKey`):
+Monitor system errors and performance with error observability hooks:
 
 ```tsx
 import { CopilotKit } from "@copilotkit/react-core";
@@ -48,11 +72,10 @@ import { CopilotKit } from "@copilotkit/react-core";
 export default function App() {
   return (
     <CopilotKit
-      runtimeUrl="<your-runtime-url>"
       publicApiKey="ck_pub_your_key" // [!code highlight]
       onError={(errorEvent) => {
         // [!code highlight]
-        // Send to your monitoring service
+        // Send errors to monitoring service
         console.error("CopilotKit Error:", errorEvent);
 
         // Example: Send to analytics
@@ -70,15 +93,108 @@ export default function App() {
 }
 ```
 
-<Callout type="info">
-  **Need a publicApiKey?** Go to
-  [https://cloud.copilotkit.ai](https://cloud.copilotkit.ai) and get one for
-  free!
+</Step>
+
+<Step>
+### Local Development
+
+For local development, enable the dev console to see errors directly in your UI:
+
+```tsx
+<CopilotKit
+  runtimeUrl="<your-runtime-url>"
+  showDevConsole={true} // [!code highlight]
+>
+  {/* Your app */}
+</CopilotKit>
+```
+
+<Callout type="tip">
+  The dev console shows error banner directly in your UI, making it easy to spot
+  issues during development. **No API key required** for this feature.
 </Callout>
 
 </Step>
 
 </Steps>
+
+## Observability Features
+
+## Chat Event Hooks
+
+Track user interactions and chat behavior with comprehensive event hooks (requires `publicApiKey`):
+
+```tsx
+import { CopilotModal } from "@copilotkit/react-ui";
+
+<CopilotModal
+  eventHooks={{
+    onMessageSent: (message) => {
+      console.log("Message sent:", message);
+      // Track message analytics
+      analytics.track("chat_message_sent", { message });
+    },
+    onChatExpanded: () => {
+      console.log("Chat opened");
+      // Track engagement
+      analytics.track("chat_expanded");
+    },
+    onChatMinimized: () => {
+      console.log("Chat closed");
+      // Track user behavior
+      analytics.track("chat_minimized");
+    },
+    onMessageRegenerated: (messageId) => {
+      console.log("Message regenerated:", messageId);
+      // Track regeneration requests
+      analytics.track("chat_message_regenerated", { messageId });
+    },
+    onMessageCopied: (content) => {
+      console.log("Message copied:", content);
+      // Track content sharing
+      analytics.track("chat_message_copied", { contentLength: content.length });
+    },
+    onFeedbackGiven: (messageId, type) => {
+      console.log("Feedback given:", messageId, type);
+      // Track user feedback
+      analytics.track("chat_feedback_given", { messageId, type });
+    },
+    onChatStarted: () => {
+      console.log("Chat generation started");
+      // Track when AI starts responding
+      analytics.track("chat_generation_started");
+    },
+    onChatStopped: () => {
+      console.log("Chat generation stopped");
+      // Track when AI stops responding
+      analytics.track("chat_generation_stopped");
+    },
+  }}
+/>;
+```
+
+**Available Event Hooks:**
+
+- `onMessageSent(message)` - User sends a message
+- `onChatExpanded()` - Chat is opened/expanded
+- `onChatMinimized()` - Chat is closed/minimized
+- `onMessageRegenerated(messageId)` - Message is regenerated
+- `onMessageCopied(content)` - Message is copied
+- `onFeedbackGiven(messageId, type)` - Thumbs up/down feedback given
+- `onChatStarted()` - Chat generation starts
+- `onChatStopped()` - Chat generation stops
+
+**Requirements:**
+
+- ✅ Requires `publicApiKey` from [CopilotKit Cloud](https://cloud.copilotkit.ai)
+- ✅ Works with `CopilotModal`, `CopilotChat`, and all pre-built components
+- ✅ Only triggers when `publicApiKey` is provided
+
+<Callout type="warn">
+  **Important:** Event hooks will **not trigger** without a valid
+  `publicApiKey`. This is a security feature to ensure observability hooks only
+  work in authorized applications.
+</Callout>
 
 ## Error Handling Options
 
@@ -112,13 +228,13 @@ The dev console provides immediate visual feedback during development:
 
 ### Error Observability (`onError`)
 
-The error observability hooks provide programmatic access to detailed error information for monitoring and analytics:
+The error observability hooks provide programmatic access to detailed error information for monitoring and analytics (requires `publicApiKey`):
 
 ```tsx
 import { CopilotErrorEvent } from "@copilotkit/shared";
 
 <CopilotKit
-  publicApiKey="ck_pub_your_key"
+  publicApiKey="ck_pub_your_key" // [!code highlight]
   onError={(errorEvent: CopilotErrorEvent) => {
     // Send error data to monitoring services
     switch (errorEvent.type) {
@@ -150,13 +266,14 @@ import { CopilotErrorEvent } from "@copilotkit/shared";
 
 **Requirements:**
 
-- Requires `publicApiKey` from [CopilotKit Cloud](https://cloud.copilotkit.ai)
-- Part of CopilotKit's enterprise observability offering
+- ✅ Requires `publicApiKey` from [CopilotKit Cloud](https://cloud.copilotkit.ai)
+- ✅ Only triggers when `publicApiKey` is provided
+- ✅ Part of CopilotKit's enterprise observability offering
 
-<Callout type="info">
-  **Note:** Basic error handling works without Cloud. The `onError` hook is
-  specifically for **error observability** - sending error data to monitoring
-  services like Sentry, DataDog, etc.
+<Callout type="warn">
+  **Important:** Error observability hooks will **not trigger** without a valid
+  `publicApiKey`. The `onError` hook is specifically for **error observability**
+  - sending error data to monitoring services like Sentry, DataDog, etc.
 </Callout>
 
 ## Error Event Structure
@@ -203,7 +320,71 @@ interface CopilotErrorEvent {
 }
 ```
 
-## Common Error Observability Patterns
+## Common Observability Patterns
+
+### Chat Event Tracking
+
+```tsx
+<CopilotModal
+  eventHooks={{
+    onMessageSent: (message) => {
+      // Track message analytics
+      analytics.track("chat_message_sent", {
+        messageLength: message.length,
+        timestamp: Date.now(),
+        userId: getCurrentUserId(),
+      });
+    },
+    onChatExpanded: () => {
+      // Track user engagement
+      analytics.track("chat_expanded", {
+        timestamp: Date.now(),
+        userId: getCurrentUserId(),
+      });
+    },
+    onFeedbackGiven: (messageId, type) => {
+      // Track feedback for AI improvement
+      analytics.track("chat_feedback", {
+        messageId,
+        feedbackType: type,
+        timestamp: Date.now(),
+      });
+    },
+  }}
+/>
+```
+
+### Combined Event and Error Tracking
+
+```tsx
+<CopilotKit
+  publicApiKey="ck_pub_your_key"
+  onError={(errorEvent) => {
+    // Error observability
+    if (errorEvent.type === "error") {
+      console.error("CopilotKit Error:", errorEvent);
+      analytics.track("copilotkit_error", {
+        error: errorEvent.error?.message,
+        context: errorEvent.context,
+      });
+    }
+  }}
+>
+  <CopilotModal
+    eventHooks={{
+      onMessageSent: (message) => {
+        // Event tracking
+        analytics.track("chat_message_sent", { message });
+      },
+      onChatExpanded: () => {
+        analytics.track("chat_expanded");
+      },
+    }}
+  />
+</CopilotKit>
+```
+
+## Error Observability Patterns
 
 ### Basic Error Logging
 
@@ -278,13 +459,23 @@ import * as Sentry from "@sentry/react";
 ```tsx
 <CopilotKit
   runtimeUrl="http://localhost:3000/api/copilotkit"
+  publicApiKey={process.env.NEXT_PUBLIC_COPILOTKIT_API_KEY} // For observability
   showDevConsole={true} // Show visual errors
   onError={(errorEvent) => {
     // Simple console logging for development
     console.log("CopilotKit Event:", errorEvent);
   }}
 >
-  {/* Your app */}
+  <CopilotModal
+    eventHooks={{
+      onMessageSent: (message) => {
+        console.log("Message sent:", message);
+      },
+      onChatExpanded: () => {
+        console.log("Chat expanded");
+      },
+    }}
+  />
 </CopilotKit>
 ```
 
@@ -293,7 +484,7 @@ import * as Sentry from "@sentry/react";
 ```tsx
 <CopilotKit
   runtimeUrl="https://your-app.com/api/copilotkit"
-  publicApiKey={process.env.NEXT_PUBLIC_COPILOTKIT_API_KEY}
+  publicApiKey={process.env.NEXT_PUBLIC_COPILOTKIT_API_KEY} // [!code highlight]
   showDevConsole={false} // Hide from users
   onError={(errorEvent) => {
     // Production error observability
@@ -312,13 +503,30 @@ import * as Sentry from "@sentry/react";
     }
   }}
 >
-  {/* Your app */}
+  <CopilotModal
+    eventHooks={{
+      onMessageSent: (message) => {
+        // Track production analytics
+        analytics.track("chat_message_sent", {
+          messageLength: message.length,
+          userId: getCurrentUserId(),
+        });
+      },
+      onChatExpanded: () => {
+        analytics.track("chat_expanded");
+      },
+      onFeedbackGiven: (messageId, type) => {
+        // Track feedback for AI improvement
+        analytics.track("chat_feedback", { messageId, type });
+      },
+    }}
+  />
 </CopilotKit>
 ```
 
 ## Getting Started with CopilotKit Cloud
 
-To use error observability hooks, you'll need a CopilotKit Cloud account:
+To use observability hooks (event hooks and error observability), you'll need a CopilotKit Cloud account:
 
 1. **Sign up for free** at [https://cloud.copilotkit.ai](https://cloud.copilotkit.ai)
 2. **Get your public API key** from the dashboard
@@ -329,34 +537,53 @@ To use error observability hooks, you'll need a CopilotKit Cloud account:
 4. **Use it in your CopilotKit provider**:
    ```tsx
    <CopilotKit publicApiKey={process.env.NEXT_PUBLIC_COPILOTKIT_API_KEY}>
-     {/* Your app */}
+     <CopilotModal
+       eventHooks={{
+         onMessageSent: (message) => console.log("Message:", message),
+         onChatExpanded: () => console.log("Chat opened"),
+       }}
+     />
    </CopilotKit>
    ```
 
 <Callout type="info">
   CopilotKit Cloud is free to get started and provides production-ready
-  infrastructure for your AI copilots, including comprehensive error
-  observability and monitoring capabilities.
+  infrastructure for your AI copilots, including comprehensive observability
+  capabilities for tracking user behavior and monitoring system health.
 </Callout>
 
 ## Best Practices
 
 ### ✅ Do
 
+- **Always provide `publicApiKey`** for observability hooks to work
+- **Use event hooks for user analytics** - track message patterns, engagement, and feedback
+- **Implement error observability** with the `onError` hook for monitoring
 - **Use `showDevConsole={true}` during development** for immediate feedback
 - **Set `showDevConsole={false}` in production** to hide errors from users
-- **Implement proper error observability** with the `onError` hook for monitoring
 - **Monitor error patterns** to identify and fix issues proactively
-- **Use structured logging** to make error analysis easier
+- **Use structured logging** to make analysis easier
+- **Track user feedback** to improve AI responses over time
 
 ### ❌ Don't
 
+- **Don't expect hooks to work without `publicApiKey`** - they're designed to be secure
 - **Don't expose detailed errors to end users** in production
 - **Don't ignore error events** - they provide valuable debugging information
-- **Don't log sensitive data** in error observability hooks
-- **Don't block the UI** with error handling logic
+- **Don't log sensitive data** in observability hooks
+- **Don't block the UI** with hook logic - keep handlers lightweight
 
 ## Troubleshooting
+
+### Event Hooks Not Working
+
+If your event hooks aren't being called:
+
+1. **Check your publicApiKey** - all observability hooks require a valid API key
+2. **Verify the key format** - should start with `ck_pub_`
+3. **Ensure the key is set** - check your environment variables
+4. **Test interactions** - try opening/closing chat, sending messages, etc.
+5. **Check console for errors** - look for JavaScript errors in browser dev tools
 
 ### Error Observability Not Working
 
@@ -375,8 +602,24 @@ If the dev console isn't displaying errors:
 2. **Look for console errors** - check browser dev tools for JavaScript errors
 3. **Verify error occurrence** - make sure errors are actually happening
 
+### Common Issues
+
+**Event hooks not triggering:**
+
+- Missing or invalid `publicApiKey`
+- Event hooks defined but not on the right components
+- Network issues preventing validation
+
+**Error observability not working:**
+
+- Missing `publicApiKey` in CopilotKit provider
+- Incorrect key format (should start with `ck_pub_`)
+- Environment variables not loaded correctly
+
 ## Next Steps
 
-- Learn about [CopilotKit Cloud features](https://cloud.copilotkit.ai)
-- Explore the [CopilotKit reference documentation](/reference/components/CopilotKit)
-- Check out [troubleshooting guides](/troubleshooting/common-issues) for common issues
+- **Get your publicApiKey** at [CopilotKit Cloud](https://cloud.copilotkit.ai) - required for all observability hooks
+- Explore the [CopilotModal reference](/reference/components/chat/CopilotModal) for event hooks
+- Check out the [CopilotKit reference](/reference/components/CopilotKit) for error observability
+- Learn about [CopilotKit Cloud features](https://cloud.copilotkit.ai) for production monitoring
+- Review [troubleshooting guides](/troubleshooting/common-issues) for common issues
