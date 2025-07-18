@@ -36,7 +36,7 @@ export interface CopilotEventHooks {
   /**
    * Called when feedback is given (thumbs up/down)
    */
-  onFeedbackGiven?: (messageId: string, type: 'thumbsUp' | 'thumbsDown') => void;
+  onFeedbackGiven?: (messageId: string, type: "thumbsUp" | "thumbsDown") => void;
 
   /**
    * Called when chat generation starts

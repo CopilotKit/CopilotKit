@@ -98,7 +98,7 @@ const CopilotModalInner = ({
   useEffect(() => {
     if (prevOpen.current !== open) {
       onSetOpen?.(open);
-      
+
       // Trigger chat minimize/expand events
       if (open) {
         triggerEventHook("onChatExpanded");
