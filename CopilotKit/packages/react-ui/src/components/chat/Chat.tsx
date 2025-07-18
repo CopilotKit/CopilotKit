@@ -27,15 +27,15 @@
  * />
  * ```
  *
- * ### With Event Hooks
+ * ### With Observability Hooks
  *
- * To monitor user interactions, provide the `eventHooks` prop.
+ * To monitor user interactions, provide the `observabilityHooks` prop.
  * **Note:** This requires a `publicApiKey` in the `<CopilotKit>` provider.
  *
  * ```tsx
  * <CopilotKit publicApiKey="YOUR_PUBLIC_API_KEY">
  *   <CopilotChat
- *     eventHooks={{
+ *     observabilityHooks={{
  *       onMessageSent: (message) => {
  *         console.log("Message sent:", message);
  *       },
