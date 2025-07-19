@@ -60,6 +60,7 @@ interface ExecutionArgs extends Omit<LangGraphPlatformEndpoint, "agents"> {
   actions: ExecutionAction[];
   logger: Logger;
   metaEvents?: MetaEventInput[];
+  streamSubgraphs?: boolean;
 }
 
 // The following types are our own definition to the messages accepted by LangGraph Platform, enhanced with some of our extra data.
@@ -181,6 +182,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     logger,
     properties,
     metaEvents,
+    streamSubgraphs,
   } = args;
 
   let nodeName = initialNodeName;
@@ -241,6 +243,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     input: streamInput,
     streamMode: ["events", "values", "updates"] satisfies StreamMode[],
     command: undefined,
+    streamSubgraphs: streamSubgraphs ?? false,
   };
 
   const lgInterruptMetaEvent = metaEvents?.find(
@@ -366,7 +369,14 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       hashedLgcKey: streamInfo.hashedLgcKey,
     });
     for await (let streamResponseChunk of streamResponse) {
-      if (!["events", "values", "error", "updates"].includes(streamResponseChunk.event)) continue;
+      if (!["events", "values", "error", "updates"].includes(streamResponseChunk.event)
+        && !(streamSubgraphs && (
+          streamResponseChunk.event.startsWith("events") ||
+          streamResponseChunk.event.startsWith("values")
+        ))
+      ) {
+        continue;
+      }
 
       if (streamResponseChunk.event === "error") {
         const errorData = streamResponseChunk.data;
@@ -429,10 +439,17 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       if (streamResponseChunk.event === "values") {
         latestStateValues = chunk.data;
         continue;
+      } else if (streamSubgraphs && streamResponseChunk.event.startsWith("values")) {
+        // Handle subgraph values events
+        latestStateValues = {
+          ...latestStateValues,
+          ...chunk.data,
+        };
+        continue;
       }
 
       const chunkData = chunk.data;
-      const currentNodeName = chunkData.metadata.langgraph_node;
+      const currentNodeName = chunkData.metadata?.langgraph_node;
       const eventType = chunkData.event;
       const runId = chunkData.metadata.run_id;
       externalRunId = runId;

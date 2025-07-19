@@ -63,12 +63,16 @@ export function constructLGCRemoteAction({
       });
 
       let state = {};
-      let config = {};
+      let config: any = {};
+      let streamSubgraphs = false 
       if (agentStates) {
         const jsonState = agentStates.find((state) => state.agentName === name);
         if (jsonState) {
           state = parseJson(jsonState.state, {});
           config = parseJson(jsonState.config, {});
+          if (config.streamSubgraphs !== undefined) {
+            streamSubgraphs = config.streamSubgraphs;
+          }
         }
       }
 
@@ -90,6 +94,7 @@ export function constructLGCRemoteAction({
             parameters: JSON.parse(action.jsonSchema),
           })),
           metaEvents,
+          streamSubgraphs,
         });
 
         const eventSource = new RemoteLangGraphEventSource();
