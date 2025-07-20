@@ -1,6 +1,6 @@
 /**
  * <br/>
- * <img src="/images/CopilotChat.gif" width="500" />
+ * <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/CopilotChat.gif" width="500" />
  *
  * A chatbot panel component for the CopilotKit framework. The component allows for a high degree
  * of customization through various props and custom CSS.
