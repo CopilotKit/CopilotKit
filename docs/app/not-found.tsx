@@ -9,7 +9,7 @@ export default function NotFound() {
       <div className="text-center">
         <div className="relative w-32 h-32 mx-auto mb-8 animate-bounce">
           <Image
-            src="/images/copilotkit-logo.svg"
+            src="https://cdn.copilotkit.ai/docs/copilotkit/images/copilotkit-logo.svg"
             alt="CopilotKit Logo"
             fill
             priority

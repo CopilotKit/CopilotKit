@@ -83,7 +83,7 @@
  */
 
 /**
- * <img src="/images/use-copilot-action/useCopilotAction.gif" width="500" />
+ * <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/use-copilot-action/useCopilotAction.gif" width="500" />
  * `useCopilotAction` is a React hook that you can use in your application to provide
  * custom actions that can be called by the AI. Essentially, it allows the Copilot to
  * execute these actions contextually during a chat, based on the user's interactions

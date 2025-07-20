@@ -1,6 +1,6 @@
 /**
  * <br/>
- * <img src="/images/CopilotSidebar.gif" width="500" />
+ * <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/CopilotSidebar.gif" width="500" />
  *
  * A chatbot sidebar component for the CopilotKit framework. Highly customizable through various props and custom CSS.
  *

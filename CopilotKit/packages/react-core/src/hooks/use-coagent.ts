@@ -5,7 +5,7 @@
  * </Callout>
  * <Frame className="my-12">
  *   <img
- *     src="/images/coagents/SharedStateCoAgents.gif"
+ *     src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/SharedStateCoAgents.gif"
  *     alt="CoAgents demonstration"
  *     className="w-auto"
  *   />
