@@ -210,6 +210,7 @@ export async function setupRemoteActions({
         metaEvents,
         threadMetadata,
         nodeName,
+        graphqlContext,
       }),
     );
   }
