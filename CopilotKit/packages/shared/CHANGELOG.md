@@ -1,5 +1,7 @@
 # @copilotkit/shared
 
+## 1.10.0-next.1
+
 ## 1.10.0-next.0
 
 ### Minor Changes

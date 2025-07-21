@@ -1,5 +1,15 @@
 # @copilotkit/runtime
 
+## 1.10.0-next.1
+
+### Patch Changes
+
+- 1abcecf: - fix: add graphqlContext to constructAGUIRemoteAction for enhanced agent properties
+
+  - Updated constructAGUIRemoteAction to accept graphqlContext, allowing forwarding of properties like Authorization token to the agent.
+  - Modified setupRemoteActions to include graphqlContext in the parameters.
+  - @copilotkit/shared@1.10.0-next.1
+
 ## 1.10.0-next.0
 
 ### Patch Changes

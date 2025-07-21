@@ -18,6 +18,7 @@
     "tsconfig": "1.4.6"
   },
   "changesets": [
+    "dirty-peas-complain",
     "rich-cobras-camp"
   ]
 }
