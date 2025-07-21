@@ -1,0 +1,12 @@
+{
+  "title": "Concepts",
+  "root": true,
+  "pages": [
+    "terminology",
+    "agentic-copilots",
+    "pydantic-ai",
+    "message-management",
+    "state",
+    "copilotkit-stream"
+  ]
+}

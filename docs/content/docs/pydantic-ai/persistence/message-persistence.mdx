@@ -1,0 +1,17 @@
+---
+title: "Message Persistence"
+icon: "lucide/Database"
+---
+
+<Callout>
+  To learn about how to load previous messages and agent states, check out the
+  [Loading Message History](/pydantic-ai/persistence/loading-message-history)
+and [Loading Agent State](/pydantic-ai/persistence/loading-agent-state)
+  pages.
+</Callout>
+
+To persist Pydantic AI Agent messages to a database, you can use the appropriate persistence methods for your framework. For example, you might use a database connector or provide your own custom persistence class.
+
+For a concrete example of how a custom persistence class like `InMemoryFlowPersistence` can be implemented and used with your framework, see the [sample agent implementation](https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-starter-pydantic-ai/agent-py/sample_agent/agent.py).
+
+Read more about persistence in the [Pydantic AI Agents documentation](https://docs.pydantic-ai.com/concepts/flows). 
