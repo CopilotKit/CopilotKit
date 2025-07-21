@@ -1,0 +1,11 @@
+{
+  "python_version": "3.12",
+  "dockerfile_lines": [],
+  "dependencies": ["."],
+  "graphs": {
+    "joke_agent": "./my_agent/langgraph/joke_agent.py:joke_graph",
+    "email_agent": "./my_agent/langgraph/email_agent.py:email_graph",
+    "pirate_agent": "./my_agent/langgraph/pirate_agent.py:pirate_graph"
+  },
+  "env": ".env"
+}
