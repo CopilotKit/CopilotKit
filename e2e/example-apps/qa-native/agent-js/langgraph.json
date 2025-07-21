@@ -1,0 +1,9 @@
+{
+  "node_version": "20",
+  "dockerfile_lines": ["RUN npm i -g corepack@latest"],
+  "dependencies": ["."],
+  "graphs": {
+    "email_agent": "./src/agent.ts:graph"
+  },
+  "env": ".env"
+}

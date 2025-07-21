@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "agent"
+version = "0.1.0"
+description = ""
+authors = ["CopilotKit"]
+readme = "README.md"
+packages = [{include = "my_agent"}]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.13"
+copilotkit = "0.1.56a0"
+langchain-core = "^0.3.25"
+langchain-openai = "0.2.3"
+langchain-community = "^0.3.1"
+langchain-anthropic = "0.3.17"
+langchain-google-genai = "2.0.5"
+langchain = "0.3.26"
+langgraph = "0.4.8"
+openai = "^1.68.2"
+fastapi = "^0.115.5"
+uvicorn = "^0.29.0"
+python-dotenv = "^1.0.0"
+langgraph-cli = {extras = ["inmem"], version = "^0.3.3"}
+
+[tool.poetry.scripts]
+demo = "my_agent.demo:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
