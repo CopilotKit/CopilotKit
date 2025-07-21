@@ -68,8 +68,8 @@ of everything that has happened during a HITL interaction.
           // ...
 
           useCopilotAction({
-            name: "writeEssay",
-            available: "remote",
+            name: "write_essay",
+            available: "frontend",
             description: "Writes an essay and takes the draft as an argument.",
             parameters: [
               { name: "draft", type: "string", description: "The draft of the essay", required: true },
@@ -120,7 +120,18 @@ Now we'll setup the Pydantic AI agent. The flow is hard to understand without a 
     <Tabs groupId="language" items={["Python"]}>
       <Tab value="Python">
         ```python title="agent/sample_agent/agent.py"
-        # your code goes here...
+        from pydantic_ai import Agent
+
+        agent = Agent('openai:gpt-4o-mini')
+
+        @agent.tool_plain
+        async def write_essay(topic: str) -> str:
+            """Write an essay on the given topic."""
+            # This would typically generate an essay
+            # The agent will wait for user feedback before proceeding
+            return f"Essay draft on '{topic}' has been generated. Please review."
+
+        app = agent.to_ag_ui()
         ```
       </Tab>
     </Tabs>

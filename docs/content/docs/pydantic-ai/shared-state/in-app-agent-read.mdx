@@ -52,7 +52,16 @@ state update you can reflect these updates natively in your application.
     <Tabs groupId="language" items={["Python"]}>
       <Tab value="Python">
         ```python title="agent-py/sample_agent/agent.py"
-        # your code goes here...
+        from pydantic import BaseModel
+        from pydantic_ai import Agent
+        from pydantic_ai.ag_ui import StateDeps
+
+        class AgentState(BaseModel):
+            """State for the agent."""
+            language: str = "english"
+
+        agent = Agent('openai:gpt-4o-mini', deps_type=StateDeps[AgentState])
+        app = agent.to_ag_ui(deps=StateDeps(AgentState()))
         ```
       </Tab>
     </Tabs>

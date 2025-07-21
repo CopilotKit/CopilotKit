@@ -1,7 +1,7 @@
 ---
 title: Quickstart Pydantic AI Agents
 description: Turn your Pydantic AI Agents into an agent-native application in 10 minutes.
-icon: "custom/pydantic-ai"
+icon: "lucide/Play"
 ---
 
 import {
@@ -120,7 +120,7 @@ Before you begin, you'll need the following:
         Start your local Pydantic AI Agent:
 
         ```bash
-        # your code goes here...
+        python -m uvicorn agent:app --host 0.0.0.0 --port 8000
         ```
         This will start a local agent server that you can connect to.
     </Step>

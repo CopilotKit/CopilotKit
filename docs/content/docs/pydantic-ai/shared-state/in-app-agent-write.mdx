@@ -49,7 +49,28 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     <Tabs groupId="language" items={["Python", "TypeScript"]}>
       <Tab value="Python">
         ```python title="agent-py/sample_agent/agent.py"
-        # your code goes here...
+        from pydantic import BaseModel
+        from pydantic_ai import Agent, RunContext
+        from pydantic_ai.ag_ui import StateDeps
+        from ag_ui.core import StateSnapshotEvent, EventType
+
+        class AgentState(BaseModel):
+            """State for the agent."""
+            language: str = "english"
+
+        agent = Agent('openai:gpt-4o-mini', deps_type=StateDeps[AgentState])
+
+        @agent.tool_plain
+        def update_language(language: str) -> StateSnapshotEvent:
+            """Update the language of the agent."""
+            updated_state = {"language": language}
+            
+            return StateSnapshotEvent(
+                type=EventType.STATE_SNAPSHOT,
+                snapshot=updated_state
+            )
+
+        app = agent.to_ag_ui(deps=StateDeps(AgentState()))
         ```
       </Tab>
     </Tabs>

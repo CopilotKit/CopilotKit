@@ -87,40 +87,22 @@ Without frontend actions, agents are limited to just processing and returning da
         Now, we'll need to modify the agent to access these frontend actions. Open up for your agent's folder and continue from there!
     </Step>
     <Step>
-        ### Install the CopilotKit SDK
-        <InstallSDKSnippet components={props.components}/>
-    </Step>
-    <Step>
-        ### Inheriting from CopilotKitState
+        ### Setup your Pydantic AI Agent
 
-        To access the frontend actions provided by CopilotKit, you can inherit from CopilotKitState in your agent's state definition:
+        Pydantic AI automatically picks up frontend actions when you create your agent. No special configuration or state inheritance is needed:
 
         <Tabs groupId="language" items={['Python']} default="Python">
             <Tab value="Python">
                 ```python title="agent-py/sample_agent/agent.py"
-                # your code goes here...
+                from pydantic_ai import Agent
+
+                agent = Agent('openai:gpt-4o-mini')
+                app = agent.to_ag_ui()
                 ```
             </Tab>
         </Tabs>
 
-        By doing this, your agent's state will include the `copilotkit` property, which contains the frontend actions that can be accessed and invoked.
-    </Step>
-    <Step>
-        ### Accessing Frontend Actions
-
-        Once your agent's state includes the `copilotkit` property, you can access the frontend actions and utilize them within your agent's logic.
-
-        Here's how you can call a frontend action from your agent:
-
-        <Tabs groupId="language" items={['Python']} default="Python">
-            <Tab value="Python">
-                ```python title="agent-py/sample_agent/agent.py"
-                # your code goes here...
-                ```
-            </Tab>
-        </Tabs>
-
-        These actions are automatically populated by CopilotKit and are compatible with LiteLLM's tool call definitions, making it straightforward to integrate them into your agent's workflow.
+        That's it! Your agent will automatically have access to all frontend actions you've defined using `useCopilotAction` in your React components.
     </Step>
     <Step>
         ### Give it a try!

@@ -65,7 +65,16 @@ included in the function's final returned state. Otherwise, they will be overwri
         <Tabs groupId="language" items={["Python"]}>
             <Tab value="Python">
                 ```python title="agent-py/sample_agent/agent.py"
-                # your code goes here...
+                from pydantic import BaseModel
+                from pydantic_ai import Agent
+                from pydantic_ai.ag_ui import StateDeps
+
+                class AgentState(BaseModel):
+                    """State for the agent."""
+                    observed_steps: list[str] = []
+
+                agent = Agent('openai:gpt-4o-mini', deps_type=StateDeps[AgentState])
+                app = agent.to_ag_ui(deps=StateDeps(AgentState()))
                 ```
             </Tab>
         </Tabs>
@@ -94,7 +103,20 @@ included in the function's final returned state. Otherwise, they will be overwri
                 <Tabs groupId="language" items={['Python']} default="Python">
                     <Tab value="Python">
                         ```python title="agent-py/sample_agent/agent.py"
-                        # your code goes here...
+                        import asyncio
+                        from ag_ui.core import StateDeltaEvent, EventType
+                        from pydantic_ai import Agent
+                        from pydantic_ai.ag_ui import StateDeps
+
+                        @agent.tool_plain
+                        async def update_steps(steps: list[str]) -> StateSnapshotEvent:
+                            """Update the steps of the agent."""
+                            return StateSnapshotEvent(
+                                type=EventType.STATE_SNAPSHOT,
+                                snapshot={
+                                    "observed_steps": steps
+                                }
+                            )
                         ```
                     </Tab>
                 </Tabs>
@@ -110,7 +132,20 @@ included in the function's final returned state. Otherwise, they will be overwri
                 <Tabs groupId="language" items={['Python']} default="Python">
                     <Tab value="Python">
                         ```python
-                        # your code goes here...
+                        from ag_ui.core import CustomEvent, EventType
+
+                        @agent.tool_plain
+                        def enable_document_prediction() -> CustomEvent:
+                            """Enable document state prediction."""
+                            return CustomEvent(
+                                type=EventType.CUSTOM,
+                                name='PredictState',
+                                value=[{
+                                    'state_key': 'observed_steps',
+                                    'tool': 'update_steps',
+                                    'tool_argument': 'steps',
+                                }]
+                            )
                         ```
                     </Tab>
                 </Tabs>

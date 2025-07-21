@@ -52,7 +52,21 @@ First, you'll need to make sure you have a running Pydantic AI Agent. If you hav
     <Tabs groupId="language" items={['Python']} default="Python">
         <Tab value="Python">
           ```python title="agent-py/sample_agent/agent.py"
-          # your code goes here...
+          from pydantic import BaseModel, Field
+          from pydantic_ai import Agent
+          from pydantic_ai.ag_ui import StateDeps
+
+          class Step(BaseModel):
+              """Represents a step in a plan."""
+              description: str = Field(description='The description of the step')
+              status: str = Field(default='pending', description='The status of the step')
+
+          class Plan(BaseModel):
+              """Represents a plan with multiple steps."""
+              steps: list[Step] = Field(default_factory=list, description='The steps in the plan')
+
+          agent = Agent('openai:gpt-4o-mini', deps_type=StateDeps[Plan])
+          app = agent.to_ag_ui(deps=StateDeps(Plan()))
           ```
         </Tab>
     </Tabs>
@@ -65,7 +79,16 @@ First, you'll need to make sure you have a running Pydantic AI Agent. If you hav
     <Tabs groupId="language" items={['Python']} default="Python">
       <Tab value="Python">
         ```python title="agent-py/sample_agent/agent.py"
-        # your code goes here...
+        from ag_ui.core import StateSnapshotEvent, EventType
+
+        @agent.tool_plain
+        def create_plan(steps: list[str]) -> StateSnapshotEvent:
+            """Create a plan with multiple steps."""
+            plan_steps = [Step(description=step) for step in steps]
+            return StateSnapshotEvent(
+                type=EventType.STATE_SNAPSHOT,
+                snapshot={"steps": [step.model_dump() for step in plan_steps]}
+            )
         ```
       </Tab>
     </Tabs>

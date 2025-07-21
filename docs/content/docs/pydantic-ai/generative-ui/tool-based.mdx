@@ -51,7 +51,20 @@ as this guide uses it as a starting point.
 <Tabs groupId="language" items={['Python']} default="Python">
     <Tab value="Python">
         ```python title="agent/sample_agent/agent.py"
-        # your code goes here...
+        from pydantic_ai import Agent
+
+        agent = Agent('openai:gpt-4o-mini')
+
+        @agent.tool_plain
+        async def get_current_time(timezone: str = 'UTC') -> str:
+            """Get the current time in a specific timezone."""
+            from datetime import datetime
+            from zoneinfo import ZoneInfo
+            
+            tz = ZoneInfo(timezone)
+            return datetime.now(tz=tz).isoformat()
+
+        app = agent.to_ag_ui()
         ```
     </Tab>
 
@@ -77,7 +90,7 @@ const YourMainContent = () => {
   // [!code highlight:13]
   useCopilotAction({
     name: "get_weather",
-    available: "disabled", // Don't allow the agent or UI to call this tool as its only for rendering
+    available: "fronted", // Mark this as render only
     render: ({ status, args }) => {
       return (
         <p className="text-gray-500 mt-2">
