@@ -1,5 +1,264 @@
 # ui
 
+## 1.10.0-next.2
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.0-next.2
+- @copilotkit/shared@1.10.0-next.2
+
+## 1.10.0-next.1
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.0-next.1
+- @copilotkit/shared@1.10.0-next.1
+
+## 1.10.0-next.0
+
+### Minor Changes
+
+- 8674da1: - refactor(headless): completely overhaul headless ui to better support agentic features
+
+  Headless UI has been in a bad state for a bit now. When we added support for different
+  agentic runtimes we acquired tech-debt that, with this PR, is being alleviated.
+
+  As such, the following features have been updated to be completely functional with Headless UI.
+
+  - Generative UI
+  - Suggestions
+  - Agentic Generative UI
+  - Interrupts
+
+  In addition, a variety of QOL changes have been made.
+
+  - New AG-UI based message types
+  - Inline code rendering is fixed
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+### Patch Changes
+
+- Updated dependencies [8674da1]
+  - @copilotkit/shared@1.10.0-next.0
+  - @copilotkit/runtime-client-gql@1.10.0-next.0
+
+## 1.9.3
+
+### Patch Changes
+
+- f83bda0: Fix: remote actions should never be executed to avoid duplicate result messages
+- Updated dependencies [1bda332]
+  - @copilotkit/shared@1.9.3
+  - @copilotkit/runtime-client-gql@1.9.3
+
+## 1.9.3-next.4
+
+### Patch Changes
+
+- f83bda0: Fix: remote actions should never be executed to avoid duplicate result messages
+  - @copilotkit/runtime-client-gql@1.9.3-next.4
+  - @copilotkit/shared@1.9.3-next.4
+
+## 1.9.3-next.3
+
+### Patch Changes
+
+- Updated dependencies [1bda332]
+  - @copilotkit/shared@1.9.3-next.3
+  - @copilotkit/runtime-client-gql@1.9.3-next.3
+
+## 1.9.3-next.2
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.3-next.2
+- @copilotkit/shared@1.9.3-next.2
+
+## 1.9.3-next.1
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.3-next.1
+- @copilotkit/shared@1.9.3-next.1
+
+## 1.9.3-next.0
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.3-next.0
+- @copilotkit/shared@1.9.3-next.0
+
+## 1.9.2
+
+### Patch Changes
+
+- cbeccb5: - fix: refrain repeated api calls by memoizing state
+- 3f8c575: - fix: use time travel for regeneration of messages
+  - fix: use a better cutoff for regeneration request
+- fac89c2: - refactor: rename onTrace to onError throughout codebase
+
+  - Rename CopilotTraceEvent to CopilotErrorEvent and CopilotTraceHandler to CopilotErrorHandler
+
+- e1de032: - fix: synchronously execute renderAndWaitForResponse
+
+  Previously, it was impossible to execute multiple human-in-the-loop (renderAndWaitForResponse)
+  calls in a row. Ultimately this was due to an issue with how CopilotKit was rendering the updates
+  when multiple renderAndWaitForResponse actions appeared on screen due to a reference based approach.
+
+  With this change, actions will be executed in a synchronous way appearing almost queue like. This
+  works with any combination of action given much more freedom when asking for user input.
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+- 92e8d1c: - fix infinite loop
+- 9169ad7: - feat: add onTrace handler for runtime and UI error/event tracking
+- c75a04f: - Fix dynamic runtime configuration updates in useCoAgent
+  - In use-chat.ts, agent state updates from AgentStateMessage now preserve existing config property
+- c75a04f: - Fix dynamic runtime configuration updates in useCoAgent
+- fe9009c: - feat(langgraph): new thread metadata
+- 1d1c51d: - feat: surface all errors in structured format
+- 10345a5: - feat: structured error visibility system for streaming errors
+- 9169ad7: - feat: add onTrace handler for comprehensive debugging and observability - Add CopilotTraceEvent interfaces with rich debugging context, implement runtime-side tracing with publicApiKey gating, add UI-side error tracing, include comprehensive test coverage, and fix tsup build config to exclude test files
+  - fix: extract publicApiKey for all requests + trace GraphQL errors
+- 35537f1: - fix: memoize nested components to not rerender when content changes
+- Updated dependencies [fac89c2]
+- Updated dependencies [9169ad7]
+- Updated dependencies [1d1c51d]
+- Updated dependencies [10345a5]
+- Updated dependencies [9169ad7]
+  - @copilotkit/shared@1.9.2
+  - @copilotkit/runtime-client-gql@1.9.2
+
+## 1.9.2-next.26
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.26
+- @copilotkit/shared@1.9.2-next.26
+
+## 1.9.2-next.25
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.25
+- @copilotkit/shared@1.9.2-next.25
+
+## 1.9.2-next.24
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.24
+- @copilotkit/shared@1.9.2-next.24
+
+## 1.9.2-next.23
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.23
+- @copilotkit/shared@1.9.2-next.23
+
+## 1.9.2-next.22
+
+### Patch Changes
+
+- c75a04f: - Fix dynamic runtime configuration updates in useCoAgent
+  - In use-chat.ts, agent state updates from AgentStateMessage now preserve existing config property
+- c75a04f: - Fix dynamic runtime configuration updates in useCoAgent
+  - @copilotkit/runtime-client-gql@1.9.2-next.22
+  - @copilotkit/shared@1.9.2-next.22
+
+## 1.9.2-next.21
+
+### Patch Changes
+
+- 92e8d1c: - fix infinite loop
+  - @copilotkit/runtime-client-gql@1.9.2-next.21
+  - @copilotkit/shared@1.9.2-next.21
+
+## 1.9.2-next.20
+
+### Patch Changes
+
+- e1de032: - fix: synchronously execute renderAndWaitForResponse
+
+  Previously, it was impossible to execute multiple human-in-the-loop (renderAndWaitForResponse)
+  calls in a row. Ultimately this was due to an issue with how CopilotKit was rendering the updates
+  when multiple renderAndWaitForResponse actions appeared on screen due to a reference based approach.
+
+  With this change, actions will be executed in a synchronous way appearing almost queue like. This
+  works with any combination of action given much more freedom when asking for user input.
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+  - @copilotkit/runtime-client-gql@1.9.2-next.20
+  - @copilotkit/shared@1.9.2-next.20
+
+## 1.9.2-next.19
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.19
+- @copilotkit/shared@1.9.2-next.19
+
+## 1.9.2-next.18
+
+### Patch Changes
+
+- fac89c2: - refactor: rename onTrace to onError throughout codebase
+
+  - Rename CopilotTraceEvent to CopilotErrorEvent and CopilotTraceHandler to CopilotErrorHandler
+
+- Updated dependencies [fac89c2]
+  - @copilotkit/shared@1.9.2-next.18
+  - @copilotkit/runtime-client-gql@1.9.2-next.18
+
+## 1.9.2-next.17
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.17
+- @copilotkit/shared@1.9.2-next.17
+
+## 1.9.2-next.16
+
+### Patch Changes
+
+- fe9009c: - feat(langgraph): new thread metadata
+  - @copilotkit/runtime-client-gql@1.9.2-next.16
+  - @copilotkit/shared@1.9.2-next.16
+
+## 1.9.2-next.15
+
+### Patch Changes
+
+- cbeccb5: - fix: refrain repeated api calls by memoizing state
+  - @copilotkit/runtime-client-gql@1.9.2-next.15
+  - @copilotkit/shared@1.9.2-next.15
+
+## 1.9.2-next.14
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.14
+- @copilotkit/shared@1.9.2-next.14
+
+## 1.9.2-next.13
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.9.2-next.13
+- @copilotkit/shared@1.9.2-next.13
+
+## 1.9.2-next.12
+
+### Patch Changes
+
+- 3f8c575: - fix: use time travel for regeneration of messages
+  - fix: use a better cutoff for regeneration request
+  - @copilotkit/runtime-client-gql@1.9.2-next.12
+  - @copilotkit/shared@1.9.2-next.12
+
 ## 1.9.2-next.11
 
 ### Patch Changes

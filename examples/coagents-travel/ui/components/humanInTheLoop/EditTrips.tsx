@@ -56,10 +56,12 @@ export const EditTrips = ({ args, status, handler, trips, selectedTripId }: Edit
       <ActionButtons
         status={status}
         handler={handler}
+        placeIds={args.trips?.map((trip: Trip) => trip.places?.map((place: Place) => place.id))}
         selectedPlaceIds={selectedPlaceIds}
         approve={<><Save className="w-4 h-4 mr-2" /> Save</>}
         reject={<><X className="w-4 h-4 mr-2" /> Cancel</>}
         type="edit"
+        setSelectedPlaceIds={setSelectedPlaceIds}
       />
     </div>
   );

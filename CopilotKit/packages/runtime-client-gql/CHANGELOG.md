@@ -1,5 +1,187 @@
 # @copilotkit/runtime-client-gql
 
+## 1.10.0-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.0-next.2
+
+## 1.10.0-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.0-next.1
+
+## 1.10.0-next.0
+
+### Minor Changes
+
+- 8674da1: - refactor(headless): completely overhaul headless ui to better support agentic features
+
+  Headless UI has been in a bad state for a bit now. When we added support for different
+  agentic runtimes we acquired tech-debt that, with this PR, is being alleviated.
+
+  As such, the following features have been updated to be completely functional with Headless UI.
+
+  - Generative UI
+  - Suggestions
+  - Agentic Generative UI
+  - Interrupts
+
+  In addition, a variety of QOL changes have been made.
+
+  - New AG-UI based message types
+  - Inline code rendering is fixed
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+### Patch Changes
+
+- Updated dependencies [8674da1]
+  - @copilotkit/shared@1.10.0-next.0
+
+## 1.9.3
+
+### Patch Changes
+
+- Updated dependencies [1bda332]
+  - @copilotkit/shared@1.9.3
+
+## 1.9.3-next.4
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.3-next.4
+
+## 1.9.3-next.3
+
+### Patch Changes
+
+- Updated dependencies [1bda332]
+  - @copilotkit/shared@1.9.3-next.3
+
+## 1.9.3-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.3-next.2
+
+## 1.9.3-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.3-next.1
+
+## 1.9.3-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.3-next.0
+
+## 1.9.2
+
+### Patch Changes
+
+- 1d1c51d: - feat: surface all errors in structured format
+- 10345a5: - feat: structured error visibility system for streaming errors
+- Updated dependencies [fac89c2]
+- Updated dependencies [9169ad7]
+- Updated dependencies [1d1c51d]
+- Updated dependencies [10345a5]
+- Updated dependencies [9169ad7]
+  - @copilotkit/shared@1.9.2
+
+## 1.9.2-next.26
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.26
+
+## 1.9.2-next.25
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.25
+
+## 1.9.2-next.24
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.24
+
+## 1.9.2-next.23
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.23
+
+## 1.9.2-next.22
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.22
+
+## 1.9.2-next.21
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.21
+
+## 1.9.2-next.20
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.20
+
+## 1.9.2-next.19
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.19
+
+## 1.9.2-next.18
+
+### Patch Changes
+
+- Updated dependencies [fac89c2]
+  - @copilotkit/shared@1.9.2-next.18
+
+## 1.9.2-next.17
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.17
+
+## 1.9.2-next.16
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.16
+
+## 1.9.2-next.15
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.15
+
+## 1.9.2-next.14
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.14
+
+## 1.9.2-next.13
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.13
+
+## 1.9.2-next.12
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.12
+
 ## 1.9.2-next.11
 
 ### Patch Changes

@@ -15,6 +15,7 @@ import {
 import { AbstractAgent } from "@ag-ui/client";
 import { parseJson } from "@copilotkit/shared";
 import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
+import { GraphQLContext } from "../integrations/shared";
 
 export function constructAGUIRemoteAction({
   logger,
@@ -22,12 +23,18 @@ export function constructAGUIRemoteAction({
   agentStates,
   agent,
   metaEvents,
+  threadMetadata,
+  nodeName,
+  graphqlContext,
 }: {
   logger: Logger;
   messages: Message[];
   agentStates?: AgentStateInput[];
   agent: AbstractAgent;
   metaEvents?: MetaEventInput[];
+  threadMetadata?: Record<string, any>;
+  nodeName?: string;
+  graphqlContext: GraphQLContext;
 }) {
   const action = {
     name: agent.agentId,
@@ -67,9 +74,13 @@ export function constructAGUIRemoteAction({
         };
       });
 
-      const forwardedProps = metaEvents.length
-        ? { command: { resume: metaEvents[0]?.response } }
-        : undefined;
+      const forwardedProps = {
+        ...(metaEvents?.length ? { command: { resume: metaEvents[0]?.response } } : {}),
+        ...(threadMetadata ? { threadMetadata } : {}),
+        ...(nodeName ? { nodeName } : {}),
+        // Forward properties from the graphql context to the agent, e.g Authorization token
+        ...graphqlContext.properties,
+      };
 
       return agent.legacy_to_be_removed_runAgentBridged({
         tools,

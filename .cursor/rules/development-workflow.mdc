@@ -1,0 +1,66 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# CopilotKit Development Workflow
+
+## Workspace Setup
+CopilotKit uses a monorepo structure with:
+- **[CopilotKit/package.json](mdc:CopilotKit/package.json)** - Main workspace configuration
+- **[CopilotKit/packages/](mdc:CopilotKit/packages)** - Core library packages
+- **[examples/](mdc:examples)** - Example applications
+
+## Development Scripts
+Located in [CopilotKit/scripts/](mdc:CopilotKit/scripts):
+
+### Development Scripts
+- **[develop/](mdc:CopilotKit/scripts/develop)** - Development environment setup
+- **[qa/](mdc:CopilotKit/scripts/qa)** - Quality assurance and testing scripts
+- **[release/](mdc:CopilotKit/scripts/release)** - Release automation scripts
+
+### Documentation Scripts
+- **[docs/](mdc:CopilotKit/scripts/docs)** - Documentation generation and management
+
+## Package Management
+- Uses pnpm workspaces for package management
+- Local packages are linked automatically within the workspace
+- Examples reference local packages via workspace protocol
+
+## Testing
+- **[e2e/](mdc:examples/e2e)** - End-to-end testing setup with Playwright
+- **[playwright.config.ts](mdc:examples/e2e/playwright.config.ts)** - Playwright configuration
+- Test results in [test-results/](mdc:examples/e2e/test-results)
+
+## Documentation Site
+- **[docs/](mdc:docs)** - Documentation website built with Next.js
+- **[content/docs/](mdc:docs/content/docs)** - Markdown documentation files
+- **[components/react/](mdc:docs/components/react)** - React component examples
+- **[snippets/](mdc:docs/snippets)** - Code snippets for documentation
+
+## Configuration Files
+- **[CopilotKit.code-workspace](mdc:CopilotKit/CopilotKit.code-workspace)** - VS Code workspace settings
+- **[utilities/](mdc:CopilotKit/utilities)** - Shared utilities:
+  - [eslint-config-custom/](mdc:CopilotKit/utilities/eslint-config-custom) - ESLint configuration
+  - [tailwind-config/](mdc:CopilotKit/utilities/tailwind-config) - Tailwind CSS configuration  
+  - [tsconfig/](mdc:CopilotKit/utilities/tsconfig) - TypeScript configurations
+
+## Infrastructure
+- **[infra/](mdc:infra)** - AWS CDK infrastructure code
+- **[helmfile/](mdc:examples/helmfile)** - Kubernetes deployment configuration
+- **[Dockerfile.*](mdc:examples/Dockerfile.agent-js)** - Docker configurations for different components
+
+## Component Registry
+- **[registry/](mdc:registry)** - Component registry for reusable components
+- **[registry/registry/](mdc:registry/registry)** - Registry content:
+  - [chat/](mdc:registry/registry/chat) - Chat components
+  - [quickstarts/](mdc:registry/registry/quickstarts) - Quick start templates
+
+## Development Best Practices
+1. Work within the monorepo structure
+2. Use the provided scripts for common tasks
+3. Test changes with relevant examples
+4. Follow the established patterns in existing code
+5. Update documentation when adding new features
+
+

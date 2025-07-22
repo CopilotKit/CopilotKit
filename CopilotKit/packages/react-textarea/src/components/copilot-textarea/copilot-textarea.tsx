@@ -1,6 +1,6 @@
 /**
  * <br/>
- * <img src="/images/CopilotTextarea.gif" width="500" />
+ * <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/CopilotTextarea.gif" width="500" />
  *
  * `<CopilotTextarea>` is a React component that acts as a drop-in replacement for the standard `<textarea>`,
  *  offering enhanced autocomplete features powered by AI. It is context-aware, integrating seamlessly with the

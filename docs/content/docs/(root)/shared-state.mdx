@@ -1,0 +1,42 @@
+---
+title: Shared State
+description: Create a two-way connection between your UI and agent state.
+icon: "lucide/Repeat"
+---
+
+import { ImageZoom } from "fumadocs-ui/components/image-zoom";
+import { IntegrationsGrid } from "@/components/react/integrations";
+
+<ImageZoom
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/SharedStateCoAgents.gif"
+  alt="Shared State Demo"
+  width={1000}
+  height={1000}
+  className="rounded-lg shadow-lg border mt-0"
+/>
+
+<Callout>
+  This video demonstrates the [Research
+  Canvas](/crewai-crews/examples/research-canvas) utilizing shared state.
+</Callout>
+
+## What is shared state?
+
+Agentic Copilots maintain a shared state that seamlessly connects your UI with the agent's execution. This shared state system allows you to:
+
+- Display the agent's current progress and intermediate results
+- Update the agent's state through UI interactions
+- React to state changes in real-time across your application
+
+<Callout title="Ready to Implement Shared State?">
+Shared State can be implemented with many supported Agent Frameworks, with each framework providing different approaches for creating bidirectional data flow between your application and AI agents.
+
+**Choose your integration to see framework-specific implementation guides and examples.** 
+<IntegrationsGrid targetPage="shared-state" />
+</Callout>
+
+## When should I use this?
+
+Shared state is perfect when you want to facilitate collaboration between your agent and the user. Updates to the outputs will be automatically shared by the UI. Similarly, any `inputs` that the user updates in the UI will be automatically reflected in the crews execution.
+
+This allows for a consistent experience where both the agent and the user are on the same page.

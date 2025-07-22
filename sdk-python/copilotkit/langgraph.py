@@ -133,7 +133,7 @@ def langchain_messages_to_copilotkit(
 
             # Check if content is a list and use the first element
             if isinstance(content, list):
-                content = content[0]
+                content = content[0] if content else ""
 
             # Anthropic models return a dict with a "text" key
             if isinstance(content, dict):

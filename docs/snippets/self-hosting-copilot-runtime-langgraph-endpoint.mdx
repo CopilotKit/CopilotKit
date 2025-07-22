@@ -20,7 +20,7 @@ import { RiNextjsLine } from "react-icons/ri";
       CopilotRuntime,
       OpenAIAdapter,
       copilotRuntimeNextJSAppRouterEndpoint,
-      langGraphPlatformEndpoint
+      LangGraphAgent
     } from "@copilotkit/runtime";
     import OpenAI from "openai";
     import { NextRequest } from "next/server";
@@ -29,20 +29,14 @@ import { RiNextjsLine } from "react-icons/ri";
     const serviceAdapter = new OpenAIAdapter({ openai } as any);
 
     const runtime = new CopilotRuntime({
-      remoteEndpoints: [
-        // [!code highlight:12]
-        langGraphPlatformEndpoint({
-          deploymentUrl: "your-api-url", // make sure to replace with your real deployment url,
+      agents: {
+        // [!code highlight:7]
+        'my_agent': new LangGraphAgent({
+          deploymentUrl: "your-api-url", // make sure to replace with your real deployment url
           langsmithApiKey: process.env.LANGSMITH_API_KEY, // only used in LangGraph Platform deployments
-          agents: [ // List any agents available under "graphs" list in your langgraph.json file; give each a description explaining when it should be called.
-            {
-              name: 'my_agent', 
-              description: 'A helpful LLM agent.',
-              assistantId: 'your-assistant-ID' // optional, but recommended!
-            }
-          ]
-        }),
-      ],
+          graphId: 'my_agent', // usually the same as agent name
+        })
+      },
     });
 
     export const POST = async (req: NextRequest) => {
@@ -66,7 +60,7 @@ import { RiNextjsLine } from "react-icons/ri";
           CopilotRuntime,
           OpenAIAdapter,
           copilotRuntimeNextJSPagesRouterEndpoint,
-          langGraphPlatformEndpoint
+          LangGraphAgent
         } from '@copilotkit/runtime';
         import OpenAI from "openai";
         import { NextApiRequest, NextApiResponse } from 'next';
@@ -76,20 +70,14 @@ import { RiNextjsLine } from "react-icons/ri";
 
         const handler = async (req: NextApiRequest, res: NextApiResponse) => {
           const runtime = new CopilotRuntime({
-            remoteEndpoints: [
-              // [!code highlight:12]
-              langGraphPlatformEndpoint({
+            agents: {
+              // [!code highlight:7]
+              'my_agent': new LangGraphAgent({
                 deploymentUrl: "your-api-url", // make sure to replace with your real deployment url
                 langsmithApiKey: process.env.LANGSMITH_API_KEY, // only used in LangGraph Platform deployments
-                agents: [ // List any agents available under "graphs" list in your langgraph.json file; give each a description explaining when it should be called.
-                  {
-                    name: 'my_agent',
-                    description: 'A helpful LLM agent.',
-                    assistantId: 'your-assistant-ID' // optional, but recommended!
-                  }
-                ]
-              }),
-            ],
+                graphId: 'my_agent', // usually the same as agent name
+              })
+            },
           });
 
           const handleRequest = copilotRuntimeNextJSPagesRouterEndpoint({
@@ -117,7 +105,7 @@ import { RiNextjsLine } from "react-icons/ri";
           CopilotRuntime,
           OpenAIAdapter,
           copilotRuntimeNodeHttpEndpoint,
-          langGraphPlatformEndpoint
+          LangGraphAgent
         } from '@copilotkit/runtime';
         import OpenAI from "openai";
 
@@ -127,20 +115,14 @@ import { RiNextjsLine } from "react-icons/ri";
 
         app.use('/copilotkit', (req, res, next) => {
           const runtime = new CopilotRuntime({
-            remoteEndpoints: [
-              // [!code highlight:12]
-              langGraphPlatformEndpoint({
+            agents: {
+              // [!code highlight:7]
+              'my_agent': new LangGraphAgent({
                 deploymentUrl: "your-api-url", // make sure to replace with your real deployment url
                 langsmithApiKey: process.env.LANGSMITH_API_KEY, // only used in LangGraph Platform deployments
-                agents: [ // List any agents available under "graphs" list in your langgraph.json file; give each a description explaining when it should be called.
-                  {
-                    name: 'my_agent',
-                    description: 'A helpful LLM agent.',
-                    assistantId: 'your-assistant-ID' // optional, but recommended!
-                  }
-                ]
-              }),
-            ],
+                graphId: 'my_agent', // usually the same as agent name
+              })
+            },
           });
 
           const handler = copilotRuntimeNodeHttpEndpoint({
@@ -174,7 +156,7 @@ import { RiNextjsLine } from "react-icons/ri";
           CopilotRuntime,
           OpenAIAdapter,
           copilotRuntimeNodeHttpEndpoint,
-          langGraphPlatformEndpoint
+          LangGraphAgent
         } from '@copilotkit/runtime';
         import OpenAI from "openai";
 
@@ -183,20 +165,14 @@ import { RiNextjsLine } from "react-icons/ri";
 
         const server = createServer((req, res) => {
           const runtime = new CopilotRuntime({
-            remoteEndpoints: [
-              // [!code highlight:12]
-              langGraphPlatformEndpoint({
+            agents: {
+              // [!code highlight:7]
+              'my_agent': new LangGraphAgent({
                 deploymentUrl: "your-api-url", // make sure to replace with your real deployment url
                 langsmithApiKey: process.env.LANGSMITH_API_KEY, // only used in LangGraph Platform deployments
-                agents: [ // List any agents available under "graphs" list in your langgraph.json file; give each a description explaining when it should be called.
-                  {
-                    name: 'my_agent',
-                    description: 'A helpful LLM agent.',
-                    assistantId: 'your-assistant-ID' // optional, but recommended!
-                  }
-                ]
-              }),
-            ],
+                graphId: 'my_agent', // usually the same as agent name
+              })
+            },
           });
 
           const handler = copilotRuntimeNodeHttpEndpoint({
@@ -230,7 +206,7 @@ import { RiNextjsLine } from "react-icons/ri";
           CopilotRuntime, 
           copilotRuntimeNestEndpoint, 
           OpenAIAdapter,
-          langGraphPlatformEndpoint 
+          LangGraphAgent 
         } from '@copilotkit/runtime';
         import { Request, Response } from 'express';
         import OpenAI from "openai";
@@ -243,20 +219,14 @@ import { RiNextjsLine } from "react-icons/ri";
             const serviceAdapter = new OpenAIAdapter({ openai } as any);
             
             const runtime = new CopilotRuntime({
-              remoteEndpoints: [
-                // [!code highlight:12]
-                langGraphPlatformEndpoint({
+              agents: {
+                // [!code highlight:7]
+                'my_agent': new LangGraphAgent({
                   deploymentUrl: "your-api-url", // make sure to replace with your real deployment url
                   langsmithApiKey: process.env.LANGSMITH_API_KEY, // only used in LangGraph Platform deployments
-                  agents: [ // List any agents available under "graphs" list in your langgraph.json file; give each a description explaining when it should be called.
-                    {
-                      name: 'my_agent',
-                      description: 'A helpful LLM agent.',
-                      assistantId: 'your-assistant-ID' // optional, but recommended!
-                    }
-                  ]
-                }),
-              ],
+                  graphId: 'my_agent', // usually the same as agent name
+                })
+              },
             });
 
             const handler = copilotRuntimeNestEndpoint({

@@ -11,7 +11,7 @@ import {
 import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx"
 import { MessageCircle, PanelsTopLeft } from "lucide-react";
 
-<video src="/images/coagents/interrupt-flow.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/interrupt-flow.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
 
 <Callout type="info">
   Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter) with
@@ -81,391 +81,133 @@ We're going to have the agent ask us to name it, so we'll need a state property 
 </Tabs>
 
 </Step>
-    <TailoredContent
-        className="step"
-        id="interrupt-type"
-        header={
-            <div>
-                <p className="text-xl font-semibold">Choose how to display the interrupt to the user</p>
-            </div>
-        }
-    >
-        <TailoredContentOption
-            id="langgraph-interrupt"
-            title="As a Custom Chat UI"
-            description="I'd like to display a custom UI in the chat window"
-            icon={<PanelsTopLeft />}
-        >
-            <Step>
-                ### Call `interrupt` in your LangGraph agent
-                Now we can call `interrupt` in our LangGraph agent.
+<Step>
+    ### Call `interrupt` in your LangGraph agent
+    Now we can call `interrupt` in our LangGraph agent.
 
-                <Callout type="info">
-                    Your agent will not be aware of the `interrupt` interaction by default in LangGraph.
+    <Callout type="info">
+        Your agent will not be aware of the `interrupt` interaction by default in LangGraph.
 
-                    If you want this behavior, see the [section on it below](#make-your-agent-aware-of-interruptions).
-                </Callout>
+        If you want this behavior, see the [section on it below](#make-your-agent-aware-of-interruptions).
+    </Callout>
 
-                <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
-                    <Tab value="Python">
-                        ```python title="agent/sample_agent/agent.py"
-                        from langgraph.types import interrupt # [!code highlight]
-                        from langchain_core.messages import SystemMessage
-                        from langchain_openai import ChatOpenAI
-                        from copilotkit import CopilotKitState
+    <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+        <Tab value="Python">
+            ```python title="agent/sample_agent/agent.py"
+            from langgraph.types import interrupt # [!code highlight]
+            from langchain_core.messages import SystemMessage
+            from langchain_openai import ChatOpenAI
+            from copilotkit import CopilotKitState
 
-                        # add the agent state definition from the previous step
-                        class AgentState(CopilotKitState):
-                            agent_name: str
+            # add the agent state definition from the previous step
+            class AgentState(CopilotKitState):
+                agent_name: str
 
-                        def chat_node(state: AgentState, config: RunnableConfig):
-                            if not state.get("agent_name"):
-                                # Interrupt and wait for the user to respond with a name
-                                state["agent_name"] = interrupt("Before we start, what would you like to call me?") # [!code highlight]
+            def chat_node(state: AgentState, config: RunnableConfig):
+                if not state.get("agent_name"):
+                    # Interrupt and wait for the user to respond with a name
+                    state["agent_name"] = interrupt("Before we start, what would you like to call me?") # [!code highlight]
 
-                            # Tell the agent its name
-                            system_message = SystemMessage(
-                                content=f"You are a helpful assistant named {state.get('agent_name')}..."
-                            )
+                # Tell the agent its name
+                system_message = SystemMessage(
+                    content=f"You are a helpful assistant named {state.get('agent_name')}..."
+                )
 
-                            response = ChatOpenAI(model="gpt-4o").invoke(
-                                [system_message, *state["messages"]],
-                                config
-                            )
+                response = ChatOpenAI(model="gpt-4o").invoke(
+                    [system_message, *state["messages"]],
+                    config
+                )
 
-                            return {
-                                **state,
-                                "messages": response,
-                            }
-                        ```
-                    </Tab>
-                    <Tab value="TypeScript">
-                        ```typescript title="agent-js/src/agent.ts"
-                        import { interrupt } from "@langchain/langgraph"; // [!code highlight]
-                        import { SystemMessage } from "@langchain/core/messages";
-                        import { ChatOpenAI } from "@langchain/openai";
-
-                        // add the agent state definition from the previous step
-                        export const AgentStateAnnotation = Annotation.Root({
-                            agentName: Annotation<string>,
-                            ...CopilotKitStateAnnotation.spec,
-                        });
-                        export type AgentState = typeof AgentStateAnnotation.State;
-
-                        async function chat_node(state: AgentState, config: RunnableConfig) {
-                            const agentName = state.agentName
-                            ?? interrupt("Before we start, what would you like to call me?"); // [!code highlight]
-
-                            // Tell the agent its name
-                            const systemMessage = new SystemMessage({
-                                content: `You are a helpful assistant named ${state.agentName}...`,
-                            });
-
-                            const response = await new ChatOpenAI({ model: "gpt-4o" }).invoke(
-                                [systemMessage, ...state.messages],
-                                config
-                            );
-
-                            return {
-                                ...state,
-                                agentName
-                                messages: response,
-                            };
-                        }
-                        ```
-                    </Tab>
-                </Tabs>
-            </Step>
-            <Step>
-                ### Handle the interrupt in your frontend
-                At this point, your LangGraph agent's `interrupt` will be called. However, we currently have no handling for rendering or
-                responding to the interrupt in the frontend.
-
-                To do this, we'll use the `useLangGraphInterrupt` hook, give it a component to render, and then call `resolve` with the user's response.
-
-                ```tsx title="app/page.tsx"
-                import { useLangGraphInterrupt } from "@copilotkit/react-core"; // [!code highlight]
-                // ...
-
-                const YourMainContent = () => {
-                // ...
-                // [!code highlight:16]
-                // styles omitted for brevity
-                useLangGraphInterrupt({
-                    render: ({ event, resolve }) => (
-                        <div>
-                            <p>{event.value}</p>
-                            <form onSubmit={(e) => {
-                                e.preventDefault();
-                                resolve((e.target as HTMLFormElement).response.value);
-                            }}>
-                                <input type="text" name="response" placeholder="Enter your response" />
-                                <button type="submit">Submit</button>
-                            </form>
-                        </div>
-                    )
-                });
-                // ...
-
-                return <div>{/* ... */}</div>
+                return {
+                    **state,
+                    "messages": response,
                 }
-                ```
+            ```
+        </Tab>
+        <Tab value="TypeScript">
+            ```typescript title="agent-js/src/agent.ts"
+            import { interrupt } from "@langchain/langgraph"; // [!code highlight]
+            import { SystemMessage } from "@langchain/core/messages";
+            import { ChatOpenAI } from "@langchain/openai";
 
-            </Step>
-        </TailoredContentOption>
-        <TailoredContentOption
-            id="cpk-interrupt"
-            title="As Message"
-            description="I'd like to display the interrupt as a copilot message"
-            icon={<MessageCircle />}
-        >
-            <Step>
-                ### Call `copilotkit_interrupt` in your LangGraph agent
-                Now we can call `copilotkit_interrupt` in our LangGraph agent.
+            // add the agent state definition from the previous step
+            export const AgentStateAnnotation = Annotation.Root({
+                agentName: Annotation<string>,
+                ...CopilotKitStateAnnotation.spec,
+            });
+            export type AgentState = typeof AgentStateAnnotation.State;
 
-                With `copilotkit_interrupt` we can render a simple message for the user to answer, or an action defined with `useCopilotAction` hook
+            async function chat_node(state: AgentState, config: RunnableConfig) {
+                const agentName = state.agentName
+                ?? interrupt("Before we start, what would you like to call me?"); // [!code highlight]
 
-                <Callout type="info">
-                    Your agent will not be aware of the `interrupt` interaction by default in LangGraph.
+                // Tell the agent its name
+                const systemMessage = new SystemMessage({
+                    content: `You are a helpful assistant named ${state.agentName}...`,
+                });
 
-                    If you want this behavior, see the [section on it below](#make-your-agent-aware-of-interruptions).
-                </Callout>
+                const response = await new ChatOpenAI({ model: "gpt-4o" }).invoke(
+                    [systemMessage, ...state.messages],
+                    config
+                );
 
-                <Tabs groupId="implementation" items={["Message", "Action"]}>
-                    <Tab value="Message">
-                        <div className="py-6">
-                            <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
-                                <Tab value="Python">
-                                    ```python title="agent/sample_agent/agent.py"
-                                    from copilotkit.langgraph import copilotkit_interrupt # [!code highlight]
-                                    from langchain_core.messages import SystemMessage
-                                    from langchain_openai import ChatOpenAI
-                                    # ...
+                return {
+                    ...state,
+                    agentName
+                    messages: response,
+                };
+            }
+            ```
+        </Tab>
+    </Tabs>
+</Step>
+<Step>
+    ### Handle the interrupt in your frontend
+    At this point, your LangGraph agent's `interrupt` will be called. However, we currently have no handling for rendering or
+    responding to the interrupt in the frontend.
 
-                                    def chat_node(state: AgentState, config: RunnableConfig):
-                                      if not state.get("agent_name"):
-                                        # Interrupt and wait for the user to respond with a name
-                                        answer, messages = copilotkit_interrupt(message='Before we start, what would you like to call me?') # [!code highlight]
-                                        state["agent_name"] = answer
-                                        state["messages"] = [*state["messages"], *messages]
+    To do this, we'll use the `useLangGraphInterrupt` hook, give it a component to render, and then call `resolve` with the user's response.
 
-                                      # Tell the agent its name
-                                      system_message = SystemMessage(
-                                        content=f"You are a helpful assistant named {state.get('agent_name')}..."
-                                      )
+    ```tsx title="app/page.tsx"
+    import { useLangGraphInterrupt } from "@copilotkit/react-core"; // [!code highlight]
+    // ...
 
-                                      response = ChatOpenAI(model="gpt-4o").invoke(
-                                        [system_message, *state["messages"]],
-                                        config
-                                      )
+    const YourMainContent = () => {
+    // ...
+    // [!code highlight:16]
+    // styles omitted for brevity
+    useLangGraphInterrupt({
+        render: ({ event, resolve }) => (
+            <div>
+                <p>{event.value}</p>
+                <form onSubmit={(e) => {
+                    e.preventDefault();
+                    resolve((e.target as HTMLFormElement).response.value);
+                }}>
+                    <input type="text" name="response" placeholder="Enter your response" />
+                    <button type="submit">Submit</button>
+                </form>
+            </div>
+        )
+    });
+    // ...
 
-                                      return {
-                                        **state,
-                                        # messages receives from the interrupt are not automatically saved to state, don't forget to add them!
-                                        "messages": [*state["messages"], response],
-                                      }
-                                    ```
-                                </Tab>
-                                <Tab value="TypeScript">
-                                    ```typescript title="agent-js/src/agent.ts"
-                                    import { copilotKitInterrupt } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
-                                    import { SystemMessage } from "@langchain/core/messages";
-                                    import { ChatOpenAI } from "@langchain/openai";
+    return <div>{/* ... */}</div>
+    }
+    ```
 
-                                    // ... add here the agent state from previous step
-
-                                    async function chat_node(state: AgentState, config: RunnableConfig) {
-                                      if (!state.agentName) {
-                                        const { answer, messages } = copilotKitInterrupt({ message: 'Before we start, what would you like to call me?' }); // [!code highlight]
-                                        state.agentName = answer
-                                        state.messages = [...state.messages, ...messages]
-                                      }
-
-                                      // Tell the agent its name
-                                      const systemMessage = new SystemMessage({
-                                        content: `You are a helpful assistant named ${state.agentName}...`,
-                                      });
-
-                                      const response = await new ChatOpenAI({ model: "gpt-4o" }).invoke(
-                                        [systemMessage, ...state.messages],
-                                        config
-                                      );
-
-                                      return {
-                                        ...state,
-                                        // messages receives from the interrupt are not automatically saved to state, remember to add them!
-                                        messages: [...state.messages, response],
-                                      };
-                                    }
-                                    ```
-                                </Tab>
-                            </Tabs>
-                        </div>
-                    </Tab>
-                    <Tab value="Action" className="py-6">
-                        Let's assume an "AskName" action that takes message as argument:
-
-                        ```tsx title="your-component.tsx"
-                        "use client" // only necessary if you are using Next.js with the App Router.
-                        import { useCopilotAction } from "@copilotkit/react-core";
-
-                        export function YourComponent() {
-                          useCopilotAction({
-                            name: "AskName",
-                            description: "Ask the user how they would like to call you",
-                            parameters: [
-                              {
-                                  name: "message",
-                                  type: "string",
-                                  description: "The message that asks for the name",
-                                  required: true
-                              },
-                            ],
-                            render: ({ status, args }) => {
-                              const { message } = args;
-
-                              return <div>{ message }</div>;
-                            },
-                          });
-
-                          return (
-                            <>...</>
-                          );
-                        }
-                        ```
-                        <div className="py-6">
-                            <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
-                                <Tab value="Python">
-                                    ```python title="agent/sample_agent/agent.py"
-                                    from copilotkit.langgraph import copilotkit_interrupt # [!code highlight]
-                                    from langchain_core.messages import SystemMessage
-                                    from langchain_openai import ChatOpenAI
-                                    # ...
-
-                                    def chat_node(state: AgentState, config: RunnableConfig):
-                                      if not state.get("agent_name"):
-                                        # Interrupt and wait for the user to respond with a name
-                                        # [!code highlight:5]
-                                        answer, messages = copilotkit_interrupt(
-                                         action='AskName', # The action name you defined in an existing useCopilotAction hook
-                                         args={ "message": "Before we start, what would you like to call me?" } # The arguments to pass when the tool is called.
-                                        )
-                                        state["agent_name"] = answer
-                                        state["messages"] = [*state["messages"], *messages]
-
-                                      # Tell the agent its name
-                                      system_message = SystemMessage(
-                                        content=f"You are a helpful assistant named {state.get('agent_name')}..."
-                                      )
-
-                                      response = ChatOpenAI(model="gpt-4o").invoke(
-                                        [system_message, *state["messages"]],
-                                        config
-                                      )
-
-                                      return {
-                                        **state,
-                                        # messages receives from the interrupt are not automatically saved to state, don't forget to add them!
-                                        "messages": [*state["messages"], response],
-                                      }
-                                    ```
-                                </Tab>
-                                <Tab value="TypeScript">
-                                    ```typescript title="agent-js/src/agent.ts"
-                                    import { copilotKitInterrupt } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
-                                    import { SystemMessage } from "@langchain/core/messages";
-                                    import { ChatOpenAI } from "@langchain/openai";
-
-                                    // ... add here the agent state from previous step
-
-                                    async function chat_node(state: AgentState, config: RunnableConfig) {
-                                      if (!state.agentName) {
-                                        // [!code highlight:5]
-                                        const { answer, messages } = copilotKitInterrupt({
-                                          action: 'AskName', // The action name you defined in an existing useCopilotAction hook
-                                          args: { message: 'Before we start, what would you like to call me?' }, // The arguments to pass when the tool is called.
-                                        }); // [!code highlight]
-                                        state.agentName = answer
-                                        state.messages = [...state.messages, ...messages]
-                                      }
-
-                                    // Tell the agent its name
-                                      const systemMessage = new SystemMessage({
-                                        content: `You are a helpful assistant named ${state.agentName}...`,
-                                      });
-
-                                      const response = await new ChatOpenAI({ model: "gpt-4o" }).invoke(
-                                        [systemMessage, ...state.messages],
-                                        config
-                                      );
-
-                                      return {
-                                        ...state,
-                                        // messages receives from the interrupt are not automatically saved to state, don't forget to add them!
-                                        messages: [...state.messages, response],
-                                      };
-                                    }
-                                    ```
-                                </Tab>
-                            </Tabs>
-                        </div>
-                    </Tab>
-                </Tabs>
-            </Step>
-        </TailoredContentOption>
-    </TailoredContent>
+</Step>
 <Step>
 ### Give it a try!
 Try talking to your agent, you'll see that it now pauses execution and waits for you to respond!
 </Step>
 </Steps>
 
-## Make your agent aware of interruptions
+## Advanced usage
 
-By default, your agent will not be made aware of LangGraph `interrupts`. This is because the decision is not saved into the message's state.
-For simple and sensitive flows, this is ideal. However, you may want to make your agent aware of these interactions.
+### Condition UI executions
 
-If you've been using the "As Message" implementation, you may have noticed that the messages are returned from the interrupt function.
-These can be used to notify the LLM about the recent communication:
-
-<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
-    <Tab value="Python">
-        ```python title="agent-py/sample_agent/agent.py"
-        from copilotkit import copilotkit_interrupt
-
-        # ...
-        async def chat_node(state: AgentState, config: RunnableConfig)
-            agent_name, new_messages = copilotkit_interrupt(message="Before we start, what would you like to call me?")
-            state["messages"] = state["messages"] + new_messages
-            state["agent_name"] = agent_name
-            # ... add the rest of the node implementation, including LLM calls etc.
-
-            # Don't forget to return the messages list with our newly added interrupt messages, and the new agent name
-            return { "messages": state["messages"], "agent_name": state["agent_name"] }
-        # ...
-        ```
-    </Tab>
-    <Tab value="TypeScript">
-        ```typescript title="agent-js/src/agent.ts"
-        import { copilotKitInterrupt } from "@copilotkit/sdk-js/langgraph";
-
-        // ...
-        async function chat_node(state: AgentState, config: RunnableConfig) {
-            const { agentName, messages } = copilotKitInterrupt({ message: "Before we start, what would you like to call me?" });
-            state.messages = [...state.messages, ...messages];
-            state.agentName = agentName;
-            // ... add the rest of the node implementation, including LLM calls etc.
-
-            // Don't forget to return the messages list with our newly added interrupt messages, and the new agent name
-            return { messages: state.messages, agentName: state.agentName }
-        }
-        ```
-    </Tab>
-</Tabs>
-
-## Condition UI executions
-
-When opting for custom chat UI while having multiple `interrupt` events in the agent, there could be conflicts between multiple `useLangGraphInterrupt` hooks calls in the UI.
+When rendering multiple `interrupt` events in the agent, there could be conflicts between multiple `useLangGraphInterrupt` hooks calls in the UI.
 For this reason, the hook can take an `enabled` argument which will apply it conditionally:
 
 <Steps>
@@ -594,7 +336,7 @@ For this reason, the hook can take an `enabled` argument which will apply it con
     </Step>
 </Steps>
 
-## Preprocessing of an interrupt and programmatically handling an interrupt value
+### Preprocessing of an interrupt and programmatically handling an interrupt value
 
 When opting for custom chat UI, some cases may require pre-processing of the incoming values of interrupt event or even resolving it entirely without showing a UI for it.
 This can be achieved using the `handler` property, which is not required to return a React component.

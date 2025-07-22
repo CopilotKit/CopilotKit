@@ -1,0 +1,77 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# CopilotKit Quick Reference
+
+## Need to...?
+
+### Build a Simple Copilot
+- Start with [copilot-chat-with-your-data/](mdc:examples/copilot-chat-with-your-data)
+- Use [react-core/](mdc:CopilotKit/packages/react-core) for basic integration
+- Add [react-ui/](mdc:CopilotKit/packages/react-ui) for pre-built components
+
+### Create Multi-Agent Systems
+- Check [coagents-starter/](mdc:examples/coagents-starter) for basic setup
+- Use [coagents-routing/](mdc:examples/coagents-routing) for routing patterns
+- See [coagents-shared-state/](mdc:examples/coagents-shared-state) for state management
+
+### Integrate with CrewAI
+- **Crews**: [coagents-starter-crewai-crews/](mdc:examples/coagents-starter-crewai-crews)
+- **Flows**: [coagents-starter-crewai-flows/](mdc:examples/coagents-starter-crewai-flows)
+
+### Develop Python Agents
+- Use [sdk-python/](mdc:sdk-python) package
+- Check [copilotkit/agent.py](mdc:sdk-python/copilotkit/agent.py) for main agent class
+- See [coagents-starter/agent-py/](mdc:examples/coagents-starter/agent-py) for example
+
+### Develop JavaScript Agents
+- Use [sdk-js/](mdc:CopilotKit/packages/sdk-js) package
+- Check [coagents-starter/agent-js/](mdc:examples/coagents-starter/agent-js) for example
+
+### Customize UI Components
+- Browse [registry/](mdc:registry) for reusable components
+- Check [docs/components/react/](mdc:docs/components/react) for documentation
+- Use [react-ui/](mdc:CopilotKit/packages/react-ui) for pre-built components
+
+### Set Up Development Environment
+- Review [CopilotKit/package.json](mdc:CopilotKit/package.json) for workspace setup
+- Use scripts in [CopilotKit/scripts/](mdc:CopilotKit/scripts)
+- Check [utilities/](mdc:CopilotKit/utilities) for shared configurations
+
+### Run Tests
+- Use [examples/e2e/](mdc:examples/e2e) for end-to-end testing
+- Check [playwright.config.ts](mdc:examples/e2e/playwright.config.ts) for configuration
+
+### Build Documentation
+- Check [docs/](mdc:docs) for documentation site
+- Use [docs/snippets/](mdc:docs/snippets) for code examples
+- See [docs/content/docs/](mdc:docs/content/docs) for markdown files
+
+## Key Files to Know
+- **[CopilotKit/package.json](mdc:CopilotKit/package.json)** - Main workspace configuration
+- **[sdk-python/pyproject.toml](mdc:sdk-python/pyproject.toml)** - Python SDK configuration
+- **[CopilotKit.code-workspace](mdc:CopilotKit/CopilotKit.code-workspace)** - VS Code workspace settings
+- **[examples/shared/](mdc:examples/shared)** - Shared utilities and templates
+
+## Common Patterns
+1. **Frontend**: Next.js app with CopilotProvider and CopilotChat
+2. **Backend**: Python or Node.js agent with actions and state management
+3. **Integration**: Runtime connects frontend to backend agents
+4. **Testing**: Playwright E2E tests for full integration validation
+
+## Getting Started Checklist
+1. Clone the repository
+2. Navigate to [CopilotKit/](mdc:CopilotKit) directory
+3. Run `npm install` to set up workspace
+4. Choose an example from [examples/](mdc:examples)
+5. Follow the example's README.md
+6. Start developing your custom copilot or agent
+
+## Need Help?
+- Check [CONTRIBUTING.md](mdc:CONTRIBUTING.md) for contribution guidelines
+- Browse [community/](mdc:community) for demos and examples
+- Look at [docs/](mdc:docs) for comprehensive documentation
+
+

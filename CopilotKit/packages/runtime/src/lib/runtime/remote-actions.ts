@@ -131,6 +131,7 @@ export async function setupRemoteActions({
   frontendUrl,
   agents,
   metaEvents,
+  nodeName,
 }: {
   remoteEndpointDefinitions: EndpointDefinition[];
   graphqlContext: GraphQLContext;
@@ -139,9 +140,12 @@ export async function setupRemoteActions({
   frontendUrl?: string;
   agents: Record<string, AbstractAgent>;
   metaEvents?: MetaEventInput[];
+  nodeName?: string;
 }): Promise<Action[]> {
   const logger = graphqlContext.logger.child({ component: "remote-actions.fetchRemoteActions" });
   logger.debug({ remoteEndpointDefinitions }, "Fetching from remote endpoints");
+
+  const threadMetadata = (graphqlContext.properties?.threadMetadata as Record<string, any>) || {};
 
   // Remove duplicates of remoteEndpointDefinitions.url
   const filtered = remoteEndpointDefinitions.filter((value, index, self) => {
@@ -204,6 +208,9 @@ export async function setupRemoteActions({
         agentStates,
         agent: agent,
         metaEvents,
+        threadMetadata,
+        nodeName,
+        graphqlContext,
       }),
     );
   }

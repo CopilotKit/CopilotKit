@@ -32,7 +32,7 @@ import {
 import CopilotUI from "@/snippets/copilot-ui.mdx";
 
 <video
-  src="/images/coagents/chat-example.mp4"
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
   className="rounded-lg shadow-xl"
   loop
   playsInline
@@ -69,7 +69,7 @@ Before you begin, you'll need the following:
             id="coagents-starter"
             title="Start with our template"
             description="Get started quickly with our pre-configured starter template."
-            icon={<img src="/images/copilotkit-logo.svg" alt="CopilotKit Logo" width={20} height={20} />}
+            icon={<img src="https://cdn.copilotkit.ai/docs/copilotkit/images/copilotkit-logo.svg" alt="CopilotKit Logo" width={20} height={20} />}
         >
             <Step>
                 ### Clone the starter template
@@ -162,7 +162,7 @@ Before you begin, you'll need the following:
             id="bring-your-own"
             title="Integrate with existing agent"
             description="I already have a LlamaIndex Agent and want to add CopilotKit."
-            icon={<img src="/images/copilotkit-logo.svg" alt="CopilotKit Logo" width={20} height={20} />}
+            icon={<img src="https://cdn.copilotkit.ai/docs/copilotkit/images/copilotkit-logo.svg" alt="CopilotKit Logo" width={20} height={20} />}
         >
             <Step>
                 ### Serve your LlamaIndex agent as a AG-UI endpoint
@@ -236,7 +236,7 @@ Before you begin, you'll need the following:
                 const runtime = new CopilotRuntime({
                      agents: {
                         // Our FastAPI endpoint URL
-                        "llamaindex_agent": new LlamaIndexAgent({url: "http://localhost:8000/agui"}),
+                        "llamaindex_agent": new LlamaIndexAgent({url: "http://localhost:8000/run"}),
                     }   
                 });
 

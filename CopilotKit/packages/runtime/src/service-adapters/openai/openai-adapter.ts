@@ -129,8 +129,6 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
     const tools = actions.map(convertActionInputToOpenAITool);
     const threadId = threadIdFromRequest ?? randomUUID();
 
-    console.log("messages", messages);
-
     // ALLOWLIST APPROACH: Only include tool_result messages that correspond to valid tool_calls
     // Step 1: Extract valid tool_call IDs
     const validToolUseIds = new Set<string>();
@@ -170,18 +168,6 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
         function: { name: forwardedParameters.toolChoiceFunctionName },
       };
     }
-
-    console.log("INPUT", {
-      model: model,
-      stream: true,
-      messages: openaiMessages,
-      ...(tools.length > 0 && { tools }),
-      ...(forwardedParameters?.maxTokens && { max_tokens: forwardedParameters.maxTokens }),
-      ...(forwardedParameters?.stop && { stop: forwardedParameters.stop }),
-      ...(toolChoice && { tool_choice: toolChoice }),
-      ...(this.disableParallelToolCalls && { parallel_tool_calls: false }),
-      ...(forwardedParameters?.temperature && { temperature: forwardedParameters.temperature }),
-    });
 
     try {
       const stream = this.openai.beta.chat.completions.stream({

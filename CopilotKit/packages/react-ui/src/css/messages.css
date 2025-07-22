@@ -9,8 +9,6 @@
 }
 
 .copilotKitMessagesContainer {
-  /*overflow-y: scroll;*/
-  /*flex: 1;*/
   padding: 1rem 24px;
   display: flex;
   flex-direction: column;
@@ -18,11 +16,11 @@
 
 .copilotKitMessagesFooter {
   display: flex;
-  padding: 0;
-  margin: 0 auto 8px auto;
+  padding: 0.5rem 0.75rem;
+  margin: 8px auto 0 auto;
   justify-content: flex-start;
   flex-direction: column;
-  width: 90%;
+  width: 97%;
 }
 
 .copilotKitMessages::-webkit-scrollbar {
@@ -182,4 +180,55 @@
   border-radius: 50%;
   background-color: var(--copilot-kit-primary-color);
   animation: copilotKitActivityDotAnimation 1.4s infinite ease-in-out both;
+}
+
+/* Image Rendering Styles */
+.copilotKitImageRendering {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.copilotKitImageRenderingImage {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: var(--copilot-kit-shadow-sm);
+}
+
+.copilotKitImageRenderingContent {
+  margin-top: 8px;
+  padding: 0 16px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--copilot-kit-secondary-contrast-color);
+}
+
+/* Image Error State Styles */
+.copilotKitImageRenderingError {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--copilot-kit-separator-color);
+  border-radius: 8px;
+  background-color: var(--copilot-kit-input-background-color);
+}
+
+.copilotKitImageRenderingErrorMessage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: var(--copilot-kit-error-background);
+  border: 1px solid var(--copilot-kit-error-border);
+  border-radius: 6px;
+  color: var(--copilot-kit-error-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.copilotKitImageRenderingErrorMessage::before {
+  content: "⚠️";
+  font-size: 1rem;
 }

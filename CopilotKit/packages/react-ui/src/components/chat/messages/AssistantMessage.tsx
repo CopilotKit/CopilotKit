@@ -2,20 +2,17 @@ import { AssistantMessageProps } from "../props";
 import { useChatContext } from "../ChatContext";
 import { Markdown } from "../Markdown";
 import { useState } from "react";
-import { TextMessage } from "@copilotkit/runtime-client-gql";
 
 export const AssistantMessage = (props: AssistantMessageProps) => {
   const { icons, labels } = useChatContext();
   const {
     message,
     isLoading,
-    subComponent,
     onRegenerate,
     onCopy,
     onThumbsUp,
     onThumbsDown,
     isCurrentMessage,
-    rawData,
     markdownTagRenderers,
     canRegenerate = true,
     canCopy = true,
@@ -25,52 +22,42 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
-    if (message && onCopy) {
-      navigator.clipboard.writeText(message);
+    const content = message?.content || "";
+    if (content && onCopy) {
+      navigator.clipboard.writeText(content);
       setCopied(true);
-      onCopy(message);
+      onCopy(content);
       setTimeout(() => setCopied(false), 2000);
-    } else if (message) {
-      navigator.clipboard.writeText(message);
+    } else if (content) {
+      navigator.clipboard.writeText(content);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
   };
 
   const handleRegenerate = () => {
-    if (onRegenerate) {
-      onRegenerate();
-    }
+    if (onRegenerate) onRegenerate();
   };
 
   const handleThumbsUp = () => {
-    const fullMessage = rawData as TextMessage;
-    if (onThumbsUp && fullMessage) {
-      onThumbsUp(fullMessage);
-    }
+    if (onThumbsUp && message) onThumbsUp(message);
   };
 
   const handleThumbsDown = () => {
-    const fullMessage = rawData as TextMessage;
-    if (onThumbsDown && fullMessage) {
-      onThumbsDown(fullMessage);
-    }
+    if (onThumbsDown && message) onThumbsDown(message);
   };
 
   const LoadingIcon = () => <span>{icons.activityIcon}</span>;
+  const content = message?.content || "";
+  const subComponent = message?.generativeUI?.();
 
   return (
     <>
-      {(message || isLoading) && (
-        <div
-          className="copilotKitMessage copilotKitAssistantMessage"
-          data-message-role="assistant"
-          data-message-index={index}
-        >
-          {message && <Markdown content={message || ""} components={markdownTagRenderers} />}
-          {isLoading && <LoadingIcon />}
+      {content && (
+        <div className="copilotKitMessage copilotKitAssistantMessage">
+          {content && <Markdown content={content} components={markdownTagRenderers} />}
 
-          {!disableFirstMessageControls && message && !isLoading && (
+          {!disableFirstMessageControls && content && !isLoading && (
             <div
               className={`copilotKitMessageControls ${isCurrentMessage ? "currentMessage" : ""}`}
             >
@@ -123,6 +110,7 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
         </div>
       )}
       <div style={{ marginBottom: "0.5rem" }}>{subComponent}</div>
+      {isLoading && <LoadingIcon />}
     </>
   );
 };

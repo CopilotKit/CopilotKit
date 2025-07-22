@@ -1,5 +1,102 @@
 # @copilotkit/shared
 
+## 1.10.0-next.2
+
+## 1.10.0-next.1
+
+## 1.10.0-next.0
+
+### Minor Changes
+
+- 8674da1: - refactor(headless): completely overhaul headless ui to better support agentic features
+
+  Headless UI has been in a bad state for a bit now. When we added support for different
+  agentic runtimes we acquired tech-debt that, with this PR, is being alleviated.
+
+  As such, the following features have been updated to be completely functional with Headless UI.
+
+  - Generative UI
+  - Suggestions
+  - Agentic Generative UI
+  - Interrupts
+
+  In addition, a variety of QOL changes have been made.
+
+  - New AG-UI based message types
+  - Inline code rendering is fixed
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+## 1.9.3
+
+### Patch Changes
+
+- 1bda332: - chore(telemetry): integrate Scarf for usage analytics
+
+## 1.9.3-next.4
+
+## 1.9.3-next.3
+
+### Patch Changes
+
+- 1bda332: - chore(telemetry): integrate Scarf for usage analytics
+
+## 1.9.3-next.2
+
+## 1.9.3-next.1
+
+## 1.9.3-next.0
+
+## 1.9.2
+
+### Patch Changes
+
+- fac89c2: - refactor: rename onTrace to onError throughout codebase
+
+  - Rename CopilotTraceEvent to CopilotErrorEvent and CopilotTraceHandler to CopilotErrorHandler
+
+- 9169ad7: - feat: add onTrace handler for runtime and UI error/event tracking
+- 1d1c51d: - feat: surface all errors in structured format
+- 10345a5: - feat: structured error visibility system for streaming errors
+- 9169ad7: - feat: add onTrace handler for comprehensive debugging and observability - Add CopilotTraceEvent interfaces with rich debugging context, implement runtime-side tracing with publicApiKey gating, add UI-side error tracing, include comprehensive test coverage, and fix tsup build config to exclude test files
+  - fix: extract publicApiKey for all requests + trace GraphQL errors
+
+## 1.9.2-next.26
+
+## 1.9.2-next.25
+
+## 1.9.2-next.24
+
+## 1.9.2-next.23
+
+## 1.9.2-next.22
+
+## 1.9.2-next.21
+
+## 1.9.2-next.20
+
+## 1.9.2-next.19
+
+## 1.9.2-next.18
+
+### Patch Changes
+
+- fac89c2: - refactor: rename onTrace to onError throughout codebase
+
+  - Rename CopilotTraceEvent to CopilotErrorEvent and CopilotTraceHandler to CopilotErrorHandler
+
+## 1.9.2-next.17
+
+## 1.9.2-next.16
+
+## 1.9.2-next.15
+
+## 1.9.2-next.14
+
+## 1.9.2-next.13
+
+## 1.9.2-next.12
+
 ## 1.9.2-next.11
 
 ## 1.9.2-next.10

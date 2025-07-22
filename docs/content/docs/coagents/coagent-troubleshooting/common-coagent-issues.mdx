@@ -1,5 +1,5 @@
 ---
-title: Common CoAgent Issues
+title: Common LangGraph + CopilotKit Issues
 description: Common issues you may encounter when using CoAgents.
 ---
 
@@ -245,9 +245,11 @@ If you're seeing this error, it means the LangGraph platform client cannot conne
         To:
         ```
         new CopilotRuntime({
-          remoteEndpoints: [
-            copilotKitEndpoint({ url: "https://your-fastapi-endpoint:port/copilotkit" });
-          ]
+            agents: {
+                'agent-name': new LangGraphHttpAgent({
+                    url: 'https://your-fastapi-endpoint:port/your-agent-uri'
+                }),
+            }
         });
         ```
     </Accordion>
@@ -269,7 +271,7 @@ disappear in the frontend chat**.
 In this situation, the most likely scenario is that the `messages` property in the state is being updated in the middle of a node but those edits are not being
 persisted at the end of a node. 
 
-<img src="/images/coagents/message-state-diagram.png" />
+<img src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/message-state-diagram.png" />
 
 <Accordions>
     <Accordion title="I want these messages to be persisted">
