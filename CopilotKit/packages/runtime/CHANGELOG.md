@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.10.0-next.2
+
+### Patch Changes
+
+- a31443c: removed unused dependency on ip module
+  - @copilotkit/shared@1.10.0-next.2
+
 ## 1.10.0-next.1
 
 ### Patch Changes
