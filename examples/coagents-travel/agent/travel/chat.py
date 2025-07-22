@@ -46,7 +46,7 @@ async def chat_node(state: AgentState, config: RunnableConfig):
     When you create or update a trip, you should set it as the selected trip.
     If you delete a trip, try to select another trip.
     
-    When the AI say that it has successfully added the trip. Just provide a high level summary of the trip and why you planned it that way and do not call any other tools.
+    When the AI say that it has successfully added the trip. Just provide a high level summary of the trip you had just added now and why you planned it that way and do not call any other tools.
 
     If an operation is cancelled by the user, DO NOT try to perform the operation again. Just ask what the user would like to do now
     instead.

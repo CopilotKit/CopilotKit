@@ -52,6 +52,6 @@ graph_builder.add_edge("perform_trips_node", "chat_node")
 graph_builder.add_edge("trips_node", "perform_trips_node")
 
 graph = graph_builder.compile(
-    checkpointer=MemorySaver(),
     interrupt_after=["trips_node"],
+    checkpointer=MemorySaver(),
 )
