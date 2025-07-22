@@ -8,7 +8,8 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
 dependencies = [
-    "copilotkit==0.1.56a0",
+    "copilotkit==0.1.55",
+    "crewai==0.118.0",
     "langchain-core>=0.3.25",
     "langchain-openai==0.2.3",
     "langchain-community>=0.3.1",
@@ -16,11 +17,11 @@ dependencies = [
     "langchain-google-genai==2.0.5",
     "langchain==0.3.26",
     "langgraph==0.4.8",
+    "langgraph-cli[inmem]>=0.3.3",
     "openai>=1.68.2",
     "fastapi>=0.115.5",
     "uvicorn>=0.29.0",
     "python-dotenv>=1.0.0",
-    "langgraph-cli[inmem]>=0.3.3",
 ]
 
 [project.scripts]

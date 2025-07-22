@@ -1,190 +1,79 @@
-# CopilotKit E2E Testing (Simplified)
+# E2E Tests - Simplified
 
-Modern, automated end-to-end testing for CopilotKit applications using **auto-discovery** and **local development**.
+## Overview
 
-## 🚀 Quick Start
+This directory contains end-to-end tests for CopilotKit example applications. We've simplified the approach to run individual apps and tests in parallel.
 
-```bash
-# 1. Install dependencies
-cd e2e
-pnpm install
-pnpm exec playwright install --with-deps
+## Structure
 
-# 2. Validate setup
-pnpm validate
+- **Individual App Commands**: Each app can be started with `pnpm run start:<app-name>`
+- **Individual Test Commands**: Each app can be tested with `pnpm run test:<app-name>`
+- **Parallel CI**: GitHub Actions runs tests in parallel using matrix strategy
 
-# 3. Set up environment
-export OPENAI_API_KEY=sk-your-key-here
-export TAVILY_API_KEY=your-tavily-key  # For research apps
+## Available Commands
 
-# 4. Start all apps
-pnpm start-apps
-
-# 5. In another terminal - run tests
-pnpm test
-```
-
-## 🏗️ Architecture
-
-### 1. **Auto-Discovery Script** (`scripts/start-test-apps.sh`)
-
-- Automatically finds apps in `e2e/example-apps/*` and whitelisted `examples/coagents/*`
-- Links local CopilotKit packages (both NPM and Python SDK)
-- Starts agents (Python) and UIs (Next.js) on unique ports
-- Outputs environment variables for Playwright consumption
-- CLI interface with `--list`, `--print-env`, specific app selection
-
-### 2. **Environment Variables** (No more config complexity!)
+### Start Individual Apps
 
 ```bash
-# Example output:
-RESEARCH_CANVAS_URL=http://localhost:3001
-QA_TEXT_URL=http://localhost:3002
-QA_NATIVE_URL=http://localhost:3003
-ROUTING_URL=http://localhost:3004
-TRAVEL_URL=http://localhost:3005
+pnpm run start:qa             # Start QA app (agent only)
+pnpm run start:research-canvas # Start Research Canvas (agent + UI)
+pnpm run start:travel         # Start Travel app (agent + UI)
 ```
 
-### 3. **Simplified Playwright Tests**
-
-- Use environment variables instead of config objects
-- Each test file is standalone and focused
-- No complex nested describe loops
-- Direct URL construction with query parameters
-
-## 📁 Test Structure
-
-### **Individual Test Files (New Simple Approach):**
-
-```
-tests/
-├── qa-native.openai.spec.ts        # QA Native + OpenAI
-├── qa-native.anthropic.spec.ts     # QA Native + Anthropic
-├── qa-text.openai.spec.ts          # QA Text + OpenAI
-├── qa-text.anthropic.spec.ts       # QA Text + Anthropic
-├── research-canvas.openai.spec.ts  # Research + OpenAI
-├── research-canvas.anthropic.spec.ts # Research + Anthropic
-├── routing.openai.spec.ts          # Routing + OpenAI
-├── routing.anthropic.spec.ts       # Routing + Anthropic
-├── travel-demo.openai.spec.ts      # Travel + OpenAI
-└── travel-demo.anthropic.spec.ts   # Travel + Anthropic
-```
-
-### **Legacy Complex Files (To be removed):**
-
-```
-tests/
-├── coagents-canvas-researcher-demo.spec.ts  # ❌ Complex AWS-style
-├── coagents-qa-native-demo.spec.ts         # ❌ Complex AWS-style
-├── coagents-qa-text-demo.spec.ts           # ❌ Complex AWS-style
-├── coagents-routing-demo.spec.ts           # ❌ Complex AWS-style
-└── next-openai.spec.ts                     # ❌ Complex AWS-style
-```
-
-## 🔧 Commands
+### Run Individual Tests
 
 ```bash
-# List available apps
-pnpm list-apps
-
-# Start specific apps only
-pnpm start-specific research-canvas travel
-
-# Print environment variables
-./scripts/start-test-apps.sh --print-env
-
-# Validate entire setup
-pnpm validate
-
-# Run tests (simplified)
-pnpm test
-
-# Debug single test
-pnpm test:debug research-canvas.openai.spec.ts
+pnpm run test:qa             # Test QA app
+pnpm run test:research-canvas # Test Research Canvas
+pnpm run test:travel         # Test Travel app
 ```
 
-## ✅ Benefits of New Architecture
+### Development
 
-### **Before (Complex AWS-style):**
-
-```typescript
-// ❌ Massive complexity
-const allConfigs = getConfigs();
-const qaConfigs = filterConfigsByProject(
-  allConfigs,
-  PROJECT_NAMES.COAGENTS_QA_NATIVE
-);
-const groupedConfigs = groupConfigsByDescription(qaConfigs);
-
-Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
-  test.describe(`${projectName}`, () => {
-    Object.entries(descriptions).forEach(([description, configs]) => {
-      configs.forEach((config) => {
-        variants.forEach((variant) => {
-          test(`Complex test ${variant.name}`, async ({ page }) => {
-            await page.goto(`${config.url}${variant.queryParams}`);
-            // ... test logic
-          });
-        });
-      });
-    });
-  });
-});
+```bash
+pnpm setup                   # Install Playwright
+pnpm test                    # Run all tests
+pnpm test:headed             # Run with browser visible
+pnpm test:ui                 # Interactive test runner
 ```
 
-### **After (Simple & Direct):**
+## Adding New Tests
 
-```typescript
-// ✅ Clean and obvious
-test.describe("QA Native - OpenAI", () => {
-  test("should handle email workflow", async ({ page }) => {
-    const url = process.env.QA_NATIVE_URL || "http://localhost:3003";
-    await page.goto(`${url}?coAgentsModel=openai`);
-    // ... test logic
-  });
-});
-```
+1. **Create test file**: `tests/<app-name>.spec.ts`
+2. **Add start script**: Update `package.json` with `start:<app-name>`
+3. **Add test script**: Update `package.json` with `test:<app-name>`
+4. **Add to CI**: Include app name in `.github/workflows/e2e-simple.yml` matrix
 
-## 🎯 Adding New Apps
+## Environment Variables
 
-### **For apps in `e2e/example-apps/`:**
+Tests use these environment variables (with defaults):
 
-1. Just add your app directory - it's **auto-discovered**
-2. Create test files: `your-app.openai.spec.ts`, `your-app.anthropic.spec.ts`
+- `AGENT_URL` - Agent endpoint (default: http://localhost:8000)
+- `UI_URL` - Frontend endpoint (default: http://localhost:3000)
+- `OPENAI_API_KEY` - Required for agent functionality
+- `TAVILY_API_KEY` - Required for research apps
+- `GOOGLE_MAPS_API_KEY` - Required for travel app
 
-### **For apps in `examples/coagents/`:**
+## Migration from Poetry to uv
 
-1. Add your app name to `WHITELIST_MAIN_EXAMPLES` in the startup script
-2. Create test files following the naming convention
+All Python agents now use `uv` for dependency management:
 
-## 🚀 GitHub Actions Integration
+- **Faster**: 100-600ms vs poetry's 3-10+ seconds
+- **Compatible**: Works with mixed pip/LangGraph workflows
+- **Simplified**: `uv sync` instead of `poetry install`
 
-The same workflow runs in CI - no special cloud configuration needed:
+## CI/CD
 
-```yaml
-- name: Start Apps
-  run: cd e2e && ./scripts/start-test-apps.sh &
+The `e2e-simple.yml` workflow runs tests in parallel:
 
-- name: Run Tests
-  env:
-    OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-  run: cd e2e && pnpm test
+- Each app gets its own container
+- Tests run independently
+- Faster overall execution
+- Individual artifact uploads on failure
 
-- name: Upload Videos (on failure)
-  if: failure()
-  uses: actions/upload-artifact@v4
-  with:
-    name: playwright-videos
-    path: e2e/test-results/
-```
+## Troubleshooting
 
-## 🎥 Video Recording & Artifacts
-
-- **Videos** recorded automatically on test failures (`retain-on-failure`)
-- **Traces** captured for debugging (`on-first-retry`)
-- **HTML reports** generated for GitHub Actions artifacts
-- **GitHub-native storage** - no AWS S3 needed!
-
----
-
-**Result: E2E testing that's actually maintainable! 🎉**
+- **Agent not starting**: Check `uv sync` completed successfully
+- **UI not loading**: Ensure frontend dependencies installed with `pnpm install`
+- **Tests timing out**: Increase wait time in test scripts
+- **Port conflicts**: Each app uses different ports (8001-8007, 3001-3007)

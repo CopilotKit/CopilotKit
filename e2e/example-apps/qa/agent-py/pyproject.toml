@@ -12,12 +12,13 @@ dependencies = [
     "langchain==0.3.21",
     "langchain-openai>=0.2.13",
     "langchain-anthropic",
-    "langgraph==0.4.8",
+    "langgraph>=0.3.25",
     "langsmith==0.3.18",
     "openai>=1.68.2",
     "fastapi>=0.115.5",
     "uvicorn>=0.29.0",
     "python-dotenv>=1.0.0",
+    "typing-extensions>=4.8.0",
 ]
 
 [project.scripts]

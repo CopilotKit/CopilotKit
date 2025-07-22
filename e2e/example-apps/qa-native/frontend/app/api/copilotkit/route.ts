@@ -29,7 +29,7 @@ export const POST = async (req: NextRequest) => {
       })
     : copilotKitEndpoint({
         url:
-          process.env.REMOTE_ACTION_URL || "http://localhost:8000/copilotkit",
+          process.env.REMOTE_ACTION_URL || "http://localhost:8001/copilotkit",
       });
 
   const runtime = new CopilotRuntime({

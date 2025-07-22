@@ -3,11 +3,23 @@ name: End to End Tests
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
 
 jobs:
-  e2e_tests:
+  e2e_parallel:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        app:
+          - qa
+          - qa-native
+          - qa-text
+          - routing
+          - research-canvas
 
     steps:
       - name: Checkout
@@ -27,80 +39,53 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Install UV
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
 
-      - name: Install E2E Dependencies
+      - name: Install Dependencies
         working-directory: ./e2e
         run: |
           pnpm install
           pnpm exec playwright install --with-deps
 
-      # 🎯 Start apps and load environment variables
-      - name: Start Test Apps
+      - name: Build CopilotKit Packages
+        run: |
+          cd CopilotKit
+          pnpm install --frozen-lockfile
+          pnpm run build
+
+      - name: Start App & Run Tests
         working-directory: ./e2e
         run: |
-          # Start apps in background
-          ./scripts/start-test-apps.sh &
+          # Start the app in background
+          ./scripts/start-single-app.sh ${{ matrix.app }} &
+          APP_PID=$!
 
-          # Wait for environment file to be created
-          for i in {1..60}; do
-            if [ -f "/tmp/copilotkit-urls.env" ]; then
-              echo "Environment file created, loading URLs..."
-              # Source environment variables into GitHub Actions environment
-              cat /tmp/copilotkit-urls.env >> $GITHUB_ENV
-              echo "Environment variables loaded:"
-              cat /tmp/copilotkit-urls.env
-              break
-            fi
-            echo "Waiting for apps to start... ($i/60)"
-            sleep 3
-          done
+          # Wait for services to be ready
+          echo "Waiting for services to start..."
+          sleep 45
 
-          if [ ! -f "/tmp/copilotkit-urls.env" ]; then
-            echo "❌ Apps failed to start - environment file not found"
-            exit 1
-          fi
+          # Run the specific test
+          pnpm run test:${{ matrix.app }}
+
+          # Cleanup
+          kill $APP_PID || true
+          pkill -f "uv run demo" || true
+          pkill -f "pnpm dev" || true
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
-
-      # 🎯 Run tests with environment variables
-      - name: Run Playwright Tests
-        working-directory: ./e2e
-        run: pnpm test
-        env:
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           CI: true
 
-      # 🎯 Upload artifacts on failure (videos, traces, screenshots)
-      - name: Upload Test Artifacts
+      - name: Upload Test Results
         uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: test-results-${{ github.run_attempt }}
+          name: test-results-${{ matrix.app }}-${{ github.run_attempt }}
           path: |
             e2e/test-results/
             e2e/playwright-report/
-          retention-days: 30
-
-      # 🎯 Comment on PR with test results
-      - name: Comment on PR
-        if: failure() && github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `🧪 **E2E Tests Failed**
-              
-              Some Playwright tests failed. Check the test artifacts for:
-              - 🎥 **Videos** of failed tests  
-              - 🔍 **Traces** for debugging
-              - 📸 **Screenshots** on failure
-              
-              [View Artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`
-            })
+          retention-days: 7

@@ -8,7 +8,7 @@ authors = [
 license = {text = "MIT"}
 requires-python = ">=3.10,<3.13"
 dependencies = [
-    "langgraph>=0.2.50",
+    "langgraph==0.4.8",
     "langchain-core>=0.3.66",
     "langchain-openai==0.2.3",
     "langchain-google-genai==2.1.6",
@@ -16,7 +16,7 @@ dependencies = [
     "langchain-anthropic==0.2.3",
     "openai>=1.52.1",
     "langchain-community>=0.3.1",
-    "copilotkit[crewai]>=0.1.52",
+    "copilotkit>=0.1.52",
     "crewai==0.118.0",
     "uvicorn>=0.31.0",
     "python-dotenv>=1.0.1",

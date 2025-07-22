@@ -13,10 +13,11 @@ dependencies = [
     "langchain>=0.3.1",
     "openai>=1.51.0",
     "langchain-community>=0.3.1",
-    "copilotkit==0.1.41",
+    "copilotkit==0.1.55",
     "uvicorn>=0.31.0",
     "python-dotenv>=1.0.1",
     "langchain-core>=0.3.25",
+    "langgraph==0.4.8",
     "langgraph-cli[inmem]>=0.1.64",
 ]
 

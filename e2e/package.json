@@ -5,14 +5,24 @@
   "main": "index.js",
   "scripts": {
     "setup": "playwright install",
-    "start-apps": "./scripts/start-test-apps.sh",
-    "start-specific": "./scripts/start-test-apps.sh",
-    "list-apps": "./scripts/start-test-apps.sh --list",
+    "start:qa-native": "./scripts/start-single-app.sh qa-native 8001 3001",
+    "start:qa-text": "./scripts/start-single-app.sh qa-text 8002 3002",
+    "start:qa": "./scripts/start-single-app.sh qa 8003 3003",
+    "start:routing": "./scripts/start-single-app.sh routing 8004 3004",
+    "start:shared-state": "./scripts/start-single-app.sh shared-state 8005 3005",
+    "start:research-canvas": "./scripts/start-single-app.sh research-canvas 8006 3006",
+    "start:travel": "./scripts/start-single-app.sh travel 8007 3007",
+    "test:qa-native": "playwright test tests/qa-native.spec.ts",
+    "test:qa-text": "playwright test tests/qa-text.spec.ts",
+    "test:qa": "playwright test tests/qa.spec.ts",
+    "test:routing": "playwright test tests/routing.spec.ts",
+    "test:shared-state": "playwright test tests/shared-state.spec.ts",
+    "test:research-canvas": "playwright test tests/research-canvas.spec.ts",
+    "test:travel": "playwright test tests/travel.spec.ts",
     "test": "playwright test",
     "test:headed": "playwright test --headed",
     "test:ui": "playwright test --ui",
     "test:debug": "playwright test --debug",
-    "test:with-apps": "npm run start-apps & sleep 30 && npm test",
     "show-report": "playwright show-report",
     "codegen": "playwright codegen",
     "validate": "node validate-setup.js"
@@ -26,6 +36,7 @@
     "@types/node": "^22.8.4",
     "dotenv": "^16.4.5",
     "json2md": "^2.0.1",
-    "@aws-sdk/client-s3": "^3.738.0"
+    "@aws-sdk/client-s3": "^3.738.0",
+    "concurrently": "^8.2.2"
   }
 }

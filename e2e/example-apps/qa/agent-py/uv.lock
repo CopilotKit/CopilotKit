@@ -20,6 +20,7 @@ dependencies = [
     { name = "langsmith" },
     { name = "openai" },
     { name = "python-dotenv" },
+    { name = "typing-extensions" },
     { name = "uvicorn" },
 ]
 
@@ -30,10 +31,11 @@ requires-dist = [
     { name = "langchain", specifier = "==0.3.21" },
     { name = "langchain-anthropic" },
     { name = "langchain-openai", specifier = ">=0.2.13" },
-    { name = "langgraph", specifier = "==0.4.8" },
+    { name = "langgraph", specifier = ">=0.3.25" },
     { name = "langsmith", specifier = "==0.3.18" },
     { name = "openai", specifier = ">=1.68.2" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
+    { name = "typing-extensions", specifier = ">=4.8.0" },
     { name = "uvicorn", specifier = ">=0.29.0" },
 ]
 
