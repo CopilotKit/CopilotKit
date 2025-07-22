@@ -14,7 +14,7 @@ def select_trip(trip_id: str):
     """Select a trip"""
     return f"Selected trip {trip_id}"
 
-llm = ChatOpenAI(model="gpt-4o")
+llm = ChatOpenAI(model="gpt-4.1-mini")
 tools = [search_for_places, select_trip]
 
 async def chat_node(state: AgentState, config: RunnableConfig):
@@ -45,6 +45,8 @@ async def chat_node(state: AgentState, config: RunnableConfig):
     
     When you create or update a trip, you should set it as the selected trip.
     If you delete a trip, try to select another trip.
+    
+    When the AI say that it has successfully added the trip. Just provide a high level summary of the trip you had just added now ({json.dumps(state.get('trips', [])[-1])}) and why you planned it that way and do not call any other tools.
 
     If an operation is cancelled by the user, DO NOT try to perform the operation again. Just ask what the user would like to do now
     instead.
