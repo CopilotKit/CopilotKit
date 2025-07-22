@@ -11,13 +11,37 @@ Happy contributing!
 
 ## What does this PR do?
 
-(Describe the changes introduced in this PR)
+(Brief description of your changes)
 
-## Related PRs and Issues
+## Testing
 
-- (Direct link to related PR or issue, if relevant)
+- [ ] I tested my changes locally with linked CopilotKit packages
+- [ ] I ran E2E tests: `cd e2e && pnpm start-apps` then `pnpm test`
+- [ ] If I added a new app, it's in `e2e/example-apps/` and auto-discovered
+- [ ] If I need a main example tested, I added it to the whitelist in the startup script
 
-## Checklist
+## Type of Change
 
-- [ ] I have read the [Contribution Guide](https://github.com/copilotkit/copilotkit/blob/master/CONTRIBUTING.md)
-- [ ] If the PR changes or adds functionality, I have updated the relevant documentation
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Breaking change
+- [ ] Documentation/tooling
+
+## Environment
+
+- [ ] No new API keys required
+- [ ] Requires new API key: ****\_\_\_\_****
+
+## Related Issues
+
+- (Link to related issue/PR if any)
+
+---
+
+**For reviewers:** To test locally, run:
+
+```bash
+cd e2e
+export OPENAI_API_KEY=sk-your-key
+pnpm start-apps & sleep 30 && pnpm test
+```

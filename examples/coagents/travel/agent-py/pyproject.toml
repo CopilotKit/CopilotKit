@@ -1,0 +1,35 @@
+[project]
+name = "travel"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Tyler Slaton", email = "tyler@copilotkit.ai"}
+]
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "langgraph",
+    "langchain-core>=0.3.25",
+    "langchain-openai>=0.2.1",
+    "langchain-google-genai",
+    "langchain>=0.3.1",
+    "openai>=1.51.0",
+    "langchain-community>=0.3.1",
+    "langchain-anthropic>=0.2.1",
+    "tavily-python>=0.5.0",
+    "python-dotenv>=1.0.1",
+    "uvicorn>=0.31.0",
+    "copilotkit>=0.1.54",
+    "googlemaps>=4.10.0",
+    "html2text>=2024.2.26",
+    "langgraph-cli[inmem]>=0.1.64",
+]
+
+[project.scripts]
+demo = "travel.demo:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["travel"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
