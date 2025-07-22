@@ -1,49 +1,35 @@
-[tool.poetry]
-name = "travel"
-version = "0.1.0"
-description = ""
-authors = ["Tyler Slaton <tyler@copilotkit.ai>"]
-readme = "README.md"
-
 [project]
 name = "travel"
 version = "0.1.0"
+description = ""
+authors = [
+    {name = "Tyler Slaton", email = "tyler@copilotkit.ai"}
+]
+requires-python = ">=3.10,<3.13"
 dependencies = [
     "langgraph",
-    "langchain_core",
-    "langchain_openai",
+    "langchain-core>=0.3.25",
+    "langchain-openai>=0.2.1",
     "langchain-google-genai",
-    "langchain",
-    "openai",
-    "langchain-community",
-    "tavily-python",
-    "python-dotenv",
-    "uvicorn",
-    "copilotkit==0.1.54",
-    "googlemaps",
-    "html2text"
+    "langchain>=0.3.1",
+    "openai>=1.51.0",
+    "langchain-community>=0.3.1",
+    "langchain-anthropic>=0.2.1",
+    "tavily-python>=0.5.0",
+    "python-dotenv>=1.0.1",
+    "uvicorn>=0.31.0",
+    "copilotkit>=0.1.54",
+    "googlemaps>=4.10.0",
+    "html2text>=2024.2.26",
+    "langgraph-cli[inmem]>=0.1.64",
 ]
 
-[tool.poetry.dependencies]
-python = ">=3.10,<3.13"
-copilotkit = "^0.1.54"
-langchain-openai = "^0.2.1"
-langchain-anthropic = "^0.2.1"
-langchain = "^0.3.1"
-openai = "^1.51.0"
-langchain-community = "^0.3.1"
-uvicorn = "^0.31.0"
-python-dotenv = "^1.0.1"
-tavily-python = "^0.5.0"
-html2text = "^2024.2.26"
-googlemaps = "^4.10.0"
-langgraph-cli = {extras = ["inmem"], version = "^0.1.64"}
-langchain-core = "^0.3.25"
+[project.scripts]
+demo = "travel.demo:main"
 
+[tool.hatch.build.targets.wheel]
+packages = ["travel"]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
-
-[tool.poetry.scripts]
-demo = "travel.demo:main"
+requires = ["hatchling"]
+build-backend = "hatchling.build"

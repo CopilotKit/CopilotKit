@@ -1,25 +1,31 @@
-[tool.poetry]
+[project]
 name = "agent"
 version = "0.1.0"
 description = ""
-authors = ["CopilotKit"]
+authors = [
+    {name = "CopilotKit"}
+]
 readme = "README.md"
-packages = [{include = "email_agent"}]
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "copilotkit==0.1.49",
+    "langchain==0.3.21",
+    "langchain-openai>=0.2.13",
+    "langchain-anthropic",
+    "langgraph==0.4.8",
+    "langsmith==0.3.18",
+    "openai>=1.68.2",
+    "fastapi>=0.115.5",
+    "uvicorn>=0.29.0",
+    "python-dotenv>=1.0.0",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.10,<3.13"
-copilotkit = "0.1.49"
-langchain = "0.3.21"
-langgraph = "0.4.8"
-langsmith = "0.3.18"
-openai = "^1.68.2"
-fastapi = "^0.115.5"
-uvicorn = "^0.29.0"
-python-dotenv = "^1.0.0"
-
-[tool.poetry.scripts]
+[project.scripts]
 demo = "email_agent.demo:main"
 
+[tool.hatch.build.targets.wheel]
+packages = ["email_agent"]
+
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"

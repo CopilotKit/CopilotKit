@@ -1,183 +1,190 @@
-# Playwright Test Project
+# CopilotKit E2E Testing (Simplified)
 
-This repository contains automated tests using Playwright Test framework.
+Modern, automated end-to-end testing for CopilotKit applications using **auto-discovery** and **local development**.
 
-## Prerequisites
-
-- Node.js (v20 or higher)
-- npm (comes with Node.js)
-
-## Getting Started
-
-1. Clone the repository:
+## 🚀 Quick Start
 
 ```bash
-git clone https://github.com/CopilotKit/CopilotKit.git
-cd CopilotKit/examples/e2e
+# 1. Install dependencies
+cd e2e
+pnpm install
+pnpm exec playwright install --with-deps
+
+# 2. Validate setup
+pnpm validate
+
+# 3. Set up environment
+export OPENAI_API_KEY=sk-your-key-here
+export TAVILY_API_KEY=your-tavily-key  # For research apps
+
+# 4. Start all apps
+pnpm start-apps
+
+# 5. In another terminal - run tests
+pnpm test
 ```
 
-2. Install dependencies:
+## 🏗️ Architecture
+
+### 1. **Auto-Discovery Script** (`scripts/start-test-apps.sh`)
+
+- Automatically finds apps in `e2e/example-apps/*` and whitelisted `examples/coagents/*`
+- Links local CopilotKit packages (both NPM and Python SDK)
+- Starts agents (Python) and UIs (Next.js) on unique ports
+- Outputs environment variables for Playwright consumption
+- CLI interface with `--list`, `--print-env`, specific app selection
+
+### 2. **Environment Variables** (No more config complexity!)
 
 ```bash
-npm install
+# Example output:
+RESEARCH_CANVAS_URL=http://localhost:3001
+QA_TEXT_URL=http://localhost:3002
+QA_NATIVE_URL=http://localhost:3003
+ROUTING_URL=http://localhost:3004
+TRAVEL_URL=http://localhost:3005
 ```
 
-3. Set up Playwright browsers:
+### 3. **Simplified Playwright Tests**
+
+- Use environment variables instead of config objects
+- Each test file is standalone and focused
+- No complex nested describe loops
+- Direct URL construction with query parameters
+
+## 📁 Test Structure
+
+### **Individual Test Files (New Simple Approach):**
+
+```
+tests/
+├── qa-native.openai.spec.ts        # QA Native + OpenAI
+├── qa-native.anthropic.spec.ts     # QA Native + Anthropic
+├── qa-text.openai.spec.ts          # QA Text + OpenAI
+├── qa-text.anthropic.spec.ts       # QA Text + Anthropic
+├── research-canvas.openai.spec.ts  # Research + OpenAI
+├── research-canvas.anthropic.spec.ts # Research + Anthropic
+├── routing.openai.spec.ts          # Routing + OpenAI
+├── routing.anthropic.spec.ts       # Routing + Anthropic
+├── travel-demo.openai.spec.ts      # Travel + OpenAI
+└── travel-demo.anthropic.spec.ts   # Travel + Anthropic
+```
+
+### **Legacy Complex Files (To be removed):**
+
+```
+tests/
+├── coagents-canvas-researcher-demo.spec.ts  # ❌ Complex AWS-style
+├── coagents-qa-native-demo.spec.ts         # ❌ Complex AWS-style
+├── coagents-qa-text-demo.spec.ts           # ❌ Complex AWS-style
+├── coagents-routing-demo.spec.ts           # ❌ Complex AWS-style
+└── next-openai.spec.ts                     # ❌ Complex AWS-style
+```
+
+## 🔧 Commands
 
 ```bash
-npm run setup
+# List available apps
+pnpm list-apps
+
+# Start specific apps only
+pnpm start-specific research-canvas travel
+
+# Print environment variables
+./scripts/start-test-apps.sh --print-env
+
+# Validate entire setup
+pnpm validate
+
+# Run tests (simplified)
+pnpm test
+
+# Debug single test
+pnpm test:debug research-canvas.openai.spec.ts
 ```
 
-## Available Scripts
+## ✅ Benefits of New Architecture
 
-| Command               | Description                                                 |
-| --------------------- | ----------------------------------------------------------- |
-| `npm run setup`       | Installs required browsers for Playwright tests             |
-| `npm test`            | Runs all tests in headless mode                             |
-| `npm run test:headed` | Runs tests with browsers visible                            |
-| `npm run test:ui`     | Opens Playwright UI mode for debugging and test development |
-| `npm run test:debug`  | Runs tests in debug mode with step-by-step execution        |
-| `npm run show-report` | Opens the HTML report of the last test run                  |
-| `npm run codegen`     | Launches Playwright's test generator for recording tests    |
-
-## Project Structure
-
-```
-playwright-test/
-├── tests/                    # Test files directory
-├── playwright.config.ts      # Playwright configuration
-├── package.json             # Project dependencies and scripts
-└── README.md               # This file
-```
-
-## Writing Tests
-
-Create test files in the `tests` directory with the `.spec.ts` extension. Example:
+### **Before (Complex AWS-style):**
 
 ```typescript
-import { test, expect } from "@playwright/test";
+// ❌ Massive complexity
+const allConfigs = getConfigs();
+const qaConfigs = filterConfigsByProject(
+  allConfigs,
+  PROJECT_NAMES.COAGENTS_QA_NATIVE
+);
+const groupedConfigs = groupConfigsByDescription(qaConfigs);
 
-test("basic test", async ({ page }) => {
-  await page.goto("https://example.com");
-  await expect(page).toHaveTitle(/Example/);
+Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
+  test.describe(`${projectName}`, () => {
+    Object.entries(descriptions).forEach(([description, configs]) => {
+      configs.forEach((config) => {
+        variants.forEach((variant) => {
+          test(`Complex test ${variant.name}`, async ({ page }) => {
+            await page.goto(`${config.url}${variant.queryParams}`);
+            // ... test logic
+          });
+        });
+      });
+    });
+  });
 });
 ```
 
-## Running Tests
+### **After (Simple & Direct):**
 
-- Run all tests:
-
-  ```bash
-  npm test
-  ```
-
-- Run tests with visible browser:
-
-  ```bash
-  npm run test:headed
-  ```
-
-- Run tests in UI mode (great for debugging):
-  ```bash
-  npm run test:ui
-  ```
-
-## Debugging Tests
-
-1. Use UI Mode:
-
-   ```bash
-   npm run test:ui
-   ```
-
-   This opens an interactive UI where you can run tests and see what's happening.
-
-2. Use Debug Mode:
-   ```bash
-   npm run test:debug
-   ```
-   This runs tests step by step with the browser visible.
-
-## Generating Tests
-
-Use the codegen tool to record your actions and generate tests:
-
-```bash
-npm run codegen
+```typescript
+// ✅ Clean and obvious
+test.describe("QA Native - OpenAI", () => {
+  test("should handle email workflow", async ({ page }) => {
+    const url = process.env.QA_NATIVE_URL || "http://localhost:3003";
+    await page.goto(`${url}?coAgentsModel=openai`);
+    // ... test logic
+  });
+});
 ```
 
-This will open a browser where you can interact with the website, and Playwright will generate the corresponding test code.
+## 🎯 Adding New Apps
 
-## Viewing Test Reports
+### **For apps in `e2e/example-apps/`:**
 
-After running tests, view the HTML report:
+1. Just add your app directory - it's **auto-discovered**
+2. Create test files: `your-app.openai.spec.ts`, `your-app.anthropic.spec.ts`
 
-```bash
-npm run show-report
+### **For apps in `examples/coagents/`:**
+
+1. Add your app name to `WHITELIST_MAIN_EXAMPLES` in the startup script
+2. Create test files following the naming convention
+
+## 🚀 GitHub Actions Integration
+
+The same workflow runs in CI - no special cloud configuration needed:
+
+```yaml
+- name: Start Apps
+  run: cd e2e && ./scripts/start-test-apps.sh &
+
+- name: Run Tests
+  env:
+    OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  run: cd e2e && pnpm test
+
+- name: Upload Videos (on failure)
+  if: failure()
+  uses: actions/upload-artifact@v4
+  with:
+    name: playwright-videos
+    path: e2e/test-results/
 ```
 
-# Configuration Guide
+## 🎥 Video Recording & Artifacts
 
-## Setup Instructions
+- **Videos** recorded automatically on test failures (`retain-on-failure`)
+- **Traces** captured for debugging (`on-first-retry`)
+- **HTML reports** generated for GitHub Actions artifacts
+- **GitHub-native storage** - no AWS S3 needed!
 
-To run the Playwright E2E tests, you'll need to create an `app-config.json` file in your project's root directory. This file contains essential configuration settings that the test suite will use during execution.
+---
 
-### File Structure
-
-Create `app-config.json` with the following structure:
-
-```json
-{
-  "app_name": {
-    "url": "https://your-application-url.com",
-    "description": "Brief description of your application",
-    "projectName": "Your Project Name"
-  }
-}
-```
-
-### Configuration Properties
-
-| Property      | Type   | Description                                                  |
-| ------------- | ------ | ------------------------------------------------------------ |
-| `url`         | string | The base URL of your application under test                  |
-| `description` | string | A brief description of your application (used for reporting) |
-| `projectName` | string | The name of your project (used for test organization)        |
-
-### Example Configuration
-
-```json
-{
-  "my_web_app": {
-    "url": "https://staging.myapp.com",
-    "description": "E-commerce web application",
-    "projectName": "MyApp E2E Tests"
-  }
-}
-```
-
-### Notes
-
-- Ensure the file is valid JSON format
-- The `app_name` key should match your application identifier
-- All fields are required
-- URLs should include the protocol (http:// or https://)
-
-## Usage
-
-Once configured, Playwright will automatically load these settings when running your E2E tests. You can reference these values in your test files using the configuration utility.
-
-## Troubleshooting
-
-If you encounter any issues:
-
-1. Make sure you've run `npm run setup` to install browsers
-2. Check that all dependencies are installed with `npm install`
-3. Try running tests in headed mode (`npm run test:headed`) to see what's happening
-4. Use UI mode (`npm run test:ui`) for detailed debugging
-
-## Additional Resources
-
-- [Playwright Documentation](https://playwright.dev)
-- [Test Examples](https://playwright.dev/docs/test-examples)
-- [API Reference](https://playwright.dev/docs/api/class-test)
+**Result: E2E testing that's actually maintainable! 🎉**

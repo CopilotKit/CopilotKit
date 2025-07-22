@@ -5,12 +5,17 @@
   "main": "index.js",
   "scripts": {
     "setup": "playwright install",
+    "start-apps": "./scripts/start-test-apps.sh",
+    "start-specific": "./scripts/start-test-apps.sh",
+    "list-apps": "./scripts/start-test-apps.sh --list",
     "test": "playwright test",
     "test:headed": "playwright test --headed",
     "test:ui": "playwright test --ui",
     "test:debug": "playwright test --debug",
+    "test:with-apps": "npm run start-apps & sleep 30 && npm test",
     "show-report": "playwright show-report",
-    "codegen": "playwright codegen"
+    "codegen": "playwright codegen",
+    "validate": "node validate-setup.js"
   },
   "keywords": [],
   "author": "",

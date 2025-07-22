@@ -1,5 +1,5 @@
 import { Page } from "@playwright/test";
-import { test, expect } from "@playwright/test";
+import { expect } from "@playwright/test";
 
 export async function sendChatMessage(page: Page, message: string) {
   await page.getByPlaceholder("Type a message...").click();
@@ -14,9 +14,6 @@ export async function waitForStepsAndEnsureStreaming(page: Page) {
   // Track loading → done transitions instead of step appearances
   const streamingResult = (await page.evaluate(() => {
     return new Promise((resolve) => {
-      const progressContainer = document.querySelector(
-        '[data-test-id="progress-steps"]'
-      );
       let doneTransitions = 0;
       let transitionTimestamps: number[] = [];
       let previousDoneCount = 0;

@@ -97,8 +97,8 @@ def main():
         reload=True,
         reload_dirs=(
             ["."] +
-            (["../../../sdk-python/copilotkit"]
-             if os.path.exists("../../../sdk-python/copilotkit")
+            (["../../../../sdk-python/copilotkit"]
+             if os.path.exists("../../../../sdk-python/copilotkit")
              else []
              )
         )
