@@ -6,7 +6,6 @@ It defines the workflow graph and the entry point for the agent.
 from typing import cast
 from langchain_core.messages import ToolMessage, AIMessage
 from langgraph.graph import StateGraph, START, END
-from langgraph.checkpoint.memory import MemorySaver
 from travel.trips import trips_node
 from travel.chat import chat_node
 from travel.search import search_node

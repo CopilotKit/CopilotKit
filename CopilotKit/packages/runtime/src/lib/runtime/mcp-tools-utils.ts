@@ -14,7 +14,7 @@ export interface MCPTool {
     };
   };
   /** The function to call to execute the tool on the MCP server. */
-  execute(options: { params: any }): Promise<any>;
+  execute(params: any): Promise<any>;
 }
 
 /**
@@ -51,7 +51,7 @@ export function extractParametersFromSchema(
       ? (toolOrSchema as MCPTool).schema
       : (toolOrSchema as MCPTool["schema"]);
 
-  const toolParameters = schema?.parameters || schema?.parameters?.jsonSchema;
+  const toolParameters = schema?.parameters?.jsonSchema || schema?.parameters;
   const properties = toolParameters?.properties;
   const requiredParams = new Set(toolParameters?.required || []);
 
@@ -62,15 +62,45 @@ export function extractParametersFromSchema(
   for (const paramName in properties) {
     if (Object.prototype.hasOwnProperty.call(properties, paramName)) {
       const paramDef = properties[paramName];
+
+      // Enhanced type extraction with support for complex types
+      let type = paramDef.type || "string";
+      let description = paramDef.description || "";
+
+      // Handle arrays with items
+      if (type === "array" && paramDef.items) {
+        const itemType = paramDef.items.type || "object";
+        if (itemType === "object" && paramDef.items.properties) {
+          // For arrays of objects, describe the structure
+          const itemProperties = Object.keys(paramDef.items.properties).join(", ");
+          description =
+            description +
+            (description ? " " : "") +
+            `Array of objects with properties: ${itemProperties}`;
+        } else {
+          // For arrays of primitives
+          type = `array<${itemType}>`;
+        }
+      }
+
+      // Handle enums
+      if (paramDef.enum && Array.isArray(paramDef.enum)) {
+        const enumValues = paramDef.enum.join(" | ");
+        description = description + (description ? " " : "") + `Allowed values: ${enumValues}`;
+      }
+
+      // Handle objects with properties
+      if (type === "object" && paramDef.properties) {
+        const objectProperties = Object.keys(paramDef.properties).join(", ");
+        description =
+          description + (description ? " " : "") + `Object with properties: ${objectProperties}`;
+      }
+
       parameters.push({
         name: paramName,
-        // Infer type, default to string. MCP schemas might have more complex types.
-        // This might need refinement based on common MCP schema practices.
-        type: paramDef.type || "string",
-        description: paramDef.description,
+        type: type,
+        description: description,
         required: requiredParams.has(paramName),
-        // Attributes might not directly map, handle if necessary
-        // attributes: paramDef.attributes || undefined,
       });
     }
   }
@@ -95,7 +125,7 @@ export function convertMCPToolsToActions(
 
     const handler = async (params: any): Promise<any> => {
       try {
-        const result = await tool.execute({ params });
+        const result = await tool.execute(params);
         // Ensure the result is a string or stringify it, as required by many LLMs.
         // This might need adjustment depending on how different LLMs handle tool results.
         return typeof result === "string" ? result : JSON.stringify(result);
@@ -148,16 +178,49 @@ export function generateMcpToolInstructions(toolsMap: Record<string, MCPTool>): 
         if (tool.schema && typeof tool.schema === "object") {
           const schema = tool.schema as any;
 
-          // Extract parameters from JSON Schema
-          if (schema.properties) {
-            const requiredParams = schema.required || [];
+          // Extract parameters from JSON Schema - check both schema.parameters.properties and schema.properties
+          const toolParameters = schema.parameters?.jsonSchema || schema.parameters;
+          const properties = toolParameters?.properties || schema.properties;
+          const requiredParams = toolParameters?.required || schema.required || [];
 
-            // Build parameter documentation from properties
-            const paramsList = Object.entries(schema.properties).map(([paramName, propSchema]) => {
+          if (properties) {
+            // Build parameter documentation from properties with enhanced type information
+            const paramsList = Object.entries(properties).map(([paramName, propSchema]) => {
               const propDetails = propSchema as any;
               const requiredMark = requiredParams.includes(paramName) ? "*" : "";
-              const typeInfo = propDetails.type || "any";
-              const description = propDetails.description ? ` - ${propDetails.description}` : "";
+              let typeInfo = propDetails.type || "any";
+              let description = propDetails.description ? ` - ${propDetails.description}` : "";
+
+              // Enhanced type display for complex schemas
+              if (typeInfo === "array" && propDetails.items) {
+                const itemType = propDetails.items.type || "object";
+                if (itemType === "object" && propDetails.items.properties) {
+                  const itemProps = Object.keys(propDetails.items.properties).join(", ");
+                  typeInfo = `array<object>`;
+                  description =
+                    description +
+                    (description ? " " : " - ") +
+                    `Array of objects with properties: ${itemProps}`;
+                } else {
+                  typeInfo = `array<${itemType}>`;
+                }
+              }
+
+              // Handle enums
+              if (propDetails.enum && Array.isArray(propDetails.enum)) {
+                const enumValues = propDetails.enum.join(" | ");
+                description =
+                  description + (description ? " " : " - ") + `Allowed values: ${enumValues}`;
+              }
+
+              // Handle objects
+              if (typeInfo === "object" && propDetails.properties) {
+                const objectProps = Object.keys(propDetails.properties).join(", ");
+                description =
+                  description +
+                  (description ? " " : " - ") +
+                  `Object with properties: ${objectProps}`;
+              }
 
               return `    - ${paramName}${requiredMark} (${typeInfo})${description}`;
             });
@@ -183,6 +246,9 @@ ${toolsDoc}
 When using these tools:
 1. Only provide valid parameters according to their type requirements
 2. Required parameters are marked with *
-3. Format API calls correctly with the expected parameter structure
-4. Always check tool responses to determine your next action`;
+3. For array parameters, provide data in the correct array format
+4. For object parameters, include all required nested properties
+5. For enum parameters, use only the allowed values listed
+6. Format API calls correctly with the expected parameter structure
+7. Always check tool responses to determine your next action`;
 }

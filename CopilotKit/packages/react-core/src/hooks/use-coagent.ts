@@ -5,7 +5,7 @@
  * </Callout>
  * <Frame className="my-12">
  *   <img
- *     src="/images/coagents/SharedStateCoAgents.gif"
+ *     src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/SharedStateCoAgents.gif"
  *     alt="CoAgents demonstration"
  *     className="w-auto"
  *   />
@@ -97,7 +97,7 @@ import {
 } from "../context";
 import { CoagentState } from "../types/coagent-state";
 import { useCopilotChat } from "./use-copilot-chat";
-import { Message } from "@copilotkit/runtime-client-gql";
+import { Message } from "@copilotkit/shared";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
 import { useToast } from "../components/toast/toast-provider";
 import { useCopilotRuntimeClient } from "./use-copilot-runtime-client";
@@ -310,6 +310,42 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     // reset initialstate on reset
     coagentStates[name] === undefined,
   ]);
+
+  // Sync config when runtime configuration changes
+  useEffect(() => {
+    const newConfig = options.config
+      ? options.config
+      : options.configurable
+        ? { configurable: options.configurable }
+        : undefined;
+
+    if (newConfig === undefined) return;
+
+    setCoagentStatesWithRef((prev) => {
+      const existing = prev[name] ?? {
+        name,
+        state: isInternalStateManagementWithInitial(options) ? options.initialState : {},
+        config: {},
+        running: false,
+        active: false,
+        threadId: undefined,
+        nodeName: undefined,
+        runId: undefined,
+      };
+
+      if (JSON.stringify(existing.config) === JSON.stringify(newConfig)) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        [name]: {
+          ...existing,
+          config: newConfig,
+        },
+      };
+    });
+  }, [JSON.stringify(options.config), JSON.stringify(options.configurable)]);
 
   const runAgentCallback = useAsyncCallback(
     async (hint?: HintFunction) => {

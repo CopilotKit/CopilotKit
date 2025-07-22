@@ -1,6 +1,6 @@
 /**
  * <br/>
- * <img src="/images/CopilotPopup.gif" width="500" />
+ * <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/CopilotPopup.gif" width="500" />
  *
  * A chatbot popup component for the CopilotKit framework. The component allows for a high degree
  * of customization through various props and custom CSS.

@@ -3,6 +3,7 @@ import { quickStartProviders } from "@/components/react/multi-provider-content/u
 import { IoLogoVercel, IoLogoNodejs } from "react-icons/io5";
 import { SiNestjs } from "react-icons/si";
 import { RiNextjsLine } from "react-icons/ri";
+import { Tab } from "../components/react/tabs";
 
 <Tabs groupId="lg-deployment-type" items={["Local (LangGraph Studio)", "Self hosted (FastAPI)", "LangGraph Platform"]}>
   <Tab value="Local (LangGraph Studio)">
@@ -30,15 +31,16 @@ import { RiNextjsLine } from "react-icons/ri";
     ```ts
     import { 
       CopilotRuntime,
+      LangGraphHttpAgent,
       // ...
     } from "@copilotkit/runtime";
     // ...
     const runtime = new CopilotRuntime({
-      remoteEndpoints: [
-        // [!code highlight:3]
-        // Our FastAPI endpoint URL
-        { url: "http://localhost:8000/copilotkit" },
-      ],
+      agents: {
+          // [!code highlight:3]
+          // Our FastAPI endpoint URL
+          'sample_agent': new LangGraphHttpAgent({url: "http://localhost:8000/your-agent-endpoint"}),
+      },
     });
     // ...
     ```

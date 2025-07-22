@@ -22,7 +22,7 @@ You can swap out any of the sub-components of any Copilot UI to build up a compl
 ## UserMessage
 The user message is what displays when the user sends a message to the chat. In this example, we change the color and add an avatar. 
 
-<ImageAndCode preview="/images/custom-user-message.png">
+<ImageAndCode preview="https://cdn.copilotkit.ai/docs/copilotkit/images/custom-user-message.png">
 The main thing to be aware of here is the `message` prop, which is the message text from the user.
 
 ```tsx
@@ -53,7 +53,7 @@ const CustomUserMessage = (props: UserMessageProps) => {
 ## AssistantMessage
 The assistant message is what displays when the LLM responds to a user message. In this example, we remove the background color and add an avatar. 
 
-<ImageAndCode preview="/images/custom-assistant-message.png">
+<ImageAndCode preview="https://cdn.copilotkit.ai/docs/copilotkit/images/custom-assistant-message.png">
 ```tsx
 import { AssistantMessageProps } from "@copilotkit/react-ui";
 import { useChatContext } from "@copilotkit/react-ui";
@@ -102,7 +102,7 @@ const CustomAssistantMessage = (props: AssistantMessageProps) => {
 ## Window
 The window is the main container for the chat. In this example, we turn it into a more traditional modal.
 
-<ImageAndCode preview="/images/custom-window.png">
+<ImageAndCode preview="https://cdn.copilotkit.ai/docs/copilotkit/images/custom-window.png">
 
 ```tsx
 import { WindowProps, useChatContext, CopilotSidebar } from "@copilotkit/react-ui";
@@ -140,7 +140,7 @@ function Window({ children }: WindowProps) {
 ## Button
 The `CopilotSidebar` and `CopilotPopup` components allow you to customize their trigger button by passing in a custom Button component.
 
-<ImageAndCode preview="/images/custom-button.png">
+<ImageAndCode preview="https://cdn.copilotkit.ai/docs/copilotkit/images/custom-button.png">
 
 ```tsx
 import { ButtonProps, useChatContext, CopilotSidebar } from "@copilotkit/react-ui";
@@ -174,7 +174,7 @@ function Button({}: ButtonProps) {
 The header component is the top of the chat window. In this example, we add a button to the left of the title
 with a custom icon.
 
-<ImageAndCode preview="/images/custom-header.png">
+<ImageAndCode preview="https://cdn.copilotkit.ai/docs/copilotkit/images/custom-header.png">
 
 ```tsx
 import { HeaderProps, useChatContext, CopilotSidebar } from "@copilotkit/react-ui";
@@ -211,7 +211,7 @@ function Header({}: HeaderProps) {
 ## Messages
 The Messages component handles the display and organization of different message types in the chat interface. Its complexity comes from managing various message types (text, actions, results, and agent states) and maintaining proper scroll behavior.
 
-<ImageAndCode preview="/images/custom-messages.png">
+<ImageAndCode preview="https://cdn.copilotkit.ai/docs/copilotkit/images/custom-messages.png">
 
 ```tsx
 import { MessagesProps, CopilotSidebar } from "@copilotkit/react-ui";
@@ -221,56 +221,26 @@ import "@copilotkit/react-ui/styles.css";
 function CustomMessages({
   messages,
   inProgress,
-  RenderTextMessage,
-  RenderActionExecutionMessage,
-  RenderResultMessage,
-  RenderAgentStateMessage,
+  RenderMessage,
 }: MessagesProps) {
   const wrapperStyles = "p-4 flex flex-col gap-2 h-full overflow-y-auto bg-indigo-300";
 
   /*
     Message types handled:
     - TextMessage: Regular chat messages
-    - ActionExecutionMessage: When the LLM executes an action
-    - ResultMessage: Results from actions
-    - AgentStateMessage: Status updates from CoAgents
   */
   // [!code highlight:40]
   return (
     <div className={wrapperStyles}>
       {messages.map((message, index) => {
         if (message.isTextMessage()) {
-          return <RenderTextMessage 
+          return <RenderMessage 
             key={message.id} 
             message={message} 
             inProgress={inProgress} 
             index={index} 
             isCurrentMessage={index === messages.length - 1}
           />;
-        } else if (message.isActionExecutionMessage()) {
-          return <RenderActionExecutionMessage 
-            key={message.id} 
-            message={message} 
-            inProgress={inProgress} 
-            index={index} 
-            isCurrentMessage={index === messages.length - 1}
-          />;
-        } else if (message.isResultMessage()) {
-          return <RenderResultMessage 
-            key={message.id} 
-            message={message} 
-            inProgress={inProgress} 
-            index={index} 
-            isCurrentMessage={index === messages.length - 1}
-          />;
-        } else if (message.isAgentStateMessage()) {
-          return <RenderAgentStateMessage 
-              key={message.id} 
-              message={message} 
-              inProgress={inProgress} 
-              index={index} 
-              isCurrentMessage={index === messages.length - 1}
-            />;
         }
       })}
     </div>
@@ -286,7 +256,7 @@ function CustomMessages({
 ## Suggestions
 The suggestions component allows you to customize how suggestions are displayed. In this example, we add a label to the list and change the suggestion chip look
 
-<ImageAndCode preview="/images/custom-suggestions-list.png">
+<ImageAndCode preview="https://cdn.copilotkit.ai/docs/copilotkit/images/custom-suggestions-list.png">
     The main thing to be aware of here is the `message` prop, which is the message text from the user.
 
     ```tsx
@@ -334,7 +304,7 @@ The suggestions component allows you to customize how suggestions are displayed.
 The input component that the user interacts with to send messages to the chat. In this example, we customize it
 to have a custom "Ask" button and placeholder text.
 
-<ImageAndCode preview="/images/custom-input.png">
+<ImageAndCode preview="https://cdn.copilotkit.ai/docs/copilotkit/images/custom-input.png">
 
 ```tsx
 import { InputProps, CopilotSidebar } from "@copilotkit/react-ui";
@@ -388,7 +358,7 @@ function CustomInput({ inProgress, onSend, isVisible }: InputProps) {
 ## Actions
 Actions allow the LLM to interact with your application's functionality. When an action is called by the LLM, you can provide custom components to visualize its execution and results. This example demonstrates a calendar meeting card implementation.
 
-<ImageAndCode preview="/images/render-only-example.png">
+<ImageAndCode preview="https://cdn.copilotkit.ai/docs/copilotkit/images/render-only-example.png">
 
 ```tsx
 "use client" // only necessary if you are using Next.js with the App Router.
@@ -448,7 +418,7 @@ The Agent State component allows you to visualize the internal state and progres
 If you haven't gotten started with CoAgents yet, you can get started in 10 minutes with the [quickstart guide](/coagents/quickstart/langgraph).
 </Callout>
 
-<ImageAndCode preview="/images/coagents/AgenticGenerativeUI.gif">
+<ImageAndCode preview="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/AgenticGenerativeUI.gif">
 
 ```tsx
 "use client"; // only necessary if you are using Next.js with the App Router.

@@ -1,24 +1,6 @@
-<div align="center">
-  <a href="https://copilotkit.ai" target="_blank">
-    <img src="./assets/banner.png" alt="CopilotKit Logo">
-  </a>
-
-  <br/>
-
-  <h3>
-    Build deeply-integrated AI assistants & agents<br/>
-    that work <em>alongside</em> your users inside your applications.
-  </h3>
-  
-</div>
-
-<!-- -->
-
-<br/>
-
-<div align="center">
-
-<div style="display:flex;justify-content:center;gap:8px;">
+![banner](https://github.com/user-attachments/assets/0a6b64d9-e193-4940-a3f6-60334ac34084)
+<br>
+  <div align="start" style="display:flex;justify-content:start;gap:16px;height:20px;margin: 0;">
   <a href="https://www.npmjs.com/package/@copilotkit/react-core" target="_blank">
     <img src="https://img.shields.io/npm/v/%40copilotkit%2Freact-core?logo=npm&logoColor=%23FFFFFF&label=Version&color=%236963ff" alt="NPM">
   </a>
@@ -30,101 +12,62 @@
   <a href="https://discord.gg/6dffbvGU3D" target="_blank">
     <img src="https://img.shields.io/discord/1122926057641742418?logo=discord&logoColor=%23FFFFFF&label=Discord&color=%236963ff" alt="Discord">
   </a>
-</div>
-<br/>
-
-
-  
-  <a href="https://discord.gg/6dffbvGU3D?ref=github_readme" target="_blank">
-    <img src="./assets/btn_discord.png" alt="CopilotKit Discord" height="40px">
-  </a>
-  <a href="https://docs.copilotkit.ai?ref=github_readme" target="_blank">
-    <img src="./assets/btn_docs.png" alt="CopilotKit GitHub" height="40px">
-  </a>
-  <a href="https://cloud.copilotkit.ai?ref=github_readme" target="_blank">
-    <img src="./assets/btn_cloud.png" alt="CopilotKit GitHub" height="40px">
-  </a>
-  
-</div>
-
-
-<h3 align="center"> 
-Stay up to date with our latest releases!
-</h3>
-
-<div align="center">
-  <a href="https://go.copilotkit.ai/gh-linkedin" target="_blank">
-    <img src="https://github.com/user-attachments/assets/e33e7ebb-f5fc-4775-81b0-d5dd6865271a" alt="LI">
-  </a>
-  <a href="https://go.copilotkit.ai/gh-twitter" target="_blank">
-    <img src="https://github.com/user-attachments/assets/14e57c97-70ac-4f9a-88f5-67028107794f" alt="Discord">
-  </a>
-</div>
-
-<br/>
-<div align="center">
-  <a href="https://trendshift.io/repositories/5730" target="_blank">
-    <img src="https://trendshift.io/api/badge/repositories/5730" alt="Trendshift Metrics" width="250" height="55" />
-  </a>  
-  <a href="https://www.producthunt.com/posts/copilotkit" target="_blank">
+  </div>
+  <br/>
+  <div>
+    <a href="https://www.producthunt.com/posts/copilotkit" target="_blank">
     <img src="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=428778&theme=light&period=daily">
   </a>
-</div>
+  </div>
+
+## ⚡️ Quick Install
+
+```
+  npx copilotkit@latest init
+```
+
+<br/>
+
+<a href="https://docs.copilotkit.ai/?ref=github_readme">Read the Docs →</a>&nbsp;&nbsp;&nbsp;
+<a href="https://cloud.copilotkit.ai?ref=github_readme">Try Copilot Cloud →</a>&nbsp;&nbsp;&nbsp;
+<a href="https://discord.gg/6dffbvGU3D?ref=github_readme">Join our Discord →</a>
+
+## 🚀 Getting Started
+
+1. Install: Run a simple CLI command
+1. Configure: Add CopilotKit provider to your app
+1. Customize: Use headless UI or the customizable pre-built components
+1. Deploy: You're done!
+
+<br />
+  <a href="https://docs.copilotkit.ai/#get-started-now?ref=github_readme" target="_blank">
+    Complete getting started guide →
+  </a>
+<br />
 <br />
 
+![class-support-ecosystem](https://github.com/user-attachments/assets/6cb425f8-ffcb-49d2-9bbb-87cab5995b78)
 
-<img width="1685" alt="214 (1)" src="https://github.com/user-attachments/assets/145600ce-c49b-4e25-883e-feee149d6332">
+## ✨ Why CopilotKit?
 
-## 🏆 Featured Examples
+- Minutes to integrate - Get started quickly with our CLI
+- Framework agnostic - Works with React, Next.js, AGUI and more
+- Production-ready UI - Use customizable components or build with headless UI
+- Built-in security - Prompt injection protection
+- Open source - Full transparency and community-driven
 
-### 📝 [Form-Filling Copilot](https://github.com/CopilotKit/CopilotKit/tree/main/examples/copilot-form-filling)
-Transform tedious form-filling into natural conversations. The AI assistant asks the right questions, understands context, and completes forms automatically—no more field-by-field drudgery.
-<div>
-  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/copilot-form-filling"><code>GitHub →</code></a>
-  <a href="https://form-filling-copilot.vercel.app"><code>Live Demo →</code></a>
-</div>
+## 🧑‍💻 Real life use cases
 
-### 🔄 [State Machine Copilot](https://github.com/CopilotKit/CopilotKit/tree/main/examples/copilot-state-machine)
-Transform complex conversational flows into manageable state machines. This AI-powered car sales application demonstrates how to build sophisticated multi-stage interactions with contextual awareness and state transitions.
-<div>
-  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/copilot-state-machine"><code>GitHub →</code></a>
-  <a href="https://state-machine-copilot.vercel.app"><code>Live Demo →</code></a>
-</div>
+<span>Deploy deeply-integrated AI assistants & agents that work alongside your users inside your applications.</span>
 
-### 💬 [Chat With Your Data](https://github.com/CopilotKit/CopilotKit/tree/main/examples/copilot-chat-with-your-data)
-Transform your data visualization experience with an AI-powered dashboard assistant. Ask questions about your data in natural language, get insights, and interact with your metrics—all through a conversational interface powered by CopilotKit.
-<div>
-  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/copilot-chat-with-your-data"><code>GitHub →</code></a>
-  <a href="https://chat-with-your-data.vercel.app"><code>Live Demo →</code></a>
-</div>
+![headless-ui](https://github.com/user-attachments/assets/3b810240-e9f8-43ae-acec-31a58095e223)
 
-### 🏦 [SaaS Copilot (Bank)](https://github.com/CopilotKit/demo-banking)
-A context-aware financial assistant that analyzes transactions, provides spending insights, and helps users manage their finances through natural conversation. Demonstrates how CopilotKit can integrate deeply with complex data structures.
-<div>
-  <a href="https://github.com/CopilotKit/demo-banking"><code>GitHub →</code></a>
-</div>
+## 🖥️ Code Samples
 
-## 🧙‍♂️ Agent Examples
+<span>Drop in these building blocks and tailor them to your needs.</span>
 
-### ✈️ [Travel Planner](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-travel)
-An agent-native application that helps users plan trips by generating detailed itineraries, finding attractions, and visualizing travel plans. Shows how agents can collaborate with users to create rich, interactive experiences.
-<div>
-  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-travel"><code>GitHub →</code></a>
-  <a href="https://docs.copilotkit.ai/coagents/tutorials/ai-travel-app/overview"><code>Tutorial →</code></a>
-</div>
+<h3>Build with Headless APIs and Pre-Built Components</h3>
 
-### 🔍 [Research Canvas](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-research-canvas)
-Multi-agent document analysis system that helps users analyze papers, synthesize information, and generate comprehensive research summaries through collaborative AI workflows.
-<div>
-  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-research-canvas"><code>GitHub →</code></a>
-  <a href="https://examples-coagents-research-canvas-ui.vercel.app
-"><code>Live Demo →</code></a>
-</div>
-
-# Getting Started
-Get started in minutes - check out the [quickstart documentation](https://docs.copilotkit.ai/quickstart).
-
-# Code Samples
 ```ts
 // Headless UI with full control
 const { visibleMessages, appendMessage, setMessages, ... } = useCopilotChat();
@@ -134,20 +77,9 @@ const { visibleMessages, appendMessage, setMessages, ... } = useCopilotChat();
   instructions={"You are assisting the user as best as you can. Answer in the best way possible given the data you have."} 
   labels={{ title: "Popup Assistant", initial: "Need any help?" }} 
 />
+```
 
-// ---
-
-// Frontend RAG
-useCopilotReadable({
-  description: "The current user's colleagues",
-  value: colleagues,
-});
-
-// knowledge-base integration
-useCopilotKnowledgebase(myCustomKnowledgeBase)
-
-// ---
-
+```ts
 // Frontend actions + generative UI, with full streaming support
 useCopilotAction({
   name: "appendToSpreadsheet",
@@ -158,21 +90,9 @@ useCopilotAction({
   render: ({ status, args }) => <Spreadsheet data={canonicalSpreadsheetData(args.rows)} />,
   handler: ({ rows }) => setSpreadsheet({ ...spreadsheet, rows: [...spreadsheet.rows, ...canonicalSpreadsheetData(rows)] }),
 });
-
-// ---
-
-// structured autocomplete for anything
-const { suggestions } = useCopilotStructuredAutocompletion(
-  {
-    instructions: `Autocomplete or modify spreadsheet rows based on the inferred user intent.`,
-    value: { rows: spreadsheet.rows.map((row) => ({ cells: row })) },
-    enabled: !!activeCell && !spreadsheetIsEmpty,
-  },
-  [activeCell, spreadsheet]
-);
 ```
 
-# Code Samples (CoAgents: in-app LangGraph Agents)
+<h3>Integrate In-App CoAgents with LangGraph</h3>
 
 ```ts
 // Share state between app and agent
@@ -189,20 +109,34 @@ useCoAgentStateRender({
 
 // Human in the Loop (Approval)
 useCopilotAction({
-    name: "email_tool",
-    parameters: [{ name: "email_draft", type: "string", description: "The email content", required: true }],
-    renderAndWaitForResponse: ({ args, status, respond }) => (
+  name: "email_tool",
+  parameters: [
+    {
+      name: "email_draft",
+      type: "string",
+      description: "The email content",
+      required: true,
+    },
+  ],
+  renderAndWaitForResponse: ({ args, status, respond }) => {
+    return (
       <EmailConfirmation
         emailContent={args.email_draft || ""}
         isExecuting={status === "executing"}
         onCancel={() => respond?.({ approved: false })}
-        onSend={() => respond?.({ approved: true, metadata: { sentAt: new Date().toISOString() } })}
+        onSend={() =>
+          respond?.({
+            approved: true,
+            metadata: { sentAt: new Date().toISOString() },
+          })
+        }
       />
-    ),
-  });
+    );
+  },
+});
+```
 
-// ---
-
+```ts
 // intermediate agent state streaming (supports both LangGraph.js + LangGraph python)
 const modifiedConfig = copilotKitCustomizeConfig(config, {
   emitIntermediateState: [{ 
@@ -213,9 +147,47 @@ const modifiedConfig = copilotKitCustomizeConfig(config, {
 });
 const response = await ChatOpenAI({ model: "gpt-4o" }).invoke(messages, modifiedConfig);
 ```
+## 🏆 Featured Examples
 
+<p align="center">
+  <a href="https://www.copilotkit.ai/examples/form-filling-copilot">
+    <img src="https://github.com/user-attachments/assets/874da84a-67ff-47fa-a6b4-cbc3c65eb704" width="300" />
+  </a>
+  <a href="https://www.copilotkit.ai/examples/state-machine-copilot">
+    <img src="https://github.com/user-attachments/assets/0b5e45b3-2704-4678-82dc-2f3e1c58e2dd" width="300" />
+  </a>
+  <a href="https://www.copilotkit.ai/examples/chat-with-your-data">
+    <img src="https://github.com/user-attachments/assets/0fed66be-a4c2-4093-8eab-75c0b27a62f6" width="300" />
+  </a>
+</p>
 
-## Contributing
+## 🖥️ AG-UI: The Agent–User Interaction Protocol
+Connect agent workflow to user-facing apps, with deep partnerships and 1st-party integrations across the agentic stack—including LangGraph, CrewAI, and more.
+
+  <a href="https://github.com/ag-ui-protocol/ag-ui" target="_blank">
+   Learn more in the AG-UI README →
+  </a>
+
+## 🤝 Community
+<h3>Have questions or need help?</h3>
+  <a href="https://discord.gg/6dffbvGU3D?ref=github_readme" target="_blank">
+   Join our Discord →
+  </a> </br>
+    <a href="https://docs.copilotkit.ai/?ref=github_readme" target="_blank">
+  Read the Docs →
+  </a> </br>
+    <a href="https://cloud.copilotkit.ai?ref=github_readme" target="_blank">
+   Try Copilot Cloud →
+  </a>
+<h3>Stay up to date with our latest releases!</h3>
+  <a href="https://www.linkedin.com/company/copilotkit/" target="_blank">
+   Follow us on LinkedIn →
+  </a> </br>
+    <a href="https://x.com/copilotkit" target="_blank">
+   Follow us on X →
+  </a> 
+  
+## 🙋🏽‍♂️ Contributing
 
 Thanks for your interest in contributing to CopilotKit! 💜
 
@@ -228,12 +200,6 @@ Here are a few useful resources to help you get started:
 
 - Want to contribute but not sure how? [Join our Discord](https://discord.gg/6dffbvGU3D) and we'll help you out!
 
-> 💡 **NOTE:** All contributions must be submitted via a pull request and be reviewed by our team. This ensures all contributions are of high quality and align with the project's goals.
-
-## Get in touch
-
-You are invited to join our community on [Discord](https://discord.gg/6dffbvGU3D) and chat with our team and other community members.
-
-## License
+## 📄 License
 
 This repository's source code is available under the [MIT License](https://github.com/CopilotKit/CopilotKit/blob/main/LICENSE).
