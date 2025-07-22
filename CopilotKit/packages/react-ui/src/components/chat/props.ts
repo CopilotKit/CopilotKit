@@ -3,7 +3,7 @@ import { CopilotChatSuggestion } from "../../types/suggestions";
 import { ReactNode } from "react";
 import { ImageData } from "@copilotkit/shared";
 
-export interface ButtonProps { }
+export interface ButtonProps {}
 
 export interface WindowProps {
   clickOutsideToClose: boolean;
@@ -12,7 +12,7 @@ export interface WindowProps {
   children?: React.ReactNode;
 }
 
-export interface HeaderProps { }
+export interface HeaderProps {}
 
 export interface SuggestionsProps {
   title: string;
@@ -138,6 +138,9 @@ export interface AssistantMessageProps {
    */
   disableFirstMessageControls?: boolean;
 
+  /**
+   * The index of the message in the message list.
+   */
   index?: number;
 
   /**
