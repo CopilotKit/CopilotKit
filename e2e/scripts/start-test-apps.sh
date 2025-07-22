@@ -52,6 +52,8 @@ list_available_apps() {
     echo -e "${YELLOW}From examples/coagents/ (whitelist):${NC}"
     for app in "${WHITELIST_MAIN_EXAMPLES[@]}"; do
         local app_dir="../examples/coagents/$app"
+        # Remove trailing slash if present
+        app_dir=${app_dir%/}
         if [ -d "$app_dir" ]; then
             local has_agent=false
             local has_ui=false
@@ -110,6 +112,8 @@ discover_apps() {
     
     # Auto-include all apps from e2e/example-apps/
     for app_dir in example-apps/*/; do
+        # Remove trailing slash
+        app_dir=${app_dir%/}
         if [ -d "$app_dir" ]; then
             local name=$(basename "$app_dir")
             local has_agent=false
@@ -140,6 +144,8 @@ discover_apps() {
     # Whitelist from examples/coagents/
     for app in "${WHITELIST_MAIN_EXAMPLES[@]}"; do
         local app_dir="../examples/coagents/$app"
+        # Remove trailing slash if present
+        app_dir=${app_dir%/}
         if [ -d "$app_dir" ]; then
             local has_agent=false
             local has_ui=false
@@ -185,6 +191,8 @@ get_agent_dir() {
         echo "agent"
     elif [ -d "$app_dir/agent-py" ]; then
         echo "agent-py"
+    else
+        echo ""
     fi
 }
 
@@ -231,6 +239,20 @@ cleanup() {
         lsof -ti:$port | xargs kill -9 2>/dev/null || true
     done
     rm -f /tmp/copilotkit-*.pid
+    
+    # Unlink global packages
+    echo -e "${YELLOW}🔗 Cleaning up global links...${NC}"
+    copilotkit_path="../CopilotKit/packages"
+    if [[ ! -d "$copilotkit_path" ]]; then
+        copilotkit_path="../../CopilotKit/packages"
+    fi
+    
+    for package in $(ls -d $copilotkit_path/* 2>/dev/null || true); do
+        if [ -d "$package" ]; then
+            package_name=$(basename "$package")
+            pnpm unlink --global "@copilotkit/$package_name" 2>/dev/null || true
+        fi
+    done
 }
 
 trap cleanup EXIT INT TERM
@@ -245,7 +267,7 @@ output_env_vars() {
         
         if [ "$has_ui" = "true" ]; then
             # Convert app name to valid env var name (uppercase, replace hyphens)
-            local env_name=$(echo "$name" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
+            env_name=$(echo "$name" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
             
             local ui_var="${env_name}_URL"
             local agent_var="${env_name}_AGENT_URL"
@@ -305,27 +327,45 @@ pnpm install --frozen-lockfile
 pnpm run build
 cd ../e2e
 
-echo -e "${GREEN}🔗 Linking local packages...${NC}"
+echo -e "${GREEN}🔗 Setting up global package links...${NC}"
+# Auto-detect CopilotKit packages path
+copilotkit_path="../CopilotKit/packages"
+if [[ ! -d "$copilotkit_path" ]]; then
+    copilotkit_path="../../CopilotKit/packages"
+fi
+
+# First, register all packages globally
+for package in $(ls -d $copilotkit_path/* 2>/dev/null || true); do
+    if [ -d "$package" ]; then
+        echo "Registering $(basename "$package") globally"
+        cd "$package"
+        pnpm link --global
+        cd - > /dev/null
+    fi
+done
+
+echo -e "${GREEN}🔗 Linking local packages to apps...${NC}"
 for app_info in "${discovered_apps[@]}"; do
     IFS='|' read -r name path has_agent has_ui agent_port ui_port <<< "$app_info"
     
     if [ "$has_ui" = "true" ]; then
-        local ui_dir_name=$(get_ui_dir "$path")
-        local ui_path="$path/$ui_dir_name"
+        ui_dir_name=$(get_ui_dir "$path")
+        ui_path="$path/$ui_dir_name"
         
         if [ -d "$ui_path" ]; then
             echo "Linking packages for $name"
             cd "$ui_path"
             pnpm install
             
-            # Auto-detect CopilotKit packages path
-            local copilotkit_path="../../../CopilotKit/packages"
-            if [[ ! -d "$copilotkit_path" ]]; then
-                copilotkit_path="../../../../CopilotKit/packages"
-            fi
-            
+            # Link all CopilotKit packages that exist in package.json
             for package in $(ls -d $copilotkit_path/* 2>/dev/null || true); do
-                pnpm link "$package"
+                if [ -d "$package" ]; then
+                    package_name=$(basename "$package")
+                    # Check if package is in dependencies
+                    if grep -q "@copilotkit/$package_name" package.json 2>/dev/null; then
+                        pnpm link "@copilotkit/$package_name"
+                    fi
+                fi
             done
             cd - > /dev/null
         fi
@@ -337,8 +377,13 @@ for app_info in "${discovered_apps[@]}"; do
     IFS='|' read -r name path has_agent has_ui agent_port ui_port <<< "$app_info"
     
     if [ "$has_agent" = "true" ]; then
-        local agent_dir_name=$(get_agent_dir "$path")
-        local agent_path="$path/$agent_dir_name"
+        agent_dir_name=$(get_agent_dir "$path")
+        if [ -n "$agent_dir_name" ]; then
+            agent_path="$path/$agent_dir_name"
+        else
+            echo "Warning: No agent directory found in $path"
+            continue
+        fi
         
         if [ -d "$agent_path" ]; then
             echo "Starting $name agent on port $agent_port"
@@ -356,7 +401,7 @@ for app_info in "${discovered_apps[@]}"; do
                     ;;
             esac
             
-            local module=$(get_agent_module "$agent_path")
+            module=$(get_agent_module "$agent_path")
             echo "Using module: $module"
             
             # Set PYTHONPATH to include local SDK
@@ -383,8 +428,8 @@ for app_info in "${discovered_apps[@]}"; do
     IFS='|' read -r name path has_agent has_ui agent_port ui_port <<< "$app_info"
     
     if [ "$has_ui" = "true" ]; then
-        local ui_dir_name=$(get_ui_dir "$path")
-        local ui_path="$path/$ui_dir_name"
+        ui_dir_name=$(get_ui_dir "$path")
+        ui_path="$path/$ui_dir_name"
         
         if [ -d "$ui_path" ]; then
             echo "Starting $name UI on port $ui_port"
@@ -418,7 +463,7 @@ echo -e "${GREEN}🌐 Available URLs:${NC}"
 for app_info in "${discovered_apps[@]}"; do
     IFS='|' read -r name path has_agent has_ui agent_port ui_port <<< "$app_info"
     if [ "$has_ui" = "true" ]; then
-        local env_name=$(echo "$name" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
+        env_name=$(echo "$name" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
         printf "  %-20s http://localhost:%s (${env_name}_URL)\n" "$name:" "$ui_port"
     fi
 done
