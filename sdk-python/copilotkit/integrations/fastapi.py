@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import List, Any, cast, Optional
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse, HTMLResponse
+from fastapi.encoders import jsonable_encoder
 from ..sdk import CopilotKitRemoteEndpoint, CopilotKitContext
 from ..types import Message, MetaEvent
 from ..exc import (
@@ -239,7 +240,7 @@ async def handle_info(
     result = sdk.info(context=context)
     if as_html:
         return HTMLResponse(content=generate_info_html(result))
-    return JSONResponse(content=result)
+    return JSONResponse(content=jsonable_encoder(result))
 
 async def handle_execute_action(
         *,
@@ -255,7 +256,7 @@ async def handle_execute_action(
             name=name,
             arguments=arguments
         )
-        return JSONResponse(content=result)
+        return JSONResponse(content=jsonable_encoder(result))
     except ActionNotFoundException as exc:
         logger.error("Action not found: %s", exc)
         return JSONResponse(content={"error": str(exc)}, status_code=404)
@@ -317,7 +318,7 @@ async def handle_get_agent_state(
             thread_id=thread_id,
             name=name,
         )
-        return JSONResponse(content=result)
+        return JSONResponse(content=jsonable_encoder(result))
     except AgentNotFoundException as exc:
         logger.error("Agent not found: %s", exc, exc_info=True)
         return JSONResponse(content={"error": str(exc)}, status_code=404)
