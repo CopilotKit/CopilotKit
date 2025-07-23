@@ -39,16 +39,16 @@ import { FaCloud, FaServer } from "react-icons/fa";
     <TailoredContent id="hosting">
         <TailoredContentOption
             id="copilot-cloud"
-            title="Copilot Cloud (Recommended)"
-            description="I'm already using or want to use Copilot Cloud."
+            title="Copilot Platform (Recommended)"
+            description="I'm already using or want to use Copilot Platform."
             icon={<FaCloud />}
         >
-            If you followed the [Copilot Cloud Quickstart](/docs/quickstart) and opted to use CopilotCloud,
+            If you followed the [Copilot Platform Quickstart](/docs/quickstart) and opted to use CopilotCloud,
             you only need to add your LangGraph Platform deployment URL and LangSmith API key to your CopilotCloud.
 
             <Accordions className="my-4">
-                <Accordion title="Haven't setup Copilot Cloud yet? Click here!" >
-                    Copilot Cloud hooks into your CopilotKit provider, so you'll need to set it up first if you haven't already.
+                <Accordion title="Haven't setup Copilot Platform yet? Click here!" >
+                    Copilot Platform hooks into your CopilotKit provider, so you'll need to set it up first if you haven't already.
                     <CopilotCloudConfigureCopilotkitProviderSnippet components={props.components} />
                 </Accordion>
             </Accordions>

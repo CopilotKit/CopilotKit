@@ -23,9 +23,9 @@ To integrate the agent into this state, we're going to need to register an agent
 
 Make sure you have the LangGraph Studio endpoint from the previous step!
 
-<Tabs groupId="hosting" items={['Copilot Cloud', 'Self-Hosted']}>
-<Tab value="Copilot Cloud">
-We're going to use the CopilotKit CLI to setup a tunnel between our locally running LangGraph agent and Copilot Cloud. You'll 
+<Tabs groupId="hosting" items={['Copilot Platform', 'Self-Hosted']}>
+<Tab value="Copilot Platform">
+We're going to use the CopilotKit CLI to setup a tunnel between our locally running LangGraph agent and Copilot Platform. You'll 
 need the port number of the LangGraph Studio endpoint we setup earlier.
 
 <Callout title="Looking for the port number?">
@@ -59,7 +59,7 @@ Tunnel Information:
 
 Press Ctrl+C to stop the tunnel
 
-✔ 🚀 Local tunnel is live and linked to Copilot Cloud!
+✔ 🚀 Local tunnel is live and linked to Copilot Platform!
 ```
 
 </Tab>
@@ -122,7 +122,7 @@ Want to learn more about multi-agent routing? Checkout out the [multi-agent conc
 ```
 
 This will ensure that every request is sent to the `travel` agent. The `travel` name is defined in the [agents/langgraph.json](https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-travel/agent/langgraph.json)
-file. When we deploy our agent to Copilot Cloud this is automatically handled for us. When self-hosting, we need to specify the name of the agent in the `langGraphPlatformEndpoint` constructor.
+file. When we deploy our agent to Copilot Platform this is automatically handled for us. When self-hosting, we need to specify the name of the agent in the `langGraphPlatformEndpoint` constructor.
 </Step>
 <Step>
 

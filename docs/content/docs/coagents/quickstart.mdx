@@ -226,17 +226,17 @@ Before you begin, you'll need the following:
             >
                 <TailoredContentOption
                     id="copilot-cloud"
-                    title="Copilot Cloud (Recommended)"
-                    description="I want to host my Copilot on Copilot Cloud"
+                    title="Copilot Platform (Recommended)"
+                    description="I want to host my Copilot on Copilot Platform"
                     icon={<FaCloud />}
                 >
                     <Step>
                         ### Add a remote endpoint for your LangGraph agent
-                        Using Copilot Cloud, you need to connect a remote endpoint that will connect to your LangGraph agent.
+                        Using Copilot Platform, you need to connect a remote endpoint that will connect to your LangGraph agent.
                         <Tabs groupId="lg-deployment-type" items={['Local (LangGraph Studio)', 'Self hosted (FastAPI)', 'LangGraph Platform']}>
                             <Tab value="Local (LangGraph Studio)">
-                                When running your LangGraph agent locally, you can open a tunnel to it so Copilot Cloud can connect to it.
-                                First, make sure you're logged in to [Copilot Cloud](https://cloud.copilotkit.ai), and then authenticate the CLI by running:
+                                When running your LangGraph agent locally, you can open a tunnel to it so Copilot Platform can connect to it.
+                                First, make sure you're logged in to [Copilot Platform](https://cloud.copilotkit.ai), and then authenticate the CLI by running:
                                 ```bash
                                 npx copilotkit@latest login
                                 ```
@@ -263,8 +263,8 @@ Before you begin, you'll need the following:
                             <Tab value="Self hosted (FastAPI)">
                                 **Running your FastAPI server locally**
 
-                                If you're running your FastAPI server locally, you can open a tunnel to it so Copilot Cloud can connect to it.
-                                First, make sure you're logged in to [Copilot Cloud](https://cloud.copilotkit.ai), and then authenticate the CLI by running:
+                                If you're running your FastAPI server locally, you can open a tunnel to it so Copilot Platform can connect to it.
+                                First, make sure you're logged in to [Copilot Platform](https://cloud.copilotkit.ai), and then authenticate the CLI by running:
                                 ```bash
                                 npx copilotkit@latest login
                                 ```
@@ -275,7 +275,7 @@ Before you begin, you'll need the following:
 
                                 **Running your FastAPI server in production**
 
-                                Head over to [Copilot Cloud](https://cloud.copilotkit.ai) sign up and setup a remote endpoint with the following information:
+                                Head over to [Copilot Platform](https://cloud.copilotkit.ai) sign up and setup a remote endpoint with the following information:
                                 - OpenAI API key
                                 - LangSmith API key
                                 - Your FastAPI server URL
@@ -293,14 +293,14 @@ Before you begin, you'll need the following:
                                 </Accordions>
                             </Tab>
                             <Tab value="LangGraph Platform">
-                                Head over to [Copilot Cloud](https://cloud.copilotkit.ai) sign up and setup a remote endpoint to LangGraph Platform with the following information:
+                                Head over to [Copilot Platform](https://cloud.copilotkit.ai) sign up and setup a remote endpoint to LangGraph Platform with the following information:
                                 - OpenAI API key
                                 - LangSmith API key
                                 - LangGraph agent deployment URL
                                 <Accordions className="mb-4">
                                     <Accordion title="Show me how">
                                         <Frame>
-                                            <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/copilot-cloud/cpk-cloud-lgp-endpoint.gif" alt="Copilot Cloud Remote Endpoint" />
+                                            <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/copilot-cloud/cpk-cloud-lgp-endpoint.gif" alt="Copilot Platform Remote Endpoint" />
                                         </Frame>
                                     </Accordion>
                                 </Accordions>
@@ -312,7 +312,7 @@ Before you begin, you'll need the following:
                         The [`<CopilotKit>`](/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
                         it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
 
-                        Since we're using Copilot CLoud, we need to grab our public API key from the [Copilot Cloud dashboard](https://cloud.copilotkit.ai).
+                        Since we're using Copilot CLoud, we need to grab our public API key from the [Copilot Platform dashboard](https://cloud.copilotkit.ai).
 
                         <CloudCopilotKitProvider components={props.components} />
 
