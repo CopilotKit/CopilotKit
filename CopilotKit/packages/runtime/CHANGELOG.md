@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.10.0-next.3
+
+### Patch Changes
+
+- 824fb69: - fix: pass config to the forwarded props of an agui agent
+  - @copilotkit/shared@1.10.0-next.3
+
 ## 1.10.0-next.2
 
 ### Patch Changes
