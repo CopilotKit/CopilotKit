@@ -1,0 +1,44 @@
+---
+title: Loading Agent State
+description: Learn how threadId is used to load previous agent states.
+icon: "lucide/ChartBar"
+---
+
+### Setting the threadId
+
+When setting the `threadId` property in CopilotKit, i.e:
+
+```tsx
+<CopilotKit threadId="2140b272-7180-410d-9526-f66210918b13">
+  <YourApp />
+</CopilotKit>
+```
+
+CopilotKit will restore the complete state of the thread, including the messages, from the database.
+(See [Message Persistence](/pydantic-ai/persistence/message-persistence) for more details.)
+
+### Loading Agent State
+
+<Callout>
+  **Important:** For agent state to be loaded correctly, you must first ensure
+  that message history and persistence are properly configured. Follow the
+  guides on [Threads &
+  Persistence](/pydantic-ai/persistence/loading-message-history) and [Message
+Persistence](/pydantic-ai/persistence/message-persistence).
+</Callout>
+
+This means that the state of any agent will also be restored. For example:
+
+```tsx
+const { state } = useCoAgent({ name: "research_agent" });
+
+// state will now be the state of research_agent in the thread id given above
+```
+
+### Learn More
+
+To learn more about persistence and state in CopilotKit, see:
+
+- [Reading agent state](/pydantic-ai/shared-state/in-app-agent-read)
+- [Writing agent state](/pydantic-ai/shared-state/in-app-agent-write)
+- [Loading Message History](/pydantic-ai/persistence/loading-message-history) 
