@@ -60,7 +60,7 @@ import { ImageRenderer as DefaultImageRenderer } from "./messages/ImageRenderer"
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import {
   SystemMessageFunction,
-  useCopilotChat,
+  useCopilotChatInternal as useCopilotChat,
   useCopilotContext,
   useCopilotMessagesContext,
 } from "@copilotkit/react-core";

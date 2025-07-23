@@ -1,7 +1,7 @@
 import { useContext, useEffect, useMemo } from "react";
 import { CopilotContext } from "../context/copilot-context";
 import { LangGraphInterruptRender } from "../types/interrupt-action";
-import { useCopilotChat } from "./use-copilot-chat";
+import { useCopilotChat } from "./use-copilot-chat_internal";
 import { useToast } from "../components/toast/toast-provider";
 import { dataToUUID } from "@copilotkit/shared";
 
