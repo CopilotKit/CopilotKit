@@ -1,5 +1,13 @@
 # ui
 
+## 1.10.0-next.4
+
+### Patch Changes
+
+- 967d0ab: - refactor(chat): separate useCopilotChat into internal implementation and public API
+  - @copilotkit/runtime-client-gql@1.10.0-next.4
+  - @copilotkit/shared@1.10.0-next.4
+
 ## 1.10.0-next.3
 
 ### Patch Changes
