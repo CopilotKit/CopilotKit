@@ -626,12 +626,13 @@ class LangGraphAgent(Agent):
             }
 
         messages = langchain_messages_to_copilotkit(state.get("messages", []))
-        del state["messages"]
+        state_copy = state.copy()
+        state_copy.pop("messages", None)
 
         return {
             "threadId": thread_id,
             "threadExists": True,
-            "state": state,
+            "state": state_copy,
             "messages": messages
         }
 
