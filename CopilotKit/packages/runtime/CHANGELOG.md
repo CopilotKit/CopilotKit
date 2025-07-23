@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.10.0-next.6
+
+### Patch Changes
+
+- 6f2f54b: - fix(openai): update maxTokens parameter to max_completion_tokens in OpenAIAdapter
+  - @copilotkit/shared@1.10.0-next.6
+
 ## 1.10.0-next.5
 
 ### Patch Changes
