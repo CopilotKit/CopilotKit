@@ -4,8 +4,8 @@
   "pages": [
     "index",
     "...guides",
-    "---Enterprise Features---",
-    "...../enterprise",
+    "---Platform Features---",
+    "...../platform",
     "---Tutorials---",
     "...tutorials",
     "---Cookbook---",
