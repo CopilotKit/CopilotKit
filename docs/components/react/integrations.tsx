@@ -37,35 +37,35 @@ const integrations: Integration[] = [
   {
     title: "Mastra",
     description: "Mastra is a framework for building and deploying AI agents.",
-    logo: <MastraIcon className="w-8 h-8 text-bold" />,
+    logo: <MastraIcon className="w-8 h-8" />,
     bgGradient: "bg-gradient-to-b from-black to-zinc-800 text-white",
     href: "/mastra",
   },
   {
     title: "CrewAI Crews",
     description: "CrewAI is a framework for building and deploying AI agents.",
-    logo: <SiCrewai className="w-8 h-8 text-bold" />,
+    logo: <SiCrewai className="w-8 h-8" />,
     bgGradient: "bg-gradient-to-b from-[#FA694C] to-[#FE8A71] text-white",
     href: "/crewai-crews",
   },
   {
     title: "CrewAI Flows",
     description: "CrewAI is a framework for building and deploying AI agents.",
-    logo: <SiCrewai className="w-8 h-8 text-bold" />,
+    logo: <SiCrewai className="w-8 h-8" />,
     bgGradient: "bg-gradient-to-b from-[#FA694C] to-[#FE8A71] text-white",
     href: "/crewai-flows",
   },
   {
     title: "Agno",
     description: "Agno is a framework for building and deploying AI agents.",
-    logo: <AgnoIcon className="w-8 h-8 text-bold" />,
+    logo: <AgnoIcon className="w-8 h-8" />,
     bgGradient: "bg-[#FF3C1A] text-white",
     href: "/agno",
   },
   {
     title: "LlamaIndex",
     description: "LlamaIndex is a framework for building and deploying AI agents.",
-    logo: <LlamaIndexIcon className="w-8 h-8 text-bold" />,
+    logo: <LlamaIndexIcon className="w-8 h-8" />,
     bgGradient: "bg-gradient-to-b from-pink-500 via-purple-500 to-blue-400 text-pink-100",
     href: "/llamaindex",
   },
@@ -185,7 +185,7 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
           <div className={`w-12 h-12 flex items-center justify-center rounded-2xl transition-all duration-200 group-hover:scale-105 ${integration.bgGradient}`}>
             {integration.logo}
           </div>
-          <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300 group-hover:text-black dark:group-hover:text-white transition-colors duration-200">
+          <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300 group-hover:text-black dark:group-hover:text-white transition-colors duration-200">
             {integration.title}
           </span>
         </a>
