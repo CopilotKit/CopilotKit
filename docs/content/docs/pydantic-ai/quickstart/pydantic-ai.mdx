@@ -1,5 +1,5 @@
 ---
-title: Quickstart Pydantic AI Agents
+title: Quickstart
 description: Turn your Pydantic AI Agents into an agent-native application in 10 minutes.
 icon: "lucide/Play"
 ---
@@ -22,6 +22,7 @@ import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/coa
 import SelfHostingCopilotRuntimeLangGraphEndpoint from "@/snippets/self-hosting-copilot-runtime-langgraph-endpoint.mdx";
 import SelfHostingCopilotRuntimeStarter from "@/snippets/self-hosting-copilot-runtime-starter.mdx";
 import SelfHostingRemoteEndpoints from "@/snippets/self-hosting-remote-endpoints.mdx";
+import { PydanticAIIcon } from "@/lib/icons/custom-icons";
 import {
   UserIcon,
   PaintbrushIcon,
@@ -50,215 +51,210 @@ Before you begin, you'll need the following:
 ## Getting started
 
 <Steps>
-    <Step>
-        ### Install CopilotKit
-        First, install the latest packages for CopilotKit into your frontend.
-        ```package-install
-        npm install @copilotkit/react-ui @copilotkit/react-core
-        ```
-    </Step>
     <TailoredContent
         className="step"
-        id="agent"
+        id="path"
         header={
             <div>
                 <p className="text-xl font-semibold">Do you already have a Pydantic AI Agent?</p>
                 <p className="text-base">
-                    You will need a Pydantic AI Agent to get started!
-                </p>
-                <p className="text-base">
-                    Either bring your own or feel free to use our starter repo.
+                    You can either create a new project quickly or bring your existing agent into CopilotKit.
                 </p>
             </div>
         }
     >
         <TailoredContentOption
-            id="bring-your-own"
-            title="Bring your own Pydantic AI Agent"
-            description="I already have a Pydantic AI Agent and want to use it with CopilotKit."
-            icon={<img src="https://cdn.copilotkit.ai/docs/copilotkit/images/pydantic-ai-logo.svg" alt="Pydantic AI Logo" width={20} height={20} />}
-        />
-        <TailoredContentOption
-            id="coagents-starter"
-            title="Use the CoAgents Starter repo"
-            description="I don't have a Pydantic AI Agent yet, but want to get started quickly."
+            id="create"
+            title="Start from scratch"
+            description="I don't have an agent yet, but want to get started quickly."
             icon={<img src="https://cdn.copilotkit.ai/docs/copilotkit/images/copilotkit-logo.svg" alt="CopilotKit Logo" width={20} height={20} />}
         >
             <Step>
-                ### Clone the `coagents-starter` repo
-
-                <Tabs groupId="language" items={["Python"]}>
-                    <Tab value="Python">
-                        ```bash
-                        git clone https://github.com/CopilotKit/CopilotKit
-                        cd CopilotKit/examples/coagents-starter-pydantic-ai/agent-py
-                        ```
-                    </Tab>
-                </Tabs>
-            </Step>
-            <Step>
-                ### Create a `.env` file
+                ### Run our CLI
 
                 ```bash
-                touch .env
+                npx copilotkit@latest create -f pydantic-ai
                 ```
             </Step>
             <Step>
-                ### Add your API keys
+                ### Install dependencies
+                ```package-install
+                ```
+                <Callout type="info">
+                    This will also install your agent's python dependencies! If you have trouble, try running `npm run install:agent` instead.
+                </Callout>
+            </Step>
+            <Step>
+                ### Mount your OpenAI API key
+                Your agent will need an LLM to talk to. This example uses OpenAI, but you can use any LLM provider you want.
 
-                Then add your **OpenAI API key** to the `.env` file.
+                ```bash
+                export OPENAI_API_KEY=your_openai_api_key
+                ```
 
-                ```plaintext title=".env"
+                Or set it in your agent's `.env` file.
+
+                ```plaintext title="agent/.env"
                 OPENAI_API_KEY=your_openai_api_key
                 ```
             </Step>
-        </TailoredContentOption>
-    </TailoredContent>
-    <Step>
-        ### Launch your local agent
-
-        Start your local Pydantic AI Agent:
-
-        ```bash
-        python -m uvicorn agent:app --host 0.0.0.0 --port 8000
-        ```
-        This will start a local agent server that you can connect to.
-    </Step>
-
-    <TailoredContent
-        className="step"
-        id="copilot-hosting"
-        header={
-            <div>
-                <p className="text-xl font-semibold">Choose your connection method</p>
-                <p className="text-base">
-                    Now you need to connect your Pydantic AI Agent to CopilotKit.
-                </p>
-            </div>
-        }
-    >
-        <TailoredContentOption
-            id="copilot-cloud"
-            title="Copilot Cloud (Recommended)"
-            description="I want to host my Copilot on Copilot Cloud"
-            icon={<FaCloud />}
-        >
             <Step>
-                ### Add a remote endpoint for your Pydantic AI Agent
-                Using Copilot Cloud, you need to connect a remote endpoint that will connect to your Pydantic AI Agent.
-                <Tabs groupId="lg-deployment-type" items={['Self hosted (FastAPI)', 'Pydantic AI Enterprise']}>
-                    <Tab value="Self hosted (FastAPI)">
-                        **Running your FastAPI server in production**
+                ### Run your agent
+                Now you can run your agent and UI together in the same terminal!
 
-                        Head over to [Copilot Cloud](https://cloud.copilotkit.ai) sign up and setup a remote endpoint with the following information:
-                        - OpenAI API key
-                        - Your FastAPI server URL
-
-                        **Running your FastAPI server locally**
-
-                        If you're running your FastAPI server locally, you can open a tunnel to it so Copilot Cloud can connect to it.
-
-                        ```bash
-                        npx copilotkit@latest dev --port 8000
-                        ```
-                    </Tab>
-                    <Tab value="Pydantic AI Enterprise">
-                        Coming soon!
-                    </Tab>
-                </Tabs>
-            </Step>
-            <Step>
-                ### Setup your CopilotKit provider
-                The [`<CopilotKit>`](/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
-                it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
-
-                <CloudCopilotKitProvider components={props.components} />
-
-                <Callout type="info">
-                    Looking for a way to run multiple Pydantic AI Agents? Check out our [Multi-Agent](/pydantic-ai/multi-agent-flows) guide.
-                </Callout>
+                ```bash
+                npm run dev
+                ```
             </Step>
         </TailoredContentOption>
         <TailoredContentOption
-            id="self-hosted"
-            title="Self-Hosted Copilot Runtime"
-            description="I want to self-host the Copilot Runtime"
-            icon={<ServerIcon />}
+            id="exiting-agent"
+            title="Use an existing agent"
+            description="I already have a Pydantic AI Agent and want to use it with CopilotKit."
+            icon={<PydanticAIIcon className="w-4 h-4 text-bold" />}
         >
             <Step>
-                ### Install Copilot Runtime
-                Copilot Runtime is a production-ready proxy for your Pydantic AI Agents. In your frontend, go ahead and install it.
+                ### Add necessary dependencies
+                Pydantic AI's integration relies on [AG-UI](https://docs.ag-ui.com/), as such
+                you'll need to install it into your project.
 
+                Our examples will also use uvicorn to run the agent.
+
+                ```sh
+                pip install 'pydantic-ai-slim[ag-ui]' uvicorn
+                ```
+            </Step>
+            <Step>
+                ### Expose your agent as an AG-UI ASGI application
+
+                ```python title="agent.py"
+                from pydantic_ai import Agent
+
+                agent = Agent('openai:gpt-4.1', instructions='Be fun!')
+                app = agent.to_ag_ui()
+
+                # If you want the server to run on invocation, you can do the following:
+                if __name__ == "__main__":
+                    import uvicorn
+                    uvicorn.run(app, host="localhost", port=8000)
+
+                ```
+            </Step>
+            <Step>
+                ### Create your frontend
+                CopilotKit runs anywhere that React runs. As such, you can such Next.js,
+                Vite, or any other React environment. 
+
+                For this example, we'll create a new Next.js app.
+
+                ```bash
+                npx create-next-app@latest
+                ```
+            </Step>
+            <Step>
+                ### Install CopilotKit
+                First, install the latest packages for CopilotKit into your frontend.
                 ```package-install
-                @copilotkit/runtime
+                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime
                 ```
             </Step>
             <Step>
-                ### Setup a Copilot Runtime Endpoint
-                Now we need to setup a Copilot Runtime endpoint and point your frontend to it.
-                <SelfHostingCopilotRuntimeStarter components={props.components}/>
-            </Step>
-            <Step>
-                ### Add your Pydantic AI Agent deployment to Copilot Runtime
-                Now we need to add your Pydantic AI Agent deployment to Copilot Runtime. This will make it
-                so your frontend can find your Pydantic AI Agents correctly.
-                ```ts
+                ### Setup the Copilot Runtime
+                CopilotKit's runtime is responsible secure communication between your agent and your frontend. As you progress
+                with your applicaiton, this will be where you'll do things like setup threads or authentication.
+
+                For now, let's start with a minimal setup.
+
+                ```tsx title="app/api/copilotkit/route.ts"
                 import {
-                CopilotRuntime,
-                // ...
+                  CopilotRuntime,
+                  ExperimentalEmptyAdapter,
+                  copilotRuntimeNextJSAppRouterEndpoint,
                 } from "@copilotkit/runtime";
-                // ...
+                import { HttpAgent } from "@ag-ui/client";
+                import { NextRequest } from "next/server";
+                
+                // 1. You can use any service adapter here for multi-agent support. We use
+                //    the empty adapter since we're only using one agent.
+                const serviceAdapter = new ExperimentalEmptyAdapter();
+                
+                // 2. Create the CopilotRuntime instance and utilize the PydanticAI AG-UI
+                //    integration to setup the connection.
                 const runtime = new CopilotRuntime({
-                remoteEndpoints: [
-                    // [!code highlight:3]
-                    // Our FastAPI endpoint URL
-                    { url: "http://localhost:8000/copilotkit" },
-                ],
+                  agents: {
+                    // Our AG-UI endpoint URL
+                    "my_agent": new HttpAgent({ url: "http://localhost:8000/" }),
+                  }   
                 });
-                // ...
+                
+                // 3. Build a Next.js API route that handles the CopilotKit runtime requests.
+                export const POST = async (req: NextRequest) => {
+                  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+                    runtime, 
+                    serviceAdapter,
+                    endpoint: "/api/copilotkit",
+                  });
+                
+                  return handleRequest(req);
+                };
+               ```
+            </Step>
+            <Step>
+                ### Setup the CopilotKit provider
+                The CopilotKit provide component is responsible for managing the session with your current agent. Typically,
+                users will wrap their entire application in the CopilotKit provider.    
+
+                ```tsx title="app/layout.tsx"
+                import "./globals.css";
+                import { ReactNode } from "react";
+                import { CopilotKit } from "@copilotkit/react-core"; 
+                
+                export default function RootLayout({ children }: { children: ReactNode }) {
+                  return (
+                    <html lang="en">
+                      <body> 
+                        {/* This points to the runtime we setup in the previous step */} // [!code highlight:4]
+                        <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent"> 
+                          {children}
+                        </CopilotKit>
+                      </body>
+                    </html>
+                  );
+                }
                 ```
             </Step>
             <Step>
-                ### Configure the CopilotKit Provider
-                The [`<CopilotKit>`](/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
-                it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
-                <SelfHostingCopilotRuntimeConfigureCopilotKitProvider components={props.components}/>
+                ### Setup the Copilot UI
+                The last step is to use CopilotKit's UI components to render the chat interaction with your agent. In most situations,
+                this is done alongside your core page components, e.g. in your `page.tsx` file.
+
+                ```tsx title="page.tsx"
+                // [!code highlight:3]
+                import "@copilotkit/react-ui/styles.css";
+                import { CopilotSidebar } from "@copilotkit/react-ui";
+
+                export function YourApp() {
+                return (
+                    <main>
+                    <h1>Your main content</h1>
+                    // [!code highlight:7]
+                    <CopilotSidebar
+                        labels={{
+                            title: "Popup Assistant",
+                            initial: "Hi! I'm connected to an agent. How can I help?",
+                        }}
+                    />
+                    </main>
+                );
+                }
+                ```
+
                 <Callout type="info">
-                    Looking for a way to run multiple Pydantic AI Agents? Check out our [Multi-Agent](/pydantic-ai/multi-agent-flows) guide.
+                    Looking for other chat component options? Check out our [Agentic Chat UI](/pydantic-ai/agentic-chat-ui) guide.
                 </Callout>
             </Step>
         </TailoredContentOption>
     </TailoredContent>
-    <Step>
-        ### Setup the Copilot UI
-        The last step is to use CopilotKit's UI components to render the chat interaction with your agent. In most situations,
-        this is done alongside your core page components, e.g. in your `page.tsx` file.
-
-        ```tsx title="page.tsx"
-        // [!code highlight:3]
-        import "@copilotkit/react-ui/styles.css";
-        import { CopilotPopup } from "@copilotkit/react-ui";
-
-        export function YourApp() {
-          return (
-            <main>
-              <h1>Your main content</h1>
-              // [!code highlight:7]
-              <CopilotPopup
-                labels={{
-                    title: "Popup Assistant",
-                    initial: "Hi! I'm connected to an agent. How can I help?",
-                }}
-              />
-            </main>
-          );
-        }
-        ```
-
-        <Callout type="info">
-            Looking for other chat component options? Check out our [Agentic Chat UI](/pydantic-ai/agentic-chat-ui) guide.
-        </Callout>
-    </Step>
     <Step>
         ### 🎉 Talk to your agent!
 

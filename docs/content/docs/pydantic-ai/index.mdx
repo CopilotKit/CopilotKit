@@ -36,49 +36,50 @@ Full user-interaction infrastructure for your agents, to turn your agents into C
 
 Everything you need to build Agent-Native Applications (ANAs), right out of the box.
 
-<CTACards
-  columns={2}
-  cards={[
-    {
-      iconKey: "message-square",
-      title: "Agentic Chat UI",
-      description: "In-app chat powered by your agent.",
-      href: "/pydantic-ai/agentic-chat-ui",
-    },
-    {
-      iconKey: "share2",
-      title: "Shared State",
-      description: "Your agent can see everything in your app, and vice versa.",
-      href: "/pydantic-ai/shared-state",
-    },
-    {
-      iconKey: "layout-template",
-      title: "Generative UI",
-      description: "UI that updates in real-time based on your agent's state.",
-      href: "/pydantic-ai/generative-ui",
-    },
-    {
-      iconKey: "wand",
-      title: "Frontend Tools",
-      description:
-        "Give your agent the ability to take action in your application.",
-      href: "/pydantic-ai/frontend-actions",
-    },
-    {
-      iconKey: "wand",
-      title: "Multi-Agent Coordination",
-      description:
-        "Route your agent to the right agent based on the user's request.",
-      href: "/pydantic-ai/multi-agent-flows",
-    },
-    {
-      iconKey: "user-cog",
-      title: "Human-in-the-Loop",
-      description: "Set smart checkpoints where humans can guide your agents.",
-      href: "/pydantic-ai/human-in-the-loop",
-    },
-  ]}
-/>
+<Cards className="gap-6">
+  <Card
+    className="p-6 rounded-xl text-base"
+    icon={<TextIcon className="text-indigo-500 dark:text-indigo-300" />}
+    title="Agentic Chat UI"
+    description="In-app chat powered by your agent."
+    href="/pydantic-ai/agentic-chat-ui"
+  />
+  <Card
+    className="p-6 rounded-xl text-base"
+    icon={<JsonIcon className="text-indigo-500 dark:text-indigo-300" />}
+    title="Shared State"
+    description="Your agent can see everything in your app, and vice versa."
+    href="/pydantic-ai/shared-state"
+  />
+  <Card
+    className="p-6 rounded-xl text-base"
+    icon={<LuLightbulb className="text-indigo-500 dark:text-indigo-300" />}
+    title="Generative UI"
+    description="UI that updates in real-time based on your agent's state."
+    href="/pydantic-ai/generative-ui"
+  />
+  <Card
+    className="p-6 rounded-xl text-base"
+    icon={<LuWrench className="text-indigo-500 dark:text-indigo-300" />}
+    title="Frontend Tools"
+    description="Give your agent the ability to take action in your application."
+    href="/pydantic-ai/frontend-actions"
+  />
+  <Card
+    className="p-6 rounded-xl text-base"
+    icon={<LuBrainCog className="text-indigo-500 dark:text-indigo-300" />}
+    title="Multi-Agent Coordination"
+    description="Route your agent to the right agent based on the user's request."
+    href="/pydantic-ai/multi-agent-flows"
+  />
+  <Card
+    className="p-6 rounded-xl text-base"
+    icon={<LuBookOpen className="text-indigo-500 dark:text-indigo-300" />}
+    title="Human-in-the-Loop"
+    description="Set smart checkpoints where humans can guide your agents."
+    href="/pydantic-ai/human-in-the-loop"
+  />
+</Cards>
 
 {/* TODO: Add CoAgents in action section for Pydantic AI Agents */}
 
@@ -86,17 +87,15 @@ Everything you need to build Agent-Native Applications (ANAs), right out of the 
 
 Get started with CoAgents in as little as 5 minutes with one of our guides or tutorials.
 
-<CTACards
-  columns={1}
-  cards={[
-    {
-      iconKey: "play",
-      title: "Quickstart",
-      description: "Learn how to build your first CoAgent in 10 minutes.",
-      href: "/pydantic-ai/quickstart/pydantic-ai",
-    },
-  ]}
-/>
+<Cards className="gap-6">
+  <Card
+    className="p-6 rounded-xl text-base"
+    icon={<LuLightbulb className="text-indigo-500 dark:text-indigo-300" />}
+    title="Quickstart"
+    description="Learn how to build your first CoAgent in 10 minutes."
+    href="/pydantic-ai/quickstart/pydantic-ai"
+  />
+</Cards>
 {/* TODO: Add example tutorials for Pydantic AI Agents */}
 
 ## Common Questions
