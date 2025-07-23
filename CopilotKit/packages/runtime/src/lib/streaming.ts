@@ -81,6 +81,7 @@ function convertStreamingErrorToStructured(error: any): CopilotKitError {
     error?.message?.includes("other side closed") ||
     error?.code === "UND_ERR_SOCKET"
   ) {
+    console.log("error", error);
     return new CopilotKitLowLevelError({
       error: error instanceof Error ? error : new Error(String(error)),
       url: "streaming connection",
