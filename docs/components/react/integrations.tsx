@@ -1,6 +1,6 @@
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { MastraIcon, LlamaIndexIcon, AG2Icon, AgnoIcon } from "@/lib/icons/custom-icons";
+import { MastraIcon, LlamaIndexIcon, AG2Icon, AgnoIcon, PydanticAIIcon } from "@/lib/icons/custom-icons";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
 import { SiLangchain } from "react-icons/si";
 import { Brain } from "lucide-react";
@@ -68,6 +68,13 @@ const integrations: Integration[] = [
     logo: <LlamaIndexIcon className="w-8 h-8 text-bold" />,
     bgGradient: "bg-gradient-to-b from-pink-500 via-purple-500 to-blue-400 text-pink-100",
     href: "/llamaindex",
+  },
+  {
+    title: "Pydantic AI",
+    description: "Pydantic AI is a framework for building and deploying AI agents.",
+    logo: <PydanticAIIcon className="w-8 h-8 text-bold" />,
+    bgGradient: "bg-[#ED2762] text-white",
+    href: "/pydantic-ai",
   },
   {
     title: "AutoGen2",
