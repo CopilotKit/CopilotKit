@@ -2,14 +2,14 @@
 
 [[package]]
 name = "ag-ui-langgraph"
-version = "0.0.1"
-description = ""
+version = "0.0.4"
+description = "Implementation of the AG-UI protocol for LangGraph."
 optional = false
 python-versions = "<3.14,>=3.10"
 groups = ["main"]
 files = [
-    {file = "ag_ui_langgraph-0.0.1-py3-none-any.whl", hash = "sha256:b7c90b90fb8d736fc7426219166fa63572bcc10171253d5c982544fa256b568f"},
-    {file = "ag_ui_langgraph-0.0.1.tar.gz", hash = "sha256:3208916af56f5c2dd395c85889d089f12c84207bc3e0ae12acc045abe845ce09"},
+    {file = "ag_ui_langgraph-0.0.4-py3-none-any.whl", hash = "sha256:1bbd818bc27b991a3e5f85554c19710cf326d8d91a0fc1cef820d65b7250c922"},
+    {file = "ag_ui_langgraph-0.0.4.tar.gz", hash = "sha256:99af5c1b300afc789bab08eafab6f36247a17da6d837e8fc7d2d69bd81439511"},
 ]
 
 [package.dependencies]
@@ -310,18 +310,18 @@ files = [
 
 [[package]]
 name = "copilotkit"
-version = "0.1.55"
+version = "0.1.56"
 description = "CopilotKit python SDK"
 optional = false
 python-versions = "<3.13,>=3.10"
 groups = ["main"]
 files = [
-    {file = "copilotkit-0.1.55-py3-none-any.whl", hash = "sha256:aa4a5026190760d6ba1dbd920849d62c3500a9c6d583adf4c02950aed75ffbf7"},
-    {file = "copilotkit-0.1.55.tar.gz", hash = "sha256:d095be62c58f5cc25ab9e34839ec16ef64e45a88378e5dbf4770efcb8e10ac43"},
+    {file = "copilotkit-0.1.56-py3-none-any.whl", hash = "sha256:1fc766b32623b0b83b5ff18d239bb97894903d6172ff903eaa9c96f6b47c7a21"},
+    {file = "copilotkit-0.1.56.tar.gz", hash = "sha256:b8b595dd3cf58e19b943b17ac70670ff915fe2300f91524c605b3ebd74153037"},
 ]
 
 [package.dependencies]
-ag-ui-langgraph = {version = "0.0.1", extras = ["fastapi"]}
+ag-ui-langgraph = {version = "0.0.4", extras = ["fastapi"]}
 fastapi = ">=0.115.0,<0.116.0"
 langchain = ">=0.3.4,<=0.3.26"
 langgraph = ">=0.3.18,<=0.5.0"
@@ -1772,4 +1772,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.13"
-content-hash = "5c427b4f6e354b8a26a480121d07ed02a78f23ce8005be6088aceb71970de78f"
+content-hash = "1c44423fb1ee7d71b182d04ec8507821f61fe9e0011801d0c1b068ca732d9a03"
