@@ -58,10 +58,12 @@ export function constructAGUIRemoteAction({
       });
 
       let state = {};
+      let config = {};
       if (agentStates) {
         const jsonState = agentStates.find((state) => state.agentName === agent.agentId);
         if (jsonState) {
           state = parseJson(jsonState.state, {});
+          config = parseJson(jsonState.config, {});
         }
       }
       agent.state = state;
@@ -75,6 +77,7 @@ export function constructAGUIRemoteAction({
       });
 
       const forwardedProps = {
+        config,
         ...(metaEvents?.length ? { command: { resume: metaEvents[0]?.response } } : {}),
         ...(threadMetadata ? { threadMetadata } : {}),
         ...(nodeName ? { nodeName } : {}),
