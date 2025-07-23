@@ -27,6 +27,23 @@
  * />
  * ```
  *
+ * ### With Observability Hooks
+ *
+ * To monitor user interactions, provide the `observabilityHooks` prop.
+ * **Note:** This requires a `publicApiKey` in the `<CopilotKit>` provider.
+ *
+ * ```tsx
+ * <CopilotKit publicApiKey="YOUR_PUBLIC_API_KEY">
+ *   <CopilotChat
+ *     observabilityHooks={{
+ *       onMessageSent: (message) => {
+ *         console.log("Message sent:", message);
+ *       },
+ *     }}
+ *   />
+ * </CopilotKit>
+ * ```
+ *
  * ### Look & Feel
  *
  * By default, CopilotKit components do not have any styles. You can import CopilotKit's stylesheet at the root of your project:
@@ -65,11 +82,19 @@ import {
   useCopilotMessagesContext,
 } from "@copilotkit/react-core";
 import type { SuggestionItem } from "@copilotkit/react-core";
-import { Message } from "@copilotkit/shared";
+import {
+  CopilotKitError,
+  CopilotKitErrorCode,
+  Message,
+  Severity,
+  ErrorVisibility,
+  styledConsole,
+} from "@copilotkit/shared";
 import { randomId } from "@copilotkit/shared";
 import {
   AssistantMessageProps,
   ComponentsMap,
+  CopilotObservabilityHooks,
   ImageRendererProps,
   InputProps,
   MessagesProps,
@@ -250,6 +275,12 @@ export interface CopilotChatProps {
   children?: React.ReactNode;
 
   hideStopButton?: boolean;
+
+  /**
+   * Event hooks for CopilotKit chat events.
+   * These hooks only work when publicApiKey is provided.
+   */
+  observabilityHooks?: CopilotObservabilityHooks;
 }
 
 interface OnStopGenerationArguments {
@@ -336,10 +367,33 @@ export function CopilotChat({
   imageUploadsEnabled,
   inputFileAccept = "image/*",
   hideStopButton,
+  observabilityHooks,
 }: CopilotChatProps) {
-  const { additionalInstructions, setChatInstructions } = useCopilotContext();
+  const { additionalInstructions, setChatInstructions, copilotApiConfig, setBannerError } =
+    useCopilotContext();
   const [selectedImages, setSelectedImages] = useState<Array<ImageUpload>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Helper function to trigger event hooks only if publicApiKey is provided
+  const triggerObservabilityHook = useCallback(
+    (hookName: keyof CopilotObservabilityHooks, ...args: any[]) => {
+      if (copilotApiConfig.publicApiKey && observabilityHooks?.[hookName]) {
+        (observabilityHooks[hookName] as any)(...args);
+      }
+      if (observabilityHooks?.[hookName] && !copilotApiConfig.publicApiKey) {
+        setBannerError(
+          new CopilotKitError({
+            message: "observabilityHooks requires a publicApiKey to function.",
+            code: CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR,
+            severity: Severity.CRITICAL,
+            visibility: ErrorVisibility.BANNER,
+          }),
+        );
+        styledConsole.publicApiKeyRequired("observabilityHooks");
+      }
+    },
+    [copilotApiConfig.publicApiKey, observabilityHooks],
+  );
 
   // Clipboard paste handler
   useEffect(() => {
@@ -430,6 +484,19 @@ export function CopilotChat({
     onReloadMessages,
   );
 
+  // Track loading state changes for chat start/stop events
+  const prevIsLoading = useRef(isLoading);
+  useEffect(() => {
+    if (prevIsLoading.current !== isLoading) {
+      if (isLoading) {
+        triggerObservabilityHook("onChatStarted");
+      } else {
+        triggerObservabilityHook("onChatStopped");
+      }
+      prevIsLoading.current = isLoading;
+    }
+  }, [isLoading, triggerObservabilityHook]);
+
   // Wrapper for sendMessage to clear selected images
   const handleSendMessage = (text: string) => {
     const images = selectedImages;
@@ -437,6 +504,9 @@ export function CopilotChat({
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+
+    // Trigger message sent event
+    triggerObservabilityHook("onMessageSent", text);
 
     return sendMessage(text, images);
   };
@@ -449,6 +519,9 @@ export function CopilotChat({
       onRegenerate(messageId);
     }
 
+    // Trigger message regenerated event
+    triggerObservabilityHook("onMessageRegenerated", messageId);
+
     reloadMessages(messageId);
   };
 
@@ -456,6 +529,9 @@ export function CopilotChat({
     if (onCopy) {
       onCopy(message);
     }
+
+    // Trigger message copied event
+    triggerObservabilityHook("onMessageCopied", message);
   };
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -496,6 +572,24 @@ export function CopilotChat({
     setSelectedImages((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const handleThumbsUp = (message: Message) => {
+    if (onThumbsUp) {
+      onThumbsUp(message);
+    }
+
+    // Trigger feedback given event
+    triggerObservabilityHook("onFeedbackGiven", message.id, "thumbsUp");
+  };
+
+  const handleThumbsDown = (message: Message) => {
+    if (onThumbsDown) {
+      onThumbsDown(message);
+    }
+
+    // Trigger feedback given event
+    triggerObservabilityHook("onFeedbackGiven", message.id, "thumbsDown");
+  };
+
   return (
     <WrappedCopilotChat icons={icons} labels={labels} className={className}>
       <Messages
@@ -506,8 +600,8 @@ export function CopilotChat({
         inProgress={isLoading}
         onRegenerate={handleRegenerate}
         onCopy={handleCopy}
-        onThumbsUp={onThumbsUp}
-        onThumbsDown={onThumbsDown}
+        onThumbsUp={handleThumbsUp}
+        onThumbsDown={handleThumbsDown}
         markdownTagRenderers={markdownTagRenderers}
         ImageRenderer={ImageRenderer}
       >
