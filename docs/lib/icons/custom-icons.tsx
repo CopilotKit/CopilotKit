@@ -185,7 +185,7 @@ export const PydanticAIIcon = (props: IconBaseProps) => (
       <g
         id="pydantic-logo"
         transform="translate(0, 0.1733)"
-        fill="#E520E9"
+        fill="currentColor"
         fillRule="nonzero"
       >
         <path
