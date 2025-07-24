@@ -3,6 +3,7 @@
   "root": true,
   "pages": [
     "index",
+    "vercellified",
     "---Getting Started---",
     "quickstart",
     "[lucide/Telescope][Feature Viewer](https://feature-viewer-langgraph.vercel.app/)",
