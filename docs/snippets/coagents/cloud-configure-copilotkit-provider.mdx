@@ -7,9 +7,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body> 
-        {/* Use the public api key you got from Copilot Cloud  */} // [!code highlight:5]
+        {/* Use the public api key you got from Copilot Platform  */} // [!code highlight:5]
         <CopilotKit 
-          publicApiKey="<your-copilot-cloud-public-api-key>"
+          publicApiKey="<your-copilotkit-platform-public-api-key>"
           agent="sample_agent" // the name of the agent you want to use
         > 
           {children}

@@ -739,7 +739,7 @@ export const handleMouseMove = (e: any) => {
       return;
     } else if (element.classList.contains("poweredBy")) {
       tooltip.innerHTML =
-          `The "Powered by CopilotKit" watermark is removed automatically for Copilot Cloud users`;
+          `The "Powered by CopilotKit" watermark is removed automatically for Copilot Platform users`;
       return;
     }
     element = element.parentElement;
