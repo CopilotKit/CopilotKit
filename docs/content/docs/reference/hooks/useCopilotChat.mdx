@@ -14,13 +14,24 @@ Copilot instance. Use to implement a fully custom UI (headless UI) or to
 programmatically interact with the Copilot instance managed by the default
 UI.
  
+Platform Feature - Requires a `publicApiKey` from CopilotKit Cloud. For open-source usage without an API key, consider using [`useCopilotChatLight`](/reference/hooks/useCopilotChatLight) for basic messaging functionality.
+ 
 ## Usage
  
 ### Simple Usage
  
 ```tsx
+import { CopilotKit } from "@copilotkit/react-core";
 import { useCopilotChat } from "@copilotkit/react-core";
 import { Role, TextMessage } from "@copilotkit/runtime-client-gql";
+ 
+export function App() {
+  return (
+    <CopilotKit publicApiKey="your-public-api-key">
+      <YourComponent />
+    </CopilotKit>
+  );
+}
  
 export function YourComponent() {
   const { appendMessage } = useCopilotChat();
@@ -40,7 +51,16 @@ export function YourComponent() {
 ### Working with Suggestions
  
 ```tsx
+import { CopilotKit } from "@copilotkit/react-core";
 import { useCopilotChat, useCopilotChatSuggestions } from "@copilotkit/react-core";
+ 
+export function App() {
+  return (
+    <CopilotKit publicApiKey="your-public-api-key">
+      <YourComponent />
+    </CopilotKit>
+  );
+}
  
 export function YourComponent() {
   const {
