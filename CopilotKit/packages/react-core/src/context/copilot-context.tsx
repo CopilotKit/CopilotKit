@@ -229,13 +229,10 @@ export interface CopilotContextParams {
    * Optional trace handler for comprehensive debugging and observability.
    */
   onError?: CopilotErrorHandler;
-  // suggestions state
-  suggestions: SuggestionItem[];
 
   // banner error state
   bannerError: CopilotKitError | null;
   setBannerError: React.Dispatch<React.SetStateAction<CopilotKitError | null>>;
-  setSuggestions: React.Dispatch<React.SetStateAction<SuggestionItem[]>>;
 }
 
 const emptyCopilotContext: CopilotContextParams = {

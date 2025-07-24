@@ -4,15 +4,21 @@
 
 import { Message } from "@copilotkit/runtime-client-gql";
 import React from "react";
+import { SuggestionItem } from "../utils/suggestions";
 
 export interface CopilotMessagesContextParams {
   messages: Message[];
-  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>; // suggestions state
+  suggestions: SuggestionItem[];
+  setSuggestions: React.Dispatch<React.SetStateAction<SuggestionItem[]>>;
 }
 
 const emptyCopilotContext: CopilotMessagesContextParams = {
   messages: [],
   setMessages: () => [],
+  // suggestions state
+  suggestions: [],
+  setSuggestions: () => [],
 };
 
 export const CopilotMessagesContext =

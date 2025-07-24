@@ -137,11 +137,10 @@ export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotC
     langGraphInterruptAction,
     setLangGraphInterruptAction,
     chatSuggestionConfiguration,
-    suggestions,
-    setSuggestions,
+
     runtimeClient,
   } = useCopilotContext();
-  const { messages, setMessages } = useCopilotMessagesContext();
+  const { messages, setMessages, suggestions, setSuggestions } = useCopilotMessagesContext();
 
   // Simple state for MCP servers (keep for interface compatibility)
   const [mcpServers, setLocalMcpServers] = useState<MCPServerConfig[]>([]);
