@@ -10,7 +10,7 @@ type Props = {
   required?: boolean;
   deprecated?: boolean;
   children?: React.ReactNode;
-  cloudOnly?: boolean;
+  platformOnly?: boolean;
   default?: string;
   collapsable?: boolean;
 };
@@ -21,7 +21,7 @@ export function PropertyReference({
   type,
   required = false,
   deprecated = false,
-  cloudOnly = false,
+  platformOnly = false,
   default: defaultValue,
   collapsable = false,
 }: Props) {
@@ -83,7 +83,7 @@ export function PropertyReference({
         </div>
 
         <div>
-          {cloudOnly && (
+          {platformOnly && (
             <span className="flex space-x-1 items-center justify-center bg-indigo-500 text-white py-1 px-2 rounded-md text-xs font-semibold">
               <IoSparklesSharp className="w-3 h-3" />
               <span>COPILOT CLOUD</span>
