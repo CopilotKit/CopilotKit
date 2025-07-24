@@ -4,8 +4,7 @@
  * programmatically interact with the Copilot instance managed by the default
  * UI.
  *
- * **Requires a publicApiKey** - Sign up for free at https://cloud.copilotkit.ai/
- * to get your API key with generous usage limits.
+ * **Platform Feature** - Requires a `publicApiKey` from CopilotKit Cloud. For open-source usage without an API key, consider using [`useCopilotChatLight`](/reference/hooks/useCopilotChatLight) for basic messaging functionality.
  *
  * ## Usage
  *

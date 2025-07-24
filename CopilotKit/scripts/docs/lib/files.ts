@@ -95,6 +95,13 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
     hook: "useCopilotChat",
   },
   {
+    sourcePath: "packages/react-core/src/hooks/use-copilot-chat-light.ts",
+    destinationPath: "docs/content/docs/reference/hooks/useCopilotChatLight.mdx",
+    hook: "useCopilotChatLight",
+    description:
+      "A lightweight React hook for headless chat interactions. Perfect for programmatic messaging, background operations, and custom UI implementations.",
+  },
+  {
     sourcePath: "packages/react-ui/src/hooks/use-copilot-chat-suggestions.tsx",
     destinationPath: "docs/content/docs/reference/hooks/useCopilotChatSuggestions.mdx",
     hook: "useCopilotChatSuggestions",
