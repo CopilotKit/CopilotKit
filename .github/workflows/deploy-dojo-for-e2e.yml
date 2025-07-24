@@ -1,0 +1,316 @@
+name: Dojo E2E Environments
+
+on:
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: dojo-e2e-${{ github.event.pull_request.number }}-deploy
+  cancel-in-progress: false
+
+jobs:
+  build_images:
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'automated-version-pr') }}
+    runs-on: ubuntu-latest
+    name: Build Images
+    strategy:
+      matrix:
+        app:
+          - {
+              project: "dojo-next",
+              server_path: "typescript-sdk/apps/dojo",
+              base: "next",
+              type: "dojo",
+              install: "pnpm install",
+              run: "pnpm dev",
+            }
+          - {
+              project: "server-starter-agent",
+              server_path: "typescript-sdk/integrations/server-starter/server/python",
+              base: "py",
+              type: "agent",
+              install: "poetry install",
+              run: "poetry run dev",
+            }
+          - {
+              project: "server-starter-all-features-agent",
+              server_path: "typescript-sdk/integrations/server-starter-all-features/server/python",
+              base: "py",
+              type: "agent",
+              install: "poetry install",
+              run: "poetry run dev",
+            }
+          - {
+              project: "pydantic-ai-agent",
+              server_path: "typescript-sdk/examples/pydantic-ai/examples",
+              base: "py",
+              type: "agent",
+              install: "uv sync",
+              run: "uv run -m pydantic_ai_examples.ag_ui",
+            }
+          - {
+              project: "mastra-agent",
+              server_path: "typescript-sdk/integrations/mastra/example",
+              base: "ts",
+              type: "agent",
+              install: "npm install",
+              run: "npm run dev",
+            }
+          - {
+              project: "langgraph-fastapi-agent",
+              server_path: "typescript-sdk/integrations/langgraph/python/ag_ui_langgraph/examples",
+              base: "py",
+              type: "agent",
+              install: "poetry install",
+              run: "poetry run dev",
+            }
+          - {
+              project: "agno-agent",
+              server_path: "typescript-sdk/integrations/agno/examples",
+              base: "py",
+              type: "agent",
+              install: "pip install -r requirements.txt",
+              run: "python agent.py",
+            }
+          - {
+              project: "llama-index-agent",
+              server_path: "typescript-sdk/integrations/llamaindex/server-py",
+              base: "py",
+              type: "agent",
+              install: "uv sync",
+              run: "uv run dev",
+            }
+          - {
+              project: "crewai-agent",
+              path: "typescript-sdk/integrations/crewai/python",
+              base: "py",
+              type: "agent",
+              install: "poetry install",
+              run: "poetry run dev",
+            }
+
+    steps:
+      - name: Checkout Copilotkit
+        uses: actions/checkout@v4
+
+      - name: Checkout Dojo
+        uses: actions/checkout@v4
+        with:
+          repository: ag-ui-protocol/ag-ui
+          path: maxtest-dojo/ag-ui
+          ref: main
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Configure AWS Profile
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile default
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile default
+          aws configure set region us-east-1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: AWS ECR Login
+        run: |
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 058264219587.dkr.ecr.us-east-1.amazonaws.com
+
+      - name: (Dojo) Setup pnpm
+        if: matrix.app.type == 'dojo'
+        uses: pnpm/action-setup@v4
+        with:
+          version: "9.5"
+
+      - name: (Dojo) Use Node.js 22
+        if: matrix.app.type == 'dojo'
+        uses: actions/setup-node@v2
+        with:
+          node-version: 22.x
+
+      - name: (Dojo) Install CPK Monorepo
+        if: matrix.app.type == 'dojo'
+        run: |
+        working-directory: ./CopilotKit
+        run: pnpm install --frozen-lockfile
+
+      - name: (Dojo) Build @copilotkit packages
+        if: matrix.app.type == 'dojo'
+        working-directory: ./CopilotKit
+        run: pnpm run freshbuild
+
+      - name: (Dojo) Install AGUI Monorepo
+        if: matrix.app.type == 'dojo'
+        run: |
+          working-directory: ./maxtest/ag-ui/${{matrix.app.server_path }}
+          run: pnpm install --frozen-lockfile
+
+      - name: (Dojo) Link @copilotkit packages
+        if: matrix.app.type == 'ui'
+        working-directory: ./maxtest/ag-ui/${{ matrix.app.server_path }}
+        run: |
+          for package in $(ls -d ./../../../../../CopilotKit/packages/*); do
+            pnpm link $package
+          done
+
+      - name: (Dojo) Build app
+        if: matrix.app.type == 'dojo'
+        working-directory: ./maxtest/ag-ui/${{ matrix.app.server_path }}
+        run: pnpm run build
+        env:
+          OPENAI_API_KEY: placeholder
+
+      - name: (Agent) Build Docker Entrypoint
+        if: matrix.app.type == 'agent'
+        run: |
+          echo ${{ matrix.app.run }} > docker-entrypoint.sh
+
+      - name: (Agent) Build Agent Image
+        if: matrix.app.type == 'agent'
+        run: |
+          docker buildx build \
+            -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/copilotkit/dojo-e2e:${{ matrix.app.project }}-${{ github.run_id }} \
+            --build-arg APP_DIR=maxtest/ag-ui/${{ matrix.app.server_path }} \
+            --build-arg INSTALL_CMD=${{ matrix.app.install }} \
+            -f ./maxtest/Dockerfile.${{ matrix.app.base }}-agent \
+            --platform=linux/amd64 \
+            --provenance=false \
+            --push \
+            .
+        env:
+          DOCKER_BUILDKIT: 1
+
+      - name: (Dojo) Build Image
+        if: matrix.app.type == 'next'
+        run: |
+          docker buildx build \
+            -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/dojo-e2e:dojo-next-${{ github.run_id }} \
+            -f ./maxtest/Dockerfile.dojo \
+            --platform=linux/amd64 \
+            --provenance=false \
+            --push \
+            .
+        env:
+          DOCKER_BUILDKIT: 1
+
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy Testing Environments
+    needs: build_images
+    outputs:
+      e2e-urls: ${{ steps.export-e2e-urls.outputs.e2e-urls }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set Environment Name
+        id: set-environment-name
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "environment=pr-dojo-test-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "environment=main-dojo-test" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "9.5"
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v2
+        with:
+          node-version: 22.x
+
+      - name: Infra install dependencies
+        working-directory: maxtest/infra
+        run: pnpm i
+
+      - name: Install AWS CDK
+        run: npm install -g aws-cdk
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Configure AWS Profile
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile default
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile default
+          aws configure set region us-east-1
+
+      - name: cdk deploy
+        working-directory: ./maxtest/infra
+        run: cdk deploy --profile default --all --require-approval never --outputs-file=cdk_outputs.json --concurrency 10
+        env:
+          UNIQUE_ENV_ID: "PR_DOJO_${{ github.event.number }}"
+          GITHUB_ACTIONS_RUN_ID: "${{ github.run_id }}"
+          GITHUB_PR_NUMBER: "${{ github.event.number }}"
+
+      - name: Print CDK Outputs
+        working-directory: ./maxtest/infra
+        run: |
+          cat cdk_outputs.json
+
+      # - name: Generate table from outputs
+      #   id: generate-table
+      #   working-directory: ./maxtest/infra
+      #   run: |
+      #     node generate-table
+      #   env:
+      #     GITHUB_SHA: ${{ github.sha }}
+
+      # - name: Delete a comment
+      #   if: github.event_name == 'pull_request'
+      #   uses: thollander/actions-comment-pull-request@v3
+      #   with:
+      #     comment-tag: dojo-e2e-status-update
+      #     mode: delete
+
+      # - name: Comment post-deployment
+      #   if: github.event_name == 'pull_request'
+      #   uses: thollander/actions-comment-pull-request@v3
+      #   with:
+      #     comment-tag: dojo-e2e-status-update
+      #     file-path: ./infra/preview-comment.md
+
+      - name: Export Variable - E2E URLs
+        id: export-e2e-urls
+        working-directory: ./maxtest/infra
+        run: |
+          echo "e2e-urls=$(node get-e2e-tests-urls.js | base64 -w 0)" >> "$GITHUB_OUTPUT"
+          node get-e2e-tests-urls.js
+
+      # - name: Add preview label
+      #   if: github.event_name == 'pull_request'
+      #   uses: actions/github-script@v6
+      #   with:
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      #     script: |
+      #       github.rest.issues.addLabels({
+      #         issue_number: context.issue.number,
+      #         owner: context.repo.owner,
+      #         repo: context.repo.repo,
+      #         labels: ['preview']
+      #       })
+
+
+  # test:
+  #   if: github.event_name == 'pull_request'
+  #   name: End to End Tests
+  #   uses: ./.github/workflows/dojo-e2e.yml
+  #   needs: deploy
+  #   with:
+  #     ref: "${{ github.event.pull_request.head.ref }}"
+  #     sha: "${{ github.event.pull_request.head.sha }}"
+  #     urls: "${{ needs.deploy.outputs.e2e-urls }}"
+  #     pr_number: "${{ github.event.pull_request.number }}"
+  #   secrets: inherit

@@ -1,0 +1,29 @@
+FROM public.ecr.aws/docker/library/node:22-slim AS production
+
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.0 /lambda-adapter /opt/extensions/lambda-adapter
+
+ARG APP_DIR
+ARG INSTALL_CMD
+
+# Setup pnpm and corepack
+ENV PNPM_HOME="/tmp/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+RUN corepack prepare pnpm@9.15.0 --activate
+
+RUN apt-get update && apt-get install curl -y
+
+# First install via pnpx
+RUN pnpx @langchain/langgraph-cli --help
+
+
+# Copy project
+WORKDIR /asset
+COPY ag-ui .
+
+# Copy entrypoint and install dependencies
+WORKDIR /asset/ag-ui/${APP_DIR}
+COPY docker-entrypoint.sh .
+RUN ${INSTALL_CMD}
+
+ENTRYPOINT ["docker-entrypoint.sh"]

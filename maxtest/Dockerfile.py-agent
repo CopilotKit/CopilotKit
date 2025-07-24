@@ -1,0 +1,29 @@
+FROM public.ecr.aws/docker/library/python:3.12-bookworm
+
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4 /lambda-adapter /opt/extensions/lambda-adapter
+
+ARG APP_DIR
+ARG INSTALL_CMD
+
+# Disable Poetry virtualenv creation
+ENV POETRY_VIRTUALENVS_CREATE=false
+
+# Install Poetry and uv
+RUN pip install poetry uv
+
+
+
+
+
+
+
+# Copy project
+WORKDIR /asset
+COPY ag-ui .
+
+# Copy entrypoint and install dependencies
+WORKDIR /asset/ag-ui/${APP_DIR}
+COPY docker-entrypoint.sh .
+RUN ${INSTALL_CMD}
+
+ENTRYPOINT ["docker-entrypoint.sh"]
