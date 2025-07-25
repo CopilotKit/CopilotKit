@@ -174,7 +174,7 @@ jobs:
           docker buildx build \
             -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/copilotkit/dojo-e2e:${{ matrix.app.project }}-${{ github.run_id }} \
             --build-arg APP_DIR=maxtest/ag-ui/${{ matrix.app.server_path }} \
-            --build-arg INSTALL_CMD=${{ matrix.app.install }} \
+            --build-arg INSTALL_CMD="${{ matrix.app.install }}" \
             -f ./maxtest/Dockerfile.${{ matrix.app.base }}-agent \
             --platform=linux/amd64 \
             --provenance=false \
