@@ -25,3 +25,5 @@ __pycache__/
 *.env
 *.next
 .venv
+
+maxtest/ag-ui
