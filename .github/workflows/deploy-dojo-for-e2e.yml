@@ -41,14 +41,14 @@ jobs:
               install: "poetry install",
               run: "poetry run dev",
             }
-          - {
-              project: "pydantic-ai-agent",
-              server_path: "typescript-sdk/examples/pydantic-ai/examples",
-              base: "py",
-              type: "agent",
-              install: "uv sync",
-              run: "uv run -m pydantic_ai_examples.ag_ui",
-            }
+          # - {
+          #     project: "pydantic-ai-agent",
+          #     server_path: "typescript-sdk/examples/pydantic-ai/examples",
+          #     base: "py",
+          #     type: "agent",
+          #     install: "uv sync",
+          #     run: "uv run -m pydantic_ai_examples.ag_ui",
+          #   }
           - {
               project: "mastra-agent",
               server_path: "typescript-sdk/integrations/mastra/example",
