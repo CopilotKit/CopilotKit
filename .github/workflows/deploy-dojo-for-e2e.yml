@@ -158,7 +158,7 @@ jobs:
 
       - name: (Dojo) Build app
         if: matrix.app.type == 'dojo'
-        working-directory: ./maxtest/ag-ui/${{ matrix.app.server_path }}
+        working-directory: ./maxtest/ag-ui/typescript-sdk
         run: pnpm run build
         env:
           OPENAI_API_KEY: placeholder
