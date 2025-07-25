@@ -149,7 +149,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: (Dojo) Link @copilotkit packages
-        if: matrix.app.type == 'ui'
+        if: matrix.app.type == 'dojo'
         working-directory: ./maxtest/ag-ui/${{ matrix.app.server_path }}
         run: |
           for package in $(ls -d ./../../../../../CopilotKit/packages/*); do

@@ -19,7 +19,7 @@ RUN pip install poetry uv
 
 # Copy project
 WORKDIR /asset
-COPY ag-ui .
+COPY maxtest/ag-ui .
 
 # Copy entrypoint and install dependencies
 WORKDIR /asset/ag-ui/${APP_DIR}
