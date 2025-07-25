@@ -19,11 +19,11 @@ RUN pip install poetry uv
 
 # Copy project
 WORKDIR /asset
-COPY maxtest/ag-ui .
+COPY maxtest/ag-ui ./ag-ui
 
 # Copy entrypoint and install dependencies
 WORKDIR /asset/ag-ui/${APP_DIR}
-COPY docker-entrypoint.sh .
+COPY docker-entrypoint.sh ./
 RUN ${INSTALL_CMD}
 
 ENTRYPOINT ["docker-entrypoint.sh"]
