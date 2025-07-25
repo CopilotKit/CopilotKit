@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.10.0-next.7
+
+### Patch Changes
+
+- 59b0e16: - feat: add native prompt caching support to AnthropicAdapter
+  - @copilotkit/shared@1.10.0-next.7
+
 ## 1.10.0-next.6
 
 ### Patch Changes
