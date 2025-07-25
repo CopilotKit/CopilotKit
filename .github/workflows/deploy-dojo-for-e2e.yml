@@ -129,13 +129,12 @@ jobs:
 
       - name: (Dojo) Use Node.js 22
         if: matrix.app.type == 'dojo'
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with:
           node-version: 22.x
 
       - name: (Dojo) Install CPK Monorepo
         if: matrix.app.type == 'dojo'
-        run: |
         working-directory: ./CopilotKit
         run: pnpm install --frozen-lockfile
 
@@ -146,9 +145,8 @@ jobs:
 
       - name: (Dojo) Install AGUI Monorepo
         if: matrix.app.type == 'dojo'
-        run: |
-          working-directory: ./maxtest/ag-ui/${{matrix.app.server_path }}
-          run: pnpm install --frozen-lockfile
+        working-directory: ./maxtest/ag-ui/${{matrix.app.server_path }}
+        run: pnpm install --frozen-lockfile
 
       - name: (Dojo) Link @copilotkit packages
         if: matrix.app.type == 'ui'
@@ -223,7 +221,7 @@ jobs:
           version: "9.5"
 
       - name: Use Node.js 22
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with:
           node-version: 22.x
 
