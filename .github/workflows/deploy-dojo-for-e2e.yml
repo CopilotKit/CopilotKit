@@ -83,7 +83,7 @@ jobs:
             }
           - {
               project: "crewai-agent",
-              path: "typescript-sdk/integrations/crewai/python",
+              server_path: "typescript-sdk/integrations/crewai/python",
               base: "py",
               type: "agent",
               install: "poetry install",
@@ -98,7 +98,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ag-ui-protocol/ag-ui
-          path: maxtest-dojo/ag-ui
+          path: maxtest/ag-ui
           ref: main
 
       - name: Configure AWS Credentials
@@ -145,7 +145,7 @@ jobs:
 
       - name: (Dojo) Install AGUI Monorepo
         if: matrix.app.type == 'dojo'
-        working-directory: ./maxtest/ag-ui/${{matrix.app.server_path }}
+        working-directory: ./maxtest/ag-ui/typescript-sdk
         run: pnpm install --frozen-lockfile
 
       - name: (Dojo) Link @copilotkit packages
@@ -173,7 +173,7 @@ jobs:
         run: |
           docker buildx build \
             -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/copilotkit/dojo-e2e:${{ matrix.app.project }}-${{ github.run_id }} \
-            --build-arg APP_DIR=maxtest/ag-ui/${{ matrix.app.server_path }} \
+            --build-arg APP_DIR=${{ matrix.app.server_path }} \
             --build-arg INSTALL_CMD="${{ matrix.app.install }}" \
             -f ./maxtest/Dockerfile.${{ matrix.app.base }}-agent \
             --platform=linux/amd64 \
