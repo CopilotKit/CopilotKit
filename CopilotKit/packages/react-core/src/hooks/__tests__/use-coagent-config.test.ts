@@ -51,6 +51,13 @@ jest.mock("../../components/error-boundary/error-utils", () => ({
   useAsyncCallback: (fn: any) => fn,
 }));
 
+jest.mock("../../components/copilot-provider/copilot-messages", () => ({
+  useMessagesTap: () => ({
+    getMessagesFromTap: jest.fn(() => []),
+    updateTapMessages: jest.fn(),
+  }),
+}));
+
 describe("useCoAgent config synchronization", () => {
   beforeEach(() => {
     jest.clearAllMocks();
