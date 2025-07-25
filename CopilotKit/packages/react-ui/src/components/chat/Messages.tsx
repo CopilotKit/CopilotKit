@@ -69,7 +69,7 @@ function makeInitialMessages(initial: string | string[] | undefined): Message[] 
   return [
     {
       id: initial,
-      role: "system",
+      role: "assistant",
       content: initial,
     },
   ];
