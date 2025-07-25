@@ -40,7 +40,7 @@ import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { CopilotKitProps } from "./copilotkit-props";
 import { CoAgentStateRender } from "../../types/coagent-action";
 import { CoagentState } from "../../types/coagent-state";
-import { CopilotMessages } from "./copilot-messages";
+import { CopilotMessages, MessagesTapProvider } from "./copilot-messages";
 import { ToastProvider } from "../toast/toast-provider";
 import { getErrorActions, UsageBanner } from "../usage-banner";
 import { useCopilotRuntimeClient } from "../../hooks/use-copilot-runtime-client";
@@ -493,7 +493,9 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         setBannerError,
       }}
     >
-      <CopilotMessages>{memoizedChildren}</CopilotMessages>
+      <MessagesTapProvider>
+        <CopilotMessages>{memoizedChildren}</CopilotMessages>
+      </MessagesTapProvider>
       {bannerError && showDevConsole && (
         <UsageBanner
           severity={bannerError.severity}
