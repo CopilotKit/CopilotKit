@@ -11,7 +11,7 @@ from travel.chat import chat_node
 from travel.search import search_node
 from travel.trips import perform_trips_node
 from travel.state import AgentState
-
+from langgraph.checkpoint.memory import MemorySaver
 # Route is responsible for determing the next node based on the last message. This
 # is needed because LangGraph does not automatically route to nodes, instead that
 # is handled through code.
@@ -52,4 +52,5 @@ graph_builder.add_edge("trips_node", "perform_trips_node")
 
 graph = graph_builder.compile(
     interrupt_after=["trips_node"],
+    checkpointer=MemorySaver(),
 )

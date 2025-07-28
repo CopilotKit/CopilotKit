@@ -1,4 +1,9 @@
-import { CopilotCloudConfig, FunctionCallHandler, CopilotErrorHandler } from "@copilotkit/shared";
+import {
+  CopilotCloudConfig,
+  FunctionCallHandler,
+  CopilotErrorHandler,
+  CopilotKitError,
+} from "@copilotkit/shared";
 import {
   ActionRenderProps,
   CatchAllActionRenderProps,
@@ -226,6 +231,10 @@ export interface CopilotContextParams {
   onError?: CopilotErrorHandler;
   // suggestions state
   suggestions: SuggestionItem[];
+
+  // banner error state
+  bannerError: CopilotKitError | null;
+  setBannerError: React.Dispatch<React.SetStateAction<CopilotKitError | null>>;
   setSuggestions: React.Dispatch<React.SetStateAction<SuggestionItem[]>>;
 }
 
@@ -299,6 +308,8 @@ const emptyCopilotContext: CopilotContextParams = {
   removeLangGraphInterruptAction: () => null,
   onError: undefined,
   suggestions: [],
+  bannerError: null,
+  setBannerError: () => {},
   setSuggestions: () => {},
 };
 

@@ -1,5 +1,49 @@
 # ui
 
+## 1.10.0-next.7
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.0-next.7
+- @copilotkit/react-core@1.10.0-next.7
+- @copilotkit/shared@1.10.0-next.7
+
+## 1.10.0-next.6
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.0-next.6
+- @copilotkit/react-core@1.10.0-next.6
+- @copilotkit/shared@1.10.0-next.6
+
+## 1.10.0-next.5
+
+### Patch Changes
+
+- a8c0263: - feat: add event hooks system for chat components
+- Updated dependencies [a8c0263]
+  - @copilotkit/shared@1.10.0-next.5
+  - @copilotkit/react-core@1.10.0-next.5
+  - @copilotkit/runtime-client-gql@1.10.0-next.5
+
+## 1.10.0-next.4
+
+### Patch Changes
+
+- 967d0ab: - refactor(chat): separate useCopilotChat into internal implementation and public API
+- Updated dependencies [967d0ab]
+  - @copilotkit/react-core@1.10.0-next.4
+  - @copilotkit/runtime-client-gql@1.10.0-next.4
+  - @copilotkit/shared@1.10.0-next.4
+
+## 1.10.0-next.3
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.0-next.3
+- @copilotkit/react-core@1.10.0-next.3
+- @copilotkit/shared@1.10.0-next.3
+
 ## 1.10.0-next.2
 
 ### Patch Changes

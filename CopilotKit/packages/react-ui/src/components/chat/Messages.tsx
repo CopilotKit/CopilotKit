@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef } from "react";
 import { MessagesProps } from "./props";
 import { useChatContext } from "./ChatContext";
-import { Message, Role } from "@copilotkit/shared";
-import { useCopilotChat } from "@copilotkit/react-core";
+import { Message } from "@copilotkit/shared";
+import { useCopilotChatInternal as useCopilotChat } from "@copilotkit/react-core";
 
 export const Messages = ({
   inProgress,

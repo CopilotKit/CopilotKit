@@ -6,7 +6,7 @@ const mockSetCoagentStatesWithRef = jest.fn();
 const mockAppendMessage = jest.fn();
 const mockRunChatCompletion = jest.fn();
 
-jest.mock("../use-copilot-chat", () => ({
+jest.mock("../use-copilot-chat_internal", () => ({
   useCopilotChat: () => ({
     appendMessage: mockAppendMessage,
     runChatCompletion: mockRunChatCompletion,
