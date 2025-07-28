@@ -33,14 +33,16 @@ import {
   randomUUID,
   ConfigurationError,
   MissingPublicApiKeyError,
+  CopilotKitError,
 } from "@copilotkit/shared";
 import { FrontendAction } from "../../types/frontend-action";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { CopilotKitProps } from "./copilotkit-props";
 import { CoAgentStateRender } from "../../types/coagent-action";
 import { CoagentState } from "../../types/coagent-state";
-import { CopilotMessages } from "./copilot-messages";
+import { CopilotMessages, MessagesTapProvider } from "./copilot-messages";
 import { ToastProvider } from "../toast/toast-provider";
+import { getErrorActions, UsageBanner } from "../usage-banner";
 import { useCopilotRuntimeClient } from "../../hooks/use-copilot-runtime-client";
 import { shouldShowDevConsole } from "../../utils";
 import { CopilotErrorBoundary } from "../error-boundary/error-boundary";
@@ -50,10 +52,10 @@ import {
   LangGraphInterruptActionSetterArgs,
 } from "../../types/interrupt-action";
 import { StatusChecker } from "../../lib/status-checker";
+import { SuggestionItem } from "../../utils/suggestions";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
-  const showDevConsole = props.showDevConsole ?? false;
-  const enabled = shouldShowDevConsole(showDevConsole);
+  const enabled = shouldShowDevConsole(props.showDevConsole);
 
   return (
     <ToastProvider enabled={enabled}>
@@ -102,7 +104,6 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   const [usageBannerStatus, setUsageBannerStatus] = useState<any>(null);
 
   // Compute all the functions and properties that we need to pass
-
   const setAction = useCallback((id: string, action: FrontendAction<any>) => {
     setActions((prevPoints) => {
       return {
@@ -271,7 +272,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     publicApiKey: copilotApiConfig.publicApiKey,
     headers,
     credentials: copilotApiConfig.credentials,
-    showDevConsole: props.showDevConsole ?? false,
+    showDevConsole: shouldShowDevConsole(props.showDevConsole),
     onError: props.onError,
   });
 
@@ -370,7 +371,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
 
   const chatAbortControllerRef = useRef<AbortController | null>(null);
 
-  const showDevConsole = props.showDevConsole ?? false;
+  const showDevConsole = shouldShowDevConsole(props.showDevConsole);
 
   const [langGraphInterruptAction, _setLangGraphInterruptAction] =
     useState<LangGraphInterruptAction | null>(null);
@@ -391,6 +392,8 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   }, []);
 
   const memoizedChildren = useMemo(() => children, [children]);
+  const [bannerError, setBannerError] = useState<CopilotKitError | null>(null);
+  const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
 
   const agentLock = useMemo(() => props.agent ?? null, [props.agent]);
 
@@ -484,9 +487,23 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         setLangGraphInterruptAction,
         removeLangGraphInterruptAction,
         onError: props.onError,
+        suggestions,
+        setSuggestions,
+        bannerError,
+        setBannerError,
       }}
     >
-      <CopilotMessages>{memoizedChildren}</CopilotMessages>
+      <MessagesTapProvider>
+        <CopilotMessages>{memoizedChildren}</CopilotMessages>
+      </MessagesTapProvider>
+      {bannerError && showDevConsole && (
+        <UsageBanner
+          severity={bannerError.severity}
+          message={bannerError.message}
+          onClose={() => setBannerError(null)}
+          actions={getErrorActions(bannerError)}
+        />
+      )}
     </CopilotContext.Provider>
   );
 }

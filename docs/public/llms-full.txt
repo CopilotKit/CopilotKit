@@ -4103,9 +4103,9 @@ MessagesReact.ComponentType<MessagesProps>
 
 A custom Messages component to use instead of the default.
 
-RenderTextMessageReact.ComponentType<RenderMessageProps>
+RenderMessageReact.ComponentType<RenderMessageProps>
 
-A custom RenderTextMessage component to use instead of the default.
+A custom RenderMessage component to use instead of the default.
 
 RenderActionExecutionMessageReact.ComponentType<RenderMessageProps>
 
@@ -4764,9 +4764,9 @@ MessagesReact.ComponentType<MessagesProps>
 
 A custom Messages component to use instead of the default.
 
-RenderTextMessageReact.ComponentType<RenderMessageProps>
+RenderMessageReact.ComponentType<RenderMessageProps>
 
-A custom RenderTextMessage component to use instead of the default.
+A custom RenderMessage component to use instead of the default.
 
 RenderActionExecutionMessageReact.ComponentType<RenderMessageProps>
 
@@ -5778,9 +5778,9 @@ MessagesReact.ComponentType<MessagesProps>
 
 A custom Messages component to use instead of the default.
 
-RenderTextMessageReact.ComponentType<RenderMessageProps>
+RenderMessageReact.ComponentType<RenderMessageProps>
 
-A custom RenderTextMessage component to use instead of the default.
+A custom RenderMessage component to use instead of the default.
 
 RenderActionExecutionMessageReact.ComponentType<RenderMessageProps>
 

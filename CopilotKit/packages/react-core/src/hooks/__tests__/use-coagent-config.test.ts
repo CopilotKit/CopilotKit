@@ -6,7 +6,7 @@ const mockSetCoagentStatesWithRef = jest.fn();
 const mockAppendMessage = jest.fn();
 const mockRunChatCompletion = jest.fn();
 
-jest.mock("../use-copilot-chat", () => ({
+jest.mock("../use-copilot-chat_internal", () => ({
   useCopilotChat: () => ({
     appendMessage: mockAppendMessage,
     runChatCompletion: mockRunChatCompletion,
@@ -49,6 +49,13 @@ jest.mock("../../components/toast/toast-provider", () => ({
 
 jest.mock("../../components/error-boundary/error-utils", () => ({
   useAsyncCallback: (fn: any) => fn,
+}));
+
+jest.mock("../../components/copilot-provider/copilot-messages", () => ({
+  useMessagesTap: () => ({
+    getMessagesFromTap: jest.fn(() => []),
+    updateTapMessages: jest.fn(),
+  }),
 }));
 
 describe("useCoAgent config synchronization", () => {

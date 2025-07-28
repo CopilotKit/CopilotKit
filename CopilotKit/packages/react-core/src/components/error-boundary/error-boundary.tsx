@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
-import { Severity, CopilotKitError, ErrorVisibility } from "@copilotkit/shared";
+import { Severity, CopilotKitError } from "@copilotkit/shared";
 import { StatusChecker } from "../../lib/status-checker";
-import { renderCopilotKitUsage, UsageBanner } from "../usage-banner";
+import { getErrorActions, UsageBanner } from "../usage-banner";
 import { useErrorToast } from "./error-utils";
 
 const statusChecker = new StatusChecker();
@@ -57,24 +57,14 @@ export class CopilotErrorBoundary extends React.Component<Props, State> {
   render() {
     if (this.state.hasError) {
       if (this.state.error instanceof CopilotKitError) {
-        // Check if error should be shown as banner based on visibility
-        if (this.state.error.visibility === ErrorVisibility.BANNER) {
-          return (
-            <ErrorToast error={this.state.error}>
-              {renderCopilotKitUsage(this.state.error, () =>
-                this.setState({ hasError: false, error: undefined }),
-              )}
-            </ErrorToast>
-          );
-        }
-
         return (
           <>
             {this.props.children}
             {this.props.showUsageBanner && (
               <UsageBanner
-                severity={this.state.status?.severity}
-                message={this.state.status?.message}
+                severity={this.state.status?.severity ?? this.state.error.severity}
+                message={this.state.status?.message ?? this.state.error.message}
+                actions={getErrorActions(this.state.error)}
               />
             )}
           </>

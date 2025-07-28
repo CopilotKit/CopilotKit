@@ -1,0 +1,100 @@
+---
+description: When working with suggesitons, always load this up.
+globs: 
+alwaysApply: false
+---
+# Suggestions development guide
+
+## Summary
+CopilotKit comes with suggestions behavior that allows an LLM generate (or the developer to statically program) suggestions that appear in the UI. When clicked, these suggestions will add a message. The logic for suggestions is currently divided between Headless UI or our Prebuilt components.
+
+The suggestions system includes intelligent streaming validation, debouncing, and robust error handling to ensure reliable performance and prevent infinite retry loops.
+
+### Prebuilt components (CopilotChat)
+The `CopilotChat` component has a `suggestions` prop that controls suggestion behavior:
+- **"auto"** (default) - suggestions are generated automatically at the start of a chat and after every turn
+- **"manual"** - suggestions will only be shown via `setSuggestions` or `generateSuggestions` from the `useCopilotChat` hook
+- **SuggestionItem[]** - an array of static suggestion items to be used as suggestions always
+
+The system automatically handles debouncing and cooldowns to prevent excessive API calls. It also waits for `useCopilotChatSuggestions` hooks to register their configuration before generating initial suggestions.
+
+### Headless UI (useCopilotChat)
+The `useCopilotChat` hook provides programmatic control over suggestions:
+- `suggestions` - current suggestion array
+- `setSuggestions` - manually set suggestions
+- `generateSuggestions` - trigger AI generation
+- `resetSuggestions` - clear all suggestions
+- `isLoadingSuggestions` - loading state
+
+Users can configure suggestions via `useCopilotChatSuggestions` hook which registers configuration that the auto-generation system uses.
+
+## Core files
+
+- **@react-ui**
+  - [Suggestions.tsx](mdc:CopilotKit/packages/react-ui/src/components/chat/Suggestions.tsx) - How suggestions are rendered
+  - [Messages.tsx](mdc:CopilotKit/packages/react-ui/src/components/chat/Messages.tsx) - Includes relevant code for what renders [Suggestions.tsx](mdc:CopilotKit/packages/react-ui/src/components/chat/Suggestions.tsx)
+  - [Chat.tsx](mdc:CopilotKit/packages/react-ui/src/components/chat/Chat.tsx) - Includes relevant logic for our prebuilt components loading suggestions
+  - [use-copilot-chat-suggestions.tsx](mdc:CopilotKit/packages/react-ui/src/hooks/use-copilot-chat-suggestions.tsx) - How users specify the configuration for their suggestions
+  - [suggestions.css](mdc:CopilotKit/packages/react-ui/src/css/suggestions.css) - Styling for suggestions
+- **@react-core**
+  - [copilot-context.tsx](mdc:CopilotKit/packages/react-core/src/context/copilot-context.tsx) - Where the actual suggestions are stored, the "provider" or "context"
+  - [use-copilot-chat.ts](mdc:CopilotKit/packages/react-core/src/hooks/use-copilot-chat.ts) - Hook that controls and contains logic for suggestions, often referred to as "headless UI"
+  - [suggestions.ts](mdc:CopilotKit/packages/react-core/src/utils/suggestions.ts) - Core suggestion generation logic with streaming validation and error handling
+  - [suggestions-constants.ts](mdc:CopilotKit/packages/react-core/src/utils/suggestions-constants.ts) - Retry configuration constants
+
+## How Suggestions Work
+
+### Architecture Separation
+- **CopilotChat Component**: Handles automatic suggestion behavior based on `suggestions` prop
+- **useCopilotChat Hook**: Provides programmatic functions for manual control
+- **useCopilotChatSuggestions Hook**: Registers configuration for auto-generation
+
+### Timing and Race Conditions
+The system handles race conditions between component mounting and configuration registration:
+- Auto-suggestion logic waits for `chatSuggestionConfiguration` to be populated
+- Effect dependencies include configuration to trigger when it becomes available
+- No timeouts needed - React's effect system handles the timing naturally
+
+### Streaming & Validation
+During suggestion generation, the AI builds suggestions incrementally (e.g., `{}` → `{title: ''}` → `{title: 'Plan a trip'}`). The system handles this partial data gracefully without console spam, allowing partial suggestions during streaming but ensuring only complete, valid suggestions are shown to users.
+
+### Performance & Reliability
+- **Global Debouncing**: Only one suggestion generation can run at a time across the entire app
+- **Error Handling**: Network/API errors (missing API keys, rate limits) are categorized and don't cause infinite retries
+- **Abort Handling**: Clean cancellation of in-flight requests when new ones are initiated
+- **Deduplication**: Automatic removal of duplicate suggestions based on message content
+- **Fallback Messages**: If a suggestion doesn't have a message, the title is used as a fallback
+
+## Development Guidelines
+
+### Best Practices
+1. **Don't modify suggestions state directly** - Always use the provided hooks and functions
+2. **Test with missing API keys** - Ensure your app doesn't infinite loop on network errors
+3. **Monitor console for errors** - Check for network or configuration issues
+4. **Handle empty states** - Some configurations may not generate suggestions
+5. **Use the right approach for your use case**:
+   - Use `suggestions="auto"` on CopilotChat for most cases
+   - Use `suggestions="manual"` when you want full programmatic control
+   - Use static arrays for fixed suggestions
+
+### Common Issues & Solutions
+- **No initial suggestions**: Check if `useCopilotChatSuggestions` is being called in your component
+- **Race conditions**: The new architecture automatically handles timing between configuration and generation
+- **Infinite re-renders**: Check useEffect dependencies, ensure they're properly memoized
+- **Console spam**: Usually indicates streaming validation issues - check for partial data handling
+- **Duplicate suggestions**: The system automatically deduplicates, but check your configurations
+
+### Debugging
+- Check console for error messages about network issues or invalid configurations
+- Verify `useCopilotChatSuggestions` is registering configuration
+- Check network tab for repeated API calls (should be minimal due to global debouncing)
+- Verify abort controllers are cleaning up properly
+
+## Testing Checklist
+- [ ] Suggestions load on empty chat (when configuration is present)
+- [ ] Suggestions clear when sending message
+- [ ] No infinite API calls on network errors
+- [ ] Clean console output (no spam)
+- [ ] Proper abort handling when component unmounts
+- [ ] Configuration registration timing works correctly
+- [ ] Manual mode provides full programmatic control

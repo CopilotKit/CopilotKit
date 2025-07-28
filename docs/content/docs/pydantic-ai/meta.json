@@ -1,0 +1,21 @@
+{
+  "title": "CoAgents",
+  "root": true,
+  "pages": [
+    "index",
+    "---Getting Started---",
+    "...quickstart",
+    "[lucide/Telescope][Feature Viewer](https://ag-ui-dojo-nine.vercel.app/pydantic-ai)",
+    "---Guides---",
+    "agentic-chat-ui",
+    "generative-ui",
+    "human-in-the-loop",
+    "shared-state",
+    "frontend-actions",
+    "multi-agent-flows",
+    "persistence",
+    "advanced",
+    "---Learn---",
+    "...concepts"
+  ]
+}

@@ -9,7 +9,7 @@ license = "MIT"
 name = "research_canvas"
 version = "0.0.1"
 dependencies = [
-    "copilotkit>=0.1.55",
+    "copilotkit>=0.1.56a3",
     "crewai==0.118.0",
     "langchain-openai>=0.2.3",
     "langchain-community>=0.3.1",
@@ -36,11 +36,11 @@ build-backend = "setuptools.build_meta"
 
 [tool.poetry.dependencies]
 python = ">=3.12,<3.13"
-copilotkit = "^0.1.55"
+copilotkit = "^0.1.56a4"
 crewai = "0.118.0"
 langchain-openai = "0.2.3"
 langchain-community = "^0.3.1"
-langchain-anthropic = "0.3.1"
+langchain-anthropic = "0.3.17"
 langchain-google-genai = "2.0.5"
 langchain = "0.3.26"
 openai = "^1.52.1"

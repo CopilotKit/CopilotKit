@@ -1,0 +1,56 @@
+---
+title: Pydantic AI
+description: An agentic framework for building LLM applications that can be used with Copilotkit.
+icon: custom/langchain
+---
+
+<Frame>
+  <img
+    src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-highlevel-overview.png"
+    alt="CoAgents High Level Overview"
+    className="mb-10"
+  />
+</Frame>
+
+Pydantic AI is an agentic framework for building LLM applications that can be used with Copilotkit. Pydantic AI Agents allow developers
+to combine and coordinate coding tasks efficiently, providing a robust framework for building sophisticated AI automations.
+
+## CoAgents and Pydantic AI
+
+How do CoAgents extend Pydantic AI? Let's read about the concept of Flows to understand.
+
+> Flows allow you to create structured, event-driven workflows. They provide a seamless way to connect multiple tasks, manage state, and control the flow of execution in your AI applications.
+
+Let's break down some key terms and understand how they relate to and are implemented by CoAgents.
+
+- ** manage state**: CoAgents have bi-directional state sharing with the agent and UI. This allows for the agent to remember
+  information from previous messages and the UI to update the agent with new information. Read more about how state sharing works
+  [here](/pydantic-ai/shared-state).
+- **Multi-actor**: CoAgents allow for multiple agents to interact with each other. Copilotkit acts as the "ground-truth"
+  when transitioning between agents. Read more about how multi-actor workflows work [here](/pydantic-ai/multi-agent-flows).
+- **LLMs**: CoAgents use large language models to generate responses. This is useful for building applications that need to
+  generate natural language responses.
+
+Some additional functionality not mentioned here is:
+
+- **Human in the loop**: CoAgents enabled human review and approval of generated responses. Read more about how this works
+  [here](/pydantic-ai/human-in-the-loop).
+- **Tool calling**: Tool calling is a fundamental building block for agentic workflows. They allow for greater control over what
+  the agent can do and can be used to interact with external systems. CoAgents allow you to easily render in-progress
+  tool calls in the UI so your users know what's happening. Read more about streaming tool calls [here](/pydantic-ai/shared-state/predictive-state-updates).
+
+## Building with Python
+
+You can build Pydantic AI applications using Python. Check out the [Pydantic AI docs](https://docs.pydantic-ai.com/introduction) for more information.
+
+## Pydantic AI Enterprise
+
+Turn any application into an API within seconds
+Connect to your apps using hooks, REST, gRPC and more
+Get access to templates, custom tools and early UI
+Get business support, SLA, private VPC
+
+Pydantic AI enterprise is a platform for deploying and monitoring Pydantic AI applications. Read more about it on the
+[Pydantic AI website](https://www.pydantic-ai.com/enterprise).
+
+If you want to take the next step to deploy your Pydantic AI application as an CoAgent, check out our [quickstart guide](/pydantic-ai/quickstart/pydantic-ai). 

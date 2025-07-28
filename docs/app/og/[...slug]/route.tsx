@@ -157,7 +157,7 @@ export async function GET(
     return new Response("OG image generation failed - using fallback", {
       status: 307,
       headers: {
-        Location: "/images/og-fallback.png",
+        Location: "/og-fallback.png",
       },
     });
   }

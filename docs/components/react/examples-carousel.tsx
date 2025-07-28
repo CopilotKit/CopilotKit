@@ -129,7 +129,7 @@ export const LandingExamples: CarouselExample[] = [
     description: "A powerful spreadsheet assistant that helps users analyze data, create formulas, and generate insights through natural language interaction.",
     media: {
       type: "video",
-      src: "/images/examples/spreadsheets.mp4"
+      src: "https://cdn.copilotkit.ai/docs/copilotkit/images/examples/spreadsheets.mp4"
     },
     links: {
       source: "https://github.com/CopilotKit/demo-spreadsheet",
@@ -142,7 +142,7 @@ export const LandingExamples: CarouselExample[] = [
     description: "An AI-powered banking interface that helps users manage transactions, analyze spending patterns, and get personalized financial advice.",
     media: {
       type: "video",
-      src: "/images/examples/banking.mp4"
+      src: "https://cdn.copilotkit.ai/docs/copilotkit/images/examples/banking.mp4"
     },
     links: {
       source: "https://github.com/CopilotKit/demo-banking",
@@ -155,7 +155,7 @@ export const LandingExamples: CarouselExample[] = [
     description: "Interactive travel planning assistant that helps users discover destinations, create itineraries, and manage trip details with natural language.",
     media: {
       type: "video",
-      src: "/images/coagents/tutorials/ai-travel-app/demo.mp4"
+      src: "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tutorials/ai-travel-app/demo.mp4"
     },
     links: {
       source: "https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-travel?ref=travel-tutorial",
@@ -169,7 +169,7 @@ export const LandingExamples: CarouselExample[] = [
     description: "An intelligent research assistant that helps users analyze academic papers, synthesize information across multiple sources, and generate comprehensive research summaries.",
     media: {
       type: "video",
-      src: "/images/examples/research.mp4"
+      src: "https://cdn.copilotkit.ai/docs/copilotkit/images/examples/research.mp4"
     },
     links: {
       source: "https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-research-canvas/readme.md",
@@ -198,7 +198,7 @@ export const CoAgentsExamples: CarouselExample[] = [
     description: "Interactive travel planning assistant that helps users discover destinations, create itineraries, and manage trip details with natural language.",
     media: {
       type: "video",
-      src: "/images/coagents/tutorials/ai-travel-app/demo.mp4"
+      src: "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tutorials/ai-travel-app/demo.mp4"
     },
     links: {
       source: "https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-travel?ref=travel-tutorial",
@@ -212,7 +212,7 @@ export const CoAgentsExamples: CarouselExample[] = [
     description: "An intelligent research assistant that helps users analyze academic papers, synthesize information across multiple sources, and generate comprehensive research summaries.",
     media: {
       type: "video",
-      src: "/images/examples/research.mp4"
+      src: "https://cdn.copilotkit.ai/docs/copilotkit/images/examples/research.mp4"
     },
     links: {
       source: "https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-research-canvas/readme.md",

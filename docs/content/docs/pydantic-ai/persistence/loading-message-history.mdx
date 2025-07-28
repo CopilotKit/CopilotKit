@@ -1,0 +1,82 @@
+---
+title: Threads
+description: Learn how to maintain persistent conversations across sessions with Pydantic AI Agents.
+icon: "lucide/MessagesSquare"
+---
+
+# Understanding Thread Persistence
+
+Pydantic AI Agents supports threads, a way to group messages together and maintain a continuous chat history across sessions. CopilotKit provides mechanisms to ensure conversation state is properly persisted between the frontend and backend.
+
+This guide assumes you have already gone through the [quickstart](/quickstart) guide.
+
+<Callout>
+  **Note:** While the frontend uses `threadId` to manage conversation sessions,
+  true persistence across sessions requires backend setup. The backend agent
+  needs to implement a persistence mechanism (like the one shown in
+  [Message Persistence](/pydantic-ai/persistence/message-persistence))
+  to save and load the state associated with each `threadId`.
+
+See the [sample agent implementation](https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-starter-pydantic-ai/agent-py/sample_agent/agent.py#L291)
+for a concrete example.
+
+</Callout>
+
+## Frontend: Setting the ThreadId
+
+### Loading an Existing Thread
+
+To load an existing thread in CopilotKit, set the `threadId` property on `<CopilotKit>`:
+
+```tsx
+import { CopilotKit } from "@copilotkit/react-core";
+
+<CopilotKit threadId="37aa68d0-d15b-45ae-afc1-0ba6c3e11353">
+  <YourApp />
+</CopilotKit>;
+```
+
+### Dynamically Switching Threads
+
+You can make the `threadId` dynamic. Once set, CopilotKit will load previous messages for that thread.
+
+```tsx
+import { useState } from "react";
+import { CopilotKit } from "@copilotkit/react-core";
+
+const Page = () => {
+  const [threadId, setThreadId] = useState(
+    "af2fa5a4-36bd-4e02-9b55-2580ab584f89"
+  );
+  return (
+    <CopilotKit threadId={threadId}>
+      <YourApp setThreadId={setThreadId} />
+    </CopilotKit>
+  );
+};
+
+const YourApp = ({ setThreadId }) => {
+  return (
+    <Button onClick={() => setThreadId("679e8da5-ee9b-41b1-941b-80e0cc73a008")}>
+      Change Thread
+    </Button>
+  );
+};
+```
+
+### Using setThreadId
+
+CopilotKit provides the current `threadId` and a `setThreadId` function from the `useCopilotContext` hook:
+
+```tsx
+import { useCopilotContext } from "@copilotkit/react-core";
+
+const ChangeThreadButton = () => {
+  const { threadId, setThreadId } = useCopilotContext();
+  return (
+    <Button onClick={() => setThreadId("d73c22f3-1f8e-4a93-99db-5c986068d64f")}>
+      Change Thread
+    </Button>
+  );
+};
+``` 

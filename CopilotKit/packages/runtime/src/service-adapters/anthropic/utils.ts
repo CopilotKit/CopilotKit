@@ -94,7 +94,7 @@ export function convertMessageToAnthropicMessage(
       };
     }
   } else if (message.isImageMessage()) {
-    let mediaType: Anthropic.Messages.ImageBlockParam.Source["media_type"];
+    let mediaType: "image/jpeg" | "image/png" | "image/webp" | "image/gif";
     switch (message.format) {
       case "jpeg":
         mediaType = "image/jpeg";

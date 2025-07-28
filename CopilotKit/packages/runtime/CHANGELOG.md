@@ -1,5 +1,75 @@
 # @copilotkit/runtime
 
+## 1.10.0-next.7
+
+### Patch Changes
+
+- 59b0e16: - feat: add native prompt caching support to AnthropicAdapter
+  - @copilotkit/shared@1.10.0-next.7
+
+## 1.10.0-next.6
+
+### Patch Changes
+
+- 6f2f54b: - fix(openai): update maxTokens parameter to max_completion_tokens in OpenAIAdapter
+  - @copilotkit/shared@1.10.0-next.6
+
+## 1.10.0-next.5
+
+### Patch Changes
+
+- Updated dependencies [a8c0263]
+  - @copilotkit/shared@1.10.0-next.5
+
+## 1.10.0-next.4
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.0-next.4
+
+## 1.10.0-next.3
+
+### Patch Changes
+
+- 824fb69: - fix: pass config to the forwarded props of an agui agent
+  - @copilotkit/shared@1.10.0-next.3
+
+## 1.10.0-next.2
+
+### Patch Changes
+
+- a31443c: removed unused dependency on ip module
+  - @copilotkit/shared@1.10.0-next.2
+
+## 1.10.0-next.1
+
+### Patch Changes
+
+- 1abcecf: - fix: add graphqlContext to constructAGUIRemoteAction for enhanced agent properties
+
+  - Updated constructAGUIRemoteAction to accept graphqlContext, allowing forwarding of properties like Authorization token to the agent.
+  - Modified setupRemoteActions to include graphqlContext in the parameters.
+  - @copilotkit/shared@1.10.0-next.1
+
+## 1.10.0-next.0
+
+### Patch Changes
+
+- Updated dependencies [8674da1]
+  - @copilotkit/shared@1.10.0-next.0
+
+## 1.9.3
+
+### Patch Changes
+
+- 1bda332: - chore(telemetry): integrate Scarf for usage analytics
+- df25f34: - feat: add agui fastAPI compatible langgraph agent
+  - chore: release 0.1.55 with agui langgraph fastapi support
+- 589ae52: - adds scarf deps to runtime
+- 88ceae2: - upgrade AG-UI packages
+- Updated dependencies [1bda332]
+  - @copilotkit/shared@1.9.3
+
 ## 1.9.3-next.4
 
 ### Patch Changes

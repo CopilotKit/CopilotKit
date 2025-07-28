@@ -8,10 +8,10 @@ packages = [{include = "sample_agent"}]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
-copilotkit = "0.1.49"
+copilotkit = "0.1.55"
 langchain = "0.3.21"
-langgraph = "0.3.18"
-langsmith = "0.3.18"
+langgraph = "0.3.25"
+langsmith = "0.3.25"
 openai = "^1.68.2"
 fastapi = "^0.115.5"
 uvicorn = "^0.29.0"

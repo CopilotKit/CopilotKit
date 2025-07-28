@@ -1,9 +1,13 @@
-import { Severity, CopilotKitError, ERROR_NAMES, ErrorVisibility } from "@copilotkit/shared";
+import {
+  Severity,
+  CopilotKitError,
+  ErrorVisibility,
+  CopilotKitErrorCode,
+} from "@copilotkit/shared";
 
 interface UsageBannerProps {
   severity?: Severity;
   message?: string;
-  icon?: React.ReactNode;
   onClose?: () => void;
   actions?: {
     primary?: {
@@ -17,61 +21,9 @@ interface UsageBannerProps {
   };
 }
 
-const defaultIcons: Record<Severity, JSX.Element> = {
-  [Severity.CRITICAL]: (
-    <svg
-      viewBox="0 0 24 24"
-      width="16"
-      height="16"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      fill="none"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="10" />
-      <line x1="15" y1="9" x2="9" y2="15" />
-      <line x1="9" y1="9" x2="15" y2="15" />
-    </svg>
-  ),
-  [Severity.WARNING]: (
-    <svg
-      viewBox="0 0 24 24"
-      width="16"
-      height="16"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      fill="none"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
-      <line x1="12" y1="9" x2="12" y2="13" />
-      <line x1="12" y1="17" x2="12.01" y2="17" />
-    </svg>
-  ),
-  [Severity.INFO]: (
-    <svg
-      viewBox="0 0 24 24"
-      width="16"
-      height="16"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      fill="none"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" y1="16" x2="12" y2="12" />
-      <line x1="12" y1="8" x2="12.01" y2="8" />
-    </svg>
-  ),
-};
-
 export function UsageBanner({
   severity = Severity.CRITICAL,
   message = "",
-  icon,
   onClose,
   actions,
 }: UsageBannerProps) {
@@ -79,297 +31,217 @@ export function UsageBanner({
     return null;
   }
 
-  // Enhanced message parsing to clean up technical details
-  const parseMessage = (rawMessage: string) => {
-    // console.log("Raw message:", rawMessage); // Debug
-
-    // Super aggressive cleaning - handle common error patterns first
-    if (
-      rawMessage.toLowerCase().includes("authentication") ||
-      rawMessage.toLowerCase().includes("api key")
-    ) {
-      return "Authentication failed. Please check your API key.";
-    }
-
-    if (rawMessage.toLowerCase().includes("rate limit")) {
-      return "Rate limit exceeded. Please try again later.";
-    }
-
-    if (rawMessage.toLowerCase().includes("checkpointer")) {
-      return "Agent configuration error. Please check your setup.";
-    }
-
-    // For any other error, extract just the main error type
-    let cleanMessage = rawMessage;
-
-    // Remove everything after the first " - " or ":" followed by technical details
-    cleanMessage = cleanMessage.split(" - ")[0];
-    cleanMessage = cleanMessage.split(": Error code")[0];
-    cleanMessage = cleanMessage.split(": 401")[0];
-    cleanMessage = cleanMessage.split(": 403")[0];
-    cleanMessage = cleanMessage.split(": 404")[0];
-    cleanMessage = cleanMessage.split(": 500")[0];
-
-    // Remove "See more" links
-    cleanMessage = cleanMessage.replace(/See more:.*$/g, "").trim();
-
-    // If still too technical, just show a generic message
-    if (cleanMessage.includes("{") || cleanMessage.includes("'") || cleanMessage.length > 60) {
-      return "Configuration error. Please check your setup.";
-    }
-
-    return cleanMessage || "An error occurred. Please check your configuration.";
-  };
-
-  const cleanMessage = parseMessage(message);
-  const Icon = icon || defaultIcons[severity];
-
-  const themeConfigs = {
+  const themes = {
     [Severity.INFO]: {
-      bg: "rgba(239, 246, 255, 0.95)",
-      border: "#93c5fd",
-      text: "#1e40af",
-      icon: "#3b82f6",
-      primaryBtn: "#3b82f6",
-      primaryBtnHover: "#2563eb",
+      bg: "#f8fafc",
+      border: "#e2e8f0",
+      text: "#475569",
+      accent: "#3b82f6",
     },
     [Severity.WARNING]: {
-      bg: "rgba(255, 251, 235, 0.95)",
+      bg: "#fffbeb",
       border: "#fbbf24",
       text: "#92400e",
-      icon: "#f59e0b",
-      primaryBtn: "#f59e0b",
-      primaryBtnHover: "#d97706",
+      accent: "#f59e0b",
     },
     [Severity.CRITICAL]: {
-      bg: "rgba(254, 242, 242, 0.95)",
-      border: "#f87171",
-      text: "#991b1b",
-      icon: "#ef4444",
-      primaryBtn: "#ef4444",
-      primaryBtnHover: "#dc2626",
+      bg: "#fef2f2",
+      border: "#fecaca",
+      text: "#dc2626",
+      accent: "#ef4444",
     },
   };
 
-  const themeConfig = themeConfigs[severity] || themeConfigs[Severity.CRITICAL];
+  const theme = themes[severity];
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        bottom: "24px",
-        left: "50%",
-        transform: "translateX(-50%)",
-        width: "400px",
-        maxWidth: "90vw",
-        zIndex: 10000,
-        animation: "bannerSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
-      }}
-    >
+    <>
       <style>
         {`
-          @keyframes bannerSlideIn {
-            from {
-              opacity: 0;
-              transform: translateX(-50%) translateY(20px);
-              scale: 0.95;
+          @keyframes slideUp {
+            from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+          }
+          
+          .usage-banner {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(600px, calc(100vw - 32px));
+            z-index: 10000;
+            animation: slideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          }
+          
+          .banner-content {
+            background: linear-gradient(135deg, ${theme.bg} 0%, ${theme.bg}f5 100%);
+            border: 1px solid ${theme.border};
+            border-radius: 12px;
+            padding: 18px 20px;
+            box-shadow: 
+              0 4px 24px rgba(0, 0, 0, 0.08),
+              0 2px 8px rgba(0, 0, 0, 0.04),
+              inset 0 1px 0 rgba(255, 255, 255, 0.7);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            backdrop-filter: blur(12px);
+            position: relative;
+            overflow: hidden;
+          }
+          
+          .banner-content::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, ${theme.accent}40, transparent);
+          }
+          
+          .banner-message {
+            color: ${theme.text};
+            font-size: 14px;
+            line-height: 1.5;
+            font-weight: 500;
+            flex: 1;
+            letter-spacing: -0.01em;
+          }
+          
+          .close-btn {
+            background: rgba(0, 0, 0, 0.05);
+            border: none;
+            color: ${theme.text};
+            cursor: pointer;
+            padding: 0;
+            border-radius: 6px;
+            opacity: 0.6;
+            transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+            font-size: 14px;
+            line-height: 1;
+            flex-shrink: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          
+          .close-btn:hover {
+            opacity: 1;
+            background: rgba(0, 0, 0, 0.08);
+            transform: scale(1.05);
+          }
+          
+          .btn-primary {
+            background: linear-gradient(135deg, ${theme.accent} 0%, ${theme.accent}e6 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 18px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+            font-family: inherit;
+            flex-shrink: 0;
+            box-shadow: 
+              0 2px 8px ${theme.accent}30,
+              inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            letter-spacing: -0.01em;
+          }
+          
+          .btn-primary:hover {
+            transform: translateY(-1px) scale(1.02);
+            box-shadow: 
+              0 4px 12px ${theme.accent}40,
+              inset 0 1px 0 rgba(255, 255, 255, 0.25);
+          }
+          
+          .btn-primary:active {
+            transform: translateY(0) scale(0.98);
+            transition: all 0.08s cubic-bezier(0.16, 1, 0.3, 1);
+          }
+          
+          @media (max-width: 640px) {
+            .usage-banner {
+              width: calc(100vw - 24px);
             }
-            to {
-              opacity: 1;
-              transform: translateX(-50%) translateY(0);
-              scale: 1;
+            
+            .banner-content {
+              padding: 16px;
+              gap: 12px;
+            }
+            
+            .banner-message {
+              font-size: 13px;
+              line-height: 1.45;
+            }
+            
+            .btn-primary {
+              padding: 8px 14px;
+              font-size: 12px;
+            }
+            
+            .close-btn {
+              width: 22px;
+              height: 22px;
+              font-size: 12px;
             }
           }
         `}
       </style>
-      <div
-        style={{
-          borderRadius: "12px",
-          border: `1px solid ${themeConfig.border}`,
-          background: themeConfig.bg,
-          padding: "14px",
-          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08)",
-          position: "relative",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-          boxSizing: "border-box",
-          overflow: "hidden",
-        }}
-      >
-        {/* Close button */}
-        {onClose && (
-          <button
-            onClick={onClose}
-            style={{
-              position: "absolute",
-              top: "8px",
-              right: "8px",
-              background: "rgba(255, 255, 255, 0.9)",
-              border: "none",
-              color: themeConfig.text,
-              cursor: "pointer",
-              fontSize: "16px",
-              lineHeight: "1",
-              padding: "4px",
-              borderRadius: "4px",
-              width: "20px",
-              height: "20px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-            title="Close"
-          >
-            ×
-          </button>
-        )}
 
-        {/* Message */}
-        <div
-          style={{
-            fontSize: "14px",
-            fontWeight: 500,
-            color: themeConfig.text,
-            lineHeight: "1.4",
-            fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-            paddingRight: onClose ? "30px" : "0",
-            marginBottom: actions ? "12px" : "0",
-            wordBreak: "break-word",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-          }}
-        >
-          {cleanMessage}
+      <div className="usage-banner">
+        <div className="banner-content">
+          <div className="banner-message">{message}</div>
+          {actions?.primary && (
+            <button className="btn-primary" onClick={actions.primary.onClick}>
+              {actions.primary.label}
+            </button>
+          )}
+          {onClose && (
+            <button className="close-btn" onClick={onClose} title="Close">
+              ×
+            </button>
+          )}
         </div>
-
-        {/* Actions */}
-        {actions && (
-          <div
-            style={{
-              display: "flex",
-              gap: "8px",
-              flexWrap: "wrap",
-            }}
-          >
-            {actions.secondary && (
-              <button
-                onClick={actions.secondary.onClick}
-                style={{
-                  borderRadius: "8px",
-                  padding: "6px 12px",
-                  fontSize: "13px",
-                  fontWeight: 500,
-                  color: themeConfig.text,
-                  backgroundColor: "rgba(255, 255, 255, 0.9)",
-                  border: `1px solid ${themeConfig.border}`,
-                  cursor: "pointer",
-                  transition: "all 0.2s ease",
-                  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 1)";
-                  e.currentTarget.style.transform = "translateY(-1px)";
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.9)";
-                  e.currentTarget.style.transform = "translateY(0)";
-                }}
-              >
-                {actions.secondary.label}
-              </button>
-            )}
-            {actions.primary && (
-              <button
-                onClick={actions.primary.onClick}
-                style={{
-                  borderRadius: "8px",
-                  padding: "6px 12px",
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  color: "#fff",
-                  backgroundColor: themeConfig.primaryBtn,
-                  border: "none",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease",
-                  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
-                  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.backgroundColor = themeConfig.primaryBtnHover;
-                  e.currentTarget.style.transform = "translateY(-1px)";
-                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.2)";
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.backgroundColor = themeConfig.primaryBtn;
-                  e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow = "0 2px 8px rgba(0, 0, 0, 0.15)";
-                }}
-              >
-                {actions.primary.label}
-              </button>
-            )}
-          </div>
-        )}
       </div>
-    </div>
+    </>
   );
 }
+
+// Get action button based on error type
+export const getErrorActions = (error: CopilotKitError) => {
+  switch (error.code) {
+    case CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR:
+      return {
+        primary: {
+          label: "Get Free API Key",
+          onClick: () =>
+            window.open("https://cloud.copilotkit.ai", "_blank", "noopener,noreferrer"),
+        },
+      };
+    case CopilotKitErrorCode.UPGRADE_REQUIRED_ERROR:
+      return {
+        primary: {
+          label: "Upgrade",
+          onClick: () =>
+            window.open("https://cloud.copilotkit.ai", "_blank", "noopener,noreferrer"),
+        },
+      };
+    default:
+      return undefined;
+  }
+};
 
 export function renderCopilotKitUsage(error: CopilotKitError, onClose?: () => void) {
   // Route based on error visibility level
   if (error.visibility !== ErrorVisibility.BANNER) {
     return null;
   }
-
-  // Extract URL from markdown links in the message
-  const extractUrlFromMessage = (message: string): string | null => {
-    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-    const match = linkRegex.exec(message);
-    return match ? match[2] : null;
-  };
-
-  // Get action button based on error type
-  const getErrorActions = (error: CopilotKitError) => {
-    switch (error.name) {
-      case ERROR_NAMES.MISSING_PUBLIC_API_KEY_ERROR:
-        return {
-          primary: {
-            label: "Sign In",
-            onClick: () => (window.location.href = "https://cloud.copilotkit.ai"),
-          },
-        };
-      case ERROR_NAMES.UPGRADE_REQUIRED_ERROR:
-        return {
-          primary: {
-            label: "Upgrade",
-            onClick: () => (window.location.href = "https://copilotkit.ai/"),
-          },
-        };
-      case ERROR_NAMES.COPILOT_API_DISCOVERY_ERROR:
-      case ERROR_NAMES.COPILOT_REMOTE_ENDPOINT_DISCOVERY_ERROR:
-      case ERROR_NAMES.COPILOT_KIT_AGENT_DISCOVERY_ERROR:
-        return {
-          primary: {
-            label: "View Docs",
-            onClick: () => {
-              // Try to get URL from the error message first, then extensions, then default
-              const urlFromMessage = extractUrlFromMessage(error.message);
-              const urlFromExtensions = (error.extensions as any)?.troubleshootingUrl;
-              const url =
-                urlFromMessage ||
-                urlFromExtensions ||
-                "https://docs.copilotkit.ai/troubleshooting/common-issues";
-              window.open(url, "_blank");
-            },
-          },
-        };
-      default:
-        return undefined;
-    }
-  };
 
   return (
     <UsageBanner
