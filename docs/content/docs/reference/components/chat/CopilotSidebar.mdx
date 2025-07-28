@@ -41,6 +41,28 @@ import "@copilotkit/react-ui/styles.css";
 </CopilotSidebar>
 ```
  
+### With Observability Hooks
+ 
+To monitor user interactions, provide the `observabilityHooks` prop.
+Note: This requires a `publicApiKey` in the `<CopilotKit>` provider.
+ 
+```tsx
+<CopilotKit publicApiKey="YOUR_PUBLIC_API_KEY">
+  <CopilotSidebar
+    observabilityHooks={{
+      onChatExpanded: () => {
+        console.log("Sidebar opened");
+      },
+      onChatMinimized: () => {
+        console.log("Sidebar closed");
+      },
+    }}
+  >
+    <YourApp/>
+  </CopilotSidebar>
+</CopilotKit>
+```
+ 
 ### Look & Feel
  
 By default, CopilotKit components do not have any styles. You can import CopilotKit's stylesheet at the root of your project:
@@ -204,6 +226,11 @@ Whether the assistant message can be copied.
 <PropertyReference name="disableFirstAssistantMessageControls" type="AssistantMessageProps['disableFirstMessageControls']"  > 
 Whether the first assistant message has its controls disabled.
   The controls are the buttons for thumbs up, thumbs down, copy, and regenerate.
+</PropertyReference>
+
+<PropertyReference name="observabilityHooks" type="CopilotObservabilityHooks"  > 
+Event hooks for CopilotKit chat events.
+  These hooks only work when publicApiKey is provided.
 </PropertyReference>
 
 <PropertyReference name="defaultOpen" type="boolean"  default="false"> 
