@@ -15,6 +15,9 @@ export const Messages = ({
   onThumbsUp,
   onThumbsDown,
   markdownTagRenderers,
+  canRegenerateAssistantMessage,
+  canCopyAssistantMessage,
+  disableFirstAssistantMessageControls,
 }: MessagesProps) => {
   const { labels } = useChatContext();
   const { visibleMessages, interrupt } = useCopilotChat();
@@ -41,6 +44,9 @@ export const Messages = ({
               onThumbsUp={onThumbsUp}
               onThumbsDown={onThumbsDown}
               markdownTagRenderers={markdownTagRenderers}
+              canRegenerateAssistantMessage={canRegenerateAssistantMessage}
+              canCopyAssistantMessage={canCopyAssistantMessage}
+              disableFirstAssistantMessageControls={disableFirstAssistantMessageControls}
             />
           );
         })}
