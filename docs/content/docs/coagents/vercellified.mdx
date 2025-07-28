@@ -6,26 +6,37 @@ description: Bring your LangGraph agents to your users with CopilotKit.
 
 import { CTACards } from "@/components/react/cta-cards";
 
-CopilotKit and LangGraph together provide everything you need to build rich, interactive, agent-powered applications. With full user-interaction infrastructure, you can create copilots that are not just smart, but truly collaborative.  This means that your agentic application can\:
+CopilotKit and LangGraph together provide everything you need to build rich, interactive, agent-powered applications. With full user-interaction infrastructure, you can create copilots that are not just smart, but truly collaborative.  This means that your agentic application can:
 * Respond quickly and often to user input
 * Prompt the user for instructions as needed
 * Take action on the user's behalf, driving the app, or other tools through MCP
 
 <div className="p-0 rounded-lg shadow-[0_0_40px_10px_rgba(99,102,241,0.4)]">
-  <video 
-    src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
-    className="rounded-lg w-full"
-    controls
-    autoPlay
-    muted
-    loop
-    playsInline
-  />
+  <div className="relative group">
+    <video 
+      src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
+      className="rounded-lg w-full"
+      controls
+      autoPlay
+      muted
+      loop
+      playsInline
+    />
+    <div className="absolute inset-0 flex items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
+      <a href="https://examples-coagents-proverbs.vercel.app/" className="inline-flex items-center px-4 py-1 rounded-lg bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors">
+        Live Demo
+      </a>
+      <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents/proverbs" className="inline-flex items-center px-4 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+        GitHub
+      </a>
+    </div>
+  </div>
 </div>
 
 <Callout>
 This video shows the Proverbs Example app, demonstrating some of the key features of a CopilotKit app with a LangGraph agent.*
 </Callout>
+
 ---
 
 ## ✨ Key Feature: Generative UI
@@ -33,15 +44,25 @@ This video shows the Proverbs Example app, demonstrating some of the key feature
 Generative UI lets you render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. It bridges the gap between AI agents and user interfaces. 
 
 <div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(200,200,200,0.4)]">
-  <video 
-    src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4"
-    className="rounded-2xl w-full"
-    controls
-    autoPlay
-    muted
-    loop
-    playsInline
-  />
+  <div className="relative group">
+    <video 
+      src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4"
+      className="rounded-2xl w-full"
+      controls
+      autoPlay
+      muted
+      loop
+      playsInline
+    />
+    <div className="absolute inset-0 flex items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
+      <a href="https://examples-coagents-haiku.vercel.app/" className="inline-flex items-center px-4 py-1 rounded-lg bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors">
+        Live Demo
+      </a>
+      <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents/haiku" className="inline-flex items-center px-4 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+        GitHub
+      </a>
+    </div>
+  </div>
 </div>
 
 <Callout>
@@ -55,7 +76,25 @@ This video shows the Haiku Generator app, demonstrating some of the key features
 Empower users to guide agents at key checkpoints. Human-in-the-loop lets you combine the best of AI and human judgment.
 
 <div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(200,200,200,0.4)]">
-<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+  <div className="relative group">
+    <video 
+      src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/human-in-the-loop-example.mp4"
+      className="rounded-lg w-full"
+      controls
+      autoPlay
+      muted
+      loop
+      playsInline
+    />
+    <div className="absolute inset-0 flex items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
+      <a href="https://examples-coagents-ai-travel-app.vercel.app/" className="inline-flex items-center px-4 py-1 rounded-lg bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors">
+        Live Demo
+      </a>
+      <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents/ai-travel-app" className="inline-flex items-center px-4 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+        GitHub
+      </a>
+    </div>
+  </div>
 </div>
 
 <Callout>
@@ -69,7 +108,25 @@ Empower users to guide agents at key checkpoints. Human-in-the-loop lets you com
 Keep your agent and your app in sync. Shared state means your agent can see everything in your app, and your app can react to your agent.
 
 <div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(200,200,200,0.4)]">
-<video src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+  <div className="relative group">
+    <video 
+      src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4"
+      className="rounded-lg w-full"
+      controls
+      autoPlay
+      muted
+      loop
+      playsInline
+    />
+    <div className="absolute inset-0 flex items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
+      <a href="https://examples-coagents-recipe.vercel.app/" className="inline-flex items-center px-4 py-1 rounded-lg bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors">
+        Live Demo
+      </a>
+      <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents/recipe" className="inline-flex items-center px-4 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+        GitHub
+      </a>
+    </div>
+  </div>
 </div>
 
 <Callout>
