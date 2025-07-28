@@ -1,4 +1,4 @@
-import { AIMessage, Message, UserMessage } from "@copilotkit/shared";
+import { AIMessage, Message, UserMessage, CopilotErrorEvent } from "@copilotkit/shared";
 import { CopilotChatSuggestion } from "../../types/suggestions";
 import { ReactNode } from "react";
 import { ImageData } from "@copilotkit/shared";
@@ -47,6 +47,12 @@ export interface CopilotObservabilityHooks {
    * Called when chat generation stops
    */
   onChatStopped?: () => void;
+
+  /**
+   * Called when an error occurs in the chat
+   * This enables chat-specific error handling UX while preserving system-wide error monitoring
+   */
+  onError?: (errorEvent: CopilotErrorEvent) => void;
 }
 
 export interface ButtonProps {}

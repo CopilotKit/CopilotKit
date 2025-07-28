@@ -10,6 +10,13 @@ import { CopilotChat, CopilotChatProps } from "./Chat";
 import { AssistantMessage as DefaultAssistantMessage } from "./messages/AssistantMessage";
 import { UserMessage as DefaultUserMessage } from "./messages/UserMessage";
 import { useCopilotContext } from "@copilotkit/react-core";
+import {
+  CopilotKitError,
+  CopilotKitErrorCode,
+  Severity,
+  ErrorVisibility,
+  styledConsole,
+} from "@copilotkit/shared";
 
 export interface CopilotModalProps extends CopilotChatProps {
   /**
@@ -79,16 +86,30 @@ const CopilotModalInner = ({
   hitEscapeToClose: boolean;
   shortcut: string;
 }) => {
-  const { copilotApiConfig } = useCopilotContext();
+  const { copilotApiConfig, setBannerError } = useCopilotContext();
+
+  // Destructure stable values to avoid object reference changes
+  const { publicApiKey } = copilotApiConfig;
 
   // Helper function to trigger event hooks only if publicApiKey is provided
   const triggerObservabilityHook = useCallback(
     (hookName: keyof CopilotObservabilityHooks, ...args: any[]) => {
-      if (copilotApiConfig.publicApiKey && observabilityHooks?.[hookName]) {
+      if (publicApiKey && observabilityHooks?.[hookName]) {
         (observabilityHooks[hookName] as any)(...args);
       }
+      if (observabilityHooks?.[hookName] && !publicApiKey) {
+        setBannerError(
+          new CopilotKitError({
+            message: "observabilityHooks requires a publicApiKey to function.",
+            code: CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR,
+            severity: Severity.CRITICAL,
+            visibility: ErrorVisibility.BANNER,
+          }),
+        );
+        styledConsole.publicApiKeyRequired("observabilityHooks");
+      }
     },
-    [copilotApiConfig.publicApiKey, observabilityHooks],
+    [publicApiKey, observabilityHooks, setBannerError],
   );
 
   const { open } = useChatContext();
