@@ -304,10 +304,8 @@ const emptyCopilotContext: CopilotContextParams = {
   setLangGraphInterruptAction: () => null,
   removeLangGraphInterruptAction: () => null,
   onError: undefined,
-  suggestions: [],
   bannerError: null,
   setBannerError: () => {},
-  setSuggestions: () => {},
 };
 
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);
