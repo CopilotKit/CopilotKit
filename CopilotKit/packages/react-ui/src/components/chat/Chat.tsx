@@ -974,6 +974,7 @@ export const useCopilotChatLogic = (
       await runAgent(
         generalContext.agentSession.agentName,
         stableContext,
+        messagesContext.messages,
         appendMessage,
         runChatCompletion,
       );
