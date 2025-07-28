@@ -7,25 +7,15 @@ import { TripCard } from "@/components/TripCard";
 import { PlaceCard } from "@/components/PlaceCard";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import { MobileTripCard } from "./MobileTripCard";
-import { useChatContext } from "@copilotkit/react-ui";
 
 export type MapCanvasProps = {
   className?: string;
 }
 
 export function MapCanvas({ className }: MapCanvasProps) {
-	const [map, setMap] = useState<Map | null>(null);
-	const { selectedTrip } = useTrips();
-  const { setOpen } = useChatContext();
+  const [map, setMap] = useState<Map | null>(null);
+  const { selectedTrip } = useTrips();
   const isDesktop = useMediaQuery("(min-width: 900px)");
-  const prevIsDesktop = useRef(isDesktop);
-
-  useEffect(() => {
-    if (prevIsDesktop.current !== isDesktop) {
-      setOpen(isDesktop);
-    }
-    prevIsDesktop.current = isDesktop;
-  }, [isDesktop, setOpen]);
 
   return (
 		<div className="">
