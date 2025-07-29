@@ -79,7 +79,7 @@ export class PreviewBaseLambdaStack extends cdk.NestedStack {
     const ecrRepository = ecr.Repository.fromRepositoryName(
       this,
       "ECRRepo",
-      "copilotkit/dojo-e2e",
+      "dojo-e2e",
     );
 
     const fn = new lambda.Function(this, `Function`, {
