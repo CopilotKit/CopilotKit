@@ -173,7 +173,7 @@ jobs:
         if: matrix.app.type == 'agent'
         run: |
           docker buildx build \
-            -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/dojo-e2e:${{ matrix.app.project }}-${{ github.run_id }} \
+            -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/copilotkit/dojo-e2e:${{ matrix.app.project }}-${{ github.run_id }} \
             --build-arg APP_DIR=${{ matrix.app.server_path }} \
             --build-arg INSTALL_CMD="${{ matrix.app.install }}" \
             -f ./maxtest/Dockerfile.${{ matrix.app.base }}-agent \
@@ -188,7 +188,7 @@ jobs:
         if: matrix.app.type == 'next'
         run: |
           docker buildx build \
-            -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/dojo-e2e:dojo-next-${{ github.run_id }} \
+            -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/copilotkit/dojo-e2e:dojo-next-${{ github.run_id }} \
             -f ./maxtest/Dockerfile.dojo \
             --platform=linux/amd64 \
             --provenance=false \
