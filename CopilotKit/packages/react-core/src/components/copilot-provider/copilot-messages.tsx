@@ -29,6 +29,7 @@ import {
   CopilotKitError,
   CopilotKitErrorCode,
 } from "@copilotkit/shared";
+import { SuggestionItem } from "../../utils/suggestions";
 
 // Helper to determine if error should show as banner based on visibility and legacy patterns
 function shouldShowAsBanner(gqlError: GraphQLError): boolean {
@@ -298,12 +299,15 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
   }, [messages, updateTapMessages]);
 
   const memoizedChildren = useMemo(() => children, [children]);
+  const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
 
   return (
     <CopilotMessagesContext.Provider
       value={{
         messages,
         setMessages,
+        suggestions,
+        setSuggestions,
       }}
     >
       {memoizedChildren}
