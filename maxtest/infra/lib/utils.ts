@@ -1,7 +1,6 @@
 import { Stack } from "aws-cdk-lib";
 import { PreviewBaseLambdaStack } from "./base-lambda-stack";
 // Import Node.js process global type for TypeScript
-import type process from "node:process";
 
 export function requireEnv(name: string): string {
   const value = process.env[name];
