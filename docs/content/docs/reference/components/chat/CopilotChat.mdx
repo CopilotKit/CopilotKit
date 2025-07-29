@@ -38,6 +38,23 @@ import "@copilotkit/react-ui/styles.css";
 />
 ```
  
+### With Observability Hooks
+ 
+To monitor user interactions, provide the `observabilityHooks` prop.
+Note: This requires a `publicApiKey` in the `<CopilotKit>` provider.
+ 
+```tsx
+<CopilotKit publicApiKey="YOUR_PUBLIC_API_KEY">
+  <CopilotChat
+    observabilityHooks={{
+      onMessageSent: (message) => {
+        console.log("Message sent:", message);
+      },
+    }}
+  />
+</CopilotKit>
+```
+ 
 ### Look & Feel
  
 By default, CopilotKit components do not have any styles. You can import CopilotKit's stylesheet at the root of your project:
@@ -188,5 +205,10 @@ Children to render.
 
 <PropertyReference name="hideStopButton" type="boolean"  > 
 
+</PropertyReference>
+
+<PropertyReference name="observabilityHooks" type="CopilotObservabilityHooks"  > 
+Event hooks for CopilotKit chat events.
+  These hooks only work when publicApiKey is provided.
 </PropertyReference>
 
