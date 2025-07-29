@@ -185,7 +185,7 @@ jobs:
           DOCKER_BUILDKIT: 1
 
       - name: (Dojo) Build Image
-        if: matrix.app.type == 'next'
+        if: matrix.app.type == 'dojo'
         run: |
           docker buildx build \
             -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/copilotkit/dojo-e2e:dojo-next-${{ github.run_id }} \
