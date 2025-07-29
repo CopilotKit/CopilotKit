@@ -25,11 +25,11 @@ const serverStarterAllFeaturesAgent = createDojoLambdaStack({
   description: "The server starter all features agent for the dojo",
 });
 
-const pydanticAI = createDojoLambdaStack({
-  parentStack,
-  name: "pydantic-ai-agent",
-  description: "The pydantic AI agent for the dojo",
-});
+// const pydanticAI = createDojoLambdaStack({
+//   parentStack,
+//   name: "pydantic-ai-agent",
+//   description: "The pydantic AI agent for the dojo",
+// });
 
 const mastraAgent = createDojoLambdaStack({
   parentStack,
@@ -71,7 +71,7 @@ const dojo = createDojoLambdaStack({
     environmentVariables: {
         SERVER_STARTER_URL: serverStarterAgent.fnUrl,
         SERVER_STARTER_ALL_FEATURES_URL: serverStarterAllFeaturesAgent.fnUrl,
-        PYDANTIC_AI_URL: pydanticAI.fnUrl,
+        // PYDANTIC_AI_URL: pydanticAI.fnUrl,
         MASTRA_AGENT_URL: mastraAgent.fnUrl,
         LANGGRAPH_URL: 'TODO: Max: this needs to be set up still',
         LANGGRAPH_FASTAPI_URL: langgraphFastAPI.fnUrl,
