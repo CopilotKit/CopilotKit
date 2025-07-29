@@ -1,5 +1,13 @@
 # ui
 
+## 1.10.0-next.8
+
+### Patch Changes
+
+- 6de24ce: - fix rerender issues by moving suggestions to the messages context
+  - @copilotkit/runtime-client-gql@1.10.0-next.8
+  - @copilotkit/shared@1.10.0-next.8
+
 ## 1.10.0-next.7
 
 ### Patch Changes
