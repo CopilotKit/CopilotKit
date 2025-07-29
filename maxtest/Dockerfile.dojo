@@ -10,8 +10,9 @@ RUN pnpm i -g turbo
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4 /lambda-adapter /opt/extensions/lambda-adapter
 
 WORKDIR /app/
-COPY maxtest/agui/typescript-sdk/apps/dojo/.next/standalone ./
-COPY maxtest/agui/typescript-sdk/apps/dojo/.next/static ./.next/static
+
+COPY maxtest/ag-ui/typescript-sdk/apps/dojo/.next/standalone /app/
+COPY ./maxtest/ag-ui/typescript-sdk/apps/dojo/.next/static /app/.next/static
 
 # Set the environment variables (if needed)
 ENV NODE_ENV=production
