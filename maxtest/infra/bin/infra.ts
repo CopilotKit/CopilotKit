@@ -6,7 +6,12 @@ import { MastraDynamoDbStack } from "../lib/mastra-dynamo-stack";
 // app
 const app = new cdk.App();
 
-const parentStack = new cdk.Stack(app, 'E2E-Dojo')
+const parentStack = new cdk.Stack(app, 'E2E-Dojo',
+  {
+    env: {
+      account: process.env.CDK_DEFAULT_ACCOUNT,
+    }
+  })
 
 const serverStarterAgent = createDojoLambdaStack({
   parentStack,

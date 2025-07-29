@@ -58,9 +58,6 @@ export function createDojoLambdaStack({
     },
     port: "3000",
     includeInPRComment: true,
-    env: {
-      account: process.env.CDK_DEFAULT_ACCOUNT,
-    },
     imageTag: `${name}-${GITHUB_ACTIONS_RUN_ID}`,
     outputs,
   });
