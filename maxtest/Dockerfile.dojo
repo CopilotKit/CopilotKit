@@ -7,18 +7,11 @@ RUN corepack enable
 RUN corepack prepare pnpm@9.15.0 --activate
 RUN pnpm i -g turbo
 
-ARG APP_DIR="maxtest/ag-ui/apps/dojo"
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4 /lambda-adapter /opt/extensions/lambda-adapter
 
 WORKDIR /app/
-COPY CopilotKit/package.json CopilotKit/pnpm-lock.yaml CopilotKit/pnpm-workspace.yaml ./
-COPY --parents ${APP_DIR}/**/package.json ./
-
-# Copy the built artifacts from the builder stage
-WORKDIR /app/${APP_DIR}
-COPY ${APP_DIR}/.next/standalone/examples/next-openai ./
-COPY ${APP_DIR}/.next/static ./.next/static
-RUN pnpm i --frozen-lockfile
+COPY maxtest/agui/typescript-sdk/apps/dojo/.next/standalone ./
+COPY maxtest/agui/typescript-sdk/apps/dojo/.next/static ./.next/static
 
 # Set the environment variables (if needed)
 ENV NODE_ENV=production
