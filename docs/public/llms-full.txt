@@ -1874,7 +1874,7 @@ Get started with CopilotKit in under 5 minutes.
 
 Copilot Cloud (Recommended)
 
-Use our hosted backend endpoint to get started quickly (OpenAI only).
+Use our hosted backend endpoint to get started quickly.
 
 Self-hosting
 
@@ -2845,7 +2845,7 @@ Get started with CopilotKit in under 5 minutes.
 
 Copilot Cloud (Recommended)
 
-Use our hosted backend endpoint to get started quickly (OpenAI only).
+Use our hosted backend endpoint to get started quickly.
 
 Self-hosting
 
@@ -4834,7 +4834,7 @@ Get started with CopilotKit in under 5 minutes.
 
 Copilot Cloud (Recommended)
 
-Use our hosted backend endpoint to get started quickly (OpenAI only).
+Use our hosted backend endpoint to get started quickly.
 
 Self-hosting
 
@@ -6741,7 +6741,7 @@ It's not too hard to write your own LLM adapter from scratch -- see the existing
 
 Copilot Cloud (Recommended)
 
-Use our hosted backend endpoint to get started quickly (OpenAI only).
+Use our hosted backend endpoint to get started quickly.
 
 Self-hosting
 
@@ -6814,7 +6814,7 @@ Get started with CopilotKit in under 5 minutes.
 
 Copilot Cloud (Recommended)
 
-Use our hosted backend endpoint to get started quickly (OpenAI only).
+Use our hosted backend endpoint to get started quickly.
 
 Self-hosting
 
@@ -7253,7 +7253,7 @@ Get started with CopilotKit in under 5 minutes.
 
 Copilot Cloud (Recommended)
 
-Use our hosted backend endpoint to get started quickly (OpenAI only).
+Use our hosted backend endpoint to get started quickly.
 
 Self-hosting
 
