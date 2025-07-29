@@ -1,0 +1,17 @@
+# Core dependencies
+copilotkit
+fastapi>=0.95.1
+python-dotenv>=1.0.0
+uvicorn>=0.22.0
+
+# LLM dependencies
+litellm>=1.0.0
+
+# Agent dependencies
+langchain>=0.1.0
+langchain-core>=0.1.5
+langchain-community>=0.0.1
+langchain-experimental>=0.0.1
+
+# CrewAI dependencies - still needed for other examples
+crewai>=0.28.0
