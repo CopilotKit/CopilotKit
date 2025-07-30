@@ -2,7 +2,16 @@
  * An internal context to separate the messages state (which is constantly changing) from the rest of CopilotKit context
  */
 
-import { ReactNode, useEffect, useState, useRef, useCallback, useMemo } from "react";
+import {
+  ReactNode,
+  useEffect,
+  useState,
+  useRef,
+  useCallback,
+  useMemo,
+  createContext,
+  useContext,
+} from "react";
 import { CopilotMessagesContext } from "../../context/copilot-messages-context";
 import {
   loadMessagesFromJsonRepresentation,
@@ -20,6 +29,7 @@ import {
   CopilotKitError,
   CopilotKitErrorCode,
 } from "@copilotkit/shared";
+import { SuggestionItem } from "../../utils/suggestions";
 
 // Helper to determine if error should show as banner based on visibility and legacy patterns
 function shouldShowAsBanner(gqlError: GraphQLError): boolean {
@@ -69,11 +79,50 @@ function shouldShowAsBanner(gqlError: GraphQLError): boolean {
   return false;
 }
 
+/**
+ * MessagesTap is used to mitigate performance issues when we only need
+ * a snapshot of the messages, not a continuously updating stream of messages.
+ */
+
+export type MessagesTap = {
+  getMessagesFromTap: () => Message[];
+  updateTapMessages: (messages: Message[]) => void;
+};
+
+const MessagesTapContext = createContext<MessagesTap | null>(null);
+
+export function useMessagesTap() {
+  const tap = useContext(MessagesTapContext);
+  if (!tap) throw new Error("useMessagesTap must be used inside <MessagesTapProvider>");
+  return tap;
+}
+
+export function MessagesTapProvider({ children }: { children: React.ReactNode }) {
+  const messagesRef = useRef<Message[]>([]);
+
+  const tapRef = useRef<MessagesTap>({
+    getMessagesFromTap: () => messagesRef.current,
+    updateTapMessages: (messages: Message[]) => {
+      messagesRef.current = messages;
+    },
+  });
+
+  return (
+    <MessagesTapContext.Provider value={tapRef.current}>{children}</MessagesTapContext.Provider>
+  );
+}
+
+/**
+ * CopilotKit messages context.
+ */
+
 export function CopilotMessages({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const lastLoadedThreadId = useRef<string>();
   const lastLoadedAgentName = useRef<string>();
   const lastLoadedMessages = useRef<string>();
+
+  const { updateTapMessages } = useMessagesTap();
 
   const { threadId, agentSession, runtimeClient, showDevConsole, onError, copilotApiConfig } =
     useCopilotContext();
@@ -245,13 +294,20 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
     void fetchMessages();
   }, [threadId, agentSession?.agentName]);
 
+  useEffect(() => {
+    updateTapMessages(messages);
+  }, [messages, updateTapMessages]);
+
   const memoizedChildren = useMemo(() => children, [children]);
+  const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
 
   return (
     <CopilotMessagesContext.Provider
       value={{
         messages,
         setMessages,
+        suggestions,
+        setSuggestions,
       }}
     >
       {memoizedChildren}

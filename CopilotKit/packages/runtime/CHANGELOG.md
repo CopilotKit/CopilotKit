@@ -1,5 +1,38 @@
 # @copilotkit/runtime
 
+## 1.10.0-next.9
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.0-next.9
+
+## 1.10.0-next.8
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.0-next.8
+
+## 1.10.0-next.7
+
+### Patch Changes
+
+- 59b0e16: - feat: add native prompt caching support to AnthropicAdapter
+  - @copilotkit/shared@1.10.0-next.7
+
+## 1.10.0-next.6
+
+### Patch Changes
+
+- 6f2f54b: - fix(openai): update maxTokens parameter to max_completion_tokens in OpenAIAdapter
+  - @copilotkit/shared@1.10.0-next.6
+
+## 1.10.0-next.5
+
+### Patch Changes
+
+- Updated dependencies [a8c0263]
+  - @copilotkit/shared@1.10.0-next.5
+
 ## 1.10.0-next.4
 
 ### Patch Changes

@@ -65,6 +65,17 @@ Alternatively, useCopilotChatLight is available for basic programmatic messaging
   );
 }
 
+export function publicApiKeyRequired(feature: string) {
+  console.log(
+    `
+%cCopilotKit Warning%c \n
+In order to use ${feature}, you need to add your CopilotKit API key, available for free at https://cloud.copilotkit.ai.
+    `.trim(),
+    ConsoleStyles.header,
+    ConsoleStyles.body,
+  );
+}
+
 /**
  * Create a styled console message with custom content
  *
@@ -101,4 +112,7 @@ export const styledConsole = {
 
   /** Log the CopilotKit platform promotion */
   logCopilotKitPlatformMessage: logCopilotKitPlatformMessage,
+
+  /** Log a `publicApiKeyRequired` warning */
+  publicApiKeyRequired: publicApiKeyRequired,
 } as const;

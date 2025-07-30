@@ -102,6 +102,8 @@ import { useAsyncCallback } from "../components/error-boundary/error-utils";
 import { useToast } from "../components/toast/toast-provider";
 import { useCopilotRuntimeClient } from "./use-copilot-runtime-client";
 import { parseJson, CopilotKitAgentDiscoveryError } from "@copilotkit/shared";
+import { useMessagesTap } from "../components/copilot-provider/copilot-messages";
+import { Message as GqlMessage } from "@copilotkit/runtime-client-gql";
 
 interface UseCoagentOptionsBase {
   /**
@@ -212,8 +214,8 @@ export type HintFunction = (params: HintFunctionParams) => Message | undefined;
  * we refer to as CoAgents, checkout the documentation at https://docs.copilotkit.ai/coagents/quickstart/langgraph.
  */
 export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentReturnType<T> {
-  const generalContext = useCopilotContext();
-  const { availableAgents } = generalContext;
+  const context = useCopilotContext();
+  const { availableAgents } = context;
   const { setBannerError } = useToast();
   const lastLoadedThreadId = useRef<string>();
   const lastLoadedState = useRef<any>();
@@ -233,8 +235,8 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     }
   }, [availableAgents]);
 
-  const messagesContext = useCopilotMessagesContext();
-  const context = { ...generalContext, ...messagesContext };
+  const { getMessagesFromTap } = useMessagesTap();
+
   const { coagentStates, coagentStatesRef, setCoagentStatesWithRef, threadId, copilotApiConfig } =
     context;
   const { appendMessage, runChatCompletion } = useCopilotChat();
@@ -349,7 +351,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
 
   const runAgentCallback = useAsyncCallback(
     async (hint?: HintFunction) => {
-      await runAgent(name, context, appendMessage, runChatCompletion, hint);
+      await runAgent(name, context, getMessagesFromTap(), appendMessage, runChatCompletion, hint);
     },
     [name, context, appendMessage, runChatCompletion],
   );
@@ -402,7 +404,8 @@ export function stopAgent(name: string, context: CopilotContextParams) {
 
 export async function runAgent(
   name: string,
-  context: CopilotContextParams & CopilotMessagesContextParams,
+  context: CopilotContextParams,
+  messages: GqlMessage[],
   appendMessage: (message: Message) => Promise<void>,
   runChatCompletion: () => Promise<Message[]>,
   hint?: HintFunction,
@@ -415,8 +418,8 @@ export async function runAgent(
   }
 
   let previousState: any = null;
-  for (let i = context.messages.length - 1; i >= 0; i--) {
-    const message = context.messages[i];
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
     if (message.isAgentStateMessage() && message.agentName === name) {
       previousState = message.state;
     }

@@ -1,5 +1,19 @@
 # @copilotkit/shared
 
+## 1.10.0-next.9
+
+## 1.10.0-next.8
+
+## 1.10.0-next.7
+
+## 1.10.0-next.6
+
+## 1.10.0-next.5
+
+### Patch Changes
+
+- a8c0263: - feat: add event hooks system for chat components
+
 ## 1.10.0-next.4
 
 ## 1.10.0-next.3

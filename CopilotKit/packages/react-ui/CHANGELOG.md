@@ -1,5 +1,54 @@
 # ui
 
+## 1.10.0-next.9
+
+### Patch Changes
+
+- 2354be4: - feat(chat): implement custom error handling in CopilotChat and Modal components
+
+  - Added `renderError` prop to `CopilotChat` for inline error rendering.
+  - Introduced `triggerChatError` function to manage chat-specific errors and observability hooks.
+  - Updated `Modal` to handle observability hooks with public API key checks.
+  - Enhanced `CopilotObservabilityHooks` interface to include `onError` for error event handling.
+  - @copilotkit/react-core@1.10.0-next.9
+  - @copilotkit/runtime-client-gql@1.10.0-next.9
+  - @copilotkit/shared@1.10.0-next.9
+
+## 1.10.0-next.8
+
+### Patch Changes
+
+- Updated dependencies [6de24ce]
+  - @copilotkit/react-core@1.10.0-next.8
+  - @copilotkit/runtime-client-gql@1.10.0-next.8
+  - @copilotkit/shared@1.10.0-next.8
+
+## 1.10.0-next.7
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.0-next.7
+- @copilotkit/react-core@1.10.0-next.7
+- @copilotkit/shared@1.10.0-next.7
+
+## 1.10.0-next.6
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.0-next.6
+- @copilotkit/react-core@1.10.0-next.6
+- @copilotkit/shared@1.10.0-next.6
+
+## 1.10.0-next.5
+
+### Patch Changes
+
+- a8c0263: - feat: add event hooks system for chat components
+- Updated dependencies [a8c0263]
+  - @copilotkit/shared@1.10.0-next.5
+  - @copilotkit/react-core@1.10.0-next.5
+  - @copilotkit/runtime-client-gql@1.10.0-next.5
+
 ## 1.10.0-next.4
 
 ### Patch Changes

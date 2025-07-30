@@ -17,6 +17,7 @@ import {
 import { FaCloud, FaServer } from "react-icons/fa";
 
 ## Using the CLI
+
 If you have a **NextJS** application, you can use our CLI to automatically bootstrap your application for use with CopilotKit.
 
 ```bash
@@ -25,14 +26,13 @@ npx copilotkit@latest init
 
 <Accordions>
   <Accordion title="Starting from scratch?">
-    No problem! Just use `create-next-app` to make a new NextJS application quickly.
-    ```bash
-    npx create-next-app@latest
-    ```
+    No problem! Just use `create-next-app` to make a new NextJS application
+    quickly. ```bash npx create-next-app@latest ```
   </Accordion>
 </Accordions>
 
 ## Code-along
+
 If you don't have a NextJS application or just want to code-along, you can follow the steps below.
 
 <TailoredContent id="copilot-hosting">
@@ -61,7 +61,7 @@ Navigate to [Copilot Platform](https://cloud.copilotkit.ai) and follow the instr
 <Step>
 ### Setup the CopilotKit Provider
 
-The [`<CopilotKit>`](/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases, 
+The [`<CopilotKit>`](/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
 it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
 
 <CloudCopilotKitProvider components={props.components} />
@@ -92,12 +92,43 @@ First, install the latest packages for CopilotKit.
 ```package-install
 npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime
 ```
+
 </Step>
 <Step>
 ### Set up a Copilot Runtime Endpoint
 
 <SelfHostingCopilotRuntimeCreateEndpoint components={props.components} />
 </Step>
+
+<Step>
+  ### Get Your Copilot Cloud API Key (Optional but Recommended)
+
+{" "}
+
+<Callout type="info">
+  While self-hosting, you can still leverage CopilotKit Cloud's enhanced
+  features for production-ready deployments.
+</Callout>
+
+1. Go to [Copilot Cloud](https://cloud.copilotkit.ai) and sign up for free
+2. Get your API key from the dashboard
+3. Add it to your environment variables:
+
+```plaintext title=".env"
+COPILOT_CLOUD_PUBLIC_API_KEY=your_api_key_here
+```
+
+**Why add this?**
+
+- **Free tier available** - Your requests will NOT be logged
+- **Production-ready features** - Enhanced error handling and observability
+- **Developer console** - Better debugging and monitoring (coming soon)
+- **Error observability** - Track and debug issues in production
+
+This enables CopilotKit platform features while still using your self-hosted runtime.
+
+</Step>
+
 <Step>
 ### Configure the CopilotKit Provider
 
