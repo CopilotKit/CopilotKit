@@ -12,6 +12,8 @@
     "frontend-actions",
     "multi-agent-flows",
     "persistence",
+    "---Platform Features---",
+    "...../platform",
     "---Learn---",
     "...concepts",
     "---Troubleshooting Copilots---",
