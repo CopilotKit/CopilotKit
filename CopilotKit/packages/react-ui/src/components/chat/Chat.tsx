@@ -85,6 +85,7 @@ import type { SuggestionItem } from "@copilotkit/react-core";
 import {
   CopilotKitError,
   CopilotKitErrorCode,
+  CopilotErrorEvent,
   Message,
   Severity,
   ErrorVisibility,
@@ -281,6 +282,18 @@ export interface CopilotChatProps {
    * These hooks only work when publicApiKey is provided.
    */
   observabilityHooks?: CopilotObservabilityHooks;
+
+  /**
+   * Custom error renderer for chat-specific errors.
+   * When provided, errors will be displayed inline within the chat interface.
+   */
+  renderError?: (error: {
+    message: string;
+    operation?: string;
+    timestamp: number;
+    onDismiss: () => void;
+    onRetry?: () => void;
+  }) => React.ReactNode;
 }
 
 interface OnStopGenerationArguments {
@@ -368,19 +381,28 @@ export function CopilotChat({
   inputFileAccept = "image/*",
   hideStopButton,
   observabilityHooks,
+  renderError,
 }: CopilotChatProps) {
   const { additionalInstructions, setChatInstructions, copilotApiConfig, setBannerError } =
     useCopilotContext();
+
+  // Destructure stable values to avoid object reference changes
+  const { publicApiKey, chatApiEndpoint } = copilotApiConfig;
   const [selectedImages, setSelectedImages] = useState<Array<ImageUpload>>([]);
+  const [chatError, setChatError] = useState<{
+    message: string;
+    operation?: string;
+    timestamp: number;
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Helper function to trigger event hooks only if publicApiKey is provided
   const triggerObservabilityHook = useCallback(
     (hookName: keyof CopilotObservabilityHooks, ...args: any[]) => {
-      if (copilotApiConfig.publicApiKey && observabilityHooks?.[hookName]) {
+      if (publicApiKey && observabilityHooks?.[hookName]) {
         (observabilityHooks[hookName] as any)(...args);
       }
-      if (observabilityHooks?.[hookName] && !copilotApiConfig.publicApiKey) {
+      if (observabilityHooks?.[hookName] && !publicApiKey) {
         setBannerError(
           new CopilotKitError({
             message: "observabilityHooks requires a publicApiKey to function.",
@@ -392,7 +414,58 @@ export function CopilotChat({
         styledConsole.publicApiKeyRequired("observabilityHooks");
       }
     },
-    [copilotApiConfig.publicApiKey, observabilityHooks],
+    [publicApiKey, observabilityHooks, setBannerError],
+  );
+
+  // Helper function to trigger chat error and render error UI
+  const triggerChatError = useCallback(
+    (error: any, operation: string, originalError?: any) => {
+      const errorMessage = error?.message || error?.toString() || "An error occurred";
+
+      // Set chat error state for rendering
+      setChatError({
+        message: errorMessage,
+        operation,
+        timestamp: Date.now(),
+      });
+
+      // Also trigger observability hook if available
+      if (publicApiKey && observabilityHooks?.onError) {
+        const errorEvent: CopilotErrorEvent = {
+          type: "error",
+          timestamp: Date.now(),
+          context: {
+            source: "ui",
+            request: {
+              operation,
+              url: chatApiEndpoint,
+              startTime: Date.now(),
+            },
+            technical: {
+              environment: "browser",
+              userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+              stackTrace: originalError instanceof Error ? originalError.stack : undefined,
+            },
+          },
+          error,
+        };
+        observabilityHooks.onError(errorEvent);
+      }
+
+      // Show banner error if onError hook is used without publicApiKey
+      if (observabilityHooks?.onError && !publicApiKey) {
+        setBannerError(
+          new CopilotKitError({
+            message: "observabilityHooks.onError requires a publicApiKey to function.",
+            code: CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR,
+            severity: Severity.CRITICAL,
+            visibility: ErrorVisibility.BANNER,
+          }),
+        );
+        styledConsole.publicApiKeyRequired("observabilityHooks.onError");
+      }
+    },
+    [publicApiKey, chatApiEndpoint, observabilityHooks, setBannerError],
   );
 
   // Clipboard paste handler
@@ -436,14 +509,15 @@ export function CopilotChat({
         const loadedImages = (await Promise.all(imagePromises)).filter((img) => img !== null);
         setSelectedImages((prev) => [...prev, ...loadedImages]);
       } catch (error) {
-        // TODO: Show an error message to the user
+        // Trigger chat-level error handler
+        triggerChatError(error, "processClipboardImages", error);
         console.error("Error processing pasted images:", error);
       }
     };
 
     document.addEventListener("paste", handlePaste);
     return () => document.removeEventListener("paste", handlePaste);
-  }, [imageUploadsEnabled]);
+  }, [imageUploadsEnabled, triggerChatError]);
 
   useEffect(() => {
     if (!additionalInstructions?.length) {
@@ -563,7 +637,8 @@ export function CopilotChat({
       const loadedImages = await Promise.all(fileReadPromises);
       setSelectedImages((prev) => [...prev, ...loadedImages]);
     } catch (error) {
-      // TODO: Show an error message to the user
+      // Trigger chat-level error handler
+      triggerChatError(error, "processUploadedImages", error);
       console.error("Error reading files:", error);
     }
   };
@@ -592,6 +667,19 @@ export function CopilotChat({
 
   return (
     <WrappedCopilotChat icons={icons} labels={labels} className={className}>
+      {/* Render error above messages if present */}
+      {chatError &&
+        renderError &&
+        renderError({
+          ...chatError,
+          onDismiss: () => setChatError(null),
+          onRetry: () => {
+            // Clear error and potentially retry based on operation
+            setChatError(null);
+            // TODO: Implement specific retry logic based on operation type
+          },
+        })}
+
       <Messages
         AssistantMessage={AssistantMessage}
         UserMessage={UserMessage}
@@ -889,7 +977,6 @@ export const useCopilotChatLogic = (
         messagesContext.messages,
         appendMessage,
         runChatCompletion,
-        hint,
       );
     }
   };
