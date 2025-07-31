@@ -241,6 +241,31 @@ export interface CopilotChatProps {
   Messages?: React.ComponentType<MessagesProps>;
 
   /**
+   * @deprecated - use RenderMessage instead
+   */
+  RenderTextMessage?: React.ComponentType<RenderMessageProps>;
+
+  /**
+   * @deprecated - use RenderMessage instead
+   */
+  RenderActionExecutionMessage?: React.ComponentType<RenderMessageProps>;
+
+  /**
+   * @deprecated - use RenderMessage instead
+   */
+  RenderAgentStateMessage?: React.ComponentType<RenderMessageProps>;
+
+  /**
+   * @deprecated - use RenderMessage instead
+   */
+  RenderResultMessage?: React.ComponentType<RenderMessageProps>;
+
+  /**
+   * @deprecated - use RenderMessage instead
+   */
+  RenderImageMessage?: React.ComponentType<RenderMessageProps>;
+
+  /**
    * A custom RenderMessage component to use instead of the default.
    *
    * **Warning**: This is a break-glass solution to allow for custom
@@ -354,6 +379,8 @@ export type ImageUpload = {
   bytes: string;
 };
 
+
+
 export function CopilotChat({
   instructions,
   suggestions = "auto",
@@ -382,6 +409,13 @@ export function CopilotChat({
   hideStopButton,
   observabilityHooks,
   renderError,
+
+  // Legacy props - deprecated
+  RenderTextMessage,
+  RenderActionExecutionMessage,
+  RenderAgentStateMessage,
+  RenderResultMessage,
+  RenderImageMessage,
 }: CopilotChatProps) {
   const { additionalInstructions, setChatInstructions, copilotApiConfig, setBannerError } =
     useCopilotContext();
@@ -692,6 +726,13 @@ export function CopilotChat({
         onThumbsDown={handleThumbsDown}
         markdownTagRenderers={markdownTagRenderers}
         ImageRenderer={ImageRenderer}
+
+        // Legacy props - passed through to Messages component
+        RenderTextMessage={RenderTextMessage}
+        RenderActionExecutionMessage={RenderActionExecutionMessage}
+        RenderAgentStateMessage={RenderAgentStateMessage}
+        RenderResultMessage={RenderResultMessage}
+        RenderImageMessage={RenderImageMessage}
       >
         {currentSuggestions.length > 0 && (
           <RenderSuggestionsList

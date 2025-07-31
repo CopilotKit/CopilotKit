@@ -26,6 +26,7 @@ export function RenderMessage({
       return (
         <UserMessage
           key={index}
+          rawData={message}
           data-message-role="user"
           message={message}
           ImageRenderer={ImageRenderer}
@@ -36,6 +37,8 @@ export function RenderMessage({
         <AssistantMessage
           key={index}
           data-message-role="assistant"
+          subComponent={message.generativeUI?.()}
+          rawData={message}
           message={message}
           isLoading={inProgress && isCurrentMessage && !message.content}
           isGenerating={inProgress && isCurrentMessage && !!message.content}
