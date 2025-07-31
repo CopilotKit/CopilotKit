@@ -1,7 +1,8 @@
 import { PaymentCards } from "@/components/generative-ui/payment-cards";
 import { CardInfo } from "@/lib/types";
 import { useGlobalState } from "@/lib/stages";
-import { useCopilotAction, useCopilotAdditionalInstructions } from "@copilotkit/react-core";
+import { useHumanInTheLoop, useCopilotAdditionalInstructions } from "@copilotkit/react-core";
+import { z } from "zod";
 
 export interface UseGetPaymentInfoStateOptions {
   enabled: boolean;
@@ -28,12 +29,13 @@ export function useStageGetPaymentInfo() {
   );
 
   // Render the PaymentCards component and wait for the user's response.
-  useCopilotAction(
+  useHumanInTheLoop(
     {
       name: "getPaymentInformation",
       description: "Get the payment information of the user",
       available: stage === "getPaymentInfo" ? "enabled" : "disabled",
-      renderAndWaitForResponse: ({ respond }) => {
+      parameters: z.object({}),
+      render: ({ respond }) => {
         return (
           <PaymentCards
             onSubmit={(cardInfo: CardInfo) => {

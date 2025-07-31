@@ -30,7 +30,7 @@ export interface Post {
       content: `
         In-App AI Chatbot: Easily add an AI chatbot to your app with plug-and-play components.
         Copilot Readable State: Enable your Copilot to read and understand the application's state for intelligent interactions.
-        Copilot Actions: Let your Copilot perform actions in the app based on the state and user input.
+        Frontend Tools: Let your Copilot execute tools in the app based on the state and user input.
         Generative UI: Render any component dynamically through the AI chat interface.
         Copilot Textarea: Add AI-powered autocompletion to any textarea, enhancing user experience.
         AI Autosuggestions: Provide smart autosuggestions in the AI chat interface for faster interactions.

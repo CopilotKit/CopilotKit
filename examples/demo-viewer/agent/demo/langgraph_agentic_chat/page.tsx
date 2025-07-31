@@ -2,7 +2,8 @@
 import React, { useState } from "react";
 import "@copilotkit/react-ui/styles.css";
 import "./style.css";
-import { CopilotKit, useCopilotAction } from "@copilotkit/react-core";
+import { CopilotKit, useFrontendTool } from "@copilotkit/react-core";
+import { z } from "zod";
 import { CopilotChat, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { chatSuggestions, initialPrompt } from "@/lib/prompts";
 import { AGENT_TYPE } from "@/config";
@@ -21,17 +22,13 @@ const AgenticChat: React.FC = () => {
 const Chat = () => {
   const [background, setBackground] = useState<string>("#fefefe");
 
-  useCopilotAction({
+  useFrontendTool({
     name: "change_background",
     description:
       "Change the background color of the chat. Can be anything that the CSS background attribute accepts. Regular colors, linear of radial gradients etc.",
-    parameters: [
-      {
-        name: "background",
-        type: "string",
-        description: "The background. Prefer gradients.",
-      },
-    ],
+    parameters: z.object({
+      background: z.string().describe("The background. Prefer gradients."),
+    }),
     handler: ({ background }) => {
       setBackground(background);
     },

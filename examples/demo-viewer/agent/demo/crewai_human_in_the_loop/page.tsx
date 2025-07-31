@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from "react";
 import "@copilotkit/react-ui/styles.css";
 import "./style.css";
-import { CopilotKit, useCopilotAction } from "@copilotkit/react-core";
+import { CopilotKit, useHumanInTheLoop } from "@copilotkit/react-core";
+import { z } from "zod";
 import { CopilotChat, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { chatSuggestions, initialPrompt } from "@/lib/prompts";
 import { AGENT_TYPE } from "@/config";
@@ -20,26 +21,15 @@ const HumanInTheLoop: React.FC = () => {
 
 
 const Chat = () => {
-  useCopilotAction({
+  useHumanInTheLoop({
     name: "generate_task_steps",
-    parameters: [
-      {
-        name: "steps",
-        type: "object[]",
-        attributes: [
-          {
-            name: "description",
-            type: "string",
-          },
-          {
-            name: "status",
-            type: "string",
-            enum: ["enabled", "disabled", "executing"],
-          },
-        ],
-      },
-    ],
-    renderAndWaitForResponse: ({ args, respond, status }) => {
+    parameters: z.object({
+      steps: z.array(z.object({
+        description: z.string(),
+        status: z.enum(["enabled", "disabled", "executing"]),
+      })),
+    }),
+    render: ({ args, respond, status }) => {
       return <StepsFeedback args={args} respond={respond} status={status} />;
     },
   });

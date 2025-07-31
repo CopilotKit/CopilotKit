@@ -1,7 +1,8 @@
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
+import { useRenderToolCall, useCopilotReadable } from "@copilotkit/react-core";
+import { z } from "zod";
 import { AreaChart } from "./ui/area-chart";
 import { BarChart } from "./ui/bar-chart";
 import { DonutChart } from "./ui/pie-chart";
@@ -50,18 +51,13 @@ export function Dashboard() {
   });
 
   // Define render only search action
-  useCopilotAction({
+  useRenderToolCall({
     name: "searchInternet",
     available: "disabled",
     description: "Searches the internet for information.",
-    parameters: [
-      {
-        name: "query",
-        type: "string",
-        description: "The query to search the internet for.",
-        required: true,
-      }
-    ],
+    parameters: z.object({
+      query: z.string().describe("The query to search the internet for.")
+    }),
     render: ({args, status}) => {
       return <SearchResults query={args.query || 'No query provided'} status={status} />;
     }
