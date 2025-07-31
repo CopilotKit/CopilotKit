@@ -76,7 +76,7 @@ importers:
         version: 0.3.5(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(encoding@0.1.13)
       '@langchain/community':
         specifier: ^0.3.29
-        version: 0.3.29(b7crrjwnjjiwkliep4xaabxdg4)
+        version: 0.3.29(5099bc1ff93bfc18d973fa3e5be6b5c5)
       '@langchain/core':
         specifier: ^0.3.38
         version: 0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))
@@ -188,7 +188,7 @@ importers:
         version: 2.1.5(react@18.3.1)
       '@langchain/community':
         specifier: ^0.3.29
-        version: 0.3.29(b7crrjwnjjiwkliep4xaabxdg4)
+        version: 0.3.29(5099bc1ff93bfc18d973fa3e5be6b5c5)
       '@langchain/core':
         specifier: ^0.3.38
         version: 0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))
@@ -345,6 +345,12 @@ importers:
       untruncate-json:
         specifier: ^0.0.1
         version: 0.0.1
+      zod:
+        specifier: ^3.23.8
+        version: 3.23.8
+      zod-to-json-schema:
+        specifier: ^3.23.5
+        version: 3.24.5(zod@3.23.8)
     devDependencies:
       '@testing-library/react':
         specifier: ^16.3.0
@@ -617,7 +623,7 @@ importers:
         version: 0.1.9(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))
       '@langchain/community':
         specifier: ^0.3.29
-        version: 0.3.29(b7crrjwnjjiwkliep4xaabxdg4)
+        version: 0.3.29(5099bc1ff93bfc18d973fa3e5be6b5c5)
       '@langchain/core':
         specifier: ^0.3.38
         version: 0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))
@@ -13008,7 +13014,7 @@ snapshots:
       - encoding
       - openai
 
-  '@langchain/community@0.3.29(b7crrjwnjjiwkliep4xaabxdg4)':
+  '@langchain/community@0.3.29(5099bc1ff93bfc18d973fa3e5be6b5c5)':
     dependencies:
       '@browserbasehq/stagehand': 1.12.0(@playwright/test@1.50.1)(deepmerge@4.3.1)(dotenv@16.4.7)(encoding@0.1.13)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(zod@3.23.8)
       '@ibm-cloud/watsonx-ai': 1.4.0(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))
@@ -13104,7 +13110,7 @@ snapshots:
       p-retry: 4.6.2
       uuid: 10.0.0
       zod: 3.23.8
-      zod-to-json-schema: 3.23.5(zod@3.23.8)
+      zod-to-json-schema: 3.24.5(zod@3.23.8)
     transitivePeerDependencies:
       - openai
 
@@ -13129,7 +13135,7 @@ snapshots:
     dependencies:
       '@langchain/core': 0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))
       uuid: 10.0.0
-      zod-to-json-schema: 3.23.5(zod@3.23.8)
+      zod-to-json-schema: 3.24.5(zod@3.23.8)
     transitivePeerDependencies:
       - zod
 
@@ -16129,7 +16135,7 @@ snapshots:
       eslint: 8.57.0
       eslint-import-resolver-node: 0.3.9
       eslint-import-resolver-typescript: 3.6.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(eslint@8.57.0))(eslint@8.57.0)
-      eslint-plugin-import: 2.29.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(eslint@8.57.0))(eslint@8.57.0))(eslint@8.57.0)
+      eslint-plugin-import: 2.29.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-typescript@3.6.1)(eslint@8.57.0)
       eslint-plugin-jsx-a11y: 6.9.0(eslint@8.57.0)
       eslint-plugin-react: 7.33.2(eslint@8.57.0)
       eslint-plugin-react-hooks: 4.6.2(eslint@8.57.0)
@@ -16180,8 +16186,8 @@ snapshots:
       debug: 4.3.5(supports-color@5.5.0)
       enhanced-resolve: 5.17.1
       eslint: 8.57.0
-      eslint-module-utils: 2.8.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(eslint@8.57.0))(eslint@8.57.0))(eslint@8.57.0)
-      eslint-plugin-import: 2.29.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(eslint@8.57.0))(eslint@8.57.0))(eslint@8.57.0)
+      eslint-module-utils: 2.8.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1)(eslint@8.57.0)
+      eslint-plugin-import: 2.29.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-typescript@3.6.1)(eslint@8.57.0)
       fast-glob: 3.3.2
       get-tsconfig: 4.7.6
       is-core-module: 2.15.0
@@ -16220,17 +16226,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.8.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(eslint@8.57.0))(eslint@8.57.0))(eslint@8.57.0):
-    dependencies:
-      debug: 3.2.7
-    optionalDependencies:
-      '@typescript-eslint/parser': 7.2.0(eslint@8.57.0)(typescript@5.5.4)
-      eslint: 8.57.0
-      eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.6.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(eslint@8.57.0))(eslint@8.57.0)
-    transitivePeerDependencies:
-      - supports-color
-
   eslint-module-utils@2.8.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1)(eslint@8.57.0):
     dependencies:
       debug: 3.2.7
@@ -16242,7 +16237,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-import@2.29.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(eslint@8.57.0))(eslint@8.57.0))(eslint@8.57.0):
+  eslint-plugin-import@2.29.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-typescript@3.6.1)(eslint@8.57.0):
     dependencies:
       array-includes: 3.1.8
       array.prototype.findlastindex: 1.2.5
@@ -16252,7 +16247,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 8.57.0
       eslint-import-resolver-node: 0.3.9
-      eslint-module-utils: 2.8.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(eslint@8.57.0))(eslint@8.57.0))(eslint@8.57.0)
+      eslint-module-utils: 2.8.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1)(eslint@8.57.0)
       hasown: 2.0.2
       is-core-module: 2.15.0
       is-glob: 4.0.3
@@ -17197,7 +17192,7 @@ snapshots:
       isstream: 0.1.2
       jsonwebtoken: 9.0.2
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.7.9)
+      retry-axios: 2.6.0(axios@1.7.9(debug@4.4.1))
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -20079,7 +20074,7 @@ snapshots:
       onetime: 5.1.2
       signal-exit: 3.0.7
 
-  retry-axios@2.6.0(axios@1.7.9):
+  retry-axios@2.6.0(axios@1.7.9(debug@4.4.1)):
     dependencies:
       axios: 1.7.9(debug@4.4.1)
 

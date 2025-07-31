@@ -141,6 +141,11 @@ export type FrontendAction<
   available?: FrontendActionAvailability;
   pairedAction?: string;
   followUp?: boolean;
+  /**
+   * JSON Schema representation of the parameters.
+   * If provided, this will be used instead of converting parameters to JSON Schema.
+   */
+  jsonSchema?: string;
 } & (
     | {
         render?:
@@ -194,7 +199,7 @@ export function processActionsForRuntimeRequest(actions: FrontendAction<any>[]) 
       return {
         name: action.name,
         description: action.description || "",
-        jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
+        jsonSchema: action.jsonSchema || JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
         available,
       };
     });
