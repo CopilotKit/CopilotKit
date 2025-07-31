@@ -52,7 +52,7 @@ export interface UseCopilotChatReturn {
   /**
    * @deprecated use `messages` instead, this is an old non ag-ui version of the messages
    * Array of messages currently visible in the chat interface
-   * 
+   *
    * This is the visible messages, not the raw messages from the runtime client.
    */
   visibleMessages: DeprecatedGqlMessage[];
@@ -78,7 +78,7 @@ export interface UseCopilotChatReturn {
    */
   sendMessage: (message: Message, options?: AppendMessageOptions) => Promise<void>;
 
-  /** 
+  /**
    * Replace all messages in the chat
    *
    * ```tsx
@@ -87,9 +87,9 @@ export interface UseCopilotChatReturn {
    *   { id: "456", role: "assistant", content: "Hello, I'm the assistant" },
    * ]);
    * ```
-   * 
+   *
    * **Deprecated** non-ag-ui version:
-   * 
+   *
    * ```tsx
    * setMessages([
    *   new TextMessage({
@@ -101,7 +101,7 @@ export interface UseCopilotChatReturn {
    *     role: gqlRole.Assistant,
    * ]);
    * ```
-   * 
+   *
    */
   setMessages: (messages: Message[] | DeprecatedGqlMessage[]) => void;
 

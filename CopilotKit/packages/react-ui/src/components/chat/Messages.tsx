@@ -45,31 +45,34 @@ export const Messages = ({
     if (hasLegacyProps) {
       console.warn(
         "[CopilotKit] Legacy message render props (RenderTextMessage, RenderActionExecutionMessage, etc.) are deprecated. " +
-        "Please use the unified 'RenderMessage' prop instead. " +
-        "See migration guide: https://docs.copilotkit.ai/migration/render-message"
+          "Please use the unified 'RenderMessage' prop instead. " +
+          "See migration guide: https://docs.copilotkit.ai/migration/render-message",
       );
     }
   }, [hasLegacyProps]);
 
   // Create legacy props object for the adapter
-  const legacyProps: LegacyRenderProps = useMemo(() => ({
-    RenderTextMessage,
-    RenderActionExecutionMessage,
-    RenderAgentStateMessage,
-    RenderResultMessage,
-    RenderImageMessage,
-  }), [
-    RenderTextMessage,
-    RenderActionExecutionMessage,
-    RenderAgentStateMessage,
-    RenderResultMessage,
-    RenderImageMessage,
-  ]);
+  const legacyProps: LegacyRenderProps = useMemo(
+    () => ({
+      RenderTextMessage,
+      RenderActionExecutionMessage,
+      RenderAgentStateMessage,
+      RenderResultMessage,
+      RenderImageMessage,
+    }),
+    [
+      RenderTextMessage,
+      RenderActionExecutionMessage,
+      RenderAgentStateMessage,
+      RenderResultMessage,
+      RenderImageMessage,
+    ],
+  );
 
   // Determine which render component to use
-  const MessageRenderer = hasLegacyProps ? 
-    (props: any) => <LegacyRenderMessage {...props} legacyProps={legacyProps} /> : 
-    RenderMessage;
+  const MessageRenderer = hasLegacyProps
+    ? (props: any) => <LegacyRenderMessage {...props} legacyProps={legacyProps} />
+    : RenderMessage;
 
   return (
     <div className="copilotKitMessages" ref={messagesContainerRef}>

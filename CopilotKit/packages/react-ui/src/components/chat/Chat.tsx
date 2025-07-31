@@ -379,8 +379,6 @@ export type ImageUpload = {
   bytes: string;
 };
 
-
-
 export function CopilotChat({
   instructions,
   suggestions = "auto",
@@ -726,7 +724,6 @@ export function CopilotChat({
         onThumbsDown={handleThumbsDown}
         markdownTagRenderers={markdownTagRenderers}
         ImageRenderer={ImageRenderer}
-
         // Legacy props - passed through to Messages component
         RenderTextMessage={RenderTextMessage}
         RenderActionExecutionMessage={RenderActionExecutionMessage}

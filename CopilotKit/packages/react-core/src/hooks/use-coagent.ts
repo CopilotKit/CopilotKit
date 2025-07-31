@@ -89,10 +89,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import {
-  CopilotContextParams,
-  useCopilotContext,
-} from "../context";
+import { CopilotContextParams, useCopilotContext } from "../context";
 import { CoagentState } from "../types/coagent-state";
 import { useCopilotChat } from "./use-copilot-chat_internal";
 import { Message } from "@copilotkit/shared";

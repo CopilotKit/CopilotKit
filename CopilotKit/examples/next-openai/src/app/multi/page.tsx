@@ -158,7 +158,7 @@ function TravelPlanner() {
                     id: randomId(),
                     role: MessageRole.User,
                     content: testMessage.message,
-                  })
+                  }),
                 )
               }
             >

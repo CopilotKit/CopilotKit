@@ -115,7 +115,7 @@ import { useCopilotChat } from "@copilotkit/react-core";
 export function ConfiguredChat() {
   const { sendMessage } = useCopilotChat({
     headers: { "X-Custom-Header": "value" },
-    makeSystemMessage: (context, instructions) => 
+    makeSystemMessage: (context, instructions) =>
       `You are a helpful assistant. ${instructions || ""}`
   });
  

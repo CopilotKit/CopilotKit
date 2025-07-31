@@ -105,7 +105,7 @@
  * export function ConfiguredChat() {
  *   const { sendMessage } = useCopilotChat({
  *     headers: { "X-Custom-Header": "value" },
- *     makeSystemMessage: (context, instructions) => 
+ *     makeSystemMessage: (context, instructions) =>
  *       `You are a helpful assistant. ${instructions || ""}`
  *   });
  *
@@ -125,21 +125,17 @@
  * ```
  */
 
-import { 
-  UseCopilotChatOptions, 
-  useCopilotChat as useCopilotChatInternal, 
+import {
+  UseCopilotChatOptions,
+  useCopilotChat as useCopilotChatInternal,
   UseCopilotChatReturn as UseCopilotChatReturnInternal,
 } from "./use-copilot-chat_internal";
 
 // Create a type that excludes message-related properties from the internal type
-export type UseCopilotChatReturn = Omit<UseCopilotChatReturnInternal, 
-  | 'messages' 
-  | 'sendMessage'
-  | 'suggestions'
-  | 'interrupt'
+export type UseCopilotChatReturn = Omit<
+  UseCopilotChatReturnInternal,
+  "messages" | "sendMessage" | "suggestions" | "interrupt"
 >;
-
-
 
 /**
  * A lightweight React hook for headless chat interactions.
@@ -155,11 +151,9 @@ export type UseCopilotChatReturn = Omit<UseCopilotChatReturnInternal,
  * const { appendMessage, setSuggestions, generateSuggestions } = useCopilotChat();
  * ```
  */
-export function useCopilotChat(
-  options: UseCopilotChatOptions = {},
-): UseCopilotChatReturn {
+export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotChatReturn {
   // Use the internal implementation (no API key required)
-  const { 
+  const {
     visibleMessages,
     appendMessage,
     setSuggestions,

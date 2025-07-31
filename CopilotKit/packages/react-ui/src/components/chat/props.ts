@@ -149,10 +149,10 @@ export interface UserMessageProps {
 
   /**
    * @deprecated use message instead
-   * 
+   *
    * The raw data from the assistant's response
    */
-    rawData: any;
+  rawData: any;
 }
 
 export interface AssistantMessageProps {
@@ -210,25 +210,25 @@ export interface AssistantMessageProps {
 
   /**
    * @deprecated use message instead
-   * 
+   *
    * The raw data from the assistant's response
    */
   rawData: any;
 
   /**
-   * 
+   *
    * @deprecated
-   * 
+   *
    * use `message.generativeUI()` instead.
-   * 
+   *
    * For example:
-   * 
+   *
    * ```tsx
    * const CustomAssistantMessage = ({ message }: AssistantMessageProps) => {
    *   const subComponent = message?.generativeUI?.();
    *   return <div>{subComponent}</div>;
    * };
-   * 
+   *
    * ```
    */
   subComponent?: React.JSX.Element;

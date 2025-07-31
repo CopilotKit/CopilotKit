@@ -4,7 +4,7 @@ export type { UseCopilotChatOptions } from "./use-copilot-chat_internal";
 export {
   type UseCopilotChatReturn_c,
   type UseCopilotChatOptions_c,
-  useCopilotChat_c
+  useCopilotChat_c,
 } from "./use-copilot-chat_c";
 export { useCopilotChat as useCopilotChatInternal } from "./use-copilot-chat_internal";
 export { useCopilotAction } from "./use-copilot-action";

@@ -155,7 +155,8 @@ function useCopilotChat_c(options: UseCopilotChatOptions_c = {}): UseCopilotChat
     if (!hasPublicApiKey) {
       setBannerError(
         new CopilotKitError({
-          message: "You're using useCopilotChat_c, which offers improved headless chat capabilities. Get your free API key to continue (always free for open-source, no card required)",
+          message:
+            "You're using useCopilotChat_c, which offers improved headless chat capabilities. Get your free API key to continue (always free for open-source, no card required)",
           code: CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR,
           severity: Severity.CRITICAL,
           visibility: ErrorVisibility.BANNER,
@@ -181,4 +182,4 @@ export type { UseCopilotChatOptions_c, UseCopilotChatReturn_c, MCPServerConfig }
 
 const noKeyWarning = () => {
   styledConsole.logCopilotKitPlatformMessage();
-}
+};
