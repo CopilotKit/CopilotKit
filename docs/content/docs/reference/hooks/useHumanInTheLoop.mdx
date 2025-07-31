@@ -1,0 +1,255 @@
+---
+title: "useHumanInTheLoop"
+description: "The useHumanInTheLoop hook enables human approval and interaction workflows."
+---
+
+<br />
+<img src="https://cdn.copilotkit.ai/docs/copilotkit/images/human-in-the-loop/hitl-example.gif" width="500" />
+
+`useHumanInTheLoop` is a React hook that enables you to create interactive workflows
+where the AI can request human input or approval before proceeding. This is particularly
+useful for sensitive operations, confirmation dialogs, or gathering additional information
+from the user.
+
+The key difference from `useFrontendTool` is that this hook provides a `respond` function
+in the render props, which allows the component to send a response back to the AI,
+creating a true interactive loop.
+
+## Usage
+
+### Simple Confirmation Example
+
+```tsx
+import { useHumanInTheLoop } from "@copilotkit/react-core";
+import { z } from "zod";
+
+useHumanInTheLoop({
+  name: "confirmDeletion",
+  description: "Ask user to confirm before deleting items",
+  parameters: z.object({
+    itemName: z.string().describe("Name of the item to delete"),
+    itemCount: z.number().describe("Number of items to delete"),
+  }),
+  render: ({ args, status, respond }) => {
+    if (status === "executing" && respond) {
+      return (
+        <div className="p-4 border rounded">
+          <p>Are you sure you want to delete {args.itemCount} {args.itemName}(s)?</p>
+          <div className="flex gap-2 mt-4">
+            <button 
+              onClick={() => respond({ confirmed: true })}
+              className="bg-red-500 text-white px-4 py-2 rounded"
+            >
+              Delete
+            </button>
+            <button 
+              onClick={() => respond({ confirmed: false })}
+              className="bg-gray-300 px-4 py-2 rounded"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      );
+    }
+    
+    if (status === "complete" && args.result) {
+      return (
+        <div className="p-2 text-sm text-gray-600">
+          {args.result.confirmed ? "Items deleted" : "Deletion cancelled"}
+        </div>
+      );
+    }
+    
+    return null;
+  },
+});
+```
+
+### Complex Input Collection Example
+
+```tsx
+import { useHumanInTheLoop } from "@copilotkit/react-core";
+import { z } from "zod";
+import { useState } from "react";
+
+useHumanInTheLoop({
+  name: "collectUserPreferences",
+  description: "Collect detailed preferences from the user",
+  parameters: z.object({
+    context: z.string().describe("Context for why preferences are needed"),
+    requiredFields: z.array(z.string()).describe("Fields to collect"),
+  }),
+  render: ({ args, status, respond }) => {
+    const [preferences, setPreferences] = useState({
+      theme: "light",
+      notifications: true,
+      language: "en",
+    });
+
+    if (status === "executing" && respond) {
+      return (
+        <div className="p-4 border rounded">
+          <h3 className="font-bold mb-2">{args.context}</h3>
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            respond(preferences);
+          }}>
+            {args.requiredFields.includes("theme") && (
+              <div className="mb-4">
+                <label className="block mb-2">Theme:</label>
+                <select 
+                  value={preferences.theme}
+                  onChange={(e) => setPreferences({...preferences, theme: e.target.value})}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
+                  <option value="auto">Auto</option>
+                </select>
+              </div>
+            )}
+            
+            {args.requiredFields.includes("notifications") && (
+              <div className="mb-4">
+                <label className="flex items-center">
+                  <input 
+                    type="checkbox"
+                    checked={preferences.notifications}
+                    onChange={(e) => setPreferences({...preferences, notifications: e.target.checked})}
+                    className="mr-2"
+                  />
+                  Enable notifications
+                </label>
+              </div>
+            )}
+            
+            <button 
+              type="submit"
+              className="bg-blue-500 text-white px-4 py-2 rounded"
+            >
+              Save Preferences
+            </button>
+          </form>
+        </div>
+      );
+    }
+    
+    return null;
+  },
+});
+```
+
+## Parameters
+
+<PropertyReference name="tool" type="ReactHumanInTheLoop<T>" required>
+  The human-in-the-loop tool configuration object.
+
+    <PropertyReference name="name" type="string" required>
+      The name of the tool.
+    </PropertyReference>
+
+    <PropertyReference name="description" type="string">
+      A description of the tool. This is used to instruct the Copilot on when to
+      request human input.
+    </PropertyReference>
+
+    <PropertyReference name="parameters" type="z.ZodType<T>">
+      The Zod schema defining the parameters that will be passed to the render function.
+    </PropertyReference>
+
+    <PropertyReference name="render" type="React.ComponentType<RenderProps>" required>
+      A React component that renders the interactive UI. The component receives props with:
+      
+      <div className="ml-8">
+        <PropertyReference name="status" type="'inProgress' | 'executing' | 'complete'">
+          - `"inProgress"`: arguments are being streamed, UI can show loading state.
+          - `"executing"`: Ready for user interaction, `respond` function is available.
+          - `"complete"`: Interaction complete, can show result.
+        </PropertyReference>
+
+        <PropertyReference name="args" type="Partial<T> | T">
+          The arguments passed from the AI. When status is `"inProgress"`, they may be incomplete.
+        </PropertyReference>
+
+        <PropertyReference name="respond" type="(result: unknown) => Promise<void>">
+          Function to send the user's response back to the AI. Only available when status is `"executing"`.
+          Call this with the user's input to continue the workflow.
+        </PropertyReference>
+
+        <PropertyReference name="result" type="unknown">
+          The response that was sent back. Only available when status is `"complete"`.
+        </PropertyReference>
+
+        <PropertyReference name="name" type="string">
+          The name of the tool being executed.
+        </PropertyReference>
+
+        <PropertyReference name="description" type="string">
+          The description of the tool being executed.
+        </PropertyReference>
+      </div>
+    </PropertyReference>
+</PropertyReference>
+
+<PropertyReference name="dependencies" type="any[]">
+  An optional array of dependencies.
+</PropertyReference>
+
+## Best Practices
+
+1. **Always check for the `respond` function** before rendering interactive elements
+2. **Handle all status states** to provide good user feedback
+3. **Validate user input** before calling `respond`
+4. **Provide clear instructions** in your UI about what input is expected
+5. **Consider timeout scenarios** for time-sensitive operations
+
+## Migration from useCopilotAction
+
+If you're migrating from `useCopilotAction` with `renderAndWaitForResponse`:
+
+```tsx
+// Before with useCopilotAction
+useCopilotAction({
+  name: "confirmAction",
+  parameters: [
+    { name: "message", type: "string", required: true },
+  ],
+  renderAndWaitForResponse: ({ args, respond, status }) => {
+    return (
+      <ConfirmDialog 
+        message={args.message}
+        onConfirm={() => respond(true)}
+        onCancel={() => respond(false)}
+        isActive={status === "executing"}
+      />
+    );
+  },
+});
+
+// After with useHumanInTheLoop
+useHumanInTheLoop({
+  name: "confirmAction",
+  parameters: z.object({
+    message: z.string(),
+  }),
+  render: ({ args, respond, status }) => {
+    if (status === "executing" && respond) {
+      return (
+        <ConfirmDialog 
+          message={args.message}
+          onConfirm={() => respond(true)}
+          onCancel={() => respond(false)}
+          isActive={true}
+        />
+      );
+    }
+    return null;
+  },
+});
+```
+
+The main differences are:
+1. Parameters use Zod schemas
+2. The property is called `render` instead of `renderAndWaitForResponse`
+3. You need to check for the `respond` function's existence

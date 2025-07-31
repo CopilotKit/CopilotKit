@@ -1,5 +1,6 @@
 import { SearchProgress } from "@/components/SearchProgress";
-import { useCoAgent, useCoAgentStateRender, useCopilotAction } from "@copilotkit/react-core";
+import { useCoAgent, useCoAgentStateRender, useHumanInTheLoop } from "@copilotkit/react-core";
+import { z } from "zod";
 import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { createContext, useContext, ReactNode, useMemo } from "react";
 import { AddTrips, EditTrips, DeleteTrips } from "@/components/humanInTheLoop";
@@ -45,46 +46,31 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
     maxSuggestions: 2,
   }, [state.trips]);
 
-  useCopilotAction({ 
+  useHumanInTheLoop({ 
     name: "add_trips",
     description: "Add some trips",
-    parameters: [
-      {
-        name: "trips",
-        type: "object[]",
-        description: "The trips to add",
-        required: true,
-      },
-    ],
-    renderAndWait: AddTrips,
+    parameters: z.object({
+      trips: z.array(z.any()).describe("The trips to add"),
+    }),
+    render: AddTrips,
   });
 
-  useCopilotAction({
+  useHumanInTheLoop({
     name: "update_trips",
     description: "Update some trips",
-    parameters: [
-      {
-        name: "trips",
-        type: "object[]",
-        description: "The trips to update",
-        required: true,
-      },
-    ],
-    renderAndWait: (props) => EditTrips({ ...props, trips: state.trips, selectedTripId: state.selected_trip_id as string }),
+    parameters: z.object({
+      trips: z.array(z.any()).describe("The trips to update"),
+    }),
+    render: (props) => EditTrips({ ...props, trips: state.trips, selectedTripId: state.selected_trip_id as string }),
   });
 
-  useCopilotAction({
+  useHumanInTheLoop({
     name: "delete_trips",
     description: "Delete some trips",
-    parameters: [
-      {
-        name: "trip_ids",
-        type: "string[]",
-        description: "The ids of the trips to delete",
-        required: true,
-      },
-    ],
-    renderAndWait: (props) => DeleteTrips({ ...props, trips: state.trips }),
+    parameters: z.object({
+      trip_ids: z.array(z.string()).describe("The ids of the trips to delete"),
+    }),
+    render: (props) => DeleteTrips({ ...props, trips: state.trips }),
   });
 
   const selectedTrip = useMemo(() => {

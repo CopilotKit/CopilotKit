@@ -1,6 +1,6 @@
 "use client";
 
-import { CatchAllActionRenderProps, useCoAgent, useCopilotAction, useLangGraphInterrupt } from "@copilotkit/react-core";
+import { useCoAgent, useRenderToolCall, useLangGraphInterrupt } from "@copilotkit/react-core";
 import { CopilotChat, CopilotKitCSSProperties } from "@copilotkit/react-ui";
 import { ToolCall } from "@/registry/quickstarts/coagents-generic-lg/components/tool-call";
 import { AgentState } from "@/registry/quickstarts/coagents-generic-lg/components/agent-state";
@@ -42,9 +42,9 @@ function Chat(props: HTMLAttributes<HTMLDivElement>) {
       <Interrupt event={event} result={result} resolve={resolve} />
   });
 
-  useCopilotAction({
+  useRenderToolCall({
     name: "*",
-    render: ({ name, args, status, result }: CatchAllActionRenderProps) => {      
+    render: ({ name, args, status, result }) => {      
       return (
         <ToolCall name={name} args={args} status={status} result={result} />
       );

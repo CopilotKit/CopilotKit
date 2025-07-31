@@ -1,6 +1,28 @@
-# CopilotKit useCopilotAction Legacy Documentation
+# CopilotKit useCopilotAction → New Hooks Migration - COMPLETED
 
-This document outlines every instance of `useCopilotAction` found in the docs and example code throughout the CopilotKit codebase, providing context, purpose, and notable parameters for each usage pattern.
+This document outlines the completed migration from `useCopilotAction` to the new hooks (`useFrontendTool`, `useHumanInTheLoop`, `useRenderToolCall`) throughout the CopilotKit codebase.
+
+## Migration Summary
+
+### New Hooks Created
+1. **useFrontendTool** - For frontend tools with handlers
+2. **useHumanInTheLoop** - For interactive workflows requiring user input  
+3. **useRenderToolCall** - For rendering backend tool calls
+
+### Key Changes
+- All documentation updated to use new hooks
+- Examples migrated to use appropriate hooks based on pattern
+- Terminology changed from "actions" to "tools" throughout
+- Parameter arrays converted to Zod schemas
+- Deprecation notice added to useCopilotAction reference
+
+### Files Updated
+- 46 documentation files
+- 55 example files  
+- 6 registry templates
+- All framework-specific documentation
+
+The original content below shows the patterns that were migrated:
 
 ## Table of Contents
 

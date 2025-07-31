@@ -1,20 +1,20 @@
 "use client";
 
-import { useCoAgent, useCopilotAction } from "@copilotkit/react-core";
+import { useCoAgent, useFrontendTool, useRenderToolCall } from "@copilotkit/react-core";
+import { z } from "zod";
 import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
 import { useState } from "react";
 
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
 
-  // 🪁 Frontend Actions: https://docs.copilotkit.ai/guides/frontend-actions
-  useCopilotAction({
+  // 🪁 Frontend Tools: https://docs.copilotkit.ai/guides/frontend-tools
+  useFrontendTool({
     name: "setThemeColor",
-    parameters: [{
-      name: "themeColor",
-      description: "The theme color to set. Make sure to pick nice colors.",
-      required: true, 
-    }],
+    description: "Set the theme color of the interface",
+    parameters: z.object({
+      themeColor: z.string().describe("The theme color to set. Make sure to pick nice colors."),
+    }),
     handler({ themeColor }) {
       setThemeColor(themeColor);
     },
@@ -51,14 +51,13 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
     },
   })
 
-  // 🪁 Frontend Actions: https://docs.copilotkit.ai/coagents/frontend-actions
-  useCopilotAction({
+  // 🪁 Frontend Tools: https://docs.copilotkit.ai/coagents/frontend-tools
+  useFrontendTool({
     name: "addProverb",
-    parameters: [{
-      name: "proverb",
-      description: "The proverb to add. Make it witty, short and concise.",
-      required: true,
-    }],
+    description: "Add a proverb to the list",
+    parameters: z.object({
+      proverb: z.string().describe("The proverb to add. Make it witty, short and concise."),
+    }),
     handler: ({ proverb }) => {
       setState({
         ...state,
@@ -68,13 +67,12 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
   });
 
   //🪁 Generative UI: https://docs.copilotkit.ai/coagents/generative-ui
-  useCopilotAction({
+  useRenderToolCall({
     name: "getWeather",
     description: "Get the weather for a given location.",
-    available: "disabled",
-    parameters: [
-      { name: "location", type: "string", required: true },
-    ],
+    parameters: z.object({
+      location: z.string().describe("The location to get weather for"),
+    }),
     render: ({ args }) => {
       return <WeatherCard location={args.location} themeColor={themeColor} />
     },
