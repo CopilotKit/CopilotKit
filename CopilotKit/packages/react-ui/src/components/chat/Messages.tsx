@@ -17,7 +17,7 @@ export const Messages = ({
   markdownTagRenderers,
 }: MessagesProps) => {
   const { labels } = useChatContext();
-  const { visibleMessages, interrupt } = useCopilotChat();
+  const { messages: visibleMessages, interrupt } = useCopilotChat();
   const initialMessages = useMemo(() => makeInitialMessages(labels.initial), [labels.initial]);
   const messages = [...initialMessages, ...visibleMessages];
   const { messagesContainerRef, messagesEndRef } = useScrollToBottom(messages);

@@ -1,178 +1,197 @@
 /**
- * `useCopilotChat` is a React hook that lets you directly interact with the
- * Copilot instance. Use to implement a fully custom UI (headless UI) or to
- * programmatically interact with the Copilot instance managed by the default
- * UI.
+ * `useCopilotChat` is a lightweight React hook for headless chat interactions.
+ * Perfect for programmatic messaging, background operations, and custom UI implementations.
  *
- * **Requires a publicApiKey** - Sign up for free at https://cloud.copilotkit.ai/
- * to get your API key with generous usage limits.
+ * **Open Source Friendly** - Works without requiring a `publicApiKey`.
  *
- * ## Usage
+ * ## Use Cases:
  *
- * ### Simple Usage
+ * - **Programmatic Messaging**: Send messages without displaying chat UI
+ * - **Background Operations**: Trigger AI interactions in the background
+ * - **Custom UI**: Build your own chat interface using CopilotKit's messaging infrastructure
+ * - **Testing & Automation**: Programmatic chat interactions for testing
+ * - **Fire-and-Forget**: Send messages without needing to read responses
+ * - **Suggestion Management**: Control chat suggestions programmatically
+ *
+ * ## What's Included:
+ *
+ * - `sendMessage` - Send messages to the chat (preferred over `appendMessage`)
+ * - `appendMessage` - Legacy method for sending messages (deprecated)
+ * - `setSuggestions` - Manually control suggestions
+ * - `generateSuggestions` - Trigger AI-powered suggestion generation
+ *
+ * ## What's NOT Included:
+ *
+ * - Message reading (`visibleMessages`)
+ * - Loading states (`isLoading`, `isLoadingSuggestions`)
+ * - Message management (`setMessages`, `deleteMessage`, `reloadMessages`)
+ * - Chat controls (`reset`, `stopGeneration`)
+ * - Advanced features (`mcpServers`, `runChatCompletion`, `interrupt`)
+ *
+ * ## Usage:
+ *
+ * ### Basic Messaging
  *
  * ```tsx
- * import { CopilotKit } from "@copilotkit/react-core";
  * import { useCopilotChat } from "@copilotkit/react-core";
- * import { Role, TextMessage } from "@copilotkit/runtime-client-gql";
  *
- * export function App() {
- *   return (
- *     <CopilotKit publicApiKey="your-public-api-key">
- *       <YourComponent />
- *     </CopilotKit>
- *   );
- * }
+ * export function BackgroundMessaging() {
+ *   const { sendMessage } = useCopilotChat();
  *
- * export function YourComponent() {
- *   const { appendMessage } = useCopilotChat();
+ *   const sendMessage = async () => {
+ *     await sendMessage({
+ *       id: "123",
+ *       role: "user",
+ *       content: "Process this data in the background",
+ *     });
+ *   };
  *
- *   appendMessage(
- *     new TextMessage({
- *       content: "Hello World",
- *       role: Role.User,
- *     }),
- *   );
- *
- *   // optionally, you can append a message without running chat completion
- *   appendMessage(yourMessage, { followUp: false });
+ *   return <button onClick={sendMessage}>Send Message</button>;
  * }
  * ```
  *
- * ### Working with Suggestions
+ * ### Suggestion Management
  *
  * ```tsx
- * import { CopilotKit } from "@copilotkit/react-core";
- * import { useCopilotChat, useCopilotChatSuggestions } from "@copilotkit/react-core";
+ * import { useCopilotChat } from "@copilotkit/react-core";
  *
- * export function App() {
- *   return (
- *     <CopilotKit publicApiKey="your-public-api-key">
- *       <YourComponent />
- *     </CopilotKit>
- *   );
- * }
+ * export function SuggestionController() {
+ *   const { setSuggestions, generateSuggestions } = useCopilotChat();
  *
- * export function YourComponent() {
- *   const {
- *     suggestions,
- *     setSuggestions,
- *     generateSuggestions,
- *     isLoadingSuggestions
- *   } = useCopilotChat();
- *
- *   // Configure AI suggestion generation
- *   useCopilotChatSuggestions({
- *     instructions: "Suggest helpful actions based on the current context",
- *     maxSuggestions: 3
- *   });
- *
- *   // Manual suggestion control
- *   const handleCustomSuggestion = () => {
- *     setSuggestions([{ title: "Custom Action", message: "Perform custom action" }]);
+ *   const setCustomSuggestions = () => {
+ *     setSuggestions([
+ *       { title: "Analyze Data", message: "Analyze the current dataset" },
+ *       { title: "Generate Report", message: "Create a summary report" }
+ *     ]);
  *   };
  *
- *   // Trigger AI generation
- *   const handleGenerateSuggestions = async () => {
+ *   const triggerAISuggestions = async () => {
  *     await generateSuggestions();
  *   };
+ *
+ *   return (
+ *     <div>
+ *       <button onClick={setCustomSuggestions}>Set Custom Suggestions</button>
+ *       <button onClick={triggerAISuggestions}>Generate AI Suggestions</button>
+ *     </div>
+ *   );
  * }
  * ```
  *
- * `useCopilotChat` returns an object with the following properties:
+ * ### Manual Suggestions
+ *
+ * ```tsx
+ * import { useCopilotChat } from "@copilotkit/react-core";
+ *
+ * export function AutomatedWorkflow() {
+ *   const { setSuggestions } = useCopilotChat();
+ *
+ *   const manuallySetSuggestions = () => {
+ *     setSuggestions([
+ *       { title: "Continue", message: "Continue to next step" },
+ *       { title: "Stop", message: "Stop the workflow" }
+ *     ]);
+ *   };
+ *
+ *   return <button onClick={manuallySetSuggestions}>Manually Set Suggestions</button>;
+ * }
+ * ```
+ *
+ * ### With Configuration Options
+ *
+ * ```tsx
+ * import { useCopilotChat } from "@copilotkit/react-core";
+ *
+ * export function ConfiguredChat() {
+ *   const { sendMessage } = useCopilotChat({
+ *     headers: { "X-Custom-Header": "value" },
+ *     makeSystemMessage: (context, instructions) => 
+ *       `You are a helpful assistant. ${instructions || ""}`
+ *   });
+ *
+ *   return <button onClick={() => sendMessage(message)}>Send Message</button>;
+ * }
+ * ```
+ *
+ * ## Return Type:
  *
  * ```tsx
  * const {
- *   visibleMessages, // An array of messages that are currently visible in the chat.
- *   appendMessage, // A function to append a message to the chat.
- *   setMessages, // A function to set the messages in the chat.
- *   deleteMessage, // A function to delete a message from the chat.
- *   reloadMessages, // A function to reload the messages from the API.
- *   stopGeneration, // A function to stop the generation of the next message.
- *   reset, // A function to reset the chat.
- *   isLoading, // A boolean indicating if the chat is loading.
- *
- *   // Suggestion control (headless UI)
- *   suggestions, // Current suggestions array
- *   setSuggestions, // Manually set suggestions
+ *   sendMessage,        // Send messages programmatically (preferred)
+ *   appendMessage,      // Legacy method (deprecated)
+ *   setSuggestions,     // Set custom suggestions array
  *   generateSuggestions, // Trigger AI suggestion generation
- *   resetSuggestions, // Clear all suggestions
- *   isLoadingSuggestions, // Whether suggestions are being generated
  * } = useCopilotChat();
  * ```
  */
-import { useEffect } from "react";
-import { useCopilotContext } from "../context/copilot-context";
 
-import {
-  useCopilotChat as useCopilotChatInternal,
-  defaultSystemMessage,
-  UseCopilotChatOptions,
-  UseCopilotChatReturn,
-  MCPServerConfig,
+import { 
+  UseCopilotChatOptions, 
+  useCopilotChat as useCopilotChatInternal, 
+  UseCopilotChatReturn as UseCopilotChatReturnInternal,
 } from "./use-copilot-chat_internal";
-import {
-  ErrorVisibility,
-  Severity,
-  CopilotKitError,
-  CopilotKitErrorCode,
-  styledConsole,
-} from "@copilotkit/shared";
 
-// Non-functional fallback implementation
-const createNonFunctionalReturn = (): UseCopilotChatReturn => ({
-  visibleMessages: [],
-  appendMessage: async () => {},
-  setMessages: () => {},
-  deleteMessage: () => {},
-  reloadMessages: async () => {},
-  stopGeneration: () => {},
-  reset: () => {},
-  isLoading: false,
-  runChatCompletion: async () => [],
-  mcpServers: [],
-  setMcpServers: () => {},
-  suggestions: [],
-  setSuggestions: () => {},
-  generateSuggestions: async () => {},
-  resetSuggestions: () => {},
-  isLoadingSuggestions: false,
-  interrupt: null,
-});
-function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotChatReturn {
-  const { copilotApiConfig, setBannerError } = useCopilotContext();
+// Create a type that excludes message-related properties from the internal type
+export type UseCopilotChatReturn = Omit<UseCopilotChatReturnInternal, 
+  | 'messages' 
+  | 'sendMessage'
+  | 'suggestions'
+  | 'interrupt'
+>;
 
-  // Check if publicApiKey is available
-  const hasPublicApiKey = Boolean(copilotApiConfig.publicApiKey);
 
-  // Always call the internal hook (follows rules of hooks)
-  const internalResult = useCopilotChatInternal(options);
 
-  // Set banner error when no public API key is provided
-  useEffect(() => {
-    if (!hasPublicApiKey) {
-      setBannerError(
-        new CopilotKitError({
-          message: "As of v1.10.0, useCopilotChat requires a publicApiKey to function.",
-          code: CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR,
-          severity: Severity.CRITICAL,
-          visibility: ErrorVisibility.BANNER,
-        }),
-      );
-      styledConsole.logCopilotKitPlatformMessage();
-    } else {
-      setBannerError(null); // Clear banner when API key is provided
-    }
-  }, [hasPublicApiKey]); // Removed setBannerError dependency
+/**
+ * A lightweight React hook for headless chat interactions.
+ * Perfect for programmatic messaging, background operations, and custom UI implementations.
+ *
+ * **Open Source Friendly** - Works without requiring a `publicApiKey`.
+ *
+ * @param options - Configuration options for the chat
+ * @returns Object containing appendMessage, setSuggestions, and generateSuggestions functions
+ *
+ * @example
+ * ```tsx
+ * const { appendMessage, setSuggestions, generateSuggestions } = useCopilotChat();
+ * ```
+ */
+export function useCopilotChat(
+  options: UseCopilotChatOptions = {},
+): UseCopilotChatReturn {
+  // Use the internal implementation (no API key required)
+  const { 
+    visibleMessages,
+    appendMessage,
+    setSuggestions,
+    generateSuggestions,
+    setMessages,
+    deleteMessage,
+    reloadMessages,
+    stopGeneration,
+    reset,
+    isLoading,
+    runChatCompletion,
+    mcpServers,
+    setMcpServers,
+    resetSuggestions,
+    isLoadingSuggestions,
+  } = useCopilotChatInternal(options);
 
-  // Return internal result if publicApiKey is available, otherwise return fallback
-  if (hasPublicApiKey) {
-    return internalResult;
-  }
-
-  // Return non-functional fallback when no publicApiKey
-  return createNonFunctionalReturn();
+  return {
+    visibleMessages,
+    appendMessage,
+    setMessages,
+    deleteMessage,
+    reloadMessages,
+    stopGeneration,
+    reset,
+    isLoading,
+    runChatCompletion,
+    setSuggestions,
+    generateSuggestions,
+    mcpServers,
+    setMcpServers,
+    resetSuggestions,
+    isLoadingSuggestions,
+  };
 }
-
-export { defaultSystemMessage, useCopilotChat };
-export type { UseCopilotChatOptions, UseCopilotChatReturn, MCPServerConfig };

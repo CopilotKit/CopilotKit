@@ -91,9 +91,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   CopilotContextParams,
-  CopilotMessagesContextParams,
   useCopilotContext,
-  useCopilotMessagesContext,
 } from "../context";
 import { CoagentState } from "../types/coagent-state";
 import { useCopilotChat } from "./use-copilot-chat_internal";
@@ -239,7 +237,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
 
   const { coagentStates, coagentStatesRef, setCoagentStatesWithRef, threadId, copilotApiConfig } =
     context;
-  const { appendMessage, runChatCompletion } = useCopilotChat();
+  const { sendMessage, runChatCompletion } = useCopilotChat();
   const headers = {
     ...(copilotApiConfig.headers || {}),
   };
@@ -351,9 +349,9 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
 
   const runAgentCallback = useAsyncCallback(
     async (hint?: HintFunction) => {
-      await runAgent(name, context, getMessagesFromTap(), appendMessage, runChatCompletion, hint);
+      await runAgent(name, context, getMessagesFromTap(), sendMessage, runChatCompletion, hint);
     },
-    [name, context, appendMessage, runChatCompletion],
+    [name, context, sendMessage, runChatCompletion],
   );
 
   // Return the state and setState function
@@ -406,7 +404,7 @@ export async function runAgent(
   name: string,
   context: CopilotContextParams,
   messages: GqlMessage[],
-  appendMessage: (message: Message) => Promise<void>,
+  sendMessage: (message: Message) => Promise<void>,
   runChatCompletion: () => Promise<Message[]>,
   hint?: HintFunction,
 ) {
@@ -430,7 +428,7 @@ export async function runAgent(
   if (hint) {
     const hintMessage = hint({ previousState, currentState: state });
     if (hintMessage) {
-      await appendMessage(hintMessage);
+      await sendMessage(hintMessage);
     } else {
       await runChatCompletion();
     }
