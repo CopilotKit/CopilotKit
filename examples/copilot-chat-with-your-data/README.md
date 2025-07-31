@@ -163,18 +163,14 @@ You can even render these backend actions safely in the frontend.
 <em>[components/Dashboard.tsx](./components/Dashboard.tsx)</em>
 
 ```tsx
-useCopilotAction({
+import { z } from "zod";
+
+useRenderToolCall({
   name: "searchInternet",
-  available: "disabled",
   description: "Searches the internet for information.",
-  parameters: [
-    {
-      name: "query",
-      type: "string",
-      description: "The query to search the internet for.",
-      required: true,
-    }
-  ],
+  parameters: z.object({
+    query: z.string().describe("The query to search the internet for."),
+  }),
   render: ({args, status}) => {
     return <SearchResults query={args.query || 'No query provided'} status={status} />;
   }

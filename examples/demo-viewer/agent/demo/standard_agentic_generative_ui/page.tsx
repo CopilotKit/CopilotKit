@@ -2,8 +2,9 @@
 import React from "react";
 import "@copilotkit/react-ui/styles.css";
 import "./style.css";
-import { CopilotKit, useCopilotAction } from "@copilotkit/react-core";
+import { CopilotKit, useHumanInTheLoop } from "@copilotkit/react-core";
 import { CopilotChat, useCopilotChatSuggestions } from "@copilotkit/react-ui";
+import { z } from "zod";
 import { initialPrompt, chatSuggestions, instructions } from "@/lib/prompts";
 import { Steps } from "./Steps";
 const AgenticGenerativeUI: React.FC = () => {
@@ -19,21 +20,16 @@ const AgenticGenerativeUI: React.FC = () => {
 
 const Chat = () => {
 
-  useCopilotAction({
+  useHumanInTheLoop({
     name: "show_steps",
     description: "Show the steps to the user which was requested by the user",
-    parameters: [
-      {
-        name: "steps",
-        type: "object[]",
-        attributes: [
-          { name: "description", type: "string" },
-          { name: "status", type: "string", enum: ["pending", "completed"] }
-        ]
-      }
-    ],
-    followUp: false,
-    renderAndWaitForResponse: ({ status, args, respond }) => {
+    parameters: z.object({
+      steps: z.array(z.object({
+        description: z.string(),
+        status: z.enum(["pending", "completed"])
+      }))
+    }),
+    render: ({ status, args, respond }) => {
       debugger
       console.log(status, "stauts", args)
       if (status === "executing" || status === "complete") {
@@ -43,14 +39,6 @@ const Chat = () => {
         return <></>
       }
     },
-    // handler: async ({ steps }) => {
-    // for (let i = 0; i < steps.length; i++) {
-    //   await delay(1000);
-    // steps[i].status = "completed";
-    // Optionally update agent state here for UI
-    // }
-    // return { steps };
-    // }
   })
 
   useCopilotChatSuggestions({

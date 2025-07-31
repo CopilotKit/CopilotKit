@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from "react";
 import "@copilotkit/react-ui/styles.css";
 import "./style.css";
-import { CopilotKit, useCopilotAction, useLangGraphInterrupt } from "@copilotkit/react-core";
+import { CopilotKit, useHumanInTheLoop, useLangGraphInterrupt } from "@copilotkit/react-core";
+import { z } from "zod";
 import { CopilotChat, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { initialPrompt, chatSuggestions, instructions } from "@/lib/prompts";
 const HumanInTheLoop: React.FC = () => {
@@ -18,29 +19,16 @@ const HumanInTheLoop: React.FC = () => {
 
 const Chat = () => {
 
-  useCopilotAction({
+  useHumanInTheLoop({
     name: "generate_task_steps",
     description: "Make up 10 steps (only a couple of words per step) that are required for a task. The step should be in imperative form (i.e. Dig hole, Open door, ...). When the user responds with selected steps, you must generate the summary with the selected steps.",
-    parameters: [
-      {
-        type: "object[]",
-        name: "items",
-        description: "An array of 10 step objects, each containing text and status",
-        attributes: [
-          {
-            type: "string",
-            name: "description",
-            description: "The text of the step in imperative form"
-          },
-          {
-            type: "string",
-            name: "status",
-            description: "The status of the step, always 'enabled'"
-          }
-        ]
-      }
-    ],
-    renderAndWaitForResponse: ({ args, respond, status }) => {
+    parameters: z.object({
+      items: z.array(z.object({
+        description: z.string().describe("The text of the step in imperative form"),
+        status: z.string().describe("The status of the step, always 'enabled'")
+      })).describe("An array of 10 step objects, each containing text and status")
+    }),
+    render: ({ args, respond, status }) => {
       const [newStep, setNewStep] = useState("");
 
       const handleAddStep = () => {

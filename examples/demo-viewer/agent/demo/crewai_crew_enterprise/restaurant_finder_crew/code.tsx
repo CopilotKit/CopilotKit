@@ -16,9 +16,10 @@ import { formatText } from "@/lib/utils";
 import {
   useCoAgent,
   useCoAgentStateRender,
-  useCopilotAction,
+  useHumanInTheLoop,
   useCopilotChat,
 } from "@copilotkit/react-core";
+import { z } from "zod";
 import {
   AgentState,
   CopilotChat,
@@ -171,9 +172,15 @@ export default function Home() {
     },
   });
 
-  useCopilotAction({
+  useHumanInTheLoop({
     name: "crew_requesting_feedback",
-    renderAndWaitForResponse({ status, args, respond }) {
+    parameters: z.object({
+      timestamp: z.string().optional(),
+      id: z.string().optional(),
+      task_id: z.string().optional(),
+      task_output: z.string().optional(),
+    }),
+    render({ status, args, respond }) {
       const feedback = args as CrewFeedback;
       return (
         <DefaultResponseRenderer

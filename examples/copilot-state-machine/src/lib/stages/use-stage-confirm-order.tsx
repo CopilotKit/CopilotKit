@@ -2,7 +2,8 @@ import { useGlobalState } from "@/lib/stages";
 import { Order } from "@/lib/types";
 import { ConfirmOrder } from "@/components/generative-ui/confirm-order";
 
-import { useCopilotAction, useCopilotAdditionalInstructions } from "@copilotkit/react-core";
+import { useFrontendTool, useHumanInTheLoop, useCopilotAdditionalInstructions } from "@copilotkit/react-core";
+import { z } from "zod";
 
 /**
   useStageConfirmOrder is a hook that will add this stage to the state machine. It is responsible for:
@@ -24,23 +25,25 @@ export function useStageConfirmOrder() {
   );
 
   // Conditionally add the nextState action to the state machine. Agent will decide if it should be called.
-  useCopilotAction(
+  useFrontendTool(
     {
       name: "nextState",
       description: "Proceed to next state",
       available: stage === "confirmOrder" ? "enabled" : "disabled",
+      parameters: z.object({}),
       handler: async () => setStage("getContactInfo"),
     },
     [stage],
   );
 
   // Render the ConfirmOrder component and wait for the user's response.
-  useCopilotAction(
+  useHumanInTheLoop(
     {
       name: "confirmOrder",
       description: "Confirm the order of the user",
       available: stage === "confirmOrder" ? "enabled" : "disabled",
-      renderAndWaitForResponse: ({ status, respond }) => {
+      parameters: z.object({}),
+      render: ({ status, respond }) => {
         return (
           <ConfirmOrder
             status={status}

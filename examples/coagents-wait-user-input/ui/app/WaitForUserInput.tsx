@@ -1,17 +1,16 @@
 "use client";
 
-import { useCopilotAction } from "@copilotkit/react-core";
+import { useFrontendTool } from "@copilotkit/react-core";
+import { z } from "zod";
 import { CopilotPopup } from "@copilotkit/react-ui";
 
 export function WaitForUserInput() {
-  useCopilotAction({
+  useFrontendTool({
     name: "AskHuman",
     available: "remote",
-    parameters: [
-      {
-        name: "question",
-      },
-    ],
+    parameters: z.object({
+      question: z.string()
+    }),
     handler: async ({ question }) => {
       return window.prompt(question);
     },

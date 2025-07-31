@@ -6,8 +6,9 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   useCoAgent,
   useCoAgentStateRender,
-  useCopilotAction,
+  useHumanInTheLoop,
 } from "@copilotkit/react-core";
+import { z } from "zod";
 import { Progress } from "./Progress";
 import { EditResourceDialog } from "./EditResourceDialog";
 import { AddResourceDialog } from "./AddResourceDialog";
@@ -35,18 +36,15 @@ export function ResearchCanvas() {
     },
   });
 
-  useCopilotAction({
+  useHumanInTheLoop({
     name: "DeleteResources",
     description:
       "Prompt the user for resource delete confirmation, and then perform resource deletion",
     available: "remote",
-    parameters: [
-      {
-        name: "urls",
-        type: "string[]",
-      },
-    ],
-    renderAndWait: ({ args, status, handler }) => {
+    parameters: z.object({
+      urls: z.array(z.string()).optional()
+    }),
+    render: ({ args, status, handler }) => {
       return (
         <div
           className=""

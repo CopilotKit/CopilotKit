@@ -1,6 +1,7 @@
 import { ContactInfo } from "@/components/generative-ui/contact-info";
 import { useGlobalState } from "@/lib/stages";
-import { useCopilotAction, useCopilotAdditionalInstructions } from "@copilotkit/react-core";
+import { useHumanInTheLoop, useCopilotAdditionalInstructions } from "@copilotkit/react-core";
+import { z } from "zod";
 
 export interface UseGetContactInfoStateOptions {
   enabled: boolean;
@@ -26,12 +27,13 @@ export function useStageGetContactInfo() {
   );
 
   // Render the ContactInfo component and wait for the user's response.
-  useCopilotAction(
+  useHumanInTheLoop(
     {
       name: "getContactInformation",
       description: "Get the contact information of the user",
       available: stage === "getContactInfo" ? "enabled" : "disabled",
-      renderAndWaitForResponse: ({ status, respond }) => {
+      parameters: z.object({}),
+      render: ({ status, respond }) => {
         return (
           <ContactInfo
             status={status}

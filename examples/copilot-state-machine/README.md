@@ -119,18 +119,15 @@ Each stage uses CopilotKit's hooks to provide context-aware AI assistance:
 
 ```tsx
 // Example from use-stage-build-car.tsx
-useCopilotAction({
+import { z } from "zod";
+
+useFrontendTool({
   name: "updateCarConfiguration",
   description: "Update the car configuration based on user preferences",
-  parameters: [
-    {
-      name: "model",
-      type: "string",
-      required: true,
-      description: "The car model selected by the user"
-    },
+  parameters: z.object({
+    model: z.string().describe("The car model selected by the user"),
     // Other parameters...
-  ],
+  }),
   handler: async (action) => {
     // Update state with the new configuration
   },

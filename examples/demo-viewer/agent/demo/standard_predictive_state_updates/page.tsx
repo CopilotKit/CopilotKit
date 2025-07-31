@@ -11,9 +11,10 @@ import { useEffect, useState } from "react";
 import {
   CopilotKit,
   useCoAgent,
-  useCopilotAction,
+  useHumanInTheLoop,
   useCopilotChat,
 } from "@copilotkit/react-core";
+import { z } from "zod";
 import { CopilotSidebar, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { chatSuggestions, initialPrompt, instructions } from "@/lib/prompts";
 const extensions = [StarterKit];
@@ -65,7 +66,7 @@ const DocumentEditor = () => {
   const [placeholderVisible, setPlaceholderVisible] = useState(false);
   const [currentDocument, setCurrentDocument] = useState("");
 
-  useCopilotAction({
+  useHumanInTheLoop({
     name: "write_document",
     description: `Write a document. Use markdown formatting to format the document.
             It's good to format the document extensively so it's easy to read.
@@ -75,15 +76,11 @@ const DocumentEditor = () => {
             When making edits to the document, try to make them minimal - do not change every word.
             When you are done writing the document, provide a summary of the changes you made.
             Keep stories SHORT! If user rejects the changes, Send messages like "Would you like to re-generate the document?"`,
-    parameters: [
-      {
-        type: "string",
-        name: "document",
-        description: "The document to write"
-      }
-    ],
-    renderAndWaitForResponse: ({ args, respond, status }) => {
-      console.log(args, respond, status)
+    parameters: z.object({
+      document: z.string().describe("The document to write"),
+    }),
+    render: ({ args, respond, status }) => {
+      console.log(args, respond, status);
       return <ConfirmChanges
         editor={editor}
         currentDocument={currentDocument}
@@ -102,8 +99,8 @@ const DocumentEditor = () => {
         onConfirm={() => {
           editor?.commands.setContent(fromMarkdown(args.document || ""));
         }}
-      />
-    }
+      />;
+    },
   })
 
   useCopilotChatSuggestions({

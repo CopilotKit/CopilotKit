@@ -2,10 +2,11 @@ import { ShowCar, ShowCars } from "@/components/generative-ui/show-car";
 import { Car, cars } from "@/lib/types";
 import { useGlobalState } from "@/lib/stages";
 import {
-  useCopilotAction,
+  useHumanInTheLoop,
   useCopilotReadable,
   useCopilotAdditionalInstructions,
 } from "@copilotkit/react-core";
+import { z } from "zod";
 
 /**
   useStageBuildCar is a hook that will add this stage to the state machine. It is responsible for:
@@ -37,38 +38,28 @@ export function useStageBuildCar() {
   );
 
   // Conditionally add an action to show a single car.
-  useCopilotAction(
+  useHumanInTheLoop(
     {
       name: "showCar",
       description:
         "Show a single car that you have in mind. Do not call this more than once, call `showMultipleCars` if you have multiple cars to show.",
       available: stage === "buildCar" ? "enabled" : "disabled",
-      parameters: [
-        {
-          name: "car",
-          type: "object",
-          description: "The car to show",
-          required: true,
-          attributes: [
-            { name: "id", type: "number" },
-            { name: "make", type: "string" },
-            { name: "model", type: "string" },
-            { name: "year", type: "number" },
-            { name: "color", type: "string" },
-            { name: "price", type: "number" },
-            {
-              name: "image",
-              type: "object",
-              attributes: [
-                { name: "src", type: "string" },
-                { name: "alt", type: "string" },
-                { name: "author", type: "string" },
-              ],
-            },
-          ],
-        },
-      ],
-      renderAndWaitForResponse: ({ args, status, respond }) => {
+      parameters: z.object({
+        car: z.object({
+          id: z.number(),
+          make: z.string(),
+          model: z.string(),
+          year: z.number(),
+          color: z.string(),
+          price: z.number(),
+          image: z.object({
+            src: z.string(),
+            alt: z.string(),
+            author: z.string()
+          })
+        }).describe("The car to show")
+      }),
+      render: ({ args, status, respond }) => {
         const { car } = args;
         return (
           <ShowCar
@@ -99,35 +90,26 @@ export function useStageBuildCar() {
   );
 
   // Conditionally add an action to show multiple cars.
-  useCopilotAction(
+  useHumanInTheLoop(
     {
       name: "showMultipleCars",
       description:
         "Show a list of cars based on the user's query. Do not call this more than once. Call `showCar` if you only have a single car to show.",
-      parameters: [
-        {
-          name: "cars",
-          type: "object[]",
-          required: true,
-          attributes: [
-            { name: "make", type: "string" },
-            { name: "model", type: "string" },
-            { name: "year", type: "number" },
-            { name: "color", type: "string" },
-            { name: "price", type: "number" },
-            {
-              name: "image",
-              type: "object",
-              attributes: [
-                { name: "src", type: "string" },
-                { name: "alt", type: "string" },
-                { name: "author", type: "string" },
-              ],
-            },
-          ],
-        },
-      ],
-      renderAndWaitForResponse: ({ args, status, respond }) => {
+      parameters: z.object({
+        cars: z.array(z.object({
+          make: z.string(),
+          model: z.string(),
+          year: z.number(),
+          color: z.string(),
+          price: z.number(),
+          image: z.object({
+            src: z.string(),
+            alt: z.string(),
+            author: z.string()
+          })
+        }))
+      }),
+      render: ({ args, status, respond }) => {
         return (
           <ShowCars
             cars={(args.cars as Car[]) || ([] as Car)}

@@ -9,7 +9,8 @@ import { BarChart3, Table2, Filter } from "lucide-react"
 import { getPRDataService } from "@/app/Services/service"
 import { PRData } from "@/app/Interfaces/interface"
 import { useSharedContext } from "@/lib/shared-context"
-import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core"
+import { useRenderToolCall, useFrontendTool, useCopilotReadable } from "@copilotkit/react-core"
+import { z } from "zod"
 import { PieChart, Pie, Cell, Tooltip } from "recharts"
 import { PRPieData } from "./pr-pie-all-data"
 import { PRReviewBarData } from "./pr-review-bar-data"
@@ -63,124 +64,50 @@ export function DeveloperDashboard() {
     value: JSON.stringify({ username: "Jon.Snow@got.com", userId: 1 })
   })
 
-  useCopilotAction({
+  useRenderToolCall({
     name: "renderData_PieChart",
     description: `Render a Pie-chart for labelled numeric data. Example input format: [{"name": "approved", "value": 25, "shortName": "Approved", "color": "rgb(134 239 172)"}, {"name": "in_review", "value": 15, "shortName": "In Review", "color": "rgb(216 180 254)"}, {"name": "needs_revision", "value": 10, "shortName": "Needs Revision", "color": "rgb(253 224 71)"}, {"name": "merged", "value": 5, "shortName": "Merged", "color": "rgb(147 197 253)"}] When assigning color, use the same colors if data is related to status otherwise generate random colors. Provide short name for the item in the input if the name is long. Keep it the same as the name if the name is short. For example, If the name is Jon.snow@got.com, then the short name is Jon`,
-    parameters: [
-      {
-        name: "items",
-        type: "object[]",
-        description: "Array of items to be displayed in the pie chart",
-        required: true,
-        items: {
-          type: "object",
-          attributes: [
-            {
-              name: "name",
-              type: "string",
-              description: "Name of the item",
-              required: true
-            },
-            {
-              name: "shortName",
-              type: "string",
-              description: "Short Name of the item",
-              required: true
-            },
-            {
-              name: "value",
-              type: "number",
-              description: "Value of the item",
-              required: true
-            },
-            {
-              name: "color",
-              type: "string",
-              description: "Color of the item",
-              required: true
-            }
-          ]
-        }
-      }
-    ],
+    parameters: z.object({
+      items: z.array(z.object({
+        name: z.string().describe("Name of the item"),
+        shortName: z.string().describe("Short Name of the item"),
+        value: z.number().describe("Value of the item"),
+        color: z.string().describe("Color of the item")
+      })).describe("Array of items to be displayed in the pie chart")
+    }),
     render: ({ args }: any) => {
       useEffect(() => {
         console.log(args, "args")
       }, [args])
       return <PRPieData args={args} />
-
-
     }
   })
 
-  useCopilotAction({
+  useRenderToolCall({
     name: "renderData_BarChart",
     description: `Render a Bar-chart for labelled numeric data. Example input format: [{"name": "approved", "value": 25, "color": "rgb(134 239 172)"}, {"name": "in_review", "value": 15, "color": "rgb(216 180 254)"}, {"name": "needs_revision", "value": 10, "color": "rgb(253 224 71)"}, {"name": "merged", "value": 5, "color": "rgb(147 197 253)"}] When assigning color, use the same colors if data is related to status otherwise generate random colors. Provide short name for the item in the input if the name is long. Keep it the same as the name if the name is short. For example, If the name is Jon.snow@got.com, then the short name is Jon`,
-    parameters: [
-      {
-        name: "items",
-        type: "object[]",
-        description: "Array of items to be displayed in the bar chart",
-        required: true,
-        items: {
-          type: "object",
-          attributes: [
-            {
-              name: "name",
-              type: "string",
-              description: "Name of the item",
-              required: true
-            },
-            {
-              name: "value",
-              type: "number",
-              description: "Value of the item",
-              required: true
-            }
-          ]
-        }
-      }
-    ],
+    parameters: z.object({
+      items: z.array(z.object({
+        name: z.string().describe("Name of the item"),
+        value: z.number().describe("Value of the item")
+      })).describe("Array of items to be displayed in the bar chart")
+    }),
     render: ({ args }: any) => {
       return <PRReviewBarData args={args} />
     }
   })
 
 
-  useCopilotAction({
+  useRenderToolCall({
     name: "renderData_LineChart",
     description: `Render a Line-chart based on the PR data which shows the trend of PR creation over time. Example input format: [[{"name": "12/25", "value": 10,accessorKey : "Jon"}, {"name": "7/22", "value": 20,accessorKey : "Jon"}, {"name": "12/18", "value": 30,accessorKey : "Jon"}],[{"name": "12/25", "value": 10,accessorKey : "Ned"}, {"name": "7/22", "value": 20,accessorKey : "Ned"}, {"name": "12/18", "value": 30,accessorKey : "Ned"}]]. If dates are present convert them to the format "MM/DD". Also if name length is long, provide short name for the item in the input. For example, If the name is Jon.snow@got.com, then the short name is Jon`,
-    parameters: [
-      {
-        name: "items",
-        type: "object[]",
-        description: "The data to be displayed in the line chart",
-        required: true,
-        items: {
-          type: "object",
-          attributes: [
-            {
-              name: "name",
-              type: "string",
-              description: "The name of the item",
-              required: true
-            },
-            {
-              name: "value",
-              type: "number",
-              description: "The value of the item",
-              required: true
-            },
-            {
-              name: "accessorKey",
-              type: "string",
-              description: "The accessor key of the item. It can be the author name or the repository name or the branch name or the status name or the date just value.",
-              required: true
-            }
-          ]
-        }
-      }
-    ],
+    parameters: z.object({
+      items: z.array(z.object({
+        name: z.string().describe("The name of the item"),
+        value: z.number().describe("The value of the item"),
+        accessorKey: z.string().describe("The accessor key of the item. It can be the author name or the repository name or the branch name or the status name or the date just value.")
+      })).describe("The data to be displayed in the line chart")
+    }),
     render: ({ args }: any) => {
       console.log(args, "args")
       // return <div>Hello</div>
@@ -189,91 +116,25 @@ export function DeveloperDashboard() {
   })
 
 
-  useCopilotAction({
+  useFrontendTool({
     name: "renderData_Table",
     description: `Render a table based on the PR data. Example input format: {id: 'PR22',title: 'Add Longclaw sword animation effects',status: 'needs_revision',assignedReviewer: 'lisa.martin@got.com',assignedTester: 'sarah.wilson@got.com',daysSinceStatusChange: 2,createdAt: '2025-04-22T18:41:32.868Z',updatedAt: '2025-05-18T04:36:14.176Z',userId: 1,author: 'Jon.snow@got.com',repository: 'frontend',branch: 'feature/longclaw-animations'}`,
-    parameters: [
-      {
-        name: "items",
-        type: "object[]",
-        description: "The data to be displayed in the table. It should be an array of objects",
-        required: true,
-        attributes: [
-          {
-            name: "id",
-            type: "string",
-            description: "The id of the PR",
-            required: true
-          },
-          {
-            name: "title",
-            type: "string",
-            description: "The title of the PR",
-            required: true
-          },
-          {
-            name: "status",
-            type: "string",
-            description: "The status of the PR",
-            required: true
-          },
-          {
-            name: "assignedReviewer",
-            type: "string",
-            description: "The assigned reviewer of the PR",
-            required: true
-          },
-          {
-            name: "assignedTester",
-            type: "string",
-            description: "The assigned tester of the PR",
-            required: true
-          },
-          {
-            name: "daysSinceStatusChange",
-            type: "number",
-            description: "The number of days since the status of the PR was changed",
-            required: true
-          },
-          {
-            name: "createdAt",
-            type: "string",
-            description: "The date and time when the PR was created",
-            required: true
-          },
-          {
-            name: "updatedAt",
-            type: "string",
-            description: "The date and time when the PR was last updated",
-            required: true
-          },
-          {
-            name: "userId",
-            type: "number",
-            description: "The id of the user who created the PR",
-            required: true
-          },
-          {
-            name: "author",
-            type: "string",
-            description: "The author of the PR",
-            required: true
-          },
-          {
-            name: "repository",
-            type: "string",
-            description: "The repository of the PR",
-            required: true
-          },
-          {
-            name: "branch",
-            type: "string",
-            description: "The branch of the PR",
-            required: true
-          }
-        ]
-      }
-    ],
+    parameters: z.object({
+      items: z.array(z.object({
+        id: z.string().describe("The id of the PR"),
+        title: z.string().describe("The title of the PR"),
+        status: z.string().describe("The status of the PR"),
+        assignedReviewer: z.string().describe("The assigned reviewer of the PR"),
+        assignedTester: z.string().describe("The assigned tester of the PR"),
+        daysSinceStatusChange: z.number().describe("The number of days since the status of the PR was changed"),
+        createdAt: z.string().describe("The date and time when the PR was created"),
+        updatedAt: z.string().describe("The date and time when the PR was last updated"),
+        userId: z.number().describe("The id of the user who created the PR"),
+        author: z.string().describe("The author of the PR"),
+        repository: z.string().describe("The repository of the PR"),
+        branch: z.string().describe("The branch of the PR")
+      })).describe("The data to be displayed in the table. It should be an array of objects")
+    }),
     render: ({ args, status }) => {
       useEffect(() => {
         if (args?.items) {

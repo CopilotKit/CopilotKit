@@ -121,24 +121,26 @@ useCopilotReadable({
 })
 ```
 
-### CopilotAction
+### Frontend Tool
 This allows the AI to update the form fields.
 
 <em>[components/IncidentReportForm.tsx](./components/IncidentReportForm.tsx)</em>
 
 ```tsx
-useCopilotAction({
+import { z } from "zod";
+
+useFrontendTool({
   name: "fillIncidentReportForm",
   description: "Fill out the incident report form",
-  parameters: [
-    {
-      name: "fullName",
-      type: "string",
-      required: true,
-      description: "The full name of the person reporting the incident"
-    },
+  parameters: z.object({
+    fullName: z.string().describe("The full name of the person reporting the incident"),
+    email: z.string().describe("The email address of the person reporting the incident"),
+    incidentDescription: z.string().describe("The description of the incident"),
+    date: z.string().describe("The date of the incident"),
+    incidentLevel: z.string().describe("The severity level of the incident"),
+    incidentType: z.string().describe("The type of incident"),
     // other parameters ...
-  ],
+  }),
   handler: async (action) => {
     form.setValue("name", action.fullName);
     form.setValue("email", action.email);

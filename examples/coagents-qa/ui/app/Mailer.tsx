@@ -1,27 +1,23 @@
 "use client";
 
 import React from "react";
-import { useCopilotAction } from "@copilotkit/react-core";
+import { useHumanInTheLoop } from "@copilotkit/react-core";
+import { z } from "zod";
 import { CopilotPopup } from "@copilotkit/react-ui";
 
 export function Mailer() {
-  useCopilotAction({
+  useHumanInTheLoop({
     name: "EmailTool",
     available: "remote",
-    parameters: [
-      {
-        name: "email_draft",
-        type: "string",
-        description: "The email content",
-        required: true,
-      },
-    ],
-    renderAndWait: ({ args, status, handler }) => (
+    parameters: z.object({
+      email_draft: z.string().describe("The email content")
+    }),
+    render: ({ args, status, respond }) => (
       <EmailConfirmation
         emailContent={args.email_draft || ""}
         isExecuting={status === "executing"}
-        onCancel={() => handler?.("CANCEL")} // the handler is undefined while status is "executing"
-        onSend={() => handler?.("SEND")} // the handler is undefined while status is "executing"
+        onCancel={() => respond?.("CANCEL")} // the handler is undefined while status is "executing"
+        onSend={() => respond?.("SEND")} // the handler is undefined while status is "executing"
       />
     ),
   });

@@ -4,14 +4,16 @@ import { CustomUserMessage } from "@/components/chat/UserMessage";
 import { CustomAssistantMessage } from "@/components/chat/AssistantMessage";
 import { CustomResponseButton } from "./chat/ResponseButton";
 import ContactInfo from "./generative-ui/ContactInfo";
-import { useCopilotAction } from "@copilotkit/react-core";
+import { useHumanInTheLoop } from "@copilotkit/react-core";
+import { z } from "zod";
 
 export function Chat({className}: {className?: string}) {
 
-  useCopilotAction({
+  useHumanInTheLoop({
     name: "contactInfo",
     description: "Collect contact information from the user",
-    renderAndWaitForResponse: ({respond, status}) => {
+    parameters: z.object({}),
+    render: ({respond, status}) => {
       if (status === "complete") return <></>;
       return <ContactInfo onSubmit={(form) => respond?.(form)} />;
     },

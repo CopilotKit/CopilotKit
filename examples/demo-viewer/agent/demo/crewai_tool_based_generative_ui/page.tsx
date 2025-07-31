@@ -1,5 +1,6 @@
 "use client";
-import { CopilotKit, useCopilotAction } from "@copilotkit/react-core";
+import { CopilotKit, useFrontendTool } from "@copilotkit/react-core";
+import { z } from "zod";
 import { CopilotKitCSSProperties, CopilotSidebar, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { useState, useEffect } from "react";
 import "@copilotkit/react-ui/styles.css";
@@ -112,23 +113,13 @@ function Haiku() {
     return correctedNames.slice(0, 3);
   };
 
-  useCopilotAction({
+  useFrontendTool({
     name: "generate_haiku",
-    parameters: [
-      {
-        name: "japanese",
-        type: "string[]",
-      },
-      {
-        name: "english",
-        type: "string[]",
-      },
-      {
-        name: "image_names",
-        type: "string[]",
-        description: "Names of 3 relevant images",
-      },
-    ],
+    parameters: z.object({
+      japanese: z.array(z.string()),
+      english: z.array(z.string()),
+      image_names: z.array(z.string()).describe("Names of 3 relevant images"),
+    }),
     followUp: false,
     handler: async ({ japanese, english, image_names }) => {
       const finalCorrectedImages = validateAndCorrectImageNames(image_names);

@@ -1,9 +1,10 @@
 import { useGlobalState } from "@/lib/stages";
 import {
-  useCopilotAction,
+  useFrontendTool,
   useCopilotAdditionalInstructions,
   useCopilotReadable,
 } from "@copilotkit/react-core";
+import { z } from "zod";
 
 export interface UseStagePaymentMethodOptions {
   enabled: boolean;
@@ -40,22 +41,24 @@ export function useStageSellFinancing() {
   );
 
   // Conditionally add an action to move to the getFinancingInfo stage.
-  useCopilotAction(
+  useFrontendTool(
     {
       name: "selectFinancing",
       description: "Select the financing option",
       available: stage === "sellFinancing" ? "enabled" : "disabled",
+      parameters: z.object({}),
       handler: () => setStage("getFinancingInfo"),
     },
     [stage],
   );
 
   // Conditionally add an action to move to the getPaymentInfo stage.
-  useCopilotAction(
+  useFrontendTool(
     {
       name: "selectNoFinancing",
       description: "Select the no financing option",
       available: stage === "sellFinancing" ? "enabled" : "disabled",
+      parameters: z.object({}),
       handler: () => setStage("getPaymentInfo"),
     },
     [stage],

@@ -1,6 +1,7 @@
 "use client";
 
-import { useCoAgent, useCopilotAction } from "@copilotkit/react-core";
+import { useCoAgent, useRenderToolCall } from "@copilotkit/react-core";
+import { z } from "zod";
 import { CopilotPopup } from "@copilotkit/react-ui";
 import ReactMarkdown from "react-markdown";
 
@@ -32,16 +33,12 @@ function MainContent() {
     },
   });
 
-  useCopilotAction({
+  useRenderToolCall({
     name: "research_crew",
-    parameters: [
-      {
-        name: "topic",
-      },
-      {
-        name: "current_year",
-      },
-    ],
+    parameters: z.object({
+      topic: z.string(),
+      current_year: z.string()
+    }),
     render({ args, status }) {
       return (
         <div className="m-4 p-4 bg-gray-100 rounded shadow">

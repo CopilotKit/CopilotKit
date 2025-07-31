@@ -20,7 +20,8 @@
     "lucide-react": "^0.466.0",
     "next": "14.2.32",
     "react": "^18",
-    "react-dom": "^18"
+    "react-dom": "^18",
+    "zod": "^4.0.14"
   },
   "devDependencies": {
     "@types/node": "^22",
