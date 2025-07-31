@@ -345,6 +345,12 @@ importers:
       untruncate-json:
         specifier: ^0.0.1
         version: 0.0.1
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+      zod-to-json-schema:
+        specifier: ^3.23.5
+        version: 3.24.5(zod@3.25.76)
     devDependencies:
       '@testing-library/react':
         specifier: ^16.3.0
@@ -3492,8 +3498,8 @@ packages:
       react:
         optional: true
 
-  '@langchain/langgraph-sdk@0.1.5':
-    resolution: {integrity: sha512-4rIGAyncjQYWur5/P77be2g13rSCBqO0Xn4FlmiJMDxB5csPqkwf3qmy8LrOXB96K99t7G5IL0sq4nSLqFsl/Q==}
+  '@langchain/langgraph-sdk@0.1.6':
+    resolution: {integrity: sha512-PeXxfo4ls8yql6YdW8qjnZgp1giy7oqJiGjy4j2OSJ7lpkir8n62YpvADDByEh9sPzGLJYh92ZUAh0GNfQ18vA==}
     peerDependencies:
       '@langchain/core': '>=0.2.31 <0.4.0 || ^1.0.0-alpha'
       react: ^18 || ^19
@@ -10263,7 +10269,7 @@ snapshots:
       '@ag-ui/client': 0.0.38
       '@ag-ui/core': 0.0.38
       '@langchain/core': 0.3.66(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))
-      '@langchain/langgraph-sdk': 0.1.5(@langchain/core@0.3.66(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)
+      '@langchain/langgraph-sdk': 0.1.6(@langchain/core@0.3.66(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)
       partial-json: 0.1.7
       rxjs: 7.8.1
     transitivePeerDependencies:
@@ -13018,8 +13024,8 @@ snapshots:
       '@aws-sdk/client-kendra': 3.808.0
       '@aws-sdk/credential-provider-node': 3.806.0
       '@langchain/core': 0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))
-      zod: 3.23.8
-      zod-to-json-schema: 3.24.5(zod@3.23.8)
+      zod: 3.25.76
+      zod-to-json-schema: 3.24.5(zod@3.25.76)
     transitivePeerDependencies:
       - aws-crt
 
@@ -13030,8 +13036,8 @@ snapshots:
       '@aws-sdk/client-kendra': 3.808.0
       '@aws-sdk/credential-provider-node': 3.806.0
       '@langchain/core': 0.3.66(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.25.76))
-      zod: 3.23.8
-      zod-to-json-schema: 3.24.5(zod@3.23.8)
+      zod: 3.25.76
+      zod-to-json-schema: 3.24.5(zod@3.25.76)
     transitivePeerDependencies:
       - aws-crt
     optional: true
@@ -13249,7 +13255,7 @@ snapshots:
     dependencies:
       '@langchain/core': 0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))
       uuid: 10.0.0
-      zod-to-json-schema: 3.23.5(zod@3.23.8)
+      zod-to-json-schema: 3.24.5(zod@3.23.8)
     transitivePeerDependencies:
       - zod
 
@@ -13307,7 +13313,7 @@ snapshots:
       '@langchain/core': 0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))
       react: 18.3.1
 
-  '@langchain/langgraph-sdk@0.1.5(@langchain/core@0.3.66(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)':
+  '@langchain/langgraph-sdk@0.1.6(@langchain/core@0.3.66(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@types/json-schema': 7.0.15
       p-queue: 6.6.2
@@ -17313,7 +17319,7 @@ snapshots:
       isstream: 0.1.2
       jsonwebtoken: 9.0.2
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.7.9(debug@4.4.1))
+      retry-axios: 2.6.0(axios@1.7.9)
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -20257,7 +20263,7 @@ snapshots:
       onetime: 5.1.2
       signal-exit: 3.0.7
 
-  retry-axios@2.6.0(axios@1.7.9(debug@4.4.1)):
+  retry-axios@2.6.0(axios@1.7.9):
     dependencies:
       axios: 1.7.9(debug@4.4.1)
 
