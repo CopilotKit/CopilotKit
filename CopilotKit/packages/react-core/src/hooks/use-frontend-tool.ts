@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import { useCopilotAction } from "./use-copilot-action";
 import { FrontendAction } from "../types/frontend-action";
 import React from "react";
@@ -40,9 +39,7 @@ export function useFrontendTool<T extends Record<string, any> = {}>(
   dependencies?: any[],
 ) {
   // Convert Zod schema to JSON Schema if parameters are provided
-  const jsonSchema = tool.parameters
-    ? JSON.stringify(zodToJsonSchema(tool.parameters as unknown as any))
-    : undefined;
+  const jsonSchema = tool.parameters ? JSON.stringify(z.toJSONSchema(tool.parameters)) : undefined;
 
   // Convert render function to match FrontendAction expectations
   const render = tool.render

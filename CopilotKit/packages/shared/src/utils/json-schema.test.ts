@@ -5,7 +5,6 @@ import {
   jsonSchemaToActionParameters,
   JSONSchema,
 } from "../utils/json-schema";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import { Parameter } from "../types";
 
 describe("convertJsonSchemaToZodSchema", () => {
@@ -25,8 +24,8 @@ describe("convertJsonSchemaToZodSchema", () => {
     });
 
     const result = convertJsonSchemaToZodSchema(jsonSchema, true);
-    const resultSchemaJson = zodToJsonSchema(result);
-    const expectedSchemaJson = zodToJsonSchema(expectedSchema);
+    const resultSchemaJson = z.toJSONSchema(result);
+    const expectedSchemaJson = z.toJSONSchema(expectedSchema);
 
     expect(resultSchemaJson).toStrictEqual(expectedSchemaJson);
   });
@@ -57,8 +56,8 @@ describe("convertJsonSchemaToZodSchema", () => {
     });
 
     const result = convertJsonSchemaToZodSchema(jsonSchema, true);
-    const resultSchemaJson = zodToJsonSchema(result);
-    const expectedSchemaJson = zodToJsonSchema(expectedSchema);
+    const resultSchemaJson = z.toJSONSchema(result);
+    const expectedSchemaJson = z.toJSONSchema(expectedSchema);
 
     expect(resultSchemaJson).toStrictEqual(expectedSchemaJson);
   });
@@ -80,8 +79,8 @@ describe("convertJsonSchemaToZodSchema", () => {
     });
 
     const result = convertJsonSchemaToZodSchema(jsonSchema, true);
-    const resultSchemaJson = zodToJsonSchema(result);
-    const expectedSchemaJson = zodToJsonSchema(expectedSchema);
+    const resultSchemaJson = z.toJSONSchema(result);
+    const expectedSchemaJson = z.toJSONSchema(expectedSchema);
 
     expect(resultSchemaJson).toStrictEqual(expectedSchemaJson);
   });
@@ -106,8 +105,8 @@ describe("convertJsonSchemaToZodSchema", () => {
 
     console.log(convertJsonSchemaToZodSchema(jsonSchema, false));
 
-    const resultSchemaJson = zodToJsonSchema(result);
-    const expectedSchemaJson = zodToJsonSchema(expectedSchema);
+    const resultSchemaJson = z.toJSONSchema(result);
+    const expectedSchemaJson = z.toJSONSchema(expectedSchema);
 
     expect(resultSchemaJson).toStrictEqual(expectedSchemaJson);
   });
@@ -130,8 +129,8 @@ describe("convertJsonSchemaToZodSchema", () => {
     });
 
     const result = convertJsonSchemaToZodSchema(jsonSchema, true);
-    const resultSchemaJson = zodToJsonSchema(result);
-    const expectedSchemaJson = zodToJsonSchema(expectedSchema);
+    const resultSchemaJson = z.toJSONSchema(result);
+    const expectedSchemaJson = z.toJSONSchema(expectedSchema);
 
     expect(resultSchemaJson).toStrictEqual(expectedSchemaJson);
   });
@@ -144,8 +143,8 @@ describe("convertJsonSchemaToZodSchema", () => {
     const expectedSchema = z.object({});
 
     const result = convertJsonSchemaToZodSchema(jsonSchema, true);
-    const resultSchemaJson = zodToJsonSchema(result);
-    const expectedSchemaJson = zodToJsonSchema(expectedSchema);
+    const resultSchemaJson = z.toJSONSchema(result);
+    const expectedSchemaJson = z.toJSONSchema(expectedSchema);
 
     expect(resultSchemaJson).toStrictEqual(expectedSchemaJson);
   });
@@ -167,8 +166,8 @@ describe("convertJsonSchemaToZodSchema", () => {
       .optional();
 
     const result = convertJsonSchemaToZodSchema(jsonSchema, false);
-    const resultSchemaJson = zodToJsonSchema(result);
-    const expectedSchemaJson = zodToJsonSchema(expectedSchema);
+    const resultSchemaJson = z.toJSONSchema(result);
+    const expectedSchemaJson = z.toJSONSchema(expectedSchema);
 
     expect(resultSchemaJson).toStrictEqual(expectedSchemaJson);
   });
