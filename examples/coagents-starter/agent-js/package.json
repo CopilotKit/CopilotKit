@@ -21,7 +21,7 @@
     "@langchain/google-genai": "^0.2.16",
     "@langchain/langgraph": "^0.4.5",
     "@langchain/openai": "^0.6.9",
-    "zod": "3.25.67"
+    "zod": "^4.0.14"
   },
   "resolutions": {
     "@langchain/langgraph": "0.4.5"
