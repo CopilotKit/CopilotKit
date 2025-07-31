@@ -23,3 +23,5 @@ export { useCopilotAdditionalInstructions } from "./use-copilot-additional-instr
 export type { Tree, TreeNode } from "./use-tree";
 export { useHumanInTheLoop } from "./use-human-in-the-loop";
 export type { ReactHumanInTheLoop } from "./use-human-in-the-loop";
+export { useRenderToolCall } from "./use-render-tool-call";
+export type { ReactRenderToolCall } from "./use-render-tool-call";
