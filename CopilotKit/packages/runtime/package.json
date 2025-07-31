@@ -43,8 +43,7 @@
     "ts-node": "^10.9.2",
     "tsconfig": "workspace:*",
     "tsup": "^6.7.0",
-    "typescript": "^5.2.3",
-    "zod-to-json-schema": "^3.23.5"
+    "typescript": "^5.2.3"
   },
   "dependencies": {
     "@ag-ui/client": "^0.0.38",

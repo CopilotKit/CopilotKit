@@ -351,9 +351,6 @@ importers:
       zod:
         specifier: ^4.0.14
         version: 4.1.11
-      zod-to-json-schema:
-        specifier: ^3.23.5
-        version: 3.24.5(zod@4.1.11)
     devDependencies:
       '@testing-library/react':
         specifier: ^16.3.0
@@ -736,9 +733,6 @@ importers:
       typescript:
         specifier: ^5.2.3
         version: 5.5.4
-      zod-to-json-schema:
-        specifier: ^3.23.5
-        version: 3.23.5(zod@4.1.11)
 
   packages/runtime-client-gql:
     dependencies:
@@ -839,7 +833,7 @@ importers:
     devDependencies:
       '@langchain/langgraph':
         specifier: ^0.4.5
-        version: 0.4.6(@langchain/core@0.3.66(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@4.1.11)))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)(zod-to-json-schema@3.23.5(zod@4.1.11))
+        version: 0.4.6(@langchain/core@0.3.66(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@4.1.11)))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)(zod-to-json-schema@3.24.5(zod@4.1.11))
       '@swc/core':
         specifier: 1.5.28
         version: 1.5.28(@swc/helpers@0.5.13)
@@ -882,9 +876,6 @@ importers:
       typescript:
         specifier: ^5.2.3
         version: 5.5.4
-      zod-to-json-schema:
-        specifier: ^3.23.5
-        version: 3.23.5(zod@4.1.11)
 
   packages/shared:
     dependencies:
@@ -906,9 +897,6 @@ importers:
       zod:
         specifier: ^4.0.14
         version: 4.1.11
-      zod-to-json-schema:
-        specifier: ^3.23.5
-        version: 3.23.5(zod@4.1.11)
     devDependencies:
       '@types/jest':
         specifier: ^29.5.4
@@ -13439,7 +13427,7 @@ snapshots:
     transitivePeerDependencies:
       - openai
 
-  '@langchain/langgraph@0.4.6(@langchain/core@0.3.66(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@4.1.11)))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)(zod-to-json-schema@3.23.5(zod@4.1.11))':
+  '@langchain/langgraph@0.4.6(@langchain/core@0.3.66(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@4.1.11)))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)(zod-to-json-schema@3.24.5(zod@4.1.11))':
     dependencies:
       '@langchain/core': 0.3.66(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@4.1.11))
       '@langchain/langgraph-checkpoint': 0.1.0(@langchain/core@0.3.66(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@4.1.11)))
@@ -13447,7 +13435,7 @@ snapshots:
       uuid: 10.0.0
       zod: 3.25.76
     optionalDependencies:
-      zod-to-json-schema: 3.23.5(zod@4.1.11)
+      zod-to-json-schema: 3.24.5(zod@4.1.11)
     transitivePeerDependencies:
       - react
       - react-dom
@@ -21817,10 +21805,6 @@ snapshots:
   zod-to-json-schema@3.23.5(zod@3.25.76):
     dependencies:
       zod: 3.25.76
-
-  zod-to-json-schema@3.23.5(zod@4.1.11):
-    dependencies:
-      zod: 4.1.11
 
   zod-to-json-schema@3.24.5(zod@3.25.76):
     dependencies:

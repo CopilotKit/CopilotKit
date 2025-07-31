@@ -48,8 +48,7 @@
     "chalk": "4.1.2",
     "graphql": "^16.8.1",
     "uuid": "^10.0.0",
-    "zod": "^4.0.14",
-    "zod-to-json-schema": "^3.23.5"
+    "zod": "^4.0.14"
   },
   "keywords": [
     "copilotkit",
