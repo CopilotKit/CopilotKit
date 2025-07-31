@@ -1,5 +1,5 @@
 /**
- * This class is used to execute one-off tasks, for example on button press. It can use the context available via [useCopilotReadable](/reference/hooks/useCopilotReadable) and the actions provided by [useCopilotAction](/reference/hooks/useCopilotAction), or you can provide your own context and actions.
+ * This class is used to execute one-off tasks, for example on button press. It can use the context available via [useCopilotReadable](/reference/hooks/useCopilotReadable) and the tools provided by [useFrontendTool](/reference/hooks/useFrontendTool), or you can provide your own context and tools.
  *
  * ## Example
  * In the simplest case, use CopilotTask in the context of your app by giving it instructions on what to do.

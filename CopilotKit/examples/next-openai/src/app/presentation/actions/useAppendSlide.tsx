@@ -1,4 +1,4 @@
-import { useCopilotAction, useFrontendTool } from "@copilotkit/react-core";
+import { useFrontendTool } from "@copilotkit/react-core";
 import { SlideModel } from "../types";
 import { SlidePreview } from "../components/misc/SlidePreview";
 import z from "zod";
