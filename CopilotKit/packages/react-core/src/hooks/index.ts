@@ -21,3 +21,5 @@ export { useLangGraphInterrupt } from "./use-langgraph-interrupt";
 export { useLangGraphInterruptRender } from "./use-langgraph-interrupt-render";
 export { useCopilotAdditionalInstructions } from "./use-copilot-additional-instructions";
 export type { Tree, TreeNode } from "./use-tree";
+export { useHumanInTheLoop } from "./use-human-in-the-loop";
+export type { ReactHumanInTheLoop } from "./use-human-in-the-loop";
