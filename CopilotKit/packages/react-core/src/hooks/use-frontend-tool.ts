@@ -7,7 +7,7 @@ export type ReactFrontendTool<T> = {
   name: string;
   description?: string;
   parameters?: z.ZodType<T>;
-  handler?: (args: T) => Promise<unknown>;
+  handler?: (args: T) => Promise<any>;
   followUp?: boolean;
   render?: React.ComponentType<
     | {
