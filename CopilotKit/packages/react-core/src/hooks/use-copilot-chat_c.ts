@@ -2,13 +2,15 @@
  * `useCopilotChat_c` is for building fully custom UI (headless UI) implementations.
  *
  * <Callout type="info">
- * **Requires a free subscription key** - Sign up for free at https://cloud.copilotkit.ai/
- * to get your API key with generous usage limits.
+ * **Requires a free license key** - Sign up for free at https://cloud.copilotkit.ai/
+ * to get your license key with generous usage.
+ *
+ * Available for free to get started and is possible to use with a self-hosted Runtime.
  * </Callout>
  *
  * ## Key Features:
  *
- * - **Complete Message Management**: Full access to messages, sendMessage, visibleMessages
+ * - **Fully headless**: Build your own fully custom UI's for your agentic applications.
  * - **Advanced Suggestions**: Direct access to suggestions array with full control
  * - **Interrupt Handling**: Support for advanced interrupt functionality
  * - **MCP Server Support**: Model Context Protocol server configurations

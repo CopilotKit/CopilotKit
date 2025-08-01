@@ -1,8 +1,12 @@
 /**
  * `useCopilotChat` is a lightweight React hook for headless chat interactions.
- * Perfect for programmatic messaging, background operations, and custom UI implementations.
+ * Perfect for controlling the prebuilt chat components programmatically.
  *
  * **Open Source Friendly** - Works without requiring a free subscription key.
+ *
+ * <Callout>
+ * Looking for fully headless UI? Get started with [useCopilotChat_c](https://docs.copilotkit.ai/reference/hooks/useCopilotChat_c).
+ * </Callout>
  *
  * ## Use Cases:
  *
@@ -10,6 +14,24 @@
  * - **Programmatic control**: Control prebuilt component programmatically
  * - **Background Operations**: Trigger AI interactions in the background
  * - **Fire-and-Forget**: Send messages without needing to read responses
+ *
+ * ## Usage:
+ *
+ * ```tsx
+ * import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";
+ *
+ * const { appendMessage } = useCopilotChat();
+ *
+ * // Example usage without naming conflicts
+ * const handleSendMessage = async (content: string) => {
+ *   await appendMessage(
+ *     new TextMessage({
+ *       role: MessageRole.User,
+ *       content,
+ *     })
+ *   );
+ * };
+ * ```
  */
 
 import {
@@ -21,7 +43,16 @@ import {
 // Create a type that excludes message-related properties from the internal type
 export type UseCopilotChatReturn = Omit<
   UseCopilotChatReturnInternal,
-  "messages" | "sendMessage" | "suggestions" | "interrupt"
+  | "messages"
+  | "sendMessage"
+  | "suggestions"
+  | "setSuggestions"
+  | "generateSuggestions"
+  | "isLoadingSuggestions"
+  | "resetSuggestions"
+  | "interrupt"
+  | "setMessages"
+  | "deleteMessage"
 >;
 
 /**
@@ -29,24 +60,11 @@ export type UseCopilotChatReturn = Omit<
  * Perfect for programmatic messaging, background operations, and custom UI implementations.
  *
  * **Open Source Friendly** - Works without requiring a `publicApiKey`.
- *
- * @param options - Configuration options for the chat
- * @returns Object containing chat management functions (excludes: messages, sendMessage, suggestions, interrupt)
- *
- * @example
- * ```tsx
- * const { visibleMessages, appendMessage, setSuggestions, generateSuggestions, reset } = useCopilotChat();
- * ```
  */
 export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotChatReturn {
-  // Use the internal implementation (no API key required)
   const {
     visibleMessages,
     appendMessage,
-    setSuggestions,
-    generateSuggestions,
-    setMessages,
-    deleteMessage,
     reloadMessages,
     stopGeneration,
     reset,
@@ -54,25 +72,17 @@ export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotC
     runChatCompletion,
     mcpServers,
     setMcpServers,
-    resetSuggestions,
-    isLoadingSuggestions,
   } = useCopilotChatInternal(options);
 
   return {
     visibleMessages,
     appendMessage,
-    setMessages,
-    deleteMessage,
     reloadMessages,
     stopGeneration,
     reset,
     isLoading,
     runChatCompletion,
-    setSuggestions,
-    generateSuggestions,
     mcpServers,
     setMcpServers,
-    resetSuggestions,
-    isLoadingSuggestions,
   };
 }
