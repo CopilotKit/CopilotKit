@@ -40,9 +40,8 @@ export function ResearchCanvas() {
     name: "DeleteResources",
     description:
       "Prompt the user for resource delete confirmation, and then perform resource deletion",
-    available: "remote",
     parameters: z.object({
-      urls: z.array(z.string()).optional()
+      urls: z.array(z.string()).optional(),
     }),
     render: ({ args, status, handler }) => {
       return (

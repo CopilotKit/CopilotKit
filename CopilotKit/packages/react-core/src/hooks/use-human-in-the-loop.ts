@@ -67,6 +67,7 @@ export function useHumanInTheLoop<T extends Record<string, any> = {}>(
     jsonSchema,
     // Parameters will be undefined since we're using jsonSchema
     parameters: undefined,
+    available: "remote",
   };
 
   // Use the existing useCopilotAction hook

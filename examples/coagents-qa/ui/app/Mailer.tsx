@@ -8,9 +8,8 @@ import { CopilotPopup } from "@copilotkit/react-ui";
 export function Mailer() {
   useHumanInTheLoop({
     name: "EmailTool",
-    available: "remote",
     parameters: z.object({
-      email_draft: z.string().describe("The email content")
+      email_draft: z.string().describe("The email content"),
     }),
     render: ({ args, status, respond }) => (
       <EmailConfirmation
