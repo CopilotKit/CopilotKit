@@ -7,5 +7,5 @@
 
 Introduces new hooks with zod support:
 - useHumanInTheLoop
-- useFrontendAction
-- useRenderedActions
+- useFrontendTool
+- useRenderToolCall
