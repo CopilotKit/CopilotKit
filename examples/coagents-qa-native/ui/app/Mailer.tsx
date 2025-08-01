@@ -1,8 +1,7 @@
 "use client";
 
 import { useModelSelectorContext } from "@/lib/model-selector-provider";
-import { useCoAgent, useFrontendTool } from "@copilotkit/react-core";
-import { z } from "zod";
+import { useCoAgent, useCopilotAction } from "@copilotkit/react-core";
 import { CopilotPopup } from "@copilotkit/react-ui";
 import { useState } from "react";
 import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
@@ -56,22 +55,28 @@ export function Mailer() {
     },
   });
 
-  useFrontendTool({
+  useCopilotAction({
     name: "EmailTool",
-    parameters: z.object({
-      the_email: z.string(),
-    }),
+    parameters: [
+      {
+        name: "the_email",
+        type: "string",
+      },
+    ],
     handler: async ({ the_email }) => {
       return { emailContent: the_email };
     },
   });
 
-  useFrontendTool({
+  useCopilotAction({
     name: "DisplayEmail",
     pairedAction: "EmailTool",
-    parameters: z.object({
-      emailContent: z.string(),
-    }),
+    parameters: [
+      {
+        name: "emailContent",
+        type: "string",
+      },
+    ],
     handler: async ({ emailContent }) => {
       const result = window.confirm(emailContent);
       const action = result ? "SEND" : "CANCEL";
