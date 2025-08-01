@@ -52,15 +52,14 @@ export function Mailer() {
       model,
     },
     configurable: {
-      authToken: 'exampleToken'
-    }
+      authToken: "exampleToken",
+    },
   });
 
   useFrontendTool({
     name: "EmailTool",
-    available: "remote",
     parameters: z.object({
-      the_email: z.string()
+      the_email: z.string(),
     }),
     handler: async ({ the_email }) => {
       return { emailContent: the_email };
@@ -69,9 +68,9 @@ export function Mailer() {
 
   useFrontendTool({
     name: "DisplayEmail",
-    pairedAction: 'EmailTool',
+    pairedAction: "EmailTool",
     parameters: z.object({
-      emailContent: z.string()
+      emailContent: z.string(),
     }),
     handler: async ({ emailContent }) => {
       const result = window.confirm(emailContent);

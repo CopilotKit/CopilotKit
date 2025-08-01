@@ -7,9 +7,8 @@ import { CopilotPopup } from "@copilotkit/react-ui";
 export function WaitForUserInput() {
   useFrontendTool({
     name: "AskHuman",
-    available: "remote",
     parameters: z.object({
-      question: z.string()
+      question: z.string(),
     }),
     handler: async ({ question }) => {
       return window.prompt(question);
