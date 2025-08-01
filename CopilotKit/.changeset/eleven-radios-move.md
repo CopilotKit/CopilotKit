@@ -6,6 +6,7 @@
 ---
 
 Introduces new hooks with zod support:
+
 - useHumanInTheLoop
 - useFrontendTool
 - useRenderToolCall
