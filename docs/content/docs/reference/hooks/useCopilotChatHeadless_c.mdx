@@ -1,0 +1,99 @@
+---
+title: "useCopilotChatHeadless_c"
+---
+
+{
+ /*
+  * ATTENTION! DO NOT MODIFY THIS FILE!
+  * This page is auto-generated. If you want to make any changes to this page, changes must be made at:
+  * CopilotKit/packages/react-core/src/hooks/use-copilot-chat-headless_c.ts
+  */
+}
+`useCopilotChatHeadless_c` is for building fully custom UI (headless UI) implementations.
+ 
+<Callout type="info">
+Requires a free license key - Sign up for free at https://cloud.copilotkit.ai/
+to get your license key with generous usage.
+ 
+Available for free to get started and is possible to use with a self-hosted Runtime.
+</Callout>
+ 
+## Key Features:
+ 
+- Fully headless: Build your own fully custom UI's for your agentic applications.
+- Advanced Suggestions: Direct access to suggestions array with full control
+- Interrupt Handling: Support for advanced interrupt functionality
+- MCP Server Support: Model Context Protocol server configurations
+- Chat Controls: Complete set of chat management functions
+- Loading States: Comprehensive loading state management
+ 
+## Usage:
+ 
+### Basic Setup
+ 
+```tsx
+import { CopilotKit } from "@copilotkit/react-core";
+import { useCopilotChatHeadless_c } from "@copilotkit/react-core";
+ 
+export function App() {
+  return (
+    <CopilotKit publicApiKey="your-free-subscription-key">
+      <YourComponent />
+    </CopilotKit>
+  );
+}
+ 
+export function YourComponent() {
+  const { messages, sendMessage, isLoading } = useCopilotChatHeadless_c();
+ 
+  const handleSendMessage = async () => {
+    await sendMessage({
+      id: "123",
+      role: "user",
+      content: "Hello World",
+    });
+  };
+ 
+  return (
+    <div>
+      {messages.map(msg => <div key={msg.id}>{msg.content}</div>)}
+      <button onClick={handleSendMessage} disabled={isLoading}>
+        Send Message
+      </button>
+    </div>
+  );
+}
+```
+ 
+### Working with Suggestions
+ 
+```tsx
+import { useCopilotChatHeadless_c, useCopilotChatSuggestions } from "@copilotkit/react-core";
+ 
+export function SuggestionExample() {
+  const {
+    suggestions,
+    setSuggestions,
+    generateSuggestions,
+    isLoadingSuggestions
+  } = useCopilotChatHeadless_c();
+ 
+  // Configure AI suggestion generation
+  useCopilotChatSuggestions({
+    instructions: "Suggest helpful actions based on the current context",
+    maxSuggestions: 3
+  });
+ 
+  return (
+    <div>
+      {suggestions.map(suggestion => (
+        <button key={suggestion.title}>{suggestion.title}</button>
+      ))}
+      <button onClick={generateSuggestions} disabled={isLoadingSuggestions}>
+        Generate Suggestions
+      </button>
+    </div>
+  );
+}
+```
+
