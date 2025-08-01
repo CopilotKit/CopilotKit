@@ -276,6 +276,16 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               ]);
             });
 
+            test(`Initial labels are displayed for variant ${variant.name}`, async ({
+              page,
+            }) => {
+              page.setDefaultTimeout(PAGE_TIMEOUT);
+              await page.goto(`${config.url}multi${variant.queryParams}`);
+              await expect(page.getByText("Hi you! 👋 Let's book your next vacation. Ask me anything.")).toBeVisible({
+                timeout: PAGE_TIMEOUT,
+              });
+            });
+
             test(`Call multiple HITL actions and non-HITL actions with variant ${variant.name}`, async ({
               page,
             }) => {
