@@ -1,134 +1,160 @@
 ---
-title: Mastra Integration
-icon: "lucide/Sparkles"
-description: Build Agent-Native Applications (ANAs) powered by CopilotKit and Mastra Agents.
+title: Mastra × CopilotKit
+icon: "custom/langchain"
+description: Bring your Mastra agents to your users with CopilotKit.
 ---
 
-import { BiSolidMessage as TextIcon } from "react-icons/bi";
-import { VscJson as JsonIcon } from "react-icons/vsc";
-import { FaDiscord } from "react-icons/fa";
-import Link from "next/link";
-import { TelescopeIcon } from "lucide-react";
-import { YouTubeVideo } from "@/components/react/youtube-video";
-import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
-import {
-  CoAgentsFeatureToggle,
-  CoAgentsFeatureRender,
-} from "@/components/react/coagents/coagents-features.tsx";
-import { DynamicContentWrapper } from "@/components/react/dynamic-content-wrapper";
-import { ExamplesCarousel } from "@/components/react/examples-carousel";
-import {
-  LuPlane,
-  LuBookOpen,
-  LuLightbulb,
-  LuLayoutTemplate,
-  LuBrainCog,
-  LuUserCog,
-  LuWand,
-  LuPlay,
-  LuMessageSquare,
-  LuWrench,
-} from "react-icons/lu";
-import { CoAgentsExamples } from "@/components/react/examples-carousel";
 import { CTACards } from "@/components/react/cta-cards";
-import { FaSync } from "react-icons/fa";
-import { Socials } from "@/components/react/socials";
 
-<div className="p-4 mb-6 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-  <div className="flex items-center gap-2 mb-2">
-    <TelescopeIcon className="h-5 w-5 text-gray-700 dark:text-gray-300" />
-    <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300">Mastra Overview</h3>
-  </div>
-  <p className="text-gray-700 dark:text-gray-300">
-    Visit the <a href="https://v0-mastra-land.vercel.app/" target="_blank" rel="noopener noreferrer" className="font-medium underline underline-offset-4 decoration-gray-400 dark:decoration-gray-500 hover:text-gray-900 dark:hover:text-gray-100">Mastra Overview Page</a> to learn more about Mastra's capabilities and features.
-  </p>
+CopilotKit and Mastra together provide everything you need to build rich, interactive, agent-powered applications. With full user-interaction infrastructure, you can create copilots that are not just smart, but truly collaborative.  This means that your agentic application can:
+* Respond quickly and often to user input
+* Allow the user to steer as needed
+* Take action on the user's behalf, driving the app, or other tools through MCP
+
+<div className="p-0 rounded-lg shadow-[0_0_40px_10px_rgba(99,102,241,0.4)]">
+  <video 
+    src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
+    className="rounded-lg w-full"
+    controls
+    autoPlay
+    muted
+    loop
+    playsInline
+  />
 </div>
 
-# Copilot Infrastructure for Mastra Agents
+<Callout>
+Proverbs Example app, demonstrating some of the key features of a CopilotKit app with a Mastra agent.*
+</Callout>
 
-Full user-interaction infrastructure for your agents, to turn your agents into Copilot Agents (CoAgents).
+---
 
+## ✨ Generative UI
 
-## Building blocks of a CoAgent
+Generative UI lets you render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. It bridges the gap between AI agents and user interfaces. 
 
-Everything you need to build Agent-Native Applications (ANAs), right out of the box.
-
-<Cards className="gap-6">
-  <Card
-    className="p-6 rounded-xl text-base border-black dark:border-white"
-    icon={<LuMessageSquare />}
-    title="Agentic Chat UI"
-    description="In-app chat powered by your agent."
-    href="/mastra/agentic-chat-ui"
+<div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(200,200,200,0.4)]">
+  <video 
+    src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4"
+    className="rounded-2xl w-full"
+    controls
+    autoPlay
+    muted
+    loop
+    playsInline
   />
-  <Card
-    className="p-6 rounded-xl text-base border-black dark:border-white"
-    icon={<LuLayoutTemplate />}
-    title="Generative UI"
-    description="UI that updates in real-time based on your agent's state."
-    href="/mastra/generative-ui"
+</div>
+
+<Callout>
+  Haiku Generator - CopilotKit app with a Mastra agent. 
+  <a href="https://feature-viewer-langgraph.vercel.app/feature/tool_based_generative_ui" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:font-bold transition-colors">Live Demo</a> 
+  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/demo-viewer/agent/demo/langgraph_tool_based_generative_ui" className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 hover:font-bold transition-colors">GitHub</a>
+</Callout>
+
+
+---
+
+## 🧑‍💻 Human in the Loop
+
+Empower users to guide agents at key checkpoints. Human-in-the-loop lets you combine the best of AI and human judgment.
+
+<div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(200,200,200,0.4)]">
+  <video 
+    src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
+    className="rounded-2xl w-full"
+    controls
+    autoPlay
+    muted
+    loop
+    playsInline
   />
-  <Card
-    className="p-6 rounded-xl text-base border-black dark:border-white"
-    icon={<LuWand />}
-    title="Frontend Tools"
-    description="Give your agent the ability to take action in your application."
-    href="/mastra/frontend-actions"
+</div>
+
+<Callout>
+  AI Travel App - CopilotKit app with Mastra agent using HITL to get user feedback. 
+  <a href="https://examples-coagents-ai-travel-app.vercel.app/" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:font-bold transition-colors">Live Demo</a> 
+  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/demo-viewer/agent/demo/langgraph_human_in_the_loop" className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 hover:font-bold transition-colors">GitHub</a>
+</Callout>
+
+---
+
+## 🔄 Shared State
+
+Keep your agent and your app in sync. Shared state means your agent can see everything in your app, and your app can react to your agent.
+
+<div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(200,200,200,0.4)]">
+  <video 
+    src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4"
+    className="rounded-2xl w-full"
+    controls
+    autoPlay
+    muted
+    loop
+    playsInline
   />
-  <Card
-    className="p-6 rounded-xl text-base border-black dark:border-white"
-    icon={<LuWand />}
-    title="Multi-Agent Coordination"
-    description="Route your agent to the right agent based on the user's request."
-    href="/mastra/multi-agent-flows"
-  />
-  <Card
-    className="p-6 rounded-xl text-base border-black dark:border-white"
-    icon={<LuUserCog />}
-    title="Human-in-the-Loop"
-    description="Set smart checkpoints where humans can guide your agents."
-    href="/mastra/human-in-the-loop"
-  />
-</Cards>
+</div>
 
-## Ready to get started?
+<Callout>
+  Recipe Example App - CopilotKit app sharing state with Mastra agent. 
+  <a href="https://feature-viewer-langgraph.vercel.app/feature/shared_state" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:font-bold transition-colors">Live Demo</a> 
+  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/demo-viewer/agent/demo/langgraph_shared_state" className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 hover:font-bold transition-colors">GitHub</a>
+</Callout>
 
-Get started with CoAgents in as little as 5 minutes with one of our guides or tutorials.
+---
 
-<Cards className="gap-6">
-  <Card
-    className="p-6 rounded-xl text-base border-black dark:border-white"
-    icon={<LuPlay />}
-    title="Quickstart"
-    description="Learn how to build your first CoAgent in 10 minutes."
-    href="/mastra/quickstart"
-  />
-  <Card
-    className="p-6 rounded-xl text-base border-black dark:border-white"
-    icon={<TelescopeIcon />}
-    title="Feature Overview"
-    description="Try the key features of CoAgents powered by Mastra Agents."
-    href="https://copilotkit-mastra-feature-viewer.vercel.app/"
-    target="_blank"
-  />
-</Cards>
+## 🏗️ Architecture
 
-{/* TODO: Add example tutorials for Mastra Agents */}
+<div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(79,70,229,0.4)]">
+  <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-highlevel-overview.png" alt="CopilotKit Infrastructure Diagram" className="w-full rounded-2xl" />
+</div>
 
-## Common Questions
+---
 
-Have a question about CoAgents? You're in the right place!
+## 👉  Get Started
 
-<Accordions>
-<Accordion title="Can you explain what a CoAgent is in more detail?">
-Sure! CoAgents are what we call "agentic copilots". Well, what's an agentic copilot then?
+  <div className="lg:col-span-4 border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
+    <div>
+      <h3 className="text-xl font-bold mb-3 text-foreground">CLI</h3>
+      <p className="text-sm text-muted-foreground mb-4">Bring your Mastra agent to your NextJS app!</p>
+    </div>
+    <div className="h-12 flex items-center justify-center">
+      
+```bash
+npx copilotkit@latest init -m Mastra
+```
+    </div>
+  </div>
 
-Think of a Copilot as a simple and fully LLM controlled assistant that has relatively limited capabilities. An Agentic Copilot then is a copilot
-that has been enhanced with the ability to use Mastra agents to perform more complex tasks. This is an extremely powerful way to build AI
-powered applications because it gives you, the developer, the ability to control the agent's behavior in a deterministic way while still letting
-the agent do its magic.
+  ---
 
-For more on this topic, checkout our [agentic copilot](/mastra/concepts/agentic-copilots) concept page.
+## Live Demo - Mastra x CopilotKit in Action
 
-</Accordion>
-</Accordions> 
+In this example, we've built an agentic travel assistant that can you help you plan your next trip. It uses Mastra
+to coordinate chat and task execution.
+
+<div className="flex justify-center mb-10">
+<iframe src="https://examples-coagents-ai-travel-app.vercel.app?copilotOpen=true" className="w-[800px] h-[600px] rounded-xl border" />
+</div>
+
+## 👉 Next Steps
+
+<CTACards cards={[
+  {
+    title: "Quickstart",
+    href: "/coagents/quickstart/langgraph",
+    description: "Build your first CoAgent in minutes.",
+    iconKey: "play"
+  },
+  {
+    title: "Feature Overview",
+    href: "https://feature-viewer-langgraph.vercel.app/",
+    description: "Try the key features of CoAgents powered by CopilotKit & Mastra.",
+    iconKey: "wand"
+  },
+  {
+    title: "Travel Agent Tutorial",
+    href: "/coagents/tutorials/ai-travel-app",
+    description: "Step-by-step guide to building an agent-native travel app.",
+    iconKey: "message-square"
+  }
+]} />

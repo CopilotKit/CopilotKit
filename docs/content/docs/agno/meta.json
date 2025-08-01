@@ -3,6 +3,7 @@
   "root": true,
   "pages": [
     "index",
+    "oldindex",
     "---Getting Started---",
     "...quickstart",
     "---Custom Look and Feel---",
