@@ -216,6 +216,11 @@ Event hooks for CopilotKit chat events.
   These hooks only work when publicApiKey is provided.
 </PropertyReference>
 
+<PropertyReference name="renderError" type="(error: { message: string; operation?: string; timestamp: number; onDismiss: () => void; onRetry?: () => void; }) => React.ReactNode"  > 
+Custom error renderer for chat-specific errors.
+  When provided, errors will be displayed inline within the chat interface.
+</PropertyReference>
+
 <PropertyReference name="defaultOpen" type="boolean"  default="false"> 
 Whether the chat window should be open by default.
 </PropertyReference>

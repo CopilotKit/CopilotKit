@@ -4,10 +4,11 @@ import {
   ErrorVisibility,
   CopilotKitErrorCode,
 } from "@copilotkit/shared";
+import React from "react";
 
 interface UsageBannerProps {
   severity?: Severity;
-  message?: string;
+  message?: string | React.ReactNode;
   onClose?: () => void;
   actions?: {
     primary?: {
@@ -219,9 +220,13 @@ export const getErrorActions = (error: CopilotKitError) => {
     case CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR:
       return {
         primary: {
-          label: "Get Free API Key",
+          label: "Show me how",
           onClick: () =>
-            window.open("https://cloud.copilotkit.ai", "_blank", "noopener,noreferrer"),
+            window.open(
+              "https://docs.copilotkit.ai/docs/guides/subscription",
+              "_blank",
+              "noopener,noreferrer",
+            ),
         },
       };
     case CopilotKitErrorCode.UPGRADE_REQUIRED_ERROR:

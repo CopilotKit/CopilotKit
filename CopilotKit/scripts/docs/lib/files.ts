@@ -95,6 +95,11 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
     hook: "useCopilotChat",
   },
   {
+    sourcePath: "packages/react-core/src/hooks/use-copilot-chat-headless_c.ts",
+    destinationPath: "docs/content/docs/reference/hooks/useCopilotChatHeadless_c.mdx",
+    hook: "useCopilotChatHeadless_c",
+  },
+  {
     sourcePath: "packages/react-ui/src/hooks/use-copilot-chat-suggestions.tsx",
     destinationPath: "docs/content/docs/reference/hooks/useCopilotChatSuggestions.mdx",
     hook: "useCopilotChatSuggestions",

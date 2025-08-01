@@ -9,7 +9,7 @@ export const CustomUserMessage = (props: UserMessageProps) => {
  
   return (
     <div className={wrapperStyles}>
-      <Card className={messageStyles}><Markdown content={props.message || ""} /></Card>
+      <Card className={messageStyles}><Markdown content={props.message?.content || ""} /></Card>
       <Avatar format={Format.Icon} glyph="Person" size={AvatarSize.XLarge} className={avatarStyles} />
     </div>
   );

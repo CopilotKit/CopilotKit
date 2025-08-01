@@ -4,7 +4,7 @@ import {
   CopilotKit,
   useCoAgentStateRender,
   useCopilotAction,
-  useCopilotChat,
+  useCopilotChatHeadless_c,
   useLangGraphInterrupt,
 } from "@copilotkit/react-core";
 import { CopilotSidebar, useCopilotChatSuggestions } from "@copilotkit/react-ui";
@@ -104,14 +104,14 @@ function ScrollToBottomButton() {
 
 function ChatApp() {
   const {
-    visibleMessages,
+    messages,
     suggestions,
     setSuggestions,
-    appendMessage,
+    sendMessage,
     interrupt,
     isLoading,
     generateSuggestions,
-  } = useCopilotChat();
+  } = useCopilotChatHeadless_c();
   const [newMessage, setNewMessage] = useState("");
   const [selectedMessage, setSelectedMessage] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -290,10 +290,10 @@ function ChatApp() {
     maxSuggestions: 5,
   });
 
-  const sendMessage = useCallback(
+  const callSendMessage = useCallback(
     async (message: string) => {
       // setSuggestions([]);
-      await appendMessage(
+      await sendMessage(
         {
           id: randomId(),
           role: "user",
@@ -304,7 +304,7 @@ function ChatApp() {
         },
       );
     },
-    [appendMessage, setSuggestions, generateSuggestions],
+    [sendMessage, setSuggestions, generateSuggestions],
   );
 
   useEffect(() => {
@@ -318,13 +318,13 @@ function ChatApp() {
 
   const handleSendMessage = useCallback(() => {
     if (newMessage.trim()) {
-      sendMessage(newMessage);
+      callSendMessage(newMessage);
       setNewMessage("");
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
       }
     }
-  }, [sendMessage, newMessage]);
+  }, [callSendMessage, newMessage]);
 
   const handleShowDetails = useCallback((message: any) => {
     setSelectedMessage(message);
@@ -350,7 +350,7 @@ function ChatApp() {
             {/* Messages */}
             <div className="flex-1 overflow-y-auto">
               <StickToBottom.Content className="flex flex-col h-full">
-                {visibleMessages.length === 0 ? (
+                {messages.length === 0 ? (
                   <div className="flex-1 flex items-center justify-center h-full">
                     <div className="text-center">
                       <div className="text-4xl mb-4">💬</div>
@@ -364,7 +364,7 @@ function ChatApp() {
                   </div>
                 ) : (
                   <div className="max-w-4xl mx-auto w-full px-4 py-8">
-                    {visibleMessages.map((message) => (
+                    {messages.map((message) => (
                       <div
                         key={message.id}
                         className={`mb-8 ${message.role === "user" ? "text-right" : "text-left"}`}
@@ -575,7 +575,7 @@ function ChatApp() {
                     {suggestions.map((suggestion, index) => (
                       <button
                         key={index}
-                        onClick={() => sendMessage(suggestion.message)}
+                        onClick={() => callSendMessage(suggestion.message)}
                         className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200"
                       >
                         {suggestion.title}

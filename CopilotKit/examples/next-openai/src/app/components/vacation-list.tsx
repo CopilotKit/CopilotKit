@@ -9,8 +9,7 @@ import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { useEffect, useState } from "react";
 import { DestinationTable } from "./destination-table";
 import { VacationNotes } from "./vacation-notes";
-import { Role } from "@copilotkit/shared";
-import { randomId } from "@copilotkit/shared";
+import { MessageRole, TextMessage } from "@copilotkit/runtime-client-gql";
 
 export type Destination = {
   name: string;
@@ -141,14 +140,11 @@ export function VacationList() {
    */
   useEffect(() => {
     appendMessage(
-      {
-        id: randomId(),
-        role: "assistant",
+      new TextMessage({
+        role: MessageRole.Assistant,
         content: "Hi you! 👋 Let's book your next vacation. Ask me anything.",
-      },
-      {
-        followUp: false,
-      },
+      }),
+      { followUp: false },
     );
   }, []);
 

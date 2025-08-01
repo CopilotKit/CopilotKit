@@ -18,7 +18,7 @@ export const CustomAssistantMessage = (props: AssistantMessageProps) => {
         {subComponent ? 
           subComponent : 
           <Card className="flex w-full justify-start flex-col">
-            {message && <Markdown content={message || ""} /> }
+            {message && <Markdown content={message.content || ""} /> }
             {isLoading && <div className="flex justify-start"><Spinner /></div>}
             {!isGenerating && !isLoading && <ResponseButtons id={id} />}
           </Card>
@@ -29,20 +29,17 @@ export const CustomAssistantMessage = (props: AssistantMessageProps) => {
 };
 
 const ResponseButtons = ({ id }: { id: string }) => {
-    const { reloadMessages, visibleMessages } = useCopilotChat(); 
-    const isLastMessage = visibleMessages[visibleMessages.length - 1]?.id === id;
+    const { reloadMessages } = useCopilotChat(); 
 
     return (
         <div className="flex gap-2 items-center mt-6">
             <p className="text-gray-500">How was this response?</p>
             <Button size={"xsmall"} onClick={() => alert("Thumbs up sent")}><Icon glyph="ThumbsUp" /></Button>
             <Button size={"xsmall"} onClick={() => alert("Thumbs down sent")}><Icon glyph="ThumbsDown" /></Button>
-            {isLastMessage && 
-                <div className="flex gap-2 items-center">
-                    |
-                    <Button size={"xsmall"} onClick={() => reloadMessages()}><Icon glyph="Refresh" /></Button>
-                </div>
-            }
+            <div className="flex gap-2 items-center">
+                |
+                <Button size={"xsmall"} onClick={() => reloadMessages(id)}><Icon glyph="Refresh" /></Button>
+            </div>
         </div>
     )
 }

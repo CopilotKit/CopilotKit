@@ -241,6 +241,31 @@ export interface CopilotChatProps {
   Messages?: React.ComponentType<MessagesProps>;
 
   /**
+   * @deprecated - use RenderMessage instead
+   */
+  RenderTextMessage?: React.ComponentType<RenderMessageProps>;
+
+  /**
+   * @deprecated - use RenderMessage instead
+   */
+  RenderActionExecutionMessage?: React.ComponentType<RenderMessageProps>;
+
+  /**
+   * @deprecated - use RenderMessage instead
+   */
+  RenderAgentStateMessage?: React.ComponentType<RenderMessageProps>;
+
+  /**
+   * @deprecated - use RenderMessage instead
+   */
+  RenderResultMessage?: React.ComponentType<RenderMessageProps>;
+
+  /**
+   * @deprecated - use RenderMessage instead
+   */
+  RenderImageMessage?: React.ComponentType<RenderMessageProps>;
+
+  /**
    * A custom RenderMessage component to use instead of the default.
    *
    * **Warning**: This is a break-glass solution to allow for custom
@@ -382,6 +407,13 @@ export function CopilotChat({
   hideStopButton,
   observabilityHooks,
   renderError,
+
+  // Legacy props - deprecated
+  RenderTextMessage,
+  RenderActionExecutionMessage,
+  RenderAgentStateMessage,
+  RenderResultMessage,
+  RenderImageMessage,
 }: CopilotChatProps) {
   const { additionalInstructions, setChatInstructions, copilotApiConfig, setBannerError } =
     useCopilotContext();
@@ -543,7 +575,7 @@ export function CopilotChat({
   }, [instructions, additionalInstructions]);
 
   const {
-    visibleMessages,
+    messages,
     isLoading,
     sendMessage,
     stopGeneration,
@@ -684,7 +716,7 @@ export function CopilotChat({
         AssistantMessage={AssistantMessage}
         UserMessage={UserMessage}
         RenderMessage={RenderMessage}
-        messages={visibleMessages}
+        messages={messages}
         inProgress={isLoading}
         onRegenerate={handleRegenerate}
         onCopy={handleCopy}
@@ -692,6 +724,12 @@ export function CopilotChat({
         onThumbsDown={handleThumbsDown}
         markdownTagRenderers={markdownTagRenderers}
         ImageRenderer={ImageRenderer}
+        // Legacy props - passed through to Messages component
+        RenderTextMessage={RenderTextMessage}
+        RenderActionExecutionMessage={RenderActionExecutionMessage}
+        RenderAgentStateMessage={RenderAgentStateMessage}
+        RenderResultMessage={RenderResultMessage}
+        RenderImageMessage={RenderImageMessage}
       >
         {currentSuggestions.length > 0 && (
           <RenderSuggestionsList
@@ -757,8 +795,8 @@ export const useCopilotChatLogic = (
   onReloadMessages?: OnReloadMessages,
 ) => {
   const {
-    visibleMessages,
-    appendMessage,
+    messages,
+    sendMessage,
     setMessages,
     reloadMessages: defaultReloadMessages,
     stopGeneration: defaultStopGeneration,
@@ -822,14 +860,14 @@ export const useCopilotChatLogic = (
     }
 
     // Generate initial suggestions when chat is empty
-    if (visibleMessages.length === 0 && !hasGeneratedInitialSuggestions.current) {
+    if (messages.length === 0 && !hasGeneratedInitialSuggestions.current) {
       hasGeneratedInitialSuggestions.current = true;
       generateSuggestionsWithErrorHandling("initial");
       return;
     }
 
     // Generate post-message suggestions after assistant responds
-    if (visibleMessages.length > 0 && suggestions.length === 0) {
+    if (messages.length > 0 && suggestions.length === 0) {
       generateSuggestionsWithErrorHandling("post-message");
       return;
     }
@@ -837,7 +875,7 @@ export const useCopilotChatLogic = (
     chatSuggestions,
     isLoadingSuggestions,
     suggestionsFailed,
-    visibleMessages.length,
+    messages.length,
     isLoading,
     suggestions.length,
     Object.keys(generalContext.chatSuggestionConfiguration).join(","), // Use stable string instead of object reference
@@ -877,7 +915,7 @@ export const useCopilotChatLogic = (
     onInProgress?.(isLoading);
   }, [onInProgress, isLoading]);
 
-  const sendMessage = async (
+  const safelySendMessage = async (
     messageContent: string,
     imagesToUse?: Array<{ contentType: string; bytes: string }>,
   ) => {
@@ -909,7 +947,7 @@ export const useCopilotChatLogic = (
       }
 
       // Send the message and clear suggestions for auto/manual modes
-      await appendMessage(textMessage, {
+      await sendMessage(textMessage, {
         followUp: images.length === 0,
         clearSuggestions: chatSuggestions === "auto" || chatSuggestions === "manual",
       });
@@ -930,7 +968,7 @@ export const useCopilotChatLogic = (
             bytes: images[i].bytes,
           },
         } as unknown as Message;
-        await appendMessage(imageMessage, { followUp: i === images.length - 1 });
+        await sendMessage(imageMessage, { followUp: i === images.length - 1 });
         if (!firstMessage) {
           firstMessage = imageMessage;
         }
@@ -947,7 +985,6 @@ export const useCopilotChatLogic = (
     return firstMessage;
   };
 
-  const messages = visibleMessages;
   const currentAgentName = generalContext.agentSession?.agentName;
   const restartCurrentAgent = async (hint?: HintFunction) => {
     if (generalContext.agentSession) {
@@ -975,7 +1012,7 @@ export const useCopilotChatLogic = (
         generalContext.agentSession.agentName,
         stableContext,
         messagesContext.messages,
-        appendMessage,
+        sendMessage,
         runChatCompletion,
       );
     }
@@ -1037,10 +1074,9 @@ export const useCopilotChatLogic = (
 
   return {
     messages,
-    visibleMessages,
     isLoading,
     suggestions,
-    sendMessage,
+    sendMessage: safelySendMessage,
     stopGeneration,
     reloadMessages,
     resetSuggestions,

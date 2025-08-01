@@ -53,9 +53,13 @@ export function logCopilotKitPlatformMessage() {
   console.log(
     `%cCopilotKit Warning%c
 
-As of version 1.10.0, useCopilotChat has gained full compatibility with CopilotKit's newly released Headless UI feature set. %cAdd your CopilotKit API key, available for free at cloud.copilotkit.ai, to enable these features.%c
+useCopilotChatHeadless_c provides full compatibility with CopilotKit's newly released Headless UI feature set. To enable these features, add your subscription key, available for free at:
 
-Alternatively, useCopilotChatLight is available for basic programmatic messaging, and does not require an API key. The differences between useCopilotChat and useCopilotChatLight are documented here: %chttps://docs.copilotkit.ai/reference/hooks/useCopilotChatLight%c`,
+%chttps://cloud.copilotkit.ai%c
+
+Alternatively, useCopilotChat is available for basic programmatic messaging, and does not require an API key. The differences between useCopilotChatHeadless_c and useCopilotChat are documented here: 
+
+%chttps://docs.copilotkit.ai/reference/hooks/useCopilotChatLight%c`,
     ConsoleStyles.header,
     ConsoleStyles.body,
     ConsoleStyles.cta,

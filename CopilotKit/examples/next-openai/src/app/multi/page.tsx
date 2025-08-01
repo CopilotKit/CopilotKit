@@ -4,7 +4,7 @@ import { CopilotChat } from "@copilotkit/react-ui";
 import "./styles.css";
 import { CopilotKit, useCopilotAction, useCopilotChat } from "@copilotkit/react-core";
 import { useSearchParams } from "next/navigation";
-import { MessageRole, TextMessage } from "@copilotkit/runtime-client-gql";
+import { MessageRole, TextMessage, Message } from "@copilotkit/runtime-client-gql";
 import { randomId } from "@copilotkit/shared";
 
 const testMessages = [
@@ -123,14 +123,12 @@ function TravelPlanner() {
     },
     handler: async () => {
       appendMessage(
-        {
+        new TextMessage({
           id: randomId(),
-          role: "assistant",
+          role: MessageRole.Assistant,
           content: "What is the weather in San Francisco?",
-        },
-        {
-          followUp: false,
-        },
+        }),
+        { followUp: false },
       );
     },
   });
@@ -155,11 +153,13 @@ function TravelPlanner() {
             <button
               className="bg-blue-500 text-white p-2 rounded-md"
               onClick={() =>
-                appendMessage({
-                  id: randomId(),
-                  role: "user",
-                  content: testMessage.message,
-                })
+                appendMessage(
+                  new TextMessage({
+                    id: randomId(),
+                    role: MessageRole.User,
+                    content: testMessage.message,
+                  }),
+                )
               }
             >
               {testMessage.name}
