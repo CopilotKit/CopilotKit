@@ -38,7 +38,8 @@
     "react-leaflet": "^4.2.1",
     "tailwind-merge": "^2.4.0",
     "tailwindcss-animate": "^1.0.7",
-    "vaul": "^1.1.1"
+    "vaul": "^1.1.1",
+    "zod": "^4.0.14"
   },
   "devDependencies": {
     "@types/leaflet": "^1.9.14",
