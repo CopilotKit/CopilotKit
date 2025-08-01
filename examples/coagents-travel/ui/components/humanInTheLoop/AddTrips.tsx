@@ -1,4 +1,3 @@
-
 import { Place, Trip } from "@/lib/types";
 import { PlaceCard } from "@/components/PlaceCard";
 import { X, Plus } from "lucide-react";
@@ -10,16 +9,18 @@ import { useTrips } from "@/lib/hooks/use-trips";
 export type AddTripsProps = {
   args: any;
   status: RenderFunctionStatus;
-  handler: any;
+  respond: any;
 };
 
-export const AddTrips = ({ args, status, handler }: AddTripsProps) => {
+export const AddTrips = ({ args, status, respond }: AddTripsProps) => {
   useEffect(() => {
     console.log(args, "argsAddTripsargsAddTripsargsAddTrips");
   }, [args]);
-  const [selectedPlaceIds, setSelectedPlaceIds] = useState<Set<string>>(new Set());
+  const [selectedPlaceIds, setSelectedPlaceIds] = useState<Set<string>>(
+    new Set()
+  );
   const handleCheck = (placeId: string, checked: boolean) => {
-    setSelectedPlaceIds(prev => {
+    setSelectedPlaceIds((prev) => {
       const newSet = new Set(prev);
       if (checked) {
         newSet.add(placeId);
@@ -52,12 +53,22 @@ export const AddTrips = ({ args, status, handler }: AddTripsProps) => {
       <ActionButtons
         selectedPlaceIds={selectedPlaceIds}
         setSelectedPlaceIds={setSelectedPlaceIds}
-        placeIds={args.trips?.map((trip: Trip) => trip.places?.map((place: Place) => place.id))}
-        status={status} 
-        handler={handler} 
-        approve={<><Plus className="w-4 h-4 mr-2" /> Add</>} 
-        reject={<><X className="w-4 h-4 mr-2" /> Cancel</>} 
+        placeIds={args.trips?.map((trip: Trip) =>
+          trip.places?.map((place: Place) => place.id)
+        )}
+        status={status}
+        respond={respond}
+        approve={
+          <>
+            <Plus className="w-4 h-4 mr-2" /> Add
+          </>
+        }
+        reject={
+          <>
+            <X className="w-4 h-4 mr-2" /> Cancel
+          </>
+        }
       />
     </div>
   );
-}
+};
