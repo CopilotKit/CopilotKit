@@ -1607,14 +1607,6 @@ packages:
       openai:
         optional: true
 
-  langsmith@0.3.29:
-    resolution: {integrity: sha512-JPF2B339qpYy9FyuY4Yz1aWYtgPlFc/a+VTj3L/JcFLHCiMP7+Ig8I9jO+o1QwVa+JU3iugL1RS0wwc+Glw0zA==}
-    peerDependencies:
-      openai: '*'
-    peerDependenciesMeta:
-      openai:
-        optional: true
-
   langsmith@0.3.4:
     resolution: {integrity: sha512-Klyy7HtOEh3RqQsKStUfVwE8NMrLCp1+ng50ddeEjJyF5WI+LsgBDIpJGRVjmgNbNeX+rGnUk0kBKIU5gZjVFQ==}
     peerDependencies:
@@ -3637,7 +3629,7 @@ snapshots:
       js-tiktoken: 1.0.20
       js-yaml: 4.1.0
       jsonpointer: 5.0.1
-      langsmith: 0.3.29(openai@4.102.0(ws@8.18.3)(zod@4.0.15))
+      langsmith: 0.3.50(openai@4.102.0(ws@8.18.3)(zod@4.0.15))
       openapi-types: 12.1.3
       p-retry: 4.6.2
       uuid: 10.0.0
@@ -3649,6 +3641,9 @@ snapshots:
       '@langchain/google-genai': 0.1.4(@langchain/core@0.3.37(openai@4.102.0(ws@8.18.3)(zod@4.0.15)))(zod@4.0.15)
       axios: 1.11.0(debug@4.4.0)
     transitivePeerDependencies:
+      - '@opentelemetry/api'
+      - '@opentelemetry/exporter-trace-otlp-proto'
+      - '@opentelemetry/sdk-trace-base'
       - encoding
       - openai
 
@@ -3656,18 +3651,6 @@ snapshots:
     dependencies:
       '@types/uuid': 10.0.0
       commander: 10.0.1
-      p-queue: 6.6.2
-      p-retry: 4.6.2
-      semver: 7.7.2
-      uuid: 10.0.0
-    optionalDependencies:
-      openai: 4.102.0(ws@8.18.3)(zod@4.0.15)
-
-  langsmith@0.3.29(openai@4.102.0(ws@8.18.3)(zod@4.0.15)):
-    dependencies:
-      '@types/uuid': 10.0.0
-      chalk: 4.1.2
-      console-table-printer: 2.12.1
       p-queue: 6.6.2
       p-retry: 4.6.2
       semver: 7.7.2
