@@ -1,139 +1,160 @@
 ---
-title: CrewAI Crews Integration
-icon: "lucide/Sparkles"
-description: Build Agent-Native Applications (ANAs) powered by CopilotKit and CrewAI Flows.
+title: CrewAI Crews × CopilotKit
+icon: "custom/langchain"
+description: Bring your CrewAI Crews agents to your users with CopilotKit.
 ---
 
-import { BiSolidMessage as TextIcon } from "react-icons/bi";
-import { VscJson as JsonIcon } from "react-icons/vsc";
-import { TelescopeIcon } from "lucide-react";
-import { FaDiscord } from "react-icons/fa";
-import Link from "next/link";
-import { YouTubeVideo } from "@/components/react/youtube-video";
-import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
-import {
-  CoAgentsFeatureToggle,
-  CoAgentsFeatureRender,
-} from "@/components/react/coagents/coagents-features.tsx";
-import { DynamicContentWrapper } from "@/components/react/dynamic-content-wrapper";
-import { ExamplesCarousel } from "@/components/react/examples-carousel";
-import {
-  LuPlane,
-  LuBookOpen,
-  LuLightbulb,
-  LuLayoutTemplate,
-  LuBrainCog,
-  LuUserCog,
-  LuWand,
-  LuPlay,
-  LuMessageSquare,
-  LuWrench,
-} from "react-icons/lu";
-import { CoAgentsExamples } from "@/components/react/examples-carousel";
 import { CTACards } from "@/components/react/cta-cards";
-import { FaSync } from "react-icons/fa";
-import { Socials } from "@/components/react/socials";
 
-<div className="p-4 mb-6 rounded-lg bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800">
-  <div className="flex items-center gap-2 mb-2">
-    <TelescopeIcon className="h-5 w-5 text-orange-500 dark:text-orange-300" />
-    <h3 className="text-lg font-semibold text-orange-700 dark:text-orange-300">CrewAI Overview</h3>
-  </div>
-  <p className="text-orange-700 dark:text-orange-300">
-    Visit the <a href="https://v0-crew-land.vercel.app/" target="_blank" rel="noopener noreferrer" className="font-medium underline underline-offset-4 decoration-orange-400 dark:decoration-orange-500 hover:text-orange-600 dark:hover:text-orange-200">CrewAI Overview Page</a> to learn more about CrewAI's capabilities and features.
-  </p>
+CopilotKit and CrewAI Crews together provide everything you need to build rich, interactive, agent-powered applications. With full user-interaction infrastructure, you can create copilots that are not just smart, but truly collaborative.  This means that your agentic application can:
+* Respond quickly and often to user input
+* Allow the user to steer as needed
+* Take action on the user's behalf, driving the app, or other tools through MCP
+
+<div className="p-0 rounded-lg shadow-[0_0_40px_10px_rgba(99,102,241,0.4)]">
+  <video 
+    src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
+    className="rounded-lg w-full"
+    controls
+    autoPlay
+    muted
+    loop
+    playsInline
+  />
 </div>
 
-# Copilot Infrastructure for CrewAI Crews
+<Callout>
+Proverbs Example app, demonstrating some of the key features of a CopilotKit app with a CrewAI Crews agent.*
+</Callout>
 
-Full user-interaction and rendering infrastructure for your [Crews](https://docs.crewai.com/), right out of the box. Allow your 
-Crew's thoughts, progress, and results to be rendered in and take control of your application's UI.
+---
 
-## Building blocks of a CoAgent
+## ✨ Generative UI
 
-All of the features you'll need to deeply integrate your Crews into your application.
+Generative UI lets you render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. It bridges the gap between AI agents and user interfaces. 
 
-<Cards className="gap-6">
-  <Card
-    className="p-6 rounded-xl text-base"
-    icon={<LuMessageSquare className="text-orange-500 dark:text-orange-300" />}
-    title="Crew-based Chat"
-    description="In-app chat to kickoff, render and analyze the result of your Crews."
-    href="/crewai-crews/agentic-chat-ui"
+<div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(200,200,200,0.4)]">
+  <video 
+    src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4"
+    className="rounded-2xl w-full"
+    controls
+    autoPlay
+    muted
+    loop
+    playsInline
   />
-  <Card
-    className="p-6 rounded-xl text-base"
-    icon={<FaSync className="text-orange-500 dark:text-orange-300" />}
-    title="Shared State"
-    description="Render your Crew's thoughts, progress, and results in real-time."
-    href="/crewai-crews/shared-state"
+</div>
+
+<Callout>
+  Haiku Generator - CopilotKit app with a CrewAI Crews agent. 
+  <a href="https://feature-viewer-langgraph.vercel.app/feature/tool_based_generative_ui" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:font-bold transition-colors">Live Demo</a> 
+  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/demo-viewer/agent/demo/langgraph_tool_based_generative_ui" className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 hover:font-bold transition-colors">GitHub</a>
+</Callout>
+
+
+---
+
+## 🧑‍💻 Human in the Loop
+
+Empower users to guide agents at key checkpoints. Human-in-the-loop lets you combine the best of AI and human judgment.
+
+<div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(200,200,200,0.4)]">
+  <video 
+    src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
+    className="rounded-2xl w-full"
+    controls
+    autoPlay
+    muted
+    loop
+    playsInline
   />
-  <Card
-    className="p-6 rounded-xl text-base"
-    icon={<LuLayoutTemplate className="text-orange-500 dark:text-orange-300" />}
-    title="Generative UI"
-    description="UI based on what your Crew is thinking and doing."
-    href="/crewai-crews/generative-ui"
+</div>
+
+<Callout>
+  AI Travel App - CopilotKit app with CrewAI Crews agent using HITL to get user feedback. 
+  <a href="https://examples-coagents-ai-travel-app.vercel.app/" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:font-bold transition-colors">Live Demo</a> 
+  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/demo-viewer/agent/demo/langgraph_human_in_the_loop" className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 hover:font-bold transition-colors">GitHub</a>
+</Callout>
+
+---
+
+## 🔄 Shared State
+
+Keep your agent and your app in sync. Shared state means your agent can see everything in your app, and your app can react to your agent.
+
+<div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(200,200,200,0.4)]">
+  <video 
+    src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4"
+    className="rounded-2xl w-full"
+    controls
+    autoPlay
+    muted
+    loop
+    playsInline
   />
-  <Card
-    className="p-6 rounded-xl text-base"
-    icon={<LuWand className="text-orange-500 dark:text-orange-300" />}
-    title="Frontend Tools"
-    description="Give your Crew the ability to take action directly in your application."
-    href="/crewai-crews/frontend-actions"
-  />
-  <Card
-    className="p-6 rounded-xl text-base"
-    icon={<LuUserCog className="text-orange-500 dark:text-orange-300" />}
-    title="Multi-Agent Coordination"
-    description="Use AI to route between multiple Crews or agents based on the user's request."
-    href="/crewai-crews/multi-agent-flows"
-  />
-  <Card
-    className="p-6 rounded-xl text-base"
-    icon={<LuUserCog className="text-orange-500 dark:text-orange-300" />}
-    title="Human-in-the-Loop"
-    description="Set smart checkpoints where humans can guide your Crews."
-    href="/crewai-crews/human-in-the-loop"
-  />
-</Cards>
+</div>
 
-## Ready to get started?
+<Callout>
+  Recipe Example App - CopilotKit app sharing state with CrewAI Crews agent. 
+  <a href="https://feature-viewer-langgraph.vercel.app/feature/shared_state" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:font-bold transition-colors">Live Demo</a> 
+  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/demo-viewer/agent/demo/langgraph_shared_state" className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 hover:font-bold transition-colors">GitHub</a>
+</Callout>
 
-Get started with CoAgents in as little as 5 minutes with one of our guides or tutorials.
+---
 
-<Cards className="gap-6">
-  <Card
-    className="p-6 rounded-xl text-base"
-    icon={<LuPlay className="text-orange-500 dark:text-orange-300" />}
-    title="Quickstart"
-    description="Learn how to build your first CoAgent in 10 minutes."
-    href="/crewai-crews/quickstart/crewai"
-  />
-  <Card
-    className="p-6 rounded-xl text-base"
-    icon={<TelescopeIcon className="text-orange-500 dark:text-orange-300" />}
-    title="Feature Overview"
-    description="Try the key features of CoAgents powered by CrewAI Crews."
-    href="https://demo-viewer-five.vercel.app/"
-    target="_blank"
-  />
-</Cards>
+## 🏗️ Architecture
 
-## Common Questions
+<div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(79,70,229,0.4)]">
+  <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-highlevel-overview.png" alt="CopilotKit Infrastructure Diagram" className="w-full rounded-2xl" />
+</div>
 
-Have a question about CoAgents? You're in the right place!
+---
 
-<Accordions>
-<Accordion title="Can you explain what a CoAgent is in more detail?">
-Sure! CoAgents are what we call "agentic copilots". Well, what's an agentic copilot then?
+## 👉  Get Started
 
-Think of a Copilot as a simple and fully LLM controlled assistant that has relatively limited capabilities. An Agentic Copilot then is a copilot
-that has been enhanced with the ability to use CrewAI agents to perform more complex tasks. This is an extremely powerful way to build AI
-powered applications because it gives you, the developer, the ability to control the agent's behavior in a deterministic way while still letting
-the agent do its magic.
+  <div className="lg:col-span-4 border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
+    <div>
+      <h3 className="text-xl font-bold mb-3 text-foreground">CLI</h3>
+      <p className="text-sm text-muted-foreground mb-4">Bring your CrewAI Crews agent to your NextJS app!</p>
+    </div>
+    <div className="h-12 flex items-center justify-center">
+      
+```bash
+npx copilotkit@latest init -m CrewAI Crews
+```
+    </div>
+  </div>
 
-For more on this topic, checkout our [agentic copilot](/crewai-crews/concepts/agentic-copilots) concept page.
+  ---
 
-</Accordion>
-</Accordions>
+## Live Demo - CrewAI Crews x CopilotKit in Action
+
+In this example, we've built an agentic travel assistant that can you help you plan your next trip. It uses CrewAI Crews
+to coordinate chat and task execution.
+
+<div className="flex justify-center mb-10">
+<iframe src="https://examples-coagents-ai-travel-app.vercel.app?copilotOpen=true" className="w-[800px] h-[600px] rounded-xl border" />
+</div>
+
+## 👉 Next Steps
+
+<CTACards cards={[
+  {
+    title: "Quickstart",
+    href: "/coagents/quickstart/langgraph",
+    description: "Build your first CoAgent in minutes.",
+    iconKey: "play"
+  },
+  {
+    title: "Feature Overview",
+    href: "https://feature-viewer-langgraph.vercel.app/",
+    description: "Try the key features of CoAgents powered by CopilotKit & CrewAI Crews.",
+    iconKey: "wand"
+  },
+  {
+    title: "Travel Agent Tutorial",
+    href: "/coagents/tutorials/ai-travel-app",
+    description: "Step-by-step guide to building an agent-native travel app.",
+    iconKey: "message-square"
+  }
+]} />

@@ -1,12 +1,12 @@
 ---
-title: AGNO × CopilotKit
+title: CopilotKit x LLM
 icon: "custom/langchain"
-description: Bring your AGNO agents to your users with CopilotKit.
+description: Bring your LLM agents to your users with CopilotKit.
 ---
 
 import { CTACards } from "@/components/react/cta-cards";
 
-CopilotKit and AGNO together provide everything you need to build rich, interactive, agent-powered applications. With full user-interaction infrastructure, you can create copilots that are not just smart, but truly collaborative.  This means that your agentic application can:
+CopilotKit and LLMs together provide everything you need to build rich, interactive, AI-powered applications. With direct LLM integration, you can create copilots that are not just smart, but truly collaborative. This means that your AI application can:
 * Respond quickly and often to user input
 * Allow the user to steer as needed
 * Take action on the user's behalf, driving the app, or other tools through MCP
@@ -24,14 +24,16 @@ CopilotKit and AGNO together provide everything you need to build rich, interact
 </div>
 
 <Callout>
-Proverbs Example app, demonstrating some of the key features of a CopilotKit app with a AGNO agent.*
+Proverbs Example app, demonstrating some of the key features of a CopilotKit app with direct LLM integration.*
 </Callout>
 
 ---
 
+
+
 ## ✨ Generative UI
 
-Generative UI lets you render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. It bridges the gap between AI agents and user interfaces. 
+Generative UI lets you render your LLM's state, progress, outputs, and tool calls with custom UI components in real-time. It bridges the gap between AI and user interfaces. 
 
 <div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(200,200,200,0.4)]">
   <video 
@@ -46,7 +48,7 @@ Generative UI lets you render your agent's state, progress, outputs, and tool ca
 </div>
 
 <Callout>
-  Haiku Generator - CopilotKit app with a AGNO agent. 
+  Haiku Generator - CopilotKit app with direct LLM integration. 
   <a href="https://feature-viewer-langgraph.vercel.app/feature/tool_based_generative_ui" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:font-bold transition-colors">Live Demo</a> 
   <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/demo-viewer/agent/demo/langgraph_tool_based_generative_ui" className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 hover:font-bold transition-colors">GitHub</a>
 </Callout>
@@ -56,7 +58,7 @@ Generative UI lets you render your agent's state, progress, outputs, and tool ca
 
 ## 🧑‍💻 Human in the Loop
 
-Empower users to guide agents at key checkpoints. Human-in-the-loop lets you combine the best of AI and human judgment.
+Empower users to guide LLMs at key checkpoints. Human-in-the-loop lets you combine the best of AI and human judgment.
 
 <div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(200,200,200,0.4)]">
   <video 
@@ -71,7 +73,7 @@ Empower users to guide agents at key checkpoints. Human-in-the-loop lets you com
 </div>
 
 <Callout>
-  AI Travel App - CopilotKit app with AGNO agent using HITL to get user feedback. 
+  AI Travel App - CopilotKit app with direct LLM integration using HITL to get user feedback. 
   <a href="https://examples-coagents-ai-travel-app.vercel.app/" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:font-bold transition-colors">Live Demo</a> 
   <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/demo-viewer/agent/demo/langgraph_human_in_the_loop" className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 hover:font-bold transition-colors">GitHub</a>
 </Callout>
@@ -80,7 +82,7 @@ Empower users to guide agents at key checkpoints. Human-in-the-loop lets you com
 
 ## 🔄 Shared State
 
-Keep your agent and your app in sync. Shared state means your agent can see everything in your app, and your app can react to your agent.
+Keep your LLM and your app in sync. Shared state means your LLM can see everything in your app, and your app can react to your LLM.
 
 <div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(200,200,200,0.4)]">
   <video 
@@ -95,7 +97,7 @@ Keep your agent and your app in sync. Shared state means your agent can see ever
 </div>
 
 <Callout>
-  Recipe Example App - CopilotKit app sharing state with AGNO agent. 
+  Recipe Example App - CopilotKit app sharing state with direct LLM integration. 
   <a href="https://feature-viewer-langgraph.vercel.app/feature/shared_state" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:font-bold transition-colors">Live Demo</a> 
   <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/demo-viewer/agent/demo/langgraph_shared_state" className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 hover:font-bold transition-colors">GitHub</a>
 </Callout>
@@ -103,6 +105,16 @@ Keep your agent and your app in sync. Shared state means your agent can see ever
 ---
 
 ## 🏗️ Architecture
+
+CopilotKit can connect directly to the LLM of your choice (e.g., OpenAI GPT-4o)
+
+There is no intermediate orchestration layer.
+
+CopilotKit's Standard Agent marries your App to the LLM, by:
+* Capturing user inputs and context from the UI. 
+* Sending them as prompts to the LLM.
+* Streaming responses back to the UI in real time (via AGUI protocol).
+* Optionally enriching with custom instructions using CopilotKit’s "Customize AI Behavior" features.
 
 <div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(79,70,229,0.4)]">
   <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-highlevel-overview.png" alt="CopilotKit Infrastructure Diagram" className="w-full rounded-2xl" />
@@ -115,21 +127,21 @@ Keep your agent and your app in sync. Shared state means your agent can see ever
   <div className="lg:col-span-4 border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
     <div>
       <h3 className="text-xl font-bold mb-3 text-foreground">CLI</h3>
-      <p className="text-sm text-muted-foreground mb-4">Bring your AGNO agent to your NextJS app!</p>
+      <p className="text-sm text-muted-foreground mb-4">Bring your LLM directly to your NextJS app!</p>
     </div>
     <div className="h-12 flex items-center justify-center">
       
 ```bash
-npx copilotkit@latest init -m AGNO
+npx copilotkit@latest init -m Direct to LLM
 ```
     </div>
   </div>
 
   ---
 
-## Live Demo - AGNO x CopilotKit in Action
+## Live Demo - Direct LLM x CopilotKit in Action
 
-In this example, we've built an agentic travel assistant that can you help you plan your next trip. It uses AGNO
+In this example, we've built an AI travel assistant that can help you plan your next trip. It uses direct LLM integration
 to coordinate chat and task execution.
 
 <div className="flex justify-center mb-10">
@@ -141,20 +153,20 @@ to coordinate chat and task execution.
 <CTACards cards={[
   {
     title: "Quickstart",
-    href: "/coagents/quickstart/langgraph",
-    description: "Build your first CoAgent in minutes.",
+    href: "/direct-to-llm/quickstart",
+    description: "Build your first LLM-powered app in minutes.",
     iconKey: "play"
   },
   {
     title: "Feature Overview",
     href: "https://feature-viewer-langgraph.vercel.app/",
-    description: "Try the key features of CoAgents powered by CopilotKit & AGNO.",
+    description: "Try the key features of LLM-powered apps with CopilotKit.",
     iconKey: "wand"
   },
   {
     title: "Travel Agent Tutorial",
-    href: "/coagents/tutorials/ai-travel-app",
-    description: "Step-by-step guide to building an agent-native travel app.",
+    href: "/direct-to-llm/tutorials/ai-travel-app",
+    description: "Step-by-step guide to building an LLM-native travel app.",
     iconKey: "message-square"
   }
 ]} />
