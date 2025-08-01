@@ -10,24 +10,18 @@ export type ReactHumanInTheLoop<T> = {
   parameters?: z.ZodType<T>;
   render: React.ComponentType<
     | {
-        name: string;
-        description: string;
         args: Partial<T>;
         status: "inProgress";
         result: undefined;
         respond: undefined;
       }
     | {
-        name: string;
-        description: string;
         args: T;
         status: "executing";
         result: undefined;
         respond: (result: unknown) => Promise<void>;
       }
     | {
-        name: string;
-        description: string;
         args: T;
         status: "complete";
         result: unknown;
