@@ -1,0 +1,117 @@
+---
+title: "Using the Dev Console to Help Troubleshoot"
+description: "How to enable and use the CopilotKit Dev Console to debug your copilot."
+icon: "lucide/Terminal"
+---
+
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import { Callout } from "fumadocs-ui/components/callout";
+
+The CopilotKit Dev Console is a debugging tool that shows up right in your chat interface during development. It's super helpful for figuring out why your actions aren't working or why your copilot doesn't seem to know about certain data.
+
+<Callout>
+The dev console only works in development - it automatically disappears in production builds.
+</Callout>
+
+## How to Enable the Dev Console
+
+Just add `showDevConsole={true}` to your CopilotKit provider:
+
+```tsx
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  showDevConsole={true}
+>
+  {/* Your app */}
+</CopilotKit>
+```
+
+Or better yet, enable it only in development:
+
+```tsx
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  showDevConsole={process.env.NODE_ENV === "development"}
+>
+  {/* Your app */}
+</CopilotKit>
+```
+
+## Common Issues and How to Debug Them
+
+<Accordions>
+    <Accordion title="My action isn't being called">
+        First, check if your action shows up in the dev console. Look for the "Available Actions" section - if it's not there, your action isn't registered properly.
+
+        ```tsx
+        // ❌ This won't work well
+        useCopilotAction({
+          name: "doSomething",
+          description: "Does something",
+          // ...
+        });
+
+        // ✅ This is much better
+        useCopilotAction({
+          name: "createTodoItem", 
+          description: "Create a new todo item with title and due date",
+          // ...
+        });
+        ```
+
+        Common fixes:
+        - Make your action description specific and clear
+        - Check that parameters are properly typed
+        - Look for error messages in the console
+    </Accordion>
+
+    <Accordion title="My copilot doesn't know about my data">
+        Check the "Readable State" section in the dev console. If your data isn't there, you need to expose it with `useCopilotReadable`:
+
+        ```tsx
+        const todos = useTodos();
+        
+        // Add this so your copilot knows about the todos
+        useCopilotReadable({
+          description: "User's todo list with titles and completion status",
+          value: todos
+        });
+        ```
+
+        Things to check:
+        - Is your state actually in the readable section?
+        - Is the description meaningful?
+        - Are the values what you expect?
+    </Accordion>
+
+    <Accordion title="The dev console isn't showing up">
+        If you don't see the dev console in your chat interface:
+
+        - Make sure `showDevConsole={true}` is set
+        - Check that you're in development mode  
+        - Try refreshing your browser
+        - Look for JavaScript errors in your browser's dev tools
+        
+        The console should appear as a small expandable panel in your chat window.
+    </Accordion>
+
+    <Accordion title="I'm getting weird copilot responses">
+        Use the dev console to check the message history:
+
+        - Review what the copilot actually received
+        - Check if there are system messages or errors
+        - Verify the copilot has the right state/actions available
+        - Look for any error banners or warnings
+    </Accordion>
+</Accordions>
+
+## What You'll See in the Dev Console
+
+When you open the dev console, you'll find sections for:
+
+- **Available Actions** - All the actions your copilot can perform
+- **Readable State** - Data your copilot has access to  
+- **Message History** - The conversation flow
+- **Errors** - Any issues that occurred
+
+This makes it easy to spot problems like missing actions, outdated state, or configuration issues. 
