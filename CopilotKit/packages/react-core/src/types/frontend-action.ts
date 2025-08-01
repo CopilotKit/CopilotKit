@@ -199,7 +199,9 @@ export function processActionsForRuntimeRequest(actions: FrontendAction<any>[]) 
       return {
         name: action.name,
         description: action.description || "",
-        jsonSchema: action.jsonSchema || JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
+        jsonSchema:
+          action.jsonSchema ||
+          JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
         available,
       };
     });
