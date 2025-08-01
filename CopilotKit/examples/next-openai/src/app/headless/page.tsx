@@ -4,8 +4,7 @@ import {
   CopilotKit,
   useCoAgentStateRender,
   useCopilotAction,
-  useCopilotChat,
-  useCopilotChat_c,
+  useCopilotChatHeadless_c,
   useLangGraphInterrupt,
 } from "@copilotkit/react-core";
 import { CopilotSidebar, useCopilotChatSuggestions } from "@copilotkit/react-ui";
@@ -112,7 +111,7 @@ function ChatApp() {
     interrupt,
     isLoading,
     generateSuggestions,
-  } = useCopilotChat_c();
+  } = useCopilotChatHeadless_c();
   const [newMessage, setNewMessage] = useState("");
   const [selectedMessage, setSelectedMessage] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);

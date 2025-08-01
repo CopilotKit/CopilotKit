@@ -3,7 +3,6 @@ import {
   DocumentPointer,
   useCopilotAction,
   useCopilotChat,
-  useCopilotChat_c,
   useMakeCopilotDocumentReadable,
 } from "@copilotkit/react-core";
 import { useCopilotChatSuggestions } from "@copilotkit/react-ui";

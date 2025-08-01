@@ -1,5 +1,5 @@
 /**
- * `useCopilotChat_c` is for building fully custom UI (headless UI) implementations.
+ * `useCopilotChatHeadless_c` is for building fully custom UI (headless UI) implementations.
  *
  * <Callout type="info">
  * **Requires a free license key** - Sign up for free at https://cloud.copilotkit.ai/
@@ -23,7 +23,7 @@
  *
  * ```tsx
  * import { CopilotKit } from "@copilotkit/react-core";
- * import { useCopilotChat_c } from "@copilotkit/react-core";
+ * import { useCopilotChatHeadless_c } from "@copilotkit/react-core";
  *
  * export function App() {
  *   return (
@@ -34,7 +34,7 @@
  * }
  *
  * export function YourComponent() {
- *   const { messages, sendMessage, isLoading } = useCopilotChat_c();
+ *   const { messages, sendMessage, isLoading } = useCopilotChatHeadless_c();
  *
  *   const handleSendMessage = async () => {
  *     await sendMessage({
@@ -58,7 +58,7 @@
  * ### Working with Suggestions
  *
  * ```tsx
- * import { useCopilotChat_c, useCopilotChatSuggestions } from "@copilotkit/react-core";
+ * import { useCopilotChatHeadless_c, useCopilotChatSuggestions } from "@copilotkit/react-core";
  *
  * export function SuggestionExample() {
  *   const {
@@ -66,7 +66,7 @@
  *     setSuggestions,
  *     generateSuggestions,
  *     isLoadingSuggestions
- *   } = useCopilotChat_c();
+ *   } = useCopilotChatHeadless_c();
  *
  *   // Configure AI suggestion generation
  *   useCopilotChatSuggestions({
@@ -138,10 +138,10 @@ const createNonFunctionalReturn = (): UseCopilotChatReturn_c => ({
  *
  * @example
  * ```tsx
- * const { messages, sendMessage, suggestions, interrupt } = useCopilotChat_c();
+ * const { messages, sendMessage, suggestions, interrupt } = useCopilotChatHeadless_c();
  * ```
  */
-function useCopilotChat_c(options: UseCopilotChatOptions_c = {}): UseCopilotChatReturn_c {
+function useCopilotChatHeadless_c(options: UseCopilotChatOptions_c = {}): UseCopilotChatReturn_c {
   const { copilotApiConfig, setBannerError } = useCopilotContext();
 
   // Check if publicApiKey is available
@@ -157,7 +157,7 @@ function useCopilotChat_c(options: UseCopilotChatOptions_c = {}): UseCopilotChat
         new CopilotKitError({
           message:
             // add link to documentation here
-            "You're using useCopilotChat_c, a subscription-only feature, which offers extensive headless chat capabilities. To continue, you'll need to provide a free subscription key.",
+            "You're using useCopilotChatHeadless_c, a subscription-only feature, which offers extensive headless chat capabilities. To continue, you'll need to provide a free subscription key.",
           code: CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR,
           severity: Severity.WARNING,
           visibility: ErrorVisibility.BANNER,
@@ -178,7 +178,7 @@ function useCopilotChat_c(options: UseCopilotChatOptions_c = {}): UseCopilotChat
   return createNonFunctionalReturn();
 }
 
-export { defaultSystemMessage, useCopilotChat_c };
+export { defaultSystemMessage, useCopilotChatHeadless_c };
 export type { UseCopilotChatOptions_c, UseCopilotChatReturn_c, MCPServerConfig };
 
 const noKeyWarning = () => {
