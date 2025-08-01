@@ -43,7 +43,7 @@ export function ResearchCanvas() {
     parameters: z.object({
       urls: z.array(z.string()).optional(),
     }),
-    render: ({ args, status, handler }) => {
+    render: ({ args, status, respond }) => {
       return (
         <div
           className=""
@@ -61,14 +61,14 @@ export function ResearchCanvas() {
           {status === "executing" && (
             <div className="mt-4 flex justify-start space-x-2">
               <button
-                onClick={() => handler("NO")}
+                onClick={() => respond("NO")}
                 className="px-4 py-2 text-[#6766FC] border border-[#6766FC] rounded text-sm font-bold"
               >
                 Cancel
               </button>
               <button
                 data-test-id="button-delete"
-                onClick={() => handler("YES")}
+                onClick={() => respond("YES")}
                 className="px-4 py-2 bg-[#6766FC] text-white rounded text-sm font-bold"
               >
                 Delete
