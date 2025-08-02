@@ -42,7 +42,7 @@ export const posts: Post[] = [
         
         2. Copilot Readable State: Allow your AI assistant to read and understand your application's state for context-aware interactions using the useCopilotContext hook.
         
-        3. Copilot Actions: Enable your AI to perform actions within your application via the useCopilotAction hook, giving it ability to make API calls, update state, and interact with your app.
+        3. Frontend Tools: Enable your AI to execute tools within your application via the useFrontendTool hook, giving it ability to make API calls, update state, and interact with your app.
         
         4. Generative UI: Create dynamic UI elements through the AI interface, letting your assistant generate and display custom components.
         
@@ -133,7 +133,7 @@ export const posts: Post[] = [
         
         3. Vector Database Integration: Connect to vector databases like Pinecone or MongoDB Atlas to give your AI access to your knowledge base.
         
-        4. Function Calling: Define complex actions that your AI can perform using the useCopilotAction hook with structured parameters.
+        4. Function Calling: Define complex tools that your AI can perform using the useFrontendTool hook with structured parameters.
         
         5. State Management: Use useCopilotContext to provide your AI with access to application state for more context-aware interactions.
         
@@ -141,7 +141,7 @@ export const posts: Post[] = [
         
         7. Backend Integration: Create custom backend handlers for your AI actions to interact with your databases and services.
         
-        8. Error Handling: Implement robust error handling for AI actions to create resilient user experiences.
+        8. Error Handling: Implement robust error handling for AI tools to create resilient user experiences.
         
         9. Custom UI Elements: Build custom UI components that can be rendered by your AI assistant using the generativeUI feature.
         

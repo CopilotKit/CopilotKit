@@ -8,52 +8,38 @@ import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
 
 # Render custom components in the chat UI
 
-When a user interacts with your Copilot, you may want to render a custom UI component. [`useCopilotAction`](/reference/hooks/useCopilotAction) allows to give the LLM the
+When a user interacts with your Copilot, you may want to render a custom UI component. The new hooks [`useRenderToolCall`](/reference/hooks/useRenderToolCall), [`useFrontendTool`](/reference/hooks/useFrontendTool), and [`useHumanInTheLoop`](/reference/hooks/useHumanInTheLoop) allow you to give the LLM the
 option to render your custom component through the `render` property.
 
 <Tabs groupId="gen-ui-type" items={['Render a component', 'Fetch data & render', 'renderAndWaitForResponse (HITL)', 'Render strings', 'Catch all renders']}>
 
   <Tab value="Render a component">
-    [`useCopilotAction`](/reference/hooks/useCopilotAction) can be used with a `render` function and without a `handler` to display information or UI elements within the chat.
+    [`useRenderToolCall`](/reference/hooks/useRenderToolCall) can be used with a `render` function to display information or UI elements within the chat.
     
     Here's an example to render a calendar meeting.
 
     <Frame>
       <img
         src="https://cdn.copilotkit.ai/docs/copilotkit/images/render-only-example.png"
-        alt="Example of render-only Copilot action"
+        alt="Example of render-only Copilot tool"
         className="w-full h-auto max-w-md"
       />
     </Frame>
 
     ```tsx
     "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
-    import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
+    import { useRenderToolCall } from "@copilotkit/react-core"; // [!code highlight]
+    import { z } from "zod"; // [!code highlight]
 
     export function YourComponent() {
-      useCopilotAction({ // [!code highlight]
+      useRenderToolCall({ // [!code highlight]
         name: "showCalendarMeeting",
         description: "Displays calendar meeting information",
-        parameters: [
-          {
-            name: "date",
-            type: "string",
-            description: "Meeting date (YYYY-MM-DD)",
-            required: true
-          },
-          {
-            name: "time",
-            type: "string",
-            description: "Meeting time (HH:mm)",
-            required: true
-          },
-          {
-            name: "meetingName",
-            type: "string",
-            description: "Name of the meeting",
-            required: false
-          }
-        ],
+        parameters: z.object({
+          date: z.string().describe("Meeting date (YYYY-MM-DD)"),
+          time: z.string().describe("Meeting time (HH:mm)"),
+          meetingName: z.string().optional().describe("Name of the meeting")
+        }),
         // [!code highlight:15]
         render: ({ status, args }) => {
           const { date, time, meetingName } = args;
@@ -80,7 +66,7 @@ option to render your custom component through the `render` property.
   </Tab>
 
   <Tab value="Fetch data & render">
-    The [`useCopilotAction`](/reference/hooks/useCopilotAction) hook accepts both `handler` and `render` methods. The `handler` executes the action, while `render` displays UI in the copilot chat window.
+    The [`useFrontendTool`](/reference/hooks/useFrontendTool) hook accepts both `handler` and `render` methods. The `handler` executes the tool, while `render` displays UI in the copilot chat window.
 
     <Frame>
       <img
@@ -92,19 +78,15 @@ option to render your custom component through the `render` property.
 
     ```tsx
     "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
-    import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
+    import { useFrontendTool } from "@copilotkit/react-core"; // [!code highlight]
+    import { z } from "zod"; // [!code highlight]
 
-    useCopilotAction({ // [!code highlight]
+    useFrontendTool({ // [!code highlight]
       name: "showLastMeetingOfDay",
       description: "Displays the last calendar meeting for a given day",
-      parameters: [
-        {
-          name: "date",
-          type: "string",
-          description: "Date to fetch the last meeting for (YYYY-MM-DD)",
-          required: true
-        }
-      ],
+      parameters: z.object({
+        date: z.string().describe("Date to fetch the last meeting for (YYYY-MM-DD)")
+      }),
       // [!code highlight:17]
       handler: async ({ date }) => {
         // some async operation which can return a result:
@@ -113,10 +95,10 @@ option to render your custom component through the `render` property.
       },
       render: ({ status, result }) => {
         if (status === 'executing' || status === 'inProgress') {
-          // show a loading view while the action is executing, i.e. while the meeting is being fetched
+          // show a loading view while the tool is executing, i.e. while the meeting is being fetched
           return <LoadingView />;
         } else if (status === 'complete') {
-          // show the meeting card once the action is complete
+          // show the meeting card once the tool is complete
           return <CalendarMeetingCardComponent {...result} />;
         } else {
           return <div className="text-red-500">No meeting found</div>;
@@ -128,40 +110,26 @@ option to render your custom component through the `render` property.
   </Tab>
 
   <Tab value="renderAndWaitForResponse (HITL)">
-    The `renderAndWaitForResponse` method allows for returning values asynchronously from the render function.
+    The `render` method with [`useHumanInTheLoop`](/reference/hooks/useHumanInTheLoop) allows for returning values asynchronously from the render function.
 
     This is great for Human-in-the-Loop flows, where the AI assistant can prompt the end-user with a choice (rendered inside the chat UI),
     and the user can make the choice by pressing a button in the chat UI.
 
     ```tsx
     "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
-    import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
+    import { useHumanInTheLoop } from "@copilotkit/react-core"; // [!code highlight]
+    import { z } from "zod"; // [!code highlight]
 
-    useCopilotAction({ // [!code highlight]
+    useHumanInTheLoop({ // [!code highlight]
       name: "handleMeeting",
       description: "Handle a meeting by booking or canceling",
-      parameters: [
-        {
-          name: "meeting",
-          type: "string",
-          description: "The meeting to handle",
-          required: true,
-        },
-        {
-          name: "date",
-          type: "string",
-          description: "The date of the meeting",
-          required: true,
-        },
-        {
-          name: "title",
-          type: "string",
-          description: "The title of the meeting",
-          required: true,
-        },
-      ],
+      parameters: z.object({
+        meeting: z.string().describe("The meeting to handle"),
+        date: z.string().describe("The date of the meeting"),
+        title: z.string().describe("The title of the meeting")
+      }),
       // [!code highlight:12]
-      renderAndWaitForResponse: ({ args, respond, status }) => {
+      render: ({ args, respond, status }) => {
         const { meeting, date, title } = args;
         return (
           <MeetingConfirmationDialog
@@ -187,19 +155,15 @@ option to render your custom component through the `render` property.
 
     ```tsx
     "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
-    import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
+    import { useFrontendTool } from "@copilotkit/react-core"; // [!code highlight]
+    import { z } from "zod"; // [!code highlight]
 
-    useCopilotAction({ // [!code highlight]
-      name: "simpleAction",
-      description: "A simple action with string rendering",
-      parameters: [
-        {
-          name: "taskName",
-          type: "string",
-          description: "Name of the task",
-          required: true,
-        },
-      ],
+    useFrontendTool({ // [!code highlight]
+      name: "simpleTool",
+      description: "A simple tool with string rendering",
+      parameters: z.object({
+        taskName: z.string().describe("Name of the task")
+      }),
       handler: async ({ taskName }) => {
         return await longRunningOperation(taskName);
       },
@@ -213,16 +177,16 @@ option to render your custom component through the `render` property.
   </Tab>
 
   <Tab value="Catch all renders">
-    If you want to render actions that are not explicitly referenced in any `useCopilotAction` call, you can pass `"*"` as the action name.
+    If you want to render tools that are not explicitly referenced in any specific hook call, you can pass `"*"` as the tool name with [`useRenderToolCall`](/reference/hooks/useRenderToolCall).
     In this case, the render method will receive an additional `name` parameter. This is particularly useful when working with agents that may call arbitrary tools - see more in our [Tool-based Generative UI](/crewai-crews/generative-ui/tool-based) guide.
 
     ```tsx
-    import { useCopilotAction, CatchAllActionRenderProps } from "@copilotkit/react-core";
+    import { useRenderToolCall, CatchAllToolRenderProps } from "@copilotkit/react-core";
 
-    useCopilotAction({
+    useRenderToolCall({
       name: "*",
-      render: ({ name, args, status, result }: CatchAllActionRenderProps<[]>) => {
-        return <div>Rendering action: {name}</div>;
+      render: ({ name, args, status, result }: CatchAllToolRenderProps<[]>) => {
+        return <div>Rendering tool: {name}</div>;
       },
     });
     ```
@@ -232,8 +196,8 @@ option to render your custom component through the `render` property.
 <Accordions className="mt-4">
   <Accordion title="What do the different status states mean?">
     - `inProgress`: Arguments are dynamically streamed to the function, allowing you to adjust your UI in real-time.
-    - `executing`: The action handler is executing.
-    - `complete`: The action handler has completed execution.
+    - `executing`: The tool handler is executing.
+    - `complete`: The tool handler has completed execution.
   </Accordion>
   <Accordion title='Why do I need "use client" in Next.js with the App Router?'>
     <UseClientCalloutSnippet components={props.components} />
@@ -242,9 +206,11 @@ option to render your custom component through the `render` property.
 
 ## Test it out!
 
-After defining the action with a render method, ask the copilot to perform the task. For example, you can now ask the copilot to "show tasks" and see the custom UI component rendered in the chat interface.
+After defining the tool with a render method, ask the copilot to perform the task. For example, you can now ask the copilot to "show tasks" and see the custom UI component rendered in the chat interface.
 
 <Callout type="info">
-  You can read more about the `useCopilotAction` hook
-  [here](/reference/hooks/useCopilotAction).
+  You can read more about the tool hooks:
+  - [`useRenderToolCall`](/reference/hooks/useRenderToolCall) for render-only tools
+  - [`useFrontendTool`](/reference/hooks/useFrontendTool) for tools with handler + render
+  - [`useHumanInTheLoop`](/reference/hooks/useHumanInTheLoop) for human-in-the-loop tools
 </Callout>

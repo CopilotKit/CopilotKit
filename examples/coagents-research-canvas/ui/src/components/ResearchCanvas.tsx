@@ -6,8 +6,9 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   useCoAgent,
   useCoAgentStateRender,
-  useCopilotAction,
+  useHumanInTheLoop,
 } from "@copilotkit/react-core";
+import { z } from "zod";
 import { Progress } from "./Progress";
 import { EditResourceDialog } from "./EditResourceDialog";
 import { AddResourceDialog } from "./AddResourceDialog";
@@ -35,18 +36,14 @@ export function ResearchCanvas() {
     },
   });
 
-  useCopilotAction({
+  useHumanInTheLoop({
     name: "DeleteResources",
     description:
       "Prompt the user for resource delete confirmation, and then perform resource deletion",
-    available: "remote",
-    parameters: [
-      {
-        name: "urls",
-        type: "string[]",
-      },
-    ],
-    renderAndWait: ({ args, status, handler }) => {
+    parameters: z.object({
+      urls: z.array(z.string()).optional(),
+    }),
+    render: ({ args, status, respond }) => {
       return (
         <div
           className=""
@@ -64,14 +61,14 @@ export function ResearchCanvas() {
           {status === "executing" && (
             <div className="mt-4 flex justify-start space-x-2">
               <button
-                onClick={() => handler("NO")}
+                onClick={() => respond("NO")}
                 className="px-4 py-2 text-[#6766FC] border border-[#6766FC] rounded text-sm font-bold"
               >
                 Cancel
               </button>
               <button
                 data-test-id="button-delete"
-                onClick={() => handler("YES")}
+                onClick={() => respond("YES")}
                 className="px-4 py-2 bg-[#6766FC] text-white rounded text-sm font-bold"
               >
                 Delete

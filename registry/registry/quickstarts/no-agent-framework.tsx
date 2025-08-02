@@ -1,20 +1,20 @@
 "use client";
 
-import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
+import { useFrontendTool, useCopilotReadable } from "@copilotkit/react-core";
+import { z } from "zod";
 import { CopilotKitCSSProperties, CopilotSidebar, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { useState } from "react";
 
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
 
-  // 🪁 Frontend Actions: https://docs.copilotkit.ai/guides/frontend-actions
-  useCopilotAction({
+  // 🪁 Frontend Tools: https://docs.copilotkit.ai/guides/frontend-tools
+  useFrontendTool({
     name: "setThemeColor",
-    parameters: [{
-      name: "themeColor",
-      description: "The theme color to set. Make sure to pick nice colors.",
-      required: true, 
-    }],
+    description: "Set the theme color of the interface",
+    parameters: z.object({
+      themeColor: z.string().describe("The theme color to set. Make sure to pick nice colors."),
+    }),
     handler({ themeColor }) {
       setThemeColor(themeColor);
     },
@@ -51,27 +51,26 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
     value: proverbs,
   })
 
-  // 🪁 Frontend Tools: https://docs.copilotkit.ai/guides/frontend-actions
-  useCopilotAction({
+  // 🪁 Frontend Tools: https://docs.copilotkit.ai/guides/frontend-tools
+  useFrontendTool({
     name: "addProverb",
-    parameters: [{
-      name: "proverb",
-      description: "The proverb to add. Make it witty, short and concise.",
-      required: true,
-    }],
+    description: "Add a proverb to the list",
+    parameters: z.object({
+      proverb: z.string().describe("The proverb to add. Make it witty, short and concise."),
+    }),
     handler: ({ proverb }) => {
       setProverbs([...proverbs, proverb]);
     },
   });
 
   //🪁 Generative UI: https://docs.copilotkit.ai/guides/generative-ui
-  useCopilotAction({
+  useFrontendTool({
     name: "generateGradientCard",
     description: "Generate a card with a card with a background gradient between two colors.",
-    parameters: [
-      { name: "color1", type: "string", required: true },
-      { name: "color2", type: "string", required: true },
-    ],
+    parameters: z.object({
+      color1: z.string().describe("First color for the gradient"),
+      color2: z.string().describe("Second color for the gradient"),
+    }),
     render: ({ args }) => {
       return (
         <div 
