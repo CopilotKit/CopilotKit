@@ -3,7 +3,6 @@
   "root": true,
   "pages": [
     "index",
-    "oldindex",
     "...guides",
     "---Tutorials---",
     "...tutorials",

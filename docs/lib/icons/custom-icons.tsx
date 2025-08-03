@@ -213,4 +213,5 @@ export const customIcons = {
   agno: AgnoIcon,
   agnoBlack: AgnoIconBlack,
   llamaindex: LlamaIndexIcon,
+  pydantic: PydanticAIIcon,
 };

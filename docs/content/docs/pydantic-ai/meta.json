@@ -3,7 +3,6 @@
   "root": true,
   "pages": [
     "index",
-    "oldindex",
     "---Getting Started---",
     "...quickstart",
     "[lucide/Telescope][Feature Viewer](https://ag-ui-dojo-nine.vercel.app/pydantic-ai)",
