@@ -7,6 +7,29 @@ import { FaPython } from "react-icons/fa";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
 import { LuLayoutTemplate } from "react-icons/lu";
 import { IconBaseProps } from "react-icons";
+import { RocketIcon } from "lucide-react";
+
+export const DirectToLLMIcon = (props: IconBaseProps) => (
+  <svg
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <path
+      d="M12 2L13.09 8.26L20 9L15 14L16.18 21L12 17.77L7.82 21L9 14L2 9L8.91 8.26L12 2Z"
+      fill="currentColor"
+    />
+    <path
+      d="M12 16L10.5 22L12 20.5L13.5 22L12 16Z"
+      fill="currentColor"
+      opacity="0.6"
+    />
+  </svg>
+);
+
 export const AG2Icon = (props: IconBaseProps) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -214,4 +237,5 @@ export const customIcons = {
   agnoBlack: AgnoIconBlack,
   llamaindex: LlamaIndexIcon,
   pydantic: PydanticAIIcon,
+  "direct-to-llm": RocketIcon,
 };

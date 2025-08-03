@@ -53,7 +53,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                     {
                       title: "Direct to LLM",
                       description: "Get started with CopilotKit quickly",
-                      url: "/direct-to-llm/guides/quickstart",
+                      url: "/direct-to-llm",
                       icon: (
                         <RocketIcon
                           className="w-4 h-4"
