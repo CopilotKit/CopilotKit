@@ -150,23 +150,17 @@ to coordinate chat and task execution.
 
 ## 👉 Next Steps
 
-<CTACards cards={[
-  {
-    title: "Quickstart",
-    href: "/direct-to-llm/quickstart",
-    description: "Build your first LLM-powered app in minutes.",
-    iconKey: "play"
-  },
-  {
-    title: "Feature Overview",
-    href: "https://feature-viewer-langgraph.vercel.app/",
-    description: "Try the key features of LLM-powered apps with CopilotKit.",
-    iconKey: "wand"
-  },
-  {
-    title: "Travel Agent Tutorial",
-    href: "/direct-to-llm/tutorials/ai-travel-app",
-    description: "Step-by-step guide to building an LLM-native travel app.",
-    iconKey: "message-square"
-  }
-]} />
+<Cards className="gap-6">
+  <Card
+    className="p-6 rounded-xl text-base"
+    title="Quickstart"
+    description="Build your first LLM-powered agentic app in minutes."
+    href="/direct-to-llm/guides/quickstart"
+  />
+  <Card 
+    className="p-6 rounded-xl text-base"
+    title="Travel Agent Tutorial"
+    description="Step-by-step guide to building an agent-native travel app."
+    href="/coagents/tutorials/ai-travel-app"
+  />
+</Cards>

@@ -134,23 +134,23 @@ to coordinate chat and task execution.
 
 ## 👉 Next Steps
 
-<CTACards cards={[
-  {
-    title: "Quickstart",
-    href: "/coagents/quickstart/langgraph",
-    description: "Build your first CoAgent in minutes.",
-    iconKey: "play"
-  },
-  {
-    title: "Feature Overview",
-    href: "https://feature-viewer-langgraph.vercel.app/",
-    description: "Try the key features of CoAgents powered by CopilotKit & AG2.",
-    iconKey: "wand"
-  },
-  {
-    title: "Travel Agent Tutorial",
-    href: "/coagents/tutorials/ai-travel-app",
-    description: "Step-by-step guide to building an agent-native travel app.",
-    iconKey: "message-square"
-  }
-]} />
+<Cards className="gap-6">
+  <Card
+    className="p-6 rounded-xl text-base"
+    title="Quickstart"
+    description="Build your first agentic app with AG2 in minutes."
+    href="/ag2/quickstart"
+  />
+  <Card 
+    className="p-6 rounded-xl text-base"
+    title="Feature Overview"
+    description="Try the key features of CoAgents powered by CopilotKit & AG2."
+    href="https://ag-ui-dojo-nine.vercel.app/ag2"
+  />
+  <Card 
+    className="p-6 rounded-xl text-base"
+    title="Travel Agent Tutorial"
+    description="Step-by-step guide to building an agent-native travel app."
+    href="/coagents/tutorials/ai-travel-app"
+  />
+</Cards>

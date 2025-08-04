@@ -5,6 +5,7 @@ description: Bring your LangGraph agents to your users with CopilotKit.
 ---
 
 import { CTACards } from "@/components/react/cta-cards";
+import { Play, Wand, MessageSquare } from "lucide-react";
 
 LangGraph is a low-level orchestration framework for building, managing, and deploying long-running, stateful agents.  CopilotKit and LangGraph together provide everything you need to build rich, interactive, agent-powered applications. 
 
@@ -116,15 +117,22 @@ Keep your agent and your app in sync. Shared state means your agent can see ever
 
   <div className="lg:col-span-4 border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
     <div>
-      <h3 className="text-xl font-bold mb-3 text-foreground">CLI</h3>
-      <p className="text-sm text-muted-foreground mb-4">Bring your LangGraph agent to your NextJS app!</p>
+      <p className="text-sm text-muted-foreground mb-4">Bring your LangGraph agent to your NextJS app using the CopilotKit CLI!</p>
     </div>
-    <div className="h-12 flex items-center justify-center">
-      
-```bash
-npx copilotkit@latest init -m LangGraph
-```
+
+    <div className="h-12 flex items-center justify-center">    
+  ```bash
+  npx copilotkit@latest init -m LangGraph
+  ```
     </div>
+      <Accordions>
+        <Accordion title="Don't have a Next.js application?">
+            No problem! Just use `create-next-app` to make one quickly.
+            ```bash
+            npx create-next-app@latest
+            ```
+      </Accordion>
+    </Accordions>
   </div>
 
   ---
@@ -140,23 +148,23 @@ to coordinate chat and task execution.
 
 ## 👉 Next Steps
 
-<CTACards cards={[
-  {
-    title: "Quickstart",
-    href: "/coagents/quickstart/langgraph",
-    description: "Build your first CoAgent in minutes.",
-    iconKey: "play"
-  },
-  {
-    title: "Feature Overview",
-    href: "https://feature-viewer-langgraph.vercel.app/",
-    description: "Try the key features of CoAgents powered by CopilotKit & LangGraph.",
-    iconKey: "wand"
-  },
-  {
-    title: "Travel Agent Tutorial",
-    href: "/coagents/tutorials/ai-travel-app",
-    description: "Step-by-step guide to building an agent-native travel app.",
-    iconKey: "message-square"
-  }
-]} />
+<Cards className="gap-6">
+  <Card
+    className="p-6 rounded-xl text-base"
+    title="Quickstart"
+    description="Build your first agentic app with LangGraph in minutes."
+    href="/coagents/quickstart/langgraph"
+  />
+  <Card 
+    className="p-6 rounded-xl text-base"
+    title="Feature Overview"
+    description="Try the key features of CoAgents powered by CopilotKit & LangGraph."
+    href="https://feature-viewer-langgraph.vercel.app/"
+  />
+  <Card 
+    className="p-6 rounded-xl text-base"
+    title="Travel Agent Tutorial"
+    description="Step-by-step guide to building an agent-native travel app."
+    href="/coagents/tutorials/ai-travel-app"
+  />
+</Cards>
