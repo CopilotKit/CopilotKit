@@ -1,5 +1,34 @@
 # ui
 
+## 1.10.0-next.10
+
+### Patch Changes
+
+- 6d1de58: - fix: address issues that would cause headless UI breaking changes in the next release
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+  - fix: more fixes addressing breaking changes in new Headless UI
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+  - chore: address linting issues
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+  - chore: fixing branding and docs
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+  - chore: more docs fixing
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+- Updated dependencies [6d1de58]
+  - @copilotkit/react-core@1.10.0-next.10
+  - @copilotkit/shared@1.10.0-next.10
+  - @copilotkit/runtime-client-gql@1.10.0-next.10
+
 ## 1.10.0-next.9
 
 ### Patch Changes

@@ -3,6 +3,7 @@ import { MessagesProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import { Message } from "@copilotkit/shared";
 import { useCopilotChatInternal as useCopilotChat } from "@copilotkit/react-core";
+import { LegacyRenderMessage, LegacyRenderProps } from "./messages/LegacyRenderMessage";
 
 export const Messages = ({
   inProgress,
@@ -10,17 +11,68 @@ export const Messages = ({
   RenderMessage,
   AssistantMessage,
   UserMessage,
+  ImageRenderer,
   onRegenerate,
   onCopy,
   onThumbsUp,
   onThumbsDown,
   markdownTagRenderers,
+
+  // Legacy props
+  RenderTextMessage,
+  RenderActionExecutionMessage,
+  RenderAgentStateMessage,
+  RenderResultMessage,
+  RenderImageMessage,
 }: MessagesProps) => {
   const { labels } = useChatContext();
-  const { visibleMessages, interrupt } = useCopilotChat();
+  const { messages: visibleMessages, interrupt } = useCopilotChat();
   const initialMessages = useMemo(() => makeInitialMessages(labels.initial), [labels.initial]);
   const messages = [...initialMessages, ...visibleMessages];
   const { messagesContainerRef, messagesEndRef } = useScrollToBottom(messages);
+
+  // Check if any legacy props are provided
+  const hasLegacyProps = !!(
+    RenderTextMessage ||
+    RenderActionExecutionMessage ||
+    RenderAgentStateMessage ||
+    RenderResultMessage ||
+    RenderImageMessage
+  );
+
+  // Show deprecation warning if legacy props are used
+  useEffect(() => {
+    if (hasLegacyProps) {
+      console.warn(
+        "[CopilotKit] Legacy message render props (RenderTextMessage, RenderActionExecutionMessage, etc.) are deprecated. " +
+          "Please use the unified 'RenderMessage' prop instead. " +
+          "See migration guide: https://docs.copilotkit.ai/migration/render-message",
+      );
+    }
+  }, [hasLegacyProps]);
+
+  // Create legacy props object for the adapter
+  const legacyProps: LegacyRenderProps = useMemo(
+    () => ({
+      RenderTextMessage,
+      RenderActionExecutionMessage,
+      RenderAgentStateMessage,
+      RenderResultMessage,
+      RenderImageMessage,
+    }),
+    [
+      RenderTextMessage,
+      RenderActionExecutionMessage,
+      RenderAgentStateMessage,
+      RenderResultMessage,
+      RenderImageMessage,
+    ],
+  );
+
+  // Determine which render component to use
+  const MessageRenderer = hasLegacyProps
+    ? (props: any) => <LegacyRenderMessage {...props} legacyProps={legacyProps} />
+    : RenderMessage;
 
   return (
     <div className="copilotKitMessages" ref={messagesContainerRef}>
@@ -28,7 +80,7 @@ export const Messages = ({
         {messages.map((message, index) => {
           const isCurrentMessage = index === messages.length - 1;
           return (
-            <RenderMessage
+            <MessageRenderer
               key={index}
               message={message}
               inProgress={inProgress}
@@ -36,6 +88,7 @@ export const Messages = ({
               isCurrentMessage={isCurrentMessage}
               AssistantMessage={AssistantMessage}
               UserMessage={UserMessage}
+              ImageRenderer={ImageRenderer}
               onRegenerate={onRegenerate}
               onCopy={onCopy}
               onThumbsUp={onThumbsUp}
@@ -69,7 +122,7 @@ function makeInitialMessages(initial: string | string[] | undefined): Message[] 
   return [
     {
       id: initial,
-      role: "system",
+      role: "assistant",
       content: initial,
     },
   ];

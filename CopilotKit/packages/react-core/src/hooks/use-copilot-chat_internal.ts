@@ -10,7 +10,13 @@ import { reloadSuggestions as generateSuggestions } from "../utils";
 import type { SuggestionItem } from "../utils";
 
 import { Message } from "@copilotkit/shared";
-import { Role as gqlRole, TextMessage, aguiToGQL, gqlToAGUI } from "@copilotkit/runtime-client-gql";
+import {
+  Role as gqlRole,
+  TextMessage,
+  aguiToGQL,
+  gqlToAGUI,
+  Message as DeprecatedGqlMessage,
+} from "@copilotkit/runtime-client-gql";
 import { useLangGraphInterruptRender } from "./use-langgraph-interrupt-render";
 
 export interface UseCopilotChatOptions {
@@ -43,28 +49,111 @@ export interface MCPServerConfig {
 }
 
 export interface UseCopilotChatReturn {
-  /** Array of messages currently visible in the chat interface */
-  visibleMessages: Message[];
+  /**
+   * @deprecated use `messages` instead, this is an old non ag-ui version of the messages
+   * Array of messages currently visible in the chat interface
+   *
+   * This is the visible messages, not the raw messages from the runtime client.
+   */
+  visibleMessages: DeprecatedGqlMessage[];
 
-  /** Send a new message to the chat */
-  appendMessage: (message: Message, options?: AppendMessageOptions) => Promise<void>;
+  /**
+   * The messages that are currently in the chat in AG-UI format.
+   */
+  messages: Message[];
 
-  /** Replace all messages in the chat */
-  setMessages: (messages: Message[]) => void;
+  /** @deprecated use `sendMessage` instead */
+  appendMessage: (message: DeprecatedGqlMessage, options?: AppendMessageOptions) => Promise<void>;
 
-  /** Remove a specific message by ID */
+  /**
+   * Send a new message to the chat
+   *
+   * ```tsx
+   * await sendMessage({
+   *   id: "123",
+   *   role: "user",
+   *   content: "Hello, process this request",
+   * });
+   * ```
+   */
+  sendMessage: (message: Message, options?: AppendMessageOptions) => Promise<void>;
+
+  /**
+   * Replace all messages in the chat
+   *
+   * ```tsx
+   * setMessages([
+   *   { id: "123", role: "user", content: "Hello, process this request" },
+   *   { id: "456", role: "assistant", content: "Hello, I'm the assistant" },
+   * ]);
+   * ```
+   *
+   * **Deprecated** non-ag-ui version:
+   *
+   * ```tsx
+   * setMessages([
+   *   new TextMessage({
+   *     content: "Hello, process this request",
+   *     role: gqlRole.User,
+   *   }),
+   *   new TextMessage({
+   *     content: "Hello, I'm the assistant",
+   *     role: gqlRole.Assistant,
+   * ]);
+   * ```
+   *
+   */
+  setMessages: (messages: Message[] | DeprecatedGqlMessage[]) => void;
+
+  /**
+   * Remove a specific message by ID
+   *
+   * ```tsx
+   * deleteMessage("123");
+   * ```
+   */
   deleteMessage: (messageId: string) => void;
 
-  /** Regenerate the response for a specific message */
+  /**
+   * Regenerate the response for a specific message
+   *
+   * ```tsx
+   * reloadMessages("123");
+   * ```
+   */
   reloadMessages: (messageId: string) => Promise<void>;
 
-  /** Stop the current message generation */
+  /**
+   * Stop the current message generation
+   *
+   * ```tsx
+   * if (isLoading) {
+   *   stopGeneration();
+   * }
+   * ```
+   */
   stopGeneration: () => void;
 
-  /** Clear all messages and reset chat state */
+  /**
+   * Clear all messages and reset chat state
+   *
+   * ```tsx
+   * reset();
+   * console.log(messages); // []
+   * ```
+   */
   reset: () => void;
 
-  /** Whether the chat is currently generating a response */
+  /**
+   * Whether the chat is currently generating a response
+   *
+   * ```tsx
+   * if (isLoading) {
+   *   console.log("Loading...");
+   * } else {
+   *   console.log("Not loading");
+   * }
+   */
   isLoading: boolean;
 
   /** Manually trigger chat completion (advanced usage) */
@@ -92,6 +181,11 @@ export interface UseCopilotChatReturn {
    * Trigger AI-powered suggestion generation
    * Uses configurations from useCopilotChatSuggestions hooks
    * Respects global debouncing - only one generation can run at a time
+   *
+   * ```tsx
+   * generateSuggestions();
+   * console.log(suggestions); // [suggestion1, suggestion2, suggestion3]
+   * ```
    */
   generateSuggestions: () => Promise<void>;
 
@@ -300,9 +394,17 @@ export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotC
 
   const latestAppend = useUpdatedRef(append);
   const latestAppendFunc = useAsyncCallback(
+    async (message: DeprecatedGqlMessage, options?: AppendMessageOptions) => {
+      abortSuggestions(options?.clearSuggestions);
+      return await latestAppend.current(message, options);
+    },
+    [latestAppend],
+  );
+
+  const latestSendMessageFunc = useAsyncCallback(
     async (message: Message, options?: AppendMessageOptions) => {
       abortSuggestions(options?.clearSuggestions);
-      return await latestAppend.current(aguiToGQL([message])[0], options);
+      return await latestAppend.current(aguiToGQL([message])[0] as DeprecatedGqlMessage, options);
     },
     [latestAppend],
   );
@@ -330,7 +432,10 @@ export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotC
 
   const latestSetMessages = useUpdatedRef(setMessages);
   const latestSetMessagesFunc = useCallback(
-    (messages: Message[]) => {
+    (messages: Message[] | DeprecatedGqlMessage[]) => {
+      if (messages.every((message) => message instanceof DeprecatedGqlMessage)) {
+        return latestSetMessages.current(messages as DeprecatedGqlMessage[]);
+      }
       return latestSetMessages.current(aguiToGQL(messages));
     },
     [latestSetMessages],
@@ -373,7 +478,9 @@ export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotC
   const interrupt = useLangGraphInterruptRender();
 
   return {
-    visibleMessages: gqlToAGUI(messages, actions, coAgentStateRenders),
+    visibleMessages: messages,
+    messages: gqlToAGUI(messages, actions, coAgentStateRenders),
+    sendMessage: latestSendMessageFunc,
     appendMessage: latestAppendFunc,
     setMessages: latestSetMessagesFunc,
     reloadMessages: latestReloadFunc,
