@@ -139,24 +139,24 @@ Before you begin, you'll need the following:
     >
         <TailoredContentOption
             id="copilot-cloud"
-            title="Copilot Platform (Recommended)"
-            description="I want to host my Copilot on Copilot Platform"
+            title="Copilot Cloud (Recommended)"
+            description="I want to host my Copilot on Copilot Cloud"
             icon={<FaCloud />}
         >
             <Step>
                 ### Add a remote endpoint for your --YOUR-FRAMEWORK-- Agent
-                Using Copilot Platform, you need to connect a remote endpoint that will connect to your --YOUR-FRAMEWORK-- Agent.
+                Using Copilot Cloud, you need to connect a remote endpoint that will connect to your --YOUR-FRAMEWORK-- Agent.
                 <Tabs groupId="lg-deployment-type" items={['Self hosted (FastAPI)', '--YOUR-FRAMEWORK-- Enterprise']}>
                     <Tab value="Self hosted (FastAPI)">
                         **Running your FastAPI server in production**
 
-                        Head over to [Copilot Platform](https://cloud.copilotkit.ai) sign up and setup a remote endpoint with the following information:
+                        Head over to [Copilot Cloud](https://cloud.copilotkit.ai) sign up and setup a remote endpoint with the following information:
                         - OpenAI API key
                         - Your FastAPI server URL
 
                         **Running your FastAPI server locally**
 
-                        If you're running your FastAPI server locally, you can open a tunnel to it so Copilot Platform can connect to it.
+                        If you're running your FastAPI server locally, you can open a tunnel to it so Copilot Cloud can connect to it.
 
                         ```bash
                         npx copilotkit@latest dev --port 8000

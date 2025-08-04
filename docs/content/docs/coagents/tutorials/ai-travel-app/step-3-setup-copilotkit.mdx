@@ -21,8 +21,8 @@ pnpm add @copilotkit/react-core @copilotkit/react-ui
 
 ## Setup CopilotKit
 
-There are two ways of setting up CopilotKit, either by using Copilot Platform or by self-hosting. Self-hosting will give you more control
-over CopilotKit's runtime (our interface to the LLM) but will also require you to manage the extra complexity of running a server. Copilot Platform
+There are two ways of setting up CopilotKit, either by using Copilot Cloud or by self-hosting. Self-hosting will give you more control
+over CopilotKit's runtime (our interface to the LLM) but will also require you to manage the extra complexity of running a server. Copilot Cloud
 on the other hand is a fully managed service that you can get started with in just a few clicks.
 
 For this tutorial, you can select either option.
@@ -30,24 +30,24 @@ For this tutorial, you can select either option.
 <TailoredContent id="hosting">
 <TailoredContentOption
   id="copilot-cloud"
-  title="Copilot Platform (Recommended)"
+  title="Copilot Cloud (Recommended)"
   icon={<FaCloud />}
-  description="I want get started as fast as possible by using Copilot Platform."
+  description="I want get started as fast as possible by using Copilot Cloud."
 >
 We're using CopiloKit cloud as a hosted version of the CopilotKit runtime. The runtime serves as an interface between the application and the LLM
-(agentic or not). Copilot Platform will manage all of the complexity for us but in return we need to provide a valid API key.
+(agentic or not). Copilot Cloud will manage all of the complexity for us but in return we need to provide a valid API key.
 <Steps>
 <Step>
-### Create an account on Copilot Platform
+### Create an account on Copilot Cloud
 
-First, you'll need to create an account for Copilot Platform [here](https://cloud.copilotkit.ai/sign-in). You can
+First, you'll need to create an account for Copilot Cloud [here](https://cloud.copilotkit.ai/sign-in). You can
 use whatever authentication method you'd like.
 
 </Step>
 <Step>
-### Get a Copilot Platform API Key
+### Get a Copilot Cloud API Key
 
-Once logged in, you'll see some steps guiding you to getting our Copilot Platform public API key. For this, you'll need an OpenAI API key since it's the only
+Once logged in, you'll see some steps guiding you to getting our Copilot Cloud public API key. For this, you'll need an OpenAI API key since it's the only
 provider currently supported (more providers coming soon!). 
 
 Set your OpenAI API key, click the green checkmark and you'll see your API key created right below the input.
@@ -66,7 +66,7 @@ First, create a `.env` file in the `ui` directory.
 touch ui/.env
 ```
 
-Then, add your Copilot Platform API key to the file like so:
+Then, add your Copilot Cloud API key to the file like so:
 
 ```txt title="ui/.env"
 NEXT_PUBLIC_CPK_PUBLIC_API_KEY=...

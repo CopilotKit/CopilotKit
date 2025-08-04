@@ -24,19 +24,19 @@ Now that we have both our application and agent running, let's connect them usin
 
 <Steps>
 <Step>
-### Set up Copilot Platform
-Create a [Copilot Platform account](https://cloud.copilotkit.ai/sign-in) to get started. This provides a production-ready proxy to your LLMs.
+### Set up Copilot Cloud
+Create a [Copilot Cloud account](https://cloud.copilotkit.ai/sign-in) to get started. This provides a production-ready proxy to your LLMs.
 
 <Callout>
-Copilot Platform includes free LLM credits for development.
+Copilot Cloud includes free LLM credits for development.
 </Callout>
 
 </Step>
 <Step>
-### Get a Copilot Platform API Key
+### Get a Copilot Cloud API Key
 
 Once logged in, you'll see some on boarding steps. The main thing we'll need is a public API key. To do this,
-you'll need to create an OpenAI API key and provide it to Copilot Platform.
+you'll need to create an OpenAI API key and provide it to Copilot Cloud.
 
 <ImageZoom src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tutorials/ai-travel-app/cpkCloudSetup.png" alt="CopilotCloud API Key" height={1000} width={1000} />
 
@@ -49,7 +49,7 @@ Create and populate the frontend environment file:
 touch frontend/.env
 ```
 
-Then, add your Copilot Platform API key to the file like so:
+Then, add your Copilot Cloud API key to the file like so:
 
 ```txt title="frontend/.env"
 NEXT_PUBLIC_CPK_PUBLIC_API_KEY=...
