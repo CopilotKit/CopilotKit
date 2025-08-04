@@ -2,20 +2,20 @@
  * `useCopilotChat` is a lightweight React hook for headless chat interactions.
  * Perfect for controlling the prebuilt chat components programmatically.
  *
- * **Open Source Friendly** - Works without requiring a free subscription key.
+ * **Open Source Friendly** - Works without requiring a free public license key.
  *
  * <Callout title="Looking for fully headless UI?">
  * Get started with [useCopilotChatHeadless_c](https://docs.copilotkit.ai/reference/hooks/useCopilotChatHeadless_c).
  * </Callout>
  *
- * ## Use Cases:
+ * ## Use Cases
  *
  * - **Programmatic Messaging**: Send messages without displaying chat UI
  * - **Programmatic control**: Control prebuilt component programmatically
  * - **Background Operations**: Trigger AI interactions in the background
  * - **Fire-and-Forget**: Send messages without needing to read responses
  *
- * ## Usage:
+ * ## Usage
  *
  * ```tsx
  * import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";
@@ -32,6 +32,45 @@
  *   );
  * };
  * ```
+ *
+ * ## Return Values
+ * The following properties are returned from the hook:
+ *
+ * <PropertyReference name="visibleMessages" type="DeprecatedGqlMessage[]" deprecated>
+ * Array of messages in old non-AG-UI format, use for compatibility only
+ * </PropertyReference>
+ *
+ * <PropertyReference name="appendMessage" type="(message: DeprecatedGqlMessage, options?) => Promise<void>" deprecated>
+ * Append message using old format, use `sendMessage` instead
+ * </PropertyReference>
+ *
+ * <PropertyReference name="reloadMessages" type="(messageId: string) => Promise<void>">
+ * Regenerate the response for a specific message by ID
+ * </PropertyReference>
+ *
+ * <PropertyReference name="stopGeneration" type="() => void">
+ * Stop the current message generation process
+ * </PropertyReference>
+ *
+ * <PropertyReference name="reset" type="() => void">
+ * Clear all messages and reset chat state completely
+ * </PropertyReference>
+ *
+ * <PropertyReference name="isLoading" type="boolean">
+ * Whether the chat is currently generating a response
+ * </PropertyReference>
+ *
+ * <PropertyReference name="runChatCompletion" type="() => Promise<Message[]>">
+ * Manually trigger chat completion for advanced usage
+ * </PropertyReference>
+ *
+ * <PropertyReference name="mcpServers" type="MCPServerConfig[]">
+ * Array of Model Context Protocol server configurations
+ * </PropertyReference>
+ *
+ * <PropertyReference name="setMcpServers" type="(servers: MCPServerConfig[]) => void">
+ * Update MCP server configurations for enhanced context
+ * </PropertyReference>
  */
 
 import {
