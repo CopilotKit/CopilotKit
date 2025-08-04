@@ -1,0 +1,111 @@
+name: e2e/dojo
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout CPK
+      uses: actions/checkout@v4
+      with:
+        path: CopilotKit
+
+    - name: Checkout AGUI
+      uses: actions/checkout@v4
+      with:
+        repository: ag-ui-protocol/ag-ui
+        path: ag-ui
+        ref: main
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 10.13.1
+
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
+
+    - name: Setup pnpm cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.local/share/pnpm/store
+        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-store-
+
+    - name: Install cpk dependencies
+      working-directory: CopilotKit/CopilotKit
+      run: pnpm install --frozen-lockfile
+
+    - name: Build cpk
+      working-directory: CopilotKit/CopilotKit
+      run: pnpm build
+
+    - name: Install ag-ui dependencies
+      working-directory: ag-ui/typescript-sdk
+      run: pnpm install --frozen-lockfile
+
+    - name: Link cpk into ag-ui
+      working-directory: CopilotKit
+      run: node ../ag-ui/typescript-sdk/apps/dojo/scripts/link-cpk.js .
+
+    - name: Prepare dojo for e2e
+      working-directory: ag-ui/typescript-sdk/apps/dojo
+      run: node ./scripts/prep-dojo-everything.js -e2e
+
+    - name: Install e2e dependencies
+      working-directory: ag-ui/typescript-sdk/apps/dojo/e2e2
+      run: |
+        pnpm install --frozen-lockfile
+        pnpm dlx playwright install --with-deps
+
+    - name: write langgraph env files
+      working-directory: ag-ui/typescript-sdk/integrations/langgraph
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+      run: |
+        echo "OPENAI_API_KEY=${OPENAI_API_KEY}" > examples/python/.env
+        echo "LANGSMITH_API_KEY=${LANGSMITH_API_KEY}" >> examples/python/.env
+        echo "OPENAI_API_KEY=${OPENAI_API_KEY}" > examples/typescript/.env
+        echo "LANGSMITH_API_KEY=${LANGSMITH_API_KEY}" >> examples/typescript/.env
+        echo "OPENAI_API_KEY=${OPENAI_API_KEY}" > python/ag_ui_langgraph/.env
+        echo "LANGSMITH_API_KEY=${LANGSMITH_API_KEY}" >> python/ag_ui_langgraph/.env
+
+    - name: Run dojo+agents and tests
+      working-directory: ag-ui/typescript-sdk/apps/dojo/e2e2
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+      run: |
+        node ../scripts/run-dojo-everything.js &
+        npx wait-port 9999
+        sleep 10
+        pnpm exec playwright test --reporter=dot
+
+    - name: Upload traces
+      if: always() # Uploads artifacts even if tests fail
+      uses: actions/upload-artifact@v4
+      with:
+        name: playwright-traces
+        path: ag-ui/typescript-sdk/apps/dojo/e2e2/test-results/
+        retention-days: 7
