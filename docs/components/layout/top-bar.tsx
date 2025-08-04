@@ -1,6 +1,6 @@
 "use client";
 import { SearchIcon } from "lucide-react";
-import { LinkToCopilotCloud } from "@/components/react/link-to-copilotkit-platform";
+import { LinkToCopilotCloud } from "@/components/react/link-to-copilot-cloud";
 
 export function TopBar() {
   return (
