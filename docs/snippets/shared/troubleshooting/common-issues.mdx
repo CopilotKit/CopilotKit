@@ -1,0 +1,136 @@
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+
+Welcome to the CopilotKit Troubleshooting Guide! Here, you can find answers to common issues
+
+<Callout>
+    Have an issue not listed here? Open a ticket on [GitHub](https://github.com/CopilotKit/CopilotKit/issues) or reach out on [Discord](https://discord.com/invite/6dffbvGU3D)
+    and we'll be happy to help.
+
+    We also highly encourage any open source contributors that want to add their own troubleshooting issues to [Github as a pull request](https://github.com/CopilotKit/CopilotKit/blob/main/CONTRIBUTING.md).
+
+</Callout>
+
+## I am getting network errors / API not found error
+
+If you're encountering network or API errors, here's how to troubleshoot:
+
+<Accordions>
+    <Accordion title="Check your endpoint configuration">
+        Verify your endpoint configuration in your CopilotKit setup:
+
+        ```tsx
+        <CopilotKit
+          runtimeUrl="/api/copilotkit"
+        >
+          {/* Your app */}
+        </CopilotKit>
+        ```
+
+        or, if using CopilotCloud
+        ```tsx
+        <CopilotKit
+            publicApiKey="<your-copilot-cloud-public-api-key>"
+        >
+            {/* Your app */}
+        </CopilotKit>
+        ```
+
+        Common issues:
+        - Missing leading slash in endpoint path
+        - Incorrect path relative to your app's base URL, or, if using absolute paths, incorrect full URL
+        - Typos in the endpoint path
+        - If using CopilotCloud, make sure to omit the `runtimeUrl` property and provide a valid API key
+    </Accordion>
+    <Accordion title="localhost vs 127.0.0.1">
+        If you're running locally and getting connection errors, try using `127.0.0.1` instead of `localhost`:
+
+        ```bash
+        # If this doesn't work:
+        http://localhost:3000/api/copilotkit
+
+        # Try this instead:
+        http://127.0.0.1:3000/api/copilotkit
+        ```
+
+        This is often due to local DNS resolution issues in `/etc/hosts` or network configuration.
+    </Accordion>
+    <Accordion title="Verify your backend is running">
+        Make sure your backend server is:
+        - Running on the expected port
+        - Accessible from your frontend
+        - Not blocked by CORS or firewalls
+
+        Check the [quickstart](/quickstart) to see how to set it up
+    </Accordion>
+
+</Accordions>
+
+## I am getting "CopilotKit's Remote Endpoint" not found error
+
+If you're getting a "CopilotKit's Remote Endpoint not found" error, it usually means the server serving `/info` endpoint isn't accessible. Here's how to fix it:
+
+<Accordions>
+    <Accordion title="Check your FastAPI setup (if using python's FastAPI)">
+        Make sure your FastAPI app has the CopilotKitSDK properly set up.<br/>
+        Refer to [Remote Python Endpoint](/guides/backend-actions/remote-backend-endpoint) to see how to set it up
+    </Accordion>
+    <Accordion title="Test your endpoint">
+        The `/info` endpoint should return agent or action information. Test it directly:
+
+        ```bash
+        curl -v -d '{}' http://localhost:8000/copilotkit/info
+        ```
+        The response looks something like this:
+        ```bash
+        * Host localhost:8000 was resolved.
+        * IPv6: ::1
+        * IPv4: 127.0.0.1
+        *   Trying [::1]:8000...
+        * connect to ::1 port 8000 from ::1 port 55049 failed: Connection refused
+        *   Trying 127.0.0.1:8000...
+        * Connected to localhost (127.0.0.1) port 8000
+        > POST /copilotkit/info HTTP/1.1
+        > Host: localhost:8000
+        > User-Agent: curl/8.7.1
+        > Accept: */*
+        > Content-Length: 2
+        > Content-Type: application/x-www-form-urlencoded
+        >
+        * upload completely sent off: 2 bytes
+        < HTTP/1.1 200 OK
+        < date: Thu, 16 Jan 2025 17:45:05 GMT
+        < server: uvicorn
+        < content-length: 214
+        < content-type: application/json
+        <
+        * Connection #0 to host localhost left intact
+        {"actions":[],"agents":[{"name":"my_agent","description":"A helpful agent.","type":"langgraph"},],"sdkVersion":"0.1.32"}%
+        ```
+
+        As you can see, it's a JSON response with your registered agents and actions, as well as the `200 OK` HTTP response status.
+        If you see a different response, check your FastAPI logs for errors.
+    </Accordion>
+
+</Accordions>
+
+## Connection issues with tunnel creation
+
+If you notice the tunnel creation process spinning indefinitely, your router or ISP might be blocking the connection to CopilotKit's tunnel service.
+
+<Accordions>
+    <Accordion title="Router or ISP blocking tunnel connections">
+        To verify connectivity to the tunnel service, try these commands:
+
+        ```bash
+        ping tunnels.devcopilotkit.com
+        curl -I https://tunnels.devcopilotkit.com
+        telnet tunnels.devcopilotkit.com 443
+        ```
+
+        If these fail, your router's security features or ISP might be blocking the connection. Common solutions:
+        - Check router security settings
+        - Contact your ISP to verify if they're blocking the connection
+        - Try a different network to confirm the issue
+    </Accordion>
+
+</Accordions>

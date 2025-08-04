@@ -6,7 +6,9 @@
     "---Getting Started---",
     "quickstart",
     "[lucide/Telescope][Feature Viewer](https://feature-viewer-langgraph.vercel.app/)",
-    "...shared-guides",
+    "---Custom Look and Feel---",
+    "...custom-look-and-feel",
+    "---Guides---",
     "agentic-chat-ui",
     "generative-ui",
     "human-in-the-loop",
@@ -22,7 +24,6 @@
     "...concepts",
     "---Troubleshooting---",
     "...coagent-troubleshooting",
-    "...troubleshooting",
     "---Other---",
     "...(other)"
   ]

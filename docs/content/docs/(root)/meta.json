@@ -8,7 +8,8 @@
     "[lucide/Play][CoAgent Quickstart](../coagents/quickstart)",
     "---CopilotKit Feature Overviews---",
     "agentic-chat-ui",
-    "...shared-guides",
+    "custom-look-and-feel",
+    "copilot-suggestions",
     "human-in-the-loop",
     "generative-ui",
     "frontend-actions",
@@ -20,7 +21,7 @@
     "...../coagents/videos",
     "...../direct-to-llm/cookbook",
     "---Troubleshooting---",
-    "troubleshooting",
+    "...troubleshooting",
     "---Other---",
     "...(other)"
   ]
