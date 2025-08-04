@@ -4,8 +4,8 @@
  *
  * **Open Source Friendly** - Works without requiring a free subscription key.
  *
- * <Callout>
- * Looking for fully headless UI? Get started with [useCopilotChatHeadless_c](https://docs.copilotkit.ai/reference/hooks/useCopilotChatHeadless_c).
+ * <Callout title="Looking for fully headless UI?">
+ * Get started with [useCopilotChatHeadless_c](https://docs.copilotkit.ai/reference/hooks/useCopilotChatHeadless_c).
  * </Callout>
  *
  * ## Use Cases:
