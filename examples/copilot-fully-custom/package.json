@@ -9,9 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@copilotkit/react-core": "^1.5.20",
-    "@copilotkit/react-ui": "^1.5.20",
-    "@copilotkit/runtime": "^1.5.20",
+    "@copilotkit/react-core": "1.9.3",
+    "@copilotkit/react-ui": "1.9.3",
+    "@copilotkit/runtime": "1.9.3",
+    "@copilotkit/shared": "1.9.3",
     "@leafygreen-ui/avatar": "^2.0.2",
     "@leafygreen-ui/badge": "^9.0.2",
     "@leafygreen-ui/button": "^23.0.0",
