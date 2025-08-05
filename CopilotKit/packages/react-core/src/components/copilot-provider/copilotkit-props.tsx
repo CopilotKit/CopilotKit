@@ -8,9 +8,18 @@ import { CopilotErrorHandler } from "@copilotkit/shared";
 
 export interface CopilotKitProps {
   /**
-   *  Your Copilot Cloud API key. Don't have it yet? Go to https://cloud.copilotkit.ai and get one for free.
+   * Your Copilot Cloud API key.
+   *
+   * Don't have it yet? Go to https://cloud.copilotkit.ai and get one for free.
    */
   publicApiKey?: string;
+
+  /**
+   * Your public license key for accessing premium CopilotKit features.
+   *
+   * Don't have it yet? Go to https://cloud.copilotkit.ai and get one for free.
+   */
+  publicLicenseKey?: string;
 
   /**
    * Restrict input to a specific topic.

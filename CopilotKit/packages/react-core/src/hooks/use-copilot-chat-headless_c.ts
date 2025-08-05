@@ -2,7 +2,7 @@
  * `useCopilotChatHeadless_c` is for building fully custom UI (headless UI) implementations.
  *
  * <Callout title="This is a premium-only feature">
- * Sign up for free on [Copilot Cloud](https://cloud.copilotkit.ai) to get your public license key.
+ * Sign up for free on [Copilot Cloud](https://cloud.copilotkit.ai) to get your public license key or read more about [premium features](/premium).
  *
  * Usage is generous, **free** to get started, and works with **either self-hosted or Copilot Cloud** environments.
  * </Callout>
