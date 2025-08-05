@@ -109,9 +109,11 @@ interface RuntimeEventWithState {
 
 type EventSourceCallback = (eventStream$: RuntimeEventSubject) => Promise<void>;
 
+const MAX_BUFFER_SIZE = 50;
+
 export class RuntimeEventSubject extends ReplaySubject<RuntimeEvent> {
   constructor() {
-    super();
+    super(MAX_BUFFER_SIZE);
   }
 
   sendTextMessageStart({
