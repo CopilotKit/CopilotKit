@@ -28,6 +28,17 @@ from .logging import get_logger
 logger = get_logger(__name__)
 
 def copilotkit_updater(left: Dict[str, Any], right: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Reducer function for merging CopilotKit state updates in LangGraph.
+
+    This function handles concurrent updates to the CopilotKit state by merging
+    actions from multiple sources while preventing duplicates based on action names.
+    Args:
+        left (Dict[str, Any]): The existing CopilotKit state (current state)
+        right (Dict[str, Any]): The new CopilotKit state update (incoming state)
+    Returns:
+        Dict[str, Any]: Merged CopilotKit state
+    """
     # Start with left state
     merged = left.copy()
 
