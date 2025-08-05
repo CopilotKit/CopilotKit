@@ -109,11 +109,19 @@ interface RuntimeEventWithState {
 
 type EventSourceCallback = (eventStream$: RuntimeEventSubject) => Promise<void>;
 
-const MAX_BUFFER_SIZE = 50;
+const BUFFER_SIZE = process.env.COPILOT_EVENT_BUFFER_SIZE
+  ? parseInt(process.env.COPILOT_EVENT_BUFFER_SIZE)
+  : undefined; // Keep unlimited by default
 
 export class RuntimeEventSubject extends ReplaySubject<RuntimeEvent> {
+  private static eventCount = 0;
+
   constructor() {
-    super(MAX_BUFFER_SIZE);
+    super(BUFFER_SIZE);
+    RuntimeEventSubject.eventCount++;
+    if (RuntimeEventSubject.eventCount % 100 === 0) {
+      console.warn(`RuntimeEventSubject: ${RuntimeEventSubject.eventCount} events buffered`);
+    }
   }
 
   sendTextMessageStart({
