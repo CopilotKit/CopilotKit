@@ -7,7 +7,7 @@ import json
 import warnings
 import asyncio
 from typing import List, Optional, Any, Union, Dict, Callable, cast
-from typing_extensions import TypedDict
+from typing_extensions import TypedDict, Annotated
 from langgraph.graph import MessagesState
 
 
@@ -27,6 +27,31 @@ from .logging import get_logger
 
 logger = get_logger(__name__)
 
+def copilotkit_updater(left: Dict[str, Any], right: Dict[str, Any]) -> Dict[str, Any]:
+    # Start with left state
+    merged = left.copy()
+
+    # Get existing actions and new actions
+    left_actions = left.get("actions", [])
+    right_actions = right.get("actions", [])
+
+    # Create a set to track unique actions
+    seen = set()
+    merged_actions = []
+
+    for action in left_actions + right_actions:
+        # Ensure proper unique identification
+        action_id = action.get('name')
+        if action_id is None:
+            # If no ID, treat each action as unique (don't deduplicate)
+            merged_actions.append(action)
+        elif action_id not in seen:
+            seen.add(action_id)
+            merged_actions.append(action)
+
+    # Update the merged state with new actions
+    merged["actions"] = merged_actions
+    return merged
 
 class CopilotKitProperties(TypedDict):
     """CopilotKit state"""
@@ -34,7 +59,7 @@ class CopilotKitProperties(TypedDict):
 
 class CopilotKitState(MessagesState):
     """CopilotKit state"""
-    copilotkit: CopilotKitProperties
+    copilotkit: Annotated[CopilotKitProperties, copilotkit_updater]
 
 
 def copilotkit_messages_to_langchain(
