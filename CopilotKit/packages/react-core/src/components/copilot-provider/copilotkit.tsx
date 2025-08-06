@@ -52,7 +52,7 @@ import {
   LangGraphInterruptActionSetterArgs,
 } from "../../types/interrupt-action";
 import { StatusChecker } from "../../lib/status-checker";
-import { SuggestionItem } from "../../utils/suggestions";
+import { ConsoleTrigger } from "../dev-console/console-trigger";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const enabled = shouldShowDevConsole(props.showDevConsole);
@@ -98,10 +98,6 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     removeElement: removeDocument,
     allElements: allDocuments,
   } = useFlatCategoryStore<DocumentPointer>();
-
-  const statusChecker = useMemo(() => new StatusChecker(), []);
-
-  const [usageBannerStatus, setUsageBannerStatus] = useState<any>(null);
 
   // Compute all the functions and properties that we need to pass
   const setAction = useCallback((id: string, action: FrontendAction<any>) => {
@@ -491,7 +487,10 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       }}
     >
       <MessagesTapProvider>
-        <CopilotMessages>{memoizedChildren}</CopilotMessages>
+        <CopilotMessages>
+          {memoizedChildren}
+          {showDevConsole && <ConsoleTrigger />}
+        </CopilotMessages>
       </MessagesTapProvider>
       {bannerError && showDevConsole && (
         <UsageBanner
