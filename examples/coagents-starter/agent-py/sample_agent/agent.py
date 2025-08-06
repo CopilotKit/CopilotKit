@@ -25,7 +25,7 @@ class AgentState(CopilotKitState):
     proverbs: list[str] = []
     # your_custom_agent_state: str = ""
 
-@tool
+@tool("getWeather")
 def get_weather(location: str):
     """
     Get the weather for a given location.
