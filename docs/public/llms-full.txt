@@ -6523,9 +6523,9 @@ On this pageIntroduction
 
 ## [Introduction](https://docs.copilotkit.ai/guides/guardrails\#introduction)
 
-CopilotKit Cloud provides content moderation capabilities through the `guardrails_c` configuration, helping ensure safe and appropriate AI interactions. The system uses OpenAI's content moderation capabilities to enforce these guardrails.
+Copilot Cloud provides content moderation capabilities through the `guardrails_c` configuration, helping ensure safe and appropriate AI interactions. The system uses OpenAI's content moderation capabilities to enforce these guardrails.
 
-This feature is only available with [CopilotKit Cloud](https://cloud.copilotkit.ai/).
+This feature is only available with [Copilot Cloud](https://cloud.copilotkit.ai/).
 
 ## [Implementation](https://docs.copilotkit.ai/guides/guardrails\#implementation)
 
@@ -9467,9 +9467,9 @@ On this pageIntroduction
 
 ## [Introduction](https://docs.copilotkit.ai/guides/authenticated-actions\#introduction)
 
-CopilotKit Cloud enables secure propagation of authentication state within AI conversations, allowing your copilot to interact with authenticated backend services and tools on behalf of the user.
+Copilot Cloud enables secure propagation of authentication state within AI conversations, allowing your copilot to interact with authenticated backend services and tools on behalf of the user.
 
-This feature is only available with [CopilotKit Cloud](https://cloud.copilotkit.ai/).
+This feature is only available with [Copilot Cloud](https://cloud.copilotkit.ai/).
 
 ## [Overview](https://docs.copilotkit.ai/guides/authenticated-actions\#overview)
 
@@ -9485,7 +9485,7 @@ When building AI copilots that interact with user-specific data or services (lik
 
 1. Your frontend app configures authentication state using `authConfig_c`
 2. When a user authenticates, their auth state (headers, metadata) is securely captured
-3. CopilotKit Cloud Runtime maintains this auth context throughout the conversation
+3. Copilot Cloud Runtime maintains this auth context throughout the conversation
 4. When the LLM or runloop needs to call your registered endpoints/tools:
    - All auth headers are automatically propagated
    - Your endpoints receive the same auth context
