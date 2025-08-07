@@ -1,5 +1,13 @@
 # ui
 
+## 1.10.0-next.12
+
+### Patch Changes
+
+- b64555d: - feat: adds dev console
+  - @copilotkit/runtime-client-gql@1.10.0-next.12
+  - @copilotkit/shared@1.10.0-next.12
+
 ## 1.10.0-next.11
 
 ### Patch Changes
