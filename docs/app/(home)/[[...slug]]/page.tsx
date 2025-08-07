@@ -28,7 +28,7 @@ import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 /**
  * TODO: This should be dynamic, but it's not working.
  */
-const platformOnlyFeatures = ["Authenticated Actions", "Guardrails", "Observability"];
+const cloudOnlyFeatures = ["Authenticated Actions", "Guardrails"];
 
 const mdxComponents = {
   ...defaultMdxComponents,
@@ -63,17 +63,16 @@ export default async function Page({
   const page = source.getPage(params.slug);
   if (!page) notFound();
   const MDX = page.data.body;
-  const platformOnly = platformOnlyFeatures.includes(page.data.title);
+  const cloudOnly = cloudOnlyFeatures.includes(page.data.title);
   return (
     <DocsPage
       toc={[]}
       full={page.data.full}
-
     >
       <div className="flex items-center gap-3">
         <DocsTitle className="flex items-center">
           {page.data.title}
-          {platformOnly && (
+          {cloudOnly && (
             <Badge
               variant="secondary"
               className="ml-3 mt-1 inline-flex items-center gap-1.5 py-1.5 px-3 bg-indigo-600/90 text-white hover:bg-indigo-600 border-0 rounded-md transition-colors"
