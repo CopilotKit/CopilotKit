@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.10.0-next.13
+
+### Patch Changes
+
+- b5b94b9: - fix: throw errors when they happen with agui streams
+  - @copilotkit/shared@1.10.0-next.13
+
 ## 1.10.0-next.12
 
 ### Patch Changes
