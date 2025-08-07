@@ -12,7 +12,6 @@
     "...troubleshooting",
     "---Other---",
     "../shared/(other)/contributing",
-    "../shared/(other)/telemetry",
-    "(other)/observability"
+    "../shared/(other)/telemetry"
   ]
 }

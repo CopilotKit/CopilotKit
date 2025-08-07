@@ -1,5 +1,5 @@
 {
-  "title": "CoAgents",
+  "title": "Pydantic AI",
   "root": true,
   "pages": [
     "index",
@@ -17,6 +17,8 @@
     "multi-agent-flows",
     "persistence",
     "advanced",
+    "---Premium Features---",
+    "...premium",
     "---Learn---",
     "...concepts",
     "---Troubleshooting---",
