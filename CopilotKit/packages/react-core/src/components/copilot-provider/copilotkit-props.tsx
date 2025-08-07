@@ -137,7 +137,7 @@ export interface CopilotKitProps {
    * Optional error handler for comprehensive debugging and observability.
    *
    * **Requires publicApiKey**: Error handling only works when publicApiKey is provided.
-   * This is a premium CopilotKit Cloud feature.
+   * This is a premium Copilot Cloud feature.
    *
    * @param errorEvent - Structured error event with rich debugging context
    *
