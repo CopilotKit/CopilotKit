@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.10.0-next.11
+
+### Patch Changes
+
+- dc6df18: - feat: use latest agui langgraph package
+  - chore: release python sdk 0.1.58
+  - @copilotkit/shared@1.10.0-next.11
+
 ## 1.10.0-next.10
 
 ### Patch Changes
