@@ -1,0 +1,49 @@
+## What are premium features?
+
+Premium features are a collection of early access features for CopilotKit users. These features
+will eventually be available to all CopilotKit users for free, but as their development progresses,
+early access is only availble to users with a public license key.
+
+## Current Premium Features
+- [Fully Headless Chat UI](../custom-look-and-feel/headless-ui)
+- [Observability Hooks](../troubleshooting/error-debugging-observability)
+
+## FAQs
+
+### How do I get access to premium features?
+Access to premium features requires a public license key. To get yours, follow the steps below.
+
+<Steps>
+  <Step>
+    #### Sign up
+
+    Create a *free* account on [Copilot Cloud](https://cloud.copilotkit.ai).
+
+    This does not require a credit card or use of Copilot Cloud.
+  </Step>
+  <Step>
+    #### Get your public license key
+
+    Once you've signed up, you'll be able to get your public license key from the left nav.
+  </Step>
+  <Step>
+    #### Use the public license key
+
+    Once you've signed up, you'll be able to use the public license key in your CopilotKit instance.
+
+    ```tsx title="layout.tsx"
+    <CopilotKit publicLicenseKey="your-public-license-key" />
+    ```
+  </Step>
+</Steps>
+
+### Can I still self-host with a public license key?
+
+Yes, you can still self-host with a public license key. It is only required if you want to use premium features, 
+for access to Copilot Cloud a public API key is utilized.
+
+
+### What is the difference between a public license key and a public API key?
+
+A public API key is a key that you can use to access CopilotKit Cloud features. Public license keys are used to access premium features
+and do not require a connection to Copilot Cloud.

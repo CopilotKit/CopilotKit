@@ -1,15 +1,13 @@
 /**
  * `useCopilotChatHeadless_c` is for building fully custom UI (headless UI) implementations.
  *
- * <Callout type="info" title="This is a premium feature">
- * Use of `useCopilotchatHeadless_c` requires a public license key.
+ * <Callout title="This is a premium-only feature">
+ * Sign up for free on [Copilot Cloud](https://cloud.copilotkit.ai) to get your public license key or read more about [premium features](/premium).
  *
- * Sign up for free at https://cloud.copilotkit.ai/ to get your public license key.
- *
- * Usage is generous, free to get started, and easily slots into existing applications, either self-hosted or using Copilot Cloud.
+ * Usage is generous, **free** to get started, and works with **either self-hosted or Copilot Cloud** environments.
  * </Callout>
  *
- * ## Key Features:
+ * ## Key Features
  *
  * - **Fully headless**: Build your own fully custom UI's for your agentic applications.
  * - **Advanced Suggestions**: Direct access to suggestions array with full control
@@ -18,7 +16,8 @@
  * - **Chat Controls**: Complete set of chat management functions
  * - **Loading States**: Comprehensive loading state management
  *
- * ## Usage:
+ *
+ * ## Usage
  *
  * ### Basic Setup
  *
@@ -28,7 +27,7 @@
  *
  * export function App() {
  *   return (
- *     <CopilotKit publicApiKey="your-free-subscription-key">
+ *     <CopilotKit publicApiKey="your-free-public-license-key">
  *       <YourComponent />
  *     </CopilotKit>
  *   );
@@ -87,6 +86,77 @@
  *   );
  * }
  * ```
+ *
+ * ## Return Values
+ * The following properties are returned from the hook:
+ *
+ * <PropertyReference name="messages" type="Message[]">
+ * The messages currently in the chat in AG-UI format
+ * </PropertyReference>
+ *
+ * <PropertyReference name="sendMessage" type="(message: Message, options?) => Promise<void>">
+ * Send a new message to the chat and trigger AI response
+ * </PropertyReference>
+ *
+ * <PropertyReference name="setMessages" type="(messages: Message[] | DeprecatedGqlMessage[]) => void">
+ * Replace all messages in the chat with new array
+ * </PropertyReference>
+ *
+ * <PropertyReference name="deleteMessage" type="(messageId: string) => void">
+ * Remove a specific message by ID from the chat
+ * </PropertyReference>
+ *
+ * <PropertyReference name="reloadMessages" type="(messageId: string) => Promise<void>">
+ * Regenerate the response for a specific message by ID
+ * </PropertyReference>
+ *
+ * <PropertyReference name="stopGeneration" type="() => void">
+ * Stop the current message generation process
+ * </PropertyReference>
+ *
+ * <PropertyReference name="reset" type="() => void">
+ * Clear all messages and reset chat state completely
+ * </PropertyReference>
+ *
+ * <PropertyReference name="isLoading" type="boolean">
+ * Whether the chat is currently generating a response
+ * </PropertyReference>
+ *
+ * <PropertyReference name="runChatCompletion" type="() => Promise<Message[]>">
+ * Manually trigger chat completion for advanced usage
+ * </PropertyReference>
+ *
+ * <PropertyReference name="mcpServers" type="MCPServerConfig[]">
+ * Array of Model Context Protocol server configurations
+ * </PropertyReference>
+ *
+ * <PropertyReference name="setMcpServers" type="(servers: MCPServerConfig[]) => void">
+ * Update MCP server configurations for enhanced context
+ * </PropertyReference>
+ *
+ * <PropertyReference name="suggestions" type="SuggestionItem[]">
+ * Current suggestions array for reading or manual control
+ * </PropertyReference>
+ *
+ * <PropertyReference name="setSuggestions" type="(suggestions: SuggestionItem[]) => void">
+ * Manually set suggestions for custom workflows
+ * </PropertyReference>
+ *
+ * <PropertyReference name="generateSuggestions" type="() => Promise<void>">
+ * Trigger AI-powered suggestion generation using configured settings
+ * </PropertyReference>
+ *
+ * <PropertyReference name="resetSuggestions" type="() => void">
+ * Clear all current suggestions and reset generation state
+ * </PropertyReference>
+ *
+ * <PropertyReference name="isLoadingSuggestions" type="boolean">
+ * Whether suggestions are currently being generated
+ * </PropertyReference>
+ *
+ * <PropertyReference name="interrupt" type="string | React.ReactElement | null">
+ * Interrupt content for human-in-the-loop workflows
+ * </PropertyReference>
  */
 import { useEffect } from "react";
 import { useCopilotContext } from "../context/copilot-context";
@@ -158,7 +228,7 @@ function useCopilotChatHeadless_c(options: UseCopilotChatOptions_c = {}): UseCop
         new CopilotKitError({
           message:
             // add link to documentation here
-            "You're using useCopilotChatHeadless_c, a subscription-only feature, which offers extensive headless chat capabilities. To continue, you'll need to provide a free subscription key.",
+            "You're using useCopilotChatHeadless_c, a premium-only feature, which offers extensive headless chat capabilities. To continue, you'll need to provide a free public license key.",
           code: CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR,
           severity: Severity.WARNING,
           visibility: ErrorVisibility.BANNER,
