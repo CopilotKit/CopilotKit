@@ -85,16 +85,18 @@ export function constructAGUIRemoteAction({
         ...graphqlContext.properties,
       };
 
-      return (agent.legacy_to_be_removed_runAgentBridged({
-        tools,
-        forwardedProps,
-      }) as Observable<RuntimeEvent>).pipe(
-        catchError(err => {
+      return (
+        agent.legacy_to_be_removed_runAgentBridged({
+          tools,
+          forwardedProps,
+        }) as Observable<RuntimeEvent>
+      ).pipe(
+        catchError((err) => {
           throw new CopilotKitError({
             message: err.message,
             code: CopilotKitErrorCode.UNKNOWN,
           });
-        })
+        }),
       );
     },
   };
