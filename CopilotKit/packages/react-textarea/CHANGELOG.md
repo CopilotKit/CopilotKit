@@ -1,5 +1,19 @@
 # ui
 
+## 1.10.0
+
+### Patch Changes
+
+- Updated dependencies [967d0ab]
+- Updated dependencies [a8c0263]
+- Updated dependencies [8674da1]
+- Updated dependencies [6d1de58]
+- Updated dependencies [6de24ce]
+- Updated dependencies [b64555d]
+  - @copilotkit/react-core@1.10.0
+  - @copilotkit/shared@1.10.0
+  - @copilotkit/runtime-client-gql@1.10.0
+
 ## 1.10.0-next.13
 
 ### Patch Changes
