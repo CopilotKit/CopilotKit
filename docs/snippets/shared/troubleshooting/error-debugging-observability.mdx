@@ -1,13 +1,17 @@
-CopilotKit provides comprehensive error handling capabilities to help you debug issues and monitor your application's behavior. Whether you're developing locally or running in production, CopilotKit offers tools to capture, understand, and resolve errors effectively.
+# How to Debug Errors (and Enable Error Observability)
+
+CopilotKit gives you two complementary ways to handle errors:
+- Development-time visual errors with the dev console (no key required)
+- Production-grade error observability via the `onError` hook (requires `publicLicenseKey`)
+
+This guide shows you exactly how to set up both, how to inspect rich error context, and how to wire errors into your monitoring/analytics.
 
 ## Quick Start
 
 <Steps>
 
 <Step>
-### Local Development with Dev Console
-
-For local development, enable the dev console to see errors directly in your UI:
+### Local Development: Show Visual Errors (no key required)
 
 ```tsx
 import { CopilotKit } from "@copilotkit/react-core";
@@ -25,16 +29,12 @@ export default function App() {
 ```
 
 <Callout type="tip">
-  The dev console shows error banner directly in your UI, making it easy to spot
-  issues during development. **No API key required** for this feature.
+  The dev console renders an error banner right in your UI to speed up debugging. This does not require Copilot Cloud.
 </Callout>
-
 </Step>
 
 <Step>
-### Production Error Observability
-
-For production applications, use error observability hooks to send errors to monitoring services (requires `publicApiKey`):
+### Production: Send Errors to Monitoring (requires `publicLicenseKey`)
 
 ```tsx
 import { CopilotKit } from "@copilotkit/react-core";
@@ -43,20 +43,18 @@ export default function App() {
   return (
     <CopilotKit
       runtimeUrl="<your-runtime-url>"
-      publicApiKey="ck_pub_your_key" // [!code highlight]
+      publicLicenseKey="ck_pub_your_key" // [!code highlight]
       onError={(errorEvent) => {
         // [!code highlight]
-        // Send to your monitoring service
+        // Send to your monitoring/analytics service
         console.error("CopilotKit Error:", errorEvent);
-
-        // Example: Send to analytics
         analytics.track("copilotkit_error", {
           type: errorEvent.type,
           source: errorEvent.context.source,
           timestamp: errorEvent.timestamp,
         });
       }} // [!code highlight]
-      showDevConsole={false} // Hide dev console in production
+      showDevConsole={false}
     >
       {/* Your app */}
     </CopilotKit>
@@ -65,56 +63,27 @@ export default function App() {
 ```
 
 <Callout type="info">
-  **Need a publicApiKey?** Go to
-  [https://cloud.copilotkit.ai](https://cloud.copilotkit.ai) and get one for
-  free!
+  Need a `publicLicenseKey`? Get one for free at https://cloud.copilotkit.ai
 </Callout>
-
 </Step>
 
 </Steps>
 
-## Error Handling Options
+## When to Use What
 
-### Dev Console (`showDevConsole`)
+- **Dev console (`showDevConsole`)**: best for local dev and quick debugging. No key required. Avoid showing in production.
+- **Error observability (`onError`)**: best for production monitoring and analytics. Requires `publicLicenseKey` and provides rich, structured context.
 
-The dev console provides immediate visual feedback during development:
+## Error Observability (onError)
 
-```tsx
-<CopilotKit runtimeUrl="<your-runtime-url>" showDevConsole={true}>
-  {/* Your app */}
-</CopilotKit>
-```
-
-**Features:**
-
-- ✅ **No API key required** - works with any setup
-- ✅ **Visual error banner** - errors appear as banner in your UI
-- ✅ **Real-time feedback** - see errors immediately as they occur
-- ✅ **Development-focused** - detailed error information for debugging
-
-**Best for:**
-
-- Local development
-- Testing and debugging
-- Understanding error flows
-
-<Callout type="warn">
-  Set `showDevConsole={false}` in production to avoid showing error details to
-  end users.
-</Callout>
-
-### Error Observability (`onError`)
-
-The error observability hooks provide programmatic access to detailed error information for monitoring and analytics:
+The `onError` hook provides detailed, structured events you can forward to your monitoring stack.
 
 ```tsx
 import { CopilotErrorEvent } from "@copilotkit/shared";
 
 <CopilotKit
-  publicApiKey="ck_pub_your_key"
+  publicLicenseKey="ck_pub_your_key" // [!code highlight]
   onError={(errorEvent: CopilotErrorEvent) => {
-    // Send error data to monitoring services
     switch (errorEvent.type) {
       case "error":
         logToService("Critical error", errorEvent);
@@ -135,29 +104,9 @@ import { CopilotErrorEvent } from "@copilotkit/shared";
 </CopilotKit>;
 ```
 
-**Features:**
+### Error Event Structure
 
-- ✅ **Rich error context** - detailed information about what went wrong
-- ✅ **Request/response tracking** - monitor the full conversation flow
-- ✅ **Agent state monitoring** - track agent interactions and state changes
-- ✅ **Production-ready** - structured data perfect for monitoring services
-
-**Requirements:**
-
-- Requires `publicApiKey` from [Copilot Cloud](https://cloud.copilotkit.ai)
-- Part of CopilotKit's enterprise observability offering
-
-<Callout type="info">
-  **Note:** Basic error handling works without Cloud. The `onError` hook is
-  specifically for **error observability** - sending error data to monitoring
-  services like Sentry, DataDog, etc.
-</Callout>
-
-## Error Event Structure
-
-The `onError` handler receives detailed error events with rich context:
-
-```typescript
+```ts
 interface CopilotErrorEvent {
   type:
     | "error"
@@ -197,13 +146,13 @@ interface CopilotErrorEvent {
 }
 ```
 
-## Common Error Observability Patterns
+## Common Patterns
 
 ### Basic Error Logging
 
 ```tsx
 <CopilotKit
-  publicApiKey="ck_pub_your_key"
+  publicLicenseKey="ck_pub_your_key"
   onError={(errorEvent) => {
     console.error("[CopilotKit Error]", {
       type: errorEvent.type,
@@ -217,14 +166,13 @@ interface CopilotErrorEvent {
 </CopilotKit>
 ```
 
-### Integration with Monitoring Services
+### Integration with Monitoring (e.g., Sentry)
 
 ```tsx
-// Example with Sentry
 import * as Sentry from "@sentry/react";
 
 <CopilotKit
-  publicApiKey="ck_pub_your_key"
+  publicLicenseKey="ck_pub_your_key"
   onError={(errorEvent) => {
     if (errorEvent.type === "error") {
       Sentry.captureException(errorEvent.error, {
@@ -244,13 +192,12 @@ import * as Sentry from "@sentry/react";
 </CopilotKit>;
 ```
 
-### Custom Error Analytics
+### Custom Analytics
 
 ```tsx
 <CopilotKit
-  publicApiKey="ck_pub_your_key"
+  publicLicenseKey="ck_pub_your_key"
   onError={(errorEvent) => {
-    // Track different error types
     analytics.track("copilotkit_event", {
       event_type: errorEvent.type,
       source: errorEvent.context.source,
@@ -267,14 +214,15 @@ import * as Sentry from "@sentry/react";
 
 ## Development vs Production Setup
 
-### Development Environment
+### Development
 
 ```tsx
 <CopilotKit
   runtimeUrl="http://localhost:3000/api/copilotkit"
-  showDevConsole={true} // Show visual errors
+  publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY} // For observability
+  showDevConsole={true} // Visual errors for fast iteration
   onError={(errorEvent) => {
-    // Simple console logging for development
+    // Lightweight console logging in dev
     console.log("CopilotKit Event:", errorEvent);
   }}
 >
@@ -282,24 +230,23 @@ import * as Sentry from "@sentry/react";
 </CopilotKit>
 ```
 
-### Production Environment
+### Production
 
 ```tsx
 <CopilotKit
   runtimeUrl="https://your-app.com/api/copilotkit"
-  publicApiKey={process.env.NEXT_PUBLIC_COPILOTKIT_API_KEY}
-  showDevConsole={false} // Hide from users
+  publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY} // [!code highlight]
+  showDevConsole={false} // Hide details from end-users
   onError={(errorEvent) => {
-    // Production error observability
     if (errorEvent.type === "error") {
-      // Log critical errors
+      // Critical logging
       logger.error("CopilotKit Error", {
         error: errorEvent.error,
         context: errorEvent.context,
         timestamp: errorEvent.timestamp,
       });
 
-      // Send to monitoring service
+      // Forward to monitoring
       monitoring.captureError(errorEvent.error, {
         extra: errorEvent.context,
       });
@@ -310,67 +257,26 @@ import * as Sentry from "@sentry/react";
 </CopilotKit>
 ```
 
-## Getting Started with Copilot Cloud
+## Getting a `publicLicenseKey`
 
-To use error observability hooks, you'll need a Copilot Cloud account:
-
-1. **Sign up for free** at [https://cloud.copilotkit.ai](https://cloud.copilotkit.ai)
-2. **Get your public API key** from the dashboard
-3. **Add it to your environment variables**:
+1. Sign up free at https://cloud.copilotkit.ai
+2. Copy your `publicLicenseKey` from the dashboard
+3. Add it to your env:
    ```bash
-   NEXT_PUBLIC_COPILOTKIT_API_KEY=ck_pub_your_key_here
+   NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY=ck_pub_your_key_here
    ```
-4. **Use it in your CopilotKit provider**:
-   ```tsx
-   <CopilotKit publicApiKey={process.env.NEXT_PUBLIC_COPILOTKIT_API_KEY}>
-     {/* Your app */}
-   </CopilotKit>
-   ```
-
-<Callout type="info">
-  Copilot Cloud is free to get started and provides production-ready
-  infrastructure for your AI copilots, including comprehensive error
-  observability and monitoring capabilities.
-</Callout>
-
-## Best Practices
-
-### ✅ Do
-
-- **Use `showDevConsole={true}` during development** for immediate feedback
-- **Set `showDevConsole={false}` in production** to hide errors from users
-- **Implement proper error observability** with the `onError` hook for monitoring
-- **Monitor error patterns** to identify and fix issues proactively
-- **Use structured logging** to make error analysis easier
-
-### ❌ Don't
-
-- **Don't expose detailed errors to end users** in production
-- **Don't ignore error events** - they provide valuable debugging information
-- **Don't log sensitive data** in error observability hooks
-- **Don't block the UI** with error handling logic
+4. Use it in your provider as shown above
 
 ## Troubleshooting
 
-### Error Observability Not Working
+- **No events received in `onError`:**
+  - Ensure `publicLicenseKey` is set (starts with `ck_pub_`)
+  - Check that your environment variables are loaded
+  - Verify errors actually occur (use dev console locally)
 
-If your `onError` hook isn't being called:
+- **Dev console not showing:**
+  - Confirm `showDevConsole={true}`
+  - Check for JavaScript errors in the browser console
 
-1. **Check your publicApiKey** - error observability requires a valid API key
-2. **Verify the key format** - should start with `ck_pub_`
-3. **Ensure the key is set** - check your environment variables
-4. **Test with dev console** - use `showDevConsole={true}` to see if errors are occurring
-
-### Dev Console Not Showing
-
-If the dev console isn't displaying errors:
-
-1. **Check showDevConsole setting** - ensure it's set to `true`
-2. **Look for console errors** - check browser dev tools for JavaScript errors
-3. **Verify error occurrence** - make sure errors are actually happening
-
-## Next Steps
-
-- Learn about [Copilot Cloud features](https://cloud.copilotkit.ai)
-- Explore the [CopilotKit reference documentation](/reference/components/CopilotKit)
-- Check out [troubleshooting guides](/troubleshooting/common-issues) for common issues
+- **High-volume logging:**
+  - Keep `onError` lightweight; batch or throttle before sending to external services
