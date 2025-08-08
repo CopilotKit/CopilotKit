@@ -48,9 +48,10 @@ const mdxComponents = {
   Cards: Cards,
   Card: Card,
   PropertyReference: PropertyReference,
-  a: ({ href, children, ...props }: any) => (
-    <NavigationLink href={href as string} {...props}>{children}</NavigationLink>
-  ),
+  a: ({ href, children, ...props }: any) => {
+    if (!href) return <a {...props}>{children}</a>;
+    return <NavigationLink href={href as string} {...props}>{children}</NavigationLink>;
+  },
   // HTML `ref` attribute conflicts with `forwardRef`
   pre: ({ ref: _ref, ...props }: any) => (
     <CodeBlock {...props}>
