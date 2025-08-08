@@ -25,7 +25,7 @@ const integrations: Integration[] = [
     description: "Use CopilotKit directly with your LLM of choice. No framework required.",
     logo: <RocketIcon className="w-8 h-8" />,
     bgGradient: "bg-gradient-to-b from-green-700 to-green-400 text-green-100",
-    href: "/direct-to-llm/guides/quickstart",
+    href: "/direct-to-llm",
   },
   {
     title: "LangGraph",

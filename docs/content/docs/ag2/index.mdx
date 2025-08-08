@@ -1,119 +1,139 @@
 ---
-title: Autogen 2 Integration
-icon: "lucide/Sparkles"
-description: Build Agent-Native Applications (ANAs) powered by CopilotKit and AG2 Agents.
+title: AG2 × CopilotKit
+icon: "custom/ag2"
+description: Bring your AG2 agents to your users with CopilotKit.
 ---
 
-import { BiSolidMessage as TextIcon } from "react-icons/bi";
-import { VscJson as JsonIcon } from "react-icons/vsc";
-import { FaDiscord } from "react-icons/fa";
-import Link from "next/link";
-import { YouTubeVideo } from "@/components/react/youtube-video";
-import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
-import {
-  CoAgentsFeatureToggle,
-  CoAgentsFeatureRender,
-} from "@/components/react/coagents/coagents-features.tsx";
-import { DynamicContentWrapper } from "@/components/react/dynamic-content-wrapper";
-import { ExamplesCarousel } from "@/components/react/examples-carousel";
-import {
-  LuPlane,
-  LuBookOpen,
-  LuLightbulb,
-  LuLayoutTemplate,
-  LuBrainCog,
-  LuUserCog,
-  LuWand,
-  LuPlay,
-  LuMessageSquare,
-  LuWrench,
-} from "react-icons/lu";
-import { CoAgentsExamples } from "@/components/react/examples-carousel";
 import { CTACards } from "@/components/react/cta-cards";
-import { FaSync } from "react-icons/fa";
-import { Socials } from "@/components/react/socials";
 
-{/* <div className="p-4 mb-6 rounded-lg bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-800">
-  <div className="flex items-center gap-2 mb-2">
-    <LuBrainCog className="h-5 w-5 text-indigo-500 dark:text-indigo-300" />
-    <h3 className="text-lg font-semibold text-indigo-700 dark:text-indigo-300">AG2 Overview</h3>
-  </div>
-  <p className="text-indigo-700 dark:text-indigo-300">
-    Visit the <a href="https://v0-ag2-land.vercel.app/" target="_blank" rel="noopener noreferrer" className="font-medium underline underline-offset-4 decoration-indigo-400 dark:decoration-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-200">AG2 Overview Page</a> to learn more about AG2's capabilities and features.
-  </p>
-</div> */}
+AG2 (formerly AutoGen) is an open-source programming framework for building AI agents and facilitating cooperation among multiple agents to solve tasks. CopilotKit and AG2 together provide everything you need to build rich, interactive, agent-powered applications. 
 
-# Copilot Infrastructure for AG2 Agents
+<div className="p-0 rounded-lg shadow-[0_0_40px_10px_rgba(99,102,241,0.4)]">
+  <video 
+    src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
+    className="rounded-lg w-full"
+    controls
+    autoPlay
+    muted
+    loop
+    playsInline
+  />
+</div>
 
-Full user-interaction infrastructure for your agents, to turn your agents into Copilot Agents (CoAgents).
+<Callout>
+Proverbs Example app, demonstrating some of the key features of a CopilotKit app with a AG2 agent.*
+</Callout>
 
-{/* 
-<div className="w-full border border-2 border-indigo-500/70 rounded-lg h-[550px] p-1 pb-6 my-10 shadow-lg flex flex-col items-center">
-  <div className="w-full flex flex-col items-center border-b pb-4">
-    <h2 className="text-xl font-semibold mb-2 text-center">Travel Planner Demo</h2>
-    <h3 className="text-center text-sm text-gray-500 dark:text-gray-400 font-normal mb-4">Play around with a simple "travel agent" application built with AG2 Agents below.</h3>
-  </div>
-  <iframe src="https://ag2-starter.vercel.app/" className="w-full h-full dark" />
-</div>  */}
+With full user-interaction infrastructure, you can create copilots that are not just smart, but truly collaborative.  This means that your agentic application can:
+* Respond quickly and often to user input
+* Allow the user to steer as needed
+* Take action on the user's behalf, driving the app, or other tools through MCP
 
-## Building blocks of a CoAgent
+---
 
-Everything you need to build Agent-Native Applications (ANAs), right out of the box.
+## Generative UI
+
+Generative UI lets you render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. It bridges the gap between AI agents and user interfaces. 
+
+<div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(200,200,200,0.4)]">
+  <video 
+    src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4"
+    className="rounded-2xl w-full"
+    controls
+    autoPlay
+    muted
+    loop
+    playsInline
+  />
+</div>
+
+<Callout>
+  Haiku Generator - CopilotKit app with an AG2 agent.
+</Callout>
+
+
+---
+
+## Human in the Loop
+
+Empower users to guide agents at key checkpoints. Human-in-the-loop lets you combine the best of AI and human judgment. <a href="/ag2/human-in-the-loop" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:font-bold transition-colors">Learn More</a>
+
+<div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(200,200,200,0.4)]">
+  <video 
+    src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
+    className="rounded-2xl w-full"
+    controls
+    autoPlay
+    muted
+    loop
+    playsInline
+  />
+</div>
+
+<Callout>
+  AI Travel App - CopilotKit app with AG2 agent using HITL to get user feedback. 
+</Callout>
+
+---
+
+## Shared State
+
+Keep your agent and your app in sync. Shared state means your agent can see everything in your app, and your app can react to your agent.
+
+<div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(200,200,200,0.4)]">
+  <video 
+    src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4"
+    className="rounded-2xl w-full"
+    controls
+    autoPlay
+    muted
+    loop
+    playsInline
+  />
+</div>
+
+<Callout>
+  Recipe Example App - CopilotKit app sharing state with AG2 agent. 
+</Callout>
+
+---
+
+## Architecture
+
+<div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(79,70,229,0.4)]">
+  <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-highlevel-overview.png" alt="CopilotKit Infrastructure Diagram" className="w-full rounded-2xl" />
+</div>
+
+---
+
+## Live Demo - AG2 x CopilotKit in Action
+
+In this example, we've built an agentic travel assistant that can you help you plan your next trip. It uses AG2
+to coordinate chat and task execution.
+
+<div className="flex justify-center mb-10">
+<iframe src="https://examples-coagents-ai-travel-app.vercel.app?copilotOpen=true" className="w-[800px] h-[600px] rounded-xl border" />
+</div>
+
+## Next Steps
 
 <Cards className="gap-6">
   <Card
     className="p-6 rounded-xl text-base"
-    icon={<LuMessageSquare className="text-indigo-500" />}
-    title="Agentic Chat UI"
-    description="In-app chat powered by your agent."
-    href="/ag2/agentic-chat-ui"
-  />
-  <Card
-    className="p-6 rounded-xl text-base"
-    icon={<LuUserCog className="text-indigo-500" />}
-    title="Human-in-the-Loop"
-    description="Set smart checkpoints where humans can guide your agents."
-    href="/ag2/human-in-the-loop"
-  />
-</Cards>
-
-## Ready to get started?
-
-Get started with CoAgents in as little as 5 minutes with one of our guides or tutorials.
-
-<Cards>
-  <Card
-    className="p-6 rounded-xl text-base"
-    icon={<LuPlay className="text-indigo-500" />}
     title="Quickstart"
-    description="Learn how to build your first CoAgent in 5 minutes."
+    description="Build your first agentic app with AG2 in minutes."
     href="/ag2/quickstart"
   />
-  <Card
+  <Card 
     className="p-6 rounded-xl text-base"
-    icon={<LuPlay className="text-indigo-500" />}
     title="Feature Overview"
-    description="Try the key features of CoAgents powered by AG2 Agents."
-    href="https://ag2-feature-viewer.vercel.app/"
-    target="_blank"
+    description="Try the key features of CoAgents powered by CopilotKit & AG2."
+    href="https://ag-ui-dojo-nine.vercel.app/ag2"
+  />
+  <Card 
+    className="p-6 rounded-xl text-base"
+    title="Travel Agent Tutorial"
+    description="Step-by-step guide to building an agent-native travel app."
+    href="/coagents/tutorials/ai-travel-app"
   />
 </Cards>
-
-{/* TODO: Add example tutorials for AG2 Agents */}
-{/* TODO: Add CoAgents in action section for AG2 Agents */}
-
-## Common Questions
-
-Have a question about CoAgents? You're in the right place!
-
-<Accordions>
-<Accordion title="Can you explain what a CoAgent is in more detail?">
-Sure! CoAgents are what we call "agentic copilots". Well, what's an agentic copilot then?
-
-Think of a Copilot as a simple and fully LLM controlled assistant that has relatively limited capabilities. An Agentic Copilot then is a copilot
-that has been enhanced with the ability to use AG2 agents to perform more complex tasks. This is an extremely powerful way to build AI
-powered applications because it gives you, the developer, the ability to control the agent's behavior in a deterministic way while still letting
-the agent do its magic.
-
-</Accordion>
-</Accordions> 
