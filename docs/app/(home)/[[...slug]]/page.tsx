@@ -30,7 +30,12 @@ import { NavigationLink } from "@/components/react/subdocs-menu";
  * TODO: This should be dynamic, but it's not working.
  */
 const cloudOnlyFeatures = ["Authenticated Actions", "Guardrails"];
-const premiumFeatureTitles = ["Headless UI", "Fully Headless Chat UI"]; // heuristic for pages that import premium snippets
+const premiumFeatureTitles = [
+  "Headless UI",
+  "Fully Headless UI",
+  "Fully Headless Chat UI",
+  "Observability Hooks",
+]; // heuristic for pages that import premium snippets
 
 const mdxComponents = {
   ...defaultMdxComponents,
