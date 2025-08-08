@@ -8,6 +8,7 @@ import {
   gqlImageMessageToAGUIMessage,
   gqlActionExecutionMessageToAGUIMessage,
 } from "./gql-to-agui";
+import { AIMessage } from "@copilotkit/shared";
 
 describe("message-conversion", () => {
   describe("gqlTextMessageToAGUIMessage", () => {
@@ -1362,6 +1363,144 @@ describe("message-conversion", () => {
         ],
         generativeUI: expect.any(Function),
         name: "unknownAction",
+      });
+    });
+
+    test("should parse string results in generativeUI props", () => {
+      const actions = {
+        "*": {
+          name: "*",
+          render: vi.fn((props) => `Result: ${JSON.stringify(props.result)}`),
+        },
+      };
+
+      const actionExecMsg = new gql.ActionExecutionMessage({
+        id: "action-string-result",
+        name: "stringResultAction",
+        arguments: { test: "value" },
+        parentMessageId: "parent-string",
+      });
+
+      const actionResults = new Map<string, string>();
+      actionResults.set("action-string-result", '{"parsed": true, "value": 42}');
+
+      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions, actionResults);
+
+      expect((result as AIMessage).generativeUI).toBeDefined();
+      // Call the render function to test the result parsing
+      const renderResult = (result as AIMessage).generativeUI!({
+        result: '{"from": "props", "data": "test"}',
+      });
+
+      // Verify the render function was called and the result was parsed
+      expect(actions["*"].render).toHaveBeenCalledWith(
+        expect.objectContaining({
+          result: { from: "props", data: "test" }, // Should be parsed from string
+          args: { test: "value" },
+          status: "complete",
+          messageId: "action-string-result",
+        }),
+      );
+    });
+
+    test("should handle malformed JSON strings gracefully in results", () => {
+      const actions = {
+        "*": {
+          name: "*",
+          render: vi.fn((props) => `Result: ${JSON.stringify(props.result)}`),
+        },
+      };
+
+      const actionExecMsg = new gql.ActionExecutionMessage({
+        id: "action-malformed",
+        name: "malformedAction",
+        arguments: { test: "value" },
+        parentMessageId: "parent-malformed",
+      });
+
+      const actionResults = new Map<string, string>();
+      actionResults.set("action-malformed", "invalid json {");
+
+      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions, actionResults);
+
+      expect((result as AIMessage).generativeUI).toBeDefined();
+      // Call the render function to test malformed JSON handling
+      const renderResult = (result as AIMessage).generativeUI!({
+        result: "invalid json {",
+      });
+
+      // Verify the render function was called with the original string (unparsed)
+      expect(actions["*"].render).toHaveBeenCalledWith(
+        expect.objectContaining({
+          result: "invalid json {", // Should remain as string due to parse error
+          args: { test: "value" },
+          status: "complete",
+          messageId: "action-malformed",
+        }),
+      );
+    });
+
+    test("should handle non-string results without parsing", () => {
+      const actions = {
+        "*": {
+          name: "*",
+          render: vi.fn((props) => `Result: ${JSON.stringify(props.result)}`),
+        },
+      };
+
+      const actionExecMsg = new gql.ActionExecutionMessage({
+        id: "action-object-result",
+        name: "objectResultAction",
+        arguments: { test: "value" },
+        parentMessageId: "parent-object",
+      });
+
+      const actionResults = new Map<string, string>();
+      actionResults.set("action-object-result", '{"already": "parsed"}');
+
+      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions, actionResults);
+
+      expect((result as AIMessage).generativeUI).toBeDefined();
+      // Call the render function with an object result
+      const renderResult = (result as AIMessage).generativeUI!({
+        result: { from: "props", data: "object" },
+      });
+
+      // Verify the render function was called with the object as-is
+      expect(actions["*"].render).toHaveBeenCalledWith(
+        expect.objectContaining({
+          result: { from: "props", data: "object" }, // Should remain as object
+          args: { test: "value" },
+          status: "complete",
+          messageId: "action-object-result",
+        }),
+      );
+    });
+
+    test("should handle action execution arguments correctly with simplified conversion", () => {
+      const actionExecMsg = new gql.ActionExecutionMessage({
+        id: "action-simplified",
+        name: "simplifiedAction",
+        arguments: { complex: { nested: "value" }, array: [1, 2, 3] },
+        parentMessageId: "parent-simplified",
+      });
+
+      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg);
+
+      expect(result).toMatchObject({
+        id: "action-simplified",
+        role: "assistant",
+        toolCalls: [
+          {
+            id: "action-simplified",
+            function: {
+              name: "simplifiedAction",
+              arguments: '{"complex":{"nested":"value"},"array":[1,2,3]}',
+            },
+            type: "function",
+          },
+        ],
+        name: "simplifiedAction",
       });
     });
   });

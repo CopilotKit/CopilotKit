@@ -64,10 +64,12 @@ export default function PanelPage() {
   const runtimeUrl =
     searchParams.get("runtimeUrl") || `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
   const publicApiKey = searchParams.get("publicApiKey");
+  const publicLicenseKey = searchParams.get("publicLicenseKey");
   const copilotKitProps: Partial<React.ComponentProps<typeof CopilotKit>> = {
     runtimeUrl,
     showDevConsole: true,
     publicApiKey: publicApiKey || undefined,
+    publicLicenseKey: publicLicenseKey || undefined,
   };
 
   return (
@@ -196,6 +198,36 @@ function ChatApp() {
   });
 
   useCopilotAction({
+    name: "getWeather",
+    description: "Get the weather for a given location.",
+    parameters: [{ name: "location", type: "string" }],
+    handler: () => {
+      return {
+        weather: "sunny",
+        temperature: 70,
+      };
+    },
+    render: ({ args, result, status }) => {
+      if (status !== "complete") {
+        return <div>Loading weather for {args.location}...</div>;
+      }
+      return (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 my-2 shadow-sm">
+          <h1>Weather for {args.location}</h1>
+          {result ? (
+            <div>
+              <p>Weather: {result.weather}</p>
+              <p>Temperature: {result.temperature}</p>
+            </div>
+          ) : (
+            <div>No result</div>
+          )}
+        </div>
+      );
+    },
+  });
+
+  useCopilotAction({
     name: "toolWithHandler",
     description: "Tool with handler",
     handler: () => {
@@ -275,9 +307,7 @@ function ChatApp() {
           </div>
           <div className="bg-white/60 rounded-lg p-3 border border-amber-100">
             <div className="text-xs text-amber-600 font-medium mb-2">Generated Content:</div>
-            <div className="text-amber-800 font-medium text-sm">
-              {JSON.stringify(props.args, null, 2)}
-            </div>
+            <div className="text-amber-800 font-medium text-sm">{props.args.generatedPoem}</div>
           </div>
         </div>
       );
