@@ -182,7 +182,6 @@ export function NavigationLink({
         // Use absolute path for scroll logic
         const absoluteTarget = href;
         handleScroll(absoluteTarget);
-        setTimeout(() => scrollSidebarToSelectedItem(absoluteTarget), 400);
       }}
       className={className}
       {...props}
