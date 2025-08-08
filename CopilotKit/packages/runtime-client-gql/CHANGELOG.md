@@ -1,5 +1,15 @@
 # @copilotkit/runtime-client-gql
 
+## 1.10.1-next.0
+
+### Patch Changes
+
+- 7bf9dfa: - fix: address issue where catch-all tool renders don't work
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+  - @copilotkit/shared@1.10.1-next.0
+
 ## 1.10.0
 
 ### Minor Changes
