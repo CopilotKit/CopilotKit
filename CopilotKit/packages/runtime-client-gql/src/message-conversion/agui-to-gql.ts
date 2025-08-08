@@ -86,8 +86,17 @@ export function aguiToGQL(
         // Preserve render function in actions context
         if ("generativeUI" in message && message.generativeUI && actions) {
           const actionName = toolCall.function.name;
-          if (actions[actionName]) {
-            actions[actionName].render = message.generativeUI;
+          // Check for specific action first, then wild card action
+          const specificAction = Object.values(actions).find(
+            (action: any) => action.name === actionName,
+          );
+          const wildcardAction = Object.values(actions).find((action: any) => action.name === "*");
+
+          // Assign render function to the matching action (specific takes priority)
+          if (specificAction) {
+            specificAction.render = message.generativeUI;
+          } else if (wildcardAction) {
+            wildcardAction.render = message.generativeUI;
           }
         }
         gqlMessages.push(actionExecMsg);
@@ -154,13 +163,31 @@ export function aguiToolCallToGQLActionExecution(
     throw new Error(`Unsupported tool call type: ${toolCall.type}`);
   }
 
-  // Parse arguments with error handling
+  // Handle arguments - they should be a JSON string in AGUI format,
+  // but we need to convert them to an object for GQL format
   let argumentsObj: any;
-  try {
-    argumentsObj = JSON.parse(toolCall.function.arguments);
-  } catch (error) {
-    console.warn(`Failed to parse tool call arguments for ${toolCall.function.name}:`, error);
-    // Provide fallback empty object to prevent application crash
+
+  if (typeof toolCall.function.arguments === "string") {
+    // Expected case: arguments is a JSON string
+    try {
+      argumentsObj = JSON.parse(toolCall.function.arguments);
+    } catch (error) {
+      console.warn(`Failed to parse tool call arguments for ${toolCall.function.name}:`, error);
+      // Provide fallback empty object to prevent application crash
+      argumentsObj = {};
+    }
+  } else if (
+    typeof toolCall.function.arguments === "object" &&
+    toolCall.function.arguments !== null
+  ) {
+    // Backward compatibility: arguments is already an object
+    argumentsObj = toolCall.function.arguments;
+  } else {
+    // Fallback for undefined, null, or other types
+    console.warn(
+      `Invalid tool call arguments type for ${toolCall.function.name}:`,
+      typeof toolCall.function.arguments,
+    );
     argumentsObj = {};
   }
 
@@ -187,9 +214,29 @@ export function aguiToolMessageToGQLResultMessage(
 
   const actionName = toolCallNames[message.toolCallId] || "unknown";
 
+  // Handle result content - it could be a string or an object that needs serialization
+  let resultContent: string;
+  const messageContent = message.content || "";
+
+  if (typeof messageContent === "string") {
+    // Expected case: content is already a string
+    resultContent = messageContent;
+  } else if (typeof messageContent === "object" && messageContent !== null) {
+    // Handle case where content is an object that needs to be serialized
+    try {
+      resultContent = JSON.stringify(messageContent);
+    } catch (error) {
+      console.warn(`Failed to stringify tool result for ${actionName}:`, error);
+      resultContent = String(messageContent);
+    }
+  } else {
+    // Handle other types (number, boolean, etc.)
+    resultContent = String(messageContent);
+  }
+
   return new gql.ResultMessage({
     id: message.id,
-    result: message.content || "",
+    result: resultContent,
     actionExecutionId: message.toolCallId,
     actionName: message.toolName || actionName,
   });

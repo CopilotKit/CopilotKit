@@ -1,5 +1,45 @@
 # @copilotkit/runtime-client-gql
 
+## 1.10.1
+
+### Patch Changes
+
+- 76e2603: - fix: make tool call results be structured in generativeUI
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+- 7bf9dfa: - fix: address issue where catch-all tool renders don't work
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+  - @copilotkit/shared@1.10.1
+
+## 1.10.1-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.1-next.2
+
+## 1.10.1-next.1
+
+### Patch Changes
+
+- 76e2603: - fix: make tool call results be structured in generativeUI
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+  - @copilotkit/shared@1.10.1-next.1
+
+## 1.10.1-next.0
+
+### Patch Changes
+
+- 7bf9dfa: - fix: address issue where catch-all tool renders don't work
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+  - @copilotkit/shared@1.10.1-next.0
+
 ## 1.10.0
 
 ### Minor Changes

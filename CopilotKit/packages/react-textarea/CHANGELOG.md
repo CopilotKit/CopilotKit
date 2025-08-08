@@ -1,5 +1,41 @@
 # ui
 
+## 1.10.1
+
+### Patch Changes
+
+- Updated dependencies [76e2603]
+- Updated dependencies [7bf9dfa]
+  - @copilotkit/runtime-client-gql@1.10.1
+  - @copilotkit/react-core@1.10.1
+  - @copilotkit/shared@1.10.1
+
+## 1.10.1-next.2
+
+### Patch Changes
+
+- @copilotkit/react-core@1.10.1-next.2
+- @copilotkit/runtime-client-gql@1.10.1-next.2
+- @copilotkit/shared@1.10.1-next.2
+
+## 1.10.1-next.1
+
+### Patch Changes
+
+- Updated dependencies [76e2603]
+  - @copilotkit/runtime-client-gql@1.10.1-next.1
+  - @copilotkit/react-core@1.10.1-next.1
+  - @copilotkit/shared@1.10.1-next.1
+
+## 1.10.1-next.0
+
+### Patch Changes
+
+- Updated dependencies [7bf9dfa]
+  - @copilotkit/runtime-client-gql@1.10.1-next.0
+  - @copilotkit/react-core@1.10.1-next.0
+  - @copilotkit/shared@1.10.1-next.0
+
 ## 1.10.0
 
 ### Patch Changes

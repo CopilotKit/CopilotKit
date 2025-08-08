@@ -134,7 +134,7 @@ export const Markdown = ({ content, components }: MarkdownProps) => {
     <div className="copilotKitMarkdown">
       <MemoizedReactMarkdown
         components={{ ...defaultComponents, ...components }}
-        remarkPlugins={[remarkGfm, remarkMath]}
+        remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: false }]]}
         rehypePlugins={[rehypeRaw]}
       >
         {content}
