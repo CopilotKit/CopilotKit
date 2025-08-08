@@ -19,7 +19,7 @@ Agentic generative UI is fully open-ended: simply return any custom react compon
 
     toolCallingGenerativeUI: `This agent demonstrates tool-calling generative UI. Ask it to 'Generate a haiku about AI'
 
-Agentic generative UI is fully open-ended, and  seamlessly supports in-chat and outside-chat experiences. See useCopilotAction(...) for details.`,
+Agentic generative UI is fully open-ended, and  seamlessly supports in-chat and outside-chat experiences. See useRenderToolCall(...) for details.`,
 
     sharedState: `This example demonstrates shared state between the agent and the application. Shared state binds the frontend and the agent into a single coherent system: Whatever changes the agent makes to its internal state, are reflected in the application state, and vice-versa.
 

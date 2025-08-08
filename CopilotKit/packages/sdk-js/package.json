@@ -55,8 +55,7 @@
     "ts-node": "^10.9.2",
     "tsconfig": "workspace:*",
     "tsup": "^6.7.0",
-    "typescript": "^5.2.3",
-    "zod-to-json-schema": "^3.23.5"
+    "typescript": "^5.2.3"
   },
   "dependencies": {
     "@copilotkit/shared": "workspace:*",
@@ -64,7 +63,7 @@
     "@langchain/core": "^0.3.13",
     "@langchain/langgraph": "0.2.44",
     "langchain": "^0.3.3",
-    "zod": "^3.23.3"
+    "zod": "^4.0.14"
   },
   "keywords": [
     "copilotkit",

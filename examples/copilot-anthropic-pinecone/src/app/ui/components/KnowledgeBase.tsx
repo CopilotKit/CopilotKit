@@ -18,7 +18,8 @@ import { BookOpen } from "lucide-react";
 import { Post } from "@/app/lib/types/post";
 import { fetchPosts } from "@/app/ui/service";
 import { CopilotSidebar } from "@copilotkit/react-ui";
-import { useCopilotAction } from "@copilotkit/react-core";
+import { useRenderToolCall } from "@copilotkit/react-core";
+import { z } from "zod";
 
 export default function KnowledgeBase() {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -39,17 +40,12 @@ export default function KnowledgeBase() {
     loadPosts();
   }, []);
 
-  useCopilotAction({
+  useRenderToolCall({
     name: "FetchKnowledgebaseArticles",
     description: "Fetch relevant knowledge base articles based on a user query",
-    parameters: [
-      {
-        name: "query",
-        type: "string",
-        description: "User query for the knowledge base",
-        required: true,
-      },
-    ],
+    parameters: z.object({
+      query: z.string().describe("User query for the knowledge base")
+    }),
     render: "Getting relevant answers to your query...",
   });
 

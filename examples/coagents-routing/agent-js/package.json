@@ -23,6 +23,6 @@
     "@langchain/langgraph": "0.2.44",
     "@langchain/langgraph-cli": "^0.0.10",
     "@langchain/openai": "^0.3.14",
-    "zod": "^3.23.8"
+    "zod": "^4.0.14"
   }
 }
