@@ -1062,5 +1062,145 @@ describe("agui-to-gql", () => {
       expect(actions.wildcard1.render).toBe(mockRender);
       expect(actions.wildcard2.render).toBeUndefined();
     });
+
+    test("should handle tool calls with object arguments (backward compatibility)", () => {
+      const mockRender = () => "Object Args Test";
+      const aguiMessage: agui.Message = {
+        id: "assistant-14",
+        role: "assistant",
+        content: "I'll execute a function",
+        toolCalls: [
+          {
+            id: "tool-call-16",
+            type: "function",
+            function: {
+              name: "objectArgsAction",
+              arguments: { param: "value" } as any, // Object instead of string
+            },
+          },
+        ],
+        generativeUI: mockRender,
+      };
+
+      const actions: Record<string, any> = {
+        "*": { name: "*" },
+      };
+
+      const result = aguiToGQL(aguiMessage, actions);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toBeInstanceOf(gql.TextMessage);
+      expect(result[1]).toBeInstanceOf(gql.ActionExecutionMessage);
+      expect((result[1] as any).arguments).toEqual({ param: "value" });
+      expect(actions["*"].render).toBe(mockRender);
+    });
+
+    test("should handle tool calls with null/undefined arguments", () => {
+      const mockRender = () => "Null Args Test";
+      const aguiMessage: agui.Message = {
+        id: "assistant-15",
+        role: "assistant",
+        content: "I'll execute a function",
+        toolCalls: [
+          {
+            id: "tool-call-17",
+            type: "function",
+            function: {
+              name: "nullArgsAction",
+              arguments: null as any,
+            },
+          },
+        ],
+        generativeUI: mockRender,
+      };
+
+      const actions: Record<string, any> = {
+        "*": { name: "*" },
+      };
+
+      const result = aguiToGQL(aguiMessage, actions);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toBeInstanceOf(gql.TextMessage);
+      expect(result[1]).toBeInstanceOf(gql.ActionExecutionMessage);
+      expect((result[1] as any).arguments).toEqual({});
+      expect(actions["*"].render).toBe(mockRender);
+    });
+
+    test("should handle tool result messages with object content", () => {
+      const aguiMessage: agui.Message = {
+        id: "tool-result-1",
+        role: "tool",
+        content: { status: "success", data: { value: 42 } } as any,
+        toolCallId: "tool-call-1",
+        toolName: "testAction",
+      };
+
+      const toolCallNames = { "tool-call-1": "testAction" };
+      const result = aguiToGQL(aguiMessage);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toBeInstanceOf(gql.ResultMessage);
+      expect((result[0] as any).result).toBe('{"status":"success","data":{"value":42}}');
+      expect((result[0] as any).actionExecutionId).toBe("tool-call-1");
+      expect((result[0] as any).actionName).toBe("testAction");
+    });
+
+    test("should handle tool result messages with non-string content types", () => {
+      const aguiMessage: agui.Message = {
+        id: "tool-result-2",
+        role: "tool",
+        content: 42 as any,
+        toolCallId: "tool-call-2",
+        toolName: "numberAction",
+      };
+
+      const result = aguiToGQL(aguiMessage);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toBeInstanceOf(gql.ResultMessage);
+      expect((result[0] as any).result).toBe("42");
+      expect((result[0] as any).actionExecutionId).toBe("tool-call-2");
+      expect((result[0] as any).actionName).toBe("numberAction");
+    });
+
+    test("should handle tool result messages with circular reference content", () => {
+      const circularObj: any = { status: "success" };
+      circularObj.self = circularObj;
+
+      const aguiMessage: agui.Message = {
+        id: "tool-result-3",
+        role: "tool",
+        content: circularObj as any,
+        toolCallId: "tool-call-3",
+        toolName: "circularAction",
+      };
+
+      const result = aguiToGQL(aguiMessage);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toBeInstanceOf(gql.ResultMessage);
+      expect((result[0] as any).result).toBe("[object Object]"); // Should fallback to String conversion
+      expect((result[0] as any).actionExecutionId).toBe("tool-call-3");
+      expect((result[0] as any).actionName).toBe("circularAction");
+    });
+
+    test("should handle tool result messages with boolean content", () => {
+      const aguiMessage: agui.Message = {
+        id: "tool-result-4",
+        role: "tool",
+        content: true as any,
+        toolCallId: "tool-call-4",
+        toolName: "booleanAction",
+      };
+
+      const result = aguiToGQL(aguiMessage);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toBeInstanceOf(gql.ResultMessage);
+      expect((result[0] as any).result).toBe("true");
+      expect((result[0] as any).actionExecutionId).toBe("tool-call-4");
+      expect((result[0] as any).actionName).toBe("booleanAction");
+    });
   });
 });

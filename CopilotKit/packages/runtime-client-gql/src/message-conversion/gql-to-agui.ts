@@ -82,13 +82,31 @@ export function gqlActionExecutionMessageToAGUIMessage(
 
     return (props?: any) => {
       // Determine the correct status based on the same logic as RenderActionExecutionMessage
-      const actionResult = actionResults?.get(message.id);
+      let actionResult: any = actionResults?.get(message.id);
       let status: "inProgress" | "executing" | "complete" = "inProgress";
 
       if (actionResult !== undefined) {
         status = "complete";
       } else if (message.status?.code !== MessageStatusCode.Pending) {
         status = "executing";
+      }
+
+      // if props.result is a string, parse it as JSON but don't throw an error if it's not valid JSON
+      if (typeof props?.result === "string") {
+        try {
+          props.result = JSON.parse(props.result);
+        } catch (e) {
+          /* do nothing */
+        }
+      }
+
+      // if actionResult is a string, parse it as JSON but don't throw an error if it's not valid JSON
+      if (typeof actionResult === "string") {
+        try {
+          actionResult = JSON.parse(actionResult);
+        } catch (e) {
+          /* do nothing */
+        }
       }
 
       // Provide the full props structure that the render function expects
