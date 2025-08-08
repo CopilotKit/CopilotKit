@@ -296,7 +296,7 @@ export function SubdocsMenu({
     handleNavigationScroll(previousPath || pathname, pathname);
     scrollSidebarToSelectedItem(pathname);
     setPreviousPath(pathname);
-  }, [pathname]);
+  }, [pathname, previousPath]);
 
   const selected: Option | undefined = useMemo(() => {
     // Don't calculate selection until we've loaded the stored preference
