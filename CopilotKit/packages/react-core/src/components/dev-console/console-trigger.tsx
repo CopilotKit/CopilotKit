@@ -142,8 +142,8 @@ export function ConsoleTrigger({ position = "bottom-right" }: ConsoleTriggerProp
         }}
         title={
           hasApiKey
-            ? "Open Developer Console (Drag to move)"
-            : "Developer Console (API Key Required, Drag to move)"
+            ? "Open Inspector (Drag to move)"
+            : "Inspector (License Key Required, Drag to move)"
         }
       >
         <div
