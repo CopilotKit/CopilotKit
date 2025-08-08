@@ -209,4 +209,126 @@ describe("roundtrip message conversion", () => {
     expect((aguiUserMsgs2[0] as any).image.format).toBe("png");
     expect((aguiUserMsgs2[0] as any).image.bytes).toBe("userbase64data");
   });
+
+  test("wild card action roundtrip conversion", () => {
+    const mockRender = vi.fn((props) => `Wildcard rendered: ${props.args.test}`);
+    const aguiMsg: agui.Message = {
+      id: "assistant-wildcard-1",
+      role: "assistant",
+      content: "Running wild card action",
+      toolCalls: [
+        {
+          id: "tool-call-wildcard-1",
+          type: "function",
+          function: {
+            name: "unknownAction",
+            arguments: JSON.stringify({ test: "wildcard-value" }),
+          },
+        },
+      ],
+      generativeUI: mockRender,
+    };
+
+    const actions: Record<string, any> = {
+      "*": { name: "*" },
+    };
+
+    // AGUI -> GQL -> AGUI roundtrip
+    const gqlMsgs = aguiToGQL(aguiMsg, actions);
+    const aguiMsgs2 = gqlToAGUI(gqlMsgs, actions);
+
+    // Verify the wild card action preserved the render function
+    expect(typeof actions["*"].render).toBe("function");
+    expect(actions["*"].render).toBe(mockRender);
+
+    // Verify the roundtripped message structure
+    expect(aguiMsgs2).toHaveLength(2);
+    expect(aguiMsgs2[0].role).toBe("assistant");
+    expect(aguiMsgs2[1].role).toBe("assistant");
+
+    // Check that the tool call is preserved
+    if ("toolCalls" in aguiMsgs2[1]) {
+      expect((aguiMsgs2[1] as any).toolCalls[0].function.name).toBe("unknownAction");
+      expect((aguiMsgs2[1] as any).toolCalls[0].function.arguments).toBe(
+        '{"test":"wildcard-value"}',
+      );
+    }
+  });
+
+  test("wild card action with specific action priority roundtrip", () => {
+    const mockRender = vi.fn((props) => `Specific action rendered: ${props.args.test}`);
+    const aguiMsg: agui.Message = {
+      id: "assistant-priority-1",
+      role: "assistant",
+      content: "Running specific action",
+      toolCalls: [
+        {
+          id: "tool-call-priority-1",
+          type: "function",
+          function: {
+            name: "specificAction",
+            arguments: JSON.stringify({ test: "specific-value" }),
+          },
+        },
+      ],
+      generativeUI: mockRender,
+    };
+
+    const actions: Record<string, any> = {
+      specificAction: { name: "specificAction" },
+      "*": { name: "*" },
+    };
+
+    // AGUI -> GQL -> AGUI roundtrip
+    const gqlMsgs = aguiToGQL(aguiMsg, actions);
+    const aguiMsgs2 = gqlToAGUI(gqlMsgs, actions);
+
+    // Verify the specific action preserved the render function (not wild card)
+    expect(typeof actions.specificAction.render).toBe("function");
+    expect(actions.specificAction.render).toBe(mockRender);
+    expect(actions["*"].render).toBeUndefined();
+
+    // Verify the roundtripped message structure
+    expect(aguiMsgs2).toHaveLength(2);
+    expect(aguiMsgs2[0].role).toBe("assistant");
+    expect(aguiMsgs2[1].role).toBe("assistant");
+
+    // Check that the tool call is preserved
+    if ("toolCalls" in aguiMsgs2[1]) {
+      expect((aguiMsgs2[1] as any).toolCalls[0].function.name).toBe("specificAction");
+      expect((aguiMsgs2[1] as any).toolCalls[0].function.arguments).toBe(
+        '{"test":"specific-value"}',
+      );
+    }
+  });
+
+  test("wild card action GQL -> AGUI -> GQL roundtrip", () => {
+    const actionExecMsg = new gql.ActionExecutionMessage({
+      id: "wildcard-action-1",
+      name: "unknownAction",
+      arguments: { test: "wildcard-gql-value" },
+      parentMessageId: "assistant-1",
+    });
+
+    const actions: Record<string, any> = {
+      "*": {
+        name: "*",
+        render: vi.fn((props) => `GQL wildcard rendered: ${props.args.test}`),
+      },
+    };
+
+    // GQL -> AGUI -> GQL roundtrip
+    const aguiMsgs = gqlToAGUI([actionExecMsg], actions);
+    const gqlMsgs2 = aguiToGQL(aguiMsgs, actions);
+
+    // When converting ActionExecutionMessage to AGUI and back, we get:
+    // 1. A TextMessage (assistant message with toolCalls)
+    // 2. An ActionExecutionMessage (the tool call itself)
+    expect(gqlMsgs2).toHaveLength(2);
+    expect(gqlMsgs2[0].id).toBe("wildcard-action-1");
+    expect((gqlMsgs2[0] as any).role).toBe(gql.Role.Assistant);
+    expect(gqlMsgs2[1].id).toBe("wildcard-action-1");
+    expect((gqlMsgs2[1] as any).name).toBe("unknownAction");
+    expect((gqlMsgs2[1] as any).arguments).toEqual({ test: "wildcard-gql-value" });
+  });
 });
