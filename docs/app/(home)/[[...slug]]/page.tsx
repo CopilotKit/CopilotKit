@@ -48,10 +48,9 @@ const mdxComponents = {
   Cards: Cards,
   Card: Card,
   PropertyReference: PropertyReference,
-  a: ({ href, children, ...props }: any) => {
-    if (!href) return <a {...props}>{children}</a>;
-    return <NavigationLink href={href as string} {...props}>{children}</NavigationLink>;
-  },
+  a: ({ href, children, ...props }: any) => (
+    <NavigationLink href={href as string} {...props}>{children}</NavigationLink>
+  ),
   // HTML `ref` attribute conflicts with `forwardRef`
   pre: ({ ref: _ref, ...props }: any) => (
     <CodeBlock {...props}>
@@ -69,6 +68,12 @@ export default async function Page({
   if (!page) notFound();
   const MDX = page.data.body;
   const cloudOnly = cloudOnlyFeatures.includes(page.data.title);
+  // Consider a page "Premium" if its slug path contains a "premium" segment
+  const isPremium = Array.isArray(page.slugs) ? page.slugs.includes("premium") : false;
+  // Compute premium overview href based on current section (first slug segment)
+  const baseSegment = Array.isArray(page.slugs) && page.slugs.length ? `/${page.slugs[0]}` : "/";
+  const premiumOverviewHref = baseSegment === "/" ? "/(root)/premium/overview" : `${baseSegment}/premium/overview`;
+
   return (
     <DocsPage
       toc={[]}
@@ -85,6 +90,21 @@ export default async function Page({
               <CloudIcon className="w-3 h-3" />
               <span className="text-xs">Cloud Only</span>
             </Badge>
+          )}
+          {isPremium && (
+            <a href={premiumOverviewHref} className="ml-3 mt-1">
+              <Badge
+                variant="secondary"
+                className="inline-flex items-center gap-2 py-2 px-3.5 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200 hover:bg-indigo-200 border-0 rounded-md transition-colors"
+              >
+                <img
+                  src="https://cdn.copilotkit.ai/docs/copilotkit/images/copilotkit-logo.svg"
+                  alt="CopilotKit"
+                  className="w-5 h-5"
+                />
+                <span className="text-sm font-semibold tracking-tight">Premium</span>
+              </Badge>
+            </a>
           )}
         </DocsTitle>
       </div>
