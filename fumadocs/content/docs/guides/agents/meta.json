@@ -1,9 +1,0 @@
-{
-  "pages": [
-    "chat",
-    "workflows",
-    "human-in-the-loop",
-    "generative-ui",
-    "shared-state"
-  ]
-}
