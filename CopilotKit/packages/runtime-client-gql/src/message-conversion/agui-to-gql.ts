@@ -86,8 +86,17 @@ export function aguiToGQL(
         // Preserve render function in actions context
         if ("generativeUI" in message && message.generativeUI && actions) {
           const actionName = toolCall.function.name;
-          if (actions[actionName]) {
-            actions[actionName].render = message.generativeUI;
+          // Check for specific action first, then wild card action
+          const specificAction = Object.values(actions).find(
+            (action: any) => action.name === actionName,
+          );
+          const wildcardAction = Object.values(actions).find((action: any) => action.name === "*");
+
+          // Assign render function to the matching action (specific takes priority)
+          if (specificAction) {
+            specificAction.render = message.generativeUI;
+          } else if (wildcardAction) {
+            wildcardAction.render = message.generativeUI;
           }
         }
         gqlMessages.push(actionExecMsg);
