@@ -1,8 +1,4 @@
 {
-    "title": "Premium Features",
-    "pages": [
-      "overview",
-      "headless-ui",
-      "observability"
-    ]
-  } 
+  "title": "Premium Features",
+  "pages": ["overview", "headless-ui", "observability", "inspector"]
+}

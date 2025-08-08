@@ -230,7 +230,7 @@ export function DeveloperConsoleModal({ isOpen, onClose, hasApiKey }: DeveloperC
                 margin: 0,
               }}
             >
-              Developer Console
+              Inspector
             </h1>
             <span
               style={{
@@ -465,7 +465,7 @@ export function DeveloperConsoleModal({ isOpen, onClose, hasApiKey }: DeveloperC
                 e.currentTarget.style.outline = "none";
               }}
             >
-              Get API Key
+              Get License Key
               <span style={{ fontSize: "16px", marginLeft: "-4px" }}>→</span>
             </button>
           </div>

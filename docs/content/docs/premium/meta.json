@@ -1,5 +1,5 @@
 {
   "title": "Premium",
   "root": true,
-  "pages": ["observability"]
+  "pages": ["overview", "observability", "inspector"]
 }
