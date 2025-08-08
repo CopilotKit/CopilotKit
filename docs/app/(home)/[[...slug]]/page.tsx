@@ -30,6 +30,7 @@ import { NavigationLink } from "@/components/react/subdocs-menu";
  * TODO: This should be dynamic, but it's not working.
  */
 const cloudOnlyFeatures = ["Authenticated Actions", "Guardrails"];
+const premiumFeatureTitles = ["Headless UI", "Fully Headless Chat UI"]; // heuristic for pages that import premium snippets
 
 const mdxComponents = {
   ...defaultMdxComponents,
@@ -68,8 +69,11 @@ export default async function Page({
   if (!page) notFound();
   const MDX = page.data.body;
   const cloudOnly = cloudOnlyFeatures.includes(page.data.title);
-  // Consider a page "Premium" if its slug path contains a "premium" segment
-  const isPremium = Array.isArray(page.slugs) ? page.slugs.includes("premium") : false;
+  // Consider a page "Premium" if its slug path contains a "premium" segment OR title matches known premium features OR frontmatter premium flag
+  const bySlugPremium = Array.isArray(page.slugs) ? page.slugs.includes("premium") : false;
+  const byTitlePremium = premiumFeatureTitles.includes(page.data.title || "");
+  const byFrontmatterPremium = Boolean((page as any).data?.premium);
+  const isPremium = bySlugPremium || byTitlePremium || byFrontmatterPremium;
   // Compute premium overview href based on current section (first slug segment)
   const baseSegment = Array.isArray(page.slugs) && page.slugs.length ? `/${page.slugs[0]}` : "/";
   const premiumOverviewHref = baseSegment === "/" ? "/(root)/premium/overview" : `${baseSegment}/premium/overview`;
