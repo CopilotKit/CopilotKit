@@ -6,6 +6,7 @@ import {
   gqlTextMessageToAGUIMessage,
   gqlResultMessageToAGUIMessage,
   gqlImageMessageToAGUIMessage,
+  gqlActionExecutionMessageToAGUIMessage,
 } from "./gql-to-agui";
 
 describe("message-conversion", () => {
@@ -838,6 +839,529 @@ describe("message-conversion", () => {
           format: "png",
           bytes: "assistantbase64string",
         },
+      });
+    });
+  });
+
+  describe("Wild Card Actions", () => {
+    test("should handle action execution with specific action", () => {
+      const actions = {
+        testAction: {
+          name: "testAction",
+          render: vi.fn((props) => `Rendered: ${props.args.test}`),
+        },
+      };
+
+      const actionExecMsg = new gql.ActionExecutionMessage({
+        id: "action-1",
+        name: "testAction",
+        arguments: { test: "value" },
+        parentMessageId: "parent-1",
+      });
+
+      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions);
+
+      expect(result).toMatchObject({
+        id: "action-1",
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "action-1",
+            function: {
+              name: "testAction",
+              arguments: '{"test":"value"}',
+            },
+            type: "function",
+          },
+        ],
+        generativeUI: expect.any(Function),
+        name: "testAction",
+      });
+    });
+
+    test("should handle action execution with wild card action", () => {
+      const actions = {
+        "*": {
+          name: "*",
+          render: vi.fn((props) => `Wildcard rendered: ${props.args.test}`),
+        },
+      };
+
+      const actionExecMsg = new gql.ActionExecutionMessage({
+        id: "action-2",
+        name: "unknownAction",
+        arguments: { test: "wildcard-value" },
+        parentMessageId: "parent-2",
+      });
+
+      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions);
+
+      expect(result).toMatchObject({
+        id: "action-2",
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "action-2",
+            function: {
+              name: "unknownAction",
+              arguments: '{"test":"wildcard-value"}',
+            },
+            type: "function",
+          },
+        ],
+        generativeUI: expect.any(Function),
+        name: "unknownAction",
+      });
+    });
+
+    test("should prioritize specific action over wild card action", () => {
+      const actions = {
+        specificAction: {
+          name: "specificAction",
+          render: vi.fn((props) => "Specific action rendered"),
+        },
+        "*": {
+          name: "*",
+          render: vi.fn((props) => "Wildcard action rendered"),
+        },
+      };
+
+      const actionExecMsg = new gql.ActionExecutionMessage({
+        id: "action-3",
+        name: "specificAction",
+        arguments: { test: "value" },
+        parentMessageId: "parent-3",
+      });
+
+      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions);
+
+      expect(result).toMatchObject({
+        id: "action-3",
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "action-3",
+            function: {
+              name: "specificAction",
+              arguments: '{"test":"value"}',
+            },
+            type: "function",
+          },
+        ],
+        generativeUI: expect.any(Function),
+        name: "specificAction",
+      });
+    });
+
+    test("should handle action execution without any matching actions", () => {
+      const actions = {
+        otherAction: {
+          name: "otherAction",
+          render: vi.fn(),
+        },
+      };
+
+      const actionExecMsg = new gql.ActionExecutionMessage({
+        id: "action-4",
+        name: "unmatchedAction",
+        arguments: { test: "value" },
+        parentMessageId: "parent-4",
+      });
+
+      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions);
+
+      expect(result).toMatchObject({
+        id: "action-4",
+        role: "assistant",
+        toolCalls: [
+          {
+            id: "action-4",
+            function: {
+              name: "unmatchedAction",
+              arguments: '{"test":"value"}',
+            },
+            type: "function",
+          },
+        ],
+        name: "unmatchedAction",
+      });
+      expect(result).not.toHaveProperty("generativeUI");
+    });
+
+    test("should handle action execution with no actions provided", () => {
+      const actionExecMsg = new gql.ActionExecutionMessage({
+        id: "action-5",
+        name: "anyAction",
+        arguments: { test: "value" },
+        parentMessageId: "parent-5",
+      });
+
+      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg);
+
+      expect(result).toMatchObject({
+        id: "action-5",
+        role: "assistant",
+        toolCalls: [
+          {
+            id: "action-5",
+            function: {
+              name: "anyAction",
+              arguments: '{"test":"value"}',
+            },
+            type: "function",
+          },
+        ],
+        name: "anyAction",
+      });
+      expect(result).not.toHaveProperty("generativeUI");
+    });
+
+    test("should handle action execution with completed result", () => {
+      const actions = {
+        "*": {
+          name: "*",
+          render: vi.fn((props) => `Result: ${props.result}`),
+        },
+      };
+
+      const actionExecMsg = new gql.ActionExecutionMessage({
+        id: "action-6",
+        name: "testAction",
+        arguments: { test: "value" },
+        parentMessageId: "parent-6",
+      });
+
+      const actionResults = new Map([["action-6", "completed result"]]);
+
+      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions, actionResults);
+
+      expect(result).toMatchObject({
+        id: "action-6",
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "action-6",
+            function: {
+              name: "testAction",
+              arguments: '{"test":"value"}',
+            },
+            type: "function",
+          },
+        ],
+        generativeUI: expect.any(Function),
+        name: "testAction",
+      });
+    });
+
+    test("should handle action execution with executing status", () => {
+      const actions = {
+        "*": {
+          name: "*",
+          render: vi.fn((props) => `Status: ${props.status}`),
+        },
+      };
+
+      const actionExecMsg = new gql.ActionExecutionMessage({
+        id: "action-7",
+        name: "testAction",
+        arguments: { test: "value" },
+        parentMessageId: "parent-7",
+        status: { code: MessageStatusCode.Success },
+      });
+
+      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions);
+
+      expect(result).toMatchObject({
+        id: "action-7",
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "action-7",
+            function: {
+              name: "testAction",
+              arguments: '{"test":"value"}',
+            },
+            type: "function",
+          },
+        ],
+        generativeUI: expect.any(Function),
+        name: "testAction",
+      });
+    });
+
+    test("should handle action execution with pending status", () => {
+      const actions = {
+        "*": {
+          name: "*",
+          render: vi.fn((props) => `Status: ${props.status}`),
+        },
+      };
+
+      const actionExecMsg = new gql.ActionExecutionMessage({
+        id: "action-8",
+        name: "testAction",
+        arguments: { test: "value" },
+        parentMessageId: "parent-8",
+        status: { code: MessageStatusCode.Pending },
+      });
+
+      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions);
+
+      expect(result).toMatchObject({
+        id: "action-8",
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "action-8",
+            function: {
+              name: "testAction",
+              arguments: '{"test":"value"}',
+            },
+            type: "function",
+          },
+        ],
+        generativeUI: expect.any(Function),
+        name: "testAction",
+      });
+    });
+
+    test("should handle action execution with failed status", () => {
+      const actions = {
+        "*": {
+          name: "*",
+          render: vi.fn((props) => `Status: ${props.status}`),
+        },
+      };
+
+      const actionExecMsg = new gql.ActionExecutionMessage({
+        id: "action-9",
+        name: "testAction",
+        arguments: { test: "value" },
+        parentMessageId: "parent-9",
+        status: { code: MessageStatusCode.Failed },
+      });
+
+      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions);
+
+      expect(result).toMatchObject({
+        id: "action-9",
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "action-9",
+            function: {
+              name: "testAction",
+              arguments: '{"test":"value"}',
+            },
+            type: "function",
+          },
+        ],
+        generativeUI: expect.any(Function),
+        name: "testAction",
+      });
+    });
+
+    test("should handle action execution with undefined status", () => {
+      const actions = {
+        "*": {
+          name: "*",
+          render: vi.fn((props) => `Status: ${props.status}`),
+        },
+      };
+
+      const actionExecMsg = new gql.ActionExecutionMessage({
+        id: "action-10",
+        name: "testAction",
+        arguments: { test: "value" },
+        parentMessageId: "parent-10",
+        // No status field
+      });
+
+      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions);
+
+      expect(result).toMatchObject({
+        id: "action-10",
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "action-10",
+            function: {
+              name: "testAction",
+              arguments: '{"test":"value"}',
+            },
+            type: "function",
+          },
+        ],
+        generativeUI: expect.any(Function),
+        name: "testAction",
+      });
+    });
+
+    test("should handle action execution with empty arguments", () => {
+      const actions = {
+        "*": {
+          name: "*",
+          render: vi.fn((props) => `Args: ${JSON.stringify(props.args)}`),
+        },
+      };
+
+      const actionExecMsg = new gql.ActionExecutionMessage({
+        id: "action-11",
+        name: "testAction",
+        arguments: {},
+        parentMessageId: "parent-11",
+      });
+
+      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions);
+
+      expect(result).toMatchObject({
+        id: "action-11",
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "action-11",
+            function: {
+              name: "testAction",
+              arguments: "{}",
+            },
+            type: "function",
+          },
+        ],
+        generativeUI: expect.any(Function),
+        name: "testAction",
+      });
+    });
+
+    test("should handle action execution with null arguments", () => {
+      const actions = {
+        "*": {
+          name: "*",
+          render: vi.fn((props) => `Args: ${JSON.stringify(props.args)}`),
+        },
+      };
+
+      const actionExecMsg = new gql.ActionExecutionMessage({
+        id: "action-12",
+        name: "testAction",
+        arguments: null as any,
+        parentMessageId: "parent-12",
+      });
+
+      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions);
+
+      expect(result).toMatchObject({
+        id: "action-12",
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "action-12",
+            function: {
+              name: "testAction",
+              arguments: "null",
+            },
+            type: "function",
+          },
+        ],
+        generativeUI: expect.any(Function),
+        name: "testAction",
+      });
+    });
+
+    test("should handle action execution with complex nested arguments", () => {
+      const actions = {
+        "*": {
+          name: "*",
+          render: vi.fn((props) => `Complex: ${JSON.stringify(props.args)}`),
+        },
+      };
+
+      const complexArgs = {
+        nested: {
+          array: [1, 2, 3],
+          object: { key: "value" },
+          nullValue: null,
+          undefinedValue: undefined,
+        },
+        string: "test",
+        number: 42,
+        boolean: true,
+      };
+
+      const actionExecMsg = new gql.ActionExecutionMessage({
+        id: "action-13",
+        name: "testAction",
+        arguments: complexArgs,
+        parentMessageId: "parent-13",
+      });
+
+      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions);
+
+      expect(result).toMatchObject({
+        id: "action-13",
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "action-13",
+            function: {
+              name: "testAction",
+              arguments: JSON.stringify(complexArgs),
+            },
+            type: "function",
+          },
+        ],
+        generativeUI: expect.any(Function),
+        name: "testAction",
+      });
+    });
+
+    test("should handle multiple wild card actions (should use first one)", () => {
+      const actions = {
+        wildcard1: {
+          name: "*",
+          render: vi.fn((props) => "First wildcard"),
+        },
+        wildcard2: {
+          name: "*",
+          render: vi.fn((props) => "Second wildcard"),
+        },
+      };
+
+      const actionExecMsg = new gql.ActionExecutionMessage({
+        id: "action-14",
+        name: "unknownAction",
+        arguments: { test: "value" },
+        parentMessageId: "parent-14",
+      });
+
+      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions);
+
+      expect(result).toMatchObject({
+        id: "action-14",
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "action-14",
+            function: {
+              name: "unknownAction",
+              arguments: '{"test":"value"}',
+            },
+            type: "function",
+          },
+        ],
+        generativeUI: expect.any(Function),
+        name: "unknownAction",
       });
     });
   });

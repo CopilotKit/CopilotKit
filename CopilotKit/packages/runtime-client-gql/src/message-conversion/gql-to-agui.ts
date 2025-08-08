@@ -51,59 +51,68 @@ export function gqlToAGUI(
   return aguiMessages;
 }
 
-function gqlActionExecutionMessageToAGUIMessage(
+export function gqlActionExecutionMessageToAGUIMessage(
   message: gql.ActionExecutionMessage,
   actions?: Record<string, any>,
   actionResults?: Map<string, string>,
 ): agui.Message {
-  if (actions && Object.values(actions).some((action: any) => action.name === message.name)) {
-    const action = Object.values(actions).find((action: any) => action.name === message.name);
+  // Check if we have actions and if there's a specific action or wild card action
+  const hasSpecificAction =
+    actions && Object.values(actions).some((action: any) => action.name === message.name);
+  const hasWildcardAction =
+    actions && Object.values(actions).some((action: any) => action.name === "*");
 
-    // Create render function wrapper that provides proper props
-    const createRenderWrapper = (originalRender: any) => {
-      if (!originalRender) return undefined;
-
-      return (props?: any) => {
-        // Determine the correct status based on the same logic as RenderActionExecutionMessage
-        const actionResult = actionResults?.get(message.id);
-        let status: "inProgress" | "executing" | "complete" = "inProgress";
-
-        if (actionResult !== undefined) {
-          status = "complete";
-        } else if (message.status?.code !== MessageStatusCode.Pending) {
-          status = "executing";
-        }
-
-        // Provide the full props structure that the render function expects
-        const renderProps = {
-          status: props?.status || status,
-          args: message.arguments || {},
-          result: props?.result || actionResult || undefined,
-          respond: props?.respond || (() => {}),
-          messageId: message.id,
-          ...props,
-        };
-
-        return originalRender(renderProps);
-      };
-    };
-
+  if (!actions || (!hasSpecificAction && !hasWildcardAction)) {
     return {
       id: message.id,
       role: "assistant",
-      content: "",
       toolCalls: [actionExecutionMessageToAGUIMessage(message)],
-      generativeUI: createRenderWrapper(action.render),
       name: message.name,
-    } as agui.AIMessage;
+    };
   }
+
+  // Find the specific action first, then fall back to wild card action
+  const action =
+    Object.values(actions).find((action: any) => action.name === message.name) ||
+    Object.values(actions).find((action: any) => action.name === "*");
+
+  // Create render function wrapper that provides proper props
+  const createRenderWrapper = (originalRender: any) => {
+    if (!originalRender) return undefined;
+
+    return (props?: any) => {
+      // Determine the correct status based on the same logic as RenderActionExecutionMessage
+      const actionResult = actionResults?.get(message.id);
+      let status: "inProgress" | "executing" | "complete" = "inProgress";
+
+      if (actionResult !== undefined) {
+        status = "complete";
+      } else if (message.status?.code !== MessageStatusCode.Pending) {
+        status = "executing";
+      }
+
+      // Provide the full props structure that the render function expects
+      const renderProps = {
+        status: props?.status || status,
+        args: message.arguments || {},
+        result: props?.result || actionResult || undefined,
+        respond: props?.respond || (() => {}),
+        messageId: message.id,
+        ...props,
+      };
+
+      return originalRender(renderProps);
+    };
+  };
 
   return {
     id: message.id,
     role: "assistant",
+    content: "",
     toolCalls: [actionExecutionMessageToAGUIMessage(message)],
+    generativeUI: createRenderWrapper(action.render),
     name: message.name,
-  };
+  } as agui.AIMessage;
 }
 
 function gqlAgentStateMessageToAGUIMessage(
