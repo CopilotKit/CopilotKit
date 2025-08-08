@@ -10,7 +10,6 @@ import { notFound } from "next/navigation";
 import defaultMdxComponents from "fumadocs-ui/mdx";
 import { Badge } from "@/components/ui/badge";
 import { CloudIcon } from "lucide-react";
-
 import { Tabs, Tab } from "@/components/react/tabs";
 import { Steps, Step } from "fumadocs-ui/components/steps";
 import { TypeTable } from "fumadocs-ui/components/type-table";

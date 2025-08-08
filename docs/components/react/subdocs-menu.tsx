@@ -349,15 +349,15 @@ export function SubdocsMenu({
   const handleExplicitNavClick = useCallback((url: string) => {
     setStoredNavPreference(url);
     setStoredPreference(url);
-    closeOnRedirect.current = false;
+    //closeOnRedirect.current = false;
   }, []);
 
   const onClick = useCallback(() => {
-    closeOnRedirect.current = false;
+    //closeOnRedirect.current = false;
   }, [closeOnRedirect]);
 
       return (
-      <div className="flex flex-col gap-2 border-b p-4">
+      <div className="flex flex-col gap-2 border-b">
         {options.map((item, index) => {
           if (isSeparator(item)) {
             return <hr key={`separator-${index}`} className="my-2 border-t border-gray-700" />;
@@ -411,13 +411,12 @@ function SubdocsMenuItem({
         className={cn(
           "p-2 flex flex-row gap-3 items-center cursor-pointer group opacity-60 hover:opacity-100",
           item.props?.className,
-          selected === item && `${item.selectedStyle} opacity-100`
+          selected === item && `opacity-100`
         )}
       >
         <div
           className={cn(
             "rounded-sm p-1.5",
-            item.bgGradient,
             selected !== item && ""
           )}
         >

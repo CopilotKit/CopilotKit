@@ -7,7 +7,6 @@ import { FaPython } from "react-icons/fa";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
 import { LuLayoutTemplate } from "react-icons/lu";
 import { IconBaseProps } from "react-icons";
-<<<<<<< HEAD
 import { RocketIcon } from "lucide-react";
 
 export const DirectToLLMIcon = (props: IconBaseProps) => (
@@ -31,10 +30,7 @@ export const DirectToLLMIcon = (props: IconBaseProps) => (
   </svg>
 );
 
-export const AG2Icon = (props: IconBaseProps) => (
-=======
 export const AG2Icon = ({ className = "", ...props }: IconBaseProps) => (
->>>>>>> c26321761 (refactor: upgrade, minimize and simplify docs)
   <svg
     xmlns="http://www.w3.org/2000/svg"
     fill="none"

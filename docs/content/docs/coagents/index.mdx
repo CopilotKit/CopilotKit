@@ -1,20 +1,49 @@
 ---
-<<<<<<< HEAD
-title: LangGraph × CopilotKit
+title: Overview
 icon: "custom/langchain"
-description: Bring your LangGraph agents to your users with CopilotKit.
-=======
-title: Introduction
-icon: "custom/langchain"
-description: Build Agent-Native Applications (ANAs) powered by CopilotKit and LangGraph.
->>>>>>> c26321761 (refactor: upgrade, minimize and simplify docs)
+description: Bring your LangGraph agents to your users with CopilotKit via AG-UI.
 ---
 
+import { SiLangchain } from "react-icons/si";
 import { CTACards } from "@/components/react/cta-cards";
 import { Play, Wand, MessageSquare } from "lucide-react";
 
-<<<<<<< HEAD
+<div className="flex items-center justify-center gap-6 p-8 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 rounded-2xl shadow-2xl mb-8">
+  <div className="flex items-center gap-6">
+    <div className="rounded-xl p-6 flex items-center gap-3">
+      <span className="text-white font-[800] text-4xl">CopilotKit</span>
+        <img
+         src="https://cdn.copilotkit.ai/docs/copilotkit/icons/copilotkit.svg" 
+         alt="CopilotKit" 
+         className="h-16 w-auto object-contain text-white brightness-0 invert" 
+       />
+    </div>
+    <div className="flex items-center justify-center w-16 h-16 rounded-full bg-white/30">
+      <span className="text-white font-bold text-3xl">×</span>
+    </div>
+    <div className="rounded-xl p-6 flex items-center gap-3">
+      <span className="text-white font-[800] text-4xl">LangGraph</span>
+      <SiLangchain className="h-20 w-auto object-contain text-white" />
+    </div>
+  </div>
+</div>
+
+## Quickstart
 LangGraph is a low-level orchestration framework for building, managing, and deploying long-running, stateful agents.  CopilotKit and LangGraph together provide everything you need to build rich, interactive, agent-powered applications. 
+
+<div className="">
+  <div>
+  ```sh
+  npx copilotkit@latest init
+  ```
+  </div>
+  <div>
+    Or follow a guided tutorial:
+    <div>
+      <a href="/coagents/tutorials/ai-travel-app" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:font-bold transition-colors">AI Travel App</a>
+    </div>
+  </div>
+</div>
 
 <div className="p-0 rounded-lg shadow-[0_0_40px_10px_rgba(99,102,241,0.4)]">
   <video 
@@ -31,26 +60,13 @@ LangGraph is a low-level orchestration framework for building, managing, and dep
 <Callout>
 Proverbs Example app, demonstrating some of the key features of a CopilotKit app with a LangGraph agent.*
 </Callout>
-=======
-# Copilot Infrastructure for LangGraph Agents
->>>>>>> c26321761 (refactor: upgrade, minimize and simplify docs)
 
 With full user-interaction infrastructure, you can create copilots that are not just smart, but truly collaborative.  This means that your agentic application can:
 * Respond quickly and often to user input
 * Allow the user to steer as needed
 * Take action on the user's behalf, driving the app, or other tools through MCP
 
-<<<<<<< HEAD
 ---
-=======
-<Frame className="mt-0 mb-6 rounded-lg">
-  <img
-    src="https://cdn.copilotkit.ai/docs/copilotkit/images/CoAgents.gif"
-    alt="CoAgents demonstration"
-    className="w-auto"
-  />
-</Frame>
->>>>>>> c26321761 (refactor: upgrade, minimize and simplify docs)
 
 ## Generative UI
 

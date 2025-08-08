@@ -20,8 +20,8 @@ export default function Layout({ children }: { children: ReactNode }) {
     <>
       <DocsLayout
         tree={source.pageTree}
+        searchToggle={{ enabled: true }}
         sidebar={{
-          hideSearch: true,
           banner: (
             <SubdocsMenu
               options={[

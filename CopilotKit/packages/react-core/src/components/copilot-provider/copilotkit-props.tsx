@@ -88,7 +88,7 @@ export interface CopilotKitProps {
    * }
    * ```
    *
-   * **Note**: The `authorization` property is automatically forwarded to LangGraph agents. See the [LangGraph Agent Authentication Guide](/coagents/shared-guides/langgraph-platform-authentication) for details.
+   * **Note**: The `authorization` property is automatically forwarded to LangGraph agents. See the [LangGraph Agent Authentication Guide](/coagents/shared/guides/langgraph-platform-authentication) for details.
    */
   properties?: Record<string, any>;
 
