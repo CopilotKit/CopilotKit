@@ -1,5 +1,13 @@
 # ui
 
+## 1.10.1-next.0
+
+### Patch Changes
+
+- Updated dependencies [7bf9dfa]
+  - @copilotkit/runtime-client-gql@1.10.1-next.0
+  - @copilotkit/shared@1.10.1-next.0
+
 ## 1.10.0
 
 ### Minor Changes
