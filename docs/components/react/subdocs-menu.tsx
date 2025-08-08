@@ -43,6 +43,155 @@ function setStoredNavPreference(url: string): void {
   }
 }
 
+// Utility function to handle navigation scrolling
+function handleNavigationScroll(fromPath: string, toPath: string) {
+  // Check if this is an integration switch (different top-level path)
+  const fromIntegration = fromPath.split('/')[1];
+  const toIntegration = toPath.split('/')[1];
+  const isIntegrationSwitch = fromIntegration !== toIntegration && toPath !== "/";
+  
+  // For both integration switches and internal navigation, scroll the main page to top
+  setTimeout(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, 100);
+}
+
+// Utility function to scroll sidebar to selected item
+function scrollSidebarToSelectedItem(targetPath?: string) {
+  setTimeout(() => {
+    const normalize = (p?: string) => {
+      if (!p) return '';
+      try {
+        // Ensure we compare pathname only, strip query/hash and trailing slash
+        const url = p.startsWith('http') ? new URL(p) : new URL(p, window.location.origin);
+        let path = url.pathname;
+        if (path.length > 1 && path.endsWith('/')) path = path.slice(0, -1);
+        return path;
+      } catch {
+        // Fallback for relative like ./generative-ui
+        let path = p.split('?')[0].split('#')[0];
+        if (path.startsWith('./')) path = path.slice(1);
+        if (!path.startsWith('/')) {
+          // Resolve against current path
+          const base = window.location.pathname.replace(/\/$/, '');
+          path = `${base}/${path}`.replace(/\/+/g, '/');
+        }
+        if (path.length > 1 && path.endsWith('/')) path = path.slice(0, -1);
+        return path;
+      }
+    };
+
+    const target = normalize(targetPath || window.location.pathname);
+
+    // Gather all anchors and find best match
+    const anchors = Array.from(document.querySelectorAll('a[href]')) as HTMLAnchorElement[];
+    const candidates = anchors.filter(a => {
+      const hrefNorm = normalize(a.href);
+      return hrefNorm === target || hrefNorm === `${target}/` || hrefNorm.endsWith(target) || hrefNorm.endsWith(`${target}/`);
+    });
+
+    let selectedEl: HTMLElement | null = null;
+
+    if (candidates.length > 0) {
+      // Prefer the one closest to the left (likely the sidebar)
+      candidates.sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
+      selectedEl = candidates[0];
+    }
+
+    // Fallbacks based on aria-current or data attributes
+    if (!selectedEl) {
+      selectedEl = (document.querySelector('a[aria-current="page"]') || document.querySelector('[data-active="true"]')) as HTMLElement | null;
+    }
+
+    if (!selectedEl) return;
+
+    // Find nearest scrollable ancestor
+    function getScrollableAncestor(el: HTMLElement | null): HTMLElement | null {
+      let node: HTMLElement | null = el;
+      while (node && node !== document.body) {
+        const style = window.getComputedStyle(node);
+        const overflowY = style.overflowY;
+        const canScroll = (overflowY === 'auto' || overflowY === 'scroll') && node.scrollHeight > node.clientHeight;
+        if (canScroll) return node;
+        node = node.parentElement as HTMLElement | null;
+      }
+      return null;
+    }
+
+    const container = getScrollableAncestor(selectedEl) || document.querySelector('aside, nav') as HTMLElement | null;
+
+    if (container) {
+      const containerRect = container.getBoundingClientRect();
+      const elRect = selectedEl.getBoundingClientRect();
+
+      const currentScrollTop = container.scrollTop;
+      const offsetTop = (elRect.top - containerRect.top) + currentScrollTop;
+      const targetScrollTop = Math.max(0, offsetTop - (container.clientHeight / 2) + (selectedEl.offsetHeight / 2));
+
+      container.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
+    } else if ('scrollIntoView' in selectedEl) {
+      selectedEl.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+    }
+  }, 350); // allow DOM/route transition
+}
+
+// Global navigation handler for use with any link
+export function useNavigationScroll() {
+  const pathname = usePathname();
+  
+  return (toPath: string) => {
+    handleNavigationScroll(pathname, toPath);
+    scrollSidebarToSelectedItem(toPath);
+  };
+}
+
+// Custom Link component for MDX content with navigation scrolling
+export function NavigationLink({ 
+  href, 
+  children, 
+  className, 
+  ...props 
+}: { 
+  href: string; 
+  children: React.ReactNode; 
+  className?: string;
+  [key: string]: any;
+}) {
+  const handleScroll = useNavigationScroll();
+  const pathname = usePathname();
+
+  // Convert absolute links that point within the same integration to relative
+  const normalizeHref = (input: string): string => {
+    if (!input || typeof input !== 'string') return input;
+    if (!input.startsWith('/')) return input; // already relative or external
+    const currentTop = (pathname.split('/')[1] || '').trim();
+    const targetTop = (input.split('/')[1] || '').trim();
+    if (currentTop && targetTop && currentTop === targetTop) {
+      const rest = input.split('/').slice(2).join('/');
+      return rest ? `./${rest}` : './';
+    }
+    return input;
+  };
+
+  const renderedHref = normalizeHref(href);
+  
+  return (
+    <Link
+      href={renderedHref}
+      onClick={() => {
+        // Use absolute path for scroll logic
+        const absoluteTarget = href;
+        handleScroll(absoluteTarget);
+        setTimeout(() => scrollSidebarToSelectedItem(absoluteTarget), 400);
+      }}
+      className={className}
+      {...props}
+    >
+      {children}
+    </Link>
+  );
+}
+
 export function isActive(
   url: string,
   pathname: string,
@@ -133,6 +282,7 @@ export function SubdocsMenu({
   // State for tracking user's explicit navigation preference
   const [storedPreference, setStoredPreference] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [previousPath, setPreviousPath] = useState<string | null>(null);
 
   // Load stored preference on mount
   useEffect(() => {
@@ -140,6 +290,13 @@ export function SubdocsMenu({
     setStoredPreference(preference);
     setIsInitialized(true);
   }, []);
+
+  // Handle navigation changes from external sources (browser back/forward) and any route change
+  useEffect(() => {
+    handleNavigationScroll(previousPath || pathname, pathname);
+    scrollSidebarToSelectedItem(pathname);
+    setPreviousPath(pathname);
+  }, [pathname]);
 
   const selected: Option | undefined = useMemo(() => {
     // Don't calculate selection until we've loaded the stored preference
@@ -238,12 +395,16 @@ function SubdocsMenuItem({
   onClick?: () => void;
   onExplicitClick?: (url: string) => void;
 }) {
+  const pathname = usePathname();
+  
   if (isOption(item)) {
     return (
       <Link
         key={item.url}
         href={item.url}
         onClick={() => {
+          handleNavigationScroll(pathname, item.url);
+          scrollSidebarToSelectedItem(item.url); // Scroll sidebar to selected item
           onClick?.();
           onExplicitClick?.(item.url);
         }}
@@ -357,6 +518,8 @@ function SubdocsMenuItemDropdown({
       <Select
         key={shouldResetDropdown ? "reset" : "normal"}
         onValueChange={(url) => {
+          handleNavigationScroll(pathname, url);
+          scrollSidebarToSelectedItem(url); // Scroll sidebar to selected item
           router.push(url);
           onClick?.();
           onExplicitClick?.(url);
