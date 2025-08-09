@@ -2,14 +2,14 @@
 
 [[package]]
 name = "ag-ui-langgraph"
-version = "0.0.1"
-description = ""
+version = "0.0.5"
+description = "Implementation of the AG-UI protocol for LangGraph."
 optional = false
 python-versions = "<3.14,>=3.10"
 groups = ["main"]
 files = [
-    {file = "ag_ui_langgraph-0.0.1-py3-none-any.whl", hash = "sha256:b7c90b90fb8d736fc7426219166fa63572bcc10171253d5c982544fa256b568f"},
-    {file = "ag_ui_langgraph-0.0.1.tar.gz", hash = "sha256:3208916af56f5c2dd395c85889d089f12c84207bc3e0ae12acc045abe845ce09"},
+    {file = "ag_ui_langgraph-0.0.5-py3-none-any.whl", hash = "sha256:77ef1a3121818a95907f797972acd7290ec730ada57efeee7bdb6bc6ab24baed"},
+    {file = "ag_ui_langgraph-0.0.5.tar.gz", hash = "sha256:63bd4934bab95042d9095940321d3ee1930b662141e704617d942006943d2a07"},
 ]
 
 [package.dependencies]
@@ -17,7 +17,7 @@ ag-ui-protocol = "0.1.7"
 fastapi = {version = ">=0.115.12,<0.116.0", optional = true, markers = "extra == \"fastapi\""}
 langchain = ">=0.3.0"
 langchain-core = ">=0.3.0"
-langgraph = ">=0.3.25,<=0.5.0"
+langgraph = ">=0.3.25,<0.7.0"
 
 [package.extras]
 fastapi = ["fastapi (>=0.115.12,<0.116.0)"]
@@ -310,21 +310,21 @@ files = [
 
 [[package]]
 name = "copilotkit"
-version = "0.1.55"
+version = "0.1.58"
 description = "CopilotKit python SDK"
 optional = false
 python-versions = "<3.13,>=3.10"
 groups = ["main"]
 files = [
-    {file = "copilotkit-0.1.55-py3-none-any.whl", hash = "sha256:aa4a5026190760d6ba1dbd920849d62c3500a9c6d583adf4c02950aed75ffbf7"},
-    {file = "copilotkit-0.1.55.tar.gz", hash = "sha256:d095be62c58f5cc25ab9e34839ec16ef64e45a88378e5dbf4770efcb8e10ac43"},
+    {file = "copilotkit-0.1.58-py3-none-any.whl", hash = "sha256:f576a2bc1a19b6f56ecf88bb68592a1bdf85f1e9d1212920efc73ec172219cf7"},
+    {file = "copilotkit-0.1.58.tar.gz", hash = "sha256:1e47e6bcafa38676263dd1aa5f4fa1ad068970b003b7618279932de78de51df7"},
 ]
 
 [package.dependencies]
-ag-ui-langgraph = {version = "0.0.1", extras = ["fastapi"]}
+ag-ui-langgraph = {version = "0.0.5", extras = ["fastapi"]}
 fastapi = ">=0.115.0,<0.116.0"
 langchain = ">=0.3.4,<=0.3.26"
-langgraph = ">=0.3.18,<=0.5.0"
+langgraph = ">=0.3.18,<0.7.0"
 partialjson = ">=0.0.8,<0.0.9"
 toml = ">=0.10.2,<0.11.0"
 
@@ -1772,4 +1772,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.13"
-content-hash = "5c427b4f6e354b8a26a480121d07ed02a78f23ce8005be6088aceb71970de78f"
+content-hash = "b21fd1c03384c5a81132b62aefe08393d709a0b531f49d1d5d23a182086fd6d6"
