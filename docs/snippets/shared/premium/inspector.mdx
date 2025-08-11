@@ -1,0 +1,34 @@
+The Copilot Inspector is a debugging aid, accessible from a copilotkit button overlaid on your app, which allows you to see the information, state and conversation between them and you (the user).
+
+
+
+
+
+<Callout type="info" title="Premium feature">
+  The Inspector is available to CopilotKit Premium users. Get a free public
+  license key on [Copilot Cloud](https://cloud.copilotkit.ai) or read more about{" "}
+  <a href="/premium/overview">Premium features</a>.
+</Callout>
+
+## What it shows
+
+- Actions: Registered actions and parameter schemas
+- Readables: Context/readables available to the agent
+- Agent Status: Coagent states and running/completion info
+- Messages: Conversation history
+- Context: Document context fed into the model
+
+## Requirements
+
+- Provide `publicLicenseKey` to `<CopilotKit />` to enable premium features:
+
+```tsx
+<CopilotKit publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}>
+  {children}
+</CopilotKit>
+```
+
+## How to open
+
+A draggable circular trigger is rendered in-app. Click to open the Inspector.
+If no license key is configured, you’ll see a “Get License Key” prompt.
