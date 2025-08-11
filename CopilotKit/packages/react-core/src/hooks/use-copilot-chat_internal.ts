@@ -41,6 +41,11 @@ export interface UseCopilotChatOptions {
    * A function to generate the system message. Defaults to `defaultSystemMessage`.
    */
   makeSystemMessage?: SystemMessageFunction;
+
+  /**
+   * Disables inclusion of CopilotKit’s default system message. When true, no system message is sent (this also suppresses any custom message from <code>makeSystemMessage</code>).
+   */
+  disableSystemMessage?: boolean;
 }
 
 export interface MCPServerConfig {
@@ -390,6 +395,7 @@ export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotC
     setExtensions,
     langGraphInterruptAction,
     setLangGraphInterruptAction,
+    disableSystemMessage: options.disableSystemMessage,
   });
 
   const latestAppend = useUpdatedRef(append);

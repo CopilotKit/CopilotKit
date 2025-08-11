@@ -226,6 +226,11 @@ export interface CopilotChatProps {
   makeSystemMessage?: SystemMessageFunction;
 
   /**
+   * Disables inclusion of CopilotKit’s default system message. When true, no system message is sent (this also suppresses any custom message from <code>makeSystemMessage</code>).
+   */
+  disableSystemMessage?: boolean;
+
+  /**
    * A custom assistant message component to use instead of the default.
    */
   AssistantMessage?: React.ComponentType<AssistantMessageProps>;
@@ -384,6 +389,7 @@ export function CopilotChat({
   suggestions = "auto",
   onSubmitMessage,
   makeSystemMessage,
+  disableSystemMessage,
   onInProgress,
   onStopGeneration,
   onReloadMessages,
@@ -584,6 +590,7 @@ export function CopilotChat({
   } = useCopilotChatLogic(
     suggestions,
     makeSystemMessage,
+    disableSystemMessage,
     onInProgress,
     onSubmitMessage,
     onStopGeneration,
@@ -789,6 +796,7 @@ export function WrappedCopilotChat({
 export const useCopilotChatLogic = (
   chatSuggestions: ChatSuggestions,
   makeSystemMessage?: SystemMessageFunction,
+  disableSystemMessage?: boolean,
   onInProgress?: (isLoading: boolean) => void,
   onSubmitMessage?: (messageContent: string) => Promise<void> | void,
   onStopGeneration?: OnStopGeneration,
@@ -809,6 +817,7 @@ export const useCopilotChatLogic = (
     isLoadingSuggestions,
   } = useCopilotChat({
     makeSystemMessage,
+    disableSystemMessage,
   });
 
   const generalContext = useCopilotContext();
