@@ -226,7 +226,7 @@ export interface CopilotChatProps {
   makeSystemMessage?: SystemMessageFunction;
 
   /**
-   * Disable/remove the system message provided by CopilotKit by default
+   * Disables inclusion of CopilotKit’s default system message. When true, no system message is sent (this also suppresses any custom message from <code>makeSystemMessage</code>).
    */
   disableSystemMessage?: boolean;
 
