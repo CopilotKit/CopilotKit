@@ -4,31 +4,32 @@ import { useEffect } from "react";
 
 export type ActionButtonsProps = {
   status: RenderFunctionStatus;
-  handler: any;
+  respond: any;
   approve: React.ReactNode;
   reject: React.ReactNode;
   selectedPlaceIds?: Set<string>;
   type?: "edit" | "add";
   placeIds?: string[][];
   setSelectedPlaceIds?: (placeIds: Set<string>) => void;
-}
+};
 
-export const ActionButtons = ({ status, handler, approve, reject, selectedPlaceIds, type="add", placeIds, setSelectedPlaceIds }: ActionButtonsProps) => {
-  useEffect(() => {
-    console.log(placeIds, "placeIdsplaceIdsplaceIds");
-  }, [placeIds]);
-  
-  useEffect(() => {
-    console.log(selectedPlaceIds,"btn");
-  }, [selectedPlaceIds]);
-  
+export const ActionButtons = ({
+  status,
+  respond,
+  approve,
+  reject,
+  selectedPlaceIds,
+  type = "add",
+  placeIds,
+  setSelectedPlaceIds,
+}: ActionButtonsProps) => {
   return (
     <div className="flex gap-4 justify-between">
       <Button
         className="w-full"
         variant="outline"
         disabled={status === "complete" || status === "inProgress"}
-        onClick={() => handler?.("CANCEL")}
+        onClick={() => respond?.("CANCEL")}
       >
         {reject}
       </Button>
@@ -38,29 +39,30 @@ export const ActionButtons = ({ status, handler, approve, reject, selectedPlaceI
         onClick={() => {
           debugger;
           if (selectedPlaceIds && selectedPlaceIds.size > 0) {
-            if(type == "edit"){
-              console.log(Array.from(selectedPlaceIds), "selectedPlaceIds")
-              handler?.(JSON.stringify(Array.from(selectedPlaceIds)+"|||editMode"));
+            if (type == "edit") {
+              console.log(Array.from(selectedPlaceIds), "selectedPlaceIds");
+              respond?.(
+                JSON.stringify(Array.from(selectedPlaceIds) + "|||editMode")
+              );
             } else {
-              console.log(Array.from(selectedPlaceIds), "selectedPlaceIds")
-              handler?.(JSON.stringify(Array.from(selectedPlaceIds)+"|||addMode"));
+              console.log(Array.from(selectedPlaceIds), "selectedPlaceIds");
+              respond?.(
+                JSON.stringify(Array.from(selectedPlaceIds) + "|||addMode")
+              );
             }
-          } 
-          else if(selectedPlaceIds && selectedPlaceIds.size == 0){
+          } else if (selectedPlaceIds && selectedPlaceIds.size == 0) {
             setSelectedPlaceIds?.(new Set(placeIds?.[0] || []));
-            if(type == "edit"){
+            if (type == "edit") {
               // console.log(Array.from(selectedPlaceIds), "selectedPlaceIds")
-              handler?.(JSON.stringify(placeIds?.[0]+"|||editMode"));
+              respond?.(JSON.stringify(placeIds?.[0] + "|||editMode"));
             } else {
               // console.log(Array.from(selectedPlaceIds), "selectedPlaceIds")
-              handler?.(JSON.stringify(placeIds?.[0]+"|||addMode"));
+              respond?.(JSON.stringify(placeIds?.[0] + "|||addMode"));
             }
+          } else {
+            respond?.("SEND");
           }
-          else {
-            handler?.("SEND");
-          }
-        }
-      }
+        }}
       >
         {approve}
       </Button>

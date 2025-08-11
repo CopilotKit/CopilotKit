@@ -8,7 +8,7 @@ import React, { useEffect, useState } from "react"
 import { Button } from "./ui/button"
 import { codeSnippets } from "@/public/snippets"
 import { Checkbox } from "./ui/checkbox"
-import { useCopilotAction, ActionRenderPropsWait } from "@copilotkit/react-core"
+import { ActionRenderPropsWait } from "@copilotkit/react-core"
 import { PlayCircle, Loader2, CheckCircle2, XCircle } from "lucide-react"
 import { ChatGrid } from "./data-chat-grid"
 

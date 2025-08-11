@@ -11,9 +11,10 @@ import { useEffect, useState } from "react";
 import {
   CopilotKit,
   useCoAgent,
-  useCopilotAction,
+  useHumanInTheLoop,
   useCopilotChat,
 } from "@copilotkit/react-core";
+import { z } from "zod";
 import { CopilotSidebar, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { initialPrompt, chatSuggestions } from "@/lib/prompts";
 import { AGENT_TYPE } from "@/config";
@@ -126,9 +127,10 @@ const DocumentEditor = () => {
     }
   }, [text]);
 
-  useCopilotAction({
+  useHumanInTheLoop({
     name: "confirm_changes",
-    renderAndWaitForResponse: ({ args, respond, status }) => {
+    parameters: z.object({}),
+    render: ({ args, respond, status }) => {
       const [accepted, setAccepted] = useState<boolean | null>(null);
       return (
         <div className="bg-white p-6 rounded shadow-lg border border-gray-200 mt-5 mb-5">

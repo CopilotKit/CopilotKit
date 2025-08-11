@@ -1,6 +1,7 @@
 import { FinancingForm } from "@/components/generative-ui/financing-form";
 import { useGlobalState } from "@/lib/stages";
-import { useCopilotAction, useCopilotAdditionalInstructions } from "@copilotkit/react-core";
+import { useHumanInTheLoop, useCopilotAdditionalInstructions } from "@copilotkit/react-core";
+import { z } from "zod";
 
 /**
   useStateGetFinancingInfo is a hook that will add this stage to the state machine. It is responsible for:
@@ -22,12 +23,13 @@ export function useStageGetFinancingInfo() {
   );
 
   // Render the FinancingForm component and wait for the user's response.
-  useCopilotAction(
+  useHumanInTheLoop(
     {
       name: "getFinancingInformation",
       description: "Get the financing information of the user",
       available: stage === "getFinancingInfo" ? "enabled" : "disabled",
-      renderAndWaitForResponse: ({ status, respond }) => {
+      parameters: z.object({}),
+      render: ({ status, respond }) => {
         return (
           <FinancingForm
             status={status}

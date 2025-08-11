@@ -35,7 +35,8 @@
     "react": "19.0.0-rc-0bc30748-20241028",
     "react-dom": "19.0.0-rc-0bc30748-20241028",
     "react-markdown": "^8.0.7",
-    "use-stick-to-bottom": "^1.1.1"
+    "use-stick-to-bottom": "^1.1.1",
+    "zod": "^4.0.14"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.16",

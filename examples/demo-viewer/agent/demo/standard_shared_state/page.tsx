@@ -1,5 +1,6 @@
 "use client";
-import { CopilotKit, useCoAgent, useCopilotAction, useCopilotChat } from "@copilotkit/react-core";
+import { CopilotKit, useCoAgent, useRenderToolCall, useCopilotChat } from "@copilotkit/react-core";
+import { z } from "zod";
 import { CopilotKitCSSProperties, CopilotSidebar, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { useState, useEffect, useRef } from "react";
 import { Role, TextMessage } from "@copilotkit/runtime-client-gql";
@@ -126,72 +127,30 @@ function Recipe() {
     instructions: chatSuggestions.sharedState,
   })
 
-  useCopilotAction({
+  useRenderToolCall({
     name: "generate_recipe",
     description: `Generate a recipe based on the user's input based on the ingredients and instructions, proceed with the recipe to finish it. The existing ingredients and instructions are provided to you as context: ${JSON.stringify(agentState)}. If you have just created or modified the recipe, just answer in one sentence what you did. dont describe the recipe, just say what you did`,
-    parameters : [
-      {
-        name : "recipe",
-        type : "object",
-        attributes : [
-          {
-            name : "title",
-            type : "string",
-            description : "The title of the recipe"
-          },
-          {
-            name : "skill_level",
-            type : "string",
-            description : "The skill level of the recipe",
-            enum : Object.values(SkillLevel)
-          },
-          {
-            name : "cooking_time",
-            type : "string",
-            description : "The cooking time of the recipe",
-            enum : Object.values(CookingTime)
-          },
-          {
-            name : "dietary_preferences",
-            type : "string[]",
-            enum : dietaryOptions
-          },
-          {
-            name : "ingredients",
-            type : "object[]",
-            attributes : [
-              {
-                name : "icon",
-                type : "string",
-                description : "The icon of the ingredient"
-              },
-              {
-                name : "name",
-                type : "string",
-                description : "The name of the ingredient"
-              },
-              {
-                name : "amount",
-                type : "string",
-                description : "The amount of the ingredient"
-              }
-            ]
-          },
-          {
-            name : "instructions",
-            type : "string[]",
-            description : "The instructions of the recipe"
-          }
-        ]
-      }
-    ],
-    render : ({args}) =>{
+    parameters: z.object({
+      recipe: z.object({
+        title: z.string().describe("The title of the recipe"),
+        skill_level: z.enum([SkillLevel.BEGINNER, SkillLevel.INTERMEDIATE, SkillLevel.ADVANCED]).describe("The skill level of the recipe"),
+        cooking_time: z.enum([CookingTime.FiveMin, CookingTime.FifteenMin, CookingTime.ThirtyMin, CookingTime.FortyFiveMin, CookingTime.SixtyPlusMin]).describe("The cooking time of the recipe"),
+        dietary_preferences: z.array(z.enum(["Vegetarian", "Nut-free", "Dairy-free", "Gluten-free", "Vegan", "Low-carb"])),
+        ingredients: z.array(z.object({
+          icon: z.string().describe("The icon of the ingredient"),
+          name: z.string().describe("The name of the ingredient"),
+          amount: z.string().describe("The amount of the ingredient"),
+        })),
+        instructions: z.array(z.string()).describe("The instructions of the recipe"),
+      }),
+    }),
+    render: ({ args }) => {
       useEffect(() => {
-        console.log(args, "args.recipe")
-        updateRecipe(args?.recipe || {})
-      }, [args.recipe])
-      return <></>
-    }
+        console.log(args, "args.recipe");
+        updateRecipe(args?.recipe || {});
+      }, [args.recipe]);
+      return <></>;
+    },
   })
 
   const [recipe, setRecipe] = useState(INITIAL_STATE.recipe);

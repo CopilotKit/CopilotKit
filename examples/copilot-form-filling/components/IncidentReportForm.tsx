@@ -27,7 +27,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
+import { useFrontendTool, useCopilotReadable } from "@copilotkit/react-core";
 
 // Define the form schema with Zod
 const formSchema = z.object({
@@ -86,65 +86,20 @@ export function IncidentReportForm() {
     value: form,
   }, [form]);
 
-  useCopilotAction({
+  useFrontendTool({
     name: "fillIncidentReportForm",
     description: "Fill out the incident report form",
-    parameters: [
-      {
-        "name": "fullName",
-        "type": "string",
-        "required": true,
-        "description": "The full name of the person reporting the incident"
-      },
-      {
-        "name": "email",
-        "type": "string",
-        "required": true,
-        "description": "The email address of the person reporting the incident"
-      },
-      {
-        "name": "description",
-        "type": "string",
-        "required": true,
-        "description": "The description of the incident"
-      },
-      {
-        "name": "date",
-        "type": "string",
-        "required": true,
-        "description": "The date of the incident"
-      },
-      {
-        "name": "impactLevel",
-        "type": "string",
-        "required": true,
-        "description": "The impact level of the incident"
-      },
-      {
-        "name": "incidentType",
-        "type": "string",
-        "required": true,
-        "description": "The type of incident, must be one of the following: phishing, malware, data_breach, unauthorized_access, ddos, other"
-      },
-      {
-        "name": "incidentLevel",
-        "type": "string",
-        "required": true,
-        "description": "The severity of the incident, must be one of the following: low, medium, high, critical"
-      },
-      { 
-        "name": "incidentDescription",
-        "type": "string",
-        "required": true,
-        "description": "The description of the incident, be as detailed as possible. At least 30 words."
-      },
-      { 
-        "name": "suggestedActions",
-        "type": "string",
-        "required": true,
-        "description": "The suggested actions to take based on the incident, be as detailed as possible in a bulleted list."
-      },
-    ],
+    parameters: z.object({
+      fullName: z.string().describe("The full name of the person reporting the incident"),
+      email: z.string().describe("The email address of the person reporting the incident"),
+      description: z.string().describe("The description of the incident"),
+      date: z.string().describe("The date of the incident"),
+      impactLevel: z.string().describe("The impact level of the incident"),
+      incidentType: z.string().describe("The type of incident, must be one of the following: phishing, malware, data_breach, unauthorized_access, ddos, other"),
+      incidentLevel: z.string().describe("The severity of the incident, must be one of the following: low, medium, high, critical"),
+      incidentDescription: z.string().describe("The description of the incident, be as detailed as possible. At least 30 words."),
+      suggestedActions: z.string().describe("The suggested actions to take based on the incident, be as detailed as possible in a bulleted list.")
+    }),
     handler: async (action) => {
       form.setValue("name", action.fullName);
       form.setValue("email", action.email);
