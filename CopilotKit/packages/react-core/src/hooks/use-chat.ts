@@ -326,11 +326,9 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
       const systemMessage = makeSystemMessageCallback();
 
-      const messagesWithContext = disableSystemMessage ? [
-        ...(initialMessages || []), ...previousMessages
-      ] : [
-        systemMessage, ...(initialMessages || []), ...previousMessages
-      ];
+      const messagesWithContext = disableSystemMessage
+        ? [...(initialMessages || []), ...previousMessages]
+        : [systemMessage, ...(initialMessages || []), ...previousMessages];
 
       // ----- Set mcpServers in properties -----
       // Create a copy of properties to avoid modifying the original object
