@@ -9,7 +9,7 @@ license = "MIT"
 name = "research_canvas"
 version = "0.0.1"
 dependencies = [
-    "copilotkit>=0.1.56a3",
+    "copilotkit>=0.1.58",
     "crewai==0.118.0",
     "langchain-openai>=0.2.3",
     "langchain-community>=0.3.1",
