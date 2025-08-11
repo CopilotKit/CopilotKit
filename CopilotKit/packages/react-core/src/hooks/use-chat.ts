@@ -159,6 +159,8 @@ export type UseChatOptions = {
   langGraphInterruptAction: LangGraphInterruptAction | null;
 
   setLangGraphInterruptAction: LangGraphInterruptActionSetter;
+
+  disableSystemMessage?: boolean;
 };
 
 export type UseChatHelpers = {
@@ -222,6 +224,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     setExtensions,
     langGraphInterruptAction,
     setLangGraphInterruptAction,
+    disableSystemMessage = false,
   } = options;
   const runChatCompletionRef = useRef<(previousMessages: Message[]) => Promise<Message[]>>();
   const addErrorToast = useErrorToast();
@@ -323,7 +326,11 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
       const systemMessage = makeSystemMessageCallback();
 
-      const messagesWithContext = [systemMessage, ...(initialMessages || []), ...previousMessages];
+      const messagesWithContext = disableSystemMessage ? [
+        ...(initialMessages || []), ...previousMessages
+      ] : [
+        systemMessage, ...(initialMessages || []), ...previousMessages
+      ];
 
       // ----- Set mcpServers in properties -----
       // Create a copy of properties to avoid modifying the original object
