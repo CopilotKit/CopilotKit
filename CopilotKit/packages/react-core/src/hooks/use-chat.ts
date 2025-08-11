@@ -324,11 +324,9 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
       setMessages([...previousMessages, ...newMessages]);
 
-      const systemMessage = makeSystemMessageCallback();
-
       const messagesWithContext = disableSystemMessage
         ? [...(initialMessages || []), ...previousMessages]
-        : [systemMessage, ...(initialMessages || []), ...previousMessages];
+        : [makeSystemMessageCallback(), ...(initialMessages || []), ...previousMessages];
 
       // ----- Set mcpServers in properties -----
       // Create a copy of properties to avoid modifying the original object
@@ -876,6 +874,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
       coagentStatesRef,
       agentSession,
       setAgentSession,
+      disableSystemMessage,
     ],
   );
 
