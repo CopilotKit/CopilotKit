@@ -2,11 +2,10 @@
   "title": "Pydantic AI",
   "root": true,
   "pages": [
-    "index",
     "---Getting Started---",
+    "index",
     "...quickstart",
     "mcp",
-    "[lucide/Telescope][Feature Viewer](https://ag-ui-dojo-nine.vercel.app/pydantic-ai)",
     "---Custom Look and Feel---",
     "...custom-look-and-feel",
     "---Guides---",

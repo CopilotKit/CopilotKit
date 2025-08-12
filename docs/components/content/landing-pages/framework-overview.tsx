@@ -109,7 +109,7 @@ export function FrameworkOverview({
                 <Copy className="ml-2 h-4 w-4" />
               )}
             </Button>
-            <Link href={featuresLink}>
+            <Link href={featuresLink} target="_blank" rel="noopener noreferrer">
               <Button size="lg" variant="outline" className="px-8 py-3 text-base cursor-pointer">
                 View Features
               </Button>
@@ -326,7 +326,7 @@ export function FrameworkOverview({
                   Try the key features provided to your agent by CopilotKit.
                 </p>
               </div>
-              <Link href={featuresLink} className="no-underline">
+              <Link href={featuresLink} rel="noopener noreferrer" target="_blank" className="no-underline">
                 <Button className="w-full h-11 bg-primary/10 text-primary hover:bg-primary/20 shadow border border-primary cursor-pointer">
                   Visit feature viewer
                   <ArrowRight className="ml-2 h-4 w-4" />
