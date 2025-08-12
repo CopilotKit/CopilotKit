@@ -4,7 +4,8 @@
   "pages": [
     "---Getting Started---",
     "index",
-    "...quickstart",
+    "quickstart",
+    "mcp",
     "---Custom Look and Feel---",
     "...custom-look-and-feel",
     "---Guides---",

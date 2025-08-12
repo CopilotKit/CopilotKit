@@ -5,6 +5,7 @@
     "index",
     "[lucide/Play][LLM Quickstart](../direct-to-llm/guides/quickstart)",
     "[lucide/Play][CoAgent Quickstart](../coagents/quickstart)",
+    "mcp",
     "---Feature Overviews---",
     "agentic-chat-ui",
     "custom-look-and-feel",
