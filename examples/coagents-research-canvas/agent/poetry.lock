@@ -2,14 +2,14 @@
 
 [[package]]
 name = "ag-ui-langgraph"
-version = "0.0.6"
+version = "0.0.7"
 description = "Implementation of the AG-UI protocol for LangGraph."
 optional = false
 python-versions = "<3.14,>=3.10"
 groups = ["main"]
 files = [
-    {file = "ag_ui_langgraph-0.0.6-py3-none-any.whl", hash = "sha256:ed6ef6f857543adda9d36752d10820c46eb9e8dc4cc7194ec70f59261334e923"},
-    {file = "ag_ui_langgraph-0.0.6.tar.gz", hash = "sha256:8a71103e98ab563dd887f15afaac2169304adcf08e5e2a1b6397c444ebb34754"},
+    {file = "ag_ui_langgraph-0.0.7-py3-none-any.whl", hash = "sha256:35b43bf74b3dc568943bb0808141ae6e583b3c08596892b21a647072434d2f34"},
+    {file = "ag_ui_langgraph-0.0.7.tar.gz", hash = "sha256:5ca32d6f04f40073493227fb272d3493e84cd0e0f5a269d74d0ac1a4234cfe04"},
 ]
 
 [package.dependencies]
@@ -755,18 +755,18 @@ cron = ["capturer (>=2.4)"]
 
 [[package]]
 name = "copilotkit"
-version = "0.1.59"
+version = "0.1.60"
 description = "CopilotKit python SDK"
 optional = false
 python-versions = "<3.13,>=3.10"
 groups = ["main"]
 files = [
-    {file = "copilotkit-0.1.59-py3-none-any.whl", hash = "sha256:99a2662fb2a7cd462096e57c726a4554376e0171fd20e5ee6f352edc8afc9053"},
-    {file = "copilotkit-0.1.59.tar.gz", hash = "sha256:625840d709c4ad7ddeaf87c8bd3d900211d23013a2978d7571b4f792b1faac3c"},
+    {file = "copilotkit-0.1.60-py3-none-any.whl", hash = "sha256:8418723aedec72a14dbccd95a974e1d07059153a14f06030ca9e4830e3acbf39"},
+    {file = "copilotkit-0.1.60.tar.gz", hash = "sha256:1296b9a369a7d44db8497700e356e92385e3c9a40ab7bf3dea5f7dbd0365ae4f"},
 ]
 
 [package.dependencies]
-ag-ui-langgraph = {version = "0.0.6", extras = ["fastapi"]}
+ag-ui-langgraph = {version = "0.0.7", extras = ["fastapi"]}
 fastapi = ">=0.115.0,<0.116.0"
 langchain = ">=0.3.4,<=0.3.26"
 langgraph = ">=0.3.18,<0.7.0"
@@ -6010,4 +6010,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<3.13"
-content-hash = "3e9257c72fb0159c8b65650807f4be6853b7ad74f65294297bbae64404330c68"
+content-hash = "5c60d3577a19a0fe1a80a85c63dba4188b95e1915d4ea05e870705c6106b3cd5"
