@@ -178,9 +178,15 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
 
       for (const msg of openaiMessages) {
         const anyMsg = msg as any;
-        if (anyMsg.role === "assistant" && Array.isArray(anyMsg.tool_calls) && anyMsg.tool_calls.length > 0) {
+        if (
+          anyMsg.role === "assistant" &&
+          Array.isArray(anyMsg.tool_calls) &&
+          anyMsg.tool_calls.length > 0
+        ) {
           const toolCalls = anyMsg.tool_calls;
-          const missing = toolCalls.some((tc: any) => !tc?.id || consumed.has(tc.id) || !toolMessageById.has(tc.id));
+          const missing = toolCalls.some(
+            (tc: any) => !tc?.id || consumed.has(tc.id) || !toolMessageById.has(tc.id),
+          );
           if (missing) {
             // Skip assistant tool_calls without complete tool responses to avoid 400
             continue;

@@ -274,7 +274,9 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
 
       for (const msg of anthropicMessages) {
         if (msg.role === "user" && Array.isArray(msg.content)) {
-          const block = (msg.content as any[]).find((c) => c && c.type === "tool_result" && c.tool_use_id);
+          const block = (msg.content as any[]).find(
+            (c) => c && c.type === "tool_result" && c.tool_use_id,
+          );
           if (block && block.tool_use_id && !toolResultById.has(block.tool_use_id)) {
             toolResultById.set(block.tool_use_id, { ...msg });
           }
@@ -300,7 +302,9 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
 
         // Skip standalone tool_result; it will be inserted right after its tool_use
         if (msg.role === "user" && Array.isArray(msg.content)) {
-          const block = (msg.content as any[]).find((c) => c && c.type === "tool_result" && c.tool_use_id);
+          const block = (msg.content as any[]).find(
+            (c) => c && c.type === "tool_result" && c.tool_use_id,
+          );
           if (block) {
             continue;
           }
