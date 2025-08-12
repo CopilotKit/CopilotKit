@@ -159,7 +159,55 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
     let openaiMessages = filteredMessages.map((m) =>
       convertMessageToOpenAIMessage(m, { keepSystemRole: this.keepSystemRole }),
     );
-    openaiMessages = limitMessagesToTokenCount(openaiMessages, tools, model);
+
+    // Reorder to satisfy OpenAI rule: assistant tool_calls must be followed by tool messages
+    const reorderedMessages = (() => {
+      const result: any[] = [];
+      const toolMessageById = new Map<string, any>();
+
+      for (const msg of openaiMessages) {
+        if ((msg as any).role === "tool" && (msg as any).tool_call_id) {
+          const id = (msg as any).tool_call_id as string;
+          if (!toolMessageById.has(id)) {
+            toolMessageById.set(id, msg);
+          }
+        }
+      }
+
+      const consumed = new Set<string>();
+
+      for (const msg of openaiMessages) {
+        const anyMsg = msg as any;
+        if (anyMsg.role === "assistant" && Array.isArray(anyMsg.tool_calls) && anyMsg.tool_calls.length > 0) {
+          const toolCalls = anyMsg.tool_calls;
+          const missing = toolCalls.some((tc: any) => !tc?.id || consumed.has(tc.id) || !toolMessageById.has(tc.id));
+          if (missing) {
+            // Skip assistant tool_calls without complete tool responses to avoid 400
+            continue;
+          }
+          result.push(msg);
+          for (const tc of toolCalls) {
+            const toolMsg = toolMessageById.get(tc.id);
+            if (toolMsg) {
+              result.push(toolMsg);
+              consumed.add(tc.id);
+            }
+          }
+          continue;
+        }
+
+        if (anyMsg.role === "tool" && anyMsg.tool_call_id) {
+          // Skip standalone tool messages; they are inserted after their assistant above
+          continue;
+        }
+
+        result.push(msg);
+      }
+
+      return result;
+    })();
+
+    openaiMessages = limitMessagesToTokenCount(reorderedMessages, tools, model);
 
     let toolChoice: any = forwardedParameters?.toolChoice;
     if (forwardedParameters?.toolChoice === "function") {

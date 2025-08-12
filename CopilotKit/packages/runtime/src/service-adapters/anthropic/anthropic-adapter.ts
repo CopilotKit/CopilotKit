@@ -267,8 +267,53 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
         return true;
       }) as Anthropic.Messages.MessageParam[];
 
+    // Enforce Anthropic rule: assistant tool_use must be immediately followed by user tool_result
+    const reorderedMessages: Anthropic.Messages.MessageParam[] = (() => {
+      const result: Anthropic.Messages.MessageParam[] = [];
+      const toolResultById = new Map<string, Anthropic.Messages.MessageParam>();
+
+      for (const msg of anthropicMessages) {
+        if (msg.role === "user" && Array.isArray(msg.content)) {
+          const block = (msg.content as any[]).find((c) => c && c.type === "tool_result" && c.tool_use_id);
+          if (block && block.tool_use_id && !toolResultById.has(block.tool_use_id)) {
+            toolResultById.set(block.tool_use_id, { ...msg });
+          }
+        }
+      }
+
+      const consumedToolResults = new Set<string>();
+
+      for (const msg of anthropicMessages) {
+        if (msg.role === "assistant" && Array.isArray(msg.content)) {
+          const toolUse = (msg.content as any[]).find((c) => c && c.type === "tool_use" && c.id);
+          if (toolUse?.id) {
+            const tr = toolResultById.get(toolUse.id);
+            if (tr && !consumedToolResults.has(toolUse.id)) {
+              result.push(msg);
+              result.push(tr);
+              consumedToolResults.add(toolUse.id);
+            }
+            // If no matching tool_result, skip this tool_use to avoid Anthropic 400
+            continue;
+          }
+        }
+
+        // Skip standalone tool_result; it will be inserted right after its tool_use
+        if (msg.role === "user" && Array.isArray(msg.content)) {
+          const block = (msg.content as any[]).find((c) => c && c.type === "tool_result" && c.tool_use_id);
+          if (block) {
+            continue;
+          }
+        }
+
+        result.push(msg);
+      }
+
+      return result;
+    })();
+
     // Apply token limits
-    const limitedMessages = limitMessagesToTokenCount(anthropicMessages, tools, model);
+    const limitedMessages = limitMessagesToTokenCount(reorderedMessages, tools, model);
 
     // Apply prompt caching if enabled
     const cachedSystemPrompt = this.addSystemPromptCaching(instructions, this.promptCaching.debug);
