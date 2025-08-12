@@ -1,146 +1,58 @@
 ---
-title: CrewAI Flows × CopilotKit
+title: Overview
 icon: "custom/crewai"
 description: Bring your CrewAI Flows agents to your users with CopilotKit.
+hideHeader: true
 ---
 
-import { CTACards } from "@/components/react/cta-cards";
+import { FrameworkOverview } from "@/components/content/landing-pages/framework-overview";
+import { customIcons } from "@/lib/icons/custom-icons";
 
-CrewAI is a Multi-Agent Automation Python Framework.  CrewAI Flows enable granular, event-driven control, single LLM calls for precise task orchestration and support Crews natively.
-CopilotKit and CrewAI Flows together provide everything you need to build rich, interactive, agent-powered applications. 
-
-<div className="p-0 rounded-lg shadow-[0_0_40px_10px_rgba(99,102,241,0.4)]">
-  <video 
-    src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
-    className="rounded-lg w-full"
-    controls
-    autoPlay
-    muted
-    loop
-    playsInline
-  />
-</div>
-
-<Callout>
-Proverbs Example app, demonstrating some of the key features of a CopilotKit app with a CrewAI Flows agent.*
-</Callout>
-
-With full user-interaction infrastructure, you can create copilots that are not just smart, but truly collaborative.  This means that your agentic application can:
-* Respond quickly and often to user input
-* Allow the user to steer as needed
-* Take action on the user's behalf, driving the app, or other tools through MCP
-
----
-
-## Generative UI
-
-Generative UI lets you render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. It bridges the gap between AI agents and user interfaces. <a href="/crewai-flows/generative-ui" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:font-bold transition-colors">Learn More</a> 
-
-<div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(200,200,200,0.4)]">
-  <video 
-    src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4"
-    className="rounded-2xl w-full"
-    controls
-    autoPlay
-    muted
-    loop
-    playsInline
-  />
-</div>
-
-<Callout>
-  Haiku Generator - CopilotKit app with a CrewAI Flows agent. 
-  <a href="https://ag-ui-dojo-nine.vercel.app/crewai/feature/tool_based_generative_ui" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:font-bold transition-colors">Live Demo</a> 
-  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/demo-viewer/agent/demo/crewai_tool_based_generative_ui" className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 hover:font-bold transition-colors">GitHub</a>
-</Callout>
-
-
----
-
-## Human in the Loop
-
-Empower users to guide agents at key checkpoints. Human-in-the-loop lets you combine the best of AI and human judgment. <a href="/crewai-flows/human-in-the-loop" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:font-bold transition-colors">Learn More</a>
-
-<div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(200,200,200,0.4)]">
-  <video 
-    src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
-    className="rounded-2xl w-full"
-    controls
-    autoPlay
-    muted
-    loop
-    playsInline
-  />
-</div>
-
-<Callout>
-  AI Travel App - CopilotKit app with CrewAI Flows agent using HITL to get user feedback.  
-  <a href="https://examples-coagents-ai-travel-app.vercel.app/" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:font-bold transition-colors">Live Demo</a> 
-  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/demo-viewer/agent/demo/crewai_human_in_the_loop" className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 hover:font-bold transition-colors">GitHub</a>
-</Callout>
-
----
-
-## Shared State
-
-Keep your agent and your app in sync. Shared state means your agent can see everything in your app, and your app can react to your agent. <a href="/crewai-flows/shared-state" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:font-bold transition-colors">Learn More</a>
-
-<div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(200,200,200,0.4)]">
-  <video 
-    src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4"
-    className="rounded-2xl w-full"
-    controls
-    autoPlay
-    muted
-    loop
-    playsInline
-  />
-</div>
-
-<Callout>
-  Recipe Example App - CopilotKit app sharing state with CrewAI Flows agent. 
-  <a href="https://ag-ui-dojo-nine.vercel.app/crewai/feature/shared_state" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:font-bold transition-colors">Live Demo</a> 
-  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/demo-viewer/agent/demo/crewai_shared_state" className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 hover:font-bold transition-colors">GitHub</a>
-</Callout>
-
----
-
-## Architecture
-
-<div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(79,70,229,0.4)]">
-  <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-highlevel-overview.png" alt="CopilotKit Infrastructure Diagram" className="w-full rounded-2xl" />
-</div>
-
----
-
-## Live Demo - CrewAI Flows x CopilotKit in Action
-
-In this example, we've built an agentic travel assistant that can you help you plan your next trip. It uses CrewAI Flows
-to coordinate chat and task execution.
-
-<div className="flex justify-center mb-10">
-<iframe src="https://examples-coagents-ai-travel-app.vercel.app?copilotOpen=true" className="w-[800px] h-[600px] rounded-xl border" />
-</div>
-
-## Next Steps
-
-<Cards className="gap-6">
-  <Card
-    className="p-6 rounded-xl text-base"
-    title="Quickstart"
-    description="Build your first agentic app with CrewAI Flows in minutes."
-    href="/crewai-flows/quickstart"
-  />
-  <Card 
-    className="p-6 rounded-xl text-base"
-    title="Feature Overview"
-    description="Try the key features of CoAgents powered by CopilotKit & CrewAI."
-    href="https://ag-ui-dojo-nine.vercel.app/crewai"
-  />
-  <Card 
-    className="p-6 rounded-xl text-base"
-    title="Travel Agent Tutorial"
-    description="Step-by-step guide to building an agent-native travel app."
-    href="/coagents/tutorials/ai-travel-app"
-  />
-</Cards>
+<FrameworkOverview
+  frameworkName="CrewAI Flows"
+  frameworkIcon={<customIcons.crewai className="h-10 w-10 text-foreground" />}
+  header="Bring your CrewAI Flow-based agents to your users"
+  subheader="Let your users collaborate with your CrewAI Flow-based agents using CopilotKit and AG-UI. Build rich, interactive, agent-powered applications."
+  bannerVideo="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
+  guideLink="/crewai-flows/quickstart"
+  initCommand="npx copilotkit@latest init"
+  featuresLink="https://feature-viewer.copilotkit.ai/crewai/feature/agentic_chat"
+  supportedFeatures={[
+    {
+      title: "Generative UI",
+      description: "Render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. Bridges the gap between AI agents and user interfaces.",
+      documentationLink: "/coagents/generative-ui",
+      demoLink: "https://feature-viewer.copilotkit.ai/crewai/feature/agentic_chat",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4"
+    },
+    {
+      title: "Human in the Loop",
+      description: "Empower users to guide agents at key checkpoints. Combine the best of AI and human judgment for more reliable and controllable agent behavior.",
+      documentationLink: "/coagents/human-in-the-loop",
+      demoLink: "https://feature-viewer.copilotkit.ai/crewai/feature/human_in_the_loop",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
+    },
+    {
+      title: "Shared State",
+      description: "Keep your agent and your app in sync. Your agent can see everything in your app, and your app can react to your agent in real-time.",
+      documentationLink: "/coagents/shared-state",
+      demoLink: "https://feature-viewer.copilotkit.ai/crewai/feature/shared_state",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4"
+    }
+  ]}
+  architectureVideo="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/crew-ai/flows/crews-interaction-layer.mp4"
+  liveDemos={[
+    {
+      type: "saas",
+      title: "SaaS Copilot",
+      description: "A traditional SaaS application enhanced with AI agents. These copilots integrate seamlessly into existing workflows, providing intelligent assistance for specific business processes. Perfect for customer service, sales automation, project management, and domain-specific tasks where users need guided, step-by-step AI assistance.",
+      iframeUrl: "https://examples-coagents-ai-travel-app.vercel.app?copilotOpen=true"
+    },
+    {
+      type: "canvas",
+      title: "Canvas Copilot",
+      description: "An infinite canvas interface where users collaborate with AI agents in a spatial, visual environment. These copilots excel at research, brainstorming, content creation, and complex problem-solving where information needs to be organized, connected, and explored in a non-linear, creative way.",
+      iframeUrl: "https://examples-coagents-research-canvas-ui.vercel.app/"
+    }
+  ]}
+/>

@@ -1,7 +1,6 @@
 {
   "title": "Guides",
   "pages": [
-    "---Getting Started---",
     "quickstart",
     "self-hosting",
     "---Custom Look and Feel---",

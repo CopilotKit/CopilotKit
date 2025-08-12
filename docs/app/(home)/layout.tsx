@@ -3,9 +3,8 @@ import type { ReactNode } from "react";
 import { baseOptions } from "../layout.config";
 import { source } from "@/app/source";
 import { SubdocsMenu } from "@/components/react/subdocs-menu";
-import { TerminalIcon, RocketIcon, BoxesIcon } from "lucide-react";
+import { TerminalIcon, RocketIcon, CloudIcon } from "lucide-react";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
-import { TopBar } from "@/components/layout/top-bar";
 import { SiLangchain } from "react-icons/si";
 import {
   AG2Icon,
@@ -22,6 +21,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         tree={source.pageTree}
         searchToggle={{ enabled: true }}
         sidebar={{
+          tabs: false, // Disable default tab picker to rely on root folders
           banner: (
             <SubdocsMenu
               options={[
@@ -35,18 +35,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                   selectedStyle: "ring-blue-500/70 ring-2 rounded-sm",
                 },
                 {
-                  title: "API Reference",
-                  description: "API Reference",
-                  url: "/reference",
-                  icon: <TerminalIcon className="w-4 h-4" />,
-                  bgGradient:
-                    "bg-gradient-to-b from-teal-700 to-teal-400 text-teal-100",
-                  selectedStyle: "ring-teal-500/70 ring-2 rounded-sm",
-                },
-                { type: "separator" },
-                { type: "label", text: "Choose Agent Integration" },
-                {
-                  title: "LLM or Agent Framework",
+                  title: "Integrations",
                   options: [
                     {
                       title: "Direct to LLM",
@@ -160,7 +149,26 @@ export default function Layout({ children }: { children: ReactNode }) {
                 //     "bg-gradient-to-b from-purple-700 to-purple-400 text-purple-100",
                 //   selectedBorder: "ring-teal-500/70",
                 // },
+                {
+                  title: "Copilot Cloud",
+                  description: "Copilot Cloud",
+                  url: "https://cloud.copilotkit.ai",
+                  icon: <CloudIcon className="w-4 h-4" />,
+                  bgGradient:
+                    "bg-gradient-to-b from-blue-700 to-blue-400 text-blue-100",
+                  selectedStyle: "ring-blue-500/70 ring-2 rounded-sm",
+                },
+                {
+                  title: "API Reference",
+                  description: "API Reference",
+                  url: "/reference",
+                  icon: <TerminalIcon className="w-4 h-4" />,
+                  bgGradient:
+                    "bg-gradient-to-b from-teal-700 to-teal-400 text-teal-100",
+                  selectedStyle: "ring-teal-500/70 ring-2 rounded-sm",
+                },
               ]}
+              
             />
           ),
         }}

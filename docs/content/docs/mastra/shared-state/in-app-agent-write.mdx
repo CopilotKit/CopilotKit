@@ -1,0 +1,123 @@
+---
+title: Writing agent state
+icon: "lucide/ArrowRight"
+description: Write to agent's state from your application.
+---
+import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
+
+<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/write-agent-state.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<Callout type="info">
+  Pictured above is the [mastra starter](https://github.com/copilotkit/with-mastra) with
+  the [implementation](#implementation) section applied!
+</Callout>
+
+## What is this?
+
+You can easily write to your agent's state from your native application, allowing you to update the agent's working memory from your UI.
+
+## When should I use this?
+
+You can use this when you want to provide user input or control to your agent's working memory. As your application state changes, you can update the agent state to reflect these changes.
+
+## Implementation
+
+<Steps>
+  <Step>
+    ### Run and Connect Your Agent to CopilotKit
+
+    You'll need to run your agent and connect it to CopilotKit before proceeding.
+
+    #### I already have an agent
+
+    You can follow the instructions in the [quickstart](/mastra/quickstart) guide.
+    
+    #### I want to start from scratch
+
+    Run the following command to create a brand new project with a pre-configured agent:
+
+    ```bash
+    npx copilotkit@latest create -f mastra
+    ```
+  </Step>
+  <Step>
+    ### Define the Agent State
+    Mastra has advanced [working memory concepts](https://mastra.ai/en/docs/memory/working-memory) to provide statefulness to your agents. CopilotKit leverages Mastra's working memory concept to allow you to
+    implement shared state between your agent and your application.
+
+    Providing working memory to your agent is as simple as providing a Zod schema to your agent.
+
+    ```ts title="mastra/agents/language-agent.ts"
+    import { openai } from "@ai-sdk/openai";
+    import { Agent } from "@mastra/core/agent";
+    import { LibSQLStore } from "@mastra/libsql";
+    import { z } from "zod";
+    import { Memory } from "@mastra/memory";
+
+    // [!code highlight:5]
+    // 1. Define the agent state schema
+    export const AgentStateSchema = z.object({
+      language: z.enum(["english", "spanish"]),
+    });
+
+    // 2. Infer the agent state type from the schema
+    export const AgentState = z.infer<typeof AgentStateSchema>;
+
+    // 3. Create the agent
+    export const languageAgent = new Agent({
+      name: "Language Agent",
+      model: openai("gpt-4o"),
+      instructions: "You are a helpful assistant that can help the user with their language.",
+      memory: new Memory({
+        storage: new LibSQLStore({ url: "file::memory:" }),
+        options: {
+          // [!code highlight:5]
+          workingMemory: {
+            enabled: true,
+            schema: AgentStateSchema,
+          },
+        },
+      }),
+    });
+    ```    
+  </Step>
+  <Step>
+    ### Use the `useCoAgent` Hook
+    With your agent connected and running all that is left is to call the [useCoAgent](/reference/hooks/useCoAgent) hook, pass the agent's name, and
+    use the `setState` function to update the agent state.
+
+    ```tsx title="ui/app/page.tsx"
+    import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
+    import { AgentState } from "@/mastra/agents/language-agent";
+
+    function YourMainContent() {
+      const { state, setState } = useCoAgent<AgentState>({ // [!code highlight:5]
+        name: "language_agent",
+        // optionally provide a type-safe initial state
+        initialState: { language: "spanish" }  
+      });
+
+      const toggleLanguage = () => {
+        setState({ language: state.language === "english" ? "spanish" : "english" }); // [!code highlight]
+      };
+
+      return (
+        // style excluded for brevity
+        <div>
+          <h1>Your main content</h1>
+          // [!code highlight:3]
+          <p>Language: {state.language}</p> 
+          <button onClick={toggleLanguage}>Toggle Language</button>
+        </div>
+      );
+    }
+    ```
+    <Callout type="info">
+      The `setState` function in `useCoAgent` will update the working memory and trigger a rerender when the state changes.
+    </Callout>
+  </Step>
+  <Step>
+    ### Give it a try!
+    You can now use the `setState` function to update the agent state and `state` to read it. Try toggling the language button
+    and talking to your agent. You'll see the language change to match the agent's state.
+  </Step>
+</Steps>

@@ -49,7 +49,8 @@
     "swr": "^2.2.5",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7",
-    "usehooks-ts": "^3.1.0"
+    "usehooks-ts": "^3.1.0",
+    "zod": "^4.0.16"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.11",

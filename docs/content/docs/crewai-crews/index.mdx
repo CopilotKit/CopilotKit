@@ -2,144 +2,43 @@
 title: CrewAI Crews × CopilotKit
 icon: "custom/crewai"
 description: Bring your CrewAI Crews agents to your users with CopilotKit.
+hideHeader: true
 ---
+import { FrameworkOverview } from "@/components/content/landing-pages/framework-overview";
+import { customIcons } from "@/lib/icons/custom-icons";
 
-import { CTACards } from "@/components/react/cta-cards";
-
-CrewAI is a Multi-Agent Automation Python Framework.  CrewAI Crews are optimized for autonomy and collaborative intelligence.  CopilotKit and CrewAI Crews together provide everything you need to build rich, interactive, agent-powered applications. 
-
-<div className="p-0 rounded-lg shadow-[0_0_40px_10px_rgba(99,102,241,0.4)]">
-  <video 
-    src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
-    className="rounded-lg w-full"
-    controls
-    autoPlay
-    muted
-    loop
-    playsInline
-  />
-</div>
-
-<Callout>
-Proverbs Example app, demonstrating some of the key features of a CopilotKit app with a CrewAI Crews agent.*
-</Callout>
-
-With full user-interaction infrastructure, you can create copilots that are not just smart, but truly collaborative.  This means that your agentic application can:
-* Respond quickly and often to user input
-* Allow the user to steer as needed
-* Take action on the user's behalf, driving the app, or other tools through MCP
-
----
-
-## Generative UI
-
-Generative UI lets you render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. It bridges the gap between AI agents and user interfaces. <a href="/crewai-crews/generative-ui" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:font-bold transition-colors">Learn More</a> 
-
-<div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(200,200,200,0.4)]">
-  <video 
-    src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4"
-    className="rounded-2xl w-full"
-    controls
-    autoPlay
-    muted
-    loop
-    playsInline
-  />
-</div>
-
-<Callout>
-  Haiku Generator - CopilotKit app with a CrewAI Crews agent. 
-  <a href="https://ag-ui-dojo-nine.vercel.app/crewai/feature/tool_based_generative_ui" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:font-bold transition-colors">Live Demo</a> 
-  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/demo-viewer/agent/demo/crewai_tool_based_generative_ui" className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 hover:font-bold transition-colors">GitHub</a>
-</Callout>
-
-
----
-
-## Human in the Loop
-
-Empower users to guide agents at key checkpoints. Human-in-the-loop lets you combine the best of AI and human judgment. <a href="/crewai-crews/human-in-the-loop" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:font-bold transition-colors">Learn More</a>
-
-<div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(200,200,200,0.4)]">
-  <video 
-    src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
-    className="rounded-2xl w-full"
-    controls
-    autoPlay
-    muted
-    loop
-    playsInline
-  />
-</div>
-
-<Callout>
-  AI Travel App - CopilotKit app with CrewAI Crews agent using HITL to get user feedback. 
-  <a href="https://examples-coagents-ai-travel-app.vercel.app/" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:font-bold transition-colors">Live Demo</a> 
-  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/demo-viewer/agent/demo/crewai_human_in_the_loop" className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 hover:font-bold transition-colors">GitHub</a>
-</Callout>
-
----
-
-## Shared State
-
-Keep your agent and your app in sync. Shared state means your agent can see everything in your app, and your app can react to your agent. <a href="/crewai-crews/shared-state" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:font-bold transition-colors">Learn More</a>
-
-<div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(200,200,200,0.4)]">
-  <video 
-    src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4"
-    className="rounded-2xl w-full"
-    controls
-    autoPlay
-    muted
-    loop
-    playsInline
-  />
-</div>
-
-<Callout>
-  Recipe Example App - CopilotKit app sharing state with CrewAI Crews agent. 
-  <a href="https://ag-ui-dojo-nine.vercel.app/crewai/feature/shared_state" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:font-bold transition-colors">Live Demo</a> 
-  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/demo-viewer/agent/demo/crewai_shared_state" className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 hover:font-bold transition-colors">GitHub</a>
-</Callout>
-
----
-
-## Architecture
-
-<div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(79,70,229,0.4)]">
-  <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-highlevel-overview.png" alt="CopilotKit Infrastructure Diagram" className="w-full rounded-2xl" />
-</div>
-
----
-
-## Live Demo - CrewAI Crews x CopilotKit in Action
-
-In this example, we've built an agentic travel assistant that can you help you plan your next trip. It uses CrewAI Crews
-to coordinate chat and task execution.
-
-<div className="flex justify-center mb-10">
-<iframe src="https://examples-coagents-ai-travel-app.vercel.app?copilotOpen=true" className="w-[800px] h-[600px] rounded-xl border" />
-</div>
-
-## Next Steps
-
-<Cards className="gap-6">
-  <Card
-    className="p-6 rounded-xl text-base"
-    title="Quickstart"
-    description="Build your first agentic app with CrewAI Crews in minutes."
-    href="/crewai-crews/quickstart"
-  />
-  <Card 
-    className="p-6 rounded-xl text-base"
-    title="Feature Overview"
-    description="Try the key features of CoAgents powered by CopilotKit & CrewAI."
-    href="https://ag-ui-dojo-nine.vercel.app/crewai"
-  />
-  <Card 
-    className="p-6 rounded-xl text-base"
-    title="Travel Agent Tutorial"
-    description="Step-by-step guide to building an agent-native travel app."
-    href="/coagents/tutorials/ai-travel-app"
-  />
-</Cards>
+<FrameworkOverview
+  frameworkName="CrewAI"
+  frameworkIcon={<customIcons.crewai className="h-10 w-10 text-foreground" />}
+  header="Build multi-agent teams with CrewAI"
+  subheader="Create sophisticated multi-agent workflows using CrewAI and CopilotKit. Orchestrate teams of specialized agents to solve complex problems together."
+  bannerVideo="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/crewai-overview.mp4"
+  guideLink="/coagents/quickstart/crewai"
+  initCommand="npx copilotkit@latest init --template crewai"
+  featuresLink="https://feature-viewer.copilotkit.ai/crewai/feature/agentic_chat?frameworkPicker=false"
+  supportedFeatures={[
+    {
+      title: "Multi-Agent Orchestration",
+      description: "Coordinate multiple specialized agents working together on complex tasks. Each agent has specific roles and responsibilities.",
+      documentationLink: "/coagents/multi-agent-orchestration",
+      demoLink: "https://examples-coagents-enterprise-crewai-crews.vercel.app/",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/crewai-orchestration.mp4"
+    },
+    {
+      title: "Role-Based Task Assignment",
+      description: "Define clear roles and responsibilities for each agent in your crew. Automatically route tasks to the most appropriate agent.",
+      documentationLink: "/coagents/role-based-tasks",
+      demoLink: "https://feature-viewer.copilotkit.ai/crewai/feature/role_assignment",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/crewai-roles.mp4"
+    }
+  ]}
+  architectureImage="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/crewai-architecture.png"
+  liveDemos={[
+    {
+      type: "saas",
+      title: "Enterprise Crew",
+      description: "A business application where multiple AI agents collaborate on enterprise tasks like customer onboarding, project planning, and data analysis.",
+      iframeUrl: "https://examples-coagents-enterprise-crewai-crews.vercel.app/"
+    }
+  ]}
+/>

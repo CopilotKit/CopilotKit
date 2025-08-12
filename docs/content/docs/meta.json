@@ -1,17 +1,18 @@
 {
   "title": "Overview",
+  "root": true,
   "pages": [
     "...(root)",
+    "reference",
     "---Integrations---",
-    "agno",
-    "ag2",
-    "crewai-crews",
-    "crewai-flows",
     "direct-to-llm",
-    "llamaindex",
-    "mastra",
     "coagents",
-    "---Reference---",
-    "reference"
+    "mastra",
+    "pydantic-ai",
+    "agno",
+    "crewai-flows",
+    "crewai-crews",
+    "ag2",
+    "llamaindex"
   ]
 }

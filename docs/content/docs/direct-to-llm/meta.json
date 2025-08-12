@@ -3,6 +3,7 @@
   "icon": "lucide/Zap",
   "root": true,
   "pages": [
+    "---Getting Started---",
     "index",
     "...guides",
     "---Tutorials---",
