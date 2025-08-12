@@ -89,7 +89,16 @@ export default async function Page({
   const hideTOC = (page.data as any).hideTOC || false;
   
   // Get TOC from imported snippets and merge with page TOC (only if TOC is not hidden)
-  const snippetTOC = hideTOC ? [] : await getSnippetTOCForPage(resolvedParams.slug);
+  // Use try-catch to handle build-time issues gracefully
+  let snippetTOC: any[] = [];
+  if (!hideTOC) {
+    try {
+      snippetTOC = await getSnippetTOCForPage(resolvedParams.slug);
+    } catch (error) {
+      console.warn('Failed to load snippet TOC:', error);
+      snippetTOC = [];
+    }
+  }
   const combinedTOC = hideTOC ? [] : [...(page.data.toc || []), ...snippetTOC];
   
   return (

@@ -1,5 +1,5 @@
 import { getTableOfContents } from "fumadocs-core/server";
-import fs from 'fs/promises';
+import fs from 'fs';
 import path from 'path';
 
 /**
@@ -17,7 +17,7 @@ async function extractSnippetTOC(content: string, processed = new Set<string>())
     processed.add(snippetPath);
     
     try {
-      const snippetContent = await fs.readFile(snippetPath, 'utf-8');
+      const snippetContent = fs.readFileSync(snippetPath, 'utf-8');
       const contentOnly = snippetContent.replace(/^---\n[\s\S]*?\n---\n/, '');
       
       // Extract headers from this snippet
@@ -48,7 +48,7 @@ export async function getSnippetTOCForPage(slug?: string[]): Promise<any[]> {
   
   for (const filePath of possiblePaths) {
     try {
-      const content = await fs.readFile(filePath, 'utf-8');
+      const content = fs.readFileSync(filePath, 'utf-8');
       return await extractSnippetTOC(content);
     } catch {
       continue;
