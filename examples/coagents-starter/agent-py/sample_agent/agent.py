@@ -113,10 +113,9 @@ workflow.set_entry_point("chat_node")
 
 # Conditionally use a checkpointer based on the environment
 # Check for multiple indicators that we're running in LangGraph dev/API mode
-is_langgraph_api = (
-    os.environ.get("LANGGRAPH_API", "false").lower() == "true" or
-    os.environ.get("LANGGRAPH_API_DIR") is not None
-)
+is_langgraph_api = os.environ.get("LANGGRAPH_API_DIR") is not None
+if os.environ.get("LANGGRAPH_API", None) is not None:
+    is_langgraph_api = os.environ.get("LANGGRAPH_API", None).lower() == "true"
 
 if is_langgraph_api:
     # When running in LangGraph API/dev, don't use a custom checkpointer
