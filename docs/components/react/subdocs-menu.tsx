@@ -228,7 +228,10 @@ export interface Option {
    * Redirect URL of the folder, usually the index page
    */
   url: string;
-
+  /**
+   * External link URL
+   */
+  href?: string;
   icon?: ReactNode;
   title: ReactNode;
   description?: ReactNode;
@@ -403,6 +406,10 @@ function SubdocsMenuItem({
         key={item.url}
         href={item.url}
         onClick={() => {
+          if (item.href) {
+            window.open(item.href, '_blank');
+            return;
+          }
           handleNavigationScroll(pathname, item.url);
           scrollSidebarToSelectedItem(item.url); // Scroll sidebar to selected item
           onClick?.();

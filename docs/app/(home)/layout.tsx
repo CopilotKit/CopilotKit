@@ -140,18 +140,10 @@ export default function Layout({ children }: { children: ReactNode }) {
                     },
                   ],
                 },
-                // {
-                //   title: "Chat with our docs",
-                //   description: "Chat with our docs",
-                //   url: "https://entelligence.ai/CopilotKit&CopilotKit",
-                //   icon: <CircleArrowOutUpRight className="w-4 h-4" />,
-                //   bgGradient:
-                //     "bg-gradient-to-b from-purple-700 to-purple-400 text-purple-100",
-                //   selectedBorder: "ring-teal-500/70",
-                // },
                 {
                   title: "Copilot Cloud",
                   description: "Copilot Cloud",
+                  href: "https://cloud.copilotkit.ai",
                   url: "https://cloud.copilotkit.ai",
                   icon: <CloudIcon className="w-4 h-4" />,
                   bgGradient:
