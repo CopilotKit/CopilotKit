@@ -90,6 +90,8 @@ type CreateMCPClientFunction = (config: MCPEndpointConfig) => Promise<MCPClient>
 // --- MCP Imports ---
 
 import { generateHelpfulErrorMessage } from "../streaming";
+import { AgentRunner } from "../../runner/agent-runner";
+import { InMemoryAgentRunner } from "../../runner/in-memory";
 
 export interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
@@ -106,6 +108,7 @@ export interface CopilotRuntimeRequest {
   url?: string;
   extensions?: ExtensionsInput;
   metaEvents?: MetaEventInput[];
+  runner?: AgentRunner;
 }
 
 interface CopilotRuntimeResponse {
@@ -216,6 +219,11 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
   agents?: Record<string, AbstractAgent>;
 
   /*
+   * The agent runner to use. Defaults to InMemoryAgentRunner.
+   */
+  runner?: AgentRunner;
+
+  /*
    * Delegates agent state processing to the service adapter.
    *
    * When enabled, individual agent state requests will not be processed by the agent itself.
@@ -313,6 +321,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   private availableAgents: Pick<AgentWithEndpoint, "name" | "id">[];
   private onError?: CopilotErrorHandler;
   private hasWarnedAboutError = false;
+  private runner: AgentRunner;
 
   // +++ MCP Properties +++
   private readonly mcpServersConfig?: MCPEndpointConfig[];
@@ -347,6 +356,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
     this.actions = params?.actions || [];
     this.availableAgents = [];
+    this.runner = params?.runner || new InMemoryAgentRunner();
 
     for (const chain of params?.langserve || []) {
       const remoteChain = new RemoteChain(chain);
@@ -484,6 +494,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       agentSession,
       agentStates,
       publicApiKey,
+      runner = this.runner,
     } = request;
 
     const eventSource = new RuntimeEventSource({
@@ -963,7 +974,9 @@ please use an LLM adapter instead.`,
           defaultHeaders: { ...propertyHeaders },
         });
       } else {
-        const aguiAgent = graphqlContext._copilotkit.runtime.agents[agent.name] as LangGraphAgent;
+        const aguiAgent = graphqlContext._copilotkit.runtime.agents[
+          agent.name
+        ] as unknown as LangGraphAgent;
         if (!aguiAgent) {
           throw new Error(`Agent: ${agent.name} could not be resolved`);
         }
