@@ -491,6 +491,23 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 // @ts-ignore
                 filterAdjacentAgentStateMessages(data.messages),
               );
+
+              // Fire a window event for memory_update so opt-in components can show UI immediately
+              try {
+                for (const m of (data as any).messages || []) {
+                  if (m.__typename === "TextMessageOutput") {
+                    const text = Array.isArray(m.content) ? m.content.join("") : m.content;
+                    try {
+                      const obj = JSON.parse(text);
+                      if (obj && obj.type === "memory_update" && typeof window !== "undefined") {
+                        window.dispatchEvent(
+                          new CustomEvent("copilotkit:memory_update", { detail: obj }),
+                        );
+                      }
+                    } catch {}
+                  }
+                }
+              } catch {}
             }
           });
 

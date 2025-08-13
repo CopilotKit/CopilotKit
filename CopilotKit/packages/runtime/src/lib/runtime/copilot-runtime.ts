@@ -38,7 +38,11 @@ import {
 
 import { MessageInput } from "../../graphql/inputs/message.input";
 import { ActionInput } from "../../graphql/inputs/action.input";
-import { RuntimeEventSource, RuntimeEventTypes } from "../../service-adapters/events";
+import {
+  RuntimeEventSource,
+  RuntimeEventTypes,
+  RuntimeMetaEventName,
+} from "../../service-adapters/events";
 import { convertGqlInputToMessages } from "../../service-adapters/conversion";
 import { Message } from "../../graphql/types/converted";
 import { ForwardedParametersInput } from "../../graphql/inputs/forwarded-parameters.input";
@@ -90,6 +94,7 @@ type CreateMCPClientFunction = (config: MCPEndpointConfig) => Promise<MCPClient>
 // --- MCP Imports ---
 
 import { generateHelpfulErrorMessage } from "../streaming";
+import { createInMemoryFactStore } from "../memory";
 
 export interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
@@ -469,6 +474,35 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     return newMessages;
   }
 
+  // Inject memory facts (if available) as a system message before the run
+  private injectMemoryFacts(messages: MessageInput[], factsSummary: string | null): MessageInput[] {
+    if (!factsSummary) return messages;
+
+    const systemMessageIndex = messages.findIndex((msg) => msg.textMessage?.role === "system");
+    const newMessages = [...messages];
+    if (systemMessageIndex !== -1) {
+      const existingMsg = newMessages[systemMessageIndex];
+      if (existingMsg.textMessage) {
+        existingMsg.textMessage.content =
+          (existingMsg.textMessage.content ? existingMsg.textMessage.content + "\n\n" : "") +
+          factsSummary;
+      }
+    } else {
+      newMessages.unshift({
+        id: randomId(),
+        createdAt: new Date(),
+        textMessage: {
+          role: MessageRole.system,
+          content: factsSummary,
+        },
+        actionExecutionMessage: undefined,
+        resultMessage: undefined,
+        agentStateMessage: undefined,
+      });
+    }
+    return newMessages;
+  }
+
   async processRuntimeRequest(request: CopilotRuntimeRequest): Promise<CopilotRuntimeResponse> {
     const {
       serviceAdapter,
@@ -506,6 +540,8 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         },
       },
     });
+    // Expose eventSource to server-side tool handlers for meta event emission
+    (request as any)._eventSource = eventSource;
     // Track request start time for logging
     const requestStartTime = Date.now();
     // For storing streamed chunks if progressive logging is enabled
@@ -538,11 +574,134 @@ please use an LLM adapter instead.`,
       // Filter raw messages *before* injection
       const filteredRawMessages = rawMessages.filter((message) => !message.agentStateMessage);
 
+      // Heuristic fallback: if user asked to remember/forget a simple preference, emit memory_update now
+      try {
+        const apiKey = publicApiKey;
+        const userId = graphqlContext.properties?.user_id as string;
+        if (apiKey && userId && filteredRawMessages?.length) {
+          const lastUser = [...filteredRawMessages]
+            .reverse()
+            .find((m) => m.textMessage?.role === MessageRole.user && m.textMessage?.content);
+          const text = (lastUser?.textMessage?.content || "").toLowerCase();
+          const mentionsCasual = /casual/.test(text);
+          const asksRemember = /remember|save/.test(text);
+          const asksForget = /forget|remove/.test(text);
+          const store = createInMemoryFactStore();
+          if (mentionsCasual && asksRemember) {
+            const { fact, oldValue, event } = store.upsert({
+              publicApiKey: apiKey,
+              userId,
+              factKey: "tone.prefer_casual",
+              value: true,
+              confidence: 0.92,
+            });
+            (request as any)._eventSource?.sendMetaEvent?.({
+              type: RuntimeEventTypes.MetaEvent,
+              name: RuntimeMetaEventName.CopilotKitLangGraphInterruptEvent,
+              data: {
+                value: "",
+                messages: [
+                  {
+                    type: "TextMessage",
+                    id: randomId(),
+                    createdAt: new Date(),
+                    content: JSON.stringify({
+                      type: "memory_update",
+                      fact_key: "tone.prefer_casual",
+                      old_value: oldValue,
+                      new_value: fact.value,
+                      confidence: fact.confidence,
+                      reason: "explicit_user_request",
+                      event,
+                      metadata: {
+                        userId,
+                        publicApiKey: apiKey,
+                        threadId: request.threadId,
+                        runId: request.runId,
+                      },
+                    }),
+                    role: MessageRole.assistant,
+                  } as any,
+                ],
+              },
+            } as any);
+          } else if (mentionsCasual && asksForget) {
+            const { oldValue, event } = store.delete({
+              publicApiKey: apiKey,
+              userId,
+              factKey: "tone.prefer_casual",
+            });
+            (request as any)._eventSource?.sendMetaEvent?.({
+              type: RuntimeEventTypes.MetaEvent,
+              name: RuntimeMetaEventName.CopilotKitLangGraphInterruptEvent,
+              data: {
+                value: "",
+                messages: [
+                  {
+                    type: "TextMessage",
+                    id: randomId(),
+                    createdAt: new Date(),
+                    content: JSON.stringify({
+                      type: "memory_update",
+                      fact_key: "tone.prefer_casual",
+                      old_value: oldValue,
+                      new_value: undefined,
+                      confidence: 1,
+                      reason: "explicit_user_request",
+                      event,
+                      metadata: {
+                        userId,
+                        publicApiKey: apiKey,
+                        threadId: request.threadId,
+                        runId: request.runId,
+                      },
+                    }),
+                    role: MessageRole.assistant,
+                  } as any,
+                ],
+              },
+            } as any);
+          }
+        }
+      } catch {}
+
       // +++ Inject MCP Instructions based on current actions +++
-      const messagesWithInjectedInstructions = this.injectMCPToolInstructions(
+      let messagesWithInjectedInstructions = this.injectMCPToolInstructions(
         filteredRawMessages,
         serverSideActions,
       );
+
+      // +++ Inject Memory Facts (default in-memory store) +++
+      try {
+        const apiKey = publicApiKey;
+        const userId = graphqlContext.properties?.user_id as string;
+        if (apiKey && userId) {
+          const store = createInMemoryFactStore();
+          const facts = store.getHighConfidenceFacts({
+            publicApiKey: apiKey,
+            userId,
+            minConfidence: 0.7,
+          });
+          if (facts.length) {
+            const summary =
+              "Persistent facts for this user:\n" +
+              facts
+                .map((f) => `- ${f.key}: ${JSON.stringify(f.value)} (conf=${f.confidence})`)
+                .join("\n") +
+              "\n\nIf the user expresses a durable preference, profile attribute, or explicit request to remember or forget something, call the appropriate tool:\n" +
+              "- memory_upsert({ fact_key, value, confidence? }) to store/modify a fact.\n" +
+              "- memory_delete({ fact_key }) to forget a fact.\n" +
+              "Only use these for long-lived, user-approved facts (not transient task context).";
+            messagesWithInjectedInstructions = this.injectMemoryFacts(
+              messagesWithInjectedInstructions,
+              summary,
+            );
+          }
+        }
+      } catch {
+        // noop: memory injection is best-effort
+      }
+
       const inputMessages = convertGqlInputToMessages(messagesWithInjectedInstructions);
       // --- Inject MCP Instructions based on current actions ---
 
@@ -1067,6 +1226,97 @@ please use an LLM adapter instead.`,
 
     const messages = convertGqlInputToMessages(rawMessages);
 
+    // Heuristic fallback in agent mode: emit memory_update on explicit user phrasing
+    try {
+      const apiKey = publicApiKey;
+      const userId = graphqlContext.properties?.user_id as string;
+      if (apiKey && userId && messages?.length) {
+        const lastUser = [...messages]
+          .reverse()
+          .find((m) => m.isTextMessage() && (m as any).role === MessageRole.user);
+        const text = (lastUser as any)?.content?.toLowerCase?.() || "";
+        const mentionsCasual = /casual/.test(text);
+        const asksRemember = /remember|save/.test(text);
+        const asksForget = /forget|remove/.test(text);
+        const store = createInMemoryFactStore();
+        if (mentionsCasual && asksRemember) {
+          const { fact, oldValue, event } = store.upsert({
+            publicApiKey: apiKey,
+            userId,
+            factKey: "tone.prefer_casual",
+            value: true,
+            confidence: 0.92,
+          });
+          (request as any)._eventSource?.sendMetaEvent?.({
+            type: RuntimeEventTypes.MetaEvent,
+            name: RuntimeMetaEventName.CopilotKitLangGraphInterruptEvent,
+            data: {
+              value: "",
+              messages: [
+                {
+                  type: "TextMessage",
+                  id: randomId(),
+                  createdAt: new Date(),
+                  content: JSON.stringify({
+                    type: "memory_update",
+                    fact_key: "tone.prefer_casual",
+                    old_value: oldValue,
+                    new_value: fact.value,
+                    confidence: fact.confidence,
+                    reason: "explicit_user_request",
+                    event,
+                    metadata: {
+                      userId,
+                      publicApiKey: apiKey,
+                      threadId: request.threadId,
+                      runId: request.runId,
+                    },
+                  }),
+                  role: MessageRole.assistant,
+                } as any,
+              ],
+            },
+          } as any);
+        } else if (mentionsCasual && asksForget) {
+          const { oldValue, event } = store.delete({
+            publicApiKey: apiKey,
+            userId,
+            factKey: "tone.prefer_casual",
+          });
+          (request as any)._eventSource?.sendMetaEvent?.({
+            type: RuntimeEventTypes.MetaEvent,
+            name: RuntimeMetaEventName.CopilotKitLangGraphInterruptEvent,
+            data: {
+              value: "",
+              messages: [
+                {
+                  type: "TextMessage",
+                  id: randomId(),
+                  createdAt: new Date(),
+                  content: JSON.stringify({
+                    type: "memory_update",
+                    fact_key: "tone.prefer_casual",
+                    old_value: oldValue,
+                    new_value: undefined,
+                    confidence: 1,
+                    reason: "explicit_user_request",
+                    event,
+                    metadata: {
+                      userId,
+                      publicApiKey: apiKey,
+                      threadId: request.threadId,
+                      runId: request.runId,
+                    },
+                  }),
+                  role: MessageRole.assistant,
+                } as any,
+              ],
+            },
+          } as any);
+        }
+      }
+    } catch {}
+
     const currentAgent = serverSideActions.find(
       (action) => action.name === agentName && isRemoteAgentAction(action),
     ) as RemoteAgentAction;
@@ -1148,6 +1398,8 @@ please use an LLM adapter instead.`,
           },
         },
       });
+      // Expose eventSource to server-side tool handlers for meta event emission (agent path)
+      (request as any)._eventSource = eventSource;
       const stream = await currentAgent.remoteAgentHandler({
         name: agentName,
         threadId,
@@ -1471,6 +1723,119 @@ please use an LLM adapter instead.`,
       }
     }
     // --- Dynamic MCP Action Fetching ---
+
+    // +++ Memory tools (default: in-memory) +++
+    try {
+      const apiKey = request.publicApiKey;
+      const userId = graphqlContext.properties?.user_id as string;
+      if (apiKey && userId) {
+        const store = createInMemoryFactStore();
+        configuredActions.push({
+          name: "memory_upsert",
+          description: "Persist a durable user fact.",
+          parameters: [
+            { name: "fact_key", type: "string" },
+            { name: "value", type: "any" },
+            { name: "confidence", type: "number", required: false },
+            { name: "reason", type: "string", required: false },
+          ] as unknown as T,
+          handler: (async (args: any) => {
+            const payload = Array.isArray(args) ? args[0] : args;
+            const { fact_key, value, confidence = 0.9 } = payload || {};
+            const { fact, oldValue, event } = store.upsert({
+              publicApiKey: apiKey,
+              userId,
+              factKey: fact_key,
+              value,
+              confidence,
+            });
+            // Emit memory_update meta event so UI can show consent banner immediately
+            (request as any)._eventSource?.sendMetaEvent?.({
+              type: RuntimeEventTypes.MetaEvent,
+              name: RuntimeMetaEventName.CopilotKitLangGraphInterruptEvent,
+              data: {
+                value: "",
+                messages: [
+                  {
+                    type: "TextMessage",
+                    id: randomId(),
+                    createdAt: new Date(),
+                    content: JSON.stringify({
+                      type: "memory_update",
+                      fact_key,
+                      old_value: oldValue,
+                      new_value: fact.value,
+                      confidence: confidence,
+                      reason: "explicit_user_request",
+                      event,
+                      metadata: {
+                        userId,
+                        publicApiKey: apiKey,
+                        threadId: request.threadId,
+                        runId: request.runId,
+                      },
+                    }),
+                    role: MessageRole.assistant,
+                  } as any,
+                ],
+              },
+            } as any);
+            return { ok: true, event, oldValue, fact };
+          }) as any,
+        });
+
+        configuredActions.push({
+          name: "memory_delete",
+          description: "Forget a previously learned user fact.",
+          parameters: [
+            { name: "fact_key", type: "string" },
+            { name: "reason", type: "string", required: false },
+          ] as unknown as T,
+          handler: (async (args: any) => {
+            const payload = Array.isArray(args) ? args[0] : args;
+            const { fact_key } = payload || {};
+            const { oldValue, event } = store.delete({
+              publicApiKey: apiKey,
+              userId,
+              factKey: fact_key,
+            });
+            (request as any)._eventSource?.sendMetaEvent?.({
+              type: RuntimeEventTypes.MetaEvent,
+              name: RuntimeMetaEventName.CopilotKitLangGraphInterruptEvent,
+              data: {
+                value: "",
+                messages: [
+                  {
+                    type: "TextMessage",
+                    id: randomId(),
+                    createdAt: new Date(),
+                    content: JSON.stringify({
+                      type: "memory_update",
+                      fact_key,
+                      old_value: oldValue,
+                      new_value: undefined,
+                      confidence: 1,
+                      reason: "explicit_user_request",
+                      event,
+                      metadata: {
+                        userId,
+                        publicApiKey: apiKey,
+                        threadId: request.threadId,
+                        runId: request.runId,
+                      },
+                    }),
+                    role: MessageRole.assistant,
+                  } as any,
+                ],
+              },
+            } as any);
+            return { ok: true, event, oldValue };
+          }) as any,
+        });
+      }
+    } catch {
+      // best effort
+    }
 
     // Combine all action sources, including the dynamically fetched MCP actions
     return [

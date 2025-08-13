@@ -52,8 +52,30 @@ import {
   LangGraphInterruptActionSetterArgs,
 } from "../../types/interrupt-action";
 import { ConsoleTrigger } from "../dev-console/console-trigger";
+import { COPILOT_USER_ID_HEADER, COPILOT_USER_ID_PROPERTY } from "../../types";
 
-export function CopilotKit({ children, ...props }: CopilotKitProps) {
+// Memory-related types and constants were moved to ../../types/memory
+
+// --- Memory Intelligence opt-in typing (compile-time enforcement) ---
+type MemoryIntelligenceDisabled = {
+  memoryIntelligence_c?: false;
+  userId_c?: never;
+};
+
+type MemoryIntelligenceEnabled = {
+  memoryIntelligence_c: true;
+  userId_c: string;
+} & Required<Pick<CopilotKitProps, "publicApiKey">>;
+
+type CopilotKitPropsMemory =
+  | (CopilotKitProps & MemoryIntelligenceDisabled)
+  | (CopilotKitProps & MemoryIntelligenceEnabled);
+
+export function CopilotKit(props: CopilotKitProps & MemoryIntelligenceDisabled): JSX.Element;
+export function CopilotKit(props: CopilotKitProps & MemoryIntelligenceEnabled): JSX.Element;
+// --- end opt-in typing ---
+
+export function CopilotKit({ children, ...props }: CopilotKitPropsMemory) {
   const enabled = shouldShowDevConsole(props.showDevConsole);
 
   // Use API key if provided, otherwise use the license key
@@ -62,13 +84,18 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   return (
     <ToastProvider enabled={enabled}>
       <CopilotErrorBoundary publicApiKey={publicApiKey} showUsageBanner={enabled}>
-        <CopilotKitInternal {...props}>{children}</CopilotKitInternal>
+        <CopilotKitInternal {...(props as CopilotKitProps)}>{children}</CopilotKitInternal>
       </CopilotErrorBoundary>
     </ToastProvider>
   );
 }
 
-export function CopilotKitInternal(cpkProps: CopilotKitProps) {
+type InternalCopilotKitProps = CopilotKitProps & {
+  memoryIntelligence_c?: boolean;
+  userId_c?: string;
+};
+
+export function CopilotKitInternal(cpkProps: InternalCopilotKitProps) {
   const { children, ...props } = cpkProps;
 
   /**
@@ -226,7 +253,14 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       ...(cloud ? { cloud } : {}),
       chatApiEndpoint: chatApiEndpoint,
       headers: props.headers || {},
-      properties: props.properties || {},
+      properties: {
+        ...(props.properties || {}),
+        // Also forward userId into properties so runtime GraphQLContext can read it
+        // when memoryIntelligence_c is enabled
+        ...(props.memoryIntelligence_c && props.userId_c
+          ? { [COPILOT_USER_ID_PROPERTY]: props.userId_c }
+          : {}),
+      },
       transcribeAudioUrl: props.transcribeAudioUrl,
       textToSpeechUrl: props.textToSpeechUrl,
       credentials: props.credentials,
@@ -259,14 +293,27 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       return acc;
     }, {});
 
+    // Auto-forward userId when memoryIntelligence_c is enabled
+    const memoryUserHeader: Record<string, string> =
+      props.memoryIntelligence_c && props.userId_c
+        ? { [COPILOT_USER_ID_HEADER]: props.userId_c }
+        : {};
+
     return {
       ...(copilotApiConfig.headers || {}),
       ...(copilotApiConfig.publicApiKey
         ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: copilotApiConfig.publicApiKey }
         : {}),
+      ...memoryUserHeader,
       ...authHeaders,
     };
-  }, [copilotApiConfig.headers, copilotApiConfig.publicApiKey, authStates]);
+  }, [
+    copilotApiConfig.headers,
+    copilotApiConfig.publicApiKey,
+    authStates,
+    props.memoryIntelligence_c,
+    props.userId_c,
+  ]);
 
   const runtimeClient = useCopilotRuntimeClient({
     url: copilotApiConfig.chatApiEndpoint,
@@ -397,10 +444,12 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
 
   const agentLock = useMemo(() => props.agent ?? null, [props.agent]);
 
-  const forwardedParameters = useMemo(
-    () => props.forwardedParameters ?? {},
-    [props.forwardedParameters],
-  );
+  const forwardedParameters = useMemo(() => {
+    // Auto-forward userId into properties for runtime consumption when memoryIntelligence_c is enabled
+    // This is additive and non-breaking; headers carry canonical value, properties are a convenience.
+    const base = props.forwardedParameters ?? {};
+    return base;
+  }, [props.forwardedParameters]);
 
   const updateExtensions = useCallback(
     (newExtensions: SetStateAction<ExtensionsInput>) => {
@@ -563,5 +612,21 @@ function validateProps(props: CopilotKitProps): never | void {
         .map(formatFeatureName)
         .join(", ")}`,
     );
+  }
+
+  // Memory Intelligence opt-in validation
+  // @ts-ignore - allow reading optional flags not in base props type
+  if ((props as any).memoryIntelligence_c) {
+    if (!hasApiKey) {
+      throw new MissingPublicApiKeyError(
+        "Missing required prop: 'publicApiKey' or 'publicLicenseKey' when memoryIntelligence_c is enabled",
+      );
+    }
+    // @ts-ignore
+    if (!(props as any).userId_c) {
+      throw new ConfigurationError(
+        "Missing required prop: 'userId_c' when memoryIntelligence_c is enabled",
+      );
+    }
   }
 }

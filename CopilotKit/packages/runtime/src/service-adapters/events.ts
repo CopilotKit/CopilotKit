@@ -255,6 +255,11 @@ export class RuntimeEventSource {
     this.callback = callback;
   }
 
+  // Public helper to emit meta events into the stream
+  public sendMetaEvent(event: RunTimeMetaEvent) {
+    this.eventStream$.next(event);
+  }
+
   sendErrorMessageToChat(message = "An error occurred. Please try again.") {
     const errorMessage = `❌ ${message}`;
     if (!this.callback) {
