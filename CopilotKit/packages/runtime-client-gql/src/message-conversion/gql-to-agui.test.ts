@@ -433,6 +433,7 @@ describe("message-conversion", () => {
         result: undefined,
         respond: expect.any(Function),
         messageId: "action-1",
+        // Regular actions should NOT have the name property
       });
     });
 
@@ -463,6 +464,7 @@ describe("message-conversion", () => {
         result: undefined,
         respond: expect.any(Function),
         messageId: "action-1",
+        // Regular actions should NOT have the name property
       });
     });
 
@@ -503,6 +505,7 @@ describe("message-conversion", () => {
         result: "Action completed successfully",
         respond: expect.any(Function),
         messageId: "action-1",
+        // Regular actions should NOT have the name property
       });
     });
 
@@ -538,6 +541,7 @@ describe("message-conversion", () => {
         respond: expect.any(Function),
         customProp: "test",
         messageId: "action-1",
+        // Regular actions should NOT have the name property
       });
     });
 
@@ -915,6 +919,73 @@ describe("message-conversion", () => {
         generativeUI: expect.any(Function),
         name: "unknownAction",
       });
+    });
+
+    test("should pass tool name to wildcard action render function", () => {
+      const mockRender = vi.fn(
+        (props) => `Wildcard rendered: ${props.name} with args: ${JSON.stringify(props.args)}`,
+      );
+      const actions = {
+        "*": {
+          name: "*",
+          render: mockRender,
+        },
+      };
+
+      const actionExecMsg = new gql.ActionExecutionMessage({
+        id: "action-wildcard-name",
+        name: "testTool",
+        arguments: { param: "value" },
+        parentMessageId: "parent-wildcard-name",
+      });
+
+      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions);
+
+      // Call the generativeUI function to trigger the render
+      (result as any).generativeUI?.();
+
+      // Verify that the render function was called with the name property
+      expect(mockRender).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "testTool",
+          args: { param: "value" },
+        }),
+      );
+    });
+
+    test("should pass tool name to regular action render function", () => {
+      const mockRender = vi.fn((props) => `Regular action rendered: ${JSON.stringify(props.args)}`);
+      const actions = {
+        testAction: {
+          name: "testAction",
+          render: mockRender,
+        },
+      };
+
+      const actionExecMsg = new gql.ActionExecutionMessage({
+        id: "action-regular-name",
+        name: "testAction",
+        arguments: { param: "value" },
+        parentMessageId: "parent-regular-name",
+      });
+
+      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions);
+
+      // Call the generativeUI function to trigger the render
+      (result as any).generativeUI?.();
+
+      // Verify that the render function was called with the correct props
+      // Regular actions should NOT have the name property
+      expect(mockRender).toHaveBeenCalledWith(
+        expect.objectContaining({
+          args: { param: "value" },
+          // name property should NOT be present for regular actions
+        }),
+      );
+
+      // Verify that the name property is NOT present
+      const callArgs = mockRender.mock.calls[0][0];
+      expect(callArgs).not.toHaveProperty("name");
     });
 
     test("should prioritize specific action over wild card action", () => {
