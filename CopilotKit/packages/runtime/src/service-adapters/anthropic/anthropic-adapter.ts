@@ -287,15 +287,33 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
 
       for (const msg of anthropicMessages) {
         if (msg.role === "assistant" && Array.isArray(msg.content)) {
-          const toolUse = (msg.content as any[]).find((c) => c && c.type === "tool_use" && c.id);
-          if (toolUse?.id) {
-            const tr = toolResultById.get(toolUse.id);
-            if (tr && !consumedToolResults.has(toolUse.id)) {
-              result.push(msg);
-              result.push(tr);
-              consumedToolResults.add(toolUse.id);
+          // Collect ALL tool_use ids from this assistant message
+          const toolUseBlocks = (msg.content as any[]).filter(
+            (c) => c && c.type === "tool_use" && c.id,
+          );
+          if (toolUseBlocks.length > 0) {
+            const resultsContent: any[] = [];
+            for (const tb of toolUseBlocks) {
+              const toolId = tb.id as string;
+              const trMsg = toolResultById.get(toolId);
+              if (trMsg && !consumedToolResults.has(toolId)) {
+                // Extract the tool_result block from the user message content
+                const trBlock = (trMsg.content as any[]).find(
+                  (c) => c && c.type === "tool_result" && c.tool_use_id === toolId,
+                );
+                if (trBlock) {
+                  resultsContent.push(trBlock);
+                  consumedToolResults.add(toolId);
+                }
+              }
             }
-            // If no matching tool_result, skip this tool_use to avoid Anthropic 400
+
+            // If we have matching results for all tool_use ids, emit assistant + single user message
+            // containing all tool_result blocks. Otherwise, skip to avoid 400s.
+            if (resultsContent.length === toolUseBlocks.length) {
+              result.push(msg);
+              result.push({ role: "user", content: resultsContent } as any);
+            }
             continue;
           }
         }

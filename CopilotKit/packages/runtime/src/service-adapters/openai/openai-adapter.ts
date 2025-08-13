@@ -183,22 +183,25 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
           Array.isArray(anyMsg.tool_calls) &&
           anyMsg.tool_calls.length > 0
         ) {
+          // If any required tool result is missing or already consumed, drop this assistant message
           const toolCalls = anyMsg.tool_calls;
           const missing = toolCalls.some(
             (tc: any) => !tc?.id || consumed.has(tc.id) || !toolMessageById.has(tc.id),
           );
-          if (missing) {
-            // Skip assistant tool_calls without complete tool responses to avoid 400
-            continue;
-          }
+          if (missing) continue;
+
+          // Emit assistant and then all required tool messages in one group
           result.push(msg);
+          const groupedToolMsgs: any[] = [];
           for (const tc of toolCalls) {
             const toolMsg = toolMessageById.get(tc.id);
             if (toolMsg) {
-              result.push(toolMsg);
+              groupedToolMsgs.push(toolMsg);
               consumed.add(tc.id);
             }
           }
+          // Insert all tool messages after the assistant
+          for (const tm of groupedToolMsgs) result.push(tm);
           continue;
         }
 
