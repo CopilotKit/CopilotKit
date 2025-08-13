@@ -3,13 +3,10 @@ title: "Predictive state updates"
 icon: "lucide/Podcast"
 description: Stream in-progress agent state updates to the frontend.
 ---
-
 import {
   TailoredContent,
   TailoredContentOption,
 } from "@/components/react/tailored-content.tsx";
-import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
 import { FaWrench } from "react-icons/fa";
 import { FaArrowUp } from "react-icons/fa";
 
@@ -23,8 +20,7 @@ import { FaArrowUp } from "react-icons/fa";
   muted
 />
 <Callout>
-  This video shows the [coagents
-  starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-pydantic-ai)
+  This video shows the [coagents starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-pydantic-ai)
   repo with the [implementation](#implementation) section applied to it!
 </Callout>
 
@@ -55,29 +51,21 @@ included in the function's final returned state. Otherwise, they will be overwri
 
 <Steps>
     <Step>
-        ### Install the CopilotKit SDK
-        <InstallSDKSnippet components={props.components}/>
-    </Step>
-    <Step>
-        ### Define the state
+        <h3 className="text-xl font-bold">Define the state</h3>
         We'll be defining a `observed_steps` field in the state, which will be updated as the agent writes different sections of the report.
 
-        <Tabs groupId="language" items={["Python"]}>
-            <Tab value="Python">
-                ```python title="agent-py/sample_agent/agent.py"
-                from pydantic import BaseModel
-                from pydantic_ai import Agent
-                from pydantic_ai.ag_ui import StateDeps
+        ```python title="agent-py/sample_agent/agent.py"
+        from pydantic import BaseModel
+        from pydantic_ai import Agent
+        from pydantic_ai.ag_ui import StateDeps
 
-                class AgentState(BaseModel):
-                    """State for the agent."""
-                    observed_steps: list[str] = []
+        class AgentState(BaseModel):
+            """State for the agent."""
+            observed_steps: list[str] = []
 
-                agent = Agent('openai:gpt-4o-mini', deps_type=StateDeps[AgentState])
-                app = agent.to_ag_ui(deps=StateDeps(AgentState()))
-                ```
-            </Tab>
-        </Tabs>
+        agent = Agent('openai:gpt-4o-mini', deps_type=StateDeps[AgentState])
+        app = agent.to_ag_ui(deps=StateDeps(AgentState()))
+        ```
     </Step>
     <Step>
         ### Emit the intermediate state

@@ -6,7 +6,7 @@
     "reference",
     "---Integrations---",
     "direct-to-llm",
-    "coagents",
+    "langgraph",
     "mastra",
     "pydantic-ai",
     "agno",
