@@ -10,10 +10,12 @@ import {
   AssistantMessage as AGUIAssistantMessage,
   Message as AGUIMessage,
   ToolCall,
+  RunAgentInput,
+  convertToLegacyEvents,
 } from "@ag-ui/client";
 
 import { AbstractAgent } from "@ag-ui/client";
-import { CopilotKitError, CopilotKitErrorCode, parseJson } from "@copilotkit/shared";
+import { CopilotKitError, CopilotKitErrorCode, parseJson, randomId } from "@copilotkit/shared";
 import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 import { GraphQLContext } from "../integrations/shared";
 
@@ -47,9 +49,12 @@ export function constructAGUIRemoteAction({
     }: RemoteAgentHandlerParams): Promise<Observable<RuntimeEvent>> => {
       logger.debug({ actionName: agent.agentId }, "Executing remote agent");
 
-      const agentWireMessages = convertMessagesToAGUIMessage(messages);
-      agent.messages = agentWireMessages;
-      agent.threadId = threadId;
+      // Clone the agent to avoid modifying the original
+      const clonedAgent = agent.clone
+        ? agent.clone()
+        : Object.assign(Object.create(Object.getPrototypeOf(agent)), agent);
+
+      const aguiMessages = convertMessagesToAGUIMessage(messages);
 
       telemetry.capture("oss.runtime.remote_action_executed", {
         agentExecution: true,
@@ -66,7 +71,12 @@ export function constructAGUIRemoteAction({
           config = parseJson(jsonState.config, {});
         }
       }
-      agent.state = state;
+
+      // Set agent properties
+      clonedAgent.setMessages(aguiMessages);
+      clonedAgent.setState(state);
+      clonedAgent.threadId = threadId;
+      clonedAgent.agentId = clonedAgent.agentId || agent.agentId || randomId();
 
       const tools = actionInputsWithoutAgents.map((input) => {
         return {
@@ -85,19 +95,42 @@ export function constructAGUIRemoteAction({
         ...graphqlContext.properties,
       };
 
-      return (
-        agent.legacy_to_be_removed_runAgentBridged({
-          tools,
-          forwardedProps,
-        }) as Observable<RuntimeEvent>
-      ).pipe(
-        catchError((err) => {
-          throw new CopilotKitError({
-            message: err.message,
-            code: CopilotKitErrorCode.UNKNOWN,
-          });
-        }),
-      );
+      // Create RunAgentInput
+      const runInput: RunAgentInput = {
+        threadId,
+        runId: randomId(),
+        messages: aguiMessages,
+        state,
+        tools,
+        forwardedProps,
+        context: [],
+      };
+
+      // Access the runner from the runtime
+      const runner = (graphqlContext as any)._copilotkit?.runtime?.runner;
+      if (!runner) {
+        throw new CopilotKitError({
+          message: "Runner not available in runtime",
+          code: CopilotKitErrorCode.UNKNOWN,
+        });
+      }
+
+      // Run the agent using the new runner
+      return runner
+        .run({
+          threadId,
+          agent: clonedAgent,
+          input: runInput,
+        })
+        .pipe(
+          convertToLegacyEvents(threadId, runInput.runId, clonedAgent.agentId) as any,
+          catchError((err) => {
+            throw new CopilotKitError({
+              message: err.message,
+              code: CopilotKitErrorCode.UNKNOWN,
+            });
+          }),
+        ) as Observable<RuntimeEvent>;
     },
   };
   return [action];
