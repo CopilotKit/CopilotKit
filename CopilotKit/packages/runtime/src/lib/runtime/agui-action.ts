@@ -52,11 +52,7 @@ export function constructAGUIRemoteAction({
     }: RemoteAgentHandlerParams): Promise<Observable<RuntimeEvent>> => {
       logger.debug({ actionName: agent.agentId }, "Executing remote agent");
 
-      // Clone the agent to avoid modifying the original
-      const clonedAgent = agent.clone
-        ? agent.clone()
-        : Object.assign(Object.create(Object.getPrototypeOf(agent)), agent);
-
+      // TODO: all AG-UI agents must be clonable!
       const aguiMessages = convertMessagesToAGUIMessage(messages);
 
       telemetry.capture("oss.runtime.remote_action_executed", {
@@ -76,10 +72,10 @@ export function constructAGUIRemoteAction({
       }
 
       // Set agent properties
-      clonedAgent.setMessages(aguiMessages);
-      clonedAgent.setState(state);
-      clonedAgent.threadId = threadId;
-      clonedAgent.agentId = clonedAgent.agentId || agent.agentId || randomId();
+      agent.setMessages(aguiMessages);
+      agent.setState(state);
+      agent.threadId = threadId;
+      agent.agentId = agent.agentId || agent.agentId || randomId();
 
       const tools = actionInputsWithoutAgents.map((input) => {
         return {
@@ -113,11 +109,11 @@ export function constructAGUIRemoteAction({
       return runner
         .run({
           threadId,
-          agent: clonedAgent,
+          agent: agent,
           input: runInput,
         })
         .pipe(
-          convertToLegacyEvents(threadId, runInput.runId, clonedAgent.agentId) as any,
+          convertToLegacyEvents(threadId, runInput.runId, agent.agentId) as any,
           catchError((err) => {
             throw new CopilotKitError({
               message: err.message,

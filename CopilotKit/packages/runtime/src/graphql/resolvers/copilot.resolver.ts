@@ -129,13 +129,15 @@ export class CopilotResolver {
 
     logger.debug("Processing");
     const agentsWithEndpoints = await ctx._copilotkit.runtime.discoverAgentsFromEndpoints(ctx);
+    const aguiAgents = ctx._copilotkit.runtime.discoverAgentsFromAgui();
 
     logger.debug("Event source created, creating response");
 
     return {
-      agents: agentsWithEndpoints.map(
-        ({ endpoint, ...agentWithoutEndpoint }) => agentWithoutEndpoint,
-      ),
+      agents: [
+        ...agentsWithEndpoints.map(({ endpoint, ...agentWithoutEndpoint }) => agentWithoutEndpoint),
+        ...aguiAgents,
+      ],
     };
   }
 

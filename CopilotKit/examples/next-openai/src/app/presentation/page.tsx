@@ -21,6 +21,7 @@ export default function AIPresentation() {
     textToSpeechUrl: "/api/tts",
     runtimeUrl,
     publicApiKey: publicApiKey || undefined,
+    agent: "agentic_chat",
   };
 
   return (
