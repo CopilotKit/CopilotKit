@@ -35,6 +35,11 @@ const config = {
   async redirects() {
     return [
       {
+        source: "/coagents/:path*",
+        destination: "/langgraph/:path*",
+        permanent: true,
+      },
+      {
         source: "/coagents/tutorials/ai-travel-app/overview",
         destination: "/coagents/tutorials/ai-travel-app",
         permanent: true,
