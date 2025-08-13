@@ -25,26 +25,9 @@ Get started with [useCopilotChatHeadless_c](https://docs.copilotkit.ai/reference
 - Background Operations: Trigger AI interactions in the background
 - Fire-and-Forget: Send messages without needing to read responses
  
-Requires a publicApiKey - Sign up for free at https://cloud.copilotkit.ai/
-to get your API key with generous usage limits.
- 
 ## Usage
  
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core";
-import { useCopilotChat } from "@copilotkit/react-core";
-import { Role, TextMessage } from "@copilotkit/runtime-client-gql";
- 
-export function App() {
-  return (
-    <CopilotKit publicApiKey="your-public-api-key">
-      <YourComponent />
-    </CopilotKit>
-  );
-}
- 
-export function YourComponent() {
-  const { appendMessage } = useCopilotChat();
 import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";
  
 const { appendMessage } = useCopilotChat();
@@ -63,25 +46,6 @@ const handleSendMessage = async (content: string) => {
 ## Return Values
 The following properties are returned from the hook:
  
-```tsx
-import { CopilotKit } from "@copilotkit/react-core";
-import { useCopilotChat, useCopilotChatSuggestions } from "@copilotkit/react-core";
- 
-export function App() {
-  return (
-    <CopilotKit publicApiKey="your-public-api-key">
-      <YourComponent />
-    </CopilotKit>
-  );
-}
- 
-export function YourComponent() {
-  const {
-    suggestions,
-    setSuggestions,
-    generateSuggestions,
-    isLoadingSuggestions
-  } = useCopilotChat();
 <PropertyReference name="visibleMessages" type="DeprecatedGqlMessage[]" deprecated>
 Array of messages in old non-AG-UI format, use for compatibility only
 </PropertyReference>
