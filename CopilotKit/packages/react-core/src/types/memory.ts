@@ -23,6 +23,9 @@ export interface MemoryUpdateMessage {
   new_value?: unknown;
   confidence: number; // 0..1
   reason: MemoryUpdateReason;
+  // Optional human-readable fields supplied by the LLM/tool schema
+  display_label?: string;
+  display_value?: string;
   event?: MemoryUpdateEvent;
   metadata?: {
     decay?: number;

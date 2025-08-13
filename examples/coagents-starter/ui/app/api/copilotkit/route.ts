@@ -2,12 +2,12 @@ import { NextRequest } from "next/server";
 import {
   CopilotRuntime,
   copilotRuntimeNextJSAppRouterEndpoint,
-  ExperimentalEmptyAdapter,
+  OpenAIAdapter,
   // uncomment this if you want to use LangGraph Platform
   // langGraphPlatformEndpoint,
 } from "@copilotkit/runtime";
 
-const serviceAdapter = new ExperimentalEmptyAdapter();
+const serviceAdapter = new OpenAIAdapter();
 
 const runtime = new CopilotRuntime({
   remoteEndpoints: [

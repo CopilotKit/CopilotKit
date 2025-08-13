@@ -485,29 +485,43 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             if (ev.name === MetaEventName.CopilotKitLangGraphInterruptEvent) {
               const data = (ev as CopilotKitLangGraphInterruptEvent).data;
 
-              // @ts-expect-error -- same type of messages
-              rawMessagesResponse = [...rawMessagesResponse, ...data.messages];
-              interruptMessages = convertGqlOutputToMessages(
-                // @ts-ignore
-                filterAdjacentAgentStateMessages(data.messages),
-              );
-
-              // Fire a window event for memory_update so opt-in components can show UI immediately
+              // Split CopilotKit meta messages: swallow memory_update JSON messages from chat
+              // but still surface them through a global event for auxiliary UI (e.g., consent banner)
+              const displayable = [] as typeof data.messages;
               try {
                 for (const m of (data as any).messages || []) {
                   if (m.__typename === "TextMessageOutput") {
                     const text = Array.isArray(m.content) ? m.content.join("") : m.content;
                     try {
                       const obj = JSON.parse(text);
-                      if (obj && obj.type === "memory_update" && typeof window !== "undefined") {
-                        window.dispatchEvent(
-                          new CustomEvent("copilotkit:memory_update", { detail: obj }),
-                        );
+                      if (obj && obj.type === "memory_update") {
+                        try {
+                          // Dev hint: surface in console for debugging
+                          // eslint-disable-next-line no-console
+                          console.debug("[CopilotKit][memory] meta-event", obj);
+                        } catch {}
+                        if (typeof window !== "undefined") {
+                          const evt = new CustomEvent("copilotkit:memory_update", { detail: obj });
+                          window.dispatchEvent(evt);
+                        }
+                        // swallow from chat rendering
+                        continue;
                       }
                     } catch {}
                   }
+                  displayable.push(m);
                 }
-              } catch {}
+              } catch {
+                // If anything goes wrong, default to showing original messages
+                displayable.push(...(data.messages as any));
+              }
+
+              // @ts-expect-error -- same type of messages
+              rawMessagesResponse = [...rawMessagesResponse, ...displayable];
+              interruptMessages = convertGqlOutputToMessages(
+                // @ts-ignore
+                filterAdjacentAgentStateMessages(displayable as any),
+              );
             }
           });
 

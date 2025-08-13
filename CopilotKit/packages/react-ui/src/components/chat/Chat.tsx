@@ -75,6 +75,7 @@ import { AssistantMessage as DefaultAssistantMessage } from "./messages/Assistan
 import { UserMessage as DefaultUserMessage } from "./messages/UserMessage";
 import { ImageRenderer as DefaultImageRenderer } from "./messages/ImageRenderer";
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useMemoryReviewAction } from "@copilotkit/react-core/src/hooks/use-memory-review-action";
 import {
   SystemMessageFunction,
   useCopilotChatInternal as useCopilotChat,
@@ -421,6 +422,8 @@ export function CopilotChat({
   RenderResultMessage,
   RenderImageMessage,
 }: CopilotChatProps) {
+  // Register the frontend-only memory review action so the model can propose updates
+  useMemoryReviewAction();
   const { additionalInstructions, setChatInstructions, copilotApiConfig, setBannerError } =
     useCopilotContext();
 

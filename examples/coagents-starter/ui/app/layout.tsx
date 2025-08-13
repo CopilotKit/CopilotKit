@@ -18,6 +18,9 @@ export default function RootLayout({ children }: { children: any }) {
           agent="sample_agent"
           runtimeUrl="/api/copilotkit"
           showDevConsole={true}
+          memoryIntelligence_c
+          publicApiKey="ck_pub_demo"
+          userId_c="suhas"
         >
           {children}
         </CopilotKit>

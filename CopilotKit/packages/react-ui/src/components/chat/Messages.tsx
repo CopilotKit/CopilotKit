@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
+// Local import to avoid cross-package export churn
+import { useRecentMemoryUpdates } from "../../../../react-core/src/hooks/use-recent-memory-updates";
 import { MessagesProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import { Message } from "@copilotkit/shared";
@@ -30,6 +32,8 @@ export const Messages = ({
   const initialMessages = useMemo(() => makeInitialMessages(labels.initial), [labels.initial]);
   const messages = [...initialMessages, ...visibleMessages];
   const { messagesContainerRef, messagesEndRef } = useScrollToBottom(messages);
+  // Set ttlMs to 0 to keep pills persistent; they will be replaced by newer updates
+  const recentMem = useRecentMemoryUpdates(0);
 
   // Check if any legacy props are provided
   const hasLegacyProps = !!(
@@ -80,21 +84,39 @@ export const Messages = ({
         {messages.map((message, index) => {
           const isCurrentMessage = index === messages.length - 1;
           return (
-            <MessageRenderer
-              key={index}
-              message={message}
-              inProgress={inProgress}
-              index={index}
-              isCurrentMessage={isCurrentMessage}
-              AssistantMessage={AssistantMessage}
-              UserMessage={UserMessage}
-              ImageRenderer={ImageRenderer}
-              onRegenerate={onRegenerate}
-              onCopy={onCopy}
-              onThumbsUp={onThumbsUp}
-              onThumbsDown={onThumbsDown}
-              markdownTagRenderers={markdownTagRenderers}
-            />
+            <div key={(message as any)?.id ?? index}>
+              <MessageRenderer
+                message={message}
+                inProgress={inProgress}
+                index={index}
+                isCurrentMessage={isCurrentMessage}
+                AssistantMessage={AssistantMessage}
+                UserMessage={UserMessage}
+                ImageRenderer={ImageRenderer}
+                onRegenerate={onRegenerate}
+                onCopy={onCopy}
+                onThumbsUp={onThumbsUp}
+                onThumbsDown={onThumbsDown}
+                markdownTagRenderers={markdownTagRenderers}
+              />
+              {isCurrentMessage && recentMem.length > 0 ? (
+                <div style={{ marginTop: 6 }}>
+                  <span
+                    style={{
+                      display: "inline-block",
+                      fontSize: 12,
+                      padding: "2px 8px",
+                      borderRadius: 999,
+                      background: "#eef6ff",
+                      color: "#2563eb",
+                      border: "1px solid #bfdbfe",
+                    }}
+                  >
+                    Saved: {recentMem[0].friendly}
+                  </span>
+                </div>
+              ) : null}
+            </div>
           );
         })}
         {interrupt}

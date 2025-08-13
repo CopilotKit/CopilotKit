@@ -5,6 +5,7 @@ import {
   TextMessage,
   Role,
   convertMessagesToGqlInput,
+  CopilotRequestType,
 } from "@copilotkit/runtime-client-gql";
 import { isMemoryUpdateMessage, MemoryUpdateMessage } from "../../types";
 import { UsageBanner } from "../usage-banner";
@@ -69,7 +70,7 @@ export function MemoryConsent({ enabled = true, onAccept, onReject }: MemoryCons
               url: typeof window !== "undefined" ? window.location.href : "",
             },
             messages: convertMessagesToGqlInput([system, user] as unknown as Message[]),
-            metadata: { requestType: 0 as any },
+            metadata: { requestType: CopilotRequestType.Task },
             forwardedParameters: {
               toolChoice: "function",
               toolChoiceFunctionName: toolName,
@@ -103,11 +104,55 @@ export function MemoryConsent({ enabled = true, onAccept, onReject }: MemoryCons
 
   if (!enabled || !current) return null;
 
+  const friendly = (() => {
+    const rawKey = (current.fact_key || "").toString();
+    const key = rawKey.toLowerCase();
+    const value = current.new_value;
+
+    // Map of friendly renderers for common facts
+    const RENDER: Record<string, (v: any) => string> = {
+      preferred_tone: (v) => `Tone preference: ${String(v)}`,
+      preferred_communication_tone: (v) => `Tone preference: ${String(v)}`,
+      tone: (v) => `Tone preference: ${String(v)}`,
+      writing_style: (v) => `Writing style: ${String(v)}`,
+      preferred_formality_level: (v) => `Formality: ${String(v)}`,
+      language: (v) => `Language: ${String(v)}`,
+      timezone: (v) => `Timezone: ${String(v)}`,
+      date_format: (v) => `Date format: ${String(v)}`,
+      currency: (v) => `Currency: ${String(v)}`,
+      units: (v) => `Units: ${String(v)}`,
+      theme: (v) => `Theme: ${String(v).charAt(0).toUpperCase()}${String(v).slice(1)}`,
+      ui_theme: (v) => `Theme: ${String(v).charAt(0).toUpperCase()}${String(v).slice(1)}`,
+      name: (v) => `Name: ${String(v)}`,
+      country: (v) => `Country: ${String(v)}`,
+      city: (v) => `City: ${String(v)}`,
+    };
+
+    if (RENDER[key]) return RENDER[key](value);
+
+    // fallback: prettify snake_case or dot.notation to English
+    const prettyKey = rawKey
+      .split(/[._-]+/)
+      .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+      .join(" ");
+    const prettyValue =
+      typeof value === "string"
+        ? value
+        : typeof value === "number"
+          ? String(value)
+          : typeof value === "boolean"
+            ? value
+              ? "Yes"
+              : "No"
+            : JSON.stringify(value);
+    return `${prettyKey}: ${prettyValue}`;
+  })();
+
   const message = (
     <div>
       <div style={{ fontWeight: 600, marginBottom: 4 }}>Memory update</div>
       <div style={{ opacity: 0.85 }}>
-        {current.fact_key}: {String(current.new_value)} ({Math.round(current.confidence * 100)}%)
+        {friendly} ({Math.round(current.confidence * 100)}%)
       </div>
     </div>
   );
@@ -125,6 +170,12 @@ export function MemoryConsent({ enabled = true, onAccept, onReject }: MemoryCons
               if (onAccept) {
                 onAccept(current);
               } else {
+                // Fire banner immediately for great UX regardless of backend path
+                if (typeof window !== "undefined") {
+                  window.dispatchEvent(
+                    new CustomEvent("copilotkit:memory_update", { detail: current }),
+                  );
+                }
                 await callTool("memory_upsert", {
                   fact_key: current.fact_key,
                   value: current.new_value,
@@ -144,6 +195,18 @@ export function MemoryConsent({ enabled = true, onAccept, onReject }: MemoryCons
               if (onReject) {
                 onReject(current);
               } else {
+                if (typeof window !== "undefined") {
+                  window.dispatchEvent(
+                    new CustomEvent("copilotkit:memory_update", {
+                      detail: {
+                        ...current,
+                        old_value: current.new_value,
+                        new_value: undefined,
+                        event: "fact.deleted",
+                      },
+                    }),
+                  );
+                }
                 await callTool("memory_delete", {
                   fact_key: current.fact_key,
                   reason: "explicit_user_request",

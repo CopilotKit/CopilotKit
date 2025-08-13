@@ -548,15 +548,24 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     const streamedChunks: any[] = [];
 
     try {
+      // If a memory tool is explicitly requested, bypass agent path to ensure deterministic handling
+      const forceMemoryTool =
+        forwardedParameters?.toolChoice === ("function" as any) &&
+        typeof (forwardedParameters as any)?.toolChoiceFunctionName === "string" &&
+        /^(memory_|memory\.)?(upsert|delete)$/.test(
+          String((forwardedParameters as any).toolChoiceFunctionName).replace(".", "_"),
+        );
+
       if (
         Object.keys(this.agents).length &&
         agentSession?.agentName &&
-        !this.delegateAgentProcessingToServiceAdapter
+        !this.delegateAgentProcessingToServiceAdapter &&
+        !forceMemoryTool
       ) {
         this.agents = { [agentSession.agentName]: this.agents[agentSession.agentName] };
       }
 
-      if (agentSession && !this.delegateAgentProcessingToServiceAdapter) {
+      if (agentSession && !this.delegateAgentProcessingToServiceAdapter && !forceMemoryTool) {
         return await this.processAgentRequest(request);
       }
       if (serviceAdapter instanceof EmptyAdapter) {
@@ -574,96 +583,7 @@ please use an LLM adapter instead.`,
       // Filter raw messages *before* injection
       const filteredRawMessages = rawMessages.filter((message) => !message.agentStateMessage);
 
-      // Heuristic fallback: if user asked to remember/forget a simple preference, emit memory_update now
-      try {
-        const apiKey = publicApiKey;
-        const userId = graphqlContext.properties?.user_id as string;
-        if (apiKey && userId && filteredRawMessages?.length) {
-          const lastUser = [...filteredRawMessages]
-            .reverse()
-            .find((m) => m.textMessage?.role === MessageRole.user && m.textMessage?.content);
-          const text = (lastUser?.textMessage?.content || "").toLowerCase();
-          const mentionsCasual = /casual/.test(text);
-          const asksRemember = /remember|save/.test(text);
-          const asksForget = /forget|remove/.test(text);
-          const store = createInMemoryFactStore();
-          if (mentionsCasual && asksRemember) {
-            const { fact, oldValue, event } = store.upsert({
-              publicApiKey: apiKey,
-              userId,
-              factKey: "tone.prefer_casual",
-              value: true,
-              confidence: 0.92,
-            });
-            (request as any)._eventSource?.sendMetaEvent?.({
-              type: RuntimeEventTypes.MetaEvent,
-              name: RuntimeMetaEventName.CopilotKitLangGraphInterruptEvent,
-              data: {
-                value: "",
-                messages: [
-                  {
-                    type: "TextMessage",
-                    id: randomId(),
-                    createdAt: new Date(),
-                    content: JSON.stringify({
-                      type: "memory_update",
-                      fact_key: "tone.prefer_casual",
-                      old_value: oldValue,
-                      new_value: fact.value,
-                      confidence: fact.confidence,
-                      reason: "explicit_user_request",
-                      event,
-                      metadata: {
-                        userId,
-                        publicApiKey: apiKey,
-                        threadId: request.threadId,
-                        runId: request.runId,
-                      },
-                    }),
-                    role: MessageRole.assistant,
-                  } as any,
-                ],
-              },
-            } as any);
-          } else if (mentionsCasual && asksForget) {
-            const { oldValue, event } = store.delete({
-              publicApiKey: apiKey,
-              userId,
-              factKey: "tone.prefer_casual",
-            });
-            (request as any)._eventSource?.sendMetaEvent?.({
-              type: RuntimeEventTypes.MetaEvent,
-              name: RuntimeMetaEventName.CopilotKitLangGraphInterruptEvent,
-              data: {
-                value: "",
-                messages: [
-                  {
-                    type: "TextMessage",
-                    id: randomId(),
-                    createdAt: new Date(),
-                    content: JSON.stringify({
-                      type: "memory_update",
-                      fact_key: "tone.prefer_casual",
-                      old_value: oldValue,
-                      new_value: undefined,
-                      confidence: 1,
-                      reason: "explicit_user_request",
-                      event,
-                      metadata: {
-                        userId,
-                        publicApiKey: apiKey,
-                        threadId: request.threadId,
-                        runId: request.runId,
-                      },
-                    }),
-                    role: MessageRole.assistant,
-                  } as any,
-                ],
-              },
-            } as any);
-          }
-        }
-      } catch {}
+      // Heuristics removed: rely on model/tooling to decide memory
 
       // +++ Inject MCP Instructions based on current actions +++
       let messagesWithInjectedInstructions = this.injectMCPToolInstructions(
@@ -682,21 +602,20 @@ please use an LLM adapter instead.`,
             userId,
             minConfidence: 0.7,
           });
-          if (facts.length) {
-            const summary =
-              "Persistent facts for this user:\n" +
-              facts
-                .map((f) => `- ${f.key}: ${JSON.stringify(f.value)} (conf=${f.confidence})`)
-                .join("\n") +
-              "\n\nIf the user expresses a durable preference, profile attribute, or explicit request to remember or forget something, call the appropriate tool:\n" +
-              "- memory_upsert({ fact_key, value, confidence? }) to store/modify a fact.\n" +
-              "- memory_delete({ fact_key }) to forget a fact.\n" +
-              "Only use these for long-lived, user-approved facts (not transient task context).";
-            messagesWithInjectedInstructions = this.injectMemoryFacts(
-              messagesWithInjectedInstructions,
-              summary,
-            );
-          }
+          const summary =
+            "Persistent facts for this user:\n" +
+            (facts.length
+              ? facts
+                  .map((f) => `- ${f.key}: ${JSON.stringify(f.value)} (conf=${f.confidence})`)
+                  .join("\n")
+              : "(none yet)") +
+            "\n\nIf the user expresses a durable preference, profile attribute, or explicit request to remember or forget something, propose a memory update:\n" +
+            "- propose_memory_update({ fact_key, value, confidence?, reason? }) to suggest storing/modifying/forgetting a fact.\n" +
+            "Only use these for long-lived, user-approved facts (not transient task context).";
+          messagesWithInjectedInstructions = this.injectMemoryFacts(
+            messagesWithInjectedInstructions,
+            summary,
+          );
         }
       } catch {
         // noop: memory injection is best-effort
@@ -729,6 +648,8 @@ please use an LLM adapter instead.`,
         name: action.name,
         description: action.description,
         jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters)),
+        // Respect action.route hint on server-generated actions
+        ...((action as any).route ? { route: (action as any).route } : {}),
       }));
 
       const actionInputs = flattenToolCallsNoDuplicates([
@@ -747,9 +668,16 @@ please use an LLM adapter instead.`,
         url,
       });
 
+      // Centralized visibility filtering: only pass actions visible to base LLMs
+      const actionInputsForModel = actionInputs.filter((a) => {
+        const route = (a as any).route as undefined | "model" | "agent" | "local";
+        // Default (undefined) -> visible to both
+        return route === undefined || route === "model";
+      });
+
       const result = await serviceAdapter.process({
         messages: inputMessages,
-        actions: actionInputs,
+        actions: actionInputsForModel,
         threadId,
         runId,
         eventSource,
@@ -863,7 +791,7 @@ please use an LLM adapter instead.`,
         runId: result.runId,
         eventSource,
         serverSideActions,
-        actionInputsWithoutAgents: actionInputs.filter(
+        actionInputsWithoutAgents: actionInputsForModel.filter(
           (action) =>
             // TODO-AGENTS: do not exclude ALL server side actions
             !serverSideActions.find((serverSideAction) => serverSideAction.name == action.name),
@@ -1226,97 +1154,6 @@ please use an LLM adapter instead.`,
 
     const messages = convertGqlInputToMessages(rawMessages);
 
-    // Heuristic fallback in agent mode: emit memory_update on explicit user phrasing
-    try {
-      const apiKey = publicApiKey;
-      const userId = graphqlContext.properties?.user_id as string;
-      if (apiKey && userId && messages?.length) {
-        const lastUser = [...messages]
-          .reverse()
-          .find((m) => m.isTextMessage() && (m as any).role === MessageRole.user);
-        const text = (lastUser as any)?.content?.toLowerCase?.() || "";
-        const mentionsCasual = /casual/.test(text);
-        const asksRemember = /remember|save/.test(text);
-        const asksForget = /forget|remove/.test(text);
-        const store = createInMemoryFactStore();
-        if (mentionsCasual && asksRemember) {
-          const { fact, oldValue, event } = store.upsert({
-            publicApiKey: apiKey,
-            userId,
-            factKey: "tone.prefer_casual",
-            value: true,
-            confidence: 0.92,
-          });
-          (request as any)._eventSource?.sendMetaEvent?.({
-            type: RuntimeEventTypes.MetaEvent,
-            name: RuntimeMetaEventName.CopilotKitLangGraphInterruptEvent,
-            data: {
-              value: "",
-              messages: [
-                {
-                  type: "TextMessage",
-                  id: randomId(),
-                  createdAt: new Date(),
-                  content: JSON.stringify({
-                    type: "memory_update",
-                    fact_key: "tone.prefer_casual",
-                    old_value: oldValue,
-                    new_value: fact.value,
-                    confidence: fact.confidence,
-                    reason: "explicit_user_request",
-                    event,
-                    metadata: {
-                      userId,
-                      publicApiKey: apiKey,
-                      threadId: request.threadId,
-                      runId: request.runId,
-                    },
-                  }),
-                  role: MessageRole.assistant,
-                } as any,
-              ],
-            },
-          } as any);
-        } else if (mentionsCasual && asksForget) {
-          const { oldValue, event } = store.delete({
-            publicApiKey: apiKey,
-            userId,
-            factKey: "tone.prefer_casual",
-          });
-          (request as any)._eventSource?.sendMetaEvent?.({
-            type: RuntimeEventTypes.MetaEvent,
-            name: RuntimeMetaEventName.CopilotKitLangGraphInterruptEvent,
-            data: {
-              value: "",
-              messages: [
-                {
-                  type: "TextMessage",
-                  id: randomId(),
-                  createdAt: new Date(),
-                  content: JSON.stringify({
-                    type: "memory_update",
-                    fact_key: "tone.prefer_casual",
-                    old_value: oldValue,
-                    new_value: undefined,
-                    confidence: 1,
-                    reason: "explicit_user_request",
-                    event,
-                    metadata: {
-                      userId,
-                      publicApiKey: apiKey,
-                      threadId: request.threadId,
-                      runId: request.runId,
-                    },
-                  }),
-                  role: MessageRole.assistant,
-                } as any,
-              ],
-            },
-          } as any);
-        }
-      }
-    } catch {}
-
     const currentAgent = serverSideActions.find(
       (action) => action.name === agentName && isRemoteAgentAction(action),
     ) as RemoteAgentAction;
@@ -1328,7 +1165,24 @@ please use an LLM adapter instead.`,
     // Filter actions to include:
     // 1. Regular (non-agent) actions
     // 2. Other agents' actions (but prevent self-calls to avoid infinite loops)
-    const availableActionsForCurrentAgent: ActionInput[] = serverSideActions
+    // Clear separation: compute visibility for agents
+    const serverSideActionsSansMemory = serverSideActions.filter((action: any) => {
+      // Respect route hints on the action object
+      if (
+        action.route === "local" ||
+        action.name === "memory_upsert" ||
+        action.name === "memory_delete"
+      ) {
+        return false; // never surface to agent
+      }
+      if (action.route === "model") {
+        return false; // model-only
+      }
+      // default/agent => true
+      return true;
+    });
+
+    const availableActionsForCurrentAgent: ActionInput[] = serverSideActionsSansMemory
       .filter(
         (action) =>
           // Case 1: Keep all regular (non-agent) actions
@@ -1722,17 +1576,94 @@ please use an LLM adapter instead.`,
         requestSpecificMCPActions.push(...(actionsForEndpoint || []));
       }
     }
-    // --- Dynamic MCP Action Fetching ---
-
-    // +++ Memory tools (default: in-memory) +++
     try {
       const apiKey = request.publicApiKey;
       const userId = graphqlContext.properties?.user_id as string;
       if (apiKey && userId) {
         const store = createInMemoryFactStore();
+        // Model-visible bridge: model proposes an update; runtime applies it locally and emits meta event
+        configuredActions.push({
+          name: "propose_memory_update",
+          description:
+            "Propose a durable user fact update. Use when the user states or confirms a lasting preference or attribute.",
+          // @ts-expect-error route is a runtime hint
+          route: "model",
+          parameters: [
+            { name: "fact_key", type: "string" },
+            { name: "value", type: "any", description: "Set to null to forget the fact" },
+            { name: "confidence", type: "number", required: false },
+            { name: "reason", type: "string", required: false },
+          ] as unknown as T,
+          handler: (async (args: any) => {
+            const payload = Array.isArray(args) ? args[0] : args;
+            const { fact_key, value, confidence = 0.9, reason } = payload || {};
+            let oldValue: unknown | undefined;
+            let event: any;
+            if (value === null || value === undefined) {
+              const result = await store.delete({
+                publicApiKey: apiKey,
+                userId,
+                factKey: fact_key,
+              });
+              oldValue = result.oldValue;
+              event = result.event;
+            } else {
+              const result = await store.upsert({
+                publicApiKey: apiKey,
+                userId,
+                factKey: fact_key,
+                value,
+                confidence,
+              });
+              oldValue = result.oldValue;
+              event = result.event;
+            }
+            (request as any)._eventSource?.sendMetaEvent?.({
+              type: RuntimeEventTypes.MetaEvent,
+              name: RuntimeMetaEventName.CopilotKitLangGraphInterruptEvent,
+              data: {
+                value: "",
+                messages: [
+                  {
+                    type: "TextMessage",
+                    id: randomId(),
+                    createdAt: new Date(),
+                    content: JSON.stringify({
+                      type: "memory_update",
+                      fact_key,
+                      old_value: oldValue,
+                      new_value: value,
+                      confidence: confidence,
+                      reason: reason || "llm_proposal",
+                      // Optional, let LLM supply human-readable label/value via tool schema
+                      display_label:
+                        payload?.display_label ||
+                        fact_key
+                          .replace(/[._-]+/g, " ")
+                          .replace(/^./, (c: string) => c.toUpperCase()),
+                      display_value: payload?.display_value,
+                      event,
+                      metadata: {
+                        userId,
+                        publicApiKey: apiKey,
+                        threadId: request.threadId,
+                        runId: request.runId,
+                      },
+                    }),
+                    role: MessageRole.assistant,
+                  } as any,
+                ],
+              },
+            } as any);
+            return { ok: true };
+          }) as any,
+        });
+
         configuredActions.push({
           name: "memory_upsert",
           description: "Persist a durable user fact.",
+          // @ts-expect-error route is a runtime hint
+          route: "local",
           parameters: [
             { name: "fact_key", type: "string" },
             { name: "value", type: "any" },
@@ -1740,9 +1671,10 @@ please use an LLM adapter instead.`,
             { name: "reason", type: "string", required: false },
           ] as unknown as T,
           handler: (async (args: any) => {
+            console.log("memory_upsert", args);
             const payload = Array.isArray(args) ? args[0] : args;
             const { fact_key, value, confidence = 0.9 } = payload || {};
-            const { fact, oldValue, event } = store.upsert({
+            const { fact, oldValue, event } = await store.upsert({
               publicApiKey: apiKey,
               userId,
               factKey: fact_key,
@@ -1780,6 +1712,7 @@ please use an LLM adapter instead.`,
                 ],
               },
             } as any);
+            // Do not emit a regular chat message; rely on meta event only
             return { ok: true, event, oldValue, fact };
           }) as any,
         });
@@ -1787,6 +1720,8 @@ please use an LLM adapter instead.`,
         configuredActions.push({
           name: "memory_delete",
           description: "Forget a previously learned user fact.",
+          // @ts-expect-error route is a runtime hint
+          route: "local",
           parameters: [
             { name: "fact_key", type: "string" },
             { name: "reason", type: "string", required: false },
@@ -1829,6 +1764,7 @@ please use an LLM adapter instead.`,
                 ],
               },
             } as any);
+            // Do not emit a regular chat message; rely on meta event only
             return { ok: true, event, oldValue };
           }) as any,
         });
