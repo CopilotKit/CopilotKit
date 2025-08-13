@@ -113,7 +113,7 @@ export default async function Page({
         {!hideHeader && (
           <>
             <div className="flex items-center gap-3">
-              <DocsTitle className="flex items-center">
+              <DocsTitle className="flex items-center mb-2">
                 {page.data.title}
                 {cloudOnly && (
                   <Badge
@@ -125,15 +125,15 @@ export default async function Page({
                   </Badge>
                 )}
                 {isPremium && (
-                  <a href={premiumOverviewHref} className="ml-3 mt-1">
+                  <a href={premiumOverviewHref} className="ml-3">
                     <Badge
                       variant="secondary"
                       className="inline-flex items-center gap-2 py-2 px-3.5 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200 hover:bg-indigo-200 border-0 rounded-md transition-colors"
                     >
                       <img
-                        src="https://cdn.copilotkit.ai/docs/copilotkit/images/copilotkit-logo.svg"
+                        src="https://cdn.copilotkit.ai/docs/copilotkit/icons/copilotkit-color.svg"
                         alt="CopilotKit"
-                        className="w-5 h-5"
+                        className="w-4 h-4"
                       />
                       <span className="text-sm font-semibold tracking-tight">Premium</span>
                     </Badge>
