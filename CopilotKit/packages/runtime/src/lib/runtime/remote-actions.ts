@@ -19,6 +19,7 @@ import {
 import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 import { AbstractAgent } from "@ag-ui/client";
 import { constructAGUIRemoteAction } from "./agui-action";
+import { AgentRunner } from "../../runner/agent-runner";
 
 export type EndpointDefinition = CopilotKitEndpoint | LangGraphPlatformEndpoint;
 
@@ -132,6 +133,7 @@ export async function setupRemoteActions({
   agents,
   metaEvents,
   nodeName,
+  runner,
 }: {
   remoteEndpointDefinitions: EndpointDefinition[];
   graphqlContext: GraphQLContext;
@@ -141,6 +143,7 @@ export async function setupRemoteActions({
   agents: Record<string, AbstractAgent>;
   metaEvents?: MetaEventInput[];
   nodeName?: string;
+  runner: AgentRunner;
 }): Promise<Action[]> {
   const logger = graphqlContext.logger.child({ component: "remote-actions.fetchRemoteActions" });
   logger.debug({ remoteEndpointDefinitions }, "Fetching from remote endpoints");
@@ -211,6 +214,7 @@ export async function setupRemoteActions({
         threadMetadata,
         nodeName,
         graphqlContext,
+        runner,
       }),
     );
   }

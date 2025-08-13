@@ -5,6 +5,7 @@ import { Message } from "../../graphql/types/converted";
 import { RuntimeEvent } from "../../service-adapters/events";
 import telemetry from "../telemetry-client";
 import { RemoteAgentHandlerParams } from "./remote-actions";
+import { AgentRunner } from "../../runner/agent-runner";
 
 import {
   AssistantMessage as AGUIAssistantMessage,
@@ -28,6 +29,7 @@ export function constructAGUIRemoteAction({
   threadMetadata,
   nodeName,
   graphqlContext,
+  runner,
 }: {
   logger: Logger;
   messages: Message[];
@@ -37,6 +39,7 @@ export function constructAGUIRemoteAction({
   threadMetadata?: Record<string, any>;
   nodeName?: string;
   graphqlContext: GraphQLContext;
+  runner: AgentRunner;
 }) {
   const action = {
     name: agent.agentId,
@@ -106,16 +109,7 @@ export function constructAGUIRemoteAction({
         context: [],
       };
 
-      // Access the runner from the runtime
-      const runner = (graphqlContext as any)._copilotkit?.runtime?.runner;
-      if (!runner) {
-        throw new CopilotKitError({
-          message: "Runner not available in runtime",
-          code: CopilotKitErrorCode.UNKNOWN,
-        });
-      }
-
-      // Run the agent using the new runner
+      // Run the agent using the passed runner
       return runner
         .run({
           threadId,
