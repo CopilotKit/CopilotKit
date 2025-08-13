@@ -1,178 +1,127 @@
 /**
- * `useCopilotChat` is a React hook that lets you directly interact with the
- * Copilot instance. Use to implement a fully custom UI (headless UI) or to
- * programmatically interact with the Copilot instance managed by the default
- * UI.
+ * `useCopilotChat` is a lightweight React hook for headless chat interactions.
+ * Perfect for controlling the prebuilt chat components programmatically.
  *
- * **Requires a publicApiKey** - Sign up for free at https://cloud.copilotkit.ai/
- * to get your API key with generous usage limits.
+ * **Open Source Friendly** - Works without requiring a free public license key.
+ *
+ * <Callout title="Looking for fully headless UI?">
+ * Get started with [useCopilotChatHeadless_c](https://docs.copilotkit.ai/reference/hooks/useCopilotChatHeadless_c).
+ * </Callout>
+ *
+ * ## Use Cases
+ *
+ * - **Programmatic Messaging**: Send messages without displaying chat UI
+ * - **Programmatic control**: Control prebuilt component programmatically
+ * - **Background Operations**: Trigger AI interactions in the background
+ * - **Fire-and-Forget**: Send messages without needing to read responses
  *
  * ## Usage
  *
- * ### Simple Usage
- *
  * ```tsx
- * import { CopilotKit } from "@copilotkit/react-core";
- * import { useCopilotChat } from "@copilotkit/react-core";
- * import { Role, TextMessage } from "@copilotkit/runtime-client-gql";
+ * import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";
  *
- * export function App() {
- *   return (
- *     <CopilotKit publicApiKey="your-public-api-key">
- *       <YourComponent />
- *     </CopilotKit>
- *   );
- * }
+ * const { appendMessage } = useCopilotChat();
  *
- * export function YourComponent() {
- *   const { appendMessage } = useCopilotChat();
- *
- *   appendMessage(
+ * // Example usage without naming conflicts
+ * const handleSendMessage = async (content: string) => {
+ *   await appendMessage(
  *     new TextMessage({
- *       content: "Hello World",
- *       role: Role.User,
- *     }),
+ *       role: MessageRole.User,
+ *       content,
+ *     })
  *   );
- *
- *   // optionally, you can append a message without running chat completion
- *   appendMessage(yourMessage, { followUp: false });
- * }
+ * };
  * ```
  *
- * ### Working with Suggestions
+ * ## Return Values
+ * The following properties are returned from the hook:
  *
- * ```tsx
- * import { CopilotKit } from "@copilotkit/react-core";
- * import { useCopilotChat, useCopilotChatSuggestions } from "@copilotkit/react-core";
+ * <PropertyReference name="visibleMessages" type="DeprecatedGqlMessage[]" deprecated>
+ * Array of messages in old non-AG-UI format, use for compatibility only
+ * </PropertyReference>
  *
- * export function App() {
- *   return (
- *     <CopilotKit publicApiKey="your-public-api-key">
- *       <YourComponent />
- *     </CopilotKit>
- *   );
- * }
+ * <PropertyReference name="appendMessage" type="(message: DeprecatedGqlMessage, options?) => Promise<void>" deprecated>
+ * Append message using old format, use `sendMessage` instead
+ * </PropertyReference>
  *
- * export function YourComponent() {
- *   const {
- *     suggestions,
- *     setSuggestions,
- *     generateSuggestions,
- *     isLoadingSuggestions
- *   } = useCopilotChat();
+ * <PropertyReference name="reloadMessages" type="(messageId: string) => Promise<void>">
+ * Regenerate the response for a specific message by ID
+ * </PropertyReference>
  *
- *   // Configure AI suggestion generation
- *   useCopilotChatSuggestions({
- *     instructions: "Suggest helpful actions based on the current context",
- *     maxSuggestions: 3
- *   });
+ * <PropertyReference name="stopGeneration" type="() => void">
+ * Stop the current message generation process
+ * </PropertyReference>
  *
- *   // Manual suggestion control
- *   const handleCustomSuggestion = () => {
- *     setSuggestions([{ title: "Custom Action", message: "Perform custom action" }]);
- *   };
+ * <PropertyReference name="reset" type="() => void">
+ * Clear all messages and reset chat state completely
+ * </PropertyReference>
  *
- *   // Trigger AI generation
- *   const handleGenerateSuggestions = async () => {
- *     await generateSuggestions();
- *   };
- * }
- * ```
+ * <PropertyReference name="isLoading" type="boolean">
+ * Whether the chat is currently generating a response
+ * </PropertyReference>
  *
- * `useCopilotChat` returns an object with the following properties:
+ * <PropertyReference name="runChatCompletion" type="() => Promise<Message[]>">
+ * Manually trigger chat completion for advanced usage
+ * </PropertyReference>
  *
- * ```tsx
- * const {
- *   visibleMessages, // An array of messages that are currently visible in the chat.
- *   appendMessage, // A function to append a message to the chat.
- *   setMessages, // A function to set the messages in the chat.
- *   deleteMessage, // A function to delete a message from the chat.
- *   reloadMessages, // A function to reload the messages from the API.
- *   stopGeneration, // A function to stop the generation of the next message.
- *   reset, // A function to reset the chat.
- *   isLoading, // A boolean indicating if the chat is loading.
+ * <PropertyReference name="mcpServers" type="MCPServerConfig[]">
+ * Array of Model Context Protocol server configurations
+ * </PropertyReference>
  *
- *   // Suggestion control (headless UI)
- *   suggestions, // Current suggestions array
- *   setSuggestions, // Manually set suggestions
- *   generateSuggestions, // Trigger AI suggestion generation
- *   resetSuggestions, // Clear all suggestions
- *   isLoadingSuggestions, // Whether suggestions are being generated
- * } = useCopilotChat();
- * ```
+ * <PropertyReference name="setMcpServers" type="(servers: MCPServerConfig[]) => void">
+ * Update MCP server configurations for enhanced context
+ * </PropertyReference>
  */
-import { useEffect } from "react";
-import { useCopilotContext } from "../context/copilot-context";
 
 import {
-  useCopilotChat as useCopilotChatInternal,
-  defaultSystemMessage,
   UseCopilotChatOptions,
-  UseCopilotChatReturn,
-  MCPServerConfig,
+  useCopilotChat as useCopilotChatInternal,
+  UseCopilotChatReturn as UseCopilotChatReturnInternal,
 } from "./use-copilot-chat_internal";
-import {
-  ErrorVisibility,
-  Severity,
-  CopilotKitError,
-  CopilotKitErrorCode,
-  styledConsole,
-} from "@copilotkit/shared";
 
-// Non-functional fallback implementation
-const createNonFunctionalReturn = (): UseCopilotChatReturn => ({
-  visibleMessages: [],
-  appendMessage: async () => {},
-  setMessages: () => {},
-  deleteMessage: () => {},
-  reloadMessages: async () => {},
-  stopGeneration: () => {},
-  reset: () => {},
-  isLoading: false,
-  runChatCompletion: async () => [],
-  mcpServers: [],
-  setMcpServers: () => {},
-  suggestions: [],
-  setSuggestions: () => {},
-  generateSuggestions: async () => {},
-  resetSuggestions: () => {},
-  isLoadingSuggestions: false,
-  interrupt: null,
-});
-function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotChatReturn {
-  const { copilotApiConfig, setBannerError } = useCopilotContext();
+// Create a type that excludes message-related properties from the internal type
+export type UseCopilotChatReturn = Omit<
+  UseCopilotChatReturnInternal,
+  | "messages"
+  | "sendMessage"
+  | "suggestions"
+  | "setSuggestions"
+  | "generateSuggestions"
+  | "isLoadingSuggestions"
+  | "resetSuggestions"
+  | "interrupt"
+  | "setMessages"
+  | "deleteMessage"
+>;
 
-  // Check if publicApiKey is available
-  const hasPublicApiKey = Boolean(copilotApiConfig.publicApiKey);
+/**
+ * A lightweight React hook for headless chat interactions.
+ * Perfect for programmatic messaging, background operations, and custom UI implementations.
+ *
+ * **Open Source Friendly** - Works without requiring a `publicApiKey`.
+ */
+export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotChatReturn {
+  const {
+    visibleMessages,
+    appendMessage,
+    reloadMessages,
+    stopGeneration,
+    reset,
+    isLoading,
+    runChatCompletion,
+    mcpServers,
+    setMcpServers,
+  } = useCopilotChatInternal(options);
 
-  // Always call the internal hook (follows rules of hooks)
-  const internalResult = useCopilotChatInternal(options);
-
-  // Set banner error when no public API key is provided
-  useEffect(() => {
-    if (!hasPublicApiKey) {
-      setBannerError(
-        new CopilotKitError({
-          message: "As of v1.10.0, useCopilotChat requires a publicApiKey to function.",
-          code: CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR,
-          severity: Severity.CRITICAL,
-          visibility: ErrorVisibility.BANNER,
-        }),
-      );
-      styledConsole.logCopilotKitPlatformMessage();
-    } else {
-      setBannerError(null); // Clear banner when API key is provided
-    }
-  }, [hasPublicApiKey]); // Removed setBannerError dependency
-
-  // Return internal result if publicApiKey is available, otherwise return fallback
-  if (hasPublicApiKey) {
-    return internalResult;
-  }
-
-  // Return non-functional fallback when no publicApiKey
-  return createNonFunctionalReturn();
+  return {
+    visibleMessages,
+    appendMessage,
+    reloadMessages,
+    stopGeneration,
+    reset,
+    isLoading,
+    runChatCompletion,
+    mcpServers,
+    setMcpServers,
+  };
 }
-
-export { defaultSystemMessage, useCopilotChat };
-export type { UseCopilotChatOptions, UseCopilotChatReturn, MCPServerConfig };

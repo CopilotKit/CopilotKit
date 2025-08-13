@@ -85,6 +85,7 @@ import type { SuggestionItem } from "@copilotkit/react-core";
 import {
   CopilotKitError,
   CopilotKitErrorCode,
+  CopilotErrorEvent,
   Message,
   Severity,
   ErrorVisibility,
@@ -225,6 +226,11 @@ export interface CopilotChatProps {
   makeSystemMessage?: SystemMessageFunction;
 
   /**
+   * Disables inclusion of CopilotKit’s default system message. When true, no system message is sent (this also suppresses any custom message from <code>makeSystemMessage</code>).
+   */
+  disableSystemMessage?: boolean;
+
+  /**
    * A custom assistant message component to use instead of the default.
    */
   AssistantMessage?: React.ComponentType<AssistantMessageProps>;
@@ -238,6 +244,31 @@ export interface CopilotChatProps {
    * A custom Messages component to use instead of the default.
    */
   Messages?: React.ComponentType<MessagesProps>;
+
+  /**
+   * @deprecated - use RenderMessage instead
+   */
+  RenderTextMessage?: React.ComponentType<RenderMessageProps>;
+
+  /**
+   * @deprecated - use RenderMessage instead
+   */
+  RenderActionExecutionMessage?: React.ComponentType<RenderMessageProps>;
+
+  /**
+   * @deprecated - use RenderMessage instead
+   */
+  RenderAgentStateMessage?: React.ComponentType<RenderMessageProps>;
+
+  /**
+   * @deprecated - use RenderMessage instead
+   */
+  RenderResultMessage?: React.ComponentType<RenderMessageProps>;
+
+  /**
+   * @deprecated - use RenderMessage instead
+   */
+  RenderImageMessage?: React.ComponentType<RenderMessageProps>;
 
   /**
    * A custom RenderMessage component to use instead of the default.
@@ -297,6 +328,18 @@ export interface CopilotChatProps {
    * These hooks only work when publicApiKey is provided.
    */
   observabilityHooks?: CopilotObservabilityHooks;
+
+  /**
+   * Custom error renderer for chat-specific errors.
+   * When provided, errors will be displayed inline within the chat interface.
+   */
+  renderError?: (error: {
+    message: string;
+    operation?: string;
+    timestamp: number;
+    onDismiss: () => void;
+    onRetry?: () => void;
+  }) => React.ReactNode;
 }
 
 interface OnStopGenerationArguments {
@@ -362,6 +405,7 @@ export function CopilotChat({
   suggestions = "auto",
   onSubmitMessage,
   makeSystemMessage,
+  disableSystemMessage,
   onInProgress,
   onStopGeneration,
   onReloadMessages,
@@ -387,19 +431,35 @@ export function CopilotChat({
   canCopyAssistantMessage,
   disableFirstAssistantMessageControls,
   observabilityHooks,
+  renderError,
+
+  // Legacy props - deprecated
+  RenderTextMessage,
+  RenderActionExecutionMessage,
+  RenderAgentStateMessage,
+  RenderResultMessage,
+  RenderImageMessage,
 }: CopilotChatProps) {
   const { additionalInstructions, setChatInstructions, copilotApiConfig, setBannerError } =
     useCopilotContext();
+
+  // Destructure stable values to avoid object reference changes
+  const { publicApiKey, chatApiEndpoint } = copilotApiConfig;
   const [selectedImages, setSelectedImages] = useState<Array<ImageUpload>>([]);
+  const [chatError, setChatError] = useState<{
+    message: string;
+    operation?: string;
+    timestamp: number;
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Helper function to trigger event hooks only if publicApiKey is provided
   const triggerObservabilityHook = useCallback(
     (hookName: keyof CopilotObservabilityHooks, ...args: any[]) => {
-      if (copilotApiConfig.publicApiKey && observabilityHooks?.[hookName]) {
+      if (publicApiKey && observabilityHooks?.[hookName]) {
         (observabilityHooks[hookName] as any)(...args);
       }
-      if (observabilityHooks?.[hookName] && !copilotApiConfig.publicApiKey) {
+      if (observabilityHooks?.[hookName] && !publicApiKey) {
         setBannerError(
           new CopilotKitError({
             message: "observabilityHooks requires a publicApiKey to function.",
@@ -411,7 +471,58 @@ export function CopilotChat({
         styledConsole.publicApiKeyRequired("observabilityHooks");
       }
     },
-    [copilotApiConfig.publicApiKey, observabilityHooks],
+    [publicApiKey, observabilityHooks, setBannerError],
+  );
+
+  // Helper function to trigger chat error and render error UI
+  const triggerChatError = useCallback(
+    (error: any, operation: string, originalError?: any) => {
+      const errorMessage = error?.message || error?.toString() || "An error occurred";
+
+      // Set chat error state for rendering
+      setChatError({
+        message: errorMessage,
+        operation,
+        timestamp: Date.now(),
+      });
+
+      // Also trigger observability hook if available
+      if (publicApiKey && observabilityHooks?.onError) {
+        const errorEvent: CopilotErrorEvent = {
+          type: "error",
+          timestamp: Date.now(),
+          context: {
+            source: "ui",
+            request: {
+              operation,
+              url: chatApiEndpoint,
+              startTime: Date.now(),
+            },
+            technical: {
+              environment: "browser",
+              userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+              stackTrace: originalError instanceof Error ? originalError.stack : undefined,
+            },
+          },
+          error,
+        };
+        observabilityHooks.onError(errorEvent);
+      }
+
+      // Show banner error if onError hook is used without publicApiKey
+      if (observabilityHooks?.onError && !publicApiKey) {
+        setBannerError(
+          new CopilotKitError({
+            message: "observabilityHooks.onError requires a publicApiKey to function.",
+            code: CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR,
+            severity: Severity.CRITICAL,
+            visibility: ErrorVisibility.BANNER,
+          }),
+        );
+        styledConsole.publicApiKeyRequired("observabilityHooks.onError");
+      }
+    },
+    [publicApiKey, chatApiEndpoint, observabilityHooks, setBannerError],
   );
 
   // Clipboard paste handler
@@ -455,14 +566,15 @@ export function CopilotChat({
         const loadedImages = (await Promise.all(imagePromises)).filter((img) => img !== null);
         setSelectedImages((prev) => [...prev, ...loadedImages]);
       } catch (error) {
-        // TODO: Show an error message to the user
+        // Trigger chat-level error handler
+        triggerChatError(error, "processClipboardImages", error);
         console.error("Error processing pasted images:", error);
       }
     };
 
     document.addEventListener("paste", handlePaste);
     return () => document.removeEventListener("paste", handlePaste);
-  }, [imageUploadsEnabled]);
+  }, [imageUploadsEnabled, triggerChatError]);
 
   useEffect(() => {
     if (!additionalInstructions?.length) {
@@ -488,7 +600,7 @@ export function CopilotChat({
   }, [instructions, additionalInstructions]);
 
   const {
-    visibleMessages,
+    messages,
     isLoading,
     sendMessage,
     stopGeneration,
@@ -497,6 +609,7 @@ export function CopilotChat({
   } = useCopilotChatLogic(
     suggestions,
     makeSystemMessage,
+    disableSystemMessage,
     onInProgress,
     onSubmitMessage,
     onStopGeneration,
@@ -582,7 +695,8 @@ export function CopilotChat({
       const loadedImages = await Promise.all(fileReadPromises);
       setSelectedImages((prev) => [...prev, ...loadedImages]);
     } catch (error) {
-      // TODO: Show an error message to the user
+      // Trigger chat-level error handler
+      triggerChatError(error, "processUploadedImages", error);
       console.error("Error reading files:", error);
     }
   };
@@ -611,11 +725,24 @@ export function CopilotChat({
 
   return (
     <WrappedCopilotChat icons={icons} labels={labels} className={className}>
+      {/* Render error above messages if present */}
+      {chatError &&
+        renderError &&
+        renderError({
+          ...chatError,
+          onDismiss: () => setChatError(null),
+          onRetry: () => {
+            // Clear error and potentially retry based on operation
+            setChatError(null);
+            // TODO: Implement specific retry logic based on operation type
+          },
+        })}
+
       <Messages
         AssistantMessage={AssistantMessage}
         UserMessage={UserMessage}
         RenderMessage={RenderMessage}
-        messages={visibleMessages}
+        messages={messages}
         inProgress={isLoading}
         onRegenerate={handleRegenerate}
         onCopy={handleCopy}
@@ -626,6 +753,12 @@ export function CopilotChat({
         canRegenerateAssistantMessage={canRegenerateAssistantMessage}
         disableFirstAssistantMessageControls={disableFirstAssistantMessageControls}
         ImageRenderer={ImageRenderer}
+        // Legacy props - passed through to Messages component
+        RenderTextMessage={RenderTextMessage}
+        RenderActionExecutionMessage={RenderActionExecutionMessage}
+        RenderAgentStateMessage={RenderAgentStateMessage}
+        RenderResultMessage={RenderResultMessage}
+        RenderImageMessage={RenderImageMessage}
       >
         {currentSuggestions.length > 0 && (
           <RenderSuggestionsList
@@ -685,14 +818,15 @@ export function WrappedCopilotChat({
 export const useCopilotChatLogic = (
   chatSuggestions: ChatSuggestions,
   makeSystemMessage?: SystemMessageFunction,
+  disableSystemMessage?: boolean,
   onInProgress?: (isLoading: boolean) => void,
   onSubmitMessage?: (messageContent: string) => Promise<void> | void,
   onStopGeneration?: OnStopGeneration,
   onReloadMessages?: OnReloadMessages,
 ) => {
   const {
-    visibleMessages,
-    appendMessage,
+    messages,
+    sendMessage,
     setMessages,
     reloadMessages: defaultReloadMessages,
     stopGeneration: defaultStopGeneration,
@@ -705,6 +839,7 @@ export const useCopilotChatLogic = (
     isLoadingSuggestions,
   } = useCopilotChat({
     makeSystemMessage,
+    disableSystemMessage,
   });
 
   const generalContext = useCopilotContext();
@@ -756,14 +891,14 @@ export const useCopilotChatLogic = (
     }
 
     // Generate initial suggestions when chat is empty
-    if (visibleMessages.length === 0 && !hasGeneratedInitialSuggestions.current) {
+    if (messages.length === 0 && !hasGeneratedInitialSuggestions.current) {
       hasGeneratedInitialSuggestions.current = true;
       generateSuggestionsWithErrorHandling("initial");
       return;
     }
 
     // Generate post-message suggestions after assistant responds
-    if (visibleMessages.length > 0 && suggestions.length === 0) {
+    if (messages.length > 0 && suggestions.length === 0) {
       generateSuggestionsWithErrorHandling("post-message");
       return;
     }
@@ -771,7 +906,7 @@ export const useCopilotChatLogic = (
     chatSuggestions,
     isLoadingSuggestions,
     suggestionsFailed,
-    visibleMessages.length,
+    messages.length,
     isLoading,
     suggestions.length,
     Object.keys(generalContext.chatSuggestionConfiguration).join(","), // Use stable string instead of object reference
@@ -811,7 +946,7 @@ export const useCopilotChatLogic = (
     onInProgress?.(isLoading);
   }, [onInProgress, isLoading]);
 
-  const sendMessage = async (
+  const safelySendMessage = async (
     messageContent: string,
     imagesToUse?: Array<{ contentType: string; bytes: string }>,
   ) => {
@@ -843,7 +978,7 @@ export const useCopilotChatLogic = (
       }
 
       // Send the message and clear suggestions for auto/manual modes
-      await appendMessage(textMessage, {
+      await sendMessage(textMessage, {
         followUp: images.length === 0,
         clearSuggestions: chatSuggestions === "auto" || chatSuggestions === "manual",
       });
@@ -864,7 +999,7 @@ export const useCopilotChatLogic = (
             bytes: images[i].bytes,
           },
         } as unknown as Message;
-        await appendMessage(imageMessage, { followUp: i === images.length - 1 });
+        await sendMessage(imageMessage, { followUp: i === images.length - 1 });
         if (!firstMessage) {
           firstMessage = imageMessage;
         }
@@ -881,7 +1016,6 @@ export const useCopilotChatLogic = (
     return firstMessage;
   };
 
-  const messages = visibleMessages;
   const currentAgentName = generalContext.agentSession?.agentName;
   const restartCurrentAgent = async (hint?: HintFunction) => {
     if (generalContext.agentSession) {
@@ -908,9 +1042,9 @@ export const useCopilotChatLogic = (
       await runAgent(
         generalContext.agentSession.agentName,
         stableContext,
-        appendMessage,
+        messagesContext.messages,
+        sendMessage,
         runChatCompletion,
-        hint,
       );
     }
   };
@@ -971,10 +1105,9 @@ export const useCopilotChatLogic = (
 
   return {
     messages,
-    visibleMessages,
     isLoading,
     suggestions,
-    sendMessage,
+    sendMessage: safelySendMessage,
     stopGeneration,
     reloadMessages,
     resetSuggestions,

@@ -1,8 +1,7 @@
 {
-  "title": "Troubleshooting CoAgent Copilots",
+  "title": "Troubleshooting",
   "pages": [
     "common-coagent-issues",
-    "migrate-from-v0.2-to-v0.3",
     "error-debugging-observability"
   ]
 }

@@ -5,6 +5,7 @@
     "useCopilotAction",
     "useCopilotAdditionalInstructions",
     "useCopilotChat",
+    "useCopilotChatHeadless_c",
     "useCopilotChatSuggestions",
     "useCoAgent",
     "useCoAgentStateRender",

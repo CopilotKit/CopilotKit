@@ -1,5 +1,96 @@
 # @copilotkit/runtime
 
+## 1.10.2-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.2-next.0
+
+## 1.10.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.1
+
+## 1.10.1-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.1-next.2
+
+## 1.10.1-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.1-next.1
+
+## 1.10.1-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.1-next.0
+
+## 1.10.0
+
+### Patch Changes
+
+- 1abcecf: - fix: add graphqlContext to constructAGUIRemoteAction for enhanced agent properties
+
+  - Updated constructAGUIRemoteAction to accept graphqlContext, allowing forwarding of properties like Authorization token to the agent.
+  - Modified setupRemoteActions to include graphqlContext in the parameters.
+
+- 6f2f54b: - fix(openai): update maxTokens parameter to max_completion_tokens in OpenAIAdapter
+- b5b94b9: - fix: throw errors when they happen with agui streams
+- 824fb69: - fix: pass config to the forwarded props of an agui agent
+- 59b0e16: - feat: add native prompt caching support to AnthropicAdapter
+- a31443c: removed unused dependency on ip module
+- dc6df18: - feat: use latest agui langgraph package
+  - chore: release python sdk 0.1.58
+- Updated dependencies [a8c0263]
+- Updated dependencies [8674da1]
+- Updated dependencies [6d1de58]
+  - @copilotkit/shared@1.10.0
+
+## 1.10.0-next.13
+
+### Patch Changes
+
+- b5b94b9: - fix: throw errors when they happen with agui streams
+  - @copilotkit/shared@1.10.0-next.13
+
+## 1.10.0-next.12
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.0-next.12
+
+## 1.10.0-next.11
+
+### Patch Changes
+
+- dc6df18: - feat: use latest agui langgraph package
+  - chore: release python sdk 0.1.58
+  - @copilotkit/shared@1.10.0-next.11
+
+## 1.10.0-next.10
+
+### Patch Changes
+
+- Updated dependencies [6d1de58]
+  - @copilotkit/shared@1.10.0-next.10
+
+## 1.10.0-next.9
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.0-next.9
+
+## 1.10.0-next.8
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.0-next.8
+
 ## 1.10.0-next.7
 
 ### Patch Changes

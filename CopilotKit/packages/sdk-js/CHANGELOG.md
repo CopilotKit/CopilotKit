@@ -1,5 +1,81 @@
 # @copilotkit/sdk-js
 
+## 1.10.2-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.2-next.0
+
+## 1.10.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.1
+
+## 1.10.1-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.1-next.2
+
+## 1.10.1-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.1-next.1
+
+## 1.10.1-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.1-next.0
+
+## 1.10.0
+
+### Patch Changes
+
+- Updated dependencies [a8c0263]
+- Updated dependencies [8674da1]
+- Updated dependencies [6d1de58]
+  - @copilotkit/shared@1.10.0
+
+## 1.10.0-next.13
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.0-next.13
+
+## 1.10.0-next.12
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.0-next.12
+
+## 1.10.0-next.11
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.0-next.11
+
+## 1.10.0-next.10
+
+### Patch Changes
+
+- Updated dependencies [6d1de58]
+  - @copilotkit/shared@1.10.0-next.10
+
+## 1.10.0-next.9
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.0-next.9
+
+## 1.10.0-next.8
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.0-next.8
+
 ## 1.10.0-next.7
 
 ### Patch Changes

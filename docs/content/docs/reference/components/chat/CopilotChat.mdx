@@ -162,6 +162,10 @@ A function that takes in context string and instructions and returns
   instructions is not enough.
 </PropertyReference>
 
+<PropertyReference name="disableSystemMessage" type="boolean"  > 
+Disables inclusion of CopilotKit’s default system message. When true, no system message is sent (this also suppresses any custom message from <code>makeSystemMessage</code>).
+</PropertyReference>
+
 <PropertyReference name="AssistantMessage" type="React.ComponentType<AssistantMessageProps>"  > 
 A custom assistant message component to use instead of the default.
 </PropertyReference>
@@ -223,5 +227,10 @@ Whether the first assistant message has its controls disabled.
 <PropertyReference name="observabilityHooks" type="CopilotObservabilityHooks"  > 
 Event hooks for CopilotKit chat events.
   These hooks only work when publicApiKey is provided.
+</PropertyReference>
+
+<PropertyReference name="renderError" type="(error: { message: string; operation?: string; timestamp: number; onDismiss: () => void; onRetry?: () => void; }) => React.ReactNode"  > 
+Custom error renderer for chat-specific errors.
+  When provided, errors will be displayed inline within the chat interface.
 </PropertyReference>
 

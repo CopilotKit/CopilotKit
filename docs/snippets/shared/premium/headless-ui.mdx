@@ -1,0 +1,436 @@
+import { ImageAndCode } from "@/components/react/image-and-code"
+import { 
+  MessageCircleDashed,
+  Blocks,
+  LayoutList,
+  UserPen,
+  BookOpen,
+} from "lucide-react"
+
+<Callout
+  title="Early Access feature"
+  className="drop-shadow-2xl dark:border dark:border-white"
+>
+  The Fully Headless UI extension is in Early Access to CopilotKit Premium users. As it matures, it will become available as part of the core framework.
+
+  - Get started with your public license key from [Copilot Cloud](https://cloud.copilotkit.ai) 
+  - Or read more about <a href="/premium/overview">Premium Features</a>.
+
+</Callout>
+
+## Overview
+
+CopilotKit offers *fully headless UI* through the `useCopilotChatHeadless_c` hook. By using this hook, you can build your own chat interfaces
+from the ground up while still utilizing CopilotKit's core features and ease-of-use.
+
+
+
+## Navigation
+This page has all the information you need to get started with CopilotKit's headless UI. Select where you'd like to get started below.
+
+<Cards className="gap-6">
+  <Card
+    icon={<MessageCircleDashed className="text-primary" />}
+    className="p-6 rounded-xl text-base md:col-span-2" 
+    title="Getting started"
+    description="Build a fully headless chat interface from the ground up to get started."
+    href="#getting-started"
+  />
+  <Card 
+    icon={<Blocks className="text-primary" />}
+    className="p-6 rounded-xl text-base"
+    title="Generative UI"
+    description="Learn how to work with generative UI to render tools and other UI elements."
+    href="#working-with-generative-ui"
+  />
+  <Card
+    icon={<LayoutList className="text-primary" />}
+    className="p-6 rounded-xl text-base"
+    title="Suggestions"
+    description="Learn how to work with suggestions to provide your users with a list of generated or static options to operate the chat with."
+    href="#working-with-suggestions"
+  />
+  <Card 
+    icon={<UserPen className="text-primary" />}
+    className="p-6 rounded-xl text-base"
+    title="Human-in-the-loop"
+    description="Learn how to work with human-in-the-loop to pause the chat and wait for a human to respond."
+    href="#working-with-human-in-the-loop"
+  />
+  <Card 
+    icon={<BookOpen className="text-primary" />}
+    className="p-6 rounded-xl text-base"
+    title="Reference"
+    description="Reference documentation for the `useCopilotChatHeadless_c` hook."
+    href="/reference/hooks/useCopilotChatHeadless_c"
+  />
+</Cards> 
+
+## Getting started
+To get started, let's walk through building a simple chat interface. From there, we'll cover
+how to do more advanced things like working with suggestions and generative UI.
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/videos/full-headless-chat.mp4"
+  className="rounded-xl shadow-lg border"
+  loop
+  playsInline
+  autoPlay
+  muted
+/>
+
+To get there, let's start by building a simple chat interface.
+
+<Steps>
+  <Step>
+    ### Create a new application
+    ```bash
+    npx copilotkit@latest create
+    ```
+  </Step>
+
+  <Step>
+    ### Set up your application
+    First, follow the instructions in the README to set up your application, it will be a simple process.
+
+    ```bash
+    open README.md
+    ```
+  </Step>
+
+  <Step>
+    ### Setup your CopilotKit provider
+    You will need to provide your public license key to the `CopilotKit` provider component. Get yours on [Copilot Cloud](https://cloud.copilotkit.ai) or read more about [premium features](/premium).
+  
+    ```tsx title="src/app/layout.tsx"
+    <CopilotKit 
+      publicLicenseKey="your-free-public-license-key"
+    >
+      {children}
+    </CopilotKit>
+    ```
+  </Step>
+
+  <Step>
+    ### Create a headless chat component
+    Replace your main page with a simple chat interface using the headless hook.
+
+    ```tsx title="src/app/page.tsx"
+    "use client";
+    import { useState } from "react";
+    import { useCopilotChatHeadless_c } from "@copilotkit/react-core"; // [!code highlight]
+
+    export default function Home() {
+      const { messages, sendMessage, isLoading } = useCopilotChatHeadless_c(); // [!code highlight]
+      const [input, setInput] = useState("");
+
+      const handleSend = () => {
+        if (input.trim()) {
+          sendMessage({ // [!code highlight:5]
+            id: Date.now().toString(),
+            role: "user",
+            content: input,
+          });
+          setInput("");
+        }
+      };
+
+      return (
+        <div>
+          <h1>My Headless Chat</h1>
+          
+          {/* Messages */}
+          <div>
+            {messages.map((message) => ( // [!code highlight:5]
+              <div key={message.id}>
+                <strong>{message.role === "user" ? "You" : "Assistant"}:</strong>
+                <p>{message.content}</p>
+              </div>
+            ))}
+            {/* [!code highlight:2] */}
+            {isLoading && <p>Assistant is typing...</p>}
+          </div>
+
+          {/* Input */}
+          <div>
+            <input 
+              type="text" 
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              // [!code highlight:2]
+              onKeyDown={(e) => e.key === "Enter" && handleSend()}
+              placeholder="Type your message here..."
+            />
+            {/* [!code highlight:2] */}
+            <button onClick={handleSend} disabled={isLoading}>
+              Send
+            </button>
+          </div>
+        </div>
+      );
+    }
+    ```
+  </Step>
+</Steps>
+
+## Working with Generative UI
+
+You can also render generative UI either via `useCopilotAction` or by reading tools and rendering them directly.
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/videos/gen-ui.mp4"
+  className="rounded-xl shadow-lg border"
+  loop
+  playsInline
+  autoPlay
+  muted
+/>
+
+### With `useCopilotAction`
+CopilotKit's standard components utilize `useCopilotAction` to allow tools to be both rendered and called in 
+the frontend. These same interfaces are available to you while using the `useCopilotChatHeadless_c` hook.
+
+```tsx title="src/app/components/chat.tsx"
+import { useCopilotAction } from "@copilotkit/react-core";
+
+export const Chat = () => {
+  // ...
+
+  // Define an action that will show a custom component
+  useCopilotAction({
+    name: "showCustomComponent",
+    // Handle the tool on the frontend
+    // [!code highlight:4]
+    handler: () => {
+      return "Foo, Bar, Baz";
+    },
+    // Render a custom component for the underlying data
+    // [!code highlight:13]
+    render: ({ result, args, status}) => {
+      return <div style={{
+        backgroundColor: "red",
+        padding: "10px",
+        borderRadius: "5px",
+      }}>
+        <p>Custom component</p>
+        <p>Result: {result}</p>
+        <p>Args: {JSON.stringify(args)}</p>
+        <p>Status: {status}</p>
+      </div>;
+    }
+  });
+
+  // ...
+
+  return <div>
+    {messages.map((message) => (
+      <p key={message.id}>
+        {message.role === "user" ? "User: " : "Assistant: "}
+        {message.content}
+        {/* Render the generative UI if it exists */}
+        {/* [!code highlight:2] */}
+        {message.role === "assistant" && message.generativeUI?.()}
+      </p>
+    ))}
+  </div>
+};
+```
+
+### With raw data
+If you don't want to use `useCopilotAction`, you can also render the raw data directly.
+
+```tsx title="src/app/components/chat.tsx"
+export const Chat = () => {
+  // ...
+
+  return <div>
+    {messages.map((message) => (
+      <p key={message.id}>
+        {/* Render the tool calls if they exist */}
+        {/* [!code highlight:6] */}
+        {message.role === "assistant" && message.toolCalls?.map((toolCall) => (
+          <p key={toolCall.id}>
+            {toolCall.function.name}: {toolCall.function.arguments}
+          </p>
+        ))}
+      </p>
+    ))}
+  </div>
+};
+```
+
+## Working with suggestions
+
+CopilotKit's suggestions are a way to provide your users with a list of suggestions to operate the chat with. When utilizing
+Headless UI, you have full control over the lifecycle of these suggestions.
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/videos/suggestions.mp4"
+  className="rounded-xl shadow-lg border"
+  loop
+  playsInline
+  autoPlay
+  muted
+/>
+
+### Generating suggestions
+
+You can generate suggestions by calling the `generateSuggestions` function.
+```tsx title="src/app/components/chat.tsx"
+import { useCopilotChatHeadless_c, useCopilotChatSuggestions } from "@copilotkit/react-core"; // [!code highlight]
+
+export const Chat = () => {
+  // Specify what suggestions should be generated
+  // [!code highlight:6]
+  useCopilotChatSuggestions({
+    instructions:
+      "Suggest 5 interesting activities for programmers to do on their next vacation",
+    maxSuggestions: 5,
+  });
+
+  // Grab relevant state from the headless hook
+  // [!code highlight:2]
+  const { suggestions, generateSuggestions, sendMessage } = useCopilotChatHeadless_c();
+
+  // Generate suggestions when the component mounts
+  useEffect(() => {
+    // [!code highlight:2]
+    generateSuggestions();
+  }, []);
+
+  // ...
+
+  // [!code word:suggestion]
+  return <div>
+    {suggestions.map((suggestion, index) => (
+      <button 
+        key={index} 
+        onClick={() => sendMessage({ 
+          id: "123", 
+          role: "user", 
+          content: suggestion.message
+        })}
+      >
+        {suggestion.title}
+      </button>
+    ))}
+  </div>
+};
+```
+
+### Programmatically setting suggestions
+If you want more deterministic control over the suggestions, you can set them manually.
+
+```tsx title="src/app/components/chat.tsx"
+import { useCopilotChatHeadless_c } from "@copilotkit/react-core";
+
+export const Chat = () => {
+  // Grab relevant state from the headless hook
+  // [!code highlight:2]
+  const { suggestions, setSuggestions } = useCopilotChatHeadless_c();
+
+  // Set the suggestions when the component mounts
+  // [!code highlight:6]
+  useEffect(() => {
+    setSuggestions([
+      { title: "Suggestion 1", message: "The actual message for suggestion 1" },
+      { title: "Suggestion 2", message: "The actual message for suggestion 2" },
+    ]);
+  }, []);
+
+  // Change the suggestions on function call
+  const changeSuggestions = () => {
+    // [!code highlight:4]
+    setSuggestions([
+      { title: "Foo", message: "Bar" },
+      { title: "Baz", message: "Bat" },
+    ]);
+  };
+
+  // [!code word:suggestion]
+  return (
+    <div>
+      {/* Change on button click */}
+      <button onClick={changeSuggestions}>Change suggestions</button>
+
+      {/* Render */}
+      {suggestions.map((suggestion, index) => (
+        <button 
+          key={index} 
+          onClick={() => sendMessage({ 
+            id: "123", 
+            role: "user", 
+            content: suggestion.message
+          })}
+        >
+          {suggestion.title}
+        </button>
+      ))}
+    </div>
+  );
+};
+```
+
+## Working with Human-in-the-loop
+
+CopilotKit's human-in-the-loop (HITL) features allows you to pause the chat and wait for a human to respond. This comes 
+in two flavors: **tool-based** and **interrupt-based** (for certain frameworks).
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/videos/hitl.mp4"
+  className="rounded-xl shadow-lg border"
+  loop
+  playsInline
+  autoPlay
+  muted
+/>
+
+### Tool-based
+Tool-based HITL allows for you to pause completion of a tool call and wait for a human to respond. That human's response,
+becomes the result of the tool call.
+
+
+```tsx title="src/app/components/chat.tsx"
+import { useCopilotAction, useCopilotChatHeadless_c } from "@copilotkit/react-core";
+
+export const Chat = () => {
+  const { messages, sendMessage } = useCopilotChatHeadless_c();
+
+  // Define an action that will wait for the user to enter their name
+  useCopilotAction({
+    name: "getName",
+    renderAndWaitForResponse: ({ respond, args, status}) => {
+      if (status === "complete") {
+        return <div>
+          <p>Name retrieved...</p>
+        </div>;
+      }
+
+      return <div>
+        <input 
+          type="text" 
+          value={args.name || ""} 
+          onChange={(e) => respond?.(e.target.value)} 
+          placeholder="Enter your name" 
+        />
+        {/* Respond with the name */}
+        // [!code highlight:2]
+        <button onClick={() => respond?.(args.name)}>Submit</button>
+      </div>;
+    }
+  });
+
+  return (
+    {messages.map((message) => (
+      <p key={message.id}>
+        {message.role === "user" ? "User: " : "Assistant: "}
+        {message.content}
+        {/* [!code highlight:3] */}
+        {/* This will render the tool-based HITL if it exists */}
+        {message.role === "assistant" && message.generativeUI?.()}
+      </p>
+    ))}
+  )
+};
+```
+

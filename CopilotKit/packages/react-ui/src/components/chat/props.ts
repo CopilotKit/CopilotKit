@@ -1,4 +1,4 @@
-import { AIMessage, Message, UserMessage } from "@copilotkit/shared";
+import { AIMessage, Message, UserMessage, CopilotErrorEvent } from "@copilotkit/shared";
 import { CopilotChatSuggestion } from "../../types/suggestions";
 import { ReactNode } from "react";
 import { ImageData } from "@copilotkit/shared";
@@ -47,6 +47,12 @@ export interface CopilotObservabilityHooks {
    * Called when chat generation stops
    */
   onChatStopped?: () => void;
+
+  /**
+   * Called when an error occurs in the chat
+   * This enables chat-specific error handling UX while preserving system-wide error monitoring
+   */
+  onError?: (errorEvent: CopilotErrorEvent) => void;
 }
 
 export interface ButtonProps {}
@@ -109,6 +115,31 @@ export interface MessagesProps {
    * Useful when you want to render custom elements in the message (e.g a reference tag element)
    */
   markdownTagRenderers?: ComponentsMap;
+
+  /**
+   * @deprecated Use RenderMessage instead
+   */
+  RenderTextMessage?: React.ComponentType<RenderMessageProps>;
+
+  /**
+   * @deprecated Use RenderMessage instead
+   */
+  RenderActionExecutionMessage?: React.ComponentType<RenderMessageProps>;
+
+  /**
+   * @deprecated Use RenderMessage instead
+   */
+  RenderAgentStateMessage?: React.ComponentType<RenderMessageProps>;
+
+  /**
+   * @deprecated Use RenderMessage instead
+   */
+  RenderResultMessage?: React.ComponentType<RenderMessageProps>;
+
+  /**
+   * @deprecated Use RenderMessage instead
+   */
+  RenderImageMessage?: React.ComponentType<RenderMessageProps>;
 }
 
 export interface Renderer {
@@ -118,6 +149,13 @@ export interface Renderer {
 export interface UserMessageProps {
   message?: UserMessage;
   ImageRenderer: React.ComponentType<ImageRendererProps>;
+
+  /**
+   * @deprecated use message instead
+   *
+   * The raw data from the assistant's response
+   */
+  rawData: any;
 }
 
 export interface AssistantMessageProps {
@@ -193,6 +231,31 @@ export interface AssistantMessageProps {
    * A custom image rendering component to use instead of the default.
    */
   ImageRenderer?: React.ComponentType<ImageRendererProps>;
+
+  /**
+   * @deprecated use message instead
+   *
+   * The raw data from the assistant's response
+   */
+  rawData: any;
+
+  /**
+   *
+   * @deprecated
+   *
+   * use `message.generativeUI()` instead.
+   *
+   * For example:
+   *
+   * ```tsx
+   * const CustomAssistantMessage = ({ message }: AssistantMessageProps) => {
+   *   const subComponent = message?.generativeUI?.();
+   *   return <div>{subComponent}</div>;
+   * };
+   *
+   * ```
+   */
+  subComponent?: React.JSX.Element;
 }
 
 export interface RenderMessageProps {
