@@ -10,6 +10,7 @@ export enum MessageRole {
 
 export enum CopilotRequestType {
   Chat = "Chat",
+  Connect = "Connect",
   Task = "Task",
   TextareaCompletion = "TextareaCompletion",
   TextareaPopover = "TextareaPopover",

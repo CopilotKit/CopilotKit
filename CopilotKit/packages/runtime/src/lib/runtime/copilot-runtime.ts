@@ -57,7 +57,7 @@ import { GraphQLContext } from "../integrations/shared";
 import { AgentSessionInput } from "../../graphql/inputs/agent-session.input";
 import { from } from "rxjs";
 import { AgentStateInput } from "../../graphql/inputs/agent-state.input";
-import { ActionInputAvailability } from "../../graphql/types/enums";
+import { ActionInputAvailability, CopilotRequestType } from "../../graphql/types/enums";
 import { createHeaders } from "./remote-action-constructors";
 import { fetchWithRetry } from "./retry-utils";
 import { Agent } from "../../graphql/types/agents-response.type";
@@ -90,6 +90,9 @@ type CreateMCPClientFunction = (config: MCPEndpointConfig) => Promise<MCPClient>
 // --- MCP Imports ---
 
 import { generateHelpfulErrorMessage } from "../streaming";
+import { AgentRunner } from "../../runner/agent-runner";
+import { InMemoryAgentRunner } from "../../runner/in-memory";
+import { GenerateCopilotResponseMetadataInput } from "../../graphql/inputs/generate-copilot-response.input";
 
 export interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
@@ -106,6 +109,7 @@ export interface CopilotRuntimeRequest {
   url?: string;
   extensions?: ExtensionsInput;
   metaEvents?: MetaEventInput[];
+  metadata: GenerateCopilotResponseMetadataInput;
 }
 
 interface CopilotRuntimeResponse {
@@ -216,6 +220,11 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
   agents?: Record<string, AbstractAgent>;
 
   /*
+   * The agent runner to use. Defaults to InMemoryAgentRunner.
+   */
+  runner?: AgentRunner;
+
+  /*
    * Delegates agent state processing to the service adapter.
    *
    * When enabled, individual agent state requests will not be processed by the agent itself.
@@ -313,6 +322,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   private availableAgents: Pick<AgentWithEndpoint, "name" | "id">[];
   private onError?: CopilotErrorHandler;
   private hasWarnedAboutError = false;
+  private runner: AgentRunner;
 
   // +++ MCP Properties +++
   private readonly mcpServersConfig?: MCPEndpointConfig[];
@@ -347,6 +357,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
     this.actions = params?.actions || [];
     this.availableAgents = [];
+    this.runner = params?.runner || new InMemoryAgentRunner();
 
     for (const chain of params?.langserve || []) {
       const remoteChain = new RemoteChain(chain);
@@ -484,6 +495,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       agentSession,
       agentStates,
       publicApiKey,
+      metadata,
     } = request;
 
     const eventSource = new RuntimeEventSource({
@@ -963,7 +975,9 @@ please use an LLM adapter instead.`,
           defaultHeaders: { ...propertyHeaders },
         });
       } else {
-        const aguiAgent = graphqlContext._copilotkit.runtime.agents[agent.name] as LangGraphAgent;
+        const aguiAgent = graphqlContext._copilotkit.runtime.agents[
+          agent.name
+        ] as unknown as LangGraphAgent;
         if (!aguiAgent) {
           throw new Error(`Agent: ${agent.name} could not be resolved`);
         }
@@ -1381,7 +1395,7 @@ please use an LLM adapter instead.`,
   }
 
   private async getServerSideActions(request: CopilotRuntimeRequest): Promise<Action<any>[]> {
-    const { graphqlContext, messages: rawMessages, agentStates, url } = request;
+    const { graphqlContext, messages: rawMessages, agentStates, url, metadata } = request;
 
     // --- Standard Action Fetching (unchanged) ---
     const inputMessages = convertGqlInputToMessages(rawMessages);
@@ -1408,6 +1422,8 @@ please use an LLM adapter instead.`,
       agents: this.agents,
       metaEvents: request.metaEvents,
       nodeName: request.agentSession?.nodeName,
+      runner: this.runner,
+      metadata,
     });
 
     const configuredActions =

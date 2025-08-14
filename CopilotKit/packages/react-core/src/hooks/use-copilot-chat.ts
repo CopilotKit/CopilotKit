@@ -111,6 +111,7 @@ export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotC
     runChatCompletion,
     mcpServers,
     setMcpServers,
+    connect,
   } = useCopilotChatInternal(options);
 
   return {
@@ -123,5 +124,6 @@ export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotC
     runChatCompletion,
     mcpServers,
     setMcpServers,
+    connect,
   };
 }

@@ -164,6 +164,7 @@ export type UseChatOptions = {
 };
 
 export type UseChatHelpers = {
+  connect: () => Promise<void>;
   /**
    * Append a user message to the chat list. This triggers the API call to fetch
    * the assistant's response.
@@ -226,7 +227,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     setLangGraphInterruptAction,
     disableSystemMessage = false,
   } = options;
-  const runChatCompletionRef = useRef<(previousMessages: Message[]) => Promise<Message[]>>();
+  const runChatCompletionRef =
+    useRef<(previousMessages: Message[], requestType?: CopilotRequestType) => Promise<Message[]>>();
   const addErrorToast = useErrorToast();
   const { setBannerError } = useToast();
 
@@ -294,7 +296,10 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   const pendingAppendsRef = useRef<{ message: Message; followUp: boolean }[]>([]);
 
   const runChatCompletion = useAsyncCallback(
-    async (previousMessages: Message[]): Promise<Message[]> => {
+    async (
+      previousMessages: Message[],
+      requestType: CopilotRequestType = CopilotRequestType.Chat,
+    ): Promise<Message[]> => {
       setIsLoading(true);
       const interruptEvent = langGraphInterruptAction?.event;
       // In case an interrupt event exist and valid but has no response yet, we cannot process further messages to an agent
@@ -395,7 +400,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 }
               : {}),
             metadata: {
-              requestType: CopilotRequestType.Chat,
+              requestType: requestType,
             },
             ...(agentSessionRef.current
               ? {
@@ -881,8 +886,11 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   runChatCompletionRef.current = runChatCompletion;
 
   const runChatCompletionAndHandleFunctionCall = useAsyncCallback(
-    async (messages: Message[]): Promise<void> => {
-      await runChatCompletionRef.current!(messages);
+    async (
+      messages: Message[],
+      requestType: CopilotRequestType = CopilotRequestType.Chat,
+    ): Promise<void> => {
+      await runChatCompletionRef.current!(messages, requestType);
     },
     [messages],
   );
@@ -999,11 +1007,16 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     chatAbortControllerRef.current?.abort("Stop was called");
   };
 
+  const connect = useAsyncCallback(async () => {
+    await runChatCompletionAndHandleFunctionCall(messages, CopilotRequestType.Connect);
+  }, [messages, runChatCompletionAndHandleFunctionCall]);
+
   return {
     append,
     reload,
     stop,
     runChatCompletion: () => runChatCompletionRef.current!(messages),
+    connect,
   };
 }
 

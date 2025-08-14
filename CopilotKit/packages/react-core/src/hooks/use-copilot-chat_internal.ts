@@ -150,6 +150,15 @@ export interface UseCopilotChatReturn {
   reset: () => void;
 
   /**
+   * Establish a connection with the copilot runtime
+   *
+   * ```tsx
+   * await connect();
+   * ```
+   */
+  connect: () => Promise<void>;
+
+  /**
    * Whether the chat is currently generating a response
    *
    * ```tsx
@@ -368,7 +377,7 @@ export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotC
   );
 
   // Get chat helpers with updated config
-  const { append, reload, stop, runChatCompletion } = useChat({
+  const { append, reload, stop, runChatCompletion, connect } = useChat({
     ...options,
     actions: Object.values(actions),
     copilotConfig: copilotApiConfig,
@@ -452,6 +461,11 @@ export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotC
     return await latestRunChatCompletion.current!();
   }, [latestRunChatCompletion]);
 
+  const latestConnect = useUpdatedRef(connect);
+  const latestConnectFunc = useAsyncCallback(async () => {
+    return await latestConnect.current!();
+  }, [latestConnect]);
+
   const reset = useCallback(() => {
     latestStopFunc();
     setMessages([]);
@@ -503,6 +517,7 @@ export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotC
     resetSuggestions,
     isLoadingSuggestions: isLoadingSuggestionsRef.current,
     interrupt,
+    connect: latestConnectFunc,
   };
 }
 

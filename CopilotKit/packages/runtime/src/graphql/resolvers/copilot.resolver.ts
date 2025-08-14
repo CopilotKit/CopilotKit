@@ -129,13 +129,18 @@ export class CopilotResolver {
 
     logger.debug("Processing");
     const agentsWithEndpoints = await ctx._copilotkit.runtime.discoverAgentsFromEndpoints(ctx);
+    const aguiAgents = ctx._copilotkit.runtime.discoverAgentsFromAgui();
 
     logger.debug("Event source created, creating response");
 
     return {
-      agents: agentsWithEndpoints.map(
-        ({ endpoint, ...agentWithoutEndpoint }) => agentWithoutEndpoint,
-      ),
+      agents: [
+        ...agentsWithEndpoints.map(({ endpoint, ...agentWithoutEndpoint }) => agentWithoutEndpoint),
+        ...aguiAgents.map((agent) => ({
+          ...agent,
+          isAGUI: true,
+        })),
+      ],
     };
   }
 
@@ -257,6 +262,7 @@ export class CopilotResolver {
         url: data.frontend.url,
         extensions: data.extensions,
         metaEvents: data.metaEvents,
+        metadata: data.metadata,
       });
     } catch (error) {
       // Catch structured CopilotKit errors at the main mutation level and re-throw as GraphQL errors

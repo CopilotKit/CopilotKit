@@ -187,6 +187,7 @@ const createNonFunctionalReturn = (): UseCopilotChatReturn_c => ({
   reloadMessages: async () => {},
   stopGeneration: () => {},
   reset: () => {},
+  connect: async () => {},
   isLoading: false,
   runChatCompletion: async () => [],
   mcpServers: [],
