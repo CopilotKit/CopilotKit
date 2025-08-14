@@ -109,17 +109,31 @@ export function gqlActionExecutionMessageToAGUIMessage(
         }
       }
 
-      // Provide the full props structure that the render function expects
-      const renderProps = {
+      // Base props that all actions receive
+      const baseProps = {
         status: props?.status || status,
         args: message.arguments || {},
         result: props?.result || actionResult || undefined,
-        respond: props?.respond || (() => {}),
         messageId: message.id,
-        ...props,
       };
 
-      return originalRender(renderProps);
+      // Add properties based on action type
+      if (action.name === "*") {
+        // Wildcard actions get the tool name; ensure it cannot be overridden by incoming props
+        return originalRender({
+          ...baseProps,
+          ...props,
+          name: message.name,
+        });
+      } else {
+        // Regular actions get respond (defaulting to a no-op if not provided)
+        const respond = props?.respond ?? (() => {});
+        return originalRender({
+          ...baseProps,
+          ...props,
+          respond,
+        });
+      }
     };
   };
 
