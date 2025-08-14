@@ -82,7 +82,8 @@ export default async function Page({
   const isPremium = bySlugPremium || byTitlePremium || byFrontmatterPremium;
   // Compute premium overview href based on current section (first slug segment)
   const baseSegment = Array.isArray(page.slugs) && page.slugs.length ? `/${page.slugs[0]}` : "/";
-  const premiumOverviewHref = baseSegment === "/" ? "/(root)/premium/overview" : `${baseSegment}/premium/overview`;
+  const premiumOverviewHref =
+    baseSegment === "/" ? "/premium/overview" : `${baseSegment}/premium/overview`;
   
   // Check if the page should hide the header or TOC
   const hideHeader = (page.data as any).hideHeader || false;
