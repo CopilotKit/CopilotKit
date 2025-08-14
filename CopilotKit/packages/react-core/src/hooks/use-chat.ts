@@ -164,6 +164,7 @@ export type UseChatOptions = {
 };
 
 export type UseChatHelpers = {
+  connect: () => Promise<void>;
   /**
    * Append a user message to the chat list. This triggers the API call to fetch
    * the assistant's response.
@@ -999,11 +1000,16 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     chatAbortControllerRef.current?.abort("Stop was called");
   };
 
+  const connect = useAsyncCallback(async () => {
+    console.log("CONNECTING");
+  }, []);
+
   return {
     append,
     reload,
     stop,
     runChatCompletion: () => runChatCompletionRef.current!(messages),
+    connect,
   };
 }
 

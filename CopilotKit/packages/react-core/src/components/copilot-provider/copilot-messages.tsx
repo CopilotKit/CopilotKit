@@ -30,6 +30,7 @@ import {
   CopilotKitErrorCode,
 } from "@copilotkit/shared";
 import { SuggestionItem } from "../../utils/suggestions";
+import { useCopilotChat } from "../../hooks/use-copilot-chat_internal";
 
 // Helper to determine if error should show as banner based on visibility and legacy patterns
 function shouldShowAsBanner(gqlError: GraphQLError): boolean {
@@ -126,6 +127,7 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
 
   const { threadId, agentSession, runtimeClient, showDevConsole, onError, copilotApiConfig } =
     useCopilotContext();
+
   const { setBannerError } = useToast();
 
   // Helper function to trace UI errors (similar to useCopilotRuntimeClient)
@@ -310,7 +312,19 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
         setSuggestions,
       }}
     >
-      {memoizedChildren}
+      <CopilotConnect>{memoizedChildren}</CopilotConnect>
     </CopilotMessagesContext.Provider>
   );
+}
+
+function CopilotConnect({ children }: { children: ReactNode }) {
+  const { connect } = useCopilotChat();
+  const { threadId, agentSession } = useCopilotContext();
+
+  useEffect(() => {
+    if (!threadId || !agentSession?.agentName) return;
+    void connect();
+  }, [threadId, agentSession?.agentName, connect]);
+
+  return <>{children}</>;
 }

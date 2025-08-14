@@ -205,6 +205,8 @@ export interface UseCopilotChatReturn {
 
   /** Interrupt content for human-in-the-loop workflows */
   interrupt: string | React.ReactElement | null;
+
+  connect: () => Promise<void>;
 }
 
 let globalSuggestionPromise: Promise<void> | null = null;
@@ -368,7 +370,7 @@ export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotC
   );
 
   // Get chat helpers with updated config
-  const { append, reload, stop, runChatCompletion } = useChat({
+  const { append, reload, stop, runChatCompletion, connect } = useChat({
     ...options,
     actions: Object.values(actions),
     copilotConfig: copilotApiConfig,
@@ -503,6 +505,7 @@ export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotC
     resetSuggestions,
     isLoadingSuggestions: isLoadingSuggestionsRef.current,
     interrupt,
+    connect,
   };
 }
 
