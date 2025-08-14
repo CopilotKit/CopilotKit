@@ -7,6 +7,7 @@ export const getAvailableAgentsQuery = graphql(/** GraphQL **/ `
         name
         id
         description
+        isAGUI
       }
     }
   }

@@ -150,6 +150,15 @@ export interface UseCopilotChatReturn {
   reset: () => void;
 
   /**
+   * Establish a connection with the copilot runtime
+   *
+   * ```tsx
+   * await connect();
+   * ```
+   */
+  connect: () => Promise<void>;
+
+  /**
    * Whether the chat is currently generating a response
    *
    * ```tsx
@@ -205,8 +214,6 @@ export interface UseCopilotChatReturn {
 
   /** Interrupt content for human-in-the-loop workflows */
   interrupt: string | React.ReactElement | null;
-
-  connect: () => Promise<void>;
 }
 
 let globalSuggestionPromise: Promise<void> | null = null;
@@ -454,6 +461,11 @@ export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotC
     return await latestRunChatCompletion.current!();
   }, [latestRunChatCompletion]);
 
+  const latestConnect = useUpdatedRef(connect);
+  const latestConnectFunc = useAsyncCallback(async () => {
+    return await latestConnect.current!();
+  }, [latestConnect]);
+
   const reset = useCallback(() => {
     latestStopFunc();
     setMessages([]);
@@ -505,7 +517,7 @@ export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotC
     resetSuggestions,
     isLoadingSuggestions: isLoadingSuggestionsRef.current,
     interrupt,
-    connect,
+    connect: latestConnectFunc,
   };
 }
 

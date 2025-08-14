@@ -57,7 +57,7 @@ import { GraphQLContext } from "../integrations/shared";
 import { AgentSessionInput } from "../../graphql/inputs/agent-session.input";
 import { from } from "rxjs";
 import { AgentStateInput } from "../../graphql/inputs/agent-state.input";
-import { ActionInputAvailability } from "../../graphql/types/enums";
+import { ActionInputAvailability, CopilotRequestType } from "../../graphql/types/enums";
 import { createHeaders } from "./remote-action-constructors";
 import { fetchWithRetry } from "./retry-utils";
 import { Agent } from "../../graphql/types/agents-response.type";
@@ -92,6 +92,7 @@ type CreateMCPClientFunction = (config: MCPEndpointConfig) => Promise<MCPClient>
 import { generateHelpfulErrorMessage } from "../streaming";
 import { AgentRunner } from "../../runner/agent-runner";
 import { InMemoryAgentRunner } from "../../runner/in-memory";
+import { GenerateCopilotResponseMetadataInput } from "../../graphql/inputs/generate-copilot-response.input";
 
 export interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
@@ -108,7 +109,7 @@ export interface CopilotRuntimeRequest {
   url?: string;
   extensions?: ExtensionsInput;
   metaEvents?: MetaEventInput[];
-  runner?: AgentRunner;
+  metadata: GenerateCopilotResponseMetadataInput;
 }
 
 interface CopilotRuntimeResponse {
@@ -494,7 +495,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       agentSession,
       agentStates,
       publicApiKey,
-      runner = this.runner,
+      metadata,
     } = request;
 
     const eventSource = new RuntimeEventSource({
@@ -1394,7 +1395,7 @@ please use an LLM adapter instead.`,
   }
 
   private async getServerSideActions(request: CopilotRuntimeRequest): Promise<Action<any>[]> {
-    const { graphqlContext, messages: rawMessages, agentStates, url } = request;
+    const { graphqlContext, messages: rawMessages, agentStates, url, metadata } = request;
 
     // --- Standard Action Fetching (unchanged) ---
     const inputMessages = convertGqlInputToMessages(rawMessages);
@@ -1422,6 +1423,7 @@ please use an LLM adapter instead.`,
       metaEvents: request.metaEvents,
       nodeName: request.agentSession?.nodeName,
       runner: this.runner,
+      metadata,
     });
 
     const configuredActions =

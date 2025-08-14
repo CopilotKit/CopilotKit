@@ -319,12 +319,15 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
 
 function CopilotConnect({ children }: { children: ReactNode }) {
   const { connect } = useCopilotChat();
-  const { threadId, agentSession } = useCopilotContext();
+  const { threadId, agentSession, availableAgents } = useCopilotContext();
 
   useEffect(() => {
-    if (!threadId || !agentSession?.agentName) return;
-    void connect();
-  }, [threadId, agentSession?.agentName, connect]);
+    if (!threadId || !agentSession?.agentName || !availableAgents) return;
+    const agent = availableAgents.find((agent) => agent.name === agentSession.agentName);
+    if (agent?.isAGUI) {
+      void connect();
+    }
+  }, [threadId, agentSession?.agentName, availableAgents]);
 
   return <>{children}</>;
 }

@@ -10,6 +10,9 @@ export class Agent {
 
   @Field(() => String)
   description?: string;
+
+  @Field(() => Boolean)
+  isAGUI?: boolean;
 }
 
 @ObjectType()

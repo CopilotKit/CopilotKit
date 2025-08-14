@@ -19,6 +19,8 @@ import { AbstractAgent } from "@ag-ui/client";
 import { CopilotKitError, CopilotKitErrorCode, parseJson, randomId } from "@copilotkit/shared";
 import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 import { GraphQLContext } from "../integrations/shared";
+import { GenerateCopilotResponseMetadataInput } from "../../graphql/inputs/generate-copilot-response.input";
+import { CopilotRequestType } from "../../graphql/types/enums";
 
 export function constructAGUIRemoteAction({
   logger,
@@ -30,6 +32,7 @@ export function constructAGUIRemoteAction({
   nodeName,
   graphqlContext,
   runner,
+  metadata,
 }: {
   logger: Logger;
   messages: Message[];
@@ -40,6 +43,7 @@ export function constructAGUIRemoteAction({
   nodeName?: string;
   graphqlContext: GraphQLContext;
   runner: AgentRunner;
+  metadata: GenerateCopilotResponseMetadataInput;
 }) {
   const action = {
     name: agent.agentId,
@@ -52,7 +56,7 @@ export function constructAGUIRemoteAction({
     }: RemoteAgentHandlerParams): Promise<Observable<RuntimeEvent>> => {
       logger.debug({ actionName: agent.agentId }, "Executing remote agent");
 
-      // TODO: all AG-UI agents must be clonable!
+      // TODO: all AG-UI agents must be cloneable!
       const aguiMessages = convertMessagesToAGUIMessage(messages);
 
       telemetry.capture("oss.runtime.remote_action_executed", {
@@ -105,14 +109,8 @@ export function constructAGUIRemoteAction({
         context: [],
       };
 
-      // Run the agent using the passed runner
-      return runner
-        .run({
-          threadId,
-          agent: agent,
-          input: runInput,
-        })
-        .pipe(
+      if (metadata.requestType === CopilotRequestType.Connect) {
+        return runner.connect({ threadId }).pipe(
           convertToLegacyEvents(threadId, runInput.runId, agent.agentId) as any,
           catchError((err) => {
             throw new CopilotKitError({
@@ -121,6 +119,24 @@ export function constructAGUIRemoteAction({
             });
           }),
         ) as Observable<RuntimeEvent>;
+      } else {
+        // Run the agent using the passed runner
+        return runner
+          .run({
+            threadId,
+            agent: agent,
+            input: runInput,
+          })
+          .pipe(
+            convertToLegacyEvents(threadId, runInput.runId, agent.agentId) as any,
+            catchError((err) => {
+              throw new CopilotKitError({
+                message: err.message,
+                code: CopilotKitErrorCode.UNKNOWN,
+              });
+            }),
+          ) as Observable<RuntimeEvent>;
+      }
     },
   };
   return [action];

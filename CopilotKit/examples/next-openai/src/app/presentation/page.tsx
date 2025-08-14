@@ -22,6 +22,7 @@ export default function AIPresentation() {
     runtimeUrl,
     publicApiKey: publicApiKey || undefined,
     agent: "agentic_chat",
+    threadId: "126fcbef-9338-40a8-8adc-f5f315b3b9bf",
   };
 
   return (

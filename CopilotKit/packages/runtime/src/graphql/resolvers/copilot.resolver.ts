@@ -136,7 +136,10 @@ export class CopilotResolver {
     return {
       agents: [
         ...agentsWithEndpoints.map(({ endpoint, ...agentWithoutEndpoint }) => agentWithoutEndpoint),
-        ...aguiAgents,
+        ...aguiAgents.map((agent) => ({
+          ...agent,
+          isAGUI: true,
+        })),
       ],
     };
   }
@@ -259,6 +262,7 @@ export class CopilotResolver {
         url: data.frontend.url,
         extensions: data.extensions,
         metaEvents: data.metaEvents,
+        metadata: data.metadata,
       });
     } catch (error) {
       // Catch structured CopilotKit errors at the main mutation level and re-throw as GraphQL errors
