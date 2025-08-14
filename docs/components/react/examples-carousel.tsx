@@ -104,7 +104,7 @@ export function ExamplesCarousel({ id, examples = LandingExamples }: ExamplesCar
                   )}
                   {example.media.type === 'image' && (
                     <Frame className="rounded-2xl shadow-xl">
-                      <img src={example.media.src} className="w-full h-auto" />
+                      <img src={example.media.src} className="w-full h-auto" alt="" />
                     </Frame>
                   )}
                   {example.media.type === 'youtube' && (

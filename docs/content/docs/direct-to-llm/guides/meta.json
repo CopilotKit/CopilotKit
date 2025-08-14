@@ -1,15 +1,15 @@
 {
   "title": "Guides",
   "pages": [
-    "---Getting Started---",
     "quickstart",
-    "self-hosting",
+    "mcp",
     "---Custom Look and Feel---",
     "...custom-look-and-feel",
     "---Guides---",
     "human-in-the-loop",
     "custom-ai-assistant-behavior",
     "copilot-suggestions",
+    "self-hosting",
     "---Actions & Integration---",
     "frontend-actions",
     "backend-actions",
