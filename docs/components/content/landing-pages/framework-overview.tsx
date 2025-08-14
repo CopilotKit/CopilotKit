@@ -1,16 +1,19 @@
 'use client'
 
-import { Play, ExternalLink, Github, ArrowRight, Copy, Check, PlayIcon, BookOpen, LayoutIcon, RocketIcon } from 'lucide-react';
+import { ExternalLink, ArrowRight, Copy, Check, PlayIcon, BookOpen, LayoutIcon } from 'lucide-react';
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useState, ReactNode } from "react";
+import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
+import Image from 'next/image';
 
 export interface FrameworkFeature {
   title: string;
   description: string;
   documentationLink: string;
   demoLink: string;
-  videoUrl: string;
+  videoUrl?: string;
+  imageUrl?: string;
 }
 
 export interface LiveDemo {
@@ -72,10 +75,11 @@ export function FrameworkOverview({
         <header className="text-center mb-20">
           <div className="flex items-center justify-center gap-8 mb-12">
             <div className="flex items-center gap-4">
-              <img
+              <Image
                 src="https://cdn.copilotkit.ai/docs/copilotkit/icons/copilotkit-color.svg"
                 alt="CopilotKit"
-                className="h-10 w-10"
+                height={40}
+                width={40}
               />
               <span className="text-3xl font-bold">
                 CopilotKit
@@ -123,7 +127,7 @@ export function FrameworkOverview({
 
         {/* Overview Video */}
         <section className="mb-24">
-          <div className="relative">
+          <div>
             {bannerVideo && (
               <video
                 src={bannerVideo}
@@ -136,12 +140,14 @@ export function FrameworkOverview({
               />
             )}
             {bannerImage && (
-              <img
+              <ImageZoom
                 src={bannerImage}
+                alt="CopilotKit Banner"
+                height={100}
+                width={50}
                 className="w-full rounded-xl border shadow-lg"
               />
             )}
-            <div className="absolute inset-0 rounded-xl ring-1 ring-inset ring-border"></div>
           </div>
           {displayBannerSubheader && (
             <p className="text-sm text-muted-foreground mt-4 text-center">
@@ -191,7 +197,7 @@ export function FrameworkOverview({
                     </div>
                     
                     <div className="lg:col-span-3">
-                      <div className="relative">
+                      {feature.videoUrl && (
                         <video
                           src={feature.videoUrl}
                           className="w-full rounded-lg border shadow-lg"
@@ -201,8 +207,16 @@ export function FrameworkOverview({
                           loop
                           playsInline
                         />
-                        <div className="absolute inset-0 rounded-lg ring-1 ring-inset ring-secondary"></div>
-                      </div>
+                      )}
+                      {feature.imageUrl && (
+                        <ImageZoom
+                          src={feature.imageUrl}
+                          alt="CopilotKit Feature Image"
+                          height={100}
+                          width={50}
+                          className="w-full rounded-lg border shadow-lg"
+                        />
+                      )}
                     </div>
                   </div>
                 </div>
@@ -221,10 +235,12 @@ export function FrameworkOverview({
             <div className="w-24 h-1 bg-gradient-to-r from-primary to-primary mx-auto mt-6 rounded-full"></div>
           </div>
           {architectureImage && (
-            <img
+            <ImageZoom
               src={architectureImage}
               alt={`CopilotKit ${frameworkName} Infrastructure Diagram`}
-              className="w-full rounded-xl shadow-lg"
+              height={100}
+              width={50}
+              className="w-full rounded-xl shadow-lg border"
             />
           )}
           {architectureVideo && (

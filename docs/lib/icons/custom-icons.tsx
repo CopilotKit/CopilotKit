@@ -233,5 +233,6 @@ export const customIcons = {
   agnoBlack: AgnoIconBlack,
   llamaindex: LlamaIndexIcon,
   pydantic: PydanticAIIcon,
+  llm: RocketIcon,
   "direct-to-llm": RocketIcon,
 };

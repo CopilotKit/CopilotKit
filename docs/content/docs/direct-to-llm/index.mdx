@@ -2,148 +2,57 @@
 title: Introduction
 icon: "custom/direct-to-llm"
 description: Bring your LLMs to your users with CopilotKit.
+hideHeader: true
 ---
+import { customIcons } from "@/lib/icons/custom-icons";
+import { FrameworkOverview } from "@/components/content/landing-pages/framework-overview";
 
-import { CTACards } from "@/components/react/cta-cards";
-
-CopilotKit and LLMs together provide everything you need to build rich, interactive, AI-powered applications. With direct LLM integration, you can create copilots that are not just smart, but truly collaborative. This means that your AI application can:
-* Respond quickly and often to user input
-* Allow the user to steer as needed
-* Take action on the user's behalf, driving the app, or other tools through MCP
-
-<div className="p-0 rounded-lg shadow-[0_0_40px_10px_rgba(99,102,241,0.4)]">
-  <video 
-    src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
-    className="rounded-lg w-full"
-    controls
-    autoPlay
-    muted
-    loop
-    playsInline
-  />
-</div>
-
-<Callout>
-Proverbs Example app, demonstrating some of the key features of a CopilotKit app with direct LLM integration.*
-</Callout>
-
----
-
-
-
-## Generative UI
-
-Generative UI lets you render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. It bridges the gap between AI agents and user interfaces. 
-
-<div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(200,200,200,0.4)]">
-  <video 
-    src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4"
-    className="rounded-2xl w-full"
-    controls
-    autoPlay
-    muted
-    loop
-    playsInline
-  />
-</div>
-
-<Callout>
-  Haiku Generator - CopilotKit app with direct LLM integration. 
-  <a href="https://feature-viewer-langgraph.vercel.app/feature/tool_based_generative_ui" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:font-bold transition-colors">Live Demo</a> 
-  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/demo-viewer/agent/demo/standard_tool_based_generative_ui" className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 hover:font-bold transition-colors">GitHub</a>
-</Callout>
-
-
----
-
-## Human in the Loop
-
-Empower users to guide agents at key checkpoints. Human-in-the-loop lets you combine the best of AI and human judgment.
-
-<div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(200,200,200,0.4)]">
-  <video 
-    src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
-    className="rounded-2xl w-full"
-    controls
-    autoPlay
-    muted
-    loop
-    playsInline
-  />
-</div>
-
-<Callout>
-  AI Travel App - CopilotKit app with direct LLM integration using HITL to get user feedback. 
-  <a href="https://examples-coagents-ai-travel-app.vercel.app/" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:font-bold transition-colors">Live Demo</a> 
-  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/demo-viewer/agent/demo/standard_human_in_the_loop" className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 hover:font-bold transition-colors">GitHub</a>
-</Callout>
-
----
-
-## Shared State
-
-Keep your agent and your app in sync. Shared state means your agent can see everything in your app, and your app can react to your agent.
-
-<div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(200,200,200,0.4)]">
-  <video 
-    src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4"
-    className="rounded-2xl w-full"
-    controls
-    autoPlay
-    muted
-    loop
-    playsInline
-  />
-</div>
-
-<Callout>
-  Recipe Example App - CopilotKit app sharing state with direct LLM integration. 
-  <a href="https://feature-viewer-langgraph.vercel.app/feature/shared_state" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:font-bold transition-colors">Live Demo</a> 
-  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/demo-viewer/agent/demo/standard_shared_state" className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 hover:font-bold transition-colors">GitHub</a>
-</Callout>
-
----
-
-## Architecture
-
-CopilotKit can connect directly to the LLM of your choice (e.g., OpenAI GPT-4o)
-
-There is no intermediate orchestration layer.
-
-CopilotKit's Standard Agent marries your App to the LLM, by:
-* Capturing user inputs and context from the UI. 
-* Sending them as prompts to the LLM.
-* Streaming responses back to the UI in real time (via AGUI protocol).
-* Optionally enriching with custom instructions using CopilotKit’s "Customize AI Behavior" features.
-
-<div className="p-0 rounded-2xl shadow-[0_0_40px_10px_rgba(79,70,229,0.4)]">
-  <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-highlevel-overview.png" alt="CopilotKit Infrastructure Diagram" className="w-full rounded-2xl" />
-</div>
-
----
-
-## Live Demo - Direct to LLM x CopilotKit in Action
-
-In this example, we've built an AI travel assistant that can help you plan your next trip. It uses direct LLM integration
-to coordinate chat and task execution.
-
-<div className="flex justify-center mb-10">
-<iframe src="https://examples-coagents-ai-travel-app.vercel.app?copilotOpen=true" className="w-[800px] h-[600px] rounded-xl border" />
-</div>
-
-## Next Steps
-
-<Cards className="gap-6">
-  <Card
-    className="p-6 rounded-xl text-base"
-    title="Quickstart"
-    description="Build your first LLM-powered agentic app in minutes."
-    href="/direct-to-llm/guides/quickstart"
-  />
-  <Card 
-    className="p-6 rounded-xl text-base"
-    title="Travel Agent Tutorial"
-    description="Step-by-step guide to building an agent-native travel app."
-    href="/coagents/tutorials/ai-travel-app"
-  />
-</Cards>
+<FrameworkOverview
+  frameworkName="LLMs"
+  frameworkIcon={<customIcons.llm className="h-12 w-12 text-foreground" />}
+  header="Bring LLMs directly into your application"
+  subheader="Let your users interact with your application via LLMs."
+  bannerVideo="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
+  guideLink="/direct-to-llm/guides/quickstart"
+  initCommand="npx copilotkit@latest init"
+  featuresLink="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat"
+  supportedFeatures={[
+    {
+      title: "Generative UI",
+      description: "Render state, progress, outputs, and tool calls with custom UI components in real-time. Bridges the gap between AI agents and user interfaces.",
+      documentationLink: "/direct-to-llm/guides/generative-ui",
+      demoLink: "https://feature-viewer.copilotkit.ai/langgraph/feature/tool_based_generative_ui",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4"
+    },
+    {
+      title: "Human in the Loop",
+      description: "Empower users to guide agents at key checkpoints. Combine the best of AI and human judgment for more reliable and controllable agent behavior.",
+      documentationLink: "/direct-to-llm/guides/generative-ui?gen-ui-type=renderAndWaitForResponse+%28HITL%29",
+      demoLink: "https://examples-coagents-ai-travel-app.vercel.app/",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
+    },
+    {
+      title: "Frontend Tools",
+      description: "Let LLM's guide your users through your application, make updates across the application, and more.",
+      documentationLink: "/direct-to-llm/guides/frontend-actions",
+      demoLink: "https://feature-viewer.copilotkit.ai/direct-to-llm/feature/mcp",
+      imageUrl: "https://cdn.copilotkit.ai/docs/copilotkit/images/copilot-action-example.gif"
+    },
+  ]}
+  architectureImage="https://cdn.copilotkit.ai/docs/copilotkit/images/architecture-diagram.png"
+  liveDemos={[
+    {
+      type: "saas",
+      title: "SaaS Copilot",
+      description: "A traditional SaaS application enhanced with AI agents. These copilots integrate seamlessly into existing workflows, providing intelligent assistance for specific business processes. Perfect for customer service, sales automation, project management, and domain-specific tasks where users need guided, step-by-step AI assistance.",
+      iframeUrl: "https://examples-coagents-ai-travel-app.vercel.app?copilotOpen=true"
+    },
+    {
+      type: "canvas",
+      title: "Canvas Copilot",
+      description: "An infinite canvas interface where users collaborate with AI agents in a spatial, visual environment. These copilots excel at research, brainstorming, content creation, and complex problem-solving where information needs to be organized, connected, and explored in a non-linear, creative way.",
+      iframeUrl: "https://examples-coagents-research-canvas-ui.vercel.app/"
+    },
+  ]}
+  tutorialLink="/direct-to-llm/tutorials/ai-todo-app/overview"
+/>
