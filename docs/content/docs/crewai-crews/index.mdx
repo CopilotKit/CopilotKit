@@ -8,37 +8,45 @@ import { FrameworkOverview } from "@/components/content/landing-pages/framework-
 import { customIcons } from "@/lib/icons/custom-icons";
 
 <FrameworkOverview
-  frameworkName="CrewAI"
+  frameworkName="CrewAI Crews"
+  displayBannerSubheader={false}
   frameworkIcon={<customIcons.crewai className="h-10 w-10 text-foreground" />}
-  header="Build multi-agent teams with CrewAI"
+  header="Bring your multi-agent workflows to your users"
   subheader="Create sophisticated multi-agent workflows using CrewAI and CopilotKit. Orchestrate teams of specialized agents to solve complex problems together."
-  bannerVideo="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/crewai-overview.mp4"
-  guideLink="/coagents/quickstart/crewai"
-  initCommand="npx copilotkit@latest init --template crewai"
+  bannerImage="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/SharedStateCoAgents.gif"
+  guideLink="/crewai-crews/quickstart"
+  initCommand="npx copilotkit@latest init"
   featuresLink="https://feature-viewer.copilotkit.ai/crewai/feature/agentic_chat?frameworkPicker=false"
-  supportedFeatures={[
+   supportedFeatures={[
     {
-      title: "Multi-Agent Orchestration",
-      description: "Coordinate multiple specialized agents working together on complex tasks. Each agent has specific roles and responsibilities.",
-      documentationLink: "/coagents/multi-agent-orchestration",
-      demoLink: "https://examples-coagents-enterprise-crewai-crews.vercel.app/",
-      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/crewai-orchestration.mp4"
+      title: "Generative UI",
+      description: "Render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. Bridges the gap between AI agents and user interfaces.",
+      documentationLink: "/crewai-crews/generative-ui",
+      demoLink: "https://feature-viewer.copilotkit.ai/crewai/feature/agentic_chat",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4"
     },
     {
-      title: "Role-Based Task Assignment",
-      description: "Define clear roles and responsibilities for each agent in your crew. Automatically route tasks to the most appropriate agent.",
-      documentationLink: "/coagents/role-based-tasks",
-      demoLink: "https://feature-viewer.copilotkit.ai/crewai/feature/role_assignment",
-      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/crewai-roles.mp4"
+      title: "Human in the Loop",
+      description: "Empower users to guide agents at key checkpoints. Combine the best of AI and human judgment for more reliable and controllable agent behavior.",
+      documentationLink: "/crewai-crews/human-in-the-loop",
+      demoLink: "https://feature-viewer.copilotkit.ai/crewai/feature/human_in_the_loop",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
+    },
+    {
+      title: "Shared State",
+      description: "Keep your agent and your app in sync. Your agent can see everything in your app, and your app can react to your agent in real-time.",
+      documentationLink: "/crewai-crews/shared-state",
+      demoLink: "https://feature-viewer.copilotkit.ai/crewai/feature/shared_state",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4"
     }
   ]}
-  architectureImage="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/crewai-architecture.png"
+  architectureImage="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/crew-ai/crews/architecture.png"
   liveDemos={[
     {
-      type: "saas",
-      title: "Enterprise Crew",
-      description: "A business application where multiple AI agents collaborate on enterprise tasks like customer onboarding, project planning, and data analysis.",
-      iframeUrl: "https://examples-coagents-enterprise-crewai-crews.vercel.app/"
+      type: "canvas",
+      title: "Canvas Copilot",
+      description: "A canvas interface where users collaborate with AI agents in a spatial, visual environment. These copilots excel at research, brainstorming, content creation, and complex problem-solving where information needs to be organized, connected, and explored in a non-linear, creative way.",
+      iframeUrl: "https://examples-coagents-research-canvas-ui.vercel.app/"
     }
   ]}
 />

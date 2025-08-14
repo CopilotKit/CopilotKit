@@ -25,7 +25,9 @@ export interface FrameworkOverviewProps {
   frameworkIcon: ReactNode;
   header: string;
   subheader: string;
-  bannerVideo: string;
+  displayBannerSubheader?: boolean;
+  bannerVideo?: string;
+  bannerImage?: string;
   guideLink: string;
   initCommand: string;
   featuresLink: string;
@@ -41,7 +43,9 @@ export function FrameworkOverview({
   frameworkIcon,
   header,
   subheader,
+  displayBannerSubheader = true,
   bannerVideo,
+  bannerImage,
   guideLink,
   initCommand,
   featuresLink,
@@ -120,20 +124,30 @@ export function FrameworkOverview({
         {/* Overview Video */}
         <section className="mb-24">
           <div className="relative">
-            <video
-              src={bannerVideo}
-              className="w-full rounded-xl border shadow-lg"
-              controls
-              autoPlay
-              muted
-              loop
-              playsInline
-            />
+            {bannerVideo && (
+              <video
+                src={bannerVideo}
+                className="w-full rounded-xl border shadow-lg"
+                controls
+                autoPlay
+                muted
+                loop
+                playsInline
+              />
+            )}
+            {bannerImage && (
+              <img
+                src={bannerImage}
+                className="w-full rounded-xl border shadow-lg"
+              />
+            )}
             <div className="absolute inset-0 rounded-xl ring-1 ring-inset ring-border"></div>
           </div>
-          <p className="text-sm text-muted-foreground mt-4 text-center">
-            Starter app from running <span className="font-mono bg-primary/10 text-primary px-2 py-1 rounded-md">{initCommand}</span>, demonstrating key features of CopilotKit with {frameworkName}.
-          </p>
+          {displayBannerSubheader && (
+            <p className="text-sm text-muted-foreground mt-4 text-center">
+              Starter app from running <span className="font-mono bg-primary/10 text-primary px-2 py-1 rounded-md">{initCommand}</span>, demonstrating key features of CopilotKit with {frameworkName}.
+            </p>
+          )}
         </section>
 
         {/* Features - Only show if features are provided */}
@@ -207,14 +221,11 @@ export function FrameworkOverview({
             <div className="w-24 h-1 bg-gradient-to-r from-primary to-primary mx-auto mt-6 rounded-full"></div>
           </div>
           {architectureImage && (
-            <div className="relative">
-              <img
-                src={architectureImage}
-                alt={`CopilotKit ${frameworkName} Infrastructure Diagram`}
-                className="w-full rounded-xl border shadow-lg"
-              />
-              <div className="absolute inset-0 rounded-xl ring-1 ring-inset ring-secondary"></div>
-            </div>
+            <img
+              src={architectureImage}
+              alt={`CopilotKit ${frameworkName} Infrastructure Diagram`}
+              className="w-full rounded-xl shadow-lg"
+            />
           )}
           {architectureVideo && (
             <div className="relative">

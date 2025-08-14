@@ -42,6 +42,13 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+@media (width >= 1550px) {
+  #nd-sidebar {
+    width: 20rem !important;
+    --fd-sidebar-width: 20rem !important;
+  }
+} 
+
 :root {
   --radius: 0.65rem;
   --background: oklch(1 0 0);
