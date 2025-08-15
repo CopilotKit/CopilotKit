@@ -235,13 +235,17 @@ class LangGraphAgent(Agent):
 
         resume_input = None
 
-        # An active interrupt event that runs through messages. Use latest message as response
+        goto_kwargs = {}
+        if node_name is not None:
+            goto_kwargs["goto"] = node_name
+
+         # An active interrupt event that runs through messages. Use latest message as response
         if has_active_interrupts and lg_interrupt_meta_event is None:
             # state["messages"] only includes the messages we need to add at this point, tool call+result if applicable, and user text
-            resume_input = Command(resume=state["messages"])
+            resume_input = Command(resume=state["messages"], **goto_kwargs)
 
         if lg_interrupt_meta_event and "response" in lg_interrupt_meta_event:
-            resume_input = Command(resume=lg_interrupt_meta_event["response"])
+            resume_input = Command(resume=lg_interrupt_meta_event["response"], **goto_kwargs)
 
         mode = "continue" if thread_id and node_name != "__end__" and node_name is not None else "start"
         thread_id = thread_id or str(uuid.uuid4())
@@ -706,6 +710,7 @@ class LangGraphAgent(Agent):
         history_list.reverse()
         for idx, snapshot in enumerate(history_list):
             messages = snapshot.values.get("messages", [])
+            print(messages)
             if any(getattr(m, "id", None) == message_id for m in messages):
                 if idx == 0:
                     # No snapshot before this
