@@ -146,7 +146,6 @@ class LangGraphAgent(Agent):
             agent: Optional[CompiledStateGraph] = None,
             # deprecated - use copilotkit_config instead
             merge_state: Optional[Callable] = None,
-
         ):
         if config is not None:
             logger.warning("Warning: config is deprecated, use langgraph_config instead")
@@ -166,7 +165,7 @@ class LangGraphAgent(Agent):
         )
 
         self.merge_state = None
-
+        self.thread_state = {}
         if copilotkit_config is not None:
             self.merge_state = copilotkit_config.get("merge_state")
         if not self.merge_state and merge_state is not None:
@@ -211,7 +210,8 @@ class LangGraphAgent(Agent):
     async def prepare_stream( # pylint: disable=too-many-arguments
             self,
             *,
-            state: Any,
+            state_input: Any,
+            agent_state: Any,
             config: Optional[dict] = None,
             messages: List[Message],
             thread_id: str,
@@ -219,16 +219,17 @@ class LangGraphAgent(Agent):
             node_name: Optional[str] = None,
             meta_events: Optional[List[MetaEvent]] = None,
     ):
-        agent_state = await self.graph.aget_state(config)
         active_interrupts = agent_state.tasks[0].interrupts if agent_state.tasks and agent_state.tasks[0].interrupts else None
-        state["messages"] = agent_state.values.get("messages", [])
+        state_input["messages"] = agent_state.values.get("messages", [])
+        current_graph_state = agent_state.values
         langchain_messages = self.convert_messages(messages)
         state = cast(Callable, self.merge_state)(
-            state=state,
+            state=state_input,
             messages=langchain_messages,
             actions=actions,
             agent_name=self.name
         )
+        current_graph_state.update(state)
         lg_interrupt_meta_event = next((ev for ev in (meta_events or []) if ev.get("name") == "LangGraphInterruptEvent"), None)
         has_active_interrupts = active_interrupts is not None and len(active_interrupts) > 0
 
@@ -266,12 +267,15 @@ class LangGraphAgent(Agent):
         if has_active_interrupts and (not resume_input):
             value = active_interrupts[0].value
             return {
+                "stream": None,
+                "state": None,
+                "config": None,
                 "interrupt_event": self.get_interrupt_event(value),
             }
 
         return {
             "stream": self.graph.astream_events(stream_input, config, version="v2"),
-            "state": state,
+            "state": current_graph_state,
             "config": config
         }
 
@@ -283,7 +287,8 @@ class LangGraphAgent(Agent):
             actions: Optional[List[ActionDict]] = None,
             message_checkpoint: HumanMessage
     ):
-        time_travel_checkpoint = await self.get_checkpoint_before_message(message_checkpoint.id, config)
+        thread_id = config.get("configurable", {}).get("thread_id")
+        time_travel_checkpoint = await self.get_checkpoint_before_message(message_checkpoint.id, thread_id)
         if time_travel_checkpoint is None:
             return None
 
@@ -330,8 +335,10 @@ class LangGraphAgent(Agent):
         manually_emitted_state = None
         thread_id = cast(Any, config)["configurable"]["thread_id"]
 
+        agent_state = await self.graph.aget_state(config)
         prepared_stream_response = await self.prepare_stream(
-            state=state,
+            state_input=state,
+            agent_state=agent_state,
             config=config,
             messages=messages,
             actions=actions,
@@ -340,7 +347,6 @@ class LangGraphAgent(Agent):
             meta_events=meta_events
         )
 
-        agent_state = await self.graph.aget_state(config)
         langchain_messages = self.convert_messages(messages)
         non_system_messages = [msg for msg in langchain_messages if not isinstance(msg, SystemMessage)]
         if len(agent_state.values.get("messages", [])) > len(non_system_messages):
@@ -360,6 +366,7 @@ class LangGraphAgent(Agent):
                 )
 
         state = prepared_stream_response["state"]
+        current_graph_state = prepared_stream_response["state"]
         stream = prepared_stream_response["stream"]
         config = prepared_stream_response["config"]
         interrupt_event = prepared_stream_response.get('interrupt_event', None)
@@ -392,6 +399,12 @@ class LangGraphAgent(Agent):
                     event_type == "on_custom_event" and
                     event["name"] == "copilotkit_exit"
                 )
+
+                # OPTIMIZATION: Update local state from chain_end events to avoid checkpointer calls
+                if event_type == "on_chain_end" and isinstance(
+                    event.get("data", {}).get("output"), dict
+                ):
+                    current_graph_state.update(event["data"]["output"])
 
                 emit_intermediate_state = metadata.get("copilotkit:emit-intermediate-state")
                 manually_emit_intermediate_state = (
@@ -434,7 +447,8 @@ class LangGraphAgent(Agent):
                     # reset the streaming state extractor
                     streaming_state_extractor = _StreamingStateExtractor(emit_intermediate_state)
 
-                updated_state = manually_emitted_state or (await self.graph.aget_state(config)).values
+                # OPTIMIZATION: Use locally maintained state instead of hitting checkpointer repeatedly
+                updated_state = manually_emitted_state or current_graph_state
 
                 if emit_intermediate_state and event_type == "on_chat_model_stream":
                     streaming_state_extractor.buffer_tool_calls(event)
@@ -458,6 +472,7 @@ class LangGraphAgent(Agent):
                 if updated_state != state or prev_node_name != node_name or exiting_node:
                     state = updated_state
                     prev_node_name = node_name
+                    current_graph_state.update(updated_state)
                     yield self._emit_state_sync_event(
                         thread_id=thread_id,
                         run_id=run_id,
@@ -598,7 +613,10 @@ class LangGraphAgent(Agent):
         config["configurable"] = config.get("configurable", {})
         config["configurable"]["thread_id"] = thread_id
 
-        state = {**(await self.graph.aget_state(config)).values}
+        if self.thread_state.get(thread_id, None) is None:
+            self.thread_state[thread_id] = {**(await self.graph.aget_state(config)).values}
+
+        state = self.thread_state[thread_id]
         if state == {}:
             return {
                 "threadId": thread_id or "",
@@ -608,12 +626,13 @@ class LangGraphAgent(Agent):
             }
 
         messages = langchain_messages_to_copilotkit(state.get("messages", []))
-        del state["messages"]
+        state_copy = state.copy()
+        state_copy.pop("messages", None)
 
         return {
             "threadId": thread_id,
             "threadExists": True,
-            "state": state,
+            "state": state_copy,
             "messages": messages
         }
 
@@ -676,8 +695,7 @@ class LangGraphAgent(Agent):
                 "value": value if isinstance(value, str) else json.dumps(value)
             }) + "\n"
 
-    async def get_checkpoint_before_message(self, message_id: str, config: RunnableConfig):
-        thread_id = config.get("configurable", {}).get("thread_id")
+    async def get_checkpoint_before_message(self, message_id: str, thread_id: str):
         if not thread_id:
             raise ValueError("Missing thread_id in config")
 

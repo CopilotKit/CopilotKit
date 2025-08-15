@@ -1,4 +1,9 @@
-import { CopilotCloudConfig, FunctionCallHandler, CopilotTraceHandler } from "@copilotkit/shared";
+import {
+  CopilotCloudConfig,
+  FunctionCallHandler,
+  CopilotErrorHandler,
+  CopilotKitError,
+} from "@copilotkit/shared";
 import {
   ActionRenderProps,
   CatchAllActionRenderProps,
@@ -20,6 +25,7 @@ import {
   LangGraphInterruptAction,
   LangGraphInterruptActionSetter,
 } from "../types/interrupt-action";
+import { SuggestionItem } from "../utils/suggestions";
 
 /**
  * Interface for the configuration of the Copilot API.
@@ -222,7 +228,11 @@ export interface CopilotContextParams {
   /**
    * Optional trace handler for comprehensive debugging and observability.
    */
-  onTrace?: CopilotTraceHandler;
+  onError?: CopilotErrorHandler;
+
+  // banner error state
+  bannerError: CopilotKitError | null;
+  setBannerError: React.Dispatch<React.SetStateAction<CopilotKitError | null>>;
 }
 
 const emptyCopilotContext: CopilotContextParams = {
@@ -293,7 +303,9 @@ const emptyCopilotContext: CopilotContextParams = {
   langGraphInterruptAction: null,
   setLangGraphInterruptAction: () => null,
   removeLangGraphInterruptAction: () => null,
-  onTrace: undefined,
+  onError: undefined,
+  bannerError: null,
+  setBannerError: () => {},
 };
 
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);

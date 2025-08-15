@@ -1,0 +1,49 @@
+---
+title: Overview
+icon: "lucide/Bot"
+---
+import { YouTubeVideo } from "@/components/react/youtube-video";
+import { FaGithub } from "react-icons/fa";
+import { PiMonitor } from "react-icons/pi";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+
+# Research Agent Native Application (ANA)
+
+<div>
+  <div>**Time to complete:** 15 minutes</div>
+  <div>**Difficulty:** Medium</div>
+</div>
+
+<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tutorials/research-ana/final-results.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+
+<div className="flex flex-row gap-2">
+  <Button size="lg" asChild className="flex gap-2 items-center">
+    <Link href="https://github.com/CopilotKit/open-research-ANA" className="no-underline" target="_blank">
+      <FaGithub className="w-6 h-6 mr-2" />
+      <span>View on GitHub</span>
+    </Link>
+  </Button>
+
+  <Button size="lg" asChild className="flex gap-2 items-center">
+    <Link href="https://open-research-ana.vercel.app/" className="no-underline" target="_blank">
+      <PiMonitor className="w-6 h-6 mr-2" />
+      <span>View live app</span>
+    </Link>
+  </Button>
+</div>
+
+<br />
+
+## What you'll learn
+
+In this tutorial, we'll build a Research Agent Native Application (ANA) using CopilotKit. Starting with a basic application, we'll add agent capabilities step by step.
+
+You'll learn:
+- 🎯 Core principles of agent native applications
+- 🔄 How LangGraph helps structure LLM behavior
+- 🧱 Building blocks of a Copilot Agent (CoAgent)
+- 🛠️ Creating interactive agent experiences with CopilotKit
+
+## Let's get started!
+Next, we'll set up the project and install dependencies.

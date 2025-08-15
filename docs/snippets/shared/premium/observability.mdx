@@ -1,0 +1,617 @@
+---
+title: "Observability"
+description: "Monitor your CopilotKit application with comprehensive observability hooks. Understand user interactions, chat events, and system errors."
+icon: "lucide/Activity"
+---
+
+CopilotKit provides enterprise-grade observability capabilities to help you monitor your application and understand user behavior. Get insights into chat interactions, user events, and system errors with powerful hooks that only work when you provide a `publicLicenseKey`.
+
+## Quick Start
+
+<Callout type="info">
+  **All observability hooks require a `publicLicenseKey`** - Get yours free at
+  [https://cloud.copilotkit.ai](https://cloud.copilotkit.ai)
+</Callout>
+
+<Steps>
+
+<Step>
+### Chat Observability Hooks
+
+Track user interactions and chat events with comprehensive observability hooks:
+
+```tsx
+import { CopilotChat } from "@copilotkit/react-ui";
+import { CopilotKit } from "@copilotkit/react-core";
+
+export default function App() {
+  return (
+    <CopilotKit
+      publicLicenseKey="ck_pub_your_key" // [!code highlight]
+    >
+      <CopilotChat
+        observabilityHooks={{
+          // [!code highlight]
+          onMessageSent: (message) => {
+            // [!code highlight]
+            console.log("Message sent:", message);
+            analytics.track("chat_message_sent", { message });
+          }, // [!code highlight]
+          onChatExpanded: () => {
+            // [!code highlight]
+            console.log("Chat opened");
+            analytics.track("chat_expanded");
+          }, // [!code highlight]
+          onChatMinimized: () => {
+            // [!code highlight]
+            console.log("Chat closed");
+            analytics.track("chat_minimized");
+          }, // [!code highlight]
+          onFeedbackGiven: (messageId, type) => {
+            // [!code highlight]
+            console.log("Feedback:", type, messageId);
+            analytics.track("chat_feedback", { messageId, type });
+          }, // [!code highlight]
+        }} // [!code highlight]
+      />
+    </CopilotKit>
+  );
+}
+```
+
+</Step>
+
+<Step>
+### Error Observability
+
+Monitor system errors and performance with error observability hooks:
+
+```tsx
+import { CopilotKit } from "@copilotkit/react-core";
+
+export default function App() {
+  return (
+    <CopilotKit
+      publicLicenseKey="ck_pub_your_key" // [!code highlight]
+      onError={(errorEvent) => {
+        // [!code highlight]
+        // Send errors to monitoring service
+        console.error("CopilotKit Error:", errorEvent);
+
+        // Example: Send to analytics
+        analytics.track("copilotkit_error", {
+          type: errorEvent.type,
+          source: errorEvent.context.source,
+          timestamp: errorEvent.timestamp,
+        });
+      }} // [!code highlight]
+      showDevConsole={false} // Hide dev console in production
+    >
+      {/* Your app */}
+    </CopilotKit>
+  );
+}
+```
+
+</Step>
+
+<Step>
+### Local Development
+
+For local development, enable the dev console to see errors directly in your UI:
+
+```tsx
+<CopilotKit
+  runtimeUrl="<your-runtime-url>"
+  showDevConsole={true} // [!code highlight]
+>
+  {/* Your app */}
+</CopilotKit>
+```
+
+<Callout type="tip">
+  The dev console shows an error banner directly in your UI, making it easy to spot
+  issues during development. **No API key is required** for this feature.
+</Callout>
+
+</Step>
+
+</Steps>
+
+## Observability Features
+
+### Chat Observability Hooks
+
+Track user interactions and chat behavior with comprehensive observability hooks (requires a `publicLicenseKey`):
+
+```tsx
+import { CopilotChat } from "@copilotkit/react-ui";
+
+<CopilotChat
+  observabilityHooks={{
+    onMessageSent: (message) => {
+      console.log("Message sent:", message);
+      // Track message analytics
+      analytics.track("chat_message_sent", { message });
+    },
+    onChatExpanded: () => {
+      console.log("Chat opened");
+      // Track engagement
+      analytics.track("chat_expanded");
+    },
+    onChatMinimized: () => {
+      console.log("Chat closed");
+      // Track user behavior
+      analytics.track("chat_minimized");
+    },
+    onMessageRegenerated: (messageId) => {
+      console.log("Message regenerated:", messageId);
+      // Track regeneration requests
+      analytics.track("chat_message_regenerated", { messageId });
+    },
+    onMessageCopied: (content) => {
+      console.log("Message copied:", content);
+      // Track content sharing
+      analytics.track("chat_message_copied", { contentLength: content.length });
+    },
+    onFeedbackGiven: (messageId, type) => {
+      console.log("Feedback given:", messageId, type);
+      // Track user feedback
+      analytics.track("chat_feedback_given", { messageId, type });
+    },
+    onChatStarted: () => {
+      console.log("Chat generation started");
+      // Track when AI starts responding
+      analytics.track("chat_generation_started");
+    },
+    onChatStopped: () => {
+      console.log("Chat generation stopped");
+      // Track when AI stops responding
+      analytics.track("chat_generation_stopped");
+    },
+  }}
+/>;
+```
+
+**Available Observability Hooks:**
+
+- `onMessageSent(message)` - User sends a message
+- `onChatExpanded()` - Chat is opened/expanded
+- `onChatMinimized()` - Chat is closed/minimized
+- `onMessageRegenerated(messageId)` - Message is regenerated
+- `onMessageCopied(content)` - Message is copied
+- `onFeedbackGiven(messageId, type)` - Thumbs up/down feedback given
+- `onChatStarted()` - Chat generation starts
+- `onChatStopped()` - Chat generation stops
+
+**Requirements:**
+
+- ✅ Requires a `publicLicenseKey` from [Copilot Cloud](https://cloud.copilotkit.ai)
+- ✅ Works with `CopilotChat`, `CopilotPopup`, `CopilotSidebar`, and all pre-built components
+- ✅ Only triggers when `publicLicenseKey` is provided
+
+<Callout type="warn">
+  **Important:** Observability hooks will **not trigger** without a valid
+  `publicLicenseKey`. This is a security feature to ensure observability hooks only
+  work in authorized applications.
+</Callout>
+
+## Error Handling Options
+
+### Dev Console (`showDevConsole`)
+
+The dev console provides immediate visual feedback during development:
+
+```tsx
+<CopilotKit runtimeUrl="<your-runtime-url>" showDevConsole={true}>
+  {/* Your app */}
+</CopilotKit>
+```
+
+**Features:**
+
+- ✅ **No API key required** - works with any setup
+- ✅ **Visual error banner** - errors appear as banner in your UI
+- ✅ **Real-time feedback** - see errors immediately as they occur
+- ✅ **Development-focused** - detailed error information for debugging
+
+**Best for:**
+
+- Local development
+- Testing and debugging
+- Understanding error flows
+
+<Callout type="warn">
+  Set `showDevConsole={false}` in production to avoid showing error details to
+  end users.
+</Callout>
+
+### Error Observability (`onError`)
+
+The error observability hooks provide programmatic access to detailed error information for monitoring and analytics (requires `publicLicenseKey`):
+
+```tsx
+import { CopilotErrorEvent } from "@copilotkit/shared";
+
+<CopilotKit
+  publicLicenseKey="ck_pub_your_key" // [!code highlight]
+  onError={(errorEvent: CopilotErrorEvent) => {
+    // Send error data to monitoring services
+    switch (errorEvent.type) {
+      case "error":
+        logToService("Critical error", errorEvent);
+        break;
+      case "request":
+        logToService("Request started", errorEvent);
+        break;
+      case "response":
+        logToService("Response received", errorEvent);
+        break;
+      case "agent_state":
+        logToService("Agent state change", errorEvent);
+        break;
+    }
+  }}
+>
+  {/* Your app */}
+</CopilotKit>;
+```
+
+**Features:**
+
+- ✅ **Rich error context** - detailed information about what went wrong
+- ✅ **Request/response tracking** - monitor the full conversation flow
+- ✅ **Agent state monitoring** - track agent interactions and state changes
+- ✅ **Production-ready** - structured data perfect for monitoring services
+
+**Requirements:**
+
+- ✅ Requires `publicLicenseKey` from [Copilot Cloud](https://cloud.copilotkit.ai)
+- ✅ Only triggers when `publicLicenseKey` is provided
+- ✅ Part of CopilotKit's observability offering
+
+<Callout type="warn">
+  **Important:** Error observability hooks will **not trigger** without a valid
+  `publicLicenseKey`. The `onError` hook is specifically for **error observability**
+  - sending error data to monitoring services like Sentry, DataDog, etc.
+</Callout>
+
+## Error Event Structure
+
+The `onError` handler receives detailed error events with rich context:
+
+```typescript
+interface CopilotErrorEvent {
+  type:
+    | "error"
+    | "request"
+    | "response"
+    | "agent_state"
+    | "action"
+    | "message"
+    | "performance";
+  timestamp: number;
+  context: {
+    source: "ui" | "runtime" | "agent";
+    request?: {
+      operation: string;
+      method?: string;
+      url?: string;
+      startTime: number;
+    };
+    response?: {
+      endTime: number;
+      latency: number;
+    };
+    agent?: {
+      name: string;
+      nodeName?: string;
+    };
+    messages?: {
+      input: any[];
+      messageCount: number;
+    };
+    technical?: {
+      environment: string;
+      stackTrace?: string;
+    };
+  };
+  error?: any; // Present for error events
+}
+```
+
+## Common Observability Patterns
+
+### Chat Event Tracking
+
+```tsx
+<CopilotChat
+  observabilityHooks={{
+    onMessageSent: (message) => {
+      // Track message analytics
+      analytics.track("chat_message_sent", {
+        messageLength: message.length,
+        timestamp: Date.now(),
+        userId: getCurrentUserId(),
+      });
+    },
+    onChatExpanded: () => {
+      // Track user engagement
+      analytics.track("chat_expanded", {
+        timestamp: Date.now(),
+        userId: getCurrentUserId(),
+      });
+    },
+    onFeedbackGiven: (messageId, type) => {
+      // Track feedback for AI improvement
+      analytics.track("chat_feedback", {
+        messageId,
+        feedbackType: type,
+        timestamp: Date.now(),
+      });
+    },
+  }}
+/>
+```
+
+### Combined Event and Error Tracking
+
+```tsx
+<CopilotKit
+  publicLicenseKey="ck_pub_your_key"
+  onError={(errorEvent) => {
+    // Error observability
+    if (errorEvent.type === "error") {
+      console.error("CopilotKit Error:", errorEvent);
+      analytics.track("copilotkit_error", {
+        error: errorEvent.error?.message,
+        context: errorEvent.context,
+      });
+    }
+  }}
+>
+  <CopilotChat
+    observabilityHooks={{
+      onMessageSent: (message) => {
+        // Event tracking
+        analytics.track("chat_message_sent", { message });
+      },
+      onChatExpanded: () => {
+        analytics.track("chat_expanded");
+      },
+    }}
+  />
+</CopilotKit>
+```
+
+## Error Observability Patterns
+
+### Basic Error Logging
+
+```tsx
+<CopilotKit
+  publicLicenseKey="ck_pub_your_key"
+  onError={(errorEvent) => {
+    console.error("[CopilotKit Error]", {
+      type: errorEvent.type,
+      timestamp: new Date(errorEvent.timestamp).toISOString(),
+      context: errorEvent.context,
+      error: errorEvent.error,
+    });
+  }}
+>
+  {/* Your app */}
+</CopilotKit>
+```
+
+### Integration with Monitoring Services
+
+```tsx
+// Example with Sentry
+import * as Sentry from "@sentry/react";
+
+<CopilotKit
+  publicLicenseKey="ck_pub_your_key"
+  onError={(errorEvent) => {
+    if (errorEvent.type === "error") {
+      Sentry.captureException(errorEvent.error, {
+        tags: {
+          source: errorEvent.context.source,
+          operation: errorEvent.context.request?.operation,
+        },
+        extra: {
+          context: errorEvent.context,
+          timestamp: errorEvent.timestamp,
+        },
+      });
+    }
+  }}
+>
+  {/* Your app */}
+</CopilotKit>;
+```
+
+### Custom Error Analytics
+
+```tsx
+<CopilotKit
+  publicLicenseKey="ck_pub_your_key"
+  onError={(errorEvent) => {
+    // Track different error types
+    analytics.track("copilotkit_event", {
+      event_type: errorEvent.type,
+      source: errorEvent.context.source,
+      agent_name: errorEvent.context.agent?.name,
+      latency: errorEvent.context.response?.latency,
+      error_message: errorEvent.error?.message,
+      timestamp: errorEvent.timestamp,
+    });
+  }}
+>
+  {/* Your app */}
+</CopilotKit>
+```
+
+## Development vs Production Setup
+
+### Development Environment
+
+```tsx
+<CopilotKit
+  runtimeUrl="http://localhost:3000/api/copilotkit"
+  publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY} // For observability
+  showDevConsole={true} // Show visual errors
+  onError={(errorEvent) => {
+    // Simple console logging for development
+    console.log("CopilotKit Event:", errorEvent);
+  }}
+>
+  <CopilotChat
+    observabilityHooks={{
+      onMessageSent: (message) => {
+        console.log("Message sent:", message);
+      },
+      onChatExpanded: () => {
+        console.log("Chat expanded");
+      },
+    }}
+  />
+</CopilotKit>
+```
+
+### Production Environment
+
+```tsx
+<CopilotKit
+  runtimeUrl="https://your-app.com/api/copilotkit"
+  publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY} // [!code highlight]
+  showDevConsole={false} // Hide from users
+  onError={(errorEvent) => {
+    // Production error observability
+    if (errorEvent.type === "error") {
+      // Log critical errors
+      logger.error("CopilotKit Error", {
+        error: errorEvent.error,
+        context: errorEvent.context,
+        timestamp: errorEvent.timestamp,
+      });
+
+      // Send to monitoring service
+      monitoring.captureError(errorEvent.error, {
+        extra: errorEvent.context,
+      });
+    }
+  }}
+>
+  <CopilotChat
+    observabilityHooks={{
+      onMessageSent: (message) => {
+        // Track production analytics
+        analytics.track("chat_message_sent", {
+          messageLength: message.length,
+          userId: getCurrentUserId(),
+        });
+      },
+      onChatExpanded: () => {
+        analytics.track("chat_expanded");
+      },
+      onFeedbackGiven: (messageId, type) => {
+        // Track feedback for AI improvement
+        analytics.track("chat_feedback", { messageId, type });
+      },
+    }}
+  />
+</CopilotKit>
+```
+
+## Getting Started with Copilot Cloud
+
+To use observability hooks (event hooks and error observability), you'll need a Copilot Cloud account:
+
+1. **Sign up for free** at [https://cloud.copilotkit.ai](https://cloud.copilotkit.ai)
+2. **Get your public license key** from the dashboard
+3. **Add it to your environment variables**:
+   ```bash
+   NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY=ck_pub_your_key_here
+   ```
+4. **Use it in your CopilotKit provider**:
+   ```tsx
+   <CopilotKit publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}>
+     <CopilotChat
+       observabilityHooks={{
+         onMessageSent: (message) => console.log("Message:", message),
+         onChatExpanded: () => console.log("Chat opened"),
+       }}
+     />
+   </CopilotKit>
+   ```
+
+<Callout type="info">
+  Copilot Cloud is free to get started and provides production-ready
+  infrastructure for your AI copilots, including comprehensive observability
+  capabilities for tracking user behavior and monitoring system health.
+</Callout>
+
+## Best Practices
+
+### ✅ Do
+
+- **Always provide `publicLicenseKey`** for observability hooks to work
+- **Use observability hooks for user analytics** - track message patterns, engagement, and feedback
+- **Implement error observability** with the `onError` hook for monitoring
+- **Use `showDevConsole={true}` during development** for immediate feedback
+- **Set `showDevConsole={false}` in production** to hide errors from users
+- **Monitor error patterns** to identify and fix issues proactively
+- **Use structured logging** to make analysis easier
+- **Track user feedback** to improve AI responses over time
+
+### ❌ Don't
+
+- **Don't expect hooks to work without `publicLicenseKey`** - they're designed to be secure
+- **Don't expose detailed errors to end users** in production
+- **Don't ignore error events** - they provide valuable debugging information
+- **Don't log sensitive data** in observability hooks
+- **Don't block the UI** with hook logic - keep handlers lightweight
+
+## Troubleshooting
+
+### Observability Hooks Not Working
+
+If your observability hooks aren't being called:
+
+1. **Check your publicLicenseKey** - all observability hooks require a valid API key
+2. **Verify the key format** - should start with `ck_pub_`
+3. **Ensure the key is set** - check your environment variables
+4. **Test interactions** - try opening/closing chat, sending messages, etc.
+5. **Check console for errors** - look for JavaScript errors in browser dev tools
+
+### Error Observability Not Working
+
+If your `onError` hook isn't being called:
+
+1. **Check your publicLicenseKey** - error observability requires a valid API key
+2. **Verify the key format** - should start with `ck_pub_`
+3. **Ensure the key is set** - check your environment variables
+4. **Test with dev console** - use `showDevConsole={true}` to see if errors are occurring
+
+### Dev Console Not Showing
+
+If the dev console isn't displaying errors:
+
+1. **Check showDevConsole setting** - ensure it's set to `true`
+2. **Look for console errors** - check browser dev tools for JavaScript errors
+3. **Verify error occurrence** - make sure errors are actually happening
+
+### Common Issues
+
+**Observability hooks not triggering:**
+
+- Missing or invalid `publicLicenseKey`
+- Observability hooks defined but not on the right components
+- Network issues preventing validation
+
+**Error observability not working:**
+
+- Missing `publicLicenseKey` in CopilotKit provider
+- Incorrect key format (should start with `ck_pub_`)
+- Environment variables not loaded correctly

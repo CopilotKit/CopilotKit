@@ -1,7 +1,8 @@
 import { Analytics } from "@segment/analytics-node";
 import { AnalyticsEvents } from "./events";
-import { flattenObject, printSecurityNotice } from "./utils";
+import { flattenObject } from "./utils";
 import { v4 as uuidv4 } from "uuid";
+import scarfClient from "./scarf-client";
 
 export class TelemetryClient {
   segment: Analytics | undefined;
@@ -83,6 +84,10 @@ export class TelemetryClient {
       anonymousId: this.anonymousId,
       event,
       properties: { ...orderedPropertiesWithGlobal },
+    });
+
+    await scarfClient.logEvent({
+      event,
     });
   }
 

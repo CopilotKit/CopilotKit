@@ -1,0 +1,32 @@
+---
+title: Migrate from v0.2 to v0.3
+description: How to migrate from v0.2 to v0.3.
+---
+
+## What's new in v0.3?
+
+Starting with `v0.3`, we changed how messages are synced between the agent (LangGraph) and CopilotKit. Essentially, both will now share exactly the same message history.
+
+This means that you need to return the messages you want to appear in CopilotKit chat from your LangGraph nodes, for example:
+
+```python
+def my_node(state: State, config: RunnableConfig) -> State:
+    response = # ... llm call ...
+    return {
+        "messages": response,
+    }
+```
+
+All tool messages are now emitted by default, so you don't need to manually call `copilotkit_customize_config` to configure tool call emissions.
+
+<Frame>
+    <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents-v-0-3-migration-image.png" />
+</Frame>
+
+## How do I migrate?
+
+1. Make sure to return any messages (tool calls or text messages) you want to be part of the message history from your LangGraph nodes.
+
+2. Optionally, remove manual `copilotkit_customize_config` calls when you want to emit tool calls.
+
+3. If you want to hide tool calls or messages from the chat, use `copilotkit_customize_config` and set `emit_tool_calls` or `emit_messages` to `False`. Make sure to not return these messages in your nodes so they don't become part of the message history.

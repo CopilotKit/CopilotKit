@@ -1,6 +1,6 @@
 /**
  * <br/>
- * <img src="/images/CopilotPopup.gif" width="500" />
+ * <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/CopilotPopup.gif" width="500" />
  *
  * A chatbot popup component for the CopilotKit framework. The component allows for a high degree
  * of customization through various props and custom CSS.
@@ -26,6 +26,26 @@
  *     initial: "Hi! 👋 How can I assist you today?",
  *   }}
  * />
+ * ```
+ *
+ * ### With Observability Hooks
+ *
+ * To monitor user interactions, provide the `observabilityHooks` prop.
+ * **Note:** This requires a `publicApiKey` in the `<CopilotKit>` provider.
+ *
+ * ```tsx
+ * <CopilotKit publicApiKey="YOUR_PUBLIC_API_KEY">
+ *   <CopilotPopup
+ *     observabilityHooks={{
+ *       onChatExpanded: () => {
+ *         console.log("Popup opened");
+ *       },
+ *       onChatMinimized: () => {
+ *         console.log("Popup closed");
+ *       },
+ *     }}
+ *   />
+ * </CopilotKit>
  * ```
  *
  * ### Look & Feel

@@ -1,0 +1,397 @@
+---
+title: Interrupt
+icon: "lucide/CirclePause"
+description: Learn how to implement Human-in-the-Loop (HITL) using a interrupt-based flow.
+---
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
+import {
+    TailoredContent,
+    TailoredContentOption,
+} from "@/components/react/tailored-content.tsx";
+import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx"
+import { MessageCircle, PanelsTopLeft } from "lucide-react";
+
+<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/interrupt-flow.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+
+<Callout type="info">
+  Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter) with
+  the implementation below applied!
+</Callout>
+
+
+## What is this?
+
+[LangGraph's interrupt flow](https://langchain-ai.github.io/langgraph/concepts/human_in_the_loop/) provides an intuitive way to implement Human-in-the-loop workflows.
+
+This guide will show you how to both use `interrupt` and how to integrate it with CopilotKit.
+
+## When should I use this?
+
+Human-in-the-loop is a powerful way to implement complex workflows that are production ready. By having a human in the loop,
+you can ensure that the agent is always making the right decisions and ultimately is being steered in the right direction.
+
+Interrupt-based flows are a very intuitive way to implement HITL. Instead of having a node await user input before or after its execution,
+nodes can be interrupted in the middle of their execution to allow for user input. The trade-off is that the agent is not aware of the 
+interaction, however [CopilotKit's SDKs provide helpers to alleviate this](#make-your-agent-aware-of-interruptions).
+
+## Implementation
+
+<Steps>
+<Step>
+### Run and connect your agent
+<RunAndConnectAgentSnippet />
+</Step>
+<Step>
+  ### Install the CopilotKit SDK
+  <InstallSDKSnippet components={props.components}/>
+</Step>
+<Step>
+### Setup your agent state
+We're going to have the agent ask us to name it, so we'll need a state property to store the name.
+
+<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+    <Tab value="Python">
+        ```python title="agent/sample_agent/agent.py"
+        # ...
+        from copilotkit import CopilotKitState # extends MessagesState
+        # ...
+        
+        # This is the state of the agent.
+        # It inherits from the CopilotKitState properties from CopilotKit.
+        class AgentState(CopilotKitState):
+            agent_name: str
+        ```
+    </Tab>
+    <Tab value="TypeScript">
+        ```typescript title="agent-js/src/agent.ts"
+        // ...
+        import { Annotation } from "@langchain/langgraph";
+        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+        // ...
+        
+        // This is the state of the agent.
+        // It inherits from the CopilotKitState properties from CopilotKit.
+        export const AgentStateAnnotation = Annotation.Root({
+          agentName: Annotation<string>,
+          ...CopilotKitStateAnnotation.spec,
+        });
+        export type AgentState = typeof AgentStateAnnotation.State;
+        ```
+    </Tab>
+</Tabs>
+
+</Step>
+<Step>
+    ### Call `interrupt` in your LangGraph agent
+    Now we can call `interrupt` in our LangGraph agent.
+
+    <Callout type="info">
+        Your agent will not be aware of the `interrupt` interaction by default in LangGraph.
+
+        If you want this behavior, see the [section on it below](#make-your-agent-aware-of-interruptions).
+    </Callout>
+
+    <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+        <Tab value="Python">
+            ```python title="agent/sample_agent/agent.py"
+            from langgraph.types import interrupt # [!code highlight]
+            from langchain_core.messages import SystemMessage
+            from langchain_openai import ChatOpenAI
+            from copilotkit import CopilotKitState
+
+            # add the agent state definition from the previous step
+            class AgentState(CopilotKitState):
+                agent_name: str
+
+            def chat_node(state: AgentState, config: RunnableConfig):
+                if not state.get("agent_name"):
+                    # Interrupt and wait for the user to respond with a name
+                    state["agent_name"] = interrupt("Before we start, what would you like to call me?") # [!code highlight]
+
+                # Tell the agent its name
+                system_message = SystemMessage(
+                    content=f"You are a helpful assistant named {state.get('agent_name')}..."
+                )
+
+                response = ChatOpenAI(model="gpt-4o").invoke(
+                    [system_message, *state["messages"]],
+                    config
+                )
+
+                return {
+                    **state,
+                    "messages": response,
+                }
+            ```
+        </Tab>
+        <Tab value="TypeScript">
+            ```typescript title="agent-js/src/agent.ts"
+            import { interrupt } from "@langchain/langgraph"; // [!code highlight]
+            import { SystemMessage } from "@langchain/core/messages";
+            import { ChatOpenAI } from "@langchain/openai";
+
+            // add the agent state definition from the previous step
+            export const AgentStateAnnotation = Annotation.Root({
+                agentName: Annotation<string>,
+                ...CopilotKitStateAnnotation.spec,
+            });
+            export type AgentState = typeof AgentStateAnnotation.State;
+
+            async function chat_node(state: AgentState, config: RunnableConfig) {
+                const agentName = state.agentName
+                ?? interrupt("Before we start, what would you like to call me?"); // [!code highlight]
+
+                // Tell the agent its name
+                const systemMessage = new SystemMessage({
+                    content: `You are a helpful assistant named ${state.agentName}...`,
+                });
+
+                const response = await new ChatOpenAI({ model: "gpt-4o" }).invoke(
+                    [systemMessage, ...state.messages],
+                    config
+                );
+
+                return {
+                    ...state,
+                    agentName
+                    messages: response,
+                };
+            }
+            ```
+        </Tab>
+    </Tabs>
+</Step>
+<Step>
+    ### Handle the interrupt in your frontend
+    At this point, your LangGraph agent's `interrupt` will be called. However, we currently have no handling for rendering or
+    responding to the interrupt in the frontend.
+
+    To do this, we'll use the `useLangGraphInterrupt` hook, give it a component to render, and then call `resolve` with the user's response.
+
+    ```tsx title="app/page.tsx"
+    import { useLangGraphInterrupt } from "@copilotkit/react-core"; // [!code highlight]
+    // ...
+
+    const YourMainContent = () => {
+    // ...
+    // [!code highlight:16]
+    // styles omitted for brevity
+    useLangGraphInterrupt({
+        render: ({ event, resolve }) => (
+            <div>
+                <p>{event.value}</p>
+                <form onSubmit={(e) => {
+                    e.preventDefault();
+                    resolve((e.target as HTMLFormElement).response.value);
+                }}>
+                    <input type="text" name="response" placeholder="Enter your response" />
+                    <button type="submit">Submit</button>
+                </form>
+            </div>
+        )
+    });
+    // ...
+
+    return <div>{/* ... */}</div>
+    }
+    ```
+
+</Step>
+<Step>
+### Give it a try!
+Try talking to your agent, you'll see that it now pauses execution and waits for you to respond!
+</Step>
+</Steps>
+
+## Advanced usage
+
+### Condition UI executions
+
+When rendering multiple `interrupt` events in the agent, there could be conflicts between multiple `useLangGraphInterrupt` hooks calls in the UI.
+For this reason, the hook can take an `enabled` argument which will apply it conditionally:
+
+<Steps>
+    <Step>
+        ### Define multiple interrupts
+        First, let's define two different interrupts. We will include a "type" property to differentiate them.
+        <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+            <Tab value="Python">
+                ```python title="agent/sample_agent/agent.py"
+                from langgraph.types import interrupt # [!code highlight]
+                from langchain_core.messages import SystemMessage
+                from langchain_openai import ChatOpenAI
+
+                # ... your full state definition
+
+                def chat_node(state: AgentState, config: RunnableConfig):
+
+                  state["approval"] = interrupt({ "type": "approval", "content": "please approve" }) # [!code highlight]
+
+                  if not state.get("agent_name"):
+                    # Interrupt and wait for the user to respond with a name
+                    state["agent_name"] = interrupt({ "type": "ask", "content": "Before we start, what would you like to call me?" }) # [!code highlight]
+
+                  # Tell the agent its name
+                  system_message = SystemMessage(
+                    content=f"You are a helpful assistant..."
+                  )
+
+                  response = ChatOpenAI(model="gpt-4o").invoke(
+                    [system_message, *state["messages"]],
+                    config
+                  )
+
+                  return {
+                    **state,
+                    "messages": response,
+                  }
+                ```
+            </Tab>
+            <Tab value="TypeScript">
+                ```typescript title="agent-js/src/agent.ts"
+                import { interrupt } from "@langchain/langgraph"; // [!code highlight]
+                import { SystemMessage } from "@langchain/core/messages";
+                import { ChatOpenAI } from "@langchain/openai";
+
+                // ... your full state definition
+
+                async function chat_node(state: AgentState, config: RunnableConfig) {
+                  state.approval = await interrupt({ type: "approval", content: "please approve" }); // [!code highlight]
+
+                  if (!state.agentName) {
+                    state.agentName = await interrupt({ type: "ask", content: "Before we start, what would you like to call me?" }); // [!code highlight]
+                  }
+
+                  // Tell the agent its name
+                  const systemMessage = new SystemMessage({
+                    content: `You are a helpful assistant...`,
+                  });
+
+                  const response = await new ChatOpenAI({ model: "gpt-4o" }).invoke(
+                    [systemMessage, ...state.messages],
+                    config
+                  );
+
+                  return {
+                    ...state,
+                    messages: response,
+                  };
+                }
+                ```
+            </Tab>
+        </Tabs>
+    </Step>
+    <Step>
+        ### Add multiple frontend handlers
+        With the differentiator in mind, we will add a handler that takes care of any "ask" and any "approve" types.
+        With two `useLangGraphInterrupt` hooks in our page, we can leverage the `enabled` property to enable each in the right time:
+
+        ```tsx title="app/page.tsx"
+        import { useLangGraphInterrupt } from "@copilotkit/react-core"; // [!code highlight]
+        // ...
+
+        const ApproveComponent = ({ content, onAnswer }: { content: string; onAnswer: (approved: boolean) => void }) => (
+            // styles omitted for brevity
+            <div>
+                <h1>Do you approve?</h1>
+                <button onClick={() => onAnswer(true)}>Approve</button>
+                <button onClick={() => onAnswer(false)}>Reject</button>
+            </div>
+        )
+
+        const AskComponent = ({ question, onAnswer }: { question: string; onAnswer: (answer: string) => void }) => (
+        // styles omitted for brevity
+            <div>
+                <p>{question}</p>
+                <form onSubmit={(e) => {
+                    e.preventDefault();
+                    onAnswer((e.target as HTMLFormElement).response.value);
+                }}>
+                    <input type="text" name="response" placeholder="Enter your response" />
+                    <button type="submit">Submit</button>
+                </form>
+            </div>
+        )
+
+        const YourMainContent = () => {
+            // ...
+            // [!code highlight:14]
+            useLangGraphInterrupt({
+                enabled: ({ eventValue }) => eventValue.type === 'ask',
+                render: ({ event, resolve }) => (
+                    <AskComponent question={event.value.content} onAnswer={answer => resolve(answer)} />
+                )
+            });
+
+            useLangGraphInterrupt({
+                enabled: ({ eventValue }) => eventValue.type === 'approval',
+                render: ({ event, resolve }) => (
+                    <ApproveComponent content={event.value.content} onAnswer={answer => resolve(answer)} />
+                )
+            });
+
+            // ...
+        }
+    ```
+    </Step>
+</Steps>
+
+### Preprocessing of an interrupt and programmatically handling an interrupt value
+
+When opting for custom chat UI, some cases may require pre-processing of the incoming values of interrupt event or even resolving it entirely without showing a UI for it.
+This can be achieved using the `handler` property, which is not required to return a React component.
+
+The return value of the handler will be passed to the `render` method as the `result` argument.
+```tsx title="app/page.tsx"
+// We will assume an interrupt event in the following shape
+type Department = 'finance' | 'engineering' | 'admin'
+interface AuthorizationInterruptEvent {
+    type: 'auth',
+    accessDepartment: Department,
+}
+
+import { useLangGraphInterrupt } from "@copilotkit/react-core";
+
+const YourMainContent = () => {
+    const [userEmail, setUserEmail] = useState({ email: 'example@user.com' })
+    function getUserByEmail(email: string): { id: string; department: Department } {
+        // ... an implementation of user fetching
+    }
+
+    // ...
+    // styles omitted for brevity
+    // [!code highlight:30]
+    useLangGraphInterrupt({
+        handler: async ({ result, event, resolve }) => {
+            const { department } = await getUserByEmail(userEmail)
+            if (event.value.accessDepartment === department || department === 'admin') {
+                // Following the resolution of the event, we will not proceed to the render method
+                resolve({ code: 'AUTH_BY_DEPARTMENT' })
+                return;
+            }
+
+            return { department, userId }
+        },
+        render: ({ result, event, resolve }) => (
+            <div>
+                <h1>Request for {event.value.type}</h1>
+                <p>Members from {result.department} department cannot access this information</p>
+                <p>You can request access from an administrator to continue.</p>
+                <button
+                    onClick={() => resolve({ code: 'REQUEST_AUTH', data: { department: result.department, userId: result.userId } })}
+                >
+                    Request Access
+                </button>
+                <button
+                    onClick={() => resolve({ code: 'CANCEL' })}
+                >
+                    Cancel
+                </button>
+            </div>
+        )
+    });
+    // ...
+
+    return <div>{/* ... */}</div>
+}
+```

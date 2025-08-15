@@ -33,14 +33,16 @@ import {
   randomUUID,
   ConfigurationError,
   MissingPublicApiKeyError,
+  CopilotKitError,
 } from "@copilotkit/shared";
 import { FrontendAction } from "../../types/frontend-action";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { CopilotKitProps } from "./copilotkit-props";
 import { CoAgentStateRender } from "../../types/coagent-action";
 import { CoagentState } from "../../types/coagent-state";
-import { CopilotMessages } from "./copilot-messages";
+import { CopilotMessages, MessagesTapProvider } from "./copilot-messages";
 import { ToastProvider } from "../toast/toast-provider";
+import { getErrorActions, UsageBanner } from "../usage-banner";
 import { useCopilotRuntimeClient } from "../../hooks/use-copilot-runtime-client";
 import { shouldShowDevConsole } from "../../utils";
 import { CopilotErrorBoundary } from "../error-boundary/error-boundary";
@@ -49,15 +51,17 @@ import {
   LangGraphInterruptAction,
   LangGraphInterruptActionSetterArgs,
 } from "../../types/interrupt-action";
-import { StatusChecker } from "../../lib/status-checker";
+import { ConsoleTrigger } from "../dev-console/console-trigger";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
-  const showDevConsole = props.showDevConsole ?? false;
-  const enabled = shouldShowDevConsole(showDevConsole);
+  const enabled = shouldShowDevConsole(props.showDevConsole);
+
+  // Use API key if provided, otherwise use the license key
+  const publicApiKey = props.publicApiKey || props.publicLicenseKey;
 
   return (
     <ToastProvider enabled={enabled}>
-      <CopilotErrorBoundary publicApiKey={props.publicApiKey} showUsageBanner={enabled}>
+      <CopilotErrorBoundary publicApiKey={publicApiKey} showUsageBanner={enabled}>
         <CopilotKitInternal {...props}>{children}</CopilotKitInternal>
       </CopilotErrorBoundary>
     </ToastProvider>
@@ -71,6 +75,9 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
    * This will throw an error if the props are invalid.
    */
   validateProps(cpkProps);
+
+  // Use license key as API key if provided, otherwise use the API key
+  const publicApiKey = props.publicLicenseKey || props.publicApiKey;
 
   const chatApiEndpoint = props.runtimeUrl || COPILOT_CLOUD_CHAT_URL;
 
@@ -97,12 +104,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     allElements: allDocuments,
   } = useFlatCategoryStore<DocumentPointer>();
 
-  const statusChecker = useMemo(() => new StatusChecker(), []);
-
-  const [usageBannerStatus, setUsageBannerStatus] = useState<any>(null);
-
   // Compute all the functions and properties that we need to pass
-
   const setAction = useCallback((id: string, action: FrontendAction<any>) => {
     setActions((prevPoints) => {
       return {
@@ -205,7 +207,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   // get the appropriate CopilotApiConfig from the props
   const copilotApiConfig: CopilotApiConfig = useMemo(() => {
     let cloud: CopilotCloudConfig | undefined = undefined;
-    if (props.publicApiKey) {
+    if (publicApiKey) {
       cloud = {
         guardrails: {
           input: {
@@ -220,7 +222,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     }
 
     return {
-      publicApiKey: props.publicApiKey,
+      publicApiKey: publicApiKey,
       ...(cloud ? { cloud } : {}),
       chatApiEndpoint: chatApiEndpoint,
       headers: props.headers || {},
@@ -230,7 +232,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       credentials: props.credentials,
     };
   }, [
-    props.publicApiKey,
+    publicApiKey,
     props.headers,
     props.properties,
     props.transcribeAudioUrl,
@@ -268,11 +270,11 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
 
   const runtimeClient = useCopilotRuntimeClient({
     url: copilotApiConfig.chatApiEndpoint,
-    publicApiKey: copilotApiConfig.publicApiKey,
+    publicApiKey: publicApiKey,
     headers,
     credentials: copilotApiConfig.credentials,
-    showDevConsole: props.showDevConsole ?? false,
-    onTrace: props.onTrace,
+    showDevConsole: shouldShowDevConsole(props.showDevConsole),
+    onError: props.onError,
   });
 
   const [chatSuggestionConfiguration, setChatSuggestionConfiguration] = useState<{
@@ -370,7 +372,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
 
   const chatAbortControllerRef = useRef<AbortController | null>(null);
 
-  const showDevConsole = props.showDevConsole ?? false;
+  const showDevConsole = shouldShowDevConsole(props.showDevConsole);
 
   const [langGraphInterruptAction, _setLangGraphInterruptAction] =
     useState<LangGraphInterruptAction | null>(null);
@@ -391,6 +393,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   }, []);
 
   const memoizedChildren = useMemo(() => children, [children]);
+  const [bannerError, setBannerError] = useState<CopilotKitError | null>(null);
 
   const agentLock = useMemo(() => props.agent ?? null, [props.agent]);
 
@@ -483,10 +486,25 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         langGraphInterruptAction,
         setLangGraphInterruptAction,
         removeLangGraphInterruptAction,
-        onTrace: props.onTrace,
+        onError: props.onError,
+        bannerError,
+        setBannerError,
       }}
     >
-      <CopilotMessages>{memoizedChildren}</CopilotMessages>
+      <MessagesTapProvider>
+        <CopilotMessages>
+          {memoizedChildren}
+          {showDevConsole && <ConsoleTrigger />}
+        </CopilotMessages>
+      </MessagesTapProvider>
+      {bannerError && showDevConsole && (
+        <UsageBanner
+          severity={bannerError.severity}
+          message={bannerError.message}
+          onClose={() => setBannerError(null)}
+          actions={getErrorActions(bannerError)}
+        />
+      )}
     </CopilotContext.Provider>
   );
 }
@@ -530,13 +548,18 @@ function formatFeatureName(featureName: string): string {
 function validateProps(props: CopilotKitProps): never | void {
   const cloudFeatures = Object.keys(props).filter((key) => key.endsWith("_c"));
 
-  if (!props.runtimeUrl && !props.publicApiKey) {
-    throw new ConfigurationError("Missing required prop: 'runtimeUrl' or 'publicApiKey'");
+  // Check if we have either a runtimeUrl or one of the API keys
+  const hasApiKey = props.publicApiKey || props.publicLicenseKey;
+
+  if (!props.runtimeUrl && !hasApiKey) {
+    throw new ConfigurationError(
+      "Missing required prop: 'runtimeUrl' or 'publicApiKey' or 'publicLicenseKey'",
+    );
   }
 
-  if (cloudFeatures.length > 0 && !props.publicApiKey) {
+  if (cloudFeatures.length > 0 && !hasApiKey) {
     throw new MissingPublicApiKeyError(
-      `Missing required prop: 'publicApiKey' to use cloud features: ${cloudFeatures
+      `Missing required prop: 'publicApiKey' or 'publicLicenseKey' to use cloud features: ${cloudFeatures
         .map(formatFeatureName)
         .join(", ")}`,
     );

@@ -1,0 +1,84 @@
+---
+title: "Step 8: Progressive State Updates"
+---
+import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
+
+At this point, we've got a pretty functional application. We can run the agent, see the progress in the chat, and see the final research in the right panel.
+
+However, we're still missing one thing. We don't see the LLM actually generating the research, we just see the final result.
+
+In this step, we'll learn how to leverage predictive state rendering to render the agent's progress in the chat. Specifically, we'll be rendering the 
+sections of the research as they are generated.
+
+For this, we'll be using the `copilotkit_customize_config`.
+
+<Callout>
+The `copilotkit_customize_config` function will be used in the next step to render the agent's progress in the chat.
+</Callout>
+
+## Create a copilotkit_customize_config and emit intermediate state
+CopilotKit allows you to customize the configuration of how your frontend and agent interact with each other. In this case, we want to
+setup the `emit_intermediate_state` property. We define a list of objects which will be used to emit the state to the frontend based on
+tool calls.
+
+```python title="agent/section_writer.py"
+from copilotkit.langchain import copilotkit_customize_config, copilotkit_emit_state // [!code ++]
+
+# ...
+@tool("section_writer", args_schema=SectionWriterInput, return_direct=True)
+async def section_writer(research_query, section_title, idx, state):
+    """Writes a specific section of a research report based on the query, section title, and provided sources."""
+
+    # ...
+
+    # Define the state keys that we want to emit, pre-created for this tutorial
+    content_state = {
+        "state_key": f"section_stream.content.{idx}.{section_id}.{section_title}",
+        "tool": "WriteSection",
+        "tool_argument": "content"
+    }
+    footer_state = {
+        "state_key": f"section_stream.footer.{idx}.{section_id}.{section_title}",
+        "tool": "WriteSection",
+        "tool_argument": "footer"
+    }
+
+    # [!code ++:5]
+    config = copilotkit_customize_config(
+        config,
+        emit_intermediate_state=[content_state, footer_state]
+    )
+
+    # ...
+
+    # [!code highlight:4]
+    # The LLM will take this new config and the tool calls
+    # we defined will be emitted to the frontend predictively.
+    response = await model.bind_tools([WriteSection]).ainvoke(lc_messages, config)
+
+    # ...
+
+```
+
+There are three main pieces to predictively emit state:
+1. The `state_key` is the key of the agent's state that we want to emit.
+2. The `tool` is the tool that will be called to generate the state.
+3. The `tool_argument` is the argument that will be passed to the tool which will be the predicted state.
+
+## Recap
+That's it! Now when the LLM calls the tools that we defined, the state will be predictively emitted to the frontend.
+
+To give it a try, go through the full flow of conducting research. You'll now be able to see the sections as they are being generated.
+
+```
+Please research dogs!
+```
+
+<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tutorials/research-ana/fe-step-8-finish.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+
+To recap, we did the following:
+- Learned about the `copilotkit_customize_config` function.
+- Used the config to emit the state of the agent predictively
+
+You've successfully created a CoAgent using the core concepts of CopilotKit. In the next step, we'll wrap up this tutorial by recapping the entire process
+and showing some next steps.

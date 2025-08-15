@@ -1,7 +1,8 @@
 ---
-title: What is CopilotKit?
+title: Introduction
 description: "The Agentic Application Framework:  Open source framework and hosted service for AI-assisted applications."
 icon: "lucide/Sparkles"
+hideTOC: true
 ---
 import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
 import { ExamplesCarousel } from "@/components/react/examples-carousel";
@@ -19,29 +20,20 @@ import { LinkToCopilotCloud } from "@/components/react/link-to-copilot-cloud";
 import { QuickstartDropdown } from "@/components/react/quickstart-dropdown";
 import { IntegrationsGrid } from "@/components/react/integrations";
 import { MaximizableVideo } from "@/components/react/maximizable-video";
+import { CopilotKitHero } from "@/components/branding/CopilotKitHero";
 
-<div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start -mt-6">
-  <div className="[&>p]:mb-4">
-    <div>
-      CopilotKit is the easiest way to add AI copilots - intelligent, context-aware assistants - into your app.
+<div className="grid grid-cols-1 2xl:grid-cols-2 2xl:gap-10">
+  <div>
+    ## What is CopilotKit?
+    CopilotKit is the easiest way to add AI copilots - intelligent, context-aware assistants - into your app.
 
-      CopilotKit connects your app's **logic, state, and user context** to the **AI agents** that deliver the animated and interactive part of your app experience — across both embedded UIs and fully headless interfaces. It gives you the tools to build, deploy, and monitor AI-assisted features that feel intuitive, helpful, and deeply integrated.
+    CopilotKit connects your app's logic, state, and user context to the AI agents that deliver the animated and interactive part of your app experience — across both embedded UIs and fully headless interfaces. It gives you the tools to build, deploy, and monitor AI-assisted features that feel intuitive, helpful, and deeply integrated.
 
-      By decoupling your application from any specific model or agent architecture, CopilotKit gives you the freedom to evolve your AI stack without rethinking your user experience.
-    </div>
+    By decoupling your application from any specific model or agent architecture, CopilotKit gives you the freedom to evolve your AI stack without rethinking your user experience.
   </div>
-  <div className="flex flex-col items-center">
-    <MaximizableVideo 
-      src="/images/coagents/tutorials/ai-travel-app/demo.mp4"
-      className="w-full max-w-md"
-    />
-    <div className="w-full max-w-md mt-6">
-        <Callout title="Want to build your own travel app?">
-        Check out our [Travel App Tutorial](/coagents/tutorials/ai-travel-app) to see how to build your own travel app with CopilotKit.
-        </Callout>
-    </div>
-  </div>
+  <video src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4" autoPlay controls loop muted playsInline className="rounded-xl shadow-lg mx-auto mt-auto" />
 </div>
+
 
 ## Get Started Now
 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-10 gap-6 mb-12">
@@ -68,7 +60,7 @@ npx copilotkit@latest init
   </div>
   <div className="lg:col-span-3 border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
     <div>
-      <h3 className="text-xl font-bold mb-3 text-foreground">Platform</h3>
+      <h3 className="text-xl font-bold mb-3 text-foreground">Cloud</h3>
       <p className="text-sm text-muted-foreground mb-4">Start the easiest way<br /> with our hosted service</p>
     </div>
     <div className="h-12 flex items-center justify-center">
@@ -131,7 +123,7 @@ Learn why CopilotKit is used by thousands of developers around the world.
         Built-in observability, debugging, and extensibility to support real-world deployment and scaling.
       </Accordion>
       <Accordion title="Cloud or OSS">
-        Use our hosted platform or run it entirely within your own infrastructure.
+        Use our hosted cloud service or run it entirely within your own infrastructure.
       </Accordion>
       <Accordion title="Community & Extensibility">
         Open source with growing integrations, patterns, and examples.

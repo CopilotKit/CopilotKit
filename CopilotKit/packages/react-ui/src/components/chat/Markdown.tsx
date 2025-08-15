@@ -34,9 +34,19 @@ const defaultComponents: Components = {
 
     const match = /language-(\w+)/.exec(className || "");
 
-    if (inline) {
+    // Detect inline code: if it has a language class or contains newlines, it's likely a code block
+    // Otherwise, treat it as inline code
+    const hasLanguage = match && match[1];
+    const content = String(children);
+    const hasNewlines = content.includes("\n");
+    const isInline = !hasLanguage && !hasNewlines;
+
+    if (isInline) {
       return (
-        <code className={className} {...props}>
+        <code
+          className={`copilotKitMarkdownElement copilotKitInlineCode ${className || ""}`}
+          {...props}
+        >
           {children}
         </code>
       );
@@ -124,7 +134,7 @@ export const Markdown = ({ content, components }: MarkdownProps) => {
     <div className="copilotKitMarkdown">
       <MemoizedReactMarkdown
         components={{ ...defaultComponents, ...components }}
-        remarkPlugins={[remarkGfm, remarkMath]}
+        remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: false }]]}
         rehypePlugins={[rehypeRaw]}
       >
         {content}

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef } from "react";
+import { flushSync } from "react-dom";
 import {
   FunctionCallHandler,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
@@ -37,9 +38,8 @@ import {
 import { CopilotApiConfig } from "../context";
 import { FrontendAction, processActionsForRuntimeRequest } from "../types/frontend-action";
 import { CoagentState } from "../types/coagent-state";
-import { AgentSession } from "../context/copilot-context";
+import { AgentSession, useCopilotContext } from "../context/copilot-context";
 import { useCopilotRuntimeClient } from "./use-copilot-runtime-client";
-import { useCopilotContext } from "../context/copilot-context";
 import { useAsyncCallback, useErrorToast } from "../components/error-boundary/error-utils";
 import { useToast } from "../components/toast/toast-provider";
 import {
@@ -159,6 +159,8 @@ export type UseChatOptions = {
   langGraphInterruptAction: LangGraphInterruptAction | null;
 
   setLangGraphInterruptAction: LangGraphInterruptActionSetter;
+
+  disableSystemMessage?: boolean;
 };
 
 export type UseChatHelpers = {
@@ -190,6 +192,10 @@ export interface AppendMessageOptions {
    * Whether to run the chat completion after appending the message. Defaults to `true`.
    */
   followUp?: boolean;
+  /**
+   * Whether to clear the suggestions after appending the message. Defaults to `true`.
+   */
+  clearSuggestions?: boolean;
 }
 
 export function useChat(options: UseChatOptions): UseChatHelpers {
@@ -218,18 +224,19 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     setExtensions,
     langGraphInterruptAction,
     setLangGraphInterruptAction,
+    disableSystemMessage = false,
   } = options;
   const runChatCompletionRef = useRef<(previousMessages: Message[]) => Promise<Message[]>>();
   const addErrorToast = useErrorToast();
   const { setBannerError } = useToast();
 
-  // Get onTrace from context since it's not part of copilotConfig
-  const { onTrace } = useCopilotContext();
+  // Get onError from context since it's not part of copilotConfig
+  const { onError } = useCopilotContext();
 
   // Add tracing functionality to use-chat
   const traceUIError = async (error: CopilotKitError, originalError?: any) => {
-    // Just check if onTrace and publicApiKey are defined
-    if (!onTrace || !copilotConfig?.publicApiKey) return;
+    // Just check if onError and publicApiKey are defined
+    if (!onError || !copilotConfig?.publicApiKey) return;
 
     try {
       const traceEvent = {
@@ -251,9 +258,9 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         error,
       };
 
-      await onTrace(traceEvent);
+      await onError(traceEvent);
     } catch (traceError) {
-      console.error("Error in use-chat onTrace handler:", traceError);
+      console.error("Error in use-chat onError handler:", traceError);
     }
   };
   // We need to keep a ref of coagent states and session because of renderAndWait - making sure
@@ -317,9 +324,9 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
       setMessages([...previousMessages, ...newMessages]);
 
-      const systemMessage = makeSystemMessageCallback();
-
-      const messagesWithContext = [systemMessage, ...(initialMessages || []), ...previousMessages];
+      const messagesWithContext = disableSystemMessage
+        ? [...(initialMessages || []), ...previousMessages]
+        : [makeSystemMessageCallback(), ...(initialMessages || []), ...previousMessages];
 
       // ----- Set mcpServers in properties -----
       // Create a copy of properties to avoid modifying the original object
@@ -623,6 +630,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                   threadId: lastAgentStateMessage.threadId,
                   nodeName: lastAgentStateMessage.nodeName,
                   runId: lastAgentStateMessage.runId,
+                  // Preserve existing config from previous state
+                  config: prevAgentStates[lastAgentStateMessage.agentName]?.config,
                 },
               }));
               if (lastAgentStateMessage.running) {
@@ -658,6 +667,55 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
         let didExecuteAction = false;
 
+        // ----- Helper function to execute an action and manage its lifecycle -----
+        const executeActionFromMessage = async (
+          currentAction: FrontendAction<any>,
+          actionMessage: ActionExecutionMessage,
+        ) => {
+          const isInterruptAction = interruptMessages.find((m) => m.id === actionMessage.id);
+          // Determine follow-up behavior: use action's specific setting if defined, otherwise default based on interrupt status.
+          followUp = currentAction?.followUp ?? !isInterruptAction;
+
+          // Call _setActivatingMessageId before executing the action for HITL correlation
+          if ((currentAction as any)?._setActivatingMessageId) {
+            (currentAction as any)._setActivatingMessageId(actionMessage.id);
+          }
+
+          const resultMessage = await executeAction({
+            onFunctionCall: onFunctionCall!,
+            message: actionMessage,
+            chatAbortControllerRef,
+            onError: (error: Error) => {
+              addErrorToast([error]);
+              // console.error is kept here as it's a genuine error in action execution
+              console.error(`Failed to execute action ${actionMessage.name}: ${error}`);
+            },
+            setMessages,
+            getFinalMessages: () => finalMessages,
+            isRenderAndWait: (currentAction as any)?._isRenderAndWait || false,
+          });
+          didExecuteAction = true;
+          const messageIndex = finalMessages.findIndex((msg) => msg.id === actionMessage.id);
+          finalMessages.splice(messageIndex + 1, 0, resultMessage);
+
+          // If the executed action was a renderAndWaitForResponse type, update messages immediately
+          // to reflect its completion in the UI, making it interactive promptly.
+          if ((currentAction as any)?._isRenderAndWait) {
+            const messagesForImmediateUpdate = [...finalMessages];
+            flushSync(() => {
+              setMessages(messagesForImmediateUpdate);
+            });
+          }
+
+          // Clear _setActivatingMessageId after the action is done
+          if ((currentAction as any)?._setActivatingMessageId) {
+            (currentAction as any)._setActivatingMessageId(null);
+          }
+
+          return resultMessage;
+        };
+        // ----------------------------------------------------------------------
+
         // execute regular action executions that are specific to the frontend (last actions)
         if (onFunctionCall) {
           // Find consecutive action execution messages at the end
@@ -683,48 +741,46 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             const action = actions.find(
               (action) => action.name === (message as ActionExecutionMessage).name,
             );
+            if (action && action.available === "frontend") {
+              // never execute frontend actions
+              continue;
+            }
             const currentResultMessagePairedFeAction = message.isResultMessage()
               ? getPairedFeAction(actions, message)
               : null;
 
-            const executeActionFromMessage = async (
-              action: FrontendAction<any>,
-              message: ActionExecutionMessage,
-            ) => {
-              const isInterruptAction = interruptMessages.find((m) => m.id === message.id);
-              followUp = action?.followUp ?? !isInterruptAction;
-              const resultMessage = await executeAction({
-                onFunctionCall,
-                previousMessages,
-                message,
-                chatAbortControllerRef,
-                onError: (error: Error) => {
-                  addErrorToast([error]);
-                  console.error(`Failed to execute action ${message.name}: ${error}`);
-                },
-              });
-              didExecuteAction = true;
-              const messageIndex = finalMessages.findIndex((msg) => msg.id === message.id);
-              finalMessages.splice(messageIndex + 1, 0, resultMessage);
-
-              return resultMessage;
-            };
-
             // execution message which has an action registered with the hook (remote availability):
             // execute that action first, and then the "paired FE action"
             if (action && message.isActionExecutionMessage()) {
-              const resultMessage = await executeActionFromMessage(action, message);
-              const pairedFeAction = getPairedFeAction(actions, resultMessage);
+              // For HITL actions, check if they've already been processed to avoid redundant handler calls.
+              const isRenderAndWaitAction = (action as any)?._isRenderAndWait || false;
+              const alreadyProcessed =
+                isRenderAndWaitAction &&
+                finalMessages.some(
+                  (fm) => fm.isResultMessage() && fm.actionExecutionId === message.id,
+                );
 
-              if (pairedFeAction) {
-                const newExecutionMessage = new ActionExecutionMessage({
-                  name: pairedFeAction.name,
-                  arguments: parseJson(resultMessage.result, resultMessage.result),
-                  status: message.status,
-                  createdAt: message.createdAt,
-                  parentMessageId: message.parentMessageId,
-                });
-                await executeActionFromMessage(pairedFeAction, newExecutionMessage);
+              if (alreadyProcessed) {
+                // Skip re-execution if already processed
+              } else {
+                // Call the single, externally defined executeActionFromMessage
+                const resultMessage = await executeActionFromMessage(
+                  action,
+                  message as ActionExecutionMessage,
+                );
+                const pairedFeAction = getPairedFeAction(actions, resultMessage);
+
+                if (pairedFeAction) {
+                  const newExecutionMessage = new ActionExecutionMessage({
+                    name: pairedFeAction.name,
+                    arguments: parseJson(resultMessage.result, resultMessage.result),
+                    status: message.status,
+                    createdAt: message.createdAt,
+                    parentMessageId: message.parentMessageId,
+                  });
+                  // Call the single, externally defined executeActionFromMessage
+                  await executeActionFromMessage(pairedFeAction, newExecutionMessage);
+                }
               }
             } else if (message.isResultMessage() && currentResultMessagePairedFeAction) {
               // Actions which are set up in runtime actions array: Grab the result, executed paired FE action with it as args.
@@ -735,6 +791,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 createdAt: message.createdAt,
               });
               finalMessages.push(newExecutionMessage);
+              // Call the single, externally defined executeActionFromMessage
               await executeActionFromMessage(
                 currentResultMessagePairedFeAction,
                 newExecutionMessage,
@@ -745,10 +802,10 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           setMessages(finalMessages);
         }
 
+        // Conditionally run chat completion again if followUp is not explicitly false
+        // and an action was executed or the last message is a server-side result (for non-agent runs).
         if (
-          // if followUp is not explicitly false
           followUp !== false &&
-          // and we executed an action
           (didExecuteAction ||
             // the last message is a server side result
             (!isAgentRun &&
@@ -817,6 +874,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
       coagentStatesRef,
       agentSession,
       setAgentSession,
+      disableSystemMessage,
     ],
   );
 
@@ -980,26 +1038,46 @@ function constructFinalMessages(
 
 async function executeAction({
   onFunctionCall,
-  previousMessages,
   message,
   chatAbortControllerRef,
   onError,
+  setMessages,
+  getFinalMessages,
+  isRenderAndWait,
 }: {
   onFunctionCall: FunctionCallHandler;
-  previousMessages: Message[];
   message: ActionExecutionMessage;
   chatAbortControllerRef: React.MutableRefObject<AbortController | null>;
   onError: (error: Error) => void;
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+  getFinalMessages: () => Message[];
+  isRenderAndWait: boolean;
 }) {
   let result: any;
   let error: Error | null = null;
+
+  const currentMessagesForHandler = getFinalMessages();
+
+  // The handler (onFunctionCall) runs its synchronous part here, potentially setting up
+  // renderAndWaitRef.current for HITL actions via useCopilotAction's transformed handler.
+  const handlerReturnedPromise = onFunctionCall({
+    messages: currentMessagesForHandler,
+    name: message.name,
+    args: message.arguments,
+  });
+
+  // For HITL actions, call flushSync immediately after their handler has set up the promise
+  // and before awaiting the promise. This ensures the UI updates to an interactive state.
+  if (isRenderAndWait) {
+    const currentMessagesForRender = getFinalMessages();
+    flushSync(() => {
+      setMessages([...currentMessagesForRender]);
+    });
+  }
+
   try {
     result = await Promise.race([
-      onFunctionCall({
-        messages: previousMessages,
-        name: message.name,
-        args: message.arguments,
-      }),
+      handlerReturnedPromise, // Await the promise returned by the handler
       new Promise((resolve) =>
         chatAbortControllerRef.current?.signal.addEventListener("abort", () =>
           resolve("Operation was aborted by the user"),

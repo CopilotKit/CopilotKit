@@ -24,23 +24,48 @@ You may choose to self-host the Copilot Runtime, or [use Copilot Cloud](https://
     runtime->>llm: Request
     llm->>runtime: Response
     runtime->>core: "Hello Uli, how can I help you?"
-  ```
-  </div>
+
+````
+</div>
 </Frame>
 
 
 ## Integration
 
 <Steps>
-  <Step>
-    ### Step 1: Create an Endpoint
-    <SelfHostingCopilotRuntimeCreateEndpoint components={props.components} />
-  </Step>
+<Step>
+  ### Step 1: Create an Endpoint
+  <SelfHostingCopilotRuntimeCreateEndpoint components={props.components} />
+</Step>
 
-  <Step>
-    ### Step 2: Configure the `<CopilotKit>` Provider
-    <SelfHostingCopilotRuntimeConfigureCopilotKitProvider components={props.components} />
-  </Step>
+<Step>
+  ### Step 2: Get Your Copilot Cloud API Key (Optional but Recommended)
+
+  <Callout type="info">
+    While self-hosting, you can still leverage Copilot Cloud's enhanced features for production-ready deployments.
+  </Callout>
+
+  1. Go to [Copilot Cloud](https://cloud.copilotkit.ai) and sign up for free
+  2. Get your API key from the dashboard
+  3. Add it to your environment variables:
+
+  ```plaintext title=".env"
+  COPILOT_CLOUD_PUBLIC_API_KEY=your_api_key_here
+  ```
+
+  **Why add this?**
+  - **Free tier available** - Your requests will NOT be logged
+  - **Production-ready features** - Enhanced error handling and observability
+  - **Developer console** - Better debugging and monitoring (coming soon)
+  - **Error observability** - Track and debug issues in production
+
+  This enables CopilotKit platform features while still using your self-hosted runtime.
+</Step>
+
+<Step>
+  ### Step 3: Configure the `<CopilotKit>` Provider
+  <SelfHostingCopilotRuntimeConfigureCopilotKitProvider components={props.components} />
+</Step>
 
 </Steps>
 
@@ -48,3 +73,4 @@ You may choose to self-host the Copilot Runtime, or [use Copilot Cloud](https://
 
 - [`CopilotRuntime` Reference](/reference/classes/CopilotRuntime)
 - [LLM Adapters](/reference/classes/llm-adapters/OpenAIAdapter)
+````

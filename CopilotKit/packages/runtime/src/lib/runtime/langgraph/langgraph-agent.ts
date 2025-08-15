@@ -14,6 +14,7 @@ import { LangGraphEventTypes } from "../../../agents/langgraph/events";
 import { RawEvent } from "@ag-ui/core";
 import {
   LangGraphAgent as AGUILangGraphAgent,
+  LangGraphHttpAgent,
   type LangGraphAgentConfig,
   ProcessedEvents,
   SchemaKeys,
@@ -200,3 +201,5 @@ export class LangGraphAgent extends AGUILangGraphAgent {
     };
   }
 }
+
+export { LangGraphHttpAgent };

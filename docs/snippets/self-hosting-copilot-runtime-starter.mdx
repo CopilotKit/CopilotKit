@@ -20,17 +20,16 @@ import { RiNextjsLine } from "react-icons/ri";
       CopilotRuntime,
       ExperimentalEmptyAdapter,
       copilotRuntimeNextJSAppRouterEndpoint,
-      langGraphPlatformEndpoint
-    } from "@copilotkit/runtime";;
+    } from "@copilotkit/runtime";
     import { NextRequest } from "next/server";
 
     // You can use any service adapter here for multi-agent support.
     const serviceAdapter = new ExperimentalEmptyAdapter();
 
     const runtime = new CopilotRuntime({
-      remoteEndpoints: [
+      agents: {
         // added in next step...
-      ],
+      },
     });
 
     export const POST = async (req: NextRequest) => {
@@ -60,11 +59,11 @@ import { RiNextjsLine } from "react-icons/ri";
         const serviceAdapter = new ExperimentalEmptyAdapter();
 
         const handler = async (req: NextApiRequest, res: NextApiResponse) => {
-          const runtime = new CopilotRuntime({
-            remoteEndpoints: [
-              // added in next step...
-            ],
-          });
+        const runtime = new CopilotRuntime({
+            agents: {
+                // added in next step...
+            },
+        });
 
           const handleRequest = copilotRuntimeNextJSPagesRouterEndpoint({
             endpoint: '/api/copilotkit',
@@ -91,18 +90,17 @@ import { RiNextjsLine } from "react-icons/ri";
           CopilotRuntime,
           ExperimentalEmptyAdapter,
           copilotRuntimeNodeHttpEndpoint,
-          langGraphPlatformEndpoint
         } from '@copilotkit/runtime';
 
         const app = express();
         const serviceAdapter = new ExperimentalEmptyAdapter();
 
         app.use('/copilotkit', (req, res, next) => {
-          const runtime = new CopilotRuntime({
-            remoteEndpoints: [
-              // added in next step...
-            ],
-          });
+        const runtime = new CopilotRuntime({
+            agents: {
+                // added in next step...
+            },
+        });
 
           const handler = copilotRuntimeNodeHttpEndpoint({
             endpoint: '/copilotkit',
@@ -137,15 +135,14 @@ import { RiNextjsLine } from "react-icons/ri";
           copilotRuntimeNodeHttpEndpoint,
         } from '@copilotkit/runtime';
 
-
         const serviceAdapter = new ExperimentalEmptyAdapter();
 
         const server = createServer((req, res) => {
-          const runtime = new CopilotRuntime({
-            remoteEndpoints: [
-              // added in next step...
-            ],
-          });
+        const runtime = new CopilotRuntime({
+            agents: {
+                // added in next step...
+            },
+        });
 
           const handler = copilotRuntimeNodeHttpEndpoint({
             endpoint: '/copilotkit',
@@ -189,9 +186,9 @@ import { RiNextjsLine } from "react-icons/ri";
             const serviceAdapter = new ExperimentalEmptyAdapter();
             
             const runtime = new CopilotRuntime({
-              remoteEndpoints: [
+              agents: {
                 // added in next step...
-              ],
+              },
             });
 
             const handler = copilotRuntimeNestEndpoint({

@@ -6,6 +6,7 @@ through our FastAPI integration. However, you can also host in LangGraph platfor
 import os
 from dotenv import load_dotenv
 load_dotenv() # pylint: disable=wrong-import-position
+# os.environ["LANGGRAPH_API"] = "false"
 
 from fastapi import FastAPI
 import uvicorn

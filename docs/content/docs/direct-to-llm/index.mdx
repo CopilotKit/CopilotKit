@@ -1,0 +1,58 @@
+---
+title: Introduction
+icon: "custom/direct-to-llm"
+description: Bring your LLMs to your users with CopilotKit.
+hideHeader: true
+---
+import { customIcons } from "@/lib/icons/custom-icons";
+import { FrameworkOverview } from "@/components/content/landing-pages/framework-overview";
+
+<FrameworkOverview
+  frameworkName="LLMs"
+  frameworkIcon={<customIcons.llm className="h-12 w-12 text-foreground" />}
+  header="Bring LLMs directly into your application"
+  subheader="Let your users interact with your application via LLMs."
+  bannerVideo="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
+  guideLink="/direct-to-llm/guides/quickstart"
+  initCommand="npx copilotkit@latest init"
+  featuresLink="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat"
+  supportedFeatures={[
+    {
+      title: "Generative UI",
+      description: "Render state, progress, outputs, and tool calls with custom UI components in real-time. Bridges the gap between AI agents and user interfaces.",
+      documentationLink: "/direct-to-llm/guides/generative-ui",
+      demoLink: "https://feature-viewer.copilotkit.ai/langgraph/feature/tool_based_generative_ui",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4"
+    },
+    {
+      title: "Human in the Loop",
+      description: "Empower users to guide agents at key checkpoints. Combine the best of AI and human judgment for more reliable and controllable agent behavior.",
+      documentationLink: "/direct-to-llm/guides/generative-ui?gen-ui-type=renderAndWaitForResponse+%28HITL%29",
+      demoLink: "https://examples-coagents-ai-travel-app.vercel.app/",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
+    },
+    {
+      title: "Frontend Tools",
+      description: "Let LLM's guide your users through your application, make updates across the application, and more.",
+      documentationLink: "/direct-to-llm/guides/frontend-actions",
+      demoLink: "https://feature-viewer.copilotkit.ai/direct-to-llm/feature/mcp",
+      imageUrl: "https://cdn.copilotkit.ai/docs/copilotkit/images/copilot-action-example.gif"
+    },
+  ]}
+  architectureImage="https://cdn.copilotkit.ai/docs/copilotkit/images/architecture-diagram.png"
+  liveDemos={[
+    {
+      type: "saas",
+      title: "SaaS Copilot",
+      description: "A traditional SaaS application enhanced with AI agents. These copilots integrate seamlessly into existing workflows, providing intelligent assistance for specific business processes. Perfect for customer service, sales automation, project management, and domain-specific tasks where users need guided, step-by-step AI assistance.",
+      iframeUrl: "https://examples-coagents-ai-travel-app.vercel.app?copilotOpen=true"
+    },
+    {
+      type: "canvas",
+      title: "Canvas Copilot",
+      description: "An infinite canvas interface where users collaborate with AI agents in a spatial, visual environment. These copilots excel at research, brainstorming, content creation, and complex problem-solving where information needs to be organized, connected, and explored in a non-linear, creative way.",
+      iframeUrl: "https://examples-coagents-research-canvas-ui.vercel.app/"
+    },
+  ]}
+  tutorialLink="/direct-to-llm/tutorials/ai-todo-app/overview"
+/>

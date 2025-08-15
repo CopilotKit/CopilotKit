@@ -2,7 +2,16 @@
  * An internal context to separate the messages state (which is constantly changing) from the rest of CopilotKit context
  */
 
-import { ReactNode, useEffect, useState, useRef, useCallback, useMemo } from "react";
+import {
+  ReactNode,
+  useEffect,
+  useState,
+  useRef,
+  useCallback,
+  useMemo,
+  createContext,
+  useContext,
+} from "react";
 import { CopilotMessagesContext } from "../../context/copilot-messages-context";
 import {
   loadMessagesFromJsonRepresentation,
@@ -20,6 +29,7 @@ import {
   CopilotKitError,
   CopilotKitErrorCode,
 } from "@copilotkit/shared";
+import { SuggestionItem } from "../../utils/suggestions";
 
 // Helper to determine if error should show as banner based on visibility and legacy patterns
 function shouldShowAsBanner(gqlError: GraphQLError): boolean {
@@ -69,21 +79,60 @@ function shouldShowAsBanner(gqlError: GraphQLError): boolean {
   return false;
 }
 
+/**
+ * MessagesTap is used to mitigate performance issues when we only need
+ * a snapshot of the messages, not a continuously updating stream of messages.
+ */
+
+export type MessagesTap = {
+  getMessagesFromTap: () => Message[];
+  updateTapMessages: (messages: Message[]) => void;
+};
+
+const MessagesTapContext = createContext<MessagesTap | null>(null);
+
+export function useMessagesTap() {
+  const tap = useContext(MessagesTapContext);
+  if (!tap) throw new Error("useMessagesTap must be used inside <MessagesTapProvider>");
+  return tap;
+}
+
+export function MessagesTapProvider({ children }: { children: React.ReactNode }) {
+  const messagesRef = useRef<Message[]>([]);
+
+  const tapRef = useRef<MessagesTap>({
+    getMessagesFromTap: () => messagesRef.current,
+    updateTapMessages: (messages: Message[]) => {
+      messagesRef.current = messages;
+    },
+  });
+
+  return (
+    <MessagesTapContext.Provider value={tapRef.current}>{children}</MessagesTapContext.Provider>
+  );
+}
+
+/**
+ * CopilotKit messages context.
+ */
+
 export function CopilotMessages({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const lastLoadedThreadId = useRef<string>();
   const lastLoadedAgentName = useRef<string>();
   const lastLoadedMessages = useRef<string>();
 
-  const { threadId, agentSession, runtimeClient, showDevConsole, onTrace, copilotApiConfig } =
+  const { updateTapMessages } = useMessagesTap();
+
+  const { threadId, agentSession, runtimeClient, showDevConsole, onError, copilotApiConfig } =
     useCopilotContext();
   const { setBannerError } = useToast();
 
   // Helper function to trace UI errors (similar to useCopilotRuntimeClient)
   const traceUIError = useCallback(
     async (error: CopilotKitError, originalError?: any) => {
-      // Just check if onTrace and publicApiKey are defined
-      if (!onTrace || !copilotApiConfig.publicApiKey) return;
+      // Just check if onError and publicApiKey are defined
+      if (!onError || !copilotApiConfig.publicApiKey) return;
 
       try {
         const traceEvent = {
@@ -104,12 +153,12 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
           },
           error,
         };
-        await onTrace(traceEvent);
+        await onError(traceEvent);
       } catch (traceError) {
-        console.error("Error in CopilotMessages onTrace handler:", traceError);
+        console.error("Error in CopilotMessages onError handler:", traceError);
       }
     },
-    [onTrace, copilotApiConfig.publicApiKey, copilotApiConfig.chatApiEndpoint],
+    [onError, copilotApiConfig.publicApiKey, copilotApiConfig.chatApiEndpoint],
   );
 
   const createStructuredError = (gqlError: GraphQLError): CopilotKitError | null => {
@@ -243,15 +292,22 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
       }
     };
     void fetchMessages();
-  }, [threadId, agentSession?.agentName, runtimeClient]); // handleGraphQLErrors should NOT be in deps - causes infinite loop
+  }, [threadId, agentSession?.agentName]);
+
+  useEffect(() => {
+    updateTapMessages(messages);
+  }, [messages, updateTapMessages]);
 
   const memoizedChildren = useMemo(() => children, [children]);
+  const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
 
   return (
     <CopilotMessagesContext.Provider
       value={{
         messages,
         setMessages,
+        suggestions,
+        setSuggestions,
       }}
     >
       {memoizedChildren}

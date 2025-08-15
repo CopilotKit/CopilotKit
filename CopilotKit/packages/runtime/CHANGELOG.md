@@ -1,5 +1,323 @@
 # @copilotkit/runtime
 
+## 1.10.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.2
+
+## 1.10.2-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.2-next.0
+
+## 1.10.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.1
+
+## 1.10.1-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.1-next.2
+
+## 1.10.1-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.1-next.1
+
+## 1.10.1-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.1-next.0
+
+## 1.10.0
+
+### Patch Changes
+
+- 1abcecf: - fix: add graphqlContext to constructAGUIRemoteAction for enhanced agent properties
+
+  - Updated constructAGUIRemoteAction to accept graphqlContext, allowing forwarding of properties like Authorization token to the agent.
+  - Modified setupRemoteActions to include graphqlContext in the parameters.
+
+- 6f2f54b: - fix(openai): update maxTokens parameter to max_completion_tokens in OpenAIAdapter
+- b5b94b9: - fix: throw errors when they happen with agui streams
+- 824fb69: - fix: pass config to the forwarded props of an agui agent
+- 59b0e16: - feat: add native prompt caching support to AnthropicAdapter
+- a31443c: removed unused dependency on ip module
+- dc6df18: - feat: use latest agui langgraph package
+  - chore: release python sdk 0.1.58
+- Updated dependencies [a8c0263]
+- Updated dependencies [8674da1]
+- Updated dependencies [6d1de58]
+  - @copilotkit/shared@1.10.0
+
+## 1.10.0-next.13
+
+### Patch Changes
+
+- b5b94b9: - fix: throw errors when they happen with agui streams
+  - @copilotkit/shared@1.10.0-next.13
+
+## 1.10.0-next.12
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.0-next.12
+
+## 1.10.0-next.11
+
+### Patch Changes
+
+- dc6df18: - feat: use latest agui langgraph package
+  - chore: release python sdk 0.1.58
+  - @copilotkit/shared@1.10.0-next.11
+
+## 1.10.0-next.10
+
+### Patch Changes
+
+- Updated dependencies [6d1de58]
+  - @copilotkit/shared@1.10.0-next.10
+
+## 1.10.0-next.9
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.0-next.9
+
+## 1.10.0-next.8
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.0-next.8
+
+## 1.10.0-next.7
+
+### Patch Changes
+
+- 59b0e16: - feat: add native prompt caching support to AnthropicAdapter
+  - @copilotkit/shared@1.10.0-next.7
+
+## 1.10.0-next.6
+
+### Patch Changes
+
+- 6f2f54b: - fix(openai): update maxTokens parameter to max_completion_tokens in OpenAIAdapter
+  - @copilotkit/shared@1.10.0-next.6
+
+## 1.10.0-next.5
+
+### Patch Changes
+
+- Updated dependencies [a8c0263]
+  - @copilotkit/shared@1.10.0-next.5
+
+## 1.10.0-next.4
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.0-next.4
+
+## 1.10.0-next.3
+
+### Patch Changes
+
+- 824fb69: - fix: pass config to the forwarded props of an agui agent
+  - @copilotkit/shared@1.10.0-next.3
+
+## 1.10.0-next.2
+
+### Patch Changes
+
+- a31443c: removed unused dependency on ip module
+  - @copilotkit/shared@1.10.0-next.2
+
+## 1.10.0-next.1
+
+### Patch Changes
+
+- 1abcecf: - fix: add graphqlContext to constructAGUIRemoteAction for enhanced agent properties
+
+  - Updated constructAGUIRemoteAction to accept graphqlContext, allowing forwarding of properties like Authorization token to the agent.
+  - Modified setupRemoteActions to include graphqlContext in the parameters.
+  - @copilotkit/shared@1.10.0-next.1
+
+## 1.10.0-next.0
+
+### Patch Changes
+
+- Updated dependencies [8674da1]
+  - @copilotkit/shared@1.10.0-next.0
+
+## 1.9.3
+
+### Patch Changes
+
+- 1bda332: - chore(telemetry): integrate Scarf for usage analytics
+- df25f34: - feat: add agui fastAPI compatible langgraph agent
+  - chore: release 0.1.55 with agui langgraph fastapi support
+- 589ae52: - adds scarf deps to runtime
+- 88ceae2: - upgrade AG-UI packages
+- Updated dependencies [1bda332]
+  - @copilotkit/shared@1.9.3
+
+## 1.9.3-next.4
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.3-next.4
+
+## 1.9.3-next.3
+
+### Patch Changes
+
+- 1bda332: - chore(telemetry): integrate Scarf for usage analytics
+- Updated dependencies [1bda332]
+  - @copilotkit/shared@1.9.3-next.3
+
+## 1.9.3-next.2
+
+### Patch Changes
+
+- df25f34: - feat: add agui fastAPI compatible langgraph agent
+  - chore: release 0.1.55 with agui langgraph fastapi support
+  - @copilotkit/shared@1.9.3-next.2
+
+## 1.9.3-next.1
+
+### Patch Changes
+
+- 589ae52: - adds scarf deps to runtime
+  - @copilotkit/shared@1.9.3-next.1
+
+## 1.9.3-next.0
+
+### Patch Changes
+
+- 88ceae2: - upgrade AG-UI packages
+  - @copilotkit/shared@1.9.3-next.0
+
+## 1.9.2
+
+### Patch Changes
+
+- f3f0181: - fix: connect streaming errors to runtime onError handler
+  - remove request logging
+- 3a7f45f: - fix: resolve agui agents only after all other endpoints
+- fac89c2: - refactor: rename onTrace to onError throughout codebase
+
+  - Rename CopilotTraceEvent to CopilotErrorEvent and CopilotTraceHandler to CopilotErrorHandler
+
+- 7ca7023: - feat: send node name to agui agent
+- 54b62f0: - fix: add default schema keys for input and output of agui langgraph
+- 4fd92d1: - fix: enable resolving of langgraph agents when cpk starts
+- 1f4949a: - fix: remove agent discovery for agui agents
+- 9169ad7: - feat: add onTrace handler for runtime and UI error/event tracking
+- f3f0181: - fix: connect streaming errors to runtime onError handler
+- 8e67158: - fixes gemini adapter
+- 83822d2: - fix: do not show error on state loading if thread does not exist
+- fe9009c: - feat(langgraph): new thread metadata
+- f295375: - fix: remove all agents as tools when there is an active agent session
+  - fix formatting
+- 9b986ba: - fix: use active interrupt from thread instead of saving to global state
+- 1d1c51d: - feat: surface all errors in structured format
+- dec5527: - fix: only fetch agent state for langgraph agents
+- 9b81464: - fix: use latest langgraph agui
+- 10345a5: - feat: structured error visibility system for streaming errors
+- 8ef8199: - fix: use latest agui dependencies to include required fixes
+- 20e8c3c: - fix(anthropic-adapter): resolve infinite loop caused by duplicate result messages
+- 9169ad7: - feat: add onTrace handler for comprehensive debugging and observability - Add CopilotTraceEvent interfaces with rich debugging context, implement runtime-side tracing with publicApiKey gating, add UI-side error tracing, include comprehensive test coverage, and fix tsup build config to exclude test files
+  - fix: extract publicApiKey for all requests + trace GraphQL errors
+- fc6b653: - Fix extract toolParameters in extractParametersFromSchema
+  - Ensures consistency in how parameters are passed to the execute function across the codebase.
+- fc6b653: - Fix extract toolParameters in extractParametersFromSchema
+  - Fixed generateMcpToolInstructions to properly extract parameters from schema.parameters.properties
+  - fix: enhance MCP schema support for complex types and remove duplicate headers
+- fc6b653: - Fix extract toolParameters in extractParametersFromSchema
+- Updated dependencies [fac89c2]
+- Updated dependencies [9169ad7]
+- Updated dependencies [1d1c51d]
+- Updated dependencies [10345a5]
+- Updated dependencies [9169ad7]
+  - @copilotkit/shared@1.9.2
+
+## 1.9.2-next.26
+
+### Patch Changes
+
+- 83822d2: - fix: do not show error on state loading if thread does not exist
+  - @copilotkit/shared@1.9.2-next.26
+
+## 1.9.2-next.25
+
+### Patch Changes
+
+- f3f0181: - fix: connect streaming errors to runtime onError handler
+  - remove request logging
+- f3f0181: - fix: connect streaming errors to runtime onError handler
+  - @copilotkit/shared@1.9.2-next.25
+
+## 1.9.2-next.24
+
+### Patch Changes
+
+- 8ef8199: - fix: use latest agui dependencies to include required fixes
+  - @copilotkit/shared@1.9.2-next.24
+
+## 1.9.2-next.23
+
+### Patch Changes
+
+- fc6b653: - Fix extract toolParameters in extractParametersFromSchema
+  - Ensures consistency in how parameters are passed to the execute function across the codebase.
+- fc6b653: - Fix extract toolParameters in extractParametersFromSchema
+  - Fixed generateMcpToolInstructions to properly extract parameters from schema.parameters.properties
+  - fix: enhance MCP schema support for complex types and remove duplicate headers
+- fc6b653: - Fix extract toolParameters in extractParametersFromSchema
+  - @copilotkit/shared@1.9.2-next.23
+
+## 1.9.2-next.22
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.22
+
+## 1.9.2-next.21
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.21
+
+## 1.9.2-next.20
+
+### Patch Changes
+
+- @copilotkit/shared@1.9.2-next.20
+
+## 1.9.2-next.19
+
+### Patch Changes
+
+- 8e67158: - fixes gemini adapter
+  - @copilotkit/shared@1.9.2-next.19
+
+## 1.9.2-next.18
+
+### Patch Changes
+
+- fac89c2: - refactor: rename onTrace to onError throughout codebase
+
+  - Rename CopilotTraceEvent to CopilotErrorEvent and CopilotTraceHandler to CopilotErrorHandler
+
+- Updated dependencies [fac89c2]
+  - @copilotkit/shared@1.9.2-next.18
+
 ## 1.9.2-next.17
 
 ### Patch Changes

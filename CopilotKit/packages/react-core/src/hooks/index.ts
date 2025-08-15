@@ -1,7 +1,12 @@
 export { useCopilotChat } from "./use-copilot-chat";
-export type { UseCopilotChatOptions } from "./use-copilot-chat";
 export type { UseCopilotChatReturn } from "./use-copilot-chat";
-
+export type { UseCopilotChatOptions } from "./use-copilot-chat_internal";
+export {
+  type UseCopilotChatReturn_c,
+  type UseCopilotChatOptions_c,
+  useCopilotChatHeadless_c,
+} from "./use-copilot-chat-headless_c";
+export { useCopilotChat as useCopilotChatInternal } from "./use-copilot-chat_internal";
 export { useCopilotAction } from "./use-copilot-action";
 export { useCoAgentStateRender } from "./use-coagent-state-render";
 export { useMakeCopilotDocumentReadable } from "./use-make-copilot-document-readable";

@@ -23,6 +23,10 @@ interface GoogleGenerativeAIAdapterOptions {
    * A custom Google Generative AI model to use.
    */
   model?: string;
+  /**
+   * The API key to use.
+   */
+  apiKey?: string;
 }
 
 export class GoogleGenerativeAIAdapter extends LangChainAdapter {
@@ -46,6 +50,7 @@ export class GoogleGenerativeAIAdapter extends LangChainAdapter {
         });
 
         const model = new ChatGoogle({
+          apiKey: options?.apiKey ?? process.env.GOOGLE_API_KEY,
           modelName: options?.model ?? "gemini-1.5-pro",
           apiVersion: "v1beta",
         }).bindTools(tools);

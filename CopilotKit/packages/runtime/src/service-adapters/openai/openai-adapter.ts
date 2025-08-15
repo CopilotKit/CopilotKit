@@ -175,7 +175,9 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
         stream: true,
         messages: openaiMessages,
         ...(tools.length > 0 && { tools }),
-        ...(forwardedParameters?.maxTokens && { max_tokens: forwardedParameters.maxTokens }),
+        ...(forwardedParameters?.maxTokens && {
+          max_completion_tokens: forwardedParameters.maxTokens,
+        }),
         ...(forwardedParameters?.stop && { stop: forwardedParameters.stop }),
         ...(toolChoice && { tool_choice: toolChoice }),
         ...(this.disableParallelToolCalls && { parallel_tool_calls: false }),

@@ -1,134 +1,58 @@
 ---
-title: Mastra Integration
-icon: "lucide/Sparkles"
-description: Build Agent-Native Applications (ANAs) powered by CopilotKit and Mastra Agents.
+title: Introduction
+icon: "custom/mastra"
+description: Bring your Mastra agents to your users with CopilotKit via AG-UI.
+hideHeader: true
 ---
+import { customIcons } from "@/lib/icons/custom-icons";
+import { FrameworkOverview } from "@/components/content/landing-pages/framework-overview";
 
-import { BiSolidMessage as TextIcon } from "react-icons/bi";
-import { VscJson as JsonIcon } from "react-icons/vsc";
-import { FaDiscord } from "react-icons/fa";
-import Link from "next/link";
-import { TelescopeIcon } from "lucide-react";
-import { YouTubeVideo } from "@/components/react/youtube-video";
-import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
-import {
-  CoAgentsFeatureToggle,
-  CoAgentsFeatureRender,
-} from "@/components/react/coagents/coagents-features.tsx";
-import { DynamicContentWrapper } from "@/components/react/dynamic-content-wrapper";
-import { ExamplesCarousel } from "@/components/react/examples-carousel";
-import {
-  LuPlane,
-  LuBookOpen,
-  LuLightbulb,
-  LuLayoutTemplate,
-  LuBrainCog,
-  LuUserCog,
-  LuWand,
-  LuPlay,
-  LuMessageSquare,
-  LuWrench,
-} from "react-icons/lu";
-import { CoAgentsExamples } from "@/components/react/examples-carousel";
-import { CTACards } from "@/components/react/cta-cards";
-import { FaSync } from "react-icons/fa";
-import { Socials } from "@/components/react/socials";
+<FrameworkOverview
+  frameworkName="Mastra"
+  frameworkIcon={<customIcons.mastra className="h-12 w-12 text-foreground" />}
+  header="Bring your Mastra agents to your users"
+  subheader="Give your Mastra agents real user-interactivity using CopilotKit and AG-UI. Build rich, interactive, agent-powered applications."
+  bannerVideo="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
+  guideLink="/mastra/quickstart"
+  initCommand="npx copilotkit@latest init"
+  featuresLink="https://feature-viewer.copilotkit.ai/mastra/feature/agentic_chat"
+  supportedFeatures={[
+    {
+      title: "Generative UI",
+      description: "Render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. Bridges the gap between AI agents and user interfaces.",
+      documentationLink: "/mastra/generative-ui",
+      demoLink: "https://feature-viewer.copilotkit.ai/mastra/feature/tool_based_generative_ui",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4"
+    },
+    {
+      title: "Human in the Loop",
+      description: "Empower users to guide agents at key checkpoints. Combine the best of AI and human judgment for more reliable and controllable agent behavior.",
+      documentationLink: "/mastra/human-in-the-loop",
+      demoLink: "https://examples-coagents-ai-travel-app.vercel.app/",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
+    },
+    {
+      title: "Shared State",
+      description: "Keep your agent and your app in sync. Your agent can see everything in your app, and your app can react to your agent in real-time.",
+      documentationLink: "/mastra/shared-state",
+      demoLink: "https://feature-viewer.copilotkit.ai/mastra/feature/shared_state",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4"
+    }
+  ]}
+  architectureImage="https://cdn.copilotkit.ai/docs/copilotkit/images/mastra/overview.png"
+  liveDemos={[
+    {
+      type: "saas",
+      title: "SaaS Copilot",
+      description: "A traditional SaaS application enhanced with AI agents. These copilots integrate seamlessly into existing workflows, providing intelligent assistance for specific business processes. Perfect for customer service, sales automation, project management, and domain-specific tasks where users need guided, step-by-step AI assistance.",
+      iframeUrl: "https://examples-coagents-ai-travel-app.vercel.app?copilotOpen=true"
+    },
+    {
+      type: "canvas",
+      title: "Canvas Copilot",
+      description: "An infinite canvas interface where users collaborate with AI agents in a spatial, visual environment. These copilots excel at research, brainstorming, content creation, and complex problem-solving where information needs to be organized, connected, and explored in a non-linear, creative way.",
+      iframeUrl: "https://examples-coagents-research-canvas-ui.vercel.app/"
+    }
+  ]}
+/>
 
-<div className="p-4 mb-6 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-  <div className="flex items-center gap-2 mb-2">
-    <TelescopeIcon className="h-5 w-5 text-gray-700 dark:text-gray-300" />
-    <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300">Mastra Overview</h3>
-  </div>
-  <p className="text-gray-700 dark:text-gray-300">
-    Visit the <a href="https://v0-mastra-land.vercel.app/" target="_blank" rel="noopener noreferrer" className="font-medium underline underline-offset-4 decoration-gray-400 dark:decoration-gray-500 hover:text-gray-900 dark:hover:text-gray-100">Mastra Overview Page</a> to learn more about Mastra's capabilities and features.
-  </p>
-</div>
-
-# Copilot Infrastructure for Mastra Agents
-
-Full user-interaction infrastructure for your agents, to turn your agents into Copilot Agents (CoAgents).
-
-
-## Building blocks of a CoAgent
-
-Everything you need to build Agent-Native Applications (ANAs), right out of the box.
-
-<Cards className="gap-6">
-  <Card
-    className="p-6 rounded-xl text-base border-black dark:border-white"
-    icon={<LuMessageSquare />}
-    title="Agentic Chat UI"
-    description="In-app chat powered by your agent."
-    href="/mastra/agentic-chat-ui"
-  />
-  <Card
-    className="p-6 rounded-xl text-base border-black dark:border-white"
-    icon={<LuLayoutTemplate />}
-    title="Generative UI"
-    description="UI that updates in real-time based on your agent's state."
-    href="/mastra/generative-ui"
-  />
-  <Card
-    className="p-6 rounded-xl text-base border-black dark:border-white"
-    icon={<LuWand />}
-    title="Frontend Tools"
-    description="Give your agent the ability to take action in your application."
-    href="/mastra/frontend-actions"
-  />
-  <Card
-    className="p-6 rounded-xl text-base border-black dark:border-white"
-    icon={<LuWand />}
-    title="Multi-Agent Coordination"
-    description="Route your agent to the right agent based on the user's request."
-    href="/mastra/multi-agent-flows"
-  />
-  <Card
-    className="p-6 rounded-xl text-base border-black dark:border-white"
-    icon={<LuUserCog />}
-    title="Human-in-the-Loop"
-    description="Set smart checkpoints where humans can guide your agents."
-    href="/mastra/human-in-the-loop"
-  />
-</Cards>
-
-## Ready to get started?
-
-Get started with CoAgents in as little as 5 minutes with one of our guides or tutorials.
-
-<Cards className="gap-6">
-  <Card
-    className="p-6 rounded-xl text-base border-black dark:border-white"
-    icon={<LuPlay />}
-    title="Quickstart"
-    description="Learn how to build your first CoAgent in 10 minutes."
-    href="/mastra/quickstart"
-  />
-  <Card
-    className="p-6 rounded-xl text-base border-black dark:border-white"
-    icon={<TelescopeIcon />}
-    title="Feature Overview"
-    description="Try the key features of CoAgents powered by Mastra Agents."
-    href="https://copilotkit-mastra-feature-viewer.vercel.app/"
-    target="_blank"
-  />
-</Cards>
-
-{/* TODO: Add example tutorials for Mastra Agents */}
-
-## Common Questions
-
-Have a question about CoAgents? You're in the right place!
-
-<Accordions>
-<Accordion title="Can you explain what a CoAgent is in more detail?">
-Sure! CoAgents are what we call "agentic copilots". Well, what's an agentic copilot then?
-
-Think of a Copilot as a simple and fully LLM controlled assistant that has relatively limited capabilities. An Agentic Copilot then is a copilot
-that has been enhanced with the ability to use Mastra agents to perform more complex tasks. This is an extremely powerful way to build AI
-powered applications because it gives you, the developer, the ability to control the agent's behavior in a deterministic way while still letting
-the agent do its magic.
-
-For more on this topic, checkout our [agentic copilot](/mastra/concepts/agentic-copilots) concept page.
-
-</Accordion>
-</Accordions> 

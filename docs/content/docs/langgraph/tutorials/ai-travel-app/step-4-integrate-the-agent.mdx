@@ -1,0 +1,197 @@
+---
+title: "Step 4: Integrate the Agent"
+---
+At this point, we have a LangGraph agent running in LangGraph Studioand have our own non-agentic copilot that we can interact with. Now, let's 
+combine the two together to make an agentic copilot!
+
+## The React State
+
+Let's quickly review how the app's state works. Open up the [`lib/hooks/use-trips.tsx`](https://github.com/CopilotKit/CopilotKit/blob/coagents-travel-tutorial-start/examples/coagents-travel/ui/lib/hooks/use-trips.tsx) file.
+
+At a glance, we can see that the file exposes a provider (`TripsProvider`), which defines a lot useful things. The main thing we care about is the `state` object which takes the shape of the `AgentState` type. This is consumable by a `useTrips` hook, which we use in the rest of the application (feel free to check out the `TripCard`, 
+`TripContent` and `TripSelect` components).
+
+This resembles the majority of React apps, where frontend state, either for a feature or the entire app, is managed by a context or state management library.
+
+## Integrate the Agent
+
+To integrate the agent into this state, we're going to need to register an agent with CopilotKit and then use the `useCoAgent` hook to connect the two.
+
+<Steps>
+<Step>
+## Register the agent
+
+Make sure you have the LangGraph Studio endpoint from the previous step!
+
+<Tabs groupId="hosting" items={['Copilot Cloud', 'Self-Hosted']}>
+<Tab value="Copilot Cloud">
+We're going to use the CopilotKit CLI to setup a tunnel between our locally running LangGraph agent and Copilot Cloud. You'll 
+need the port number of the LangGraph Studio endpoint we setup earlier.
+
+<Callout title="Looking for the port number?">
+It'll be on the bottom left of the LangGraph Studio interface like this.
+
+<Frame>
+  <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tutorials/ai-travel-app/lgs-endpoint.png" alt="LangGraph Studio Endpoint" />
+</Frame>
+
+</Callout>
+
+To open a tunnel, run the following command.
+
+```bash
+# replace <port_number> with the port number of the LangGraph Studio endpoint
+npx copilotkit@latest dev --port <port_number>
+```
+
+It will guide you through the process of selecting a project and creating a tunnel. You should see output similar to the following.
+
+```bash
+✔ Select a project Local (ID: <project_id>)
+✅ LangGraph Platform endpoint detected
+⠹ Creating tunnel...
+
+Tunnel Information:
+
+• Tunnel URL:            https://<tunnel_id>.tunnels.devcopilotkit.com
+• Endpoint Type:         LangGraph Platform
+• Project:               projects/<project_id>
+
+Press Ctrl+C to stop the tunnel
+
+✔ 🚀 Local tunnel is live and linked to Copilot Cloud!
+```
+
+</Tab>
+<Tab value="Self-Hosted">
+
+In our previously setup `/api/copilotkit` route, we're going to add the following.
+
+```tsx title="ui/app/api/copilotkit/route.ts"
+// ...
+
+import { CopilotRuntime, LangGraphAgent } from '@copilotkit/runtime'; // [!code ++]
+
+// ...
+
+const runtime = new CopilotRuntime();// [!code --]
+// [!code ++:10]
+const runtime = new CopilotRuntime({
+  agents: { // [!code highlight:8]
+    'travel': new LangGraphAgent({
+      deploymentUrl: "http://localhost:<port_number>",
+      graphId: 'travel',
+      langsmithApiKey: "your-langsmith-api-key" // Optional
+    }),
+  },
+});
+
+// ...
+```
+
+<Callout>
+The `deploymentUrl` is the URL from LangGraph Studio but it can also be a graph hosted in LangGraph Platform!
+</Callout>
+</Tab>
+</Tabs>
+
+This allows CopilotKit to know where to send requests to when the agent is called.
+
+</Step>
+<Step>
+## Lock the agent
+
+By default, CopilotKit will intelligently route requests to the appropriate agent based on context. This allows 
+you to have multiple agents and actions and not have to worry about manually routing requests.
+
+In our case however, we only have a single agent and its ideal to lock all requests to that agent. We can do this
+by updating the props of our `CopilotKit` provider.
+
+<Callout>
+Want to learn more about multi-agent routing? Checkout out the [multi-agent concept guide](/coagents/multi-agent-flows).
+</Callout>
+
+```tsx title="ui/app/page.tsx"
+// ...
+<CopilotKit
+  // ...
+  agent="travel" // [!code ++]
+>
+  {...}
+</CopilotKit>
+```
+
+This will ensure that every request is sent to the `travel` agent. The `travel` name is defined in the [agents/langgraph.json](https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-travel/agent/langgraph.json)
+file. When we deploy our agent to Copilot Cloud this is automatically handled for us. When self-hosting, we need to specify the name of the agent in the `langGraphPlatformEndpoint` constructor.
+</Step>
+<Step>
+
+## The `useCoAgent` hook
+
+LangGraph agents are stateful, meaning that they can maintain their own state. We saw this earlier when we were using LangGraph Studio, in the bottom left. We
+also have the application's state through React.
+
+Our current goal is to create a bidirectional connection between these two states. Luckily, the [`useCoAgent`](/reference/hooks/useCoAgent) hook makes this easy.
+
+```tsx title="ui/lib/hooks/use-trips.tsx" {3,8-11}
+// ...
+// [!code word:AgentState:1]
+import { Trip, Place, AgentState, defaultTrips} from "@/lib/trips"; 
+import { useCoAgent } from "@copilotkit/react-core"; // [!code ++]
+
+export const TripsProvider = ({ children }: { children: ReactNode }) => {
+  // [!code --:5]
+  const [state, setState] = useState<{ trips: Trip[], selected_trip_id: string | null }>({ 
+    trips: defaultTrips, 
+    selected_trip_id: defaultTrips && defaultTrips[0] ? defaultTrips[0].id : null 
+  });
+  // [!code ++:9]
+  const { state, setState } = useCoAgent<AgentState>({
+    name: "travel",
+    initialState: {
+      trips: defaultTrips,
+      selected_trip_id: defaultTrips[0].id,
+    },
+  });
+
+  // ...
+```
+
+<Callout>
+The `useCoAgent` hook is generic. What this means is that we can specify a type for that represents the state of the LangGraph agent.
+If you are going to specify a type, you should be very careful that the type has the same shape as the state of your LangGraph agent.
+
+It is not recommended, but you can ditch the type parameter and instead get an `any` type.
+</Callout>
+
+In this example, we use the `useCoAgent` hook to wire up the application's state to the LangGraph agent's state.
+- For the generic type, we pass the `AgentState` type that was already defined for the application in `@/lib/types.ts`.
+- For the `name` parameter, we pass the name of the graph as defined in `agent/langgraph.json`.
+- For the `initialState` parameter, we pass the initial state of the LangGraph agent which is already defined in `@/lib/trips.ts`.
+</Step>
+</Steps>
+
+## Try it out!
+
+Now, try it out! Ask the Copilot something about the state of your trips. For example:
+
+```
+What trips do I currently have?
+```
+
+The state is shared between the application and the agent, so you can edit a trip manually, ask the same question,
+and the agent will know about it.
+
+```
+What trips do I have now?
+```
+
+In the same vein, you can ask the agent to update your trips and it will render in the UI. For example:
+
+```
+Add some hotels to my NYC trip
+```
+
+Its really that simple, you have now integrated a LangGraph agent into the application as an agentic copilot. In the following 
+steps, we'll be improving the user experience but the core agent is now accessible through the application's chat interface.
+

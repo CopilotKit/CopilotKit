@@ -9,9 +9,14 @@ export type ActionButtonsProps = {
   reject: React.ReactNode;
   selectedPlaceIds?: Set<string>;
   type?: "edit" | "add";
+  placeIds?: string[][];
+  setSelectedPlaceIds?: (placeIds: Set<string>) => void;
 }
 
-export const ActionButtons = ({ status, handler, approve, reject, selectedPlaceIds, type="add" }: ActionButtonsProps) => {
+export const ActionButtons = ({ status, handler, approve, reject, selectedPlaceIds, type="add", placeIds, setSelectedPlaceIds }: ActionButtonsProps) => {
+  useEffect(() => {
+    console.log(placeIds, "placeIdsplaceIdsplaceIds");
+  }, [placeIds]);
   
   useEffect(() => {
     console.log(selectedPlaceIds,"btn");
@@ -31,7 +36,8 @@ export const ActionButtons = ({ status, handler, approve, reject, selectedPlaceI
         className="w-full"
         disabled={status === "complete" || status === "inProgress"}
         onClick={() => {
-          if (selectedPlaceIds) {
+          debugger;
+          if (selectedPlaceIds && selectedPlaceIds.size > 0) {
             if(type == "edit"){
               console.log(Array.from(selectedPlaceIds), "selectedPlaceIds")
               handler?.(JSON.stringify(Array.from(selectedPlaceIds)+"|||editMode"));
@@ -39,10 +45,22 @@ export const ActionButtons = ({ status, handler, approve, reject, selectedPlaceI
               console.log(Array.from(selectedPlaceIds), "selectedPlaceIds")
               handler?.(JSON.stringify(Array.from(selectedPlaceIds)+"|||addMode"));
             }
-          } else {
+          } 
+          else if(selectedPlaceIds && selectedPlaceIds.size == 0){
+            setSelectedPlaceIds?.(new Set(placeIds?.[0] || []));
+            if(type == "edit"){
+              // console.log(Array.from(selectedPlaceIds), "selectedPlaceIds")
+              handler?.(JSON.stringify(placeIds?.[0]+"|||editMode"));
+            } else {
+              // console.log(Array.from(selectedPlaceIds), "selectedPlaceIds")
+              handler?.(JSON.stringify(placeIds?.[0]+"|||addMode"));
+            }
+          }
+          else {
             handler?.("SEND");
           }
-        }}
+        }
+      }
       >
         {approve}
       </Button>

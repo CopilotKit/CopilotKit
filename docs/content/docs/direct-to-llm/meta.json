@@ -1,18 +1,19 @@
 {
-  "title": "copilotkit",
+  "title": "Direct to LLM",
+  "icon": "lucide/Zap",
   "root": true,
   "pages": [
+    "---Getting Started---",
     "index",
     "...guides",
     "---Tutorials---",
     "...tutorials",
     "---Cookbook---",
     "...cookbook",
-    "---Troubleshooting Copilots---",
-    "...../shared/troubleshooting",
+    "---Troubleshooting---",
+    "...troubleshooting",
     "---Other---",
     "../shared/(other)/contributing",
-    "../shared/(other)/telemetry",
-    "(other)/observability"
+    "../shared/(other)/telemetry"
   ]
 }

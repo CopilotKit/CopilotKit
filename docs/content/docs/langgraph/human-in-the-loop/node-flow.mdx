@@ -1,0 +1,309 @@
+---
+title: Node-based
+description: Learn how to implement Human-in-the-Loop (HITL) using a node-based flow.
+icon: lucide/Share2
+---
+import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx"
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
+
+<Callout type="error">
+    The usage of node based interrupt is [now discouraged](https://langchain-ai.github.io/langgraph/concepts/v0-human-in-the-loop/) by both LangGraph and CopilotKit.
+    As of LangGraph 0.2.57, the recommended way to set breakpoints is using [the interrupt function](https://https://docs.copilotkit.ai/coagents/human-in-the-loop/interrupt-flow) as it simplifies human-in-the-loop patterns.
+</Callout>
+
+<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/node-hitl.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+
+<Callout type="info">
+  Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter) with
+  the implementation below applied!
+</Callout>
+
+## What is this?
+[Node based flows](https://langchain-ai.github.io/langgraph/concepts/v0-human-in-the-loop/#dynamic-breakpoints) are predicated on LangGraph concept
+of `breakpoints` which will interrupt a node before or after its execution to allow for user input.
+
+CopilotKit allows you to add custom UI to take user input and then pass it back to the agent upon completion.
+
+## Why should I use this?
+
+Human-in-the-loop is a powerful way to implement complex workflows that are production ready. By having a human in the loop,
+you can ensure that the agent is always making the right decisions and ultimately is being steered in the right direction.
+
+Node-based flows are a great way to implement HITL for more complex workflows where you want to ensure the agent is aware
+of everything that has happened during a HITL interaction. This is contrasted with interrupt-based flows, where the agent
+is interrupted and then resumes execution from where it left off, unaware of the context of the interaction by default.
+
+## Implementation
+
+<Steps>
+    <Step>
+        ### Run and connect your agent
+        <RunAndConnectAgentSnippet />
+    </Step>
+    
+    <Step>
+      ### Install the CopilotKit SDK
+      <InstallSDKSnippet components={props.components}/>
+    </Step>
+
+    <Step>
+        ### Add a `useCopilotAction` to your Frontend
+        First, we'll create a component that renders the agent's essay draft and waits for user approval.
+
+        ```tsx title="ui/app/page.tsx"
+        import { useCopilotAction } from "@copilotkit/react-core"
+        import { Markdown } from "@copilotkit/react-ui"
+
+        function YourMainContent() {
+          // ...
+
+          useCopilotAction({ 
+            name: "writeEssay",
+            available: "remote",
+            description: "Writes an essay and takes the draft as an argument.",
+            parameters: [
+              { name: "draft", type: "string", description: "The draft of the essay", required: true },
+            ],
+            // [!code highlight:25]
+            renderAndWaitForResponse: ({ args, respond, status }) => {
+              return (
+                <div>
+                  <Markdown content={args.draft || 'Preparing your draft...'} />
+                  
+                  <div className={`flex gap-4 pt-4 ${status !== "executing" ? "hidden" : ""}`}>
+                    <button 
+                      onClick={() => respond?.("CANCEL")}
+                      disabled={status !== "executing"}
+                      className="border p-2 rounded-xl w-full"
+                    >
+                      Try Again
+                    </button>
+                    <button
+                      onClick={() => respond?.("SEND")}
+                      disabled={status !== "executing"} 
+                      className="bg-blue-500 text-white p-2 rounded-xl w-full"
+                    >
+                      Approve Draft
+                    </button>
+                  </div>
+                </div>
+              );
+            },
+          });
+
+          // ...
+        }
+        ```
+    </Step>
+
+    <Step>
+    ### Setup the LangGraph Agent
+    Now we'll setup the LangGraph agent. Node-based flows are hard to understand without a complete example, so below
+    is the complete implementation of the agent with explanations.
+
+    Some main things to note:
+    - The agent's state inherits from `CopilotKitState` to bring in the CopilotKit actions.
+    - CopilotKit's actions are binded to the model as tools.
+    - If the `writeEssay` action is found in the model's response, the agent will transition to the `user_feedback_node`.
+    - The agent is interrupted before the `user_feedback_node` to allow for user input.
+
+    <Tabs groupId="language" items={["Python", "TypeScript"]}>
+      <Tab value="Python">
+        ```python title="agent/sample_agent/agent.py"
+        from typing_extensions import Literal
+        from langchain_openai import ChatOpenAI
+        from langchain_core.messages import SystemMessage, AIMessage
+        from langchain_core.runnables import RunnableConfig
+        from langgraph.graph import StateGraph, END
+        from langgraph.checkpoint.memory import MemorySaver
+        from langgraph.types import Command
+        from copilotkit import CopilotKitState
+
+        # 1. Define our agent's state and inherit from CopilotKitState, this brings in the CopilotKit actions
+        class AgentState(CopilotKitState): # [!code highlight]
+            # 1.1 Define any other state variables
+            pass
+
+        # 2. Define the chat node, this will be where the agent will talk to user and
+        #    decide if it needs to call the writeEssay tool
+        async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Literal["user_feedback_node", "__end__"]]:
+            # 2.1 Define the model and bind CopilotKit's actions as tools
+            model = ChatOpenAI(model="gpt-4o")
+            model_with_tools = model.bind_tools([*state.get("copilotkit", {}).get("actions", [])]) # [!code highlight]
+
+            # 2.2 Define the system message
+            system_message = SystemMessage(
+                content="You write essays. Use your tools to write an essay, don't just write it in plain text."
+            )
+
+            # 2.3 Run the model to generate a response
+            response = await model_with_tools.ainvoke([
+                system_message,
+                *state["messages"],
+            ], config)
+
+            # [!code highlight:6]
+            # 2.4 Check for the writeEssay tool call and, if found, go  to the
+            #     user_feedback_node to handle the user's response
+            if isinstance(response, AIMessage) and response.tool_calls:
+                if response.tool_calls[0].get("name") == "writeEssay":
+                    return Command(goto="interrupt_node", update={"messages": response})
+
+            # 2.5 If no tool call is found, end the agent
+            return Command(goto=END, update={"messages": response})
+
+        # 3. Define an empty interrupt node to act as buffer as we use the interrupt_after property
+        def interrupt_node(state: AgentState, config: RunnableConfig):
+          pass
+
+        # 4. Define the user_feedback_node, this node will be interrupted before execution
+        #    where CopilotKit's renderAndWaitForResponse provide the user's response.
+        def user_feedback_node(state: AgentState, config: RunnableConfig) -> Command[Literal["chat_node"]]:
+            # [!code highlight:4]
+            # 3.1 Get the last message from the state, this will be 
+            #     what is returned by respond() in the frontend
+            last_message = state["messages"][-1]
+
+            # 3.2 If the user declined the essay, ask them how they'd like to improve it
+            if last_message.content != "SEND":
+                return Command(goto="chat_node", update={
+                    "messages": [SystemMessage(content="The user declined they essay, please ask them how they'd like to improve it")]
+                })
+
+            # 3.3 If the user approved the essay, ask them if they'd like anything else
+            return Command(goto="chat_node", update={
+                "messages": [SystemMessage(content="The user approved the essay, ask them if they'd like anything else")]
+            })
+
+        # 5. Configure the workflow
+        workflow = StateGraph(AgentState)
+        workflow.add_node("chat_node", chat_node)
+        workflow.add_node("interrupt_node", interrupt_node)
+        workflow.add_node("user_feedback_node", user_feedback_node)
+        workflow.add_edge("interrupt_node", "user_feedback_node")
+        workflow.set_entry_point("chat_node")
+
+        # [!code highlight:3]
+        # 6. Compile the workflow and set the interrupt_after property
+        graph = workflow.compile(MemorySaver(), interrupt_after=["interrupt_node"])
+        ```
+      </Tab>
+      <Tab value="TypeScript">
+        ```tsx title="agent/sample_agent/agent.ts"
+        import { z } from "zod";
+        import { RunnableConfig } from "@langchain/core/runnables";
+        import { tool } from "@langchain/core/tools";
+        import { ToolNode } from "@langchain/langgraph/prebuilt";
+        import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from "@langchain/core/messages";
+        import { Command, END, MemorySaver, START, StateGraph } from "@langchain/langgraph";
+        import { Annotation } from "@langchain/langgraph";
+        import { ChatOpenAI } from "@langchain/openai";
+
+        // // 1. Import necessary helpers for CopilotKit actions
+        import { convertActionsToDynamicStructuredTools } from "@copilotkit/sdk-js/langgraph";
+        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+
+        // 2. Define graph state, inherit from CopilotKitState to bring in CopilotKit actions
+        //    and messages.
+        export const AgentStateAnnotation = Annotation.Root({
+            ...CopilotKitStateAnnotation.spec,
+        });
+        export type AgentState = typeof AgentStateAnnotation.State;
+
+        // 3. Define the chat node, this will be the main entry point that a user interacts with
+        async function chatNode(state: AgentState, config: RunnableConfig) {
+          // 3.1 Define the model, lower temperature for deterministic responses
+          const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
+
+          // 3.2 Bind the tools to the model, include CopilotKit actions. This allows
+          //     the model to call tools that are defined in CopilotKit by the frontend.
+          const modelWithTools = model.bindTools!(
+            [ ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions || [])],
+          );
+
+          // 3.3 Define the system message, which will be used to guide the model.
+          const systemMessage = new SystemMessage({
+            content: `You are a helpful assistant.`,
+          });
+
+          // 3.4 Invoke the model with the system message and the messages in the state
+          const response = await modelWithTools.invoke(
+            [systemMessage, ...state.messages],
+            config
+          );
+
+          // 3.5 Check if the response contains a tool call
+          if (response.tool_calls?.length) {
+            const toolCall = response.tool_calls[0];
+
+            // 3.5.1 If the tool call is "writeEssay", we need to get feedback from the user
+            //       by going to the getFeedback node which will be interrupted after
+            //       execution, giving CopilotKit a chance to get feedback from the user.
+            //       
+            //       The "writeEssay" tool is a CopilotKit action and is binded in step 3.2.
+            if (toolCall.name === "writeEssay") {
+              return new Command({
+                goto: "getFeedback",
+                update: {
+                  messages: [response],
+                }
+              });
+            }
+          }
+
+          // 3.6 If there was no tool call, we can just update message state and end the graph
+          return new Command({
+            goto: END,
+            update: {
+              messages: [response],
+            }
+          });
+        }
+
+        // 4. Target node for interruption, this node will be executed and after
+        //    execution the graph be interrupted, waiting for CopilotKit to get feedback
+        //    from the user.
+        const getFeedback = async (state: AgentState) => {
+          return state;
+        }
+
+        // 5. Node for handling the feedback awaited in the getFeedback node.
+        const handleFeedback = async (state: AgentState) => {
+          // 5.1 Get the last message from the state
+          const userResponse = state.messages[state.messages.length - 1].content
+
+          // 5.2 Process a informative message for the AI based on the user response
+          const informativeMessage = userResponse === "SEND" ? 
+            "The user accepted the essay, please ask them how you can help now." : 
+            "The user declined the essay, please ask them how to improve it.";
+
+          // 5.3 Return the new state with the informative message as a system message
+          //     so it doesn't appear in the chat history.
+          return {
+            messages: [new SystemMessage(informativeMessage)],
+          }
+        }
+
+        // 6. Define the graph and compile the graph
+        export const graph = new StateGraph(AgentStateAnnotation)
+          .addNode("chatNode", chatNode, { ends: ["getFeedback"] })
+          .addNode("getFeedback", getFeedback)
+          .addNode("handleFeedback", handleFeedback)
+          .addEdge("__start__", "chatNode")
+          .addEdge("getFeedback", "handleFeedback")
+          .addEdge("handleFeedback", "chatNode")
+          .compile({
+            checkpointer: new MemorySaver(),
+            interruptAfter: ["getFeedback"],
+          });
+
+        ```
+      </Tab>
+    </Tabs>
+    </Step>
+    <Step>
+        ### Give it a try!
+        Try asking your agent to write an essay about the benefits of AI. You'll see that it will generate an essay,
+        stream the progress and eventually ask you to review it.
+    </Step>
+</Steps>
