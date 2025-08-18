@@ -1008,8 +1008,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   };
 
   const connect = useAsyncCallback(async () => {
-    await runChatCompletionAndHandleFunctionCall(messages, CopilotRequestType.Connect);
-  }, [messages, runChatCompletionAndHandleFunctionCall]);
+    await runChatCompletionAndHandleFunctionCall([], CopilotRequestType.Connect);
+  }, [runChatCompletionAndHandleFunctionCall]);
 
   return {
     append,
