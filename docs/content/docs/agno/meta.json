@@ -1,10 +1,11 @@
 {
-  "title": "CoAgents",
+  "title": "Agno",
   "root": true,
   "pages": [
-    "index",
     "---Getting Started---",
-    "...quickstart",
+    "index",
+    "quickstart",
+    "mcp",
     "---Custom Look and Feel---",
     "...custom-look-and-feel",
     "---Guides---",

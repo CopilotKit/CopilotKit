@@ -699,14 +699,15 @@ body[style*="color-scheme: dark"] .poweredBy {
   );
 }
 
-export const handleMouseMove = (e: any) => {
-  const tooltip: any = document.querySelector(".tooltip");
+export const handleMouseMove = (e: React.MouseEvent<HTMLElement>) => {
+  const tooltip = document.querySelector(".tooltip") as HTMLElement | null;
+  if (!tooltip || !tooltip.parentElement) return;
   tooltip.style.display = "block";
   const rect = tooltip.parentElement.getBoundingClientRect();
   tooltip.style.left = `${e.clientX - rect.left + 15}px`;
   tooltip.style.top = `${e.clientY - rect.top + 15}px`;
 
-  let element = e.target;
+  let element = e.target as HTMLElement;
 
   while (element && element !== document.body) {
     if (element.classList.contains("copilotKitHeader")) {
@@ -742,15 +743,15 @@ export const handleMouseMove = (e: any) => {
           `The "Powered by CopilotKit" watermark is removed automatically for Copilot Cloud users`;
       return;
     }
-    element = element.parentElement;
+    element = element.parentElement as HTMLElement;
   }
 
   tooltip.style.display = "none";
 };
 
-export const handleMouseLeave = (e: any) => {
-  const tooltip: any = document.querySelector(".tooltip");
-  tooltip.style.display = "none";
+export const handleMouseLeave = (_e: React.MouseEvent<HTMLElement>) => {
+  const tooltip = document.querySelector(".tooltip") as HTMLElement | null;
+  if (tooltip) tooltip.style.display = "none";
 };
 
 export const InteractiveCSSInspector = () => {

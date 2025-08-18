@@ -1,3 +1,6 @@
 {
-  "pages": ["flow","tool-based"]
+  "icon": "lucide/User",
+  "pages": [
+    "tool-based"
+  ]
 }

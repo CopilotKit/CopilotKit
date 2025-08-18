@@ -1,5 +1,19 @@
 # @copilotkit/runtime
 
+## 1.10.3-next.0
+
+### Patch Changes
+
+- ea74047: - fix: surface run errors from agui
+- Updated dependencies [ea74047]
+  - @copilotkit/shared@1.10.3-next.0
+
+## 1.10.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.2
+
 ## 1.10.2-next.0
 
 ### Patch Changes

@@ -1,5 +1,13 @@
 # @copilotkit/shared
 
+## 1.10.3-next.0
+
+### Patch Changes
+
+- ea74047: - fix: surface run errors from agui
+
+## 1.10.2
+
 ## 1.10.2-next.0
 
 ## 1.10.1
