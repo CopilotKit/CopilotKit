@@ -506,7 +506,7 @@ export class CopilotResolver {
                   parentMessageId: event.parentMessageId,
                   status: firstValueFrom(streamingTextStatus),
                   createdAt: new Date(),
-                  role: MessageRole.assistant,
+                  role: event.role || MessageRole.assistant,
                   content: new Repeater(async (pushTextChunk, stopStreamingText) => {
                     logger.debug("Text message content repeater created");
 

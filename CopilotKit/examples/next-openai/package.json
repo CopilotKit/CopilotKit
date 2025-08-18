@@ -10,7 +10,7 @@
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"
   },
   "dependencies": {
-    "@ag-ui/langgraph": "0.0.8",
+    "@ag-ui/mastra": "0.0.8",
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/react-textarea": "workspace:*",
     "@copilotkit/react-ui": "workspace:*",
@@ -24,6 +24,7 @@
     "@langchain/core": "^0.3.38",
     "@langchain/google-gauth": "^0.1.0",
     "@langchain/openai": "^0.4.2",
+    "@mastra/client-js": "^0.10.21",
     "clsx": "^1.2.1",
     "encoding": "^0.1.13",
     "eslint-config-next": "^15.0.2",

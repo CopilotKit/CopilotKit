@@ -47,9 +47,9 @@
     "zod-to-json-schema": "^3.23.5"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.36-alpha.1",
-    "@ag-ui/core": "0.0.36-alpha.1",
-    "@ag-ui/encoder": "0.0.36-alpha.1",
+    "@ag-ui/client": "0.0.37-alpha.0",
+    "@ag-ui/core": "0.0.37-alpha.0",
+    "@ag-ui/encoder": "0.0.37-alpha.0",
     "@ag-ui/langgraph": "0.0.8",
     "@ag-ui/proto": "0.0.35",
     "@anthropic-ai/sdk": "^0.57.0",

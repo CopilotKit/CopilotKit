@@ -1,22 +1,24 @@
 import { NextRequest } from "next/server";
 import { CopilotRuntime, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
 import { getServiceAdapter } from "../../../lib/dynamic-service-adapter";
-import { LangGraphAgent } from "@ag-ui/langgraph";
+import { MastraAgent } from "@ag-ui/mastra";
+import { MastraClient } from "@mastra/client-js";
 
 const UNSPLASH_ACCESS_KEY_ENV = "UNSPLASH_ACCESS_KEY";
 const UNSPLASH_ACCESS_KEY = process.env[UNSPLASH_ACCESS_KEY_ENV];
 
-const runtime = new CopilotRuntime({
-  agents: {
-    // @ts-expect-error
-    agentic_chat: new LangGraphAgent({
-      deploymentUrl: "http://localhost:2024",
-      graphId: "agentic_chat",
-    }),
-  },
-});
-
 export const POST = async (req: NextRequest) => {
+  const mastraClient = new MastraClient({
+    baseUrl: "http://localhost:4111",
+  });
+
+  const agents = await MastraAgent.getRemoteAgents({ mastraClient });
+
+  const runtime = new CopilotRuntime({
+    // @ts-expect-error
+    agents,
+  });
+
   const { searchParams } = req.nextUrl;
   const serviceAdapterQueryParam = searchParams.get("serviceAdapter") || "openai";
   const serviceAdapter = await getServiceAdapter(serviceAdapterQueryParam);

@@ -69,6 +69,7 @@ export type RuntimeEvent =
       type: RuntimeEventTypes.TextMessageContent;
       messageId: string;
       content: string;
+      role?: string;
     }
   | { type: RuntimeEventTypes.TextMessageEnd; messageId: string }
   | {
