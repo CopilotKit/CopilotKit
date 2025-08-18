@@ -16,10 +16,10 @@ export interface McpClientOptions {
 
 /**
  * McpClient - A Model Context Protocol client implementation
- * 
+ *
  * @deprecated SSE transport is deprecated. Use HttpStreamClient instead which supports
  * the new HTTP Stream Transport protocol and is compatible with modern MCP servers.
- * 
+ *
  * This class uses the deprecated SSE (Server-Sent Events) transport.
  * Many modern MCP servers (like Composio) no longer support pure SSE connections.
  *
