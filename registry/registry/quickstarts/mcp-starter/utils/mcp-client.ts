@@ -1,6 +1,8 @@
 import { MCPTool, MCPClient as MCPClientInterface } from "@copilotkit/runtime";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+// TODO: Replace with HttpClientTransport when available in SDK
+// import { HttpClientTransport } from "@modelcontextprotocol/sdk/client/http.js";
 import type { JSONRPCMessage } from "@modelcontextprotocol/sdk/types.js";
 
 export interface McpClientOptions {
@@ -14,6 +16,12 @@ export interface McpClientOptions {
 
 /**
  * McpClient - A Model Context Protocol client implementation
+ * 
+ * @deprecated SSE transport is deprecated. Use HttpStreamClient instead which supports
+ * the new HTTP Stream Transport protocol and is compatible with modern MCP servers.
+ * 
+ * This class uses the deprecated SSE (Server-Sent Events) transport.
+ * Many modern MCP servers (like Composio) no longer support pure SSE connections.
  *
  * This class implements the Model Context Protocol (MCP) client, which allows for
  * standardized communication with MCP servers. It's designed to be compatible with
@@ -49,6 +57,7 @@ export class MCPClient implements MCPClientInterface {
     this.onClose = options.onClose || (() => console.log("Connection closed"));
 
     // Initialize the SSE transport with headers
+    // TODO: Migrate to HttpClientTransport when available
     this.transport = new SSEClientTransport(this.serverUrl, this.headers);
 
     // Initialize the client
@@ -89,7 +98,7 @@ export class MCPClient implements MCPClientInterface {
   }
 
   /**
-   * Connects to the MCP server using SSE
+   * Connects to the MCP server using SSE (will migrate to HTTP Stream when available)
    */
   public async connect(): Promise<void> {
     try {
