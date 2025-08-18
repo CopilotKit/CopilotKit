@@ -1,7 +1,9 @@
 {
-  "title": "copilotkit",
+  "title": "Direct to LLM",
+  "icon": "lucide/Zap",
   "root": true,
   "pages": [
+    "---Getting Started---",
     "index",
     "...guides",
     "---Tutorials---",

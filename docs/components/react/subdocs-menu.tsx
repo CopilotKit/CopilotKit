@@ -228,7 +228,10 @@ export interface Option {
    * Redirect URL of the folder, usually the index page
    */
   url: string;
-
+  /**
+   * External link URL
+   */
+  href?: string;
   icon?: ReactNode;
   title: ReactNode;
   description?: ReactNode;
@@ -349,15 +352,15 @@ export function SubdocsMenu({
   const handleExplicitNavClick = useCallback((url: string) => {
     setStoredNavPreference(url);
     setStoredPreference(url);
-    closeOnRedirect.current = false;
+    //closeOnRedirect.current = false;
   }, []);
 
   const onClick = useCallback(() => {
-    closeOnRedirect.current = false;
+    //closeOnRedirect.current = false;
   }, [closeOnRedirect]);
 
       return (
-      <div className="flex flex-col gap-2 border-b p-4">
+      <div className="flex flex-col gap-2">
         {options.map((item, index) => {
           if (isSeparator(item)) {
             return <hr key={`separator-${index}`} className="my-2 border-t border-gray-700" />;
@@ -379,6 +382,7 @@ export function SubdocsMenu({
             );
           }
         })}
+        <hr className="mt-1 border-t border-primary/40" />
       </div>
     );
 }
@@ -402,6 +406,10 @@ function SubdocsMenuItem({
         key={item.url}
         href={item.url}
         onClick={() => {
+          if (item.href) {
+            window.open(item.href, '_blank');
+            return;
+          }
           handleNavigationScroll(pathname, item.url);
           scrollSidebarToSelectedItem(item.url); // Scroll sidebar to selected item
           onClick?.();
@@ -409,16 +417,14 @@ function SubdocsMenuItem({
         }}
         {...item.props}
         className={cn(
-          "p-2 flex flex-row gap-3 items-center cursor-pointer group opacity-60 hover:opacity-100",
+          "p-1 rounded-xl flex flex-row gap-3 items-center cursor-pointer group opacity-60 hover:opacity-100",
           item.props?.className,
-          selected === item && `${item.selectedStyle} opacity-100`
+          selected === item && `opacity-100 bg-primary/10 text-primary`
         )}
       >
         <div
           className={cn(
-            "rounded-sm p-1.5",
-            item.bgGradient,
-            selected !== item && ""
+            "rounded-sm p-1.5 pr-0 text-primary",
           )}
         >
           {item.icon}
@@ -436,53 +442,6 @@ function SubdocsMenuItem({
       />
     );
   }
-}
-
-function SubdocsMenuItemAgentFramework({
-  item,
-  selected,
-  onClick,
-}: {
-  item: OptionDropdown;
-  selected?: Option;
-  onClick?: () => void;
-}) {
-  const defaultOption = item.options.find(
-    (option) => option.url === "/coagents"
-  )!;
-
-  const isSelected = item.options.find(
-    (option) => option.url === selected?.url
-  );
-
-  const showOption =
-    item.options.find((option) => option.url === selected?.url) ||
-    defaultOption;
-
-  return (
-    <Link
-      key={showOption.url}
-      href={showOption.url}
-      onClick={onClick}
-      {...showOption.props}
-      className={cn(
-        "p-2 flex flex-row gap-3 items-center cursor-pointer group opacity-60 hover:opacity-100",
-        showOption.props?.className,
-        isSelected && `${showOption.selectedStyle} opacity-100`
-      )}
-    >
-      <div
-        className={cn(
-          "rounded-sm p-1.5",
-          showOption.bgGradient,
-          isSelected && ""
-        )}
-      >
-        {showOption.icon}
-      </div>
-      <div className="font-medium">{showOption.title}</div>
-    </Link>
-  );
 }
 
 function SubdocsMenuItemDropdown({
@@ -532,20 +491,15 @@ function SubdocsMenuItemDropdown({
       >
         <SelectTrigger
           className={cn(
-            "pl-2 py-2 border-0 h-auto flex gap-3 items-center w-full",
-            isSelected
-              ? `${
-                  selectedOption?.selectedStyle ||
-                  "ring-purple-500/70 ring-2 rounded-sm"
-                } opacity-100`
-              : "ring-0 opacity-60 hover:opacity-100"
+            "pl-1 py-1 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer",
+            isSelected && "bg-primary/10 text-primary"
           )}
           ref={selectRef}
         >
           <SelectValue
             placeholder={
               <div className="flex items-center">
-                <div className={cn("rounded-sm p-1.5 mr-2", !selectedOption && "bg-gradient-to-b from-cyan-700 to-cyan-400 text-cyan-100")}>
+                <div className={cn("rounded-sm mr-2 pl-1 pr-1.5 text-primary/50")}>
                   {selectedOption?.icon || (
                     <BoxesIcon
                       className="w-4 h-4"
@@ -553,20 +507,20 @@ function SubdocsMenuItemDropdown({
                     />
                   )}
                 </div>
-                <div className="font-medium">{item.title}</div>
+                <div className={cn("font-medium", !isSelected && "text-muted-foreground hover:text-foreground")}>{item.title}</div>
               </div>
             }
           />
         </SelectTrigger>
-        <SelectContent className="p-1">
+        <SelectContent className="p-1 rounded-2xl max-h-[800px] shadow-lg">
           {item.options.map((option) => (
             <SelectItem
               key={option.url}
               value={option.url}
-              className="py-2 px-2 cursor-pointer focus:bg-accent focus:text-accent-foreground"
+              className="pl-1 py-1 my-1 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer hover:bg-secondary/10"
             >
               <div className="flex items-center">
-                <div className={cn("rounded-sm p-1.5 mr-2", option.bgGradient)}>
+                <div className={cn("rounded-sm p-1.5 mr-2 text-primary")}>
                   {option.icon}
                 </div>
                 <span className="font-medium">{option.title}</span>

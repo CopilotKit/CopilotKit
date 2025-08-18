@@ -111,7 +111,7 @@ For production deployments, you'll want to implement proper authentication to en
 <Callout type="info">
   Learn how to implement secure authentication with your LangGraph agents in our
   comprehensive [LangGraph Agent Authentication
-  Guide](/coagents/shared-guides/langgraph-platform-authentication).
+  Guide](/coagents/shared/guides/langgraph-platform-authentication).
 </Callout>
 
 ### Quick Example
@@ -148,4 +148,4 @@ A few things to try if you are running into trouble:
 1. Make sure that you listed your agents according to the graphs mentioned in the `langgraph.json` file
 2. Make sure the agent names are the same between the agent Python implementation, the `langgraph.json` file and the remote endpoint declaration
 3. Make sure the LangGraph Platform deployment has all environment variables listed as you need them to be, according to your agent implementation
-4. **Authentication issues**: If you're having trouble with authentication, check that you're passing the `authorization` token in the `properties` prop and that your agent is properly validating it. See the [authentication guide](/coagents/shared-guides/langgraph-platform-authentication) for details.
+4. **Authentication issues**: If you're having trouble with authentication, check that you're passing the `authorization` token in the `properties` prop and that your agent is properly validating it. See the [authentication guide](/coagents/shared/guides/langgraph-platform-authentication) for details.

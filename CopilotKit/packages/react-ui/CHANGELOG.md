@@ -1,5 +1,16 @@
 # ui
 
+## 1.10.2
+
+### Patch Changes
+
+- db5bbda: - fix: allow disabling of default cpk system message
+  - chore: set up direct fastapi usage on coagents starter poetry demo
+- Updated dependencies [db5bbda]
+  - @copilotkit/react-core@1.10.2
+  - @copilotkit/runtime-client-gql@1.10.2
+  - @copilotkit/shared@1.10.2
+
 ## 1.10.2-next.0
 
 ### Patch Changes

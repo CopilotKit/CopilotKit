@@ -1,0 +1,402 @@
+## Overview
+The CopilotKit MCP server equips AI coding agents with deep knowledge about CopilotKit's APIs, patterns, and best practices. When connected to your 
+development environment, it enables AI assistants to:
+- Provide expert guidance
+- Generate accurate code
+- Give your AI agents a user interface
+- Help you implement CopilotKit features correctly
+
+<Callout type="info">
+Powered by 🪄 [Tadata](https://tadata.com) - The platform for instantly building and hosting MCP servers.
+</Callout>
+
+## Cursor
+[Cursor](https://cursor.sh/) is an AI-powered code editor built for productivity. It features built-in AI assistance and supports MCP for extending AI capabilities with external tools.
+
+<Steps>
+  <Step>
+    ### Open MCP Settings in Cursor
+    1. Press `Shift+Command+J` (Mac) or `Shift+Ctrl+J` (Windows/Linux) to open Cursor's settings.
+    2. Look for "MCP Tools" in the left sidebar categories.
+    3. Click "+ New MCP Server".
+    This will open the mcp.json file in the editor, which you need to edit.
+  </Step>
+  <Step>
+    ### Add MCP Server to Cursor
+    Copy CopilotKit MCP's configuration and paste it under the mcpServers key in the mcp.json file.
+
+    <Tabs groupId="transport" items={['HTTP', 'SSE']} default="HTTP">
+      <Tab value="HTTP">
+        ```json
+        {
+          "mcpServers": {
+            "CopilotKit MCP": {
+              "command": "npx",
+              "args": [
+                "mcp-remote",
+                "https://mcp.copilotkit.ai"
+              ]
+            }
+          }
+        }
+        ```
+      </Tab>
+      <Tab value="SSE">
+        ```json
+        {
+          "mcpServers": {
+            "CopilotKit MCP": {
+              "url": "https://mcp.copilotkit.ai/sse"
+            }
+          }
+        }
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+</Steps>
+## Claude Web
+
+[Claude](https://claude.ai/) is Anthropic's AI assistant accessible through a web interface. It supports MCP integrations to connect with external tools and services.
+
+<Steps>
+  <Step>
+    In your Claude Integrations page, click "+ Add integration".
+  </Step>
+  <Step>
+    In the URL field, enter the following:
+    ```
+    https://mcp.copilotkit.ai/sse
+    ```
+  </Step>
+</Steps>
+
+## Claude Desktop
+
+[Claude Desktop](https://claude.ai/download) is the desktop application version of Claude, offering the same AI capabilities with local system integration and MCP support.
+
+<Steps>
+  <Step>
+    Find Claude Integration Settings
+  </Step>
+  <Step>
+    Click the settings button Settings Button in the bottom left of the chat box.
+  </Step>
+  <Step>
+    Click "Add Integrations"
+  </Step>
+  <Step>
+    In the integrations page, click "+ Add integration".
+  </Step>
+  <Step>
+    In the URL field, enter the following:
+    ```
+    https://mcp.copilotkit.ai/sse
+    ```
+  </Step>
+</Steps>
+
+## Windsurf
+
+[Windsurf](https://codeium.com/windsurf) is Codeium's agentic IDE that combines AI-powered coding assistance with traditional development tools. It features the Cascade AI assistant with MCP integration.
+
+<Steps>
+  <Step>
+    ### Access Windsurf MCP Settings
+    1. Open Windsurf Settings (click the settings button in the bottom right)
+    2. Navigate to the "Cascade" section
+    3. Look for "Model Context Protocol" or "MCP" settings
+    4. Enable MCP support if not already enabled
+  </Step>
+  <Step>
+    ### Add MCP Server to Windsurf
+    You can add CopilotKit MCP in several ways:
+
+    <Tabs groupId="windsurf-setup" items={['Using the Built-in Server Browser', 'Manual Configuration']} default="Using the Built-in Server Browser">
+      <Tab value="Using the Built-in Server Browser">
+        1. In the Cascade section, click "Add Server"
+        2. Select "Add custom server"
+        3. Choose the transport type:
+           - **SSE/HTTP** for remote servers
+           - **stdio** for local command-based servers
+      </Tab>
+      <Tab value="Manual Configuration">
+        Add the server configuration to your mcp_config.json file:
+
+        <Tabs groupId="windsurf-transport" items={['HTTP Transport', 'SSE Transport', 'stdio Transport (Local)']} default="HTTP Transport">
+          <Tab value="HTTP Transport">
+            ```json
+            {
+              "mcpServers": {
+                "CopilotKit MCP": {
+                  "url": "https://mcp.copilotkit.ai",
+                  "disabled": false,
+                  "timeout": 30
+                }
+              }
+            }
+            ```
+          </Tab>
+          <Tab value="SSE Transport">
+            ```json
+            {
+              "mcpServers": {
+                "CopilotKit MCP": {
+                  "url": "https://mcp.copilotkit.ai/sse",
+                  "disabled": false,
+                  "timeout": 30
+                }
+              }
+            }
+            ```
+          </Tab>
+          <Tab value="stdio Transport (Local)">
+            ```json
+            {
+              "mcpServers": {
+                "CopilotKit MCP": {
+                  "command": "npx",
+                  "args": ["mcp-remote", "https://mcp.copilotkit.ai"]
+                }
+              }
+            }
+            ```
+          </Tab>
+        </Tabs>
+      </Tab>
+    </Tabs>
+  </Step>
+  <Step>
+    ### Configuration File Location
+    The MCP configuration is typically stored at:
+
+    <Tabs groupId="windsurf-os" items={['macOS', 'Windows', 'Linux']} default="macOS">
+      <Tab value="macOS">
+        ```
+        ~/.codeium/windsurf/mcp_config.json
+        ```
+      </Tab>
+      <Tab value="Windows">
+        ```
+        %APPDATA%\.codeium\windsurf\mcp_config.json
+        ```
+      </Tab>
+      <Tab value="Linux">
+        ```
+        ~/.config/codeium/windsurf/mcp_config.json
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+  <Step>
+    ### Using MCP Tools in Windsurf
+    Once configured, CopilotKit MCP tools will be available in Windsurf's Cascade AI assistant:
+
+    - Open the Cascade panel (AI chat interface)
+    - The MCP tools are automatically available to the AI
+    - You can reference specific tools using `@CopilotKit MCP` in your conversations
+    - Windsurf will intelligently choose which tools to use based on your requests
+
+    ### Managing Your MCP Servers
+    In the Windsurf MCP settings, you can:
+    - Enable/Disable individual servers
+    - View server status and connection health
+    - Configure tool permissions and auto-approval settings
+    - Monitor server logs for debugging
+    - Restart servers if they become unresponsive
+
+    The AI will seamlessly integrate CopilotKit MCP functionality into your development workflow!
+  </Step>
+</Steps>
+
+## Cline
+
+[Cline](https://github.com/cline/cline) is a VS Code extension that provides autonomous AI coding assistance. It can perform complex tasks using MCP tools to interact with external systems.
+
+<Steps>
+  <Step>
+    ### Open Cline MCP Settings
+    1. Open the Cline extension panel in VS Code
+    2. Click the menu (⋮) in the top right corner of the Cline panel
+    3. Select "MCP Servers" from the dropdown menu
+    
+    This will open the MCP Servers interface where you can manage your server connections.
+  </Step>
+  <Step>
+    ### Add MCP Server to Cline
+    In the MCP Servers interface, you have three main options:
+
+    <Tabs groupId="cline-setup" items={['Remote Server Setup', 'Configuration File Setup']} default="Remote Server Setup">
+      <Tab value="Remote Server Setup">
+        1. Click on the "Remote Servers" tab
+        2. Enter a Server Name (e.g., "CopilotKit MCP")
+        3. Enter the Server URL:
+        ```
+        https://mcp.copilotkit.ai/sse
+        ```
+        4. Click "Add Server" to connect
+      </Tab>
+      <Tab value="Configuration File Setup">
+        Alternatively, you can configure via the advanced settings:
+        1. In the "Installed" tab, click "Configure MCP Servers"
+        2. Add the following configuration to your settings file:
+        ```json
+        {
+          "mcpServers": {
+            "CopilotKit MCP": {
+              "url": "https://mcp.copilotkit.ai/sse",
+              "disabled": false,
+              "timeout": 30
+            }
+          }
+        }
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+  <Step>
+    ### Using MCP Tools in Cline
+    Once connected, Cline can automatically use the tools provided by CopilotKit MCP when you interact with the AI assistant. The MCP tools will be available without requiring manual selection - Cline's AI will intelligently choose which tools to use based on your requests.
+
+    **Server Status Indicators:**
+    - Green dot: Connected and ready to use
+    - Yellow dot: Connecting in progress
+    - Red dot: Connection error
+
+    You can manage server settings, restart connections, or disable servers from the "Installed" tab in the MCP Servers interface.
+  </Step>
+</Steps>
+
+## GitHub Copilot
+
+[GitHub Copilot](https://github.com/features/copilot) is Microsoft's AI pair programmer integrated into VS Code and other editors. It supports MCP to extend its capabilities with external tools and services.
+
+<Steps>
+  <Step>
+    ### Enable MCP Support in VS Code
+    1. Open VS Code Settings (`Cmd+,` on Mac or `Ctrl+,` on Windows/Linux)
+    2. Search for "MCP" in the settings search bar
+    3. Enable the `chat.mcp.enabled` setting
+  </Step>
+  <Step>
+    ### Add MCP Server to GitHub Copilot
+    You can configure MCP servers for GitHub Copilot in several ways:
+
+    <Tabs groupId="copilot-config" items={['Workspace Configuration (Recommended)', 'User Settings Configuration', 'Command Palette']} default="Workspace Configuration (Recommended)">
+      <Tab value="Workspace Configuration (Recommended)">
+        Create a `.vscode/mcp.json` file in your project root:
+        ```json
+        {
+          "servers": {
+            "CopilotKit MCP": {
+              "url": "https://mcp.copilotkit.ai/sse"
+            }
+          }
+        }
+        ```
+      </Tab>
+      <Tab value="User Settings Configuration">
+        Add to your VS Code `settings.json`:
+        ```json
+        {
+          "mcp": {
+            "servers": {
+              "CopilotKit MCP": {
+                "url": "https://mcp.copilotkit.ai/sse"
+              }
+            }
+          }
+        }
+        ```
+      </Tab>
+      <Tab value="Command Palette">
+        1. Open the Command Palette (`Cmd+Shift+P` or `Ctrl+Shift+P`)
+        2. Type "MCP: Add Server" and select the command
+        3. Choose "HTTP (sse)" as the server type
+        4. Enter the server URL: `https://mcp.copilotkit.ai/sse`
+        5. Provide a name for the server: `CopilotKit MCP`
+      </Tab>
+    </Tabs>
+  </Step>
+  <Step>
+    ### Using MCP Tools with GitHub Copilot
+    1. Open Copilot Chat in VS Code (click the Copilot icon in the activity bar)
+    2. Switch to Agent mode from the chat dropdown menu
+    3. Click the Tools (🔧) button to view available MCP tools
+    4. Your CopilotKit MCP tools will be listed and can be used automatically
+
+    GitHub Copilot will intelligently use the MCP tools when relevant to your queries. You can also reference tools directly using `#` followed by the tool name.
+  </Step>
+  <Step>
+    ### Managing MCP Servers
+    Use the "MCP: List Servers" command to view and manage your configured servers:
+
+    - Start/Stop/Restart servers
+    - View server logs for debugging
+    - Browse available tools and resources
+  </Step>
+</Steps>
+
+## Other
+
+For MCP-compatible applications not listed above, use these universal integration patterns. MCP (Model Context Protocol) is an open standard that allows AI applications to connect with external tools and data sources.
+
+### Connection Methods
+
+Most MCP-compatible applications support one or both of these connection methods:
+
+<Tabs groupId="universal-transport" items={['SSE', 'stdio']} default="SSE">
+  <Tab value="SSE">
+    For web-based or remote integrations:
+    ```
+    https://mcp.copilotkit.ai/sse
+    ```
+  </Tab>
+  <Tab value="stdio">
+    For local command-line integrations:
+    ```json
+    {
+      "command": "npx",
+      "args": ["mcp-remote", "https://mcp.copilotkit.ai"]
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Integration Steps
+
+1. **Find MCP Settings** - Look for "MCP," "Model Context Protocol," or "Tools" in your application settings
+2. **Add Server** - Use the SSE URL: `https://mcp.copilotkit.ai/sse`
+3. **Test Connection** - Restart your application and verify the server appears in available tools
+
+### Common Configuration Patterns
+
+<Tabs groupId="config-patterns" items={['JSON Configuration File', 'Application Settings']} default="JSON Configuration File">
+  <Tab value="JSON Configuration File">
+    Many applications use a configuration file (locations vary by app):
+    ```json
+    {
+      "servers": {
+        "CopilotKit MCP": {
+          "url": "https://mcp.copilotkit.ai/sse"
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab value="Application Settings">
+    Some apps integrate MCP into their main settings:
+    ```json
+    {
+      "mcp": {
+        "enabled": true,
+        "servers": {
+          "CopilotKit MCP": {
+            "url": "https://mcp.copilotkit.ai/sse"
+          }
+        }
+      }
+    }
+    ```
+  </Tab>
+</Tabs>

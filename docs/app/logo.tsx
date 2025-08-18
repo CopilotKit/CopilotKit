@@ -1,12 +1,18 @@
 import Image from "next/image";
+import { cn } from "@/lib/utils";
 
-export function Logo() {
+interface LogoProps {
+  className?: string;
+  height?: number;
+  width?: number;
+}
+
+export function Logo({ className, height=40, width=150 }: LogoProps) {
 
   return (
-    // <div className="w-[--fd-sidebar-width] flex items-center justify-center gap-1 ml-[-12px]">
-    <div className="flex items-center justify-center gap-1 md:px-6 py-2">
-      <Image src={"https://cdn.copilotkit.ai/docs/copilotkit/copilotkit-logo-light.png"} width={150} height={40} alt="Logo" className="block dark:hidden" />
-      <Image src={"https://cdn.copilotkit.ai/docs/copilotkit/copilotkit-logo-dark.png"} width={150} height={40} alt="Logo" className="hidden dark:block" />
+    <div className={cn("flex md:pb-2 md:pl-1", className)}>
+      <Image src={"https://cdn.copilotkit.ai/docs/copilotkit/copilotkit-logo-light.png"} width={width} height={height} alt="Logo" className="block dark:hidden" />
+      <Image src={"https://cdn.copilotkit.ai/docs/copilotkit/copilotkit-logo-dark.png"} width={width} height={height} alt="Logo" className="hidden dark:block" />
     </div>
   )
   

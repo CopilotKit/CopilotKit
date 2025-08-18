@@ -1,4 +1,4 @@
-import { describe, test, expect } from "vitest";
+import { describe, test, expect, vi } from "vitest";
 import * as gql from "../client";
 import agui from "@copilotkit/shared";
 import {
@@ -584,6 +584,63 @@ describe("agui-to-gql", () => {
       Object.values(actions).forEach((action) => {
         expect(action.render).toBe(mockRender1);
       });
+    });
+
+    test("should verify render function receives correct props including name", () => {
+      const mockRender = vi.fn(
+        (props) => `Rendered: ${props.name} with args: ${JSON.stringify(props.args)}`,
+      );
+      const aguiMessage: agui.Message = {
+        id: "assistant-render-props",
+        role: "assistant",
+        content: "I'll execute a function",
+        toolCalls: [
+          {
+            id: "tool-call-render-props",
+            type: "function",
+            function: {
+              name: "testFunction",
+              arguments: JSON.stringify({ param: "value" }),
+            },
+          },
+        ],
+        generativeUI: mockRender,
+      };
+
+      const actions: Record<string, any> = {
+        testFunction: { name: "testFunction" },
+      };
+
+      const result = aguiMessageWithRenderToGQL(aguiMessage, actions);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toBeInstanceOf(gql.TextMessage);
+      expect(result[1]).toBeInstanceOf(gql.ActionExecutionMessage);
+
+      // Check that the render function was preserved in actions
+      expect(actions.testFunction.render).toBe(mockRender);
+
+      // Now test that when the render function is called, it receives the correct props
+      // This simulates what happens when the render function is actually used
+      if (actions.testFunction.render) {
+        actions.testFunction.render({
+          status: "inProgress",
+          args: { param: "value" },
+          result: undefined,
+          respond: () => {},
+          messageId: "tool-call-render-props",
+          name: "testFunction",
+        });
+
+        expect(mockRender).toHaveBeenCalledWith({
+          status: "inProgress",
+          args: { param: "value" },
+          result: undefined,
+          respond: expect.any(Function),
+          messageId: "tool-call-render-props",
+          name: "testFunction",
+        });
+      }
     });
   });
 

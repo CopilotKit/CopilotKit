@@ -1,0 +1,33 @@
+{
+  "title": "LangGraph",
+  "root": true,
+  "pages": [
+    "---Getting Started---",
+    "index",
+    "quickstart",
+    "mcp",
+    "---Custom Look and Feel---",
+    "...custom-look-and-feel",
+    "---Guides---",
+    "agentic-chat-ui",
+    "generative-ui",
+    "human-in-the-loop",
+    "shared-state",
+    "frontend-actions",
+    "multi-agent-flows",
+    "auth",
+    "persistence",
+    "advanced",
+    "---Premium Features---",
+    "...premium",
+    "---Tutorials & Videos---",
+    "...tutorials",
+    "...videos",
+    "---Learn---",
+    "...concepts",
+    "---Troubleshooting---",
+    "...coagent-troubleshooting",
+    "---Other---",
+    "...(other)"
+  ]
+}
