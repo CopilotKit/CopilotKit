@@ -10,9 +10,16 @@ import { SlideModel } from "../../types";
 interface PresentationProps {
   performResearch: boolean;
   setPerformResearch: (fn: (b: boolean) => boolean) => void;
+  threadId: string;
+  setThreadId: (threadId: string) => void;
 }
 
-export const Presentation = ({ performResearch, setPerformResearch }: PresentationProps) => {
+export const Presentation = ({
+  performResearch,
+  setPerformResearch,
+  setThreadId,
+  threadId,
+}: PresentationProps) => {
   // // Load messages from local storage
 
   // const { messages, setMessages } = useCopilotMessagesContext();
@@ -145,6 +152,8 @@ export const Presentation = ({ performResearch, setPerformResearch }: Presentati
         setSlides={setSlides}
         performResearch={performResearch}
         setPerformResearch={setPerformResearch}
+        threadId={threadId}
+        setThreadId={setThreadId}
       />
       <div
         className="flex items-center justify-center flex-1"

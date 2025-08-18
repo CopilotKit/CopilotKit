@@ -18,6 +18,8 @@ interface HeaderProps {
   setSlides: (fn: (slides: SlideModel[]) => SlideModel[]) => void;
   performResearch: boolean;
   setPerformResearch: (fn: (b: boolean) => boolean) => void;
+  threadId: string;
+  setThreadId: (threadId: string) => void;
 }
 
 export function Header({
@@ -27,6 +29,8 @@ export function Header({
   setSlides,
   performResearch,
   setPerformResearch,
+  threadId,
+  setThreadId,
 }: HeaderProps) {
   const currentSlide = useMemo(() => slides[currentSlideIndex], [slides, currentSlideIndex]);
 
@@ -56,6 +60,20 @@ export function Header({
 
         {/* Perform Research */}
         <PerformResearchSwitch isEnabled={performResearch} setIsEnabled={setPerformResearch} />
+      </div>
+
+      {/* Thread Picker */}
+      <div className="flex items-center space-x-2 ml-4">
+        <span className="text-sm text-gray-300">Thread:</span>
+        <select
+          value={threadId}
+          onChange={(e) => setThreadId(e.target.value)}
+          className="bg-gray-700 text-white px-3 py-1 rounded-md text-sm border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="1">Thread 1</option>
+          <option value="2">Thread 2</option>
+          <option value="3">Thread 3</option>
+        </select>
       </div>
 
       <SlideNumberIndicator {...{ currentSlideIndex, totalSlides: slides.length }} />

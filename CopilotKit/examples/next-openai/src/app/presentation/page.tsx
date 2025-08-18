@@ -16,13 +16,15 @@ export default function AIPresentation() {
     searchParams.get("runtimeUrl") || `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
   const publicApiKey = searchParams.get("publicApiKey");
 
+  const [threadId, setThreadId] = useState("1");
+
   const copilotKitProps: Partial<React.ComponentProps<typeof CopilotKit>> = {
     transcribeAudioUrl: "/api/transcribe",
     textToSpeechUrl: "/api/tts",
     runtimeUrl,
     publicApiKey: publicApiKey || undefined,
     agent: "agentic_chat",
-    threadId: "126fcbef-9338-40a8-8adc-f5f315b3b9bf",
+    threadId,
   };
 
   return (
@@ -53,6 +55,8 @@ export default function AIPresentation() {
             <Presentation
               performResearch={performResearch}
               setPerformResearch={setPerformResearch}
+              threadId={threadId}
+              setThreadId={setThreadId}
             />
           </div>
         </CopilotSidebar>
