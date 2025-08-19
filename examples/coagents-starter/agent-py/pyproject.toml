@@ -1,3 +1,20 @@
+[project]
+name = "agent"
+version = "0.1.0"
+description = ""
+requires-python = ">=3.10"
+dependencies = [
+    "copilotkit==0.1.60",
+    "langchain==0.3.21",
+    "langgraph>=0.6.5",
+    "langsmith>=0.3.45",
+    "openai>=1.68.2",
+    "fastapi>=0.115.5",
+    "uvicorn>=0.29.0",
+    "python-dotenv>=1.0.0",
+    "langchain-openai>=0.3.30"
+]
+
 [tool.poetry]
 name = "agent"
 version = "0.1.0"
@@ -8,14 +25,15 @@ packages = [{include = "sample_agent"}]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
-copilotkit = "0.1.55"
+copilotkit = "0.1.60"
 langchain = "0.3.21"
-langgraph = "0.3.25"
-langsmith = "0.3.25"
+langgraph = "0.6.5"
+langsmith = "0.3.45"
 openai = "^1.68.2"
 fastapi = "^0.115.5"
 uvicorn = "^0.29.0"
 python-dotenv = "^1.0.0"
+langchain-openai = "^0.3.30"
 
 [tool.poetry.scripts]
 demo = "sample_agent.demo:main"
