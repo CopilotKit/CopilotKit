@@ -10,22 +10,20 @@ load_dotenv() # pylint: disable=wrong-import-position
 
 from fastapi import FastAPI
 import uvicorn
-from copilotkit.integrations.fastapi import add_fastapi_endpoint
-from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent
+from copilotkit import LangGraphAGUIAgent
+from ag_ui_langgraph import add_langgraph_fastapi_endpoint
 from sample_agent.agent import graph
 
 app = FastAPI()
-sdk = CopilotKitRemoteEndpoint(
-    agents=[
-        LangGraphAgent(
-            name="sample_agent",
-            description="An example agent to use as a starting point for your own agent.",
-            graph=graph,
-        )
-    ],
+add_langgraph_fastapi_endpoint(
+    app=app,
+    agent=LangGraphAGUIAgent(
+        name="sample_agent",
+        description="An example agent to use as a starting point for your own agent.",
+        graph=graph,
+    ),
+    path="/",
 )
-
-add_fastapi_endpoint(app, sdk, "/copilotkit")
 
 def main():
     """Run the uvicorn server."""
