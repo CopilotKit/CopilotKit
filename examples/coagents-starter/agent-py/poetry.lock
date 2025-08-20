@@ -2,14 +2,14 @@
 
 [[package]]
 name = "ag-ui-langgraph"
-version = "0.0.7"
+version = "0.0.8"
 description = "Implementation of the AG-UI protocol for LangGraph."
 optional = false
 python-versions = "<3.14,>=3.10"
 groups = ["main"]
 files = [
-    {file = "ag_ui_langgraph-0.0.7-py3-none-any.whl", hash = "sha256:35b43bf74b3dc568943bb0808141ae6e583b3c08596892b21a647072434d2f34"},
-    {file = "ag_ui_langgraph-0.0.7.tar.gz", hash = "sha256:5ca32d6f04f40073493227fb272d3493e84cd0e0f5a269d74d0ac1a4234cfe04"},
+    {file = "ag_ui_langgraph-0.0.8-py3-none-any.whl", hash = "sha256:dd76fd72d0b58c92a5b28bcb76f37a21502ea071deff657f43e7f3759ef2c34e"},
+    {file = "ag_ui_langgraph-0.0.8.tar.gz", hash = "sha256:7a6c66e1a615db0c261b342688c7b05efded88eae80ab8f8238ef24efe42472a"},
 ]
 
 [package.dependencies]
@@ -310,18 +310,18 @@ files = [
 
 [[package]]
 name = "copilotkit"
-version = "0.1.60"
+version = "0.1.61"
 description = "CopilotKit python SDK"
 optional = false
 python-versions = "<3.13,>=3.10"
 groups = ["main"]
 files = [
-    {file = "copilotkit-0.1.60-py3-none-any.whl", hash = "sha256:8418723aedec72a14dbccd95a974e1d07059153a14f06030ca9e4830e3acbf39"},
-    {file = "copilotkit-0.1.60.tar.gz", hash = "sha256:1296b9a369a7d44db8497700e356e92385e3c9a40ab7bf3dea5f7dbd0365ae4f"},
+    {file = "copilotkit-0.1.61-py3-none-any.whl", hash = "sha256:849622570a980b889cc51a21dc0bc399396f54189eaf1aad97678c3cdf2716a5"},
+    {file = "copilotkit-0.1.61.tar.gz", hash = "sha256:4763044af93d8d72a57cdc3d349670bebfd4f6a22fe6f5c80c77705663a1a842"},
 ]
 
 [package.dependencies]
-ag-ui-langgraph = {version = "0.0.7", extras = ["fastapi"]}
+ag-ui-langgraph = {version = "0.0.8", extras = ["fastapi"]}
 fastapi = ">=0.115.0,<0.116.0"
 langchain = ">=0.3.4,<=0.3.26"
 langgraph = ">=0.3.18,<0.7.0"
@@ -1936,4 +1936,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.13"
-content-hash = "15d17918814b05974d6d2f1d5a905c4cc63be9d328902a2f5bcbc94c07d52111"
+content-hash = "0567e6640071e2a8d9729c6715c3f6680bfb2a79f653e6cafa77ada14a3f4cf7"
