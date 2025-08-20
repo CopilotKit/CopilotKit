@@ -290,6 +290,7 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
     }
   }
 
+  // CALLOUT DUPLICATED NAMES IN ACTIONS
   useEffect(() => {
     const hasDuplicate = Object.values(actions).some(
       (otherAction) => otherAction.name === action.name && otherAction !== actions[idRef.current],
