@@ -51,7 +51,7 @@ async function chat_node(state: AgentState, config: RunnableConfig) {
   //     the model to call tools that are defined in CopilotKit by the frontend.
   const modelWithTools = model.bindTools!(
     [
-      ...state.copilotkit?.actions,
+      ...(state.copilotkit?.actions ?? []),
       ...tools,
     ],
   );
