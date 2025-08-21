@@ -4,7 +4,7 @@ version = "0.1.0"
 description = ""
 requires-python = ">=3.10"
 dependencies = [
-    "copilotkit==0.1.60",
+    "copilotkit==0.1.61",
     "langchain==0.3.21",
     "langgraph>=0.6.5",
     "langsmith>=0.3.45",
@@ -25,7 +25,7 @@ packages = [{include = "sample_agent"}]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
-copilotkit = "0.1.60"
+copilotkit = "0.1.61"
 langchain = "0.3.21"
 langgraph = "0.6.5"
 langsmith = "0.3.45"
