@@ -1,6 +1,5 @@
-# Error Observability Connectors
-
-CopilotKit Premium provides production-grade error observability via the `onError` hook. This feature requires a `publicLicenseKey` and provides rich, structured error events you can forward to your monitoring and analytics systems.
+CopilotKit Premium provides production-grade error observability via the `onError` hook. This feature requires a `publicLicenseKey` or `publicApiKey` and provides rich, structured error events you can forward to your monitoring and analytics systems.
+See [Observability](../premium/observability) for a complete description of all Observability feaures.
 
 ## Quick Setup
 
@@ -40,10 +39,10 @@ export default function App() {
 </Callout>
 
 ## Getting Your License or API Key
-You can get either type of key from cloud.copilotkit.ai.  Sign up for the Developer plan for free if you aren't already signed up.
+You can get either type of key from [cloud.copilotkit.ai](https://cloud.copilotkit.ai).  Sign up for the Developer plan for free if you aren't already signed up.
 
-1. **For Copilot Cloud hosting**: Sign up or Login at [Copilot Cloud](https://cloud.copilotkit.ai) and get your `publicApiKey`
-2. **For self-hosted usage**: Get your `publicLicenseKey` from [cloud.copilotkit.ai](https://cloud.copilotkit.ai). Self-hosting will not use Copilot Cloud (other than to get your keys).
+1. **For Copilot Cloud hosting**: Login to CopilotCloud and get your `publicApiKey`
+2. **For self-hosted usage**: Login to CopilotCloud and get your `publicLicenseKey`. Self-hosting will not use Copilot Cloud (other than to get your keys).
 
 ## Error Event Structure
 
@@ -118,24 +117,6 @@ interface CopilotErrorEvent {
 ```
 
 ## Common Integration Patterns
-
-### Basic Error Logging
-
-```tsx
-<CopilotKit
-  publicApiKey="ck_pub_your_key" // or publicLicenseKey for self-hosted
-  onError={(errorEvent) => {
-    console.error("[CopilotKit Error]", {
-      type: errorEvent.type,
-      timestamp: new Date(errorEvent.timestamp).toISOString(),
-      context: errorEvent.context,
-      error: errorEvent.error,
-    });
-  }}
->
-  {/* Your app */}
-</CopilotKit>
-```
 
 ### Integration with Monitoring (e.g., Sentry)
 
