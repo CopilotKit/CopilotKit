@@ -1,5 +1,13 @@
 # @copilotkit/sdk-js
 
+## 1.10.3-next.1
+
+### Patch Changes
+
+- f566562: - fix: allow dependents to decide langgraph version by using peer dependencies
+  - fix: adjust sdk to accept two forms of actions from agui
+  - @copilotkit/shared@1.10.3-next.1
+
 ## 1.10.3-next.0
 
 ### Patch Changes
