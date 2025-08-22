@@ -4,8 +4,7 @@ description: "Monitor your CopilotKit application with comprehensive observabili
 icon: "lucide/Activity"
 ---
 
-CopilotKit provides enterprise-grade observability capabilities to help you monitor your application and understand user behavior. Get insights into chat interactions, user events, and system errors with powerful hooks.
-
+Monitor CopilotKit with first‑class observability hooks that emit structured signals for chat events, user interactions, and runtime errors. Send these signals straight to your existing stack, including Sentry, Datadog, New Relic, and OpenTelemetry, or route them to your analytics pipeline. The hooks expose stable schemas and IDs so you can join agent events with app telemetry, trace sessions end to end, and alert on failures in real time. Works with Copilot Cloud via `publicApiKey`, or self‑hosted via `publicLicenseKey`.
 ## Quick Start
 
 <Callout type="info">
@@ -173,7 +172,7 @@ import { CopilotChat } from "@copilotkit/react-ui";
 
 **Requirements:**
 
-- ✅ Requires a `publicLicenseKey` or `publicApiKey` from [Copilot Cloud](https://cloud.copilotkit.ai)
+- ✅ Requires a `publicLicenseKey` (when self-hosting) or `publicApiKey` from [Copilot Cloud](https://cloud.copilotkit.ai)
 - ✅ Works with `CopilotChat`, `CopilotPopup`, `CopilotSidebar`, and all pre-built components
 
 <Callout type="warn">
@@ -442,12 +441,12 @@ import * as Sentry from "@sentry/react";
 </CopilotKit>
 ```
 
-## Getting Started with Copilot Cloud
+## Getting Started with CopilotKit Premium
 
-To use observability hooks (event hooks and error observability), you'll need a Copilot Cloud account:
+To use observability hooks (event hooks and error observability), you'll need a CopilotKit Premium account:
 
 1. **Sign up for free** at [https://cloud.copilotkit.ai](https://cloud.copilotkit.ai)
-2. **Get your public license key, or public API key** from the dashboard
+2. **Get your public license key (for self-hosting), or public API key** from the dashboard
 3. **Add it to your environment variables**:
    ```bash
    NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY=ck_pub_your_key_here
@@ -475,67 +474,3 @@ To use observability hooks (event hooks and error observability), you'll need a 
   infrastructure for your AI copilots, including comprehensive observability
   capabilities for tracking user behavior and monitoring system health.
 </Callout>
-
-## Best Practices
-
-### ✅ Do
-
-- **Always provide `publicLicenseKey` or `publicApiKey` ** for observability hooks to work
-- **Use observability hooks for user analytics** - track message patterns, engagement, and feedback
-- **Implement error observability** with the `onError` hook for monitoring
-- **Use `showDevConsole={true}` during development** for immediate feedback
-- **Set `showDevConsole={false}` in production** to hide errors from users
-- **Monitor error patterns** to identify and fix issues proactively
-- **Use structured logging** to make analysis easier
-- **Track user feedback** to improve AI responses over time
-
-### ❌ Don't
-
-- **Don't expect hooks to work without a valid key** - they're designed to be secure
-- **Don't expose detailed errors to end users** in production
-- **Don't ignore error events** - they provide valuable debugging information
-- **Don't log sensitive data** in observability hooks
-- **Don't block the UI** with hook logic - keep handlers lightweight
-
-## Troubleshooting
-
-### Observability Hooks Not Working
-
-If your observability hooks aren't being called:
-
-1. **Check your publicLicenseKey or publicApiKey** - all observability hooks require a valid key
-2. **Verify the key format** - should start with `ck_pub_`
-3. **Ensure the key is set** - check your environment variables
-4. **Test interactions** - try opening/closing chat, sending messages, etc.
-5. **Check console for errors** - look for JavaScript errors in browser dev tools
-
-### Error Observability Not Working
-
-If your `onError` hook isn't being called:
-
-1. **Check your publicLicenseKey or publicApiKey ** - error observability requires a valid key
-2. **Verify the key format** - should start with `ck_pub_`
-3. **Ensure the key is set** - check your environment variables
-4. **Test with dev console** - use `showDevConsole={true}` to see if errors are occurring
-
-### Dev Console Not Showing
-
-If the dev console isn't displaying errors:
-
-1. **Check showDevConsole setting** - ensure it's set to `true`
-2. **Look for console errors** - check browser dev tools for JavaScript errors
-3. **Verify error occurrence** - make sure errors are actually happening
-
-### Common Issues
-
-**Observability hooks not triggering:**
-
-- Missing or invalid `publicLicenseKey` or `publicApiKey`
-- Observability hooks defined but not on the right components
-- Network issues preventing validation
-
-**Error observability not working:**
-
-- Missing `publicLicenseKey` or `publicApiKey` in CopilotKit provider
-- Incorrect key format (should start with `ck_pub_`)
-- Environment variables not loaded correctly
