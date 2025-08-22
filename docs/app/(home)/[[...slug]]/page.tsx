@@ -110,7 +110,7 @@ export default async function Page({
         style:"clerk",
       }}
     >
-      <div className={hideHeader ? "" : "min-h-screen"}>
+      <div className={`py-9 px-11 pb-24 bg-palette-surface-default70 rounded-md border-[0.56px] border-palette-grey-0 ${hideHeader ? "" : "min-h-screen"}`}>
         {!hideHeader && (
           <>
             <div className="flex items-center gap-3">

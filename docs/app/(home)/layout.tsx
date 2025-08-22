@@ -16,12 +16,13 @@ import {
 
 export default function Layout({ children }: { children: ReactNode }) {
   return (
-    <>
+    <div className="bg-palette-surface-main p-spacing-2">
       <DocsLayout
         tree={source.pageTree}
         searchToggle={{ enabled: true }}
         sidebar={{
           tabs: false, // Disable default tab picker to rely on root folders
+          className: 'bg-palette-surface-default50 border-r border-palette-border-default',
           banner: (
             <SubdocsMenu
               options={[
@@ -31,8 +32,8 @@ export default function Layout({ children }: { children: ReactNode }) {
                   url: "/",
                   icon: <RocketIcon className="w-4 h-4" />,
                   bgGradient:
-                    "bg-gradient-to-b from-blue-700 to-blue-400 text-blue-100",
-                  selectedStyle: "ring-blue-500/70 ring-2 rounded-sm",
+                    "bg-gradient-to-b from-green-700 to-green-400 text-green-100",
+                  selectedStyle: "ring-green-500/70 ring-2 rounded-sm",
                 },
                 {
                   title: "Integrations",
@@ -160,14 +161,13 @@ export default function Layout({ children }: { children: ReactNode }) {
                   selectedStyle: "ring-teal-500/70 ring-2 rounded-sm",
                 },
               ]}
-              
             />
           ),
         }}
         {...baseOptions}
       >
-        {children}
+          {children}
       </DocsLayout>
-    </>
+    </div>
   );
 }

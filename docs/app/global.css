@@ -5,6 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* Original theme mappings */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -40,6 +41,138 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* CopilotCloud Palette Colors */
+  --color-palette-grey-0: #FFFFFF;
+  --color-palette-grey-25: #FAFCFA;
+  --color-palette-grey-100: #F7F7F9;
+  --color-palette-grey-200: #F0F0F4;
+  --color-palette-grey-300: #E9E9EF;
+  --color-palette-grey-400: #E2E2EA;
+  --color-palette-grey-500: #DBDBE5;
+  --color-palette-grey-600: #AFAFB7;
+  --color-palette-grey-700: #838389;
+  --color-palette-grey-800: #575758;
+  --color-palette-grey-900: #2B2B2B;
+  --color-palette-grey-1000: #010507;
+
+  /* Mint Colors */
+  --color-palette-mint-40030: rgba(133,224,206,0.3);
+  --color-palette-mint-400: #85E0CE;
+  --color-palette-mint-800: #1B936F;
+
+  /* Lilac Colors */
+  --color-palette-lilac-40010: rgba(190,194,255,0.1);
+  --color-palette-lilac-40020: rgba(190,194,255,0.2);
+  --color-palette-lilac-40030: rgba(190,194,255,0.3);
+  --color-palette-lilac-400: #BEC2FF;
+
+  /* Yellow Colors */
+  --color-palette-yellow-40030: rgba(255,243,136,0.3);
+  --color-palette-yellow-400: #FFF388;
+
+  /* Orange Colors */
+  --color-palette-orange-40020: rgba(255,172,77,0.2);
+  --color-palette-orange-400: #FFAC4D;
+
+  /* Surface Colors */
+  --color-palette-surface-main: #DEDEE9;
+  --color-palette-surface-solidEquivalentDefault70: #F8F8FB;
+  --color-palette-surface-default70: rgba(255,255,255,0.7);
+  --color-palette-surface-default50: rgba(255,255,255,0.5);
+  --color-palette-surface-default30: rgba(255,255,255,0.3);
+  --color-palette-surface-container: #FFFFFF;
+  --color-palette-surface-containerHovered: #FAFCFA;
+  --color-palette-surface-containerFocusedPressed: rgba(190,194,255,0.1);
+  --color-palette-surface-containerActive: #BEC2FF1A;
+  --color-palette-surface-containerActiveHovered: rgba(190,194,255,0.2);
+  --color-palette-surface-containerActiveFocused: rgba(190,194,255,0.3);
+  --color-palette-surface-containerMint: #B5E0CE;
+  --color-palette-surface-containerMint30: rgba(181,224,206,0.3);
+  --color-palette-surface-containerLilac: #BEC2FF;
+  --color-palette-surface-containerInvert: #010507;
+  --color-palette-surface-background: #DBDBE5;
+  --color-palette-surface-progressBarEmpty: #0105071A;
+  --color-palette-surface-progressBarFull: #189370;
+  --color-palette-surface-surfaceActionFilledHoveredAndFocused: #2B2B2B;
+  --color-palette-surface-surfaceActionFilledPressed: #57575B;
+  --color-palette-surface-containerPressed: #BEC2FF4D;
+  --color-palette-surface-containerEnabledSolidEquivalent: #F8F9FF;
+  --color-palette-surface-containerPressedHoverSolidEquivalent: #F1F2FF;
+  --color-palette-surface-containerActivePressedSolidEquivalent: #E5E7FD;
+  --color-palette-surface-containerHoveredAndFocused: #F0F0F4;
+  --color-palette-surface-actionGhostHoveredAndFocused: #0105070D;
+
+  /* Text Colors */
+  --color-palette-text-primary: #010507;
+  --color-palette-text-secondary: #57575B;
+  --color-palette-text-disabled: #838389;
+  --color-palette-text-invert: #FFFFFF;
+  --color-palette-text-details: #189370;
+  --color-palette-text-title: #3C464A;
+  --color-palette-text-progressBar: #525252;
+  --color-palette-text-link: #0D2E41;
+
+  /* Icon Colors */
+  --color-palette-icon-default: #010507;
+  --color-palette-icon-disabled: #838389;
+  --color-palette-icon-invert: #FFFFFF;
+
+  /* Border Colors */
+  --color-palette-border-default: #FFFFFF;
+  --color-palette-border-container: #DBDBE5;
+  --color-palette-border-actionEnabled: #BEC2FF;
+  --color-palette-border-divider: #DBDBE5;
+
+  /* Provider Colors */
+  --color-provider-openai: var(--openai);
+  --color-provider-anthropic: var(--anthropic);
+  --color-provider-cohere: var(--cohere);
+
+  /* Border Radius Scale - map to standard values for Tailwind v4 */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-2xl: 48px;
+  --radius-3xl: 200px;
+  
+  /* Map standard names to CopilotCloud values for compatibility */
+  --color-palette-surface-default50: rgba(255, 255, 255, 0.5);
+  --color-palette-border-default: #FFFFFF;
+
+  /* Spacing Scale - mapped to standard Tailwind values */
+  --spacing-1: 0.25rem;   /* 4px */
+  --spacing-2: 0.5rem;    /* 8px */
+  --spacing-3: 0.75rem;   /* 12px */
+  --spacing-4: 1rem;      /* 16px */
+  --spacing-5: 1.25rem;   /* 20px */
+  --spacing-6: 1.5rem;    /* 24px */
+  --spacing-7: 2rem;      /* 32px */
+  --spacing-8: 2.5rem;    /* 40px */
+  --spacing-9: 3rem;      /* 48px */
+  --spacing-10: 3.5rem;   /* 56px */
+  --spacing-11: 4rem;     /* 64px */
+  --spacing-12: 4.5rem;   /* 72px */
+  --spacing-13: 5rem;     /* 80px */
+  --spacing-14: 5.5rem;   /* 88px */
+  --spacing-15: 6rem;     /* 96px */
+  --spacing-16: 6.5rem;   /* 104px */
+  --spacing-17: 7rem;     /* 112px */
+  --spacing-18: 7.5rem;   /* 120px */
+  
+  /* Ensure palette variables are accessible for custom classes */
+  --text-palette-primary: var(--color-palette-text-primary);
+  --text-palette-invert: var(--color-palette-text-invert);
+  
+  /* Generate Tailwind classes for CopilotCloud palette */
+  --color-bg-palette-surface-container: var(--color-palette-surface-container);
+  --color-bg-palette-surface-default50: var(--color-palette-surface-default50);
+  --color-bg-palette-surface-containerHovered: var(--color-palette-surface-containerHovered);
+  --color-text-palette-text-primary: var(--color-palette-text-primary);
+  --color-text-palette-text-secondary: var(--color-palette-text-secondary);
+  --color-border-palette-border-default: var(--color-palette-border-default);
 }
 
 @media (width >= 1550px) {
@@ -47,75 +180,195 @@
     width: 20rem !important;
     --fd-sidebar-width: 20rem !important;
   }
+}
+
+/* Fumadocs Sidebar Styling to match CopilotCloud */
+aside[data-sidebar] {
+  background: var(--color-palette-surface-default50) !important;
+  border: 1px solid var(--color-palette-border-default) !important;
+  border-radius: 8px !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+/* Sidebar container padding and spacing */
+aside[data-sidebar] > div {
+  padding: var(--spacing-3) !important;
+  gap: var(--spacing-3) !important;
+}
+
+/* Sidebar navigation links - default state */
+nav a[data-active="false"] {
+  border-radius: 4px !important;
+  transition: all 0.2s ease-in-out !important;
+  color: var(--color-palette-text-secondary) !important;
+  background: transparent !important;
+  padding: 8px 12px !important;
+  margin: 1px 0 !important;
+}
+
+/* Sidebar navigation links - hover state */
+nav a[data-active="false"]:hover {
+  background-color: var(--color-palette-surface-container) !important;
+  color: var(--color-palette-text-primary) !important;
+}
+
+/* Active sidebar link - CopilotCloud style with white background */
+nav a[data-active="true"] {
+  background-color: var(--color-palette-surface-container) !important;
+  color: var(--color-palette-text-primary) !important;
+  border-radius: 4px !important;
+  padding: 8px 12px !important;
+  margin: 1px 0 !important;
+  font-weight: 500 !important;
+}
+
+/* Sidebar headings and category titles */
+nav h3, nav .fd-sidebar-header {
+  color: var(--color-palette-text-secondary) !important;
+  font-size: 10px !important;
+  font-weight: 400 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  margin-bottom: var(--spacing-2) !important;
+}
+
+/* Remove default Fumadocs sidebar background */
+[data-sidebar] {
+  background: var(--color-palette-surface-default50) !important;
+}
+
+/* Sidebar content area */
+nav[data-orientation="vertical"] {
+  padding: 0 !important;
+}
+
+/* Sidebar list items */
+nav ul {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+nav li {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Search area in sidebar */
+.fd-sidebar-search {
+  margin-bottom: var(--spacing-4) !important;
+}
+
+/* Sidebar dividers to match CopilotCloud */
+nav hr, .fd-sidebar hr {
+  border-color: var(--color-palette-border-container) !important;
+  margin: var(--spacing-4) 0 !important;
 } 
 
 :root {
   --radius: 0.65rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.141 0.005 285.823);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.141 0.005 285.823);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.55 0.25 285);
-  --primary-foreground: oklch(0.98 0.005 285);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.21 0.006 285.885);
+  /* Map to CopilotCloud palette */
+  --background: var(--color-palette-surface-container);
+  --foreground: var(--color-palette-text-primary);
+  --card: var(--color-palette-surface-container);
+  --card-foreground: var(--color-palette-text-primary);
+  --popover: var(--color-palette-surface-container);
+  --popover-foreground: var(--color-palette-text-primary);
+  --primary: var(--color-palette-lilac-400);
+  --primary-foreground: var(--color-palette-text-primary);
+  --secondary: var(--color-palette-surface-containerHovered);
+  --secondary-foreground: var(--color-palette-text-secondary);
+  --muted: var(--color-palette-surface-containerHovered);
+  --muted-foreground: var(--color-palette-text-secondary);
+  --accent: var(--color-palette-surface-containerHovered);
+  --accent-foreground: var(--color-palette-text-primary);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.55 0.25 285);
+  --border: var(--color-palette-border-container);
+  --input: var(--color-palette-border-container);
+  --ring: var(--color-palette-lilac-400);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-primary: oklch(0.55 0.25 285);
-  --sidebar-primary-foreground: oklch(0.98 0.005 285);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.55 0.25 285);
+  --sidebar: var(--color-palette-surface-solidEquivalentDefault70);
+  --sidebar-foreground: var(--color-palette-text-primary);
+  --sidebar-primary: var(--color-palette-lilac-400);
+  --sidebar-primary-foreground: var(--color-palette-text-primary);
+  --sidebar-accent: var(--color-palette-surface-containerHovered);
+  --sidebar-accent-foreground: var(--color-palette-text-primary);
+  --sidebar-border: var(--color-palette-border-container);
+  --sidebar-ring: var(--color-palette-lilac-400);
 }
 
 .dark {
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.65 0.15 285);
-  --primary-foreground: oklch(0.95 0.02 285);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground: oklch(0.985 0 0);
+  /* Dark mode palette colors */
+  --color-palette-grey-0: #2B2B2B;
+  --color-palette-grey-25: #010507;
+  --color-palette-grey-100: #575758;
+  --color-palette-grey-200: #838389;
+  --color-palette-grey-300: #AFAFB7;
+  --color-palette-grey-400: #DBDBE5;
+  --color-palette-grey-500: #E2E2EA;
+  --color-palette-grey-600: #E9E9EF;
+  --color-palette-grey-700: #F0F0F4;
+  --color-palette-grey-800: #F7F7F9;
+  --color-palette-grey-900: #FAFCFA;
+  --color-palette-grey-1000: #FFFFFF;
+  
+  /* Surface colors for dark mode */
+  --color-palette-surface-container: #2B2B2B;
+  --color-palette-surface-containerHovered: #575758;
+  --color-palette-surface-solidEquivalentDefault70: #010507;
+  --color-palette-surface-background: #010507;
+  
+  /* Text colors for dark mode */
+  --color-palette-text-primary: #FFFFFF;
+  --color-palette-text-secondary: #AFAFB7;
+  --color-palette-text-disabled: #838389;
+  --color-palette-text-invert: #010507;
+  
+  /* Icon colors for dark mode */
+  --color-palette-icon-default: #FFFFFF;
+  --color-palette-icon-disabled: #838389;
+  --color-palette-icon-invert: #010507;
+  
+  /* Border colors for dark mode */
+  --color-palette-border-container: #575758;
+  --color-palette-border-default: #2B2B2B;
+  --color-palette-border-divider: #575758;
+  
+  /* Map to theme colors */
+  --background: var(--color-palette-surface-container);
+  --foreground: var(--color-palette-text-primary);
+  --card: var(--color-palette-surface-container);
+  --card-foreground: var(--color-palette-text-primary);
+  --popover: var(--color-palette-surface-container);
+  --popover-foreground: var(--color-palette-text-primary);
+  --primary: var(--color-palette-lilac-400);
+  --primary-foreground: var(--color-palette-text-invert);
+  --secondary: var(--color-palette-surface-containerHovered);
+  --secondary-foreground: var(--color-palette-text-primary);
+  --muted: var(--color-palette-surface-containerHovered);
+  --muted-foreground: var(--color-palette-text-secondary);
+  --accent: var(--color-palette-surface-containerHovered);
+  --accent-foreground: var(--color-palette-text-primary);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.65 0.15 285);
+  --border: var(--color-palette-border-container);
+  --input: var(--color-palette-border-container);
+  --ring: var(--color-palette-lilac-400);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.65 0.15 285);
-  --sidebar-primary-foreground: oklch(0.95 0.02 285);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.65 0.15 285);
+  --sidebar: var(--color-palette-surface-solidEquivalentDefault70);
+  --sidebar-foreground: var(--color-palette-text-primary);
+  --sidebar-primary: var(--color-palette-lilac-400);
+  --sidebar-primary-foreground: var(--color-palette-text-invert);
+  --sidebar-accent: var(--color-palette-surface-containerHovered);
+  --sidebar-accent-foreground: var(--color-palette-text-primary);
+  --sidebar-border: var(--color-palette-border-container);
+  --sidebar-ring: var(--color-palette-lilac-400);
 }
 
 /* Custom styles for CopilotKit */
@@ -151,6 +404,23 @@
   }
 }
 
+/* Font Faces */
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('/fonts/PlusJakartaSans-VariableFont_wght.woff2') format('woff2');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Spline Sans Mono';
+  src: url('/fonts/SplineSansMono-VariableFont_wght.woff2') format('woff2');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
   * {
     border-color: var(--border);
@@ -158,6 +428,7 @@
   body {
     background-color: var(--background);
     color: var(--foreground);
+    font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
   }
 
   .fd-codeblock pre {
@@ -170,6 +441,248 @@
 
   article {
     margin-top: 2.5rem;
+  }
+}
+
+/* CopilotCloud Typography System */
+@layer components {
+  /* Headings */
+  .H1-SemiBold {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 56px;
+    line-height: 64px;
+    letter-spacing: 0px;
+    font-weight: 600;
+  }
+
+  .H1-Medium {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 56px;
+    line-height: 64px;
+    letter-spacing: 0px;
+    font-weight: 500;
+  }
+
+  .H2-SemiBold {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 40px;
+    line-height: 46px;
+    letter-spacing: 0px;
+    font-weight: 600;
+  }
+
+  .H2-Medium {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 40px;
+    line-height: 46px;
+    letter-spacing: 0px;
+    font-weight: 500;
+  }
+
+  .H3-SemiBold {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 32px;
+    line-height: 36px;
+    letter-spacing: 0px;
+    font-weight: 600;
+  }
+
+  .H3-Medium {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 32px;
+    line-height: 36px;
+    letter-spacing: 0px;
+    font-weight: 500;
+  }
+
+  .H4-SemiBold {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 24px;
+    line-height: 28px;
+    letter-spacing: 0px;
+    font-weight: 600;
+  }
+
+  .H4-Medium {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 24px;
+    line-height: 28px;
+    letter-spacing: 0px;
+    font-weight: 500;
+  }
+
+  .H5-SemiBold {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 20px;
+    line-height: 24px;
+    letter-spacing: 0px;
+    font-weight: 600;
+  }
+
+  .H5-Medium {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 20px;
+    line-height: 24px;
+    letter-spacing: 0px;
+    font-weight: 500;
+  }
+
+  .H6-SemiBold {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 18px;
+    line-height: 20px;
+    letter-spacing: 0px;
+    font-weight: 600;
+  }
+
+  .H6-Medium {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 18px;
+    line-height: 20px;
+    letter-spacing: 0px;
+    font-weight: 500;
+  }
+
+  /* Paragraphs */
+  .paragraphs-Large-Bold {
+    font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 24px;
+    letter-spacing: 0px;
+    font-weight: 700;
+  }
+
+  .paragraphs-Large-SemiBold {
+    font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 24px;
+    letter-spacing: 0px;
+    font-weight: 600;
+  }
+
+  .paragraphs-Large-Medium {
+    font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 24px;
+    letter-spacing: 0px;
+    font-weight: 500;
+  }
+
+  .paragraphs-Large-Regular {
+    font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 24px;
+    letter-spacing: 0px;
+    font-weight: 400;
+  }
+
+  .paragraphs-Medium-SemiBold {
+    font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 22px;
+    letter-spacing: 0px;
+    font-weight: 600;
+  }
+
+  .paragraphs-Medium-Medium {
+    font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 22px;
+    letter-spacing: 0px;
+    font-weight: 500;
+  }
+
+  .paragraphs-Medium-Regular {
+    font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 22px;
+    letter-spacing: 0px;
+    font-weight: 400;
+  }
+
+  .paragraphs-Small-SemiBold {
+    font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-size: 12px;
+    line-height: 16px;
+    letter-spacing: 0px;
+    font-weight: 600;
+  }
+
+  .paragraphs-Small-Medium {
+    font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-size: 12px;
+    line-height: 16px;
+    letter-spacing: 0px;
+    font-weight: 500;
+  }
+
+  .paragraphs-Small-Regular {
+    font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-size: 12px;
+    line-height: 16px;
+    letter-spacing: 0px;
+    font-weight: 400;
+  }
+
+  .paragraphs-Small-Regular-Uppercase {
+    font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-size: 12px;
+    line-height: 16px;
+    letter-spacing: 0px;
+    font-weight: 400;
+    text-transform: uppercase;
+  }
+
+  /* Details (Mono) */
+  .details-Medium-Medium {
+    font-family: 'Spline Sans Mono', ui-monospace, SFMono-Regular, monospace;
+    font-size: 14px;
+    line-height: 14px;
+    letter-spacing: 0px;
+    font-weight: 500;
+  }
+
+  .details-Medium-Medium-Uppercase {
+    font-family: 'Spline Sans Mono', ui-monospace, SFMono-Regular, monospace;
+    font-size: 14px;
+    line-height: 14px;
+    letter-spacing: 0px;
+    font-weight: 500;
+    text-transform: uppercase;
+  }
+
+  .details-Small-Medium {
+    font-family: 'Spline Sans Mono', ui-monospace, SFMono-Regular, monospace;
+    font-size: 12px;
+    line-height: 12px;
+    letter-spacing: 0px;
+    font-weight: 500;
+  }
+
+  .details-Small-Medium-Uppercase {
+    font-family: 'Spline Sans Mono', ui-monospace, SFMono-Regular, monospace;
+    font-size: 12px;
+    line-height: 12px;
+    letter-spacing: 0px;
+    font-weight: 500;
+    text-transform: uppercase;
+  }
+
+  .details-ExtraSmall-Medium {
+    font-family: 'Spline Sans Mono', ui-monospace, SFMono-Regular, monospace;
+    font-size: 10px;
+    line-height: 10px;
+    letter-spacing: 0px;
+    font-weight: 500;
+  }
+
+  .details-ExtraSmall-Medium-Uppercase {
+    font-family: 'Spline Sans Mono', ui-monospace, SFMono-Regular, monospace;
+    font-size: 10px;
+    line-height: 10px;
+    letter-spacing: 0px;
+    font-weight: 500;
+    text-transform: uppercase;
   }
 }
 

@@ -41,6 +41,21 @@ export interface FrameworkOverviewProps {
   tutorialLink?: string;
 }
 
+function CtaButton({
+    title,
+    icon,
+}: {
+    title: string;
+    icon?: ReactNode;
+}) {
+    return (
+        <Button className="w-full py-3 rounded-sm cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-palette-grey-1000 hover:bg-palette-surface-surfaceActionFilledHoveredAndFocused focus:bg-palette-surface-surfaceActionFilledHoveredAndFocused active:bg-palette-surface-surfaceActionFilledPressed text-white">
+            <span className="details-Medium-Medium-Uppercase text-palette-text-invert">{title}</span>
+            {icon}
+        </Button>
+    )
+}
+
 export function FrameworkOverview({
   frameworkName,
   frameworkIcon,
@@ -68,7 +83,7 @@ export function FrameworkOverview({
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <div className="max-w-5xl mx-auto px-6">
         
         {/* Header with Fixed Buttons */}
@@ -336,10 +351,10 @@ export function FrameworkOverview({
                 </p>
               </div>
               <Link href={guideLink} className="no-underline">
-                <Button className="w-full h-11 bg-primary/10 text-primary hover:bg-primary/20 shadow border border-primary cursor-pointer">
-                  Quickstart
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
+                  <CtaButton
+                    title="Quickstart"
+                    icon={<ArrowRight className="ml-2 h-4 w-4" />}
+                  />
               </Link>
             </div>
 
@@ -354,10 +369,10 @@ export function FrameworkOverview({
                 </p>
               </div>
               <Link href={featuresLink} rel="noopener noreferrer" target="_blank" className="no-underline">
-                <Button className="w-full h-11 bg-primary/10 text-primary hover:bg-primary/20 shadow border border-primary cursor-pointer">
-                  Visit feature viewer
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
+                  <CtaButton
+                      title="Explore"
+                      icon={<ArrowRight className="ml-2 h-4 w-4" />}
+                  />
               </Link>
             </div>
 
@@ -374,10 +389,10 @@ export function FrameworkOverview({
                   </p>
                 </div>
                 <Link href={tutorialLink} className="no-underline">
-                  <Button className="w-full h-11 bg-primary/10 text-primary hover:bg-primary/20 shadow border border-primary cursor-pointer">
-                    Start Tutorial
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
+                    <CtaButton
+                        title="Start Tutorial"
+                        icon={<ArrowRight className="ml-2 h-4 w-4" />}
+                    />
                 </Link>
               </div>
             )}

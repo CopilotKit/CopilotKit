@@ -360,7 +360,7 @@ export function SubdocsMenu({
   }, [closeOnRedirect]);
 
       return (
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-0.5">
         {options.map((item, index) => {
           if (isSeparator(item)) {
             return <hr key={`separator-${index}`} className="my-2 border-t border-gray-700" />;
@@ -417,19 +417,24 @@ function SubdocsMenuItem({
         }}
         {...item.props}
         className={cn(
-          "p-1 rounded-xl flex flex-row gap-3 items-center cursor-pointer group opacity-60 hover:opacity-100",
+          "p-3 rounded-sm flex flex-row gap-3 items-center cursor-pointer transition-colors",
           item.props?.className,
-          selected === item && `opacity-100 bg-primary/10 text-primary`
+          selected === item 
+            ? "" 
+            : "hover:bg-[var(--color-palette-surface-container)]"
         )}
+        style={selected === item 
+          ? { 
+              backgroundColor: 'var(--color-palette-surface-container)',
+              color: 'var(--color-palette-text-primary)'
+            } 
+          : { color: 'var(--color-palette-text-secondary)' }
+        }
       >
-        <div
-          className={cn(
-            "rounded-sm p-1.5 pr-0 text-primary",
-          )}
-        >
+        <div className="rounded-sm flex items-center">
           {item.icon}
         </div>
-        <div className="font-medium">{item.title}</div>
+        <div className="font-medium text-sm">{item.title}</div>
       </Link>
     );
   } else if (isOptionDropdown(item)) {
@@ -491,15 +496,24 @@ function SubdocsMenuItemDropdown({
       >
         <SelectTrigger
           className={cn(
-            "pl-1 py-1 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer",
-            isSelected && "bg-primary/10 text-primary"
+            "p-3 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-sm cursor-pointer transition-colors",
+            isSelected 
+              ? "" 
+              : "hover:bg-[var(--color-palette-surface-container)]"
           )}
+          style={isSelected 
+            ? { 
+                backgroundColor: 'var(--color-palette-surface-container)',
+                color: 'var(--color-palette-text-primary)'
+              } 
+            : { color: 'var(--color-palette-text-secondary)' }
+          }
           ref={selectRef}
         >
           <SelectValue
             placeholder={
               <div className="flex items-center">
-                <div className={cn("rounded-sm mr-2 pl-1 pr-1.5 text-primary/50")}>
+                <div className="rounded-sm mr-2 flex items-center">
                   {selectedOption?.icon || (
                     <BoxesIcon
                       className="w-4 h-4"
@@ -507,23 +521,29 @@ function SubdocsMenuItemDropdown({
                     />
                   )}
                 </div>
-                <div className={cn("font-medium", !isSelected && "text-muted-foreground hover:text-foreground")}>{item.title}</div>
+                <div className="font-medium text-sm">{item.title}</div>
               </div>
             }
           />
         </SelectTrigger>
-        <SelectContent className="p-1 rounded-2xl max-h-[800px] shadow-lg">
+        <SelectContent 
+          className="p-1 rounded-lg max-h-[800px] shadow-lg"
+          style={{ 
+            backgroundColor: 'var(--color-palette-surface-container)',
+            borderColor: 'var(--color-palette-border-default)'
+          }}
+        >
           {item.options.map((option) => (
             <SelectItem
               key={option.url}
               value={option.url}
-              className="pl-1 py-1 my-1 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer hover:bg-secondary/10"
+              className="p-3 my-1 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-sm cursor-pointer hover:bg-[var(--color-palette-surface-containerHovered)] focus:bg-[var(--color-palette-surface-containerHovered)]"
             >
               <div className="flex items-center">
-                <div className={cn("rounded-sm p-1.5 mr-2 text-primary")}>
+                <div className="rounded-sm mr-2 flex items-center">
                   {option.icon}
                 </div>
-                <span className="font-medium">{option.title}</span>
+                <span className="font-medium text-sm">{option.title}</span>
               </div>
             </SelectItem>
           ))}
