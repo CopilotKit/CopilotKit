@@ -44,26 +44,25 @@ git clone https://github.com/<your-GitHub-username>/CopilotKit
 
 ## Step 3: Prepare the development environment
 
-### 1)Install Prerequisites
+### Step 1: Install Prerequisites
 
 - Node.js 20.x or later
-- pnpm v9.x installed globally (npm i -g pnpm@^9)
+- pnpm v10.x installed globally (npm i -g pnpm@^10)
 - Turborepo v2.x installed globally (npm i -g turbo@2)
 
-### 2)Install Dependencies
+### Step 2: Install Dependencies
 
-To install the dependencies using pnpm
-Go inside project folder and run :
+Run this from the root directory of the repository to recursively install all necessary dependencies:
 
-```jsx
-pnpm install
+```sh
+pnpm -r install
 ```
 
-### 3)Build Packages
+### Step 3: Build Packages
 
 To make sure everything works, let’s build all packages once:
 
-```jsx
+```sh
 cd CopilotKit
 turbo run build
 ```
@@ -79,7 +78,7 @@ Here is a list of good examples:
 - for new features : feat/<ISSUE_NUMBER>-<CUSTOM_NAME>
 - for bug fixes : fix/<ISSUE_NUMBER>-<CUSTOM_NAME>
 
-```jsx
+```sh
 git checkout -b <new-branch-name-here>
 ```
 
@@ -87,7 +86,7 @@ git checkout -b <new-branch-name-here>
 
 Now that everything is set up and works as expected, you can get start developing or update the code with your bug fix or new feature.
 
-```jsx
+```sh
 # To start all packages in development mode
 turbo run dev
 
@@ -99,7 +98,7 @@ turbo run dev --filter="@copilotkit/package-name"
 
 Stage the changes that are ready to be committed:
 
-```jsx
+```sh
 git add .
 ```
 
@@ -107,7 +106,7 @@ git add .
 
 Commit the changes with a short message. (See below for more details on how we structure our commit messages)
 
-```jsx
+```sh
 git commit -m "<type>(<package>): <subject>"
 ```
 
@@ -115,7 +114,7 @@ git commit -m "<type>(<package>): <subject>"
 
 Push the changes to the remote repository using:
 
-```jsx
+```sh
 git push origin <branch-name-here>
 ```
 
