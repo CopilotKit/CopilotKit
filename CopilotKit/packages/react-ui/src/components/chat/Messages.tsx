@@ -17,6 +17,9 @@ export const Messages = ({
   onThumbsUp,
   onThumbsDown,
   markdownTagRenderers,
+  canRegenerateAssistantMessage,
+  canCopyAssistantMessage,
+  disableFirstAssistantMessageControls,
 
   // Legacy props
   RenderTextMessage,
@@ -94,6 +97,9 @@ export const Messages = ({
               onThumbsUp={onThumbsUp}
               onThumbsDown={onThumbsDown}
               markdownTagRenderers={markdownTagRenderers}
+              canRegenerateAssistantMessage={canRegenerateAssistantMessage}
+              canCopyAssistantMessage={canCopyAssistantMessage}
+              disableFirstAssistantMessageControls={disableFirstAssistantMessageControls}
             />
           );
         })}
