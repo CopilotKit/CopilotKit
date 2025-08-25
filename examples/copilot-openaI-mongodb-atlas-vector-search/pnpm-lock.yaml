@@ -12,13 +12,13 @@ importers:
         specifier: ^0.36.3
         version: 0.36.3
       '@copilotkit/react-core':
-        specifier: ^1.5.20
+        specifier: ^1.8.13
         version: 1.8.13(@types/react@19.1.5)(graphql@16.11.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@copilotkit/react-ui':
-        specifier: ^1.5.20
+        specifier: ^1.8.13
         version: 1.8.13(@types/react@19.1.5)(graphql@16.11.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@copilotkit/runtime':
-        specifier: ^1.5.20
+        specifier: ^1.8.13
         version: 1.8.13(@ag-ui/client@0.0.27)(@ag-ui/core@0.0.27)(@ag-ui/encoder@0.0.27)(@ag-ui/proto@0.0.27)(@browserbasehq/sdk@2.6.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.52.0)(deepmerge@4.3.1)(dotenv@16.5.0)(openai@4.102.0(ws@8.18.2)(zod@3.25.17))(zod@3.25.17))(@ibm-cloud/watsonx-ai@1.6.4(@langchain/core@0.3.56(openai@4.102.0(ws@8.18.2)(zod@3.25.17))))(@pinecone-database/pinecone@5.1.2)(axios@1.9.0)(google-auth-library@8.9.0)(ibm-cloud-sdk-core@5.3.2)(ignore@5.3.2)(jsonwebtoken@9.0.2)(mongodb@6.16.0(gcp-metadata@5.3.0))(playwright@1.52.0)(react@19.1.0)(ws@8.18.2)
       '@mantine/core':
         specifier: ^7.17.0
