@@ -44,26 +44,33 @@ git clone https://github.com/<your-GitHub-username>/CopilotKit
 
 ## Step 3: Prepare the development environment
 
-### Step 1: Install Prerequisites
+### Step 3.1: Install Prerequisites
 
 - Node.js 20.x or later
 - pnpm v10.x installed globally (npm i -g pnpm@^10)
 - Turborepo v2.x installed globally (npm i -g turbo@2)
 
-### Step 2: Install Dependencies
+### Step 3.2: Navigate to the `CopilotKit` directory
 
-Run this from the root directory of the repository to recursively install all necessary dependencies:
+Make sure you are in the `CopilotKit` directory under the project root:
 
 ```sh
-pnpm -r install
+cd CopilotKit
 ```
 
-### Step 3: Build Packages
+### Step 3.3: Install Dependencies
+
+To install the dependencies using pnpm, run `pnpm install` from inside the `CopilotKit` directory:
+
+```sh
+pnpm install
+```
+
+### Step 3.4: Build Packages
 
 To make sure everything works, let’s build all packages once:
 
 ```sh
-cd CopilotKit
 turbo run build
 ```
 
