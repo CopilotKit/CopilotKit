@@ -52,7 +52,6 @@ export function convertActionInputToLangChainTool(actionInput: ActionInput): any
   return new DynamicStructuredTool({
     name: actionInput.name,
     description: actionInput.description,
-    // @ts-expect-error (2352) TODO: fix this improper type conversion
     schema: convertJsonSchemaToZodSchema(
       JSON.parse(actionInput.jsonSchema),
       true,
