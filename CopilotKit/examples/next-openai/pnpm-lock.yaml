@@ -100,7 +100,7 @@ importers:
         specifier: ^18.2.4
         version: 18.3.7(@types/react@18.3.24)
       autoprefixer:
-        specifier: ^10.4.13
+        specifier: ^10.4.21
         version: 10.4.21(postcss@8.5.6)
       cross-env:
         specifier: ^7.0.3
