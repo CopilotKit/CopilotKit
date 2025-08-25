@@ -32,22 +32,20 @@ export const Button = React.forwardRef<HTMLSpanElement, ButtonProps>(
   ),
 );
 
-export const Icon = React.forwardRef<HTMLSpanElement, IconProps>(
-  ({ className, ...props }, ref) => (
-    <span
-      {...props}
-      ref={ref}
-      className={cx(
-        "material-icons",
-        className,
-        css`
-          font-size: 18px;
-          vertical-align: text-bottom;
-        `,
-      )}
-    />
-  ),
-);
+export const Icon = React.forwardRef<HTMLSpanElement, IconProps>(({ className, ...props }, ref) => (
+  <span
+    {...props}
+    ref={ref}
+    className={cx(
+      "material-icons",
+      className,
+      css`
+        font-size: 18px;
+        vertical-align: text-bottom;
+      `,
+    )}
+  />
+));
 
 export const Menu = React.forwardRef<HTMLDivElement, MenuProps>(({ className, ...props }, ref) => {
   return (

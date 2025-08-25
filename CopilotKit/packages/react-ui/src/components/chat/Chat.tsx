@@ -82,10 +82,7 @@ import {
   useCopilotMessagesContext,
 } from "@copilotkit/react-core";
 import type { SuggestionItem } from "@copilotkit/react-core";
-import type {
-  CopilotContextParams,
-  CopilotMessagesContextParams,
-} from "@copilotkit/react-core";
+import type { CopilotContextParams, CopilotMessagesContextParams } from "@copilotkit/react-core";
 import {
   CopilotKitError,
   CopilotKitErrorCode,
