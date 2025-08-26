@@ -179,6 +179,56 @@ const config = {
         destination: "/agno/quickstart",
         permanent: true,
       },
+      {
+        source: "/mcp",
+        destination: "/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/ag2/mcp",
+        destination: "/ag2/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/agno/mcp",
+        destination: "/agno/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/crewai-crews/mcp",
+        destination: "/crewai-crews/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/crewai-flows/mcp",
+        destination: "/crewai-flows/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/direct-to-llm/guides/mcp",
+        destination: "/direct-to-llm/guides/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/langgraph/mcp",
+        destination: "/langgraph/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/llamaindex/mcp",
+        destination: "/llamaindex/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/mastra/mcp",
+        destination: "/mastra/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/pydantic-ai/mcp",
+        destination: "/pydantic-ai/vibe-coding-mcp",
+        permanent: true,
+      },
     ];
   },
 };
