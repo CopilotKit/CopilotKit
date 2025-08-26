@@ -20,10 +20,11 @@ import {
   useState,
 } from "react";
 import { PiGraph } from "react-icons/pi";
-import { BoxesIcon } from "lucide-react";
+import { PlugIcon } from "lucide-react";
 
 // localStorage utilities for managing user's connection type preference
 const STORAGE_KEY = "copilotkit-nav-preference";
+const DEFAULT_URL = "/";
 
 function getStoredNavPreference(): string | null {
   if (typeof window === "undefined") return null;
@@ -227,7 +228,7 @@ export interface Option {
   /**
    * Redirect URL of the folder, usually the index page
    */
-  url: string;
+  url?: string;
   /**
    * External link URL
    */
@@ -316,14 +317,14 @@ export function SubdocsMenu({
 
     // PRIORITY 1: Check if current pathname matches any option (highest priority)
     const activeDropdownOption = dropdownOptions.find(
-      (item) => isActive(item.url, pathname, true)
+      (item) => isActive(item.url || DEFAULT_URL, pathname, true)
     );
     if (activeDropdownOption) {
       return activeDropdownOption;
     }
 
     const activeMainOption = allOptions.find(
-      (item) => isActive(item.url, pathname, true, item.url === "/")
+      (item) => isActive(item.url || DEFAULT_URL, pathname, true, item.url === "/")
     );
     if (activeMainOption) {
       return activeMainOption;
@@ -363,7 +364,7 @@ export function SubdocsMenu({
       <div className="flex flex-col gap-2">
         {options.map((item, index) => {
           if (isSeparator(item)) {
-            return <hr key={`separator-${index}`} className="my-2 border-t border-gray-700" />;
+            return <hr key={`separator-${index}`} className="my-2 border-t border-primary/40" />;
           } else if (isLabel(item)) {
             return (
               <div key={`label-${index}`} className="px-2 py-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">
@@ -373,7 +374,7 @@ export function SubdocsMenu({
           } else {
             return (
               <SubdocsMenuItem
-                key={isOption(item) ? item.url : "dropdown"}
+                key={index}
                 item={item}
                 selected={selected}
                 onClick={onClick}
@@ -382,7 +383,7 @@ export function SubdocsMenu({
             );
           }
         })}
-        <hr className="mt-1 border-t border-primary/40" />
+        <hr className="mt-2 border-t border-primary/40" />
       </div>
     );
 }
@@ -403,17 +404,15 @@ function SubdocsMenuItem({
   if (isOption(item)) {
     return (
       <Link
-        key={item.url}
-        href={item.url}
+        href={item.url ? item.url : item.href ?? ""}
+        target={item.href ? "_blank" : undefined}
+        rel={item.href ? "noopener noreferrer" : undefined}
         onClick={() => {
-          if (item.href) {
-            window.open(item.href, '_blank');
-            return;
-          }
-          handleNavigationScroll(pathname, item.url);
-          scrollSidebarToSelectedItem(item.url); // Scroll sidebar to selected item
+          if (item.href) return;
+          handleNavigationScroll(pathname, item.url || DEFAULT_URL);
+          scrollSidebarToSelectedItem(item.url || DEFAULT_URL); // Scroll sidebar to selected item
           onClick?.();
-          onExplicitClick?.(item.url);
+          onExplicitClick?.(item.url || DEFAULT_URL);
         }}
         {...item.props}
         className={cn(
@@ -501,7 +500,7 @@ function SubdocsMenuItemDropdown({
               <div className="flex items-center">
                 <div className={cn("rounded-sm mr-2 pl-1 pr-1.5 text-primary/50")}>
                   {selectedOption?.icon || (
-                    <BoxesIcon
+                    <PlugIcon
                       className="w-4 h-4"
                       style={{ fontSize: '16px', width: '16px', height: '16px' }}
                     />
@@ -513,10 +512,10 @@ function SubdocsMenuItemDropdown({
           />
         </SelectTrigger>
         <SelectContent className="p-1 rounded-2xl max-h-[800px] shadow-lg">
-          {item.options.map((option) => (
+          {item.options.map((option, index) => (
             <SelectItem
-              key={option.url}
-              value={option.url}
+              key={`${option.url}-${index}`}
+              value={option.url ?? DEFAULT_URL}
               className="pl-1 py-1 my-1 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer hover:bg-secondary/10"
             >
               <div className="flex items-center">
