@@ -100,6 +100,11 @@ const config = {
         permanent: true,
       },
       {
+        source: "/coagents/shared-state/intermediate-state-streaming",
+        destination: "/coagents/shared-state/predictive-state-updates",
+        permanent: true,
+      },
+      {
         source: "/coagents/advanced/manually-emitting-messages",
         destination: "/coagents/advanced/emit-messages",
         permanent: true,
@@ -177,6 +182,56 @@ const config = {
       {
         source: "/agno/quickstart/agno",
         destination: "/agno/quickstart",
+        permanent: true,
+      },
+      {
+        source: "/mcp",
+        destination: "/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/ag2/mcp",
+        destination: "/ag2/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/agno/mcp",
+        destination: "/agno/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/crewai-crews/mcp",
+        destination: "/crewai-crews/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/crewai-flows/mcp",
+        destination: "/crewai-flows/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/direct-to-llm/guides/mcp",
+        destination: "/direct-to-llm/guides/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/langgraph/mcp",
+        destination: "/langgraph/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/llamaindex/mcp",
+        destination: "/llamaindex/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/mastra/mcp",
+        destination: "/mastra/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/pydantic-ai/mcp",
+        destination: "/pydantic-ai/vibe-coding-mcp",
         permanent: true,
       },
     ];
