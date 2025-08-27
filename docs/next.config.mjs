@@ -100,6 +100,11 @@ const config = {
         permanent: true,
       },
       {
+        source: "/coagents/shared-state/intermediate-state-streaming",
+        destination: "/coagents/shared-state/predictive-state-updates",
+        permanent: true,
+      },
+      {
         source: "/coagents/advanced/manually-emitting-messages",
         destination: "/coagents/advanced/emit-messages",
         permanent: true,
