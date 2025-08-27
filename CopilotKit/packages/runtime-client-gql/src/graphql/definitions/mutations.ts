@@ -128,3 +128,13 @@ export const generateCopilotResponseMutation = graphql(/** GraphQL **/ `
     }
   }
 `);
+
+export const commitReinforcementLearningStateMutation = graphql(/** GraphQL **/ `
+  mutation commitReinforcementLearningState($data: CommitReinforcementLearningStateInput!) {
+    commitReinforcementLearningState(data: $data) {
+      threadId
+      agentName
+      state
+    }
+  }
+`);

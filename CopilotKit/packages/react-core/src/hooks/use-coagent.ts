@@ -247,13 +247,61 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     showDevConsole: context.showDevConsole,
   });
 
+  // Debounce timer for committing RL state changes
+  const commitDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (commitDebounceRef.current) {
+        clearTimeout(commitDebounceRef.current);
+      }
+    };
+  }, []);
+
   // if we manage state internally, we need to provide a function to set the state
   const setState = useCallback(
-    (newState: T | ((prevState: T | undefined) => T)) => {
+    async (newState: T | ((prevState: T | undefined) => T)) => {
       // coagentStatesRef.current || {}
       let coagentState: CoagentState = getCoagentState({ coagentStates, name, options });
       const updatedState =
         typeof newState === "function" ? (newState as Function)(coagentState.state) : newState;
+
+      // Debounce committing state changes (5s after last change)
+      if (commitDebounceRef.current) {
+        clearTimeout(commitDebounceRef.current);
+      }
+
+      commitDebounceRef.current = setTimeout(() => {
+        if (!threadId) return;
+
+        const initialState = isInternalStateManagementWithInitial<T>(options)
+          ? options.initialState
+          : {};
+
+        // if the initial state is empty to not call commitReinforcementLearningState
+        if (JSON.stringify(initialState) !== "{}" && JSON.stringify(updatedState) !== "{}") {
+          try {
+            void runtimeClient.commitReinforcementLearningState({
+              threadId,
+              agentName: name,
+              state: updatedState,
+              initialState: initialState,
+              humanEdit: "",
+              aiEdit: "",
+            });
+          } catch (_e) {}
+        } else if (JSON.stringify(initialState) === "{}" && JSON.stringify(updatedState) !== "{}") {
+          try {
+            void runtimeClient.commitReinforcementLearningState({
+              threadId,
+              agentName: name,
+              state: updatedState,
+              initialState: initialState,
+              humanEdit: "",
+              aiEdit: "",
+            });
+          } catch (_e) {}
+        }
+      }, 5000);
 
       setCoagentStatesWithRef({
         ...coagentStatesRef.current,
@@ -263,7 +311,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
         },
       });
     },
-    [coagentStates, name],
+    [coagentStates, name, runtimeClient, threadId],
   );
 
   useEffect(() => {
