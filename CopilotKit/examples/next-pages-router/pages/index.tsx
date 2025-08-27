@@ -1,9 +1,8 @@
 "use client";
-
-import Image from "next/image";
 import { Inter } from "next/font/google";
 import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
+import { CopilotSidebar } from "@copilotkit/react-ui";
+import "@copilotkit/react-ui/styles.css";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -22,6 +21,9 @@ export default function Home() {
           initial: "Hi you! 👋 I can help you with anything.",
         }}
         clickOutsideToClose={false}
+        canCopyAssistantMessage={false}
+        canRegenerateAssistantMessage={false}
+        disableFirstAssistantMessageControls={true}
       >
         <div>
           <h1>Hello</h1>
