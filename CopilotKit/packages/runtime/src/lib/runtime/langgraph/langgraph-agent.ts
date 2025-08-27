@@ -18,15 +18,16 @@ import {
   type LangGraphAgentConfig,
   ProcessedEvents,
   SchemaKeys,
+  type State,
 } from "@ag-ui/langgraph";
 import { Message as LangGraphMessage } from "@langchain/langgraph-sdk/dist/types.messages";
+import { ThreadState } from "@langchain/langgraph-sdk";
 
 export interface PredictStateTool {
   tool: string;
   state_key: string;
   tool_argument: string;
 }
-export type State = Record<string, any>;
 
 export type TextMessageEvents =
   | TextMessageStartEvent
@@ -99,7 +100,9 @@ export class LangGraphAgent extends AGUILangGraphAgent {
         this.activeRun.manuallyEmittedState = customEvent.value;
         this.dispatchEvent({
           type: EventType.STATE_SNAPSHOT,
-          snapshot: this.getStateSnapshot(this.activeRun.manuallyEmittedState),
+          snapshot: this.getStateSnapshot({
+            values: this.activeRun.manuallyEmittedState,
+          } as ThreadState<State>),
           rawEvent: event,
         });
         return true;

@@ -1,6 +1,7 @@
 {
   "pages": [
-    "error-debugging-observability",
+    "error-debugging",
+    "observability-connectors",
     "common-issues",
     "migrate-to-1.8.2"
   ]

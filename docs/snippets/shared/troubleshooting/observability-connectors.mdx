@@ -1,17 +1,7 @@
-# How to Debug Errors (and Enable Error Observability)
+CopilotKit Premium provides production-grade error observability with the observability solution of your choice via the `onError` hook. This feature requires a `publicLicenseKey` or `publicApiKey` and provides rich, structured error events you can forward to your monitoring and analytics systems.
+See [Observability](../premium/observability) for a complete description of all Observability feaures.
 
-CopilotKit gives you two complementary ways to handle errors:
-- Development-time visual errors with the dev console (no key required)
-- Production-grade error observability via the `onError` hook (requires `publicLicenseKey`)
-
-This guide shows you exactly how to set up both, how to inspect rich error context, and how to wire errors into your monitoring/analytics.
-
-## Quick Start
-
-<Steps>
-
-<Step>
-### Local Development: Show Visual Errors (no key required)
+## Quick Setup
 
 ```tsx
 import { CopilotKit } from "@copilotkit/react-core";
@@ -20,30 +10,9 @@ export default function App() {
   return (
     <CopilotKit
       runtimeUrl="<your-runtime-url>"
-      showDevConsole={true} // [!code highlight]
-    >
-      {/* Your app */}
-    </CopilotKit>
-  );
-}
-```
-
-<Callout type="tip">
-  The dev console renders an error banner right in your UI to speed up debugging. This does not require Copilot Cloud.
-</Callout>
-</Step>
-
-<Step>
-### Production: Send Errors to Monitoring (requires `publicLicenseKey`)
-
-```tsx
-import { CopilotKit } from "@copilotkit/react-core";
-
-export default function App() {
-  return (
-    <CopilotKit
-      runtimeUrl="<your-runtime-url>"
-      publicLicenseKey="ck_pub_your_key" // [!code highlight]
+      publicApiKey="ck_pub_your_key" // [!code highlight] - Use publicApiKey for Copilot Cloud
+      // OR
+      publicLicenseKey="ck_pub_your_key" // [!code highlight] - Use publicLicenseKey for self-hosted
       onError={(errorEvent) => {
         // [!code highlight]
         // Send to your monitoring/analytics service
@@ -63,26 +32,27 @@ export default function App() {
 ```
 
 <Callout type="info">
-  Need a `publicLicenseKey`? Get one for free at https://cloud.copilotkit.ai
+  **Key Configuration**: 
+  - Use `publicApiKey` when using Copilot Cloud
+  - Use `publicLicenseKey` when self-hosting CopilotKit
+  - Both keys provide the same observability features
 </Callout>
-</Step>
 
-</Steps>
+## Getting Your License or API Key
+You can get either type of key from [cloud.copilotkit.ai](https://cloud.copilotkit.ai).  Sign up for the Developer plan for free if you aren't already signed up.
 
-## When to Use What
+1. **For Copilot Cloud hosting**: Login to CopilotCloud and get your `publicApiKey`
+2. **For self-hosted usage**: Login to CopilotCloud and get your `publicLicenseKey`. Self-hosting will not use Copilot Cloud (other than to get your keys).
 
-- **Dev console (`showDevConsole`)**: best for local dev and quick debugging. No key required. Avoid showing in production.
-- **Error observability (`onError`)**: best for production monitoring and analytics. Requires `publicLicenseKey` and provides rich, structured context.
+## Error Event Structure
 
-## Error Observability (onError)
-
-The `onError` hook provides detailed, structured events you can forward to your monitoring stack.
+The `onError` hook provides detailed, structured events:
 
 ```tsx
 import { CopilotErrorEvent } from "@copilotkit/shared";
 
 <CopilotKit
-  publicLicenseKey="ck_pub_your_key" // [!code highlight]
+  publicApiKey="ck_pub_your_key" // or publicLicenseKey for self-hosted
   onError={(errorEvent: CopilotErrorEvent) => {
     switch (errorEvent.type) {
       case "error":
@@ -104,7 +74,7 @@ import { CopilotErrorEvent } from "@copilotkit/shared";
 </CopilotKit>;
 ```
 
-### Error Event Structure
+### Error Event Interface
 
 ```ts
 interface CopilotErrorEvent {
@@ -146,25 +116,7 @@ interface CopilotErrorEvent {
 }
 ```
 
-## Common Patterns
-
-### Basic Error Logging
-
-```tsx
-<CopilotKit
-  publicLicenseKey="ck_pub_your_key"
-  onError={(errorEvent) => {
-    console.error("[CopilotKit Error]", {
-      type: errorEvent.type,
-      timestamp: new Date(errorEvent.timestamp).toISOString(),
-      context: errorEvent.context,
-      error: errorEvent.error,
-    });
-  }}
->
-  {/* Your app */}
-</CopilotKit>
-```
+## Common Integration Patterns
 
 ### Integration with Monitoring (e.g., Sentry)
 
@@ -172,7 +124,7 @@ interface CopilotErrorEvent {
 import * as Sentry from "@sentry/react";
 
 <CopilotKit
-  publicLicenseKey="ck_pub_your_key"
+  publicApiKey="ck_pub_your_key" // or publicLicenseKey for self-hosted
   onError={(errorEvent) => {
     if (errorEvent.type === "error") {
       Sentry.captureException(errorEvent.error, {
@@ -196,7 +148,7 @@ import * as Sentry from "@sentry/react";
 
 ```tsx
 <CopilotKit
-  publicLicenseKey="ck_pub_your_key"
+  publicApiKey="ck_pub_your_key" // or publicLicenseKey for self-hosted
   onError={(errorEvent) => {
     analytics.track("copilotkit_event", {
       event_type: errorEvent.type,
@@ -212,14 +164,14 @@ import * as Sentry from "@sentry/react";
 </CopilotKit>
 ```
 
-## Development vs Production Setup
+## Environment-Specific Setup
 
-### Development
+### Development Environment
 
 ```tsx
 <CopilotKit
   runtimeUrl="http://localhost:3000/api/copilotkit"
-  publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY} // For observability
+  publicApiKey={process.env.NEXT_PUBLIC_COPILOTKIT_API_KEY} // For observability
   showDevConsole={true} // Visual errors for fast iteration
   onError={(errorEvent) => {
     // Lightweight console logging in dev
@@ -230,12 +182,12 @@ import * as Sentry from "@sentry/react";
 </CopilotKit>
 ```
 
-### Production
+### Production Environment
 
 ```tsx
 <CopilotKit
   runtimeUrl="https://your-app.com/api/copilotkit"
-  publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY} // [!code highlight]
+  publicApiKey={process.env.NEXT_PUBLIC_COPILOTKIT_API_KEY} // [!code highlight]
   showDevConsole={false} // Hide details from end-users
   onError={(errorEvent) => {
     if (errorEvent.type === "error") {
@@ -257,26 +209,35 @@ import * as Sentry from "@sentry/react";
 </CopilotKit>
 ```
 
-## Getting a `publicLicenseKey`
+## Environment Variables
 
-1. Sign up free at https://cloud.copilotkit.ai
-2. Copy your `publicLicenseKey` from the dashboard
-3. Add it to your env:
-   ```bash
-   NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY=ck_pub_your_key_here
-   ```
-4. Use it in your provider as shown above
+### For Copilot Cloud Users
+
+```bash
+NEXT_PUBLIC_COPILOTKIT_API_KEY=ck_pub_your_key_here
+```
+
+### For Self-Hosted Users
+
+```bash
+NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY=ck_pub_your_key_here
+```
 
 ## Troubleshooting
 
-- **No events received in `onError`:**
-  - Ensure `publicLicenseKey` is set (starts with `ck_pub_`)
-  - Check that your environment variables are loaded
-  - Verify errors actually occur (use dev console locally)
+### Production Observability Issues
 
-- **Dev console not showing:**
-  - Confirm `showDevConsole={true}`
-  - Check for JavaScript errors in the browser console
+- **No events received in `onError`:**
+  - Ensure `publicApiKey` or `publicLicenseKey` is set (starts with `ck_pub_`)
+  - Check that your environment variables are loaded
+  - Verify errors actually occur (use dev console locally to test)
 
 - **High-volume logging:**
   - Keep `onError` lightweight; batch or throttle before sending to external services
+  - Consider filtering events by type to reduce noise
+
+### Key Configuration Issues
+
+- **Wrong key type**: Make sure you're using `publicApiKey` for Copilot Cloud or `publicLicenseKey` for self-hosted
+- **Invalid key format**: Keys should start with `ck_pub_`
+- **Environment variable not loaded**: Check that your environment variables are properly configured for your framework

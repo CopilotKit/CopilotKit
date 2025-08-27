@@ -18,6 +18,7 @@
     "tsconfig": "1.4.6"
   },
   "changesets": [
-    "fluffy-cameras-battle"
+    "fluffy-cameras-battle",
+    "giant-mice-obey"
   ]
 }
