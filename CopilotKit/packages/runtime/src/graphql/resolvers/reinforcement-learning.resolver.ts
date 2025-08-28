@@ -18,11 +18,6 @@ export class ReinforcementLearningStateResolver {
       component: "ReinforcementLearningStateResolver.commitReinforcementLearningState",
     });
 
-    logger.info("Commiting reinforcement learning state");
-    logger.info(data);
-
-    // const state = await ctx._copilotkit.runtime.commitReinforcementLearningState(ctx, data.threadId, data.agentName, data.state);
-
     const copilotRuntime = ctx._copilotkit.runtime;
 
     let copilotCloudPublicApiKey: string | null = null;
@@ -78,11 +73,38 @@ export class ReinforcementLearningStateResolver {
         initialState: data.initialState,
         state: data.state,
       }),
-    });
+    }, logger);
+
+    // Check if response is successful
+    if (!response.ok) {
+      let errorBody: any;
+      try {
+        errorBody = await response.json();
+      } catch (parseError) {
+        errorBody = { message: "Failed to parse error response" };
+      }
+
+      logger.error("Reinforcement learning API error", {
+        status: response.status,
+        statusText: response.statusText,
+        errorBody,
+      });
+
+      throw new GraphQLError(
+        `Reinforcement learning API error: ${errorBody.message || response.statusText}`,
+        {
+          extensions: {
+            code: "RL_API_ERROR",
+            status: response.status,
+            details: errorBody,
+          },
+        }
+      );
+    }
 
     const state = await response.json();
 
-    logger.info("Reinforcement learning state committed");
+    logger.info("Reinforcement learning state committed successfully");
 
     return state;
   }

@@ -100,6 +100,28 @@ import { parseJson, CopilotKitAgentDiscoveryError } from "@copilotkit/shared";
 import { useMessagesTap } from "../components/copilot-provider/copilot-messages";
 import { Message as GqlMessage } from "@copilotkit/runtime-client-gql";
 
+/**
+ * Helper function to robustly detect empty state values.
+ * Returns true for null, undefined, empty arrays, empty objects.
+ * Non-object primitives (strings, numbers, booleans) are treated as non-empty.
+ */
+function isEmptyState(value: any): boolean {
+  if (value === null || value === undefined) {
+    return true;
+  }
+
+  if (Array.isArray(value)) {
+    return value.length === 0;
+  }
+
+  if (typeof value === 'object') {
+    return Object.keys(value).length === 0;
+  }
+
+  // Non-object primitives (string, number, boolean) are considered non-empty
+  return false;
+}
+
 interface UseCoagentOptionsBase {
   /**
    * The name of the agent being used.
@@ -259,7 +281,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
 
   // if we manage state internally, we need to provide a function to set the state
   const setState = useCallback(
-    async (newState: T | ((prevState: T | undefined) => T)) => {
+    (newState: T | ((prevState: T | undefined) => T)) => {
       // coagentStatesRef.current || {}
       let coagentState: CoagentState = getCoagentState({ coagentStates, name, options });
       const updatedState =
@@ -277,19 +299,8 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
           ? options.initialState
           : {};
 
-        // if the initial state is empty to not call commitReinforcementLearningState
-        if (JSON.stringify(initialState) !== "{}" && JSON.stringify(updatedState) !== "{}") {
-          try {
-            void runtimeClient.commitReinforcementLearningState({
-              threadId,
-              agentName: name,
-              state: updatedState,
-              initialState: initialState,
-              humanEdit: "",
-              aiEdit: "",
-            });
-          } catch (_e) {}
-        } else if (JSON.stringify(initialState) === "{}" && JSON.stringify(updatedState) !== "{}") {
+        // Only commit state changes when updatedState is non-empty
+        if (!isEmptyState(updatedState)) {
           try {
             void runtimeClient.commitReinforcementLearningState({
               threadId,

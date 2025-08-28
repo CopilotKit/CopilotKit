@@ -9,10 +9,10 @@ export class CommitReinforcementLearningStateInput {
   @Field(() => String)
   agentName: string;
 
-  @Field(() => String)
+  @Field(() => String, { nullable: true })
   humanEdit?: string;
 
-  @Field(() => String)
+  @Field(() => String, { nullable: true })
   aiEdit?: string;
 
   @Field(() => GraphQLJSONObject)
