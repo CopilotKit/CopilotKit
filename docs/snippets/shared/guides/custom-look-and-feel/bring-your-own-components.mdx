@@ -34,7 +34,7 @@ const CustomUserMessage = (props: UserMessageProps) => {
 
   return (
     <div className={wrapperStyles}>
-      <div className={messageStyles}>{props.message}</div>
+      <div className={messageStyles}>{props.message?.content}</div>
       <div className={avatarStyles}>TS</div>
     </div>
   );
@@ -75,7 +75,7 @@ const CustomAssistantMessage = (props: AssistantMessageProps) => {
       <div className="flex items-start">
         {!subComponent && avatar}
         <div className={messageStyles}>
-          {message && <Markdown content={message || ""} /> }
+          {message && <Markdown content={message.content || ""} /> }
           {isLoading && icons.spinnerIcon}
         </div>
       </div>
@@ -83,6 +83,7 @@ const CustomAssistantMessage = (props: AssistantMessageProps) => {
     </div>
   );
 };
+
 
 <CopilotKit>
   <CopilotSidebar AssistantMessage={CustomAssistantMessage} />
@@ -211,33 +212,28 @@ The Messages component handles the display and organization of different message
 
 ```tsx
 import { MessagesProps, CopilotSidebar } from "@copilotkit/react-ui";
-import { useCopilotChat } from "@copilotkit/react-core";
 import { CopilotKit } from "@copilotkit/react-core";
 import "@copilotkit/react-ui/styles.css";
-function CustomMessages({
+
+export default function CustomMessages({
   messages,
   inProgress,
   RenderMessage,
 }: MessagesProps) {
   const wrapperStyles = "p-4 flex flex-col gap-2 h-full overflow-y-auto bg-indigo-300";
 
-  /*
-    Message types handled:
-    - TextMessage: Regular chat messages
-  */
   // [!code highlight:40]
   return (
     <div className={wrapperStyles}>
       {messages.map((message, index) => {
-        if (message.isTextMessage()) {
-          return <RenderMessage 
-            key={message.id} 
-            message={message} 
-            inProgress={inProgress} 
-            index={index} 
-            isCurrentMessage={index === messages.length - 1}
-          />;
-        }
+        const isCurrentMessage = index === messages.length - 1;
+        return <RenderMessage
+          key={index}
+          message={message}
+          inProgress={inProgress}
+          index={index}
+          isCurrentMessage={isCurrentMessage}
+        />
       })}
     </div>
   );
