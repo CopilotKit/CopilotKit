@@ -59,21 +59,25 @@ export class ReinforcementLearningStateResolver {
 
     const reinforcementLearningAPIEndpoint = `${copilotCloudBaseUrl}/reinforcement-learning/v1/commit`;
 
-    const response = await fetchWithRetry(reinforcementLearningAPIEndpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-copilotcloud-public-api-key": copilotCloudPublicApiKey,
+    const response = await fetchWithRetry(
+      reinforcementLearningAPIEndpoint,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-copilotcloud-public-api-key": copilotCloudPublicApiKey,
+        },
+        body: JSON.stringify({
+          threadId: data.threadId,
+          agentName: data.agentName,
+          humanEdit: data.humanEdit,
+          aiEdit: data.aiEdit,
+          initialState: data.initialState,
+          state: data.state,
+        }),
       },
-      body: JSON.stringify({
-        threadId: data.threadId,
-        agentName: data.agentName,
-        humanEdit: data.humanEdit,
-        aiEdit: data.aiEdit,
-        initialState: data.initialState,
-        state: data.state,
-      }),
-    }, logger);
+      logger,
+    );
 
     // Check if response is successful
     if (!response.ok) {
@@ -98,7 +102,7 @@ export class ReinforcementLearningStateResolver {
             status: response.status,
             details: errorBody,
           },
-        }
+        },
       );
     }
 

@@ -114,7 +114,7 @@ function isEmptyState(value: any): boolean {
     return value.length === 0;
   }
 
-  if (typeof value === 'object') {
+  if (typeof value === "object") {
     return Object.keys(value).length === 0;
   }
 
