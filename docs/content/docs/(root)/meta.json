@@ -5,7 +5,7 @@
     "index",
     "[lucide/Play][LLM Quickstart](../direct-to-llm/guides/quickstart)",
     "[lucide/Play][CoAgent Quickstart](../coagents/quickstart)",
-    "mcp",
+    "vibe-coding-mcp",
     "---Feature Overviews---",
     "agentic-chat-ui",
     "connect-mcp-servers",
