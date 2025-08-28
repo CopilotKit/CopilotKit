@@ -311,6 +311,17 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
               aiEdit: "",
             });
           } catch (_e) {}
+        } else if (!isEmptyState(initialState)) {
+          try {
+            void runtimeClient.commitReinforcementLearningState({
+              threadId,
+              agentName: name,
+              state: {},
+              initialState: initialState,
+              humanEdit: "",
+              aiEdit: "",
+            });
+          } catch (_e) {}
         }
       }, 5000);
 
