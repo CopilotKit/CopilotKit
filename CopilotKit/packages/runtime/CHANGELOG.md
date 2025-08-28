@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.10.3-next.2
+
+### Patch Changes
+
+- a7bb2f0: - fix: fix how node names are read to support newer langgraph versions
+  - @copilotkit/shared@1.10.3-next.2
+
 ## 1.10.3-next.1
 
 ### Patch Changes
