@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.10.3-next.3
+
+### Patch Changes
+
+- 21e12af: - feat: send streamSubgraphs forwarded prop to AGUI
+  - @copilotkit/shared@1.10.3-next.3
+
 ## 1.10.3-next.2
 
 ### Patch Changes
