@@ -328,6 +328,13 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         ? [...(initialMessages || []), ...previousMessages]
         : [makeSystemMessageCallback(), ...(initialMessages || []), ...previousMessages];
 
+      const latestHumanMessage = messagesWithContext
+        .filter((message: any) => message.role === Role.User)
+        .pop();
+      const latestHumanEdit = Array.isArray((latestHumanMessage as any).content)
+        ? (latestHumanMessage as any).content.join("")
+        : (latestHumanMessage as any).content;
+
       // ----- Set mcpServers in properties -----
       // Create a copy of properties to avoid modifying the original object
       const finalProperties = { ...(copilotConfig.properties || {}) };
@@ -468,6 +475,13 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           setRunId(runIdRef.current);
           setExtensions(extensionsRef.current);
           let rawMessagesResponse = value.generateCopilotResponse.messages;
+
+          const latestAiMessage = rawMessagesResponse
+            .filter(
+              (message: any) =>
+                message.role === Role.Assistant && message.__typename === "TextMessageOutput",
+            )
+            .pop();
 
           const metaEvents: MetaEvent[] | undefined =
             value.generateCopilotResponse?.metaEvents ?? [];
@@ -620,20 +634,39 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                   lastAgentStateMessage.state.messages,
                 );
               }
-              setCoagentStatesWithRef((prevAgentStates) => ({
-                ...prevAgentStates,
-                [lastAgentStateMessage.agentName]: {
-                  name: lastAgentStateMessage.agentName,
-                  state: lastAgentStateMessage.state,
-                  running: lastAgentStateMessage.running,
-                  active: lastAgentStateMessage.active,
-                  threadId: lastAgentStateMessage.threadId,
-                  nodeName: lastAgentStateMessage.nodeName,
-                  runId: lastAgentStateMessage.runId,
-                  // Preserve existing config from previous state
-                  config: prevAgentStates[lastAgentStateMessage.agentName]?.config,
-                },
-              }));
+              setCoagentStatesWithRef((prevAgentStates) => {
+                // This is only for LangGraph
+                const turnEnded =
+                  lastAgentStateMessage.nodeName === "__end__" &&
+                  lastAgentStateMessage.active === false;
+
+                // Only persist the state when the last message is an agent state message
+                if (turnEnded) {
+                  runtimeClient.commitReinforcementLearningState({
+                    threadId,
+                    agentName: lastAgentStateMessage.agentName,
+                    state: lastAgentStateMessage.state,
+                    initialState: {},
+                    humanEdit: latestHumanEdit,
+                    aiEdit: JSON.stringify(lastAgentStateMessage.state),
+                  });
+                }
+
+                return {
+                  ...prevAgentStates,
+                  [lastAgentStateMessage.agentName]: {
+                    name: lastAgentStateMessage.agentName,
+                    state: lastAgentStateMessage.state,
+                    running: lastAgentStateMessage.running,
+                    active: lastAgentStateMessage.active,
+                    threadId: lastAgentStateMessage.threadId,
+                    nodeName: lastAgentStateMessage.nodeName,
+                    runId: lastAgentStateMessage.runId,
+                    // Preserve existing config from previous state
+                    config: prevAgentStates[lastAgentStateMessage.agentName]?.config,
+                  },
+                };
+              });
               if (lastAgentStateMessage.running) {
                 setAgentSession({
                   threadId: lastAgentStateMessage.threadId,
