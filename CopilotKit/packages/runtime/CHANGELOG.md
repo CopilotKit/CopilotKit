@@ -1,5 +1,15 @@
 # @copilotkit/runtime
 
+## 1.10.3
+
+### Patch Changes
+
+- ea74047: - fix: surface run errors from agui
+- a7bb2f0: - fix: fix how node names are read to support newer langgraph versions
+- 21e12af: - feat: send streamSubgraphs forwarded prop to AGUI
+- Updated dependencies [ea74047]
+  - @copilotkit/shared@1.10.3
+
 ## 1.10.3-next.3
 
 ### Patch Changes
