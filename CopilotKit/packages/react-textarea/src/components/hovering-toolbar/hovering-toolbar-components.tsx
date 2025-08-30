@@ -1,30 +1,26 @@
 import { css, cx } from "@emotion/css";
-import React, { PropsWithChildren, Ref } from "react";
+import React from "react";
 import ReactDOM from "react-dom";
 
-interface BaseProps {
-  className: string;
-  [key: string]: unknown;
-}
+type ButtonProps = React.HTMLAttributes<HTMLSpanElement> & {
+  active?: boolean;
+  reversed?: boolean;
+  className?: string;
+};
 
-export const Button = React.forwardRef(
-  (
-    {
-      className,
-      active,
-      reversed,
-      ...props
-    }: PropsWithChildren<
-      {
-        active: boolean;
-        reversed: boolean;
-      } & BaseProps
-    >,
-    ref: Ref<HTMLSpanElement | null>,
-  ) => (
+type IconProps = React.HTMLAttributes<HTMLSpanElement> & {
+  className?: string;
+};
+
+type MenuProps = React.HTMLAttributes<HTMLDivElement> & {
+  className?: string;
+};
+
+export const Button = React.forwardRef<HTMLSpanElement, ButtonProps>(
+  ({ className, active = false, reversed = false, ...props }, ref) => (
     <span
       {...props}
-      ref={ref as Ref<HTMLSpanElement>}
+      ref={ref}
       className={cx(
         className,
         css`
@@ -36,52 +32,48 @@ export const Button = React.forwardRef(
   ),
 );
 
-export const Icon = React.forwardRef(
-  ({ className, ...props }: PropsWithChildren<BaseProps>, ref: Ref<HTMLSpanElement | null>) => (
-    <span
+export const Icon = React.forwardRef<HTMLSpanElement, IconProps>(({ className, ...props }, ref) => (
+  <span
+    {...props}
+    ref={ref}
+    className={cx(
+      "material-icons",
+      className,
+      css`
+        font-size: 18px;
+        vertical-align: text-bottom;
+      `,
+    )}
+  />
+));
+
+export const Menu = React.forwardRef<HTMLDivElement, MenuProps>(({ className, ...props }, ref) => {
+  return (
+    <div
       {...props}
-      ref={ref as Ref<HTMLSpanElement>}
+      data-testid="menu"
+      ref={ref}
       className={cx(
-        "material-icons",
         className,
         css`
-          font-size: 18px;
-          vertical-align: text-bottom;
+          & > * {
+            display: inline-block;
+          }
+
+          & > * + * {
+            margin-left: 15px;
+          }
         `,
       )}
     />
-  ),
-);
-
-export const Menu = React.forwardRef(
-  ({ className, ...props }: PropsWithChildren<BaseProps>, ref: Ref<HTMLDivElement | null>) => {
-    return (
-      <div
-        {...props}
-        data-testid="menu"
-        ref={ref as Ref<HTMLDivElement>}
-        className={cx(
-          className,
-          css`
-            & > * {
-              display: inline-block;
-            }
-
-            & > * + * {
-              margin-left: 15px;
-            }
-          `,
-        )}
-      />
-    );
-  },
-);
+  );
+});
 export const Portal = ({ children }: { children: React.ReactNode }) => {
   return typeof document === "object" ? ReactDOM.createPortal(children, document.body) : null;
 };
 
-export const Toolbar = React.forwardRef(
-  ({ className, ...props }: PropsWithChildren<BaseProps>, ref?: Ref<HTMLDivElement>) => (
+export const Toolbar = React.forwardRef<HTMLDivElement, MenuProps>(
+  ({ className, ...props }, ref) => (
     <Menu
       {...props}
       ref={ref}
