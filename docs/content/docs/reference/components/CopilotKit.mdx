@@ -108,6 +108,13 @@ The name of the agent to use.
 
 <PropertyReference name="forwardedParameters" type="ForwardedParametersSubset"  > 
 The forwarded parameters to use for the task.
+  For example:
+  ```js
+  forwardedParameters={{ 
+    temperature: 0.7,
+    maxTokens: 150
+  }}
+  ```
 </PropertyReference>
 
 <PropertyReference name="authConfig_c" type="{ SignInComponent: React.ComponentType<{ onSignInComplete: (authState: AuthState) => void; }>; }"  > 

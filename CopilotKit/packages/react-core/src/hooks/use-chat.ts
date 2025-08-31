@@ -45,7 +45,7 @@ import {
   LangGraphInterruptAction,
   LangGraphInterruptActionSetter,
 } from "../types/interrupt-action";
-import { ForwardedParametersSubset } from "../types";
+import type { ForwardedParametersSubset } from "../types";
 
 export type UseChatOptions = {
   /**
@@ -120,7 +120,13 @@ export type UseChatOptions = {
 
   /**
    * The forwarded parameters to use for the task.
-   * @see ForwardedParametersSubset
+   * For example:
+   * ```js
+   * forwardedParameters={{ 
+   *   temperature: 0.7,
+   *   maxTokens: 150
+   * }}
+   * ```
    */
   forwardedParameters?: ForwardedParametersSubset;
 

@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { AuthState } from "../../context/copilot-context";
 import { CopilotErrorHandler } from "@copilotkit/shared";
-import { ForwardedParametersSubset } from "../../types";
+import type { ForwardedParametersSubset } from "../../types";
 /**
  * Props for CopilotKit.
  */
@@ -113,7 +113,13 @@ export interface CopilotKitProps {
 
   /**
    * The forwarded parameters to use for the task.
-   * @see ForwardedParametersSubset
+   * For example:
+   * ```js
+   * forwardedParameters={{ 
+   *   temperature: 0.7,
+   *   maxTokens: 150
+   * }}
+   * ```
    */
   forwardedParameters?: ForwardedParametersSubset;
 
