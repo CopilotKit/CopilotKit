@@ -201,7 +201,7 @@ export interface CopilotContextParams {
   /**
    * The forwarded parameters to use for the task.
    */
-  forwardedParameters?: Partial<Pick<ForwardedParametersInput, "temperature">>;
+  forwardedParameters?: Partial<Pick<ForwardedParametersInput, "temperature" | "maxTokens">>;
   availableAgents: Agent[];
 
   /**

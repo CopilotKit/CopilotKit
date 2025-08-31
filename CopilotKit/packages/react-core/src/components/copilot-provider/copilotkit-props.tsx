@@ -114,7 +114,7 @@ export interface CopilotKitProps {
   /**
    * The forwarded parameters to use for the task.
    */
-  forwardedParameters?: Pick<ForwardedParametersInput, "temperature">;
+  forwardedParameters?: Pick<ForwardedParametersInput, "temperature" | "maxTokens">;
 
   /**
    * The auth config to use for the CopilotKit.
