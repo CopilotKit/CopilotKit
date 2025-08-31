@@ -11,7 +11,7 @@ import {
 } from "../types/frontend-action";
 import React from "react";
 import { TreeNodeId, Tree } from "../hooks/use-tree";
-import { DocumentPointer } from "../types";
+import { DocumentPointer, ForwardedParametersSubset } from "../types";
 import { CopilotChatSuggestionConfiguration } from "../types/chat-suggestion-configuration";
 import { CoAgentStateRender, CoAgentStateRenderProps } from "../types/coagent-action";
 import { CoagentState } from "../types/coagent-state";
@@ -200,8 +200,9 @@ export interface CopilotContextParams {
 
   /**
    * The forwarded parameters to use for the task.
+   * @see ForwardedParametersSubset
    */
-  forwardedParameters?: Partial<Pick<ForwardedParametersInput, "temperature" | "maxTokens">>;
+  forwardedParameters?: ForwardedParametersSubset;
   availableAgents: Agent[];
 
   /**

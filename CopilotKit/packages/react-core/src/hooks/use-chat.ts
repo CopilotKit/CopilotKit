@@ -21,7 +21,6 @@ import {
   MessageRole,
   Role,
   CopilotRequestType,
-  ForwardedParametersInput,
   loadMessagesFromJsonRepresentation,
   ExtensionsInput,
   CopilotRuntimeClient,
@@ -46,6 +45,7 @@ import {
   LangGraphInterruptAction,
   LangGraphInterruptActionSetter,
 } from "../types/interrupt-action";
+import { ForwardedParametersSubset } from "../types";
 
 export type UseChatOptions = {
   /**
@@ -119,9 +119,10 @@ export type UseChatOptions = {
   setAgentSession: React.Dispatch<React.SetStateAction<AgentSession | null>>;
 
   /**
-   * The forwarded parameters.
+   * The forwarded parameters to use for the task.
+   * @see ForwardedParametersSubset
    */
-  forwardedParameters?: Partial<Pick<ForwardedParametersInput, "temperature" | "maxTokens">>;
+  forwardedParameters?: ForwardedParametersSubset;
 
   /**
    * The current thread ID.
