@@ -46,6 +46,9 @@ export function LinkToCopilotCloud({
     }
   }, [isClient, baseUrl.toString()]);
 
+  // Ensure consistent rendering by using the base URL during SSR
+  const finalHref = isClient ? href : baseUrl.toString();
+
   let cn = `${className}`;
 
   if (asButton) {
@@ -57,7 +60,7 @@ export function LinkToCopilotCloud({
 
   return (
     <Link
-      href={href}
+      href={finalHref}
       target="_blank"
       className={cn}
     >

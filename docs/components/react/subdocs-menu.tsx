@@ -402,13 +402,42 @@ function SubdocsMenuItem({
   const pathname = usePathname();
   
   if (isOption(item)) {
+    // Use regular <a> tag for external links to avoid hydration issues
+    if (item.href) {
+      return (
+        <a
+          href={item.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          {...item.props}
+          className={cn(
+            "p-3 rounded-sm flex flex-row gap-3 items-center cursor-pointer transition-colors",
+            item.props?.className,
+            selected === item 
+              ? "" 
+              : "hover:bg-[var(--color-palette-surface-container)]"
+          )}
+          style={selected === item 
+            ? { 
+                backgroundColor: 'var(--color-palette-surface-container)',
+                color: 'var(--color-palette-text-primary)'
+              } 
+            : { color: 'var(--color-palette-text-secondary)' }
+          }
+        >
+          <div className="rounded-sm flex items-center">
+            {item.icon}
+          </div>
+          <div className="font-medium text-sm">{item.title}</div>
+        </a>
+      );
+    }
+    
+    // Use Next.js Link for internal navigation
     return (
       <Link
-        href={item.url ? item.url : item.href ?? ""}
-        target={item.href ? "_blank" : undefined}
-        rel={item.href ? "noopener noreferrer" : undefined}
+        href={item.url ?? ""}
         onClick={() => {
-          if (item.href) return;
           handleNavigationScroll(pathname, item.url || DEFAULT_URL);
           scrollSidebarToSelectedItem(item.url || DEFAULT_URL); // Scroll sidebar to selected item
           onClick?.();
