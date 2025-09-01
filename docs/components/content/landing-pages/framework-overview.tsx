@@ -107,10 +107,10 @@ export function FrameworkOverview({
             </div>
           </div>
           
-          <h1 className="text-5xl font-bold mb-6 text-foreground tracking-wider leading-tight">
+          <h1 className="text-5xl font-bold mb-6 text-foreground tracking-wider leading-tight text-balance">
             {header}
           </h1>
-          <p className="text-xl text-muted-foreground mb-12 max-w-3xl mx-auto leading-relaxed">
+          <p className="text-xl text-muted-foreground mb-12 max-w-3xl mx-auto leading-relaxed text-pretty">
             {subheader}
           </p>
           

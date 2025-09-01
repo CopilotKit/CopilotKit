@@ -36,7 +36,28 @@ export default function Layout({ children }: { children: ReactNode }) {
                   selectedStyle: "ring-green-500/70 ring-2 rounded-sm",
                 },
                 {
-                  title: "Integrations",
+                  title: "Copilot Cloud",
+                  description: "Copilot Cloud",
+                  href: "https://cloud.copilotkit.ai",
+                  icon: <CloudIcon className="w-4 h-4" />,
+                  bgGradient:
+                    "bg-gradient-to-b from-blue-700 to-blue-400 text-blue-100",
+                  selectedStyle: "ring-blue-500/70 ring-2 rounded-sm",
+                },
+                {
+                  title: "API Reference",
+                  description: "API Reference",
+                  url: "/reference",
+                  icon: <TerminalIcon className="w-4 h-4" />,
+                  bgGradient:
+                    "bg-gradient-to-b from-teal-700 to-teal-400 text-teal-100",
+                  selectedStyle: "ring-teal-500/70 ring-2 rounded-sm",
+                },
+                {
+                  type: "separator",
+                },
+                {
+                  title: "Select an integration...",
                   options: [
                     {
                       title: "Direct to LLM",
@@ -140,25 +161,6 @@ export default function Layout({ children }: { children: ReactNode }) {
                       selectedStyle: "ring-indigo-500/70 ring-2 rounded-sm",
                     },
                   ],
-                },
-                {
-                  title: "Copilot Cloud",
-                  description: "Copilot Cloud",
-                  href: "https://cloud.copilotkit.ai",
-                  url: "https://cloud.copilotkit.ai",
-                  icon: <CloudIcon className="w-4 h-4" />,
-                  bgGradient:
-                    "bg-gradient-to-b from-blue-700 to-blue-400 text-blue-100",
-                  selectedStyle: "ring-blue-500/70 ring-2 rounded-sm",
-                },
-                {
-                  title: "API Reference",
-                  description: "API Reference",
-                  url: "/reference",
-                  icon: <TerminalIcon className="w-4 h-4" />,
-                  bgGradient:
-                    "bg-gradient-to-b from-teal-700 to-teal-400 text-teal-100",
-                  selectedStyle: "ring-teal-500/70 ring-2 rounded-sm",
                 },
               ]}
             />

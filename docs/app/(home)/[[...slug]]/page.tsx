@@ -34,6 +34,7 @@ const premiumFeatureTitles = [
   "Fully Headless UI",
   "Fully Headless Chat UI",
   "Observability Hooks",
+  "Error Observability Connectors",
 ]; // heuristic for pages that import premium snippets
 
 const mdxComponents = {
