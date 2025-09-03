@@ -11,6 +11,7 @@ const inter = Inter({
 });
 
 export default async function Layout({ children }: { children: ReactNode }) {
+  const REB2B_KEY = process.env.NEXT_PUBLIC_REB2B_KEY;
   return (
     <html lang="en" className={inter.className} suppressHydrationWarning>
       <head>
@@ -21,19 +22,11 @@ export default async function Layout({ children }: { children: ReactNode }) {
           async
           defer
         />
-        <Script id="reb2b-script" strategy="afterInteractive">
-          {`!function(key){
-            if (window.reb2b) return;
-            window.reb2b = { loaded: true };
-            var s = document.createElement("script");
-            s.async = true;
-            s.src = "https://b2bjsstore.s3.us-west-2.amazonaws.com/b/" + key + "/" + key + ".js.gz";
-            var firstScript = document.getElementsByTagName("script")[0];
-            if (firstScript && firstScript.parentNode) {
-              firstScript.parentNode.insertBefore(s, firstScript);
-            }
-          }("GOYPYHVD49OX");`}
-        </Script>
+        <Script
+          id="reb2b-script"
+          strategy="afterInteractive"
+          src={`https://b2bjsstore.s3.us-west-2.amazonaws.com/b/${REB2B_KEY}/${REB2B_KEY}.js.gz`}
+        />
       </head>
       <body>
         <ProvidersWrapper>
