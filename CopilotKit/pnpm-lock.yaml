@@ -598,8 +598,8 @@ importers:
         specifier: ^0.0.36
         version: 0.0.36
       '@ag-ui/langgraph':
-        specifier: ^0.0.10
-        version: 0.0.10(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)
+        specifier: ^0.0.11
+        version: 0.0.11(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)
       '@ag-ui/proto':
         specifier: ^0.0.36
         version: 0.0.36
@@ -971,8 +971,8 @@ packages:
   '@ag-ui/encoder@0.0.36':
     resolution: {integrity: sha512-p8UNh6a77G/oe/4EZmwkTeYCN/5SnqSY2Cz8f8psZpk4LKzzrPkRNykrUAIBsi1wMp50/VQiM27oTRaade/Qkw==}
 
-  '@ag-ui/langgraph@0.0.10':
-    resolution: {integrity: sha512-8Fj57z1jE5oNkIdpAVB3gelXzkzT7VWflq+4eftWwthYdBAmr083SN9PTpYIq4OEQ9YugKn1WXxjo7d1sIHkDw==}
+  '@ag-ui/langgraph@0.0.11':
+    resolution: {integrity: sha512-3xUkaOelnpQ5tbsbuoOTin71tTgWEN0GDZBjGs/7xAwly2Dn4fahbBAoscXullO/pH9kTGGgbuJ0rWDUgo6fKQ==}
 
   '@ag-ui/proto@0.0.36':
     resolution: {integrity: sha512-yaWLwJQmBaCtFstSoZEALztVckCYv+RD8guU91kL5AvywRXvZPP5mjiN+bEwvtw8VU3idXoee1ZbJGpSlSAQ8A==}
@@ -10247,7 +10247,7 @@ snapshots:
       '@ag-ui/core': 0.0.36
       '@ag-ui/proto': 0.0.36
 
-  '@ag-ui/langgraph@0.0.10(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)':
+  '@ag-ui/langgraph@0.0.11(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@ag-ui/client': 0.0.36
       '@langchain/core': 0.3.66(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))
