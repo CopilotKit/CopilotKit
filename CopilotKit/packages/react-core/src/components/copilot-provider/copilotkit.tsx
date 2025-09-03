@@ -52,6 +52,7 @@ import {
   LangGraphInterruptActionSetterArgs,
 } from "../../types/interrupt-action";
 import { ConsoleTrigger } from "../dev-console/console-trigger";
+import { CopilotErrorEvent, CopilotErrorHandler } from "@copilotkit/shared/src";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const enabled = shouldShowDevConsole(props.showDevConsole);
@@ -434,6 +435,19 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     [setAuthStates],
   );
 
+  const [internalErrorHandlers, _setInternalErrorHandler] = useState<Record<string, CopilotErrorHandler>>({})
+  const setInternalErrorHandler = useCallback((handler: Record<string, CopilotErrorHandler>) => {
+    _setInternalErrorHandler((prev: Record<string, CopilotErrorHandler>) => ({
+      ...prev,
+        ...handler,
+    }))
+  }, [])
+
+  const handleErrors = useCallback((error: CopilotErrorEvent) => {
+    props.onError?.(error)
+    Object.values(internalErrorHandlers).forEach(handler => handler(error))
+  }, [props.onError, internalErrorHandlers])
+
   return (
     <CopilotContext.Provider
       value={{
@@ -486,9 +500,11 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         langGraphInterruptAction,
         setLangGraphInterruptAction,
         removeLangGraphInterruptAction,
-        onError: props.onError,
         bannerError,
         setBannerError,
+        onError: handleErrors,
+        internalErrorHandlers,
+        setInternalErrorHandler,
       }}
     >
       <MessagesTapProvider>

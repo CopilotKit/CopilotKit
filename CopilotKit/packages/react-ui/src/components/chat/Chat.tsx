@@ -421,7 +421,7 @@ export function CopilotChat({
   RenderResultMessage,
   RenderImageMessage,
 }: CopilotChatProps) {
-  const { additionalInstructions, setChatInstructions, copilotApiConfig, setBannerError } =
+  const { additionalInstructions, setChatInstructions, copilotApiConfig, setBannerError, setInternalErrorHandler } =
     useCopilotContext();
 
   // Destructure stable values to avoid object reference changes
@@ -433,6 +433,20 @@ export function CopilotChat({
     timestamp: number;
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setInternalErrorHandler({
+      'chat-component': (error: CopilotErrorEvent) => {
+        if (!error) return;
+
+        setChatError({
+          message: error.error.message,
+          operation: undefined,
+          timestamp: error.timestamp,
+        });
+      },
+    });
+  }, []);
 
   // Helper function to trigger event hooks only if publicApiKey is provided
   const triggerObservabilityHook = useCallback(
