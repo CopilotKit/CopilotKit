@@ -307,6 +307,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
               agentName: name,
               state: updatedState,
               initialState: initialState,
+              prompt: "",
               humanEdit: "",
               aiEdit: "",
             });
@@ -318,6 +319,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
               agentName: name,
               state: {},
               initialState: initialState,
+              prompt: "",
               humanEdit: "",
               aiEdit: "",
             });

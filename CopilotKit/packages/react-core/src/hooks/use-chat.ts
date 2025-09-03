@@ -647,7 +647,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                     agentName: lastAgentStateMessage.agentName,
                     state: lastAgentStateMessage.state,
                     initialState: {},
-                    humanEdit: latestHumanEdit,
+                    prompt: latestHumanEdit,
                     aiEdit: JSON.stringify(lastAgentStateMessage.state),
                   });
                 }

@@ -70,6 +70,7 @@ export class ReinforcementLearningStateResolver {
         body: JSON.stringify({
           threadId: data.threadId,
           agentName: data.agentName,
+          prompt: data.prompt,
           humanEdit: data.humanEdit,
           aiEdit: data.aiEdit,
           initialState: data.initialState,

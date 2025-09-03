@@ -10,6 +10,9 @@ export class CommitReinforcementLearningStateInput {
   agentName: string;
 
   @Field(() => String, { nullable: true })
+  prompt?: string;
+
+  @Field(() => String, { nullable: true })
   humanEdit?: string;
 
   @Field(() => String, { nullable: true })
