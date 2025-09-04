@@ -47,11 +47,11 @@
     "zod-to-json-schema": "^3.23.5"
   },
   "dependencies": {
-    "@ag-ui/client": "^0.0.36",
-    "@ag-ui/core": "^0.0.36",
-    "@ag-ui/encoder": "^0.0.36",
+    "@ag-ui/client": "^0.0.37",
+    "@ag-ui/core": "^0.0.37",
+    "@ag-ui/encoder": "^0.0.37",
     "@ag-ui/langgraph": "^0.0.11",
-    "@ag-ui/proto": "^0.0.36",
+    "@ag-ui/proto": "^0.0.37",
     "@anthropic-ai/sdk": "^0.57.0",
     "@copilotkit/shared": "workspace:*",
     "@graphql-yoga/plugin-defer-stream": "^3.3.1",
@@ -81,7 +81,7 @@
   },
   "peerDependencies": {
     "@ag-ui/client": ">=0.0.34",
-    "@ag-ui/core": ">=0.0.36",
+    "@ag-ui/core": ">=0.0.37",
     "@ag-ui/encoder": ">=0.0.34",
     "@ag-ui/proto": ">=0.0.34"
   },
