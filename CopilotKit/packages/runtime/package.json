@@ -80,10 +80,10 @@
     "zod": "^3.23.3"
   },
   "peerDependencies": {
-    "@ag-ui/client": ">=0.0.34",
+    "@ag-ui/client": ">=0.0.37",
     "@ag-ui/core": ">=0.0.37",
-    "@ag-ui/encoder": ">=0.0.34",
-    "@ag-ui/proto": ">=0.0.34"
+    "@ag-ui/encoder": ">=0.0.37",
+    "@ag-ui/proto": ">=0.0.37"
   },
   "keywords": [
     "copilotkit",

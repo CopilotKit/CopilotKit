@@ -41,5 +41,11 @@
     "automation",
     "textarea"
   ],
-  "name": "CopilotKit"
+  "name": "CopilotKit",
+  "resolutions": {
+    "@ag-ui/client": "^0.0.37",
+    "@ag-ui/core": "^0.0.37",
+    "@ag-ui/encoder": "^0.0.37",
+    "@ag-ui/proto": "^0.0.37"
+  }
 }

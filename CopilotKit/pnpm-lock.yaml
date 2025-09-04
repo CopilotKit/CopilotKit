@@ -4,6 +4,12 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  '@ag-ui/client': ^0.0.37
+  '@ag-ui/core': ^0.0.37
+  '@ag-ui/encoder': ^0.0.37
+  '@ag-ui/proto': ^0.0.37
+
 importers:
 
   .:
@@ -962,29 +968,17 @@ packages:
       graphql:
         optional: true
 
-  '@ag-ui/client@0.0.36':
-    resolution: {integrity: sha512-1Ey2KqK9KQpRJcnJvKPfVyLiTK4+CLBQZ085oJvr6T1nznw224j0KyzXNJ7cRjXeEGnuafmXTgpU+xEbN3xuYQ==}
-
   '@ag-ui/client@0.0.37':
     resolution: {integrity: sha512-APEp+AYz9KuXW4zfAJSeTXizPpye+uOgLBODJyVmtB+eDCdFuesyGwJ5wkpSopb9zWnzpKumpYufCUSYmBXt0w==}
 
-  '@ag-ui/core@0.0.36':
-    resolution: {integrity: sha512-uYUrzw6uxuw4qVQ61mdSeiG0mFh2n/VAWmWsWzwETDuhqJZT7rFmd07IajcFWcyItMr1wjqxFDdlklucAyEYNA==}
-
   '@ag-ui/core@0.0.37':
     resolution: {integrity: sha512-7bmjPn1Ol0Zo00F+MrPr0eOwH4AFZbhmq/ZMhCsrMILtVYBiBLcLU9QFBpBL3Zm9MCHha8b79N7JE2FzwcMaVA==}
-
-  '@ag-ui/encoder@0.0.36':
-    resolution: {integrity: sha512-p8UNh6a77G/oe/4EZmwkTeYCN/5SnqSY2Cz8f8psZpk4LKzzrPkRNykrUAIBsi1wMp50/VQiM27oTRaade/Qkw==}
 
   '@ag-ui/encoder@0.0.37':
     resolution: {integrity: sha512-KD5t0ll3n1pn1ZX1xwQ1YxYZrtJjIttLEsUpj8mQgfh8+ZQ1ZSvlPSciKOQkHf7+Sw9eS6kHVDd5nOOLV1N1xw==}
 
   '@ag-ui/langgraph@0.0.11':
     resolution: {integrity: sha512-3xUkaOelnpQ5tbsbuoOTin71tTgWEN0GDZBjGs/7xAwly2Dn4fahbBAoscXullO/pH9kTGGgbuJ0rWDUgo6fKQ==}
-
-  '@ag-ui/proto@0.0.36':
-    resolution: {integrity: sha512-yaWLwJQmBaCtFstSoZEALztVckCYv+RD8guU91kL5AvywRXvZPP5mjiN+bEwvtw8VU3idXoee1ZbJGpSlSAQ8A==}
 
   '@ag-ui/proto@0.0.37':
     resolution: {integrity: sha512-x6Mzrp2//19PW+BHSHajjrGvL8qv3BDwabvW/eCDa7SaDB4L5o1ZbklSa8JX+jt6DHdb5jnvUVq9KTEDGBtMcw==}
@@ -10237,18 +10231,6 @@ snapshots:
     optionalDependencies:
       graphql: 16.9.0
 
-  '@ag-ui/client@0.0.36':
-    dependencies:
-      '@ag-ui/core': 0.0.36
-      '@ag-ui/encoder': 0.0.36
-      '@ag-ui/proto': 0.0.36
-      '@types/uuid': 10.0.0
-      fast-json-patch: 3.1.1
-      rxjs: 7.8.1
-      untruncate-json: 0.0.1
-      uuid: 11.1.0
-      zod: 3.25.76
-
   '@ag-ui/client@0.0.37':
     dependencies:
       '@ag-ui/core': 0.0.37
@@ -10261,20 +10243,10 @@ snapshots:
       uuid: 11.1.0
       zod: 3.25.76
 
-  '@ag-ui/core@0.0.36':
-    dependencies:
-      rxjs: 7.8.1
-      zod: 3.25.76
-
   '@ag-ui/core@0.0.37':
     dependencies:
       rxjs: 7.8.1
       zod: 3.25.76
-
-  '@ag-ui/encoder@0.0.36':
-    dependencies:
-      '@ag-ui/core': 0.0.36
-      '@ag-ui/proto': 0.0.36
 
   '@ag-ui/encoder@0.0.37':
     dependencies:
@@ -10283,7 +10255,7 @@ snapshots:
 
   '@ag-ui/langgraph@0.0.11(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@ag-ui/client': 0.0.36
+      '@ag-ui/client': 0.0.37
       '@langchain/core': 0.3.66(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))
       '@langchain/langgraph-sdk': 0.0.105(@langchain/core@0.3.66(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)
       partial-json: 0.1.7
@@ -10295,12 +10267,6 @@ snapshots:
       - openai
       - react
       - react-dom
-
-  '@ag-ui/proto@0.0.36':
-    dependencies:
-      '@ag-ui/core': 0.0.36
-      '@bufbuild/protobuf': 2.2.5
-      '@protobuf-ts/protoc': 2.11.1
 
   '@ag-ui/proto@0.0.37':
     dependencies:
