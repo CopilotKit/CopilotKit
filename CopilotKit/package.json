@@ -25,10 +25,10 @@
     "prettier": "^3.2.5",
     "prettier-plugin-tailwindcss": "^0.1.11",
     "ts-node": "^10.9.2",
-    "turbo": "^2.0.6",
+    "turbo": "^2.5.6",
     "typescript": "^5.2.3"
   },
-  "packageManager": "pnpm@10.13.1",
+  "packageManager": "pnpm@10.15.0",
   "keywords": [
     "copilotkit",
     "copilot",

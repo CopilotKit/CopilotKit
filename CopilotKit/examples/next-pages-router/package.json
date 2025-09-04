@@ -34,7 +34,7 @@
     "@types/react": "^18.2.5",
     "@types/react-dom": "^18.2.4",
     "postcss": "^8.4.20",
-    "autoprefixer": "^10.4.13",
+    "autoprefixer": "^10.4.21",
     "tailwind-config": "workspace:*",
     "tailwindcss": "^3.2.4",
     "eslint": "^8",

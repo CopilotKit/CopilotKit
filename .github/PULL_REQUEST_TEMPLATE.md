@@ -3,7 +3,7 @@ Thank you for sending the PR! We appreciate you spending the time to work on the
 
 Help us understand your motivation by explaining why you decided to make this change.
 
-You can learn more about contributing to appwrite here: https://github.com/copilotkit/copilotkit/blob/master/CONTRIBUTING.md
+You can learn more about contributing to CopilotKit here: https://github.com/copilotkit/copilotkit/blob/main/CONTRIBUTING.md
 
 Happy contributing!
 
@@ -19,5 +19,5 @@ Happy contributing!
 
 ## Checklist
 
-- [ ] I have read the [Contribution Guide](https://github.com/copilotkit/copilotkit/blob/master/CONTRIBUTING.md)
+- [ ] I have read the [Contribution Guide](https://github.com/copilotkit/copilotkit/blob/main/CONTRIBUTING.md)
 - [ ] If the PR changes or adds functionality, I have updated the relevant documentation
