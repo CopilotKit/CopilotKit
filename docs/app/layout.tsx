@@ -11,6 +11,7 @@ const inter = Inter({
 });
 
 export default async function Layout({ children }: { children: ReactNode }) {
+  const REB2B_KEY = process.env.NEXT_PUBLIC_REB2B_KEY;
   return (
     <html lang="en" className={inter.className} suppressHydrationWarning>
       <head>
@@ -20,6 +21,11 @@ export default async function Layout({ children }: { children: ReactNode }) {
           src="https://js.hs-scripts.com/45532593.js"
           async
           defer
+        />
+        <Script
+          id="reb2b-script"
+          strategy="afterInteractive"
+          src={`https://b2bjsstore.s3.us-west-2.amazonaws.com/b/${REB2B_KEY}/${REB2B_KEY}.js.gz`}
         />
       </head>
       <body>
