@@ -269,13 +269,33 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     };
   }, [copilotApiConfig.headers, copilotApiConfig.publicApiKey, authStates]);
 
+  const [internalErrorHandlers, _setInternalErrorHandler] = useState<
+    Record<string, CopilotErrorHandler>
+  >({});
+  const setInternalErrorHandler = useCallback((handler: Record<string, CopilotErrorHandler>) => {
+    _setInternalErrorHandler((prev: Record<string, CopilotErrorHandler>) => ({
+      ...prev,
+      ...handler,
+    }));
+  }, []);
+
+  const handleErrors = useCallback(
+    (error: CopilotErrorEvent) => {
+      if (copilotApiConfig.publicApiKey) {
+        props.onError?.(error);
+      }
+      Object.values(internalErrorHandlers).forEach((handler) => handler(error));
+    },
+    [props.onError, copilotApiConfig.publicApiKey, internalErrorHandlers],
+  );
+
   const runtimeClient = useCopilotRuntimeClient({
     url: copilotApiConfig.chatApiEndpoint,
     publicApiKey: publicApiKey,
     headers,
     credentials: copilotApiConfig.credentials,
     showDevConsole: shouldShowDevConsole(props.showDevConsole),
-    onError: props.onError,
+    onError: handleErrors,
   });
 
   const [chatSuggestionConfiguration, setChatSuggestionConfiguration] = useState<{
@@ -434,19 +454,6 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     },
     [setAuthStates],
   );
-
-  const [internalErrorHandlers, _setInternalErrorHandler] = useState<Record<string, CopilotErrorHandler>>({})
-  const setInternalErrorHandler = useCallback((handler: Record<string, CopilotErrorHandler>) => {
-    _setInternalErrorHandler((prev: Record<string, CopilotErrorHandler>) => ({
-      ...prev,
-        ...handler,
-    }))
-  }, [])
-
-  const handleErrors = useCallback((error: CopilotErrorEvent) => {
-    props.onError?.(error)
-    Object.values(internalErrorHandlers).forEach(handler => handler(error))
-  }, [props.onError, internalErrorHandlers])
 
   return (
     <CopilotContext.Provider

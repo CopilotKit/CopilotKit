@@ -73,6 +73,7 @@ import { Input as DefaultInput } from "./Input";
 import { RenderMessage as DefaultRenderMessage } from "./messages/RenderMessage";
 import { AssistantMessage as DefaultAssistantMessage } from "./messages/AssistantMessage";
 import { UserMessage as DefaultUserMessage } from "./messages/UserMessage";
+import { ErrorMessage as DefaultErrorMessage } from "./messages/ErrorMessage";
 import { ImageRenderer as DefaultImageRenderer } from "./messages/ImageRenderer";
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import {
@@ -90,12 +91,15 @@ import {
   Severity,
   ErrorVisibility,
   styledConsole,
+  CopilotErrorHandler,
 } from "@copilotkit/shared";
 import { randomId } from "@copilotkit/shared";
 import {
   AssistantMessageProps,
+  ChatError,
   ComponentsMap,
   CopilotObservabilityHooks,
+  ErrorMessageProps,
   ImageRendererProps,
   InputProps,
   MessagesProps,
@@ -241,6 +245,11 @@ export interface CopilotChatProps {
   UserMessage?: React.ComponentType<UserMessageProps>;
 
   /**
+   * A custom error message component to use instead of the default.
+   */
+  ErrorMessage?: React.ComponentType<ErrorMessageProps>;
+
+  /**
    * A custom Messages component to use instead of the default.
    */
   Messages?: React.ComponentType<MessagesProps>;
@@ -324,6 +333,11 @@ export interface CopilotChatProps {
     onDismiss: () => void;
     onRetry?: () => void;
   }) => React.ReactNode;
+
+  /**
+   * Optional handler for comprehensive debugging and observability.
+   */
+  onError: CopilotErrorHandler;
 }
 
 interface OnStopGenerationArguments {
@@ -408,12 +422,13 @@ export function CopilotChat({
   AssistantMessage = DefaultAssistantMessage,
   UserMessage = DefaultUserMessage,
   ImageRenderer = DefaultImageRenderer,
+  ErrorMessage = DefaultErrorMessage,
   imageUploadsEnabled,
   inputFileAccept = "image/*",
   hideStopButton,
   observabilityHooks,
   renderError,
-
+  onError,
   // Legacy props - deprecated
   RenderTextMessage,
   RenderActionExecutionMessage,
@@ -421,32 +436,19 @@ export function CopilotChat({
   RenderResultMessage,
   RenderImageMessage,
 }: CopilotChatProps) {
-  const { additionalInstructions, setChatInstructions, copilotApiConfig, setBannerError, setInternalErrorHandler } =
-    useCopilotContext();
+  const {
+    additionalInstructions,
+    setChatInstructions,
+    copilotApiConfig,
+    setBannerError,
+    setInternalErrorHandler,
+  } = useCopilotContext();
 
   // Destructure stable values to avoid object reference changes
   const { publicApiKey, chatApiEndpoint } = copilotApiConfig;
   const [selectedImages, setSelectedImages] = useState<Array<ImageUpload>>([]);
-  const [chatError, setChatError] = useState<{
-    message: string;
-    operation?: string;
-    timestamp: number;
-  } | null>(null);
+  const [chatError, setChatError] = useState<ChatError | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setInternalErrorHandler({
-      'chat-component': (error: CopilotErrorEvent) => {
-        if (!error) return;
-
-        setChatError({
-          message: error.error.message,
-          operation: undefined,
-          timestamp: error.timestamp,
-        });
-      },
-    });
-  }, []);
 
   // Helper function to trigger event hooks only if publicApiKey is provided
   const triggerObservabilityHook = useCallback(
@@ -481,8 +483,7 @@ export function CopilotChat({
         timestamp: Date.now(),
       });
 
-      // Also trigger observability hook if available
-      if (publicApiKey && observabilityHooks?.onError) {
+      if (publicApiKey) {
         const errorEvent: CopilotErrorEvent = {
           type: "error",
           timestamp: Date.now(),
@@ -501,7 +502,15 @@ export function CopilotChat({
           },
           error,
         };
-        observabilityHooks.onError(errorEvent);
+        // Also trigger observability hook if available
+        if (observabilityHooks?.onError) {
+          observabilityHooks.onError(errorEvent);
+        }
+
+        // Also trigger component level "onError" if available
+        if (onError) {
+          onError(errorEvent);
+        }
       }
 
       // Show banner error if onError hook is used without publicApiKey
@@ -519,6 +528,16 @@ export function CopilotChat({
     },
     [publicApiKey, chatApiEndpoint, observabilityHooks, setBannerError],
   );
+
+  useEffect(() => {
+    setInternalErrorHandler({
+      "chat-component": (error: CopilotErrorEvent) => {
+        if (!error) return;
+
+        triggerChatError(error.error, "sendMessage");
+      },
+    });
+  }, [triggerChatError]);
 
   // Clipboard paste handler
   useEffect(() => {
@@ -745,6 +764,8 @@ export function CopilotChat({
         onThumbsDown={handleThumbsDown}
         markdownTagRenderers={markdownTagRenderers}
         ImageRenderer={ImageRenderer}
+        ErrorMessage={ErrorMessage}
+        chatError={chatError}
         // Legacy props - passed through to Messages component
         RenderTextMessage={RenderTextMessage}
         RenderActionExecutionMessage={RenderActionExecutionMessage}

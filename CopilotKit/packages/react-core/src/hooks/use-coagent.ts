@@ -210,7 +210,7 @@ export type HintFunction = (params: HintFunctionParams) => Message | undefined;
  */
 export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentReturnType<T> {
   const context = useCopilotContext();
-  const { availableAgents } = context;
+  const { availableAgents, onError } = context;
   const { setBannerError } = useToast();
   const lastLoadedThreadId = useRef<string>();
   const lastLoadedState = useRef<any>();
@@ -245,6 +245,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     headers,
     credentials: copilotApiConfig.credentials,
     showDevConsole: context.showDevConsole,
+    onError,
   });
 
   // if we manage state internally, we need to provide a function to set the state
