@@ -1,5 +1,12 @@
 # @copilotkit/shared
 
+## 1.10.4-next.1
+
+### Patch Changes
+
+- a640d8e: - feat: update latest agui langgraph for subgraphs support
+  - feat: update latest agui core packages
+
 ## 1.10.4-next.0
 
 ## 1.10.3
