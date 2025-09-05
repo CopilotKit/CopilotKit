@@ -484,34 +484,32 @@ export function CopilotChat({
         timestamp: Date.now(),
       });
 
-      if (publicApiKey) {
-        const errorEvent: CopilotErrorEvent = {
-          type: "error",
-          timestamp: Date.now(),
-          context: {
-            source: "ui",
-            request: {
-              operation,
-              url: chatApiEndpoint,
-              startTime: Date.now(),
-            },
-            technical: {
-              environment: "browser",
-              userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
-              stackTrace: originalError instanceof Error ? originalError.stack : undefined,
-            },
+      const errorEvent: CopilotErrorEvent = {
+        type: "error",
+        timestamp: Date.now(),
+        context: {
+          source: "ui",
+          request: {
+            operation,
+            url: chatApiEndpoint,
+            startTime: Date.now(),
           },
-          error,
-        };
-        // Also trigger observability hook if available
-        if (observabilityHooks?.onError) {
-          observabilityHooks.onError(errorEvent);
-        }
+          technical: {
+            environment: "browser",
+            userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+            stackTrace: originalError instanceof Error ? originalError.stack : undefined,
+          },
+        },
+        error,
+      };
 
-        // Also trigger component level "onError" if available
-        if (onError) {
-          onError(errorEvent);
-        }
+      if (onError) {
+        onError(errorEvent);
+      }
+
+      // Also trigger observability hook if available
+      if (publicApiKey && observabilityHooks?.onError) {
+        observabilityHooks.onError(errorEvent);
       }
 
       // Show banner error if onError hook is used without publicApiKey
