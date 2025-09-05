@@ -238,6 +238,7 @@ export interface CopilotContextParams {
   // They are not intended for use by the developer. A component can register itself an error listener to be activated somewhere else as needed
   internalErrorHandlers: Record<string, CopilotErrorHandler>;
   setInternalErrorHandler: (handler: Record<string, CopilotErrorHandler>) => void;
+  removeInternalErrorHandler: (id: string) => void;
 }
 
 const emptyCopilotContext: CopilotContextParams = {
@@ -313,6 +314,7 @@ const emptyCopilotContext: CopilotContextParams = {
   setBannerError: () => {},
   internalErrorHandlers: {},
   setInternalErrorHandler: () => {},
+  removeInternalErrorHandler: () => {},
 };
 
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);

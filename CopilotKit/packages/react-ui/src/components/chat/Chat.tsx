@@ -442,6 +442,7 @@ export function CopilotChat({
     copilotApiConfig,
     setBannerError,
     setInternalErrorHandler,
+    removeInternalErrorHandler,
   } = useCopilotContext();
 
   // Destructure stable values to avoid object reference changes
@@ -530,14 +531,18 @@ export function CopilotChat({
   );
 
   useEffect(() => {
+    const id = "chat-component";
     setInternalErrorHandler({
-      "chat-component": (error: CopilotErrorEvent) => {
+      [id]: (error: CopilotErrorEvent) => {
         if (!error) return;
-
         triggerChatError(error.error, "sendMessage");
       },
     });
-  }, [triggerChatError]);
+    return () => {
+      // unregister when this instance unmounts
+      removeInternalErrorHandler?.(id);
+    };
+  }, [triggerChatError, setInternalErrorHandler, removeInternalErrorHandler]);
 
   // Clipboard paste handler
   useEffect(() => {
