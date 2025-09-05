@@ -34,6 +34,8 @@ import {
   ConfigurationError,
   MissingPublicApiKeyError,
   CopilotKitError,
+  CopilotErrorEvent,
+  CopilotErrorHandler
 } from "@copilotkit/shared";
 import { FrontendAction } from "../../types/frontend-action";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
@@ -52,7 +54,6 @@ import {
   LangGraphInterruptActionSetterArgs,
 } from "../../types/interrupt-action";
 import { ConsoleTrigger } from "../dev-console/console-trigger";
-import { CopilotErrorEvent, CopilotErrorHandler } from "@copilotkit/shared/src";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const enabled = shouldShowDevConsole(props.showDevConsole);
