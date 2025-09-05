@@ -4,12 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-overrides:
-  '@ag-ui/client': ^0.0.37
-  '@ag-ui/core': ^0.0.37
-  '@ag-ui/encoder': ^0.0.37
-  '@ag-ui/proto': ^0.0.37
-
 importers:
 
   .:
@@ -604,8 +598,8 @@ importers:
         specifier: ^0.0.37
         version: 0.0.37
       '@ag-ui/langgraph':
-        specifier: ^0.0.11
-        version: 0.0.11(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)
+        specifier: ^0.0.12
+        version: 0.0.12(@ag-ui/client@0.0.37)(@ag-ui/core@0.0.37)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)
       '@ag-ui/proto':
         specifier: ^0.0.37
         version: 0.0.37
@@ -977,8 +971,11 @@ packages:
   '@ag-ui/encoder@0.0.37':
     resolution: {integrity: sha512-KD5t0ll3n1pn1ZX1xwQ1YxYZrtJjIttLEsUpj8mQgfh8+ZQ1ZSvlPSciKOQkHf7+Sw9eS6kHVDd5nOOLV1N1xw==}
 
-  '@ag-ui/langgraph@0.0.11':
-    resolution: {integrity: sha512-3xUkaOelnpQ5tbsbuoOTin71tTgWEN0GDZBjGs/7xAwly2Dn4fahbBAoscXullO/pH9kTGGgbuJ0rWDUgo6fKQ==}
+  '@ag-ui/langgraph@0.0.12':
+    resolution: {integrity: sha512-2j7IqIUYh0WAdvCXH65hd5aSHi23EOKVo78BauXa2vZI8Pricpkq9Adr2coZB2cwCbTV37lMn5yVlpDV0iQvOA==}
+    peerDependencies:
+      '@ag-ui/client': '>=0.0.37'
+      '@ag-ui/core': '>=0.0.37'
 
   '@ag-ui/proto@0.0.37':
     resolution: {integrity: sha512-x6Mzrp2//19PW+BHSHajjrGvL8qv3BDwabvW/eCDa7SaDB4L5o1ZbklSa8JX+jt6DHdb5jnvUVq9KTEDGBtMcw==}
@@ -10253,9 +10250,10 @@ snapshots:
       '@ag-ui/core': 0.0.37
       '@ag-ui/proto': 0.0.37
 
-  '@ag-ui/langgraph@0.0.11(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)':
+  '@ag-ui/langgraph@0.0.12(@ag-ui/client@0.0.37)(@ag-ui/core@0.0.37)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@ag-ui/client': 0.0.37
+      '@ag-ui/core': 0.0.37
       '@langchain/core': 0.3.66(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))
       '@langchain/langgraph-sdk': 0.0.105(@langchain/core@0.3.66(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)
       partial-json: 0.1.7
