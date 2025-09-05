@@ -1,5 +1,14 @@
 # ui
 
+## 1.10.4-next.2
+
+### Patch Changes
+
+- ef98963: - feat: add platform-wide error surfacing for custom error rendering
+  - feat: add error as a message option and a component level onError
+  - @copilotkit/runtime-client-gql@1.10.4-next.2
+  - @copilotkit/shared@1.10.4-next.2
+
 ## 1.10.4-next.1
 
 ### Patch Changes

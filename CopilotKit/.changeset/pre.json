@@ -18,6 +18,7 @@
     "tsconfig": "1.4.6"
   },
   "changesets": [
+    "cuddly-readers-agree",
     "mean-ducks-cheat",
     "two-bananas-cover"
   ]
