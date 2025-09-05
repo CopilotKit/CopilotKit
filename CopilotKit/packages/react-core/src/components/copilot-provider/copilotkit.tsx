@@ -279,15 +279,20 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     }));
   }, []);
 
-  const handleErrors = useCallback(
-    (error: CopilotErrorEvent) => {
-      if (copilotApiConfig.publicApiKey) {
-        props.onError?.(error);
-      }
-      Object.values(internalErrorHandlers).forEach((handler) => handler(error));
-    },
-    [props.onError, copilotApiConfig.publicApiKey, internalErrorHandlers],
-  );
+  // Keep latest values in refs
+  const onErrorRef = useRef<CopilotErrorHandler | undefined>(props.onError);
+  useEffect(() => { onErrorRef.current = props.onError; }, [props.onError]);
+
+  const internalHandlersRef = useRef<Record<string, CopilotErrorHandler>>({});
+  useEffect(() => { internalHandlersRef.current = internalErrorHandlers; }, [internalErrorHandlers]);
+
+  const handleErrors = useCallback(async (error: CopilotErrorEvent) => {
+    if (copilotApiConfig.publicApiKey && onErrorRef.current) {
+      try { await onErrorRef.current(error); } catch (e) { console.error("Error in public onError handler:", e); }
+    }
+    const handlers = Object.values(internalHandlersRef.current);
+    await Promise.all(handlers.map(h => Promise.resolve(h(error)).catch(e => console.error("Error in internal error handler:", e))));
+  }, [copilotApiConfig.publicApiKey]);
 
   const runtimeClient = useCopilotRuntimeClient({
     url: copilotApiConfig.chatApiEndpoint,
