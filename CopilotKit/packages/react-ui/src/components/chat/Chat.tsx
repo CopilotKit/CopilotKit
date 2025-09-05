@@ -337,7 +337,7 @@ export interface CopilotChatProps {
   /**
    * Optional handler for comprehensive debugging and observability.
    */
-  onError: CopilotErrorHandler;
+  onError?: CopilotErrorHandler;
 }
 
 interface OnStopGenerationArguments {
