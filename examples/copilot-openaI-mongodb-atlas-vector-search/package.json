@@ -19,7 +19,7 @@
     "axios": "^1.7.9",
     "lucide-react": "^0.475.0",
     "mongodb": "^6.13.0",
-    "next": "15.1.7",
+    "next": "15.4.2",
     "product-knowledge-base": "file:",
     "react": "^19",
     "react-dom": "^19"
