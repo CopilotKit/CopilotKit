@@ -1,5 +1,19 @@
 # ui
 
+## 1.10.4
+
+### Patch Changes
+
+- ef98963: - feat: add platform-wide error surfacing for custom error rendering
+  - feat: add error as a message option and a component level onError
+- 5d55555: - fix: remove default error message
+- Updated dependencies [ef98963]
+- Updated dependencies [a640d8e]
+- Updated dependencies [052d54d]
+  - @copilotkit/react-core@1.10.4
+  - @copilotkit/shared@1.10.4
+  - @copilotkit/runtime-client-gql@1.10.4
+
 ## 1.10.4-next.3
 
 ### Patch Changes

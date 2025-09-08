@@ -1,5 +1,16 @@
 # ui
 
+## 1.10.4
+
+### Patch Changes
+
+- ef98963: - feat: add platform-wide error surfacing for custom error rendering
+  - feat: add error as a message option and a component level onError
+- 052d54d: - fix: enable erasing chat state on new thread creation
+- Updated dependencies [a640d8e]
+  - @copilotkit/shared@1.10.4
+  - @copilotkit/runtime-client-gql@1.10.4
+
 ## 1.10.4-next.3
 
 ### Patch Changes
