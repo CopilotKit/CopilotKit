@@ -85,7 +85,7 @@ export interface MessagesProps {
   chatError?: ChatError | null;
   AssistantMessage: React.ComponentType<AssistantMessageProps>;
   UserMessage: React.ComponentType<UserMessageProps>;
-  ErrorMessage: React.ComponentType<ErrorMessageProps>;
+  ErrorMessage?: React.ComponentType<ErrorMessageProps>;
   RenderMessage: React.ComponentType<RenderMessageProps>;
   ImageRenderer: React.ComponentType<ImageRendererProps>;
 
