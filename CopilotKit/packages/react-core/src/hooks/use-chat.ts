@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { flushSync } from "react-dom";
 import {
   FunctionCallHandler,
@@ -231,7 +231,11 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   const { setBannerError } = useToast();
 
   // Get onError from context since it's not part of copilotConfig
-  const { onError } = useCopilotContext();
+  const {
+    onError,
+    showDevConsole,
+    getAllContext,
+  } = useCopilotContext();
 
   // Add tracing functionality to use-chat
   const traceUIError = async (error: CopilotKitError, originalError?: any) => {
@@ -277,8 +281,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     ...(copilotConfig.headers || {}),
     ...(publicApiKey ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicApiKey } : {}),
   };
-
-  const { showDevConsole } = useCopilotContext();
 
   const runtimeClient = useCopilotRuntimeClient({
     url: copilotConfig.chatApiEndpoint,
@@ -361,6 +363,17 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
       // -------------------------------------------------------------
 
       const isAgentRun = agentSessionRef.current !== null;
+      const copilotReadableContext = getAllContext()
+
+      const context = useMemo(() => (
+        copilotReadableContext.map((contextItem) => {
+          const [description, ...valueParts] = contextItem.value.split(":");
+          return {
+            description: description.trim(),
+            value: valueParts.join(":").trim(),
+          };
+        })
+      ), [copilotReadableContext]);
 
       const stream = runtimeClient.asStream(
         runtimeClient.generateCopilotResponse({
@@ -413,6 +426,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               return stateObject;
             }),
             forwardedParameters: options.forwardedParameters || {},
+            context,
           },
           properties: finalProperties,
           signal: chatAbortControllerRef.current?.signal,
