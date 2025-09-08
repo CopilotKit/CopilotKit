@@ -36,23 +36,40 @@ add_fastapi_endpoint(app, sdk, "/copilotkit")
 To migrate, you'll need to import the new endpoint initializer and agent classes.
 Everything else (mainly your graph) stays the same.
 
-```
-from fastapi import FastAPI
-from copilotkit import LangGraphAGUIAgent
-from ag_ui_langgraph import add_langgraph_fastapi_endpoint
-from .agent import graph
+<Steps>
+    <Step>
+        ### First, migrate your FastAPI endpoint to use the new agent class
+        ```python
+        from fastapi import FastAPI
+        from copilotkit import LangGraphAGUIAgent
+        from ag_ui_langgraph import add_langgraph_fastapi_endpoint
+        from .agent import graph
 
-app = FastAPI()
-add_langgraph_fastapi_endpoint(
-    app=app,
-    agent=LangGraphAGUIAgent(
-        name="sample_agent",
-        description="A demo of LangGraph subgraphs using a Game Character Creator.",
-        graph=graph,
-    ),
-    path="/agent/sample_agent" <-- Your agent will be available at this path. You may assign it to "/" if you want it to be the root path.
-)
-```
+        app = FastAPI()
+        add_langgraph_fastapi_endpoint(
+            app=app,
+            agent=LangGraphAGUIAgent(
+                name="sample_agent",
+                description="A demo of LangGraph subgraphs using a Game Character Creator.",
+                graph=graph,
+            ),
+            path="/agent/sample_agent" <-- Your agent will be available at this path. You may assign it to "/" if you want it to be the root path.
+        )
+        ```
+    </Step>
+    <Step>
+        ### Then, in your `CopilotRuntime` instantiation, use the new `LangGraphHttpAgent`
+        ```typescript
+        let runtime = new CopilotRuntime({
+            agents: {
+                'sample_agent': new LangGraphHttpAgent({
+                    url: "http://localhost:8000/agent/sample_agent",
+                }),
+            }
+        })
+        ```
+    </Step>
+</Steps>
 
 <Accordions>
     <Accordion title="What about the LangGraph config parameter which was used to configure the agent?">
