@@ -231,11 +231,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   const { setBannerError } = useToast();
 
   // Get onError from context since it's not part of copilotConfig
-  const {
-    onError,
-    showDevConsole,
-    getAllContext,
-  } = useCopilotContext();
+  const { onError, showDevConsole, getAllContext } = useCopilotContext();
 
   // Add tracing functionality to use-chat
   const traceUIError = async (error: CopilotKitError, originalError?: any) => {
@@ -363,17 +359,19 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
       // -------------------------------------------------------------
 
       const isAgentRun = agentSessionRef.current !== null;
-      const copilotReadableContext = getAllContext()
+      const copilotReadableContext = getAllContext();
 
-      const context = useMemo(() => (
-        copilotReadableContext.map((contextItem) => {
-          const [description, ...valueParts] = contextItem.value.split(":");
-          return {
-            description: description.trim(),
-            value: valueParts.join(":").trim(),
-          };
-        })
-      ), [copilotReadableContext]);
+      const context = useMemo(
+        () =>
+          copilotReadableContext.map((contextItem) => {
+            const [description, ...valueParts] = contextItem.value.split(":");
+            return {
+              description: description.trim(),
+              value: valueParts.join(":").trim(),
+            };
+          }),
+        [copilotReadableContext],
+      );
 
       const stream = runtimeClient.asStream(
         runtimeClient.generateCopilotResponse({
