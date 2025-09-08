@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.10.0-next.1",
+  "version": "1.10.4-next.3",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -42,6 +42,7 @@
     "unlink:global": "pnpm unlink --global"
   },
   "devDependencies": {
+    "@langchain/langgraph": "^0.4.5",
     "@swc/core": "1.5.28",
     "@types/express": "^4.17.21",
     "@types/jest": "^29.5.4",
@@ -59,12 +60,15 @@
     "zod-to-json-schema": "^3.23.5"
   },
   "dependencies": {
-    "@copilotkit/shared": "workspace:*",
+    "@copilotkit/shared": "workspace:*"
+  },
+  "peerDependencies": {
     "@langchain/community": "^0.0.53",
-    "@langchain/core": "^0.3.13",
-    "@langchain/langgraph": "0.2.44",
+    "@langchain/core": "^0.3.13 || ^0.4.0",
+    "@langchain/langgraph": "^0.2.44 || ^0.3.0 || ^0.4.0",
     "langchain": "^0.3.3",
-    "zod": "^3.23.3"
+    "typescript": "^5.2.3",
+    "zod": "^3.23.3 || ^3.24.0 || ^3.25.0"
   },
   "keywords": [
     "copilotkit",

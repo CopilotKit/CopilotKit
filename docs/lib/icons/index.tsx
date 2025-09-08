@@ -26,7 +26,7 @@ export function icon(icon: any) {
   }
 
   return (
-    <div className="border border-fd-primary/10 rounded-md p-1.5 bg-gradient-to-b from-fd-muted/40 to-fd-muted/80 text-primary">
+    <div key={icon} className="text-primary">
       {iconElement}
     </div>
   );

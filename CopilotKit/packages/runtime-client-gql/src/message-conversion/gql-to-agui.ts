@@ -51,59 +51,100 @@ export function gqlToAGUI(
   return aguiMessages;
 }
 
-function gqlActionExecutionMessageToAGUIMessage(
+export function gqlActionExecutionMessageToAGUIMessage(
   message: gql.ActionExecutionMessage,
   actions?: Record<string, any>,
   actionResults?: Map<string, string>,
 ): agui.Message {
-  if (actions && Object.values(actions).some((action: any) => action.name === message.name)) {
-    const action = Object.values(actions).find((action: any) => action.name === message.name);
+  // Check if we have actions and if there's a specific action or wild card action
+  const hasSpecificAction =
+    actions && Object.values(actions).some((action: any) => action.name === message.name);
+  const hasWildcardAction =
+    actions && Object.values(actions).some((action: any) => action.name === "*");
 
-    // Create render function wrapper that provides proper props
-    const createRenderWrapper = (originalRender: any) => {
-      if (!originalRender) return undefined;
-
-      return (props?: any) => {
-        // Determine the correct status based on the same logic as RenderActionExecutionMessage
-        const actionResult = actionResults?.get(message.id);
-        let status: "inProgress" | "executing" | "complete" = "inProgress";
-
-        if (actionResult !== undefined) {
-          status = "complete";
-        } else if (message.status?.code !== MessageStatusCode.Pending) {
-          status = "executing";
-        }
-
-        // Provide the full props structure that the render function expects
-        const renderProps = {
-          status: props?.status || status,
-          args: message.arguments || {},
-          result: props?.result || actionResult || undefined,
-          respond: props?.respond || (() => {}),
-          messageId: message.id,
-          ...props,
-        };
-
-        return originalRender(renderProps);
-      };
-    };
-
+  if (!actions || (!hasSpecificAction && !hasWildcardAction)) {
     return {
       id: message.id,
       role: "assistant",
-      content: "",
       toolCalls: [actionExecutionMessageToAGUIMessage(message)],
-      generativeUI: createRenderWrapper(action.render),
       name: message.name,
-    } as agui.AIMessage;
+    };
   }
+
+  // Find the specific action first, then fall back to wild card action
+  const action =
+    Object.values(actions).find((action: any) => action.name === message.name) ||
+    Object.values(actions).find((action: any) => action.name === "*");
+
+  // Create render function wrapper that provides proper props
+  const createRenderWrapper = (originalRender: any) => {
+    if (!originalRender) return undefined;
+
+    return (props?: any) => {
+      // Determine the correct status based on the same logic as RenderActionExecutionMessage
+      let actionResult: any = actionResults?.get(message.id);
+      let status: "inProgress" | "executing" | "complete" = "inProgress";
+
+      if (actionResult !== undefined) {
+        status = "complete";
+      } else if (message.status?.code !== MessageStatusCode.Pending) {
+        status = "executing";
+      }
+
+      // if props.result is a string, parse it as JSON but don't throw an error if it's not valid JSON
+      if (typeof props?.result === "string") {
+        try {
+          props.result = JSON.parse(props.result);
+        } catch (e) {
+          /* do nothing */
+        }
+      }
+
+      // if actionResult is a string, parse it as JSON but don't throw an error if it's not valid JSON
+      if (typeof actionResult === "string") {
+        try {
+          actionResult = JSON.parse(actionResult);
+        } catch (e) {
+          /* do nothing */
+        }
+      }
+
+      // Base props that all actions receive
+      const baseProps = {
+        status: props?.status || status,
+        args: message.arguments || {},
+        result: props?.result || actionResult || undefined,
+        messageId: message.id,
+      };
+
+      // Add properties based on action type
+      if (action.name === "*") {
+        // Wildcard actions get the tool name; ensure it cannot be overridden by incoming props
+        return originalRender({
+          ...baseProps,
+          ...props,
+          name: message.name,
+        });
+      } else {
+        // Regular actions get respond (defaulting to a no-op if not provided)
+        const respond = props?.respond ?? (() => {});
+        return originalRender({
+          ...baseProps,
+          ...props,
+          respond,
+        });
+      }
+    };
+  };
 
   return {
     id: message.id,
     role: "assistant",
+    content: "",
     toolCalls: [actionExecutionMessageToAGUIMessage(message)],
+    generativeUI: createRenderWrapper(action.render),
     name: message.name,
-  };
+  } as agui.AIMessage;
 }
 
 function gqlAgentStateMessageToAGUIMessage(

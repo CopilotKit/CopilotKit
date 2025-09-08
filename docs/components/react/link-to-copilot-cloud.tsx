@@ -24,21 +24,27 @@ export function LinkToCopilotCloud({
     setIsClient(true);
   }, []);
 
-  if (!isClient) {
-    return null;
-  }
-  const url = new URL(`https://go.copilotkit.ai/copilot-cloud-button-docs`);
-  url.searchParams.set("ref", "docs");
-
-  const sessionId = posthog.get_session_id();
-
-  if (sessionId) {
-    url.searchParams.set("session_id", sessionId);
-  }
+  // Build base URL without PostHog session ID to avoid hydration issues
+  const baseUrl = new URL(`https://go.copilotkit.ai/copilot-cloud-button-docs`);
+  baseUrl.searchParams.set("ref", "docs");
 
   if (subPath) {
-    url.pathname += subPath;
+    baseUrl.pathname += subPath;
   }
+
+  // Only add PostHog session ID on client side after hydration
+  const [href, setHref] = useState(baseUrl.toString());
+
+  useEffect(() => {
+    if (isClient) {
+      const sessionId = posthog.get_session_id();
+      if (sessionId) {
+        const url = new URL(baseUrl.toString());
+        url.searchParams.set("session_id", sessionId);
+        setHref(url.toString());
+      }
+    }
+  }, [isClient, baseUrl.toString()]);
 
   let cn = `${className}`;
 
@@ -51,13 +57,13 @@ export function LinkToCopilotCloud({
 
   return (
     <Link
-      href={url.toString()}
+      href={href}
       target="_blank"
       className={cn}
     >
       {asButton ? <CloudIcon className="w-5 h-5 mr-2" /> : null}
       {
-        children ? children : "CopilotKit Platform"
+        children ? children : "Copilot Cloud"
       }
     </Link>
   );

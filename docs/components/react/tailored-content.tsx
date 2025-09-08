@@ -80,9 +80,13 @@ export function TailoredContent({ children, className, defaultOptionIndex = 0, i
               tabIndex={0}
             >
               <div className="my-0">
-                {React.cloneElement(option.props.icon as React.ReactElement, {
-                  className: cn(iconCn, selectedIndex === index, "my-0"),
-                })}
+                {React.isValidElement(option.props.icon)
+                  ? React.cloneElement(option.props.icon as React.ReactElement, {
+                      className: cn(iconCn, selectedIndex === index, "my-0"),
+                    })
+                  : (
+                      <span className={cn(iconCn, "my-0")} />
+                    )}
               </div>
               <div>
                 <p className="font-semibold text-lg">{option.props.title}</p>

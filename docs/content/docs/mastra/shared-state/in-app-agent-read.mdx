@@ -1,0 +1,155 @@
+---
+title: Reading agent state
+icon: "lucide/ArrowLeft"
+description: Read the realtime agent state in your native application.
+---
+import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
+
+<Frame>
+  <ImageZoom src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/read-agent-state.png" alt="read agent state" width={1000} height={1000} className="my-0"/>
+</Frame>
+
+<Callout type="info">
+  Pictured above is the [mastra starter](https://github.com/copilotkit/with-mastra) with
+  the [implementation](#implementation) section applied!
+</Callout>
+
+## What is this?
+
+You can easily use the realtime agent state not only in the chat UI, but also in the native application UX.
+
+## When should I use this?
+
+You can use this when you want to provide the user with feedback about what your working memory. As your agent's 
+state update you can reflect these updates natively in your application.
+
+## Implementation
+
+<Steps>
+  <Step>
+    ### Run and Connect Your Agent to CopilotKit
+
+    You'll need to run your agent and connect it to CopilotKit before proceeding.
+
+    #### I already have an agent
+
+    You can follow the instructions in the [quickstart](/mastra/quickstart) guide.
+    
+    #### I want to start from scratch
+
+    Run the following command to create a brand new project with a pre-configured agent:
+
+    ```bash
+    npx copilotkit@latest create -f mastra
+    ```
+  </Step>
+  <Step>
+    ### Define the Agent State
+    Mastra has advanced [working memory concepts](https://mastra.ai/en/docs/memory/working-memory) to provide statefulness to your agents. CopilotKit leverages Mastra's working memory concept to allow you to
+    implement shared state between your agent and your application.
+
+    Providing working memory to your agent is as simple as providing a Zod schema to your agent.
+
+    ```ts title="mastra/agents/language-agent.ts"
+    import { openai } from "@ai-sdk/openai";
+    import { Agent } from "@mastra/core/agent";
+    import { LibSQLStore } from "@mastra/libsql";
+    import { z } from "zod";
+    import { Memory } from "@mastra/memory";
+
+    // [!code highlight:5]
+    // 1. Define the agent state schema
+    export const AgentStateSchema = z.object({
+      language: z.enum(["english", "spanish"]),
+    });
+
+    // 2. Infer the agent state type from the schema
+    export const AgentState = z.infer<typeof AgentStateSchema>;
+
+    // 3. Create the agent
+    export const languageAgent = new Agent({
+      name: "Language Agent",
+      model: openai("gpt-4o"),
+      instructions: "You are a helpful assistant that can help the user with their language.",
+      memory: new Memory({
+        storage: new LibSQLStore({ url: "file::memory:" }),
+        options: {
+          // [!code highlight:5]
+          workingMemory: {
+            enabled: true,
+            schema: AgentStateSchema,
+          },
+        },
+      }),
+    });
+    ```    
+  </Step>
+  <Step>
+    ### Use the `useCoAgent` Hook
+    With your agent connected and running all that is left is to call the [useCoAgent](/reference/hooks/useCoAgent) hook, pass the agent's name, and
+    optionally provide an initial state.
+
+    ```tsx title="ui/app/page.tsx"
+    import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
+    import { AgentState } from "@/mastra/agents/language-agent";
+
+    function YourMainContent() {
+      const { state } = useCoAgent<AgentState>({ // [!code highlight:5]
+        name: "language_agent",
+        // optionally provide a type-safe initial state
+        initialState: { language: "spanish" }  
+      });
+
+      // ...
+
+      return (
+        // style excluded for brevity
+        <div>
+          <h1>Your main content</h1>
+          // [!code highlight:2]
+          <p>Language: {state.language}</p> 
+        </div>
+      );
+    }
+    ```
+    <Callout type="info">
+      The `state` in `useCoAgent` is reactive and will automatically update when the working memory changes.
+    </Callout>
+  </Step>
+  <Step>
+    ### Give it a try!
+    As the agent state updates, your `state` variable will automatically update with it! In this case, you'll see the
+    language set to "spanish" as that's the initial state we set.
+  </Step>
+</Steps>
+
+## Rendering agent state in the chat
+
+You can also render the working memory in the chat UI. This is useful for informing the user about the working memory in a 
+more in-context way. To do this, you can use the [useCoAgentStateRender](/reference/hooks/useCoAgentStateRender) hook.
+
+```tsx title="ui/app/page.tsx"
+import { useCoAgentStateRender } from "@copilotkit/react-core"; // [!code highlight]
+
+// Define the agent state type, should match the actual state of your agent
+type AgentState = {
+  language: "english" | "spanish";
+}
+
+function YourMainContent() {
+  // ...
+  // [!code highlight:8]
+  useCoAgentStateRender({
+    name: "sample_agent",
+    render: ({ state }) => {
+      if (!state.language) return null;
+      return <div>Language: {state.language}</div>;
+    },
+  });
+  // ...
+}
+```
+
+<Callout type="info">
+  The `state` in `useCoAgentStateRender` is reactive and will automatically update when the working memory changes.
+</Callout>

@@ -39,6 +39,26 @@ import "@copilotkit/react-ui/styles.css";
 />
 ```
  
+### With Observability Hooks
+ 
+To monitor user interactions, provide the `observabilityHooks` prop.
+Note: This requires a `publicApiKey` in the `<CopilotKit>` provider.
+ 
+```tsx
+<CopilotKit publicApiKey="YOUR_PUBLIC_API_KEY">
+  <CopilotPopup
+    observabilityHooks={{
+      onChatExpanded: () => {
+        console.log("Popup opened");
+      },
+      onChatMinimized: () => {
+        console.log("Popup closed");
+      },
+    }}
+  />
+</CopilotKit>
+```
+ 
 ### Look & Feel
  
 By default, CopilotKit components do not have any styles. You can import CopilotKit's stylesheet at the root of your project:
@@ -146,12 +166,20 @@ A function that takes in context string and instructions and returns
   instructions is not enough.
 </PropertyReference>
 
+<PropertyReference name="disableSystemMessage" type="boolean"  > 
+Disables inclusion of CopilotKit’s default system message. When true, no system message is sent (this also suppresses any custom message from <code>makeSystemMessage</code>).
+</PropertyReference>
+
 <PropertyReference name="AssistantMessage" type="React.ComponentType<AssistantMessageProps>"  > 
 A custom assistant message component to use instead of the default.
 </PropertyReference>
 
 <PropertyReference name="UserMessage" type="React.ComponentType<UserMessageProps>"  > 
 A custom user message component to use instead of the default.
+</PropertyReference>
+
+<PropertyReference name="ErrorMessage" type="React.ComponentType<ErrorMessageProps>"  > 
+A custom error message component to use instead of the default.
 </PropertyReference>
 
 <PropertyReference name="Messages" type="React.ComponentType<MessagesProps>"  > 
@@ -189,6 +217,20 @@ Children to render.
 
 <PropertyReference name="hideStopButton" type="boolean"  > 
 
+</PropertyReference>
+
+<PropertyReference name="observabilityHooks" type="CopilotObservabilityHooks"  > 
+Event hooks for CopilotKit chat events.
+  These hooks only work when publicApiKey is provided.
+</PropertyReference>
+
+<PropertyReference name="renderError" type="(error: { message: string; operation?: string; timestamp: number; onDismiss: () => void; onRetry?: () => void; }) => React.ReactNode"  > 
+Custom error renderer for chat-specific errors.
+  When provided, errors will be displayed inline within the chat interface.
+</PropertyReference>
+
+<PropertyReference name="onError" type="CopilotErrorHandler"  > 
+Optional handler for comprehensive debugging and observability.
 </PropertyReference>
 
 <PropertyReference name="defaultOpen" type="boolean"  default="false"> 

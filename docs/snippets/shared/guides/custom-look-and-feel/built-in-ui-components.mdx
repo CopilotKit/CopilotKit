@@ -1,0 +1,45 @@
+## Getting started
+<Steps>
+  <Step>
+    ### Import the default styles
+
+    Import the default styles in your root component (typically `layout.tsx`) :
+
+    ```tsx filename="layout.tsx"
+    import "@copilotkit/react-ui/styles.css";
+    ```
+  </Step>
+  <Step>
+    ### Choose your component
+    CopilotKit ships with a number of highly flexible components that will scale to your needs. Choose whichever one you like,
+    they functionally are they same but have different layouts.
+
+    <Tabs items={["CopilotChat", "CopilotSidebar", "CopilotPopup"]}>
+      <Tab value="CopilotChat">
+        <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/copilotchat-example.gif" alt="CopilotChat Example" className="w-full rounded-lg my-4" />
+      </Tab>
+      <Tab value="CopilotSidebar">
+        <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/sidebar-example.gif" alt="CopilotSidebar Example" className="w-full rounded-lg my-4" />
+      </Tab>
+      <Tab value="CopilotPopup">
+        <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/popup-example.gif" alt="Popup Example" className="w-full rounded-lg my-4" />
+      </Tab>
+    </Tabs>
+  </Step>
+  <Step>
+    ### Use the components
+
+    Now that you've chosen your component, just import it and use it in your page!
+
+    ```tsx filename="page.tsx"
+    import { CopilotChat, CopilotSidebar, CopilotPopup } from "@copilotkit/react-ui";
+    import { useCopilotChatHeadless_components } from "@copilotkit/react-core";
+
+    return <div>
+      <CopilotChat />
+      <CopilotSidebar />
+      <CopilotPopup />
+    </div>
+    ```
+  </Step>
+</Steps>

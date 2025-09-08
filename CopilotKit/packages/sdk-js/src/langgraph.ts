@@ -375,7 +375,11 @@ export function convertActionToDynamicStructuredTool(actionInput: any): DynamicS
     });
   }
 
-  if (!actionInput.description || typeof actionInput.description !== "string") {
+  if (
+    actionInput.description == undefined ||
+    actionInput.description == null ||
+    typeof actionInput.description !== "string"
+  ) {
     throw new CopilotKitMisuseError({
       message: `Action '${actionInput.name}' must have a valid 'description' property of type string`,
     });
@@ -428,7 +432,9 @@ export function convertActionsToDynamicStructuredTools(
 
   return actions.map((action, index) => {
     try {
-      return convertActionToDynamicStructuredTool(action);
+      return convertActionToDynamicStructuredTool(
+        action.type === "function" ? action.function : action,
+      );
     } catch (error) {
       throw new CopilotKitMisuseError({
         message: `Failed to convert action at index ${index}: ${error instanceof Error ? error.message : String(error)}`,

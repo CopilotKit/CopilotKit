@@ -1,8 +1,8 @@
 import { Logger } from "pino";
-import { Observable } from "rxjs";
+import { catchError, mergeMap, Observable, of, throwError } from "rxjs";
 import { AgentStateInput } from "../../graphql/inputs/agent-state.input";
 import { Message } from "../../graphql/types/converted";
-import { RuntimeEvent } from "../../service-adapters/events";
+import { RuntimeErrorEvent, RuntimeEvent, RuntimeEventTypes } from "../../service-adapters/events";
 import telemetry from "../telemetry-client";
 import { RemoteAgentHandlerParams } from "./remote-actions";
 
@@ -13,7 +13,7 @@ import {
 } from "@ag-ui/client";
 
 import { AbstractAgent } from "@ag-ui/client";
-import { parseJson } from "@copilotkit/shared";
+import { CopilotKitError, CopilotKitErrorCode, parseJson } from "@copilotkit/shared";
 import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 import { GraphQLContext } from "../integrations/shared";
 
@@ -58,10 +58,12 @@ export function constructAGUIRemoteAction({
       });
 
       let state = {};
+      let config: Record<string, unknown> = {};
       if (agentStates) {
         const jsonState = agentStates.find((state) => state.agentName === agent.agentId);
         if (jsonState) {
           state = parseJson(jsonState.state, {});
+          config = parseJson(jsonState.config, {});
         }
       }
       agent.state = state;
@@ -74,18 +76,41 @@ export function constructAGUIRemoteAction({
         };
       });
 
+      const { streamSubgraphs, ...restConfig } = config;
+
       const forwardedProps = {
+        config: restConfig,
         ...(metaEvents?.length ? { command: { resume: metaEvents[0]?.response } } : {}),
         ...(threadMetadata ? { threadMetadata } : {}),
         ...(nodeName ? { nodeName } : {}),
+        ...(streamSubgraphs ? { streamSubgraphs } : {}),
         // Forward properties from the graphql context to the agent, e.g Authorization token
         ...graphqlContext.properties,
       };
 
-      return agent.legacy_to_be_removed_runAgentBridged({
-        tools,
-        forwardedProps,
-      }) as Observable<RuntimeEvent>;
+      return (
+        agent.legacy_to_be_removed_runAgentBridged({
+          tools,
+          forwardedProps,
+        }) as Observable<RuntimeEvent>
+      ).pipe(
+        mergeMap((event) => {
+          if (event.type === RuntimeEventTypes.RunError) {
+            const { message } = event as RuntimeErrorEvent;
+            return throwError(
+              () => new CopilotKitError({ message, code: CopilotKitErrorCode.UNKNOWN }),
+            );
+          }
+          // pass through non-error events
+          return of(event);
+        }),
+        catchError((err) => {
+          throw new CopilotKitError({
+            message: err.message,
+            code: CopilotKitErrorCode.UNKNOWN,
+          });
+        }),
+      );
     },
   };
   return [action];

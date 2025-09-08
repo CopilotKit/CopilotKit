@@ -4,7 +4,7 @@ import {
   CopilotKit,
   useCoAgentStateRender,
   useCopilotAction,
-  useCopilotChat,
+  useCopilotChatHeadless_c,
   useLangGraphInterrupt,
 } from "@copilotkit/react-core";
 import { CopilotSidebar, useCopilotChatSuggestions } from "@copilotkit/react-ui";
@@ -64,10 +64,12 @@ export default function PanelPage() {
   const runtimeUrl =
     searchParams.get("runtimeUrl") || `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
   const publicApiKey = searchParams.get("publicApiKey");
+  const publicLicenseKey = searchParams.get("publicLicenseKey");
   const copilotKitProps: Partial<React.ComponentProps<typeof CopilotKit>> = {
     runtimeUrl,
     showDevConsole: true,
     publicApiKey: publicApiKey || undefined,
+    publicLicenseKey: publicLicenseKey || undefined,
   };
 
   return (
@@ -104,14 +106,14 @@ function ScrollToBottomButton() {
 
 function ChatApp() {
   const {
-    visibleMessages,
+    messages,
     suggestions,
     setSuggestions,
-    appendMessage,
+    sendMessage,
     interrupt,
     isLoading,
     generateSuggestions,
-  } = useCopilotChat();
+  } = useCopilotChatHeadless_c();
   const [newMessage, setNewMessage] = useState("");
   const [selectedMessage, setSelectedMessage] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -190,6 +192,36 @@ function ChatApp() {
             </div>
             <div className="text-blue-700 font-medium">🔧 Generative UI Activated</div>
           </div>
+        </div>
+      );
+    },
+  });
+
+  useCopilotAction({
+    name: "getWeather",
+    description: "Get the weather for a given location.",
+    parameters: [{ name: "location", type: "string" }],
+    handler: () => {
+      return {
+        weather: "sunny",
+        temperature: 70,
+      };
+    },
+    render: ({ args, result, status }) => {
+      if (status !== "complete") {
+        return <div>Loading weather for {args.location}...</div>;
+      }
+      return (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 my-2 shadow-sm">
+          <h1>Weather for {args.location}</h1>
+          {result ? (
+            <div>
+              <p>Weather: {result.weather}</p>
+              <p>Temperature: {result.temperature}</p>
+            </div>
+          ) : (
+            <div>No result</div>
+          )}
         </div>
       );
     },
@@ -275,9 +307,7 @@ function ChatApp() {
           </div>
           <div className="bg-white/60 rounded-lg p-3 border border-amber-100">
             <div className="text-xs text-amber-600 font-medium mb-2">Generated Content:</div>
-            <div className="text-amber-800 font-medium text-sm">
-              {JSON.stringify(props.args, null, 2)}
-            </div>
+            <div className="text-amber-800 font-medium text-sm">{props.args.generatedPoem}</div>
           </div>
         </div>
       );
@@ -290,10 +320,10 @@ function ChatApp() {
     maxSuggestions: 5,
   });
 
-  const sendMessage = useCallback(
+  const callSendMessage = useCallback(
     async (message: string) => {
       // setSuggestions([]);
-      await appendMessage(
+      await sendMessage(
         {
           id: randomId(),
           role: "user",
@@ -304,7 +334,7 @@ function ChatApp() {
         },
       );
     },
-    [appendMessage, setSuggestions, generateSuggestions],
+    [sendMessage, setSuggestions, generateSuggestions],
   );
 
   useEffect(() => {
@@ -318,13 +348,13 @@ function ChatApp() {
 
   const handleSendMessage = useCallback(() => {
     if (newMessage.trim()) {
-      sendMessage(newMessage);
+      callSendMessage(newMessage);
       setNewMessage("");
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
       }
     }
-  }, [sendMessage, newMessage]);
+  }, [callSendMessage, newMessage]);
 
   const handleShowDetails = useCallback((message: any) => {
     setSelectedMessage(message);
@@ -350,7 +380,7 @@ function ChatApp() {
             {/* Messages */}
             <div className="flex-1 overflow-y-auto">
               <StickToBottom.Content className="flex flex-col h-full">
-                {visibleMessages.length === 0 ? (
+                {messages.length === 0 ? (
                   <div className="flex-1 flex items-center justify-center h-full">
                     <div className="text-center">
                       <div className="text-4xl mb-4">💬</div>
@@ -364,7 +394,7 @@ function ChatApp() {
                   </div>
                 ) : (
                   <div className="max-w-4xl mx-auto w-full px-4 py-8">
-                    {visibleMessages.map((message) => (
+                    {messages.map((message) => (
                       <div
                         key={message.id}
                         className={`mb-8 ${message.role === "user" ? "text-right" : "text-left"}`}
@@ -575,7 +605,7 @@ function ChatApp() {
                     {suggestions.map((suggestion, index) => (
                       <button
                         key={index}
-                        onClick={() => sendMessage(suggestion.message)}
+                        onClick={() => callSendMessage(suggestion.message)}
                         className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200"
                       >
                         {suggestion.title}

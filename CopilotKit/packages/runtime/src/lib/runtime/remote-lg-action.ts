@@ -549,9 +549,14 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     }
 
     state = await client.threads.getState(threadId);
-    const interrupts = state.tasks?.[0]?.interrupts;
-    nodeName = interrupts ? nodeName : Object.keys(state.metadata.writes)[0];
-    const isEndNode = state.next.length === 0 && !interrupts;
+    const tasks = state.tasks;
+    const interrupts = (tasks?.[0]?.interrupts ?? []) as Interrupt[];
+    const isEndNode = state.next.length === 0;
+    const writes = state.metadata?.writes ?? {};
+
+    if (!interrupts?.length) {
+      nodeName = isEndNode ? "__end__" : (state.next[0] ?? Object.keys(writes)[0]);
+    }
 
     telemetry.capture("oss.runtime.agent_execution_stream_ended", streamInfo);
 

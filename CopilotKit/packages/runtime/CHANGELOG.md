@@ -1,5 +1,208 @@
 # @copilotkit/runtime
 
+## 1.10.4-next.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.4-next.3
+
+## 1.10.4-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.4-next.2
+
+## 1.10.4-next.1
+
+### Patch Changes
+
+- a640d8e: - feat: update latest agui langgraph for subgraphs support
+  - feat: update latest agui core packages
+- Updated dependencies [a640d8e]
+  - @copilotkit/shared@1.10.4-next.1
+
+## 1.10.4-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.4-next.0
+
+## 1.10.3
+
+### Patch Changes
+
+- ea74047: - fix: surface run errors from agui
+- a7bb2f0: - fix: fix how node names are read to support newer langgraph versions
+- 21e12af: - feat: send streamSubgraphs forwarded prop to AGUI
+- Updated dependencies [ea74047]
+  - @copilotkit/shared@1.10.3
+
+## 1.10.3-next.3
+
+### Patch Changes
+
+- 21e12af: - feat: send streamSubgraphs forwarded prop to AGUI
+  - @copilotkit/shared@1.10.3-next.3
+
+## 1.10.3-next.2
+
+### Patch Changes
+
+- a7bb2f0: - fix: fix how node names are read to support newer langgraph versions
+  - @copilotkit/shared@1.10.3-next.2
+
+## 1.10.3-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.3-next.1
+
+## 1.10.3-next.0
+
+### Patch Changes
+
+- ea74047: - fix: surface run errors from agui
+- Updated dependencies [ea74047]
+  - @copilotkit/shared@1.10.3-next.0
+
+## 1.10.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.2
+
+## 1.10.2-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.2-next.0
+
+## 1.10.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.1
+
+## 1.10.1-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.1-next.2
+
+## 1.10.1-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.1-next.1
+
+## 1.10.1-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.1-next.0
+
+## 1.10.0
+
+### Patch Changes
+
+- 1abcecf: - fix: add graphqlContext to constructAGUIRemoteAction for enhanced agent properties
+
+  - Updated constructAGUIRemoteAction to accept graphqlContext, allowing forwarding of properties like Authorization token to the agent.
+  - Modified setupRemoteActions to include graphqlContext in the parameters.
+
+- 6f2f54b: - fix(openai): update maxTokens parameter to max_completion_tokens in OpenAIAdapter
+- b5b94b9: - fix: throw errors when they happen with agui streams
+- 824fb69: - fix: pass config to the forwarded props of an agui agent
+- 59b0e16: - feat: add native prompt caching support to AnthropicAdapter
+- a31443c: removed unused dependency on ip module
+- dc6df18: - feat: use latest agui langgraph package
+  - chore: release python sdk 0.1.58
+- Updated dependencies [a8c0263]
+- Updated dependencies [8674da1]
+- Updated dependencies [6d1de58]
+  - @copilotkit/shared@1.10.0
+
+## 1.10.0-next.13
+
+### Patch Changes
+
+- b5b94b9: - fix: throw errors when they happen with agui streams
+  - @copilotkit/shared@1.10.0-next.13
+
+## 1.10.0-next.12
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.0-next.12
+
+## 1.10.0-next.11
+
+### Patch Changes
+
+- dc6df18: - feat: use latest agui langgraph package
+  - chore: release python sdk 0.1.58
+  - @copilotkit/shared@1.10.0-next.11
+
+## 1.10.0-next.10
+
+### Patch Changes
+
+- Updated dependencies [6d1de58]
+  - @copilotkit/shared@1.10.0-next.10
+
+## 1.10.0-next.9
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.0-next.9
+
+## 1.10.0-next.8
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.0-next.8
+
+## 1.10.0-next.7
+
+### Patch Changes
+
+- 59b0e16: - feat: add native prompt caching support to AnthropicAdapter
+  - @copilotkit/shared@1.10.0-next.7
+
+## 1.10.0-next.6
+
+### Patch Changes
+
+- 6f2f54b: - fix(openai): update maxTokens parameter to max_completion_tokens in OpenAIAdapter
+  - @copilotkit/shared@1.10.0-next.6
+
+## 1.10.0-next.5
+
+### Patch Changes
+
+- Updated dependencies [a8c0263]
+  - @copilotkit/shared@1.10.0-next.5
+
+## 1.10.0-next.4
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.0-next.4
+
+## 1.10.0-next.3
+
+### Patch Changes
+
+- 824fb69: - fix: pass config to the forwarded props of an agui agent
+  - @copilotkit/shared@1.10.0-next.3
+
+## 1.10.0-next.2
+
+### Patch Changes
+
+- a31443c: removed unused dependency on ip module
+  - @copilotkit/shared@1.10.0-next.2
+
 ## 1.10.0-next.1
 
 ### Patch Changes

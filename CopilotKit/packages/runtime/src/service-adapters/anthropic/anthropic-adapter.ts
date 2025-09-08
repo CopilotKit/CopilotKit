@@ -13,7 +13,13 @@
  *   apiKey: "<your-api-key>",
  * });
  *
- * return new AnthropicAdapter({ anthropic });
+ * return new AnthropicAdapter({
+ *   anthropic,
+ *   promptCaching: {
+ *     enabled: true,
+ *     debug: true
+ *   }
+ * });
  * ```
  */
 import Anthropic from "@anthropic-ai/sdk";
@@ -33,6 +39,18 @@ import { convertServiceAdapterError } from "../shared";
 
 const DEFAULT_MODEL = "claude-3-5-sonnet-latest";
 
+export interface AnthropicPromptCachingConfig {
+  /**
+   * Whether to enable prompt caching.
+   */
+  enabled: boolean;
+
+  /**
+   * Whether to enable debug logging for cache operations.
+   */
+  debug?: boolean;
+}
+
 export interface AnthropicAdapterParams {
   /**
    * An optional Anthropic instance to use.  If not provided, a new instance will be
@@ -44,10 +62,17 @@ export interface AnthropicAdapterParams {
    * The model to use.
    */
   model?: string;
+
+  /**
+   * Configuration for prompt caching.
+   * See: https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
+   */
+  promptCaching?: AnthropicPromptCachingConfig;
 }
 
 export class AnthropicAdapter implements CopilotServiceAdapter {
   private model: string = DEFAULT_MODEL;
+  private promptCaching: AnthropicPromptCachingConfig;
 
   private _anthropic: Anthropic;
   public get anthropic(): Anthropic {
@@ -59,6 +84,75 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
     if (params?.model) {
       this.model = params.model;
     }
+    this.promptCaching = params?.promptCaching || { enabled: false };
+  }
+
+  /**
+   * Adds cache control to system prompt
+   */
+  private addSystemPromptCaching(
+    system: string,
+    debug: boolean = false,
+  ): string | Array<{ type: "text"; text: string; cache_control?: { type: "ephemeral" } }> {
+    if (!this.promptCaching.enabled || !system) {
+      return system;
+    }
+
+    const originalTextLength = system.length;
+
+    if (debug) {
+      console.log(
+        `[ANTHROPIC CACHE DEBUG] Added cache control to system prompt (${originalTextLength} chars).`,
+      );
+    }
+
+    return [
+      {
+        type: "text",
+        text: system,
+        cache_control: { type: "ephemeral" },
+      },
+    ];
+  }
+
+  /**
+   * Adds cache control to the final message
+   */
+  private addIncrementalMessageCaching(
+    messages: Anthropic.Messages.MessageParam[],
+    debug: boolean = false,
+  ): any[] {
+    if (!this.promptCaching.enabled || messages.length === 0) {
+      return messages;
+    }
+
+    const finalMessage = messages[messages.length - 1];
+    const messageNumber = messages.length;
+
+    if (Array.isArray(finalMessage.content) && finalMessage.content.length > 0) {
+      const finalBlock = finalMessage.content[finalMessage.content.length - 1];
+
+      const updatedMessages = [
+        ...messages.slice(0, -1),
+        {
+          ...finalMessage,
+          content: [
+            ...finalMessage.content.slice(0, -1),
+            { ...finalBlock, cache_control: { type: "ephemeral" } } as any,
+          ],
+        },
+      ];
+
+      if (debug) {
+        console.log(
+          `[ANTHROPIC CACHE DEBUG] Added cache control to final message (message ${messageNumber}).`,
+        );
+      }
+
+      return updatedMessages;
+    }
+
+    return messages;
   }
 
   private shouldGenerateFallbackResponse(messages: Anthropic.Messages.MessageParam[]): boolean {
@@ -176,6 +270,13 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
     // Apply token limits
     const limitedMessages = limitMessagesToTokenCount(anthropicMessages, tools, model);
 
+    // Apply prompt caching if enabled
+    const cachedSystemPrompt = this.addSystemPromptCaching(instructions, this.promptCaching.debug);
+    const cachedMessages = this.addIncrementalMessageCaching(
+      limitedMessages,
+      this.promptCaching.debug,
+    );
+
     // We'll check if we need a fallback response after seeing what Anthropic returns
     // We skip grouping by role since we've already ensured uniqueness of tool_results
 
@@ -189,9 +290,9 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
 
     try {
       const createParams = {
-        system: instructions,
+        system: cachedSystemPrompt,
         model: this.model,
-        messages: limitedMessages,
+        messages: cachedMessages,
         max_tokens: forwardedParameters?.maxTokens || 1024,
         ...(forwardedParameters?.temperature
           ? { temperature: forwardedParameters.temperature }
@@ -264,10 +365,10 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
         }
 
         // Generate fallback response only if Anthropic produced no content
-        if (!hasReceivedContent && this.shouldGenerateFallbackResponse(limitedMessages)) {
+        if (!hasReceivedContent && this.shouldGenerateFallbackResponse(cachedMessages)) {
           // Extract the tool result content for a more contextual response
           let fallbackContent = "Task completed successfully.";
-          const lastMessage = limitedMessages[limitedMessages.length - 1];
+          const lastMessage = cachedMessages[cachedMessages.length - 1];
           if (lastMessage?.role === "user" && Array.isArray(lastMessage.content)) {
             const toolResult = lastMessage.content.find((c: any) => c.type === "tool_result");
             if (toolResult?.content && toolResult.content !== "Action completed successfully") {

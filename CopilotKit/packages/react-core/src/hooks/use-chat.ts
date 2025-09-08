@@ -159,6 +159,8 @@ export type UseChatOptions = {
   langGraphInterruptAction: LangGraphInterruptAction | null;
 
   setLangGraphInterruptAction: LangGraphInterruptActionSetter;
+
+  disableSystemMessage?: boolean;
 };
 
 export type UseChatHelpers = {
@@ -222,6 +224,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     setExtensions,
     langGraphInterruptAction,
     setLangGraphInterruptAction,
+    disableSystemMessage = false,
   } = options;
   const runChatCompletionRef = useRef<(previousMessages: Message[]) => Promise<Message[]>>();
   const addErrorToast = useErrorToast();
@@ -232,9 +235,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
   // Add tracing functionality to use-chat
   const traceUIError = async (error: CopilotKitError, originalError?: any) => {
-    // Just check if onError and publicApiKey are defined
-    if (!onError || !copilotConfig?.publicApiKey) return;
-
     try {
       const traceEvent = {
         type: "error" as const,
@@ -286,6 +286,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     headers,
     credentials: copilotConfig.credentials,
     showDevConsole,
+    onError,
   });
 
   const pendingAppendsRef = useRef<{ message: Message; followUp: boolean }[]>([]);
@@ -321,9 +322,9 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
       setMessages([...previousMessages, ...newMessages]);
 
-      const systemMessage = makeSystemMessageCallback();
-
-      const messagesWithContext = [systemMessage, ...(initialMessages || []), ...previousMessages];
+      const messagesWithContext = disableSystemMessage
+        ? [...(initialMessages || []), ...previousMessages]
+        : [makeSystemMessageCallback(), ...(initialMessages || []), ...previousMessages];
 
       // ----- Set mcpServers in properties -----
       // Create a copy of properties to avoid modifying the original object
@@ -524,6 +525,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               statusReason: value.generateCopilotResponse.status.reason,
               statusDetails: value.generateCopilotResponse.status.details,
             });
+            // TODO: if onError & renderError should work without key, insert here
 
             setMessages([...previousMessages, ...newMessages]);
             break;
@@ -572,6 +574,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               originalErrorCode: originalCode,
               preservedStructure: !!originalCode,
             });
+            // TODO: if onError & renderError should work without key, insert here
 
             // Stop processing and break from the loop
             setIsLoading(false);
@@ -871,6 +874,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
       coagentStatesRef,
       agentSession,
       setAgentSession,
+      disableSystemMessage,
     ],
   );
 

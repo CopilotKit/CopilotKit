@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.10.0-next.1",
+  "version": "1.10.4-next.3",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -43,7 +43,7 @@
     "typescript": "^5.2.3"
   },
   "dependencies": {
-    "@ag-ui/core": "^0.0.30",
+    "@ag-ui/core": "^0.0.37",
     "@segment/analytics-node": "^2.1.2",
     "chalk": "4.1.2",
     "graphql": "^16.8.1",

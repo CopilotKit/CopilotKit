@@ -1,4 +1,4 @@
-import { describe, test, expect } from "vitest";
+import { describe, test, expect, vi } from "vitest";
 import * as gql from "../client";
 import agui from "@copilotkit/shared";
 import {
@@ -585,6 +585,63 @@ describe("agui-to-gql", () => {
         expect(action.render).toBe(mockRender1);
       });
     });
+
+    test("should verify render function receives correct props including name", () => {
+      const mockRender = vi.fn(
+        (props) => `Rendered: ${props.name} with args: ${JSON.stringify(props.args)}`,
+      );
+      const aguiMessage: agui.Message = {
+        id: "assistant-render-props",
+        role: "assistant",
+        content: "I'll execute a function",
+        toolCalls: [
+          {
+            id: "tool-call-render-props",
+            type: "function",
+            function: {
+              name: "testFunction",
+              arguments: JSON.stringify({ param: "value" }),
+            },
+          },
+        ],
+        generativeUI: mockRender,
+      };
+
+      const actions: Record<string, any> = {
+        testFunction: { name: "testFunction" },
+      };
+
+      const result = aguiMessageWithRenderToGQL(aguiMessage, actions);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toBeInstanceOf(gql.TextMessage);
+      expect(result[1]).toBeInstanceOf(gql.ActionExecutionMessage);
+
+      // Check that the render function was preserved in actions
+      expect(actions.testFunction.render).toBe(mockRender);
+
+      // Now test that when the render function is called, it receives the correct props
+      // This simulates what happens when the render function is actually used
+      if (actions.testFunction.render) {
+        actions.testFunction.render({
+          status: "inProgress",
+          args: { param: "value" },
+          result: undefined,
+          respond: () => {},
+          messageId: "tool-call-render-props",
+          name: "testFunction",
+        });
+
+        expect(mockRender).toHaveBeenCalledWith({
+          status: "inProgress",
+          args: { param: "value" },
+          result: undefined,
+          respond: expect.any(Function),
+          messageId: "tool-call-render-props",
+          name: "testFunction",
+        });
+      }
+    });
   });
 
   describe("aguiImageMessageToGQLMessage", () => {
@@ -635,6 +692,572 @@ describe("agui-to-gql", () => {
       expect(result.format).toBe("png");
       expect(result.bytes).toBe("anotherbase64string");
       expect(result.role).toBe(gql.Role.User);
+    });
+  });
+
+  describe("Wild Card Actions", () => {
+    test("should preserve render function for specific action", () => {
+      const mockRender = () => "Specific Action Render";
+      const aguiMessage: agui.Message = {
+        id: "assistant-1",
+        role: "assistant",
+        content: "I'll execute a function",
+        toolCalls: [
+          {
+            id: "tool-call-1",
+            type: "function",
+            function: {
+              name: "specificAction",
+              arguments: JSON.stringify({ param: "value" }),
+            },
+          },
+        ],
+        generativeUI: mockRender,
+      };
+
+      const actions: Record<string, any> = {
+        specificAction: { name: "specificAction" },
+      };
+
+      const result = aguiToGQL(aguiMessage, actions);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toBeInstanceOf(gql.TextMessage);
+      expect(result[1]).toBeInstanceOf(gql.ActionExecutionMessage);
+      expect(actions.specificAction.render).toBe(mockRender);
+    });
+
+    test("should preserve render function for wild card action", () => {
+      const mockRender = () => "Wild Card Action Render";
+      const aguiMessage: agui.Message = {
+        id: "assistant-2",
+        role: "assistant",
+        content: "I'll execute an unknown function",
+        toolCalls: [
+          {
+            id: "tool-call-2",
+            type: "function",
+            function: {
+              name: "unknownAction",
+              arguments: JSON.stringify({ param: "value" }),
+            },
+          },
+        ],
+        generativeUI: mockRender,
+      };
+
+      const actions: Record<string, any> = {
+        "*": { name: "*" },
+      };
+
+      const result = aguiToGQL(aguiMessage, actions);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toBeInstanceOf(gql.TextMessage);
+      expect(result[1]).toBeInstanceOf(gql.ActionExecutionMessage);
+      expect(actions["*"].render).toBe(mockRender);
+    });
+
+    test("should prioritize specific action over wild card action", () => {
+      const mockRender = () => "Prioritized Render";
+      const aguiMessage: agui.Message = {
+        id: "assistant-3",
+        role: "assistant",
+        content: "I'll execute a function",
+        toolCalls: [
+          {
+            id: "tool-call-3",
+            type: "function",
+            function: {
+              name: "specificAction",
+              arguments: JSON.stringify({ param: "value" }),
+            },
+          },
+        ],
+        generativeUI: mockRender,
+      };
+
+      const actions: Record<string, any> = {
+        specificAction: { name: "specificAction" },
+        "*": { name: "*" },
+      };
+
+      const result = aguiToGQL(aguiMessage, actions);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toBeInstanceOf(gql.TextMessage);
+      expect(result[1]).toBeInstanceOf(gql.ActionExecutionMessage);
+      expect(actions.specificAction.render).toBe(mockRender);
+      expect(actions["*"].render).toBeUndefined();
+    });
+
+    test("should not preserve render function when no matching action", () => {
+      const mockRender = () => "Unmatched Render";
+      const aguiMessage: agui.Message = {
+        id: "assistant-4",
+        role: "assistant",
+        content: "I'll execute an unmatched function",
+        toolCalls: [
+          {
+            id: "tool-call-4",
+            type: "function",
+            function: {
+              name: "unmatchedAction",
+              arguments: JSON.stringify({ param: "value" }),
+            },
+          },
+        ],
+        generativeUI: mockRender,
+      };
+
+      const actions: Record<string, any> = {
+        otherAction: { name: "otherAction" },
+      };
+
+      const result = aguiToGQL(aguiMessage, actions);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toBeInstanceOf(gql.TextMessage);
+      expect(result[1]).toBeInstanceOf(gql.ActionExecutionMessage);
+      expect(actions.otherAction.render).toBeUndefined();
+    });
+
+    test("should handle multiple tool calls with wild card action", () => {
+      const mockRender = () => "Wild Card Render";
+      const aguiMessage: agui.Message = {
+        id: "assistant-5",
+        role: "assistant",
+        content: "I'll execute multiple functions",
+        toolCalls: [
+          {
+            id: "tool-call-5",
+            type: "function",
+            function: {
+              name: "firstFunction",
+              arguments: JSON.stringify({ param: "value1" }),
+            },
+          },
+          {
+            id: "tool-call-6",
+            type: "function",
+            function: {
+              name: "secondFunction",
+              arguments: JSON.stringify({ param: "value2" }),
+            },
+          },
+        ],
+        generativeUI: mockRender,
+      };
+
+      const actions: Record<string, any> = {
+        "*": { name: "*" },
+      };
+
+      const result = aguiToGQL(aguiMessage, actions);
+
+      expect(result).toHaveLength(3);
+      expect(result[0]).toBeInstanceOf(gql.TextMessage);
+      expect(result[1]).toBeInstanceOf(gql.ActionExecutionMessage);
+      expect(result[2]).toBeInstanceOf(gql.ActionExecutionMessage);
+      expect(actions["*"].render).toBe(mockRender);
+    });
+
+    test("should handle mixed specific and wild card actions", () => {
+      const mockRender = () => "Mixed Render";
+      const aguiMessage: agui.Message = {
+        id: "assistant-6",
+        role: "assistant",
+        content: "I'll execute mixed functions",
+        toolCalls: [
+          {
+            id: "tool-call-7",
+            type: "function",
+            function: {
+              name: "specificAction",
+              arguments: JSON.stringify({ param: "value1" }),
+            },
+          },
+          {
+            id: "tool-call-8",
+            type: "function",
+            function: {
+              name: "unknownAction",
+              arguments: JSON.stringify({ param: "value2" }),
+            },
+          },
+        ],
+        generativeUI: mockRender,
+      };
+
+      const actions: Record<string, any> = {
+        specificAction: { name: "specificAction" },
+        "*": { name: "*" },
+      };
+
+      const result = aguiToGQL(aguiMessage, actions);
+
+      expect(result).toHaveLength(3);
+      expect(result[0]).toBeInstanceOf(gql.TextMessage);
+      expect(result[1]).toBeInstanceOf(gql.ActionExecutionMessage);
+      expect(result[2]).toBeInstanceOf(gql.ActionExecutionMessage);
+      expect(actions.specificAction.render).toBe(mockRender);
+      // The wild card action should get the render function for the second tool call
+      expect(actions["*"].render).toBe(mockRender);
+    });
+
+    test("should handle no actions provided", () => {
+      const mockRender = () => "No Actions Render";
+      const aguiMessage: agui.Message = {
+        id: "assistant-7",
+        role: "assistant",
+        content: "I'll execute a function",
+        toolCalls: [
+          {
+            id: "tool-call-9",
+            type: "function",
+            function: {
+              name: "anyAction",
+              arguments: JSON.stringify({ param: "value" }),
+            },
+          },
+        ],
+        generativeUI: mockRender,
+      };
+
+      const result = aguiToGQL(aguiMessage);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toBeInstanceOf(gql.TextMessage);
+      expect(result[1]).toBeInstanceOf(gql.ActionExecutionMessage);
+    });
+
+    test("should handle empty actions object", () => {
+      const mockRender = () => "Empty Actions Render";
+      const aguiMessage: agui.Message = {
+        id: "assistant-8",
+        role: "assistant",
+        content: "I'll execute a function",
+        toolCalls: [
+          {
+            id: "tool-call-10",
+            type: "function",
+            function: {
+              name: "anyAction",
+              arguments: JSON.stringify({ param: "value" }),
+            },
+          },
+        ],
+        generativeUI: mockRender,
+      };
+
+      const actions: Record<string, any> = {};
+
+      const result = aguiToGQL(aguiMessage, actions);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toBeInstanceOf(gql.TextMessage);
+      expect(result[1]).toBeInstanceOf(gql.ActionExecutionMessage);
+    });
+
+    test("should handle actions with null render functions", () => {
+      const mockRender = () => "Null Render Test";
+      const aguiMessage: agui.Message = {
+        id: "assistant-9",
+        role: "assistant",
+        content: "I'll execute a function",
+        toolCalls: [
+          {
+            id: "tool-call-11",
+            type: "function",
+            function: {
+              name: "specificAction",
+              arguments: JSON.stringify({ param: "value" }),
+            },
+          },
+        ],
+        generativeUI: mockRender,
+      };
+
+      const actions: Record<string, any> = {
+        specificAction: { name: "specificAction", render: null },
+        "*": { name: "*", render: null },
+      };
+
+      const result = aguiToGQL(aguiMessage, actions);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toBeInstanceOf(gql.TextMessage);
+      expect(result[1]).toBeInstanceOf(gql.ActionExecutionMessage);
+      // The render function should still be assigned even if the action had null render
+      expect(actions.specificAction.render).toBe(mockRender);
+    });
+
+    test("should handle actions with undefined render functions", () => {
+      const mockRender = () => "Undefined Render Test";
+      const aguiMessage: agui.Message = {
+        id: "assistant-10",
+        role: "assistant",
+        content: "I'll execute a function",
+        toolCalls: [
+          {
+            id: "tool-call-12",
+            type: "function",
+            function: {
+              name: "wildcardAction",
+              arguments: JSON.stringify({ param: "value" }),
+            },
+          },
+        ],
+        generativeUI: mockRender,
+      };
+
+      const actions: Record<string, any> = {
+        "*": { name: "*", render: undefined },
+      };
+
+      const result = aguiToGQL(aguiMessage, actions);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toBeInstanceOf(gql.TextMessage);
+      expect(result[1]).toBeInstanceOf(gql.ActionExecutionMessage);
+      // The render function should still be assigned even if the action had undefined render
+      expect(actions["*"].render).toBe(mockRender);
+    });
+
+    test("should handle tool calls with malformed arguments", () => {
+      const mockRender = () => "Malformed Args Test";
+      const aguiMessage: agui.Message = {
+        id: "assistant-11",
+        role: "assistant",
+        content: "I'll execute a function",
+        toolCalls: [
+          {
+            id: "tool-call-13",
+            type: "function",
+            function: {
+              name: "wildcardAction",
+              arguments: "invalid json {", // Malformed JSON
+            },
+          },
+        ],
+        generativeUI: mockRender,
+      };
+
+      const actions: Record<string, any> = {
+        "*": { name: "*" },
+      };
+
+      const result = aguiToGQL(aguiMessage, actions);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toBeInstanceOf(gql.TextMessage);
+      expect(result[1]).toBeInstanceOf(gql.ActionExecutionMessage);
+      expect(actions["*"].render).toBe(mockRender);
+    });
+
+    test("should handle tool calls with empty arguments string", () => {
+      const mockRender = () => "Empty Args Test";
+      const aguiMessage: agui.Message = {
+        id: "assistant-12",
+        role: "assistant",
+        content: "I'll execute a function",
+        toolCalls: [
+          {
+            id: "tool-call-14",
+            type: "function",
+            function: {
+              name: "wildcardAction",
+              arguments: "",
+            },
+          },
+        ],
+        generativeUI: mockRender,
+      };
+
+      const actions: Record<string, any> = {
+        "*": { name: "*" },
+      };
+
+      const result = aguiToGQL(aguiMessage, actions);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toBeInstanceOf(gql.TextMessage);
+      expect(result[1]).toBeInstanceOf(gql.ActionExecutionMessage);
+      expect(actions["*"].render).toBe(mockRender);
+    });
+
+    test("should handle multiple wild card actions in same object", () => {
+      const mockRender = () => "Multiple Wildcards Test";
+      const aguiMessage: agui.Message = {
+        id: "assistant-13",
+        role: "assistant",
+        content: "I'll execute a function",
+        toolCalls: [
+          {
+            id: "tool-call-15",
+            type: "function",
+            function: {
+              name: "unknownAction",
+              arguments: JSON.stringify({ param: "value" }),
+            },
+          },
+        ],
+        generativeUI: mockRender,
+      };
+
+      const actions: Record<string, any> = {
+        wildcard1: { name: "*" },
+        wildcard2: { name: "*" },
+      };
+
+      const result = aguiToGQL(aguiMessage, actions);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toBeInstanceOf(gql.TextMessage);
+      expect(result[1]).toBeInstanceOf(gql.ActionExecutionMessage);
+      // Should assign to the first wild card action found
+      expect(actions.wildcard1.render).toBe(mockRender);
+      expect(actions.wildcard2.render).toBeUndefined();
+    });
+
+    test("should handle tool calls with object arguments (backward compatibility)", () => {
+      const mockRender = () => "Object Args Test";
+      const aguiMessage: agui.Message = {
+        id: "assistant-14",
+        role: "assistant",
+        content: "I'll execute a function",
+        toolCalls: [
+          {
+            id: "tool-call-16",
+            type: "function",
+            function: {
+              name: "objectArgsAction",
+              arguments: { param: "value" } as any, // Object instead of string
+            },
+          },
+        ],
+        generativeUI: mockRender,
+      };
+
+      const actions: Record<string, any> = {
+        "*": { name: "*" },
+      };
+
+      const result = aguiToGQL(aguiMessage, actions);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toBeInstanceOf(gql.TextMessage);
+      expect(result[1]).toBeInstanceOf(gql.ActionExecutionMessage);
+      expect((result[1] as any).arguments).toEqual({ param: "value" });
+      expect(actions["*"].render).toBe(mockRender);
+    });
+
+    test("should handle tool calls with null/undefined arguments", () => {
+      const mockRender = () => "Null Args Test";
+      const aguiMessage: agui.Message = {
+        id: "assistant-15",
+        role: "assistant",
+        content: "I'll execute a function",
+        toolCalls: [
+          {
+            id: "tool-call-17",
+            type: "function",
+            function: {
+              name: "nullArgsAction",
+              arguments: null as any,
+            },
+          },
+        ],
+        generativeUI: mockRender,
+      };
+
+      const actions: Record<string, any> = {
+        "*": { name: "*" },
+      };
+
+      const result = aguiToGQL(aguiMessage, actions);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toBeInstanceOf(gql.TextMessage);
+      expect(result[1]).toBeInstanceOf(gql.ActionExecutionMessage);
+      expect((result[1] as any).arguments).toEqual({});
+      expect(actions["*"].render).toBe(mockRender);
+    });
+
+    test("should handle tool result messages with object content", () => {
+      const aguiMessage: agui.Message = {
+        id: "tool-result-1",
+        role: "tool",
+        content: { status: "success", data: { value: 42 } } as any,
+        toolCallId: "tool-call-1",
+        toolName: "testAction",
+      };
+
+      const toolCallNames = { "tool-call-1": "testAction" };
+      const result = aguiToGQL(aguiMessage);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toBeInstanceOf(gql.ResultMessage);
+      expect((result[0] as any).result).toBe('{"status":"success","data":{"value":42}}');
+      expect((result[0] as any).actionExecutionId).toBe("tool-call-1");
+      expect((result[0] as any).actionName).toBe("testAction");
+    });
+
+    test("should handle tool result messages with non-string content types", () => {
+      const aguiMessage: agui.Message = {
+        id: "tool-result-2",
+        role: "tool",
+        content: 42 as any,
+        toolCallId: "tool-call-2",
+        toolName: "numberAction",
+      };
+
+      const result = aguiToGQL(aguiMessage);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toBeInstanceOf(gql.ResultMessage);
+      expect((result[0] as any).result).toBe("42");
+      expect((result[0] as any).actionExecutionId).toBe("tool-call-2");
+      expect((result[0] as any).actionName).toBe("numberAction");
+    });
+
+    test("should handle tool result messages with circular reference content", () => {
+      const circularObj: any = { status: "success" };
+      circularObj.self = circularObj;
+
+      const aguiMessage: agui.Message = {
+        id: "tool-result-3",
+        role: "tool",
+        content: circularObj as any,
+        toolCallId: "tool-call-3",
+        toolName: "circularAction",
+      };
+
+      const result = aguiToGQL(aguiMessage);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toBeInstanceOf(gql.ResultMessage);
+      expect((result[0] as any).result).toBe("[object Object]"); // Should fallback to String conversion
+      expect((result[0] as any).actionExecutionId).toBe("tool-call-3");
+      expect((result[0] as any).actionName).toBe("circularAction");
+    });
+
+    test("should handle tool result messages with boolean content", () => {
+      const aguiMessage: agui.Message = {
+        id: "tool-result-4",
+        role: "tool",
+        content: true as any,
+        toolCallId: "tool-call-4",
+        toolName: "booleanAction",
+      };
+
+      const result = aguiToGQL(aguiMessage);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toBeInstanceOf(gql.ResultMessage);
+      expect((result[0] as any).result).toBe("true");
+      expect((result[0] as any).actionExecutionId).toBe("tool-call-4");
+      expect((result[0] as any).actionName).toBe("booleanAction");
     });
   });
 });

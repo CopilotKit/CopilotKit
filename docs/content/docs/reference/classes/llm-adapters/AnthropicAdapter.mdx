@@ -24,7 +24,13 @@ const anthropic = new Anthropic({
   apiKey: "<your-api-key>",
 });
  
-return new AnthropicAdapter({ anthropic });
+return new AnthropicAdapter({
+  anthropic,
+  promptCaching: {
+    enabled: true,
+    debug: true
+  }
+});
 ```
 
 ## Constructor Parameters
@@ -36,5 +42,10 @@ An optional Anthropic instance to use.  If not provided, a new instance will be
 
 <PropertyReference name="model" type="string"  > 
 The model to use.
+</PropertyReference>
+
+<PropertyReference name="promptCaching" type="AnthropicPromptCachingConfig"  > 
+Configuration for prompt caching.
+  See: https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
 </PropertyReference>
 

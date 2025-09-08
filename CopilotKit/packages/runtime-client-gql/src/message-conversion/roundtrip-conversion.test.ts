@@ -209,4 +209,318 @@ describe("roundtrip message conversion", () => {
     expect((aguiUserMsgs2[0] as any).image.format).toBe("png");
     expect((aguiUserMsgs2[0] as any).image.bytes).toBe("userbase64data");
   });
+
+  test("wild card action roundtrip conversion", () => {
+    const mockRender = vi.fn((props) => `Wildcard rendered: ${props.args.test}`);
+    const aguiMsg: agui.Message = {
+      id: "assistant-wildcard-1",
+      role: "assistant",
+      content: "Running wild card action",
+      toolCalls: [
+        {
+          id: "tool-call-wildcard-1",
+          type: "function",
+          function: {
+            name: "unknownAction",
+            arguments: JSON.stringify({ test: "wildcard-value" }),
+          },
+        },
+      ],
+      generativeUI: mockRender,
+    };
+
+    const actions: Record<string, any> = {
+      "*": { name: "*" },
+    };
+
+    // AGUI -> GQL -> AGUI roundtrip
+    const gqlMsgs = aguiToGQL(aguiMsg, actions);
+    const aguiMsgs2 = gqlToAGUI(gqlMsgs, actions);
+
+    // Verify the wild card action preserved the render function
+    expect(typeof actions["*"].render).toBe("function");
+    expect(actions["*"].render).toBe(mockRender);
+
+    // Verify the roundtripped message structure
+    expect(aguiMsgs2).toHaveLength(2);
+    expect(aguiMsgs2[0].role).toBe("assistant");
+    expect(aguiMsgs2[1].role).toBe("assistant");
+
+    // Check that the tool call is preserved
+    if ("toolCalls" in aguiMsgs2[1]) {
+      expect((aguiMsgs2[1] as any).toolCalls[0].function.name).toBe("unknownAction");
+      expect((aguiMsgs2[1] as any).toolCalls[0].function.arguments).toBe(
+        '{"test":"wildcard-value"}',
+      );
+    }
+  });
+
+  test("wild card action with specific action priority roundtrip", () => {
+    const mockRender = vi.fn((props) => `Specific action rendered: ${props.args.test}`);
+    const aguiMsg: agui.Message = {
+      id: "assistant-priority-1",
+      role: "assistant",
+      content: "Running specific action",
+      toolCalls: [
+        {
+          id: "tool-call-priority-1",
+          type: "function",
+          function: {
+            name: "specificAction",
+            arguments: JSON.stringify({ test: "specific-value" }),
+          },
+        },
+      ],
+      generativeUI: mockRender,
+    };
+
+    const actions: Record<string, any> = {
+      specificAction: { name: "specificAction" },
+      "*": { name: "*" },
+    };
+
+    // AGUI -> GQL -> AGUI roundtrip
+    const gqlMsgs = aguiToGQL(aguiMsg, actions);
+    const aguiMsgs2 = gqlToAGUI(gqlMsgs, actions);
+
+    // Verify the specific action preserved the render function (not wild card)
+    expect(typeof actions.specificAction.render).toBe("function");
+    expect(actions.specificAction.render).toBe(mockRender);
+    expect(actions["*"].render).toBeUndefined();
+
+    // Verify the roundtripped message structure
+    expect(aguiMsgs2).toHaveLength(2);
+    expect(aguiMsgs2[0].role).toBe("assistant");
+    expect(aguiMsgs2[1].role).toBe("assistant");
+
+    // Check that the tool call is preserved
+    if ("toolCalls" in aguiMsgs2[1]) {
+      expect((aguiMsgs2[1] as any).toolCalls[0].function.name).toBe("specificAction");
+      expect((aguiMsgs2[1] as any).toolCalls[0].function.arguments).toBe(
+        '{"test":"specific-value"}',
+      );
+    }
+  });
+
+  test("wild card action GQL -> AGUI -> GQL roundtrip", () => {
+    const actionExecMsg = new gql.ActionExecutionMessage({
+      id: "wildcard-action-1",
+      name: "unknownAction",
+      arguments: { test: "wildcard-gql-value" },
+      parentMessageId: "assistant-1",
+    });
+
+    const actions: Record<string, any> = {
+      "*": {
+        name: "*",
+        render: vi.fn((props) => `GQL wildcard rendered: ${props.args.test}`),
+      },
+    };
+
+    // GQL -> AGUI -> GQL roundtrip
+    const aguiMsgs = gqlToAGUI([actionExecMsg], actions);
+    const gqlMsgs2 = aguiToGQL(aguiMsgs, actions);
+
+    // When converting ActionExecutionMessage to AGUI and back, we get:
+    // 1. A TextMessage (assistant message with toolCalls)
+    // 2. An ActionExecutionMessage (the tool call itself)
+    expect(gqlMsgs2).toHaveLength(2);
+    expect(gqlMsgs2[0].id).toBe("wildcard-action-1");
+    expect((gqlMsgs2[0] as any).role).toBe(gql.Role.Assistant);
+    expect(gqlMsgs2[1].id).toBe("wildcard-action-1");
+    expect((gqlMsgs2[1] as any).name).toBe("unknownAction");
+    expect((gqlMsgs2[1] as any).arguments).toEqual({ test: "wildcard-gql-value" });
+  });
+
+  test("roundtrip conversion with result parsing edge cases", () => {
+    // Test with a tool result that contains a JSON string
+    const toolResultMsg: agui.Message = {
+      id: "tool-result-json",
+      role: "tool",
+      content: '{"status": "success", "data": {"value": 42}}',
+      toolCallId: "tool-call-json",
+      toolName: "jsonAction",
+    };
+
+    // Convert AGUI -> GQL -> AGUI
+    const gqlMsgs = aguiToGQL(toolResultMsg);
+    const aguiMsgs = gqlToAGUI(gqlMsgs);
+
+    expect(gqlMsgs).toHaveLength(1);
+    expect(gqlMsgs[0]).toBeInstanceOf(gql.ResultMessage);
+    expect((gqlMsgs[0] as any).result).toBe('{"status": "success", "data": {"value": 42}}');
+
+    expect(aguiMsgs).toHaveLength(1);
+    expect(aguiMsgs[0].role).toBe("tool");
+    expect(aguiMsgs[0].content).toBe('{"status": "success", "data": {"value": 42}}');
+  });
+
+  test("roundtrip conversion with object content in tool results", () => {
+    // Test with a tool result that has object content (edge case)
+    const toolResultMsg: agui.Message = {
+      id: "tool-result-object",
+      role: "tool",
+      content: { status: "success", data: { value: 42 } } as any,
+      toolCallId: "tool-call-object",
+      toolName: "objectAction",
+    };
+
+    // Convert AGUI -> GQL -> AGUI
+    const gqlMsgs = aguiToGQL(toolResultMsg);
+    const aguiMsgs = gqlToAGUI(gqlMsgs);
+
+    expect(gqlMsgs).toHaveLength(1);
+    expect(gqlMsgs[0]).toBeInstanceOf(gql.ResultMessage);
+    expect((gqlMsgs[0] as any).result).toBe('{"status":"success","data":{"value":42}}');
+
+    expect(aguiMsgs).toHaveLength(1);
+    expect(aguiMsgs[0].role).toBe("tool");
+    expect(aguiMsgs[0].content).toBe('{"status":"success","data":{"value":42}}');
+  });
+
+  test("roundtrip conversion with action execution and result parsing", () => {
+    const mockRender = vi.fn((props) => `Rendered: ${JSON.stringify(props.result)}`);
+
+    // Create action execution message
+    const actionExecMsg = new gql.ActionExecutionMessage({
+      id: "action-with-result",
+      name: "testAction",
+      arguments: { input: "test-value" },
+      parentMessageId: "parent-result",
+    });
+
+    // Create result message
+    const resultMsg = new gql.ResultMessage({
+      id: "result-with-json",
+      result: '{"output": "processed", "count": 5}',
+      actionExecutionId: "action-with-result",
+      actionName: "testAction",
+    });
+
+    const actions = {
+      testAction: {
+        name: "testAction",
+        render: mockRender,
+      },
+    };
+
+    // Convert GQL -> AGUI
+    const aguiMsgs = gqlToAGUI([actionExecMsg, resultMsg], actions);
+
+    // The action execution should have a generativeUI function that parses string results
+    expect(aguiMsgs).toHaveLength(2);
+    expect(aguiMsgs[0].role).toBe("assistant");
+    expect("generativeUI" in aguiMsgs[0]).toBe(true);
+    expect(aguiMsgs[1].role).toBe("tool");
+    expect(aguiMsgs[1].content).toBe('{"output": "processed", "count": 5}');
+
+    // Test that the render function receives parsed results
+    if ("generativeUI" in aguiMsgs[0] && aguiMsgs[0].generativeUI) {
+      aguiMsgs[0].generativeUI({ result: '{"parsed": true}' });
+      expect(mockRender).toHaveBeenCalledWith(
+        expect.objectContaining({
+          result: { parsed: true }, // Should be parsed from string
+        }),
+      );
+    }
+
+    // Convert back AGUI -> GQL
+    const gqlMsgs2 = aguiToGQL(aguiMsgs, actions);
+
+    // Should have 3 messages: TextMessage, ActionExecutionMessage, ResultMessage
+    expect(gqlMsgs2).toHaveLength(3);
+    expect(gqlMsgs2[0]).toBeInstanceOf(gql.TextMessage);
+    expect(gqlMsgs2[1]).toBeInstanceOf(gql.ActionExecutionMessage);
+    expect(gqlMsgs2[2]).toBeInstanceOf(gql.ResultMessage);
+
+    // Check that arguments roundtripped correctly
+    expect((gqlMsgs2[1] as any).arguments).toEqual({ input: "test-value" });
+    expect((gqlMsgs2[2] as any).result).toBe('{"output": "processed", "count": 5}');
+  });
+
+  test("roundtrip conversion verifies correct property distribution for regular actions", () => {
+    const mockRender = vi.fn((props) => `Regular action: ${JSON.stringify(props.args)}`);
+
+    const actionExecMsg = new gql.ActionExecutionMessage({
+      id: "regular-action-test",
+      name: "regularAction",
+      arguments: { test: "regular-value" },
+      parentMessageId: "parent-regular",
+    });
+
+    const actions = {
+      regularAction: {
+        name: "regularAction",
+        render: mockRender,
+      },
+    };
+
+    // GQL -> AGUI -> GQL roundtrip
+    const aguiMsgs = gqlToAGUI([actionExecMsg], actions);
+    const gqlMsgs2 = aguiToGQL(aguiMsgs, actions);
+
+    // Verify the roundtrip preserved the action
+    expect(gqlMsgs2).toHaveLength(2);
+    expect(gqlMsgs2[1]).toBeInstanceOf(gql.ActionExecutionMessage);
+    expect((gqlMsgs2[1] as any).name).toBe("regularAction");
+
+    // Test that regular actions do NOT receive the name property in render props
+    if ("generativeUI" in aguiMsgs[0] && aguiMsgs[0].generativeUI) {
+      aguiMsgs[0].generativeUI();
+      expect(mockRender).toHaveBeenCalledWith(
+        expect.objectContaining({
+          args: { test: "regular-value" },
+          // name property should NOT be present for regular actions
+        }),
+      );
+
+      // Verify name property is NOT present
+      const callArgs = mockRender.mock.calls[0][0];
+      expect(callArgs).not.toHaveProperty("name");
+    }
+  });
+
+  test("roundtrip conversion verifies correct property distribution for wildcard actions", () => {
+    const mockRender = vi.fn(
+      (props) => `Wildcard action: ${props.name} with ${JSON.stringify(props.args)}`,
+    );
+
+    const actionExecMsg = new gql.ActionExecutionMessage({
+      id: "wildcard-action-test",
+      name: "unknownAction",
+      arguments: { test: "wildcard-value" },
+      parentMessageId: "parent-wildcard",
+    });
+
+    const actions = {
+      "*": {
+        name: "*",
+        render: mockRender,
+      },
+    };
+
+    // GQL -> AGUI -> GQL roundtrip
+    const aguiMsgs = gqlToAGUI([actionExecMsg], actions);
+    const gqlMsgs2 = aguiToGQL(aguiMsgs, actions);
+
+    // Verify the roundtrip preserved the action
+    expect(gqlMsgs2).toHaveLength(2);
+    expect(gqlMsgs2[1]).toBeInstanceOf(gql.ActionExecutionMessage);
+    expect((gqlMsgs2[1] as any).name).toBe("unknownAction");
+
+    // Test that wildcard actions DO receive the name property in render props
+    if ("generativeUI" in aguiMsgs[0] && aguiMsgs[0].generativeUI) {
+      aguiMsgs[0].generativeUI();
+      expect(mockRender).toHaveBeenCalledWith(
+        expect.objectContaining({
+          args: { test: "wildcard-value" },
+          name: "unknownAction", // name property SHOULD be present for wildcard actions
+        }),
+      );
+
+      // Verify name property IS present
+      const callArgs = mockRender.mock.calls[0][0];
+      expect(callArgs).toHaveProperty("name", "unknownAction");
+    }
+  });
 });

@@ -1,519 +1,127 @@
 /**
- * `useCopilotChat` is a React hook that lets you directly interact with the
- * Copilot instance. Use to implement a fully custom UI (headless UI) or to
- * programmatically interact with the Copilot instance managed by the default
- * UI.
+ * `useCopilotChat` is a lightweight React hook for headless chat interactions.
+ * Perfect for controlling the prebuilt chat components programmatically.
+ *
+ * **Open Source Friendly** - Works without requiring a free public license key.
+ *
+ * <Callout title="Looking for fully headless UI?">
+ * Get started with [useCopilotChatHeadless_c](https://docs.copilotkit.ai/reference/hooks/useCopilotChatHeadless_c).
+ * </Callout>
+ *
+ * ## Use Cases
+ *
+ * - **Programmatic Messaging**: Send messages without displaying chat UI
+ * - **Programmatic control**: Control prebuilt component programmatically
+ * - **Background Operations**: Trigger AI interactions in the background
+ * - **Fire-and-Forget**: Send messages without needing to read responses
  *
  * ## Usage
  *
- * ### Simple Usage
- *
  * ```tsx
- * import { useCopilotChat } from "@copilotkit/react-core";
- * import { Role, TextMessage } from "@copilotkit/runtime-client-gql";
+ * import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";
  *
- * export function YourComponent() {
- *   const { appendMessage } = useCopilotChat();
+ * const { appendMessage } = useCopilotChat();
  *
- *   appendMessage(
+ * // Example usage without naming conflicts
+ * const handleSendMessage = async (content: string) => {
+ *   await appendMessage(
  *     new TextMessage({
- *       content: "Hello World",
- *       role: Role.User,
- *     }),
+ *       role: MessageRole.User,
+ *       content,
+ *     })
  *   );
- *
- *   // optionally, you can append a message without running chat completion
- *   appendMessage(yourMessage, { followUp: false });
- * }
+ * };
  * ```
  *
- * ### Working with Suggestions
+ * ## Return Values
+ * The following properties are returned from the hook:
  *
- * ```tsx
- * import { useCopilotChat, useCopilotChatSuggestions } from "@copilotkit/react-core";
+ * <PropertyReference name="visibleMessages" type="DeprecatedGqlMessage[]" deprecated>
+ * Array of messages in old non-AG-UI format, use for compatibility only
+ * </PropertyReference>
  *
- * export function YourComponent() {
- *   const {
- *     suggestions,
- *     setSuggestions,
- *     generateSuggestions,
- *     isLoadingSuggestions
- *   } = useCopilotChat();
+ * <PropertyReference name="appendMessage" type="(message: DeprecatedGqlMessage, options?) => Promise<void>" deprecated>
+ * Append message using old format, use `sendMessage` instead
+ * </PropertyReference>
  *
- *   // Configure AI suggestion generation
- *   useCopilotChatSuggestions({
- *     instructions: "Suggest helpful actions based on the current context",
- *     maxSuggestions: 3
- *   });
+ * <PropertyReference name="reloadMessages" type="(messageId: string) => Promise<void>">
+ * Regenerate the response for a specific message by ID
+ * </PropertyReference>
  *
- *   // Manual suggestion control
- *   const handleCustomSuggestion = () => {
- *     setSuggestions([{ title: "Custom Action", message: "Perform custom action" }]);
- *   };
+ * <PropertyReference name="stopGeneration" type="() => void">
+ * Stop the current message generation process
+ * </PropertyReference>
  *
- *   // Trigger AI generation
- *   const handleGenerateSuggestions = async () => {
- *     await generateSuggestions();
- *   };
- * }
- * ```
+ * <PropertyReference name="reset" type="() => void">
+ * Clear all messages and reset chat state completely
+ * </PropertyReference>
  *
- * `useCopilotChat` returns an object with the following properties:
+ * <PropertyReference name="isLoading" type="boolean">
+ * Whether the chat is currently generating a response
+ * </PropertyReference>
  *
- * ```tsx
- * const {
- *   visibleMessages, // An array of messages that are currently visible in the chat.
- *   appendMessage, // A function to append a message to the chat.
- *   setMessages, // A function to set the messages in the chat.
- *   deleteMessage, // A function to delete a message from the chat.
- *   reloadMessages, // A function to reload the messages from the API.
- *   stopGeneration, // A function to stop the generation of the next message.
- *   reset, // A function to reset the chat.
- *   isLoading, // A boolean indicating if the chat is loading.
+ * <PropertyReference name="runChatCompletion" type="() => Promise<Message[]>">
+ * Manually trigger chat completion for advanced usage
+ * </PropertyReference>
  *
- *   // Suggestion control (headless UI)
- *   suggestions, // Current suggestions array
- *   setSuggestions, // Manually set suggestions
- *   generateSuggestions, // Trigger AI suggestion generation
- *   resetSuggestions, // Clear all suggestions
- *   isLoadingSuggestions, // Whether suggestions are being generated
- * } = useCopilotChat();
- * ```
+ * <PropertyReference name="mcpServers" type="MCPServerConfig[]">
+ * Array of Model Context Protocol server configurations
+ * </PropertyReference>
+ *
+ * <PropertyReference name="setMcpServers" type="(servers: MCPServerConfig[]) => void">
+ * Update MCP server configurations for enhanced context
+ * </PropertyReference>
  */
-import { useRef, useEffect, useCallback, useState, useMemo } from "react";
-import { AgentSession, useCopilotContext, CopilotContextParams } from "../context/copilot-context";
-import { useCopilotMessagesContext, CopilotMessagesContextParams } from "../context";
-import { SystemMessageFunction } from "../types";
-import { useChat, AppendMessageOptions } from "./use-chat";
-import { defaultCopilotContextCategories } from "../components";
-import { CoAgentStateRenderHandlerArguments } from "@copilotkit/shared";
-import { useAsyncCallback } from "../components/error-boundary/error-utils";
-import { reloadSuggestions as generateSuggestions } from "../utils";
-import type { SuggestionItem } from "../utils";
 
-import { Message } from "@copilotkit/shared";
-import { Role as gqlRole, TextMessage, aguiToGQL, gqlToAGUI } from "@copilotkit/runtime-client-gql";
-import { useLangGraphInterruptRender } from "./use-langgraph-interrupt-render";
+import {
+  UseCopilotChatOptions,
+  useCopilotChat as useCopilotChatInternal,
+  UseCopilotChatReturn as UseCopilotChatReturnInternal,
+} from "./use-copilot-chat_internal";
 
-export interface UseCopilotChatOptions {
-  /**
-   * A unique identifier for the chat. If not provided, a random one will be
-   * generated. When provided, the `useChat` hook with the same `id` will
-   * have shared states across components.
-   */
-  id?: string;
+// Create a type that excludes message-related properties from the internal type
+export type UseCopilotChatReturn = Omit<
+  UseCopilotChatReturnInternal,
+  | "messages"
+  | "sendMessage"
+  | "suggestions"
+  | "setSuggestions"
+  | "generateSuggestions"
+  | "isLoadingSuggestions"
+  | "resetSuggestions"
+  | "interrupt"
+  | "setMessages"
+  | "deleteMessage"
+>;
 
-  /**
-   * HTTP headers to be sent with the API request.
-   */
-  headers?: Record<string, string> | Headers;
-
-  /**
-   * Initial messages to populate the chat with.
-   */
-  initialMessages?: Message[];
-
-  /**
-   * A function to generate the system message. Defaults to `defaultSystemMessage`.
-   */
-  makeSystemMessage?: SystemMessageFunction;
-}
-
-export interface MCPServerConfig {
-  endpoint: string;
-  apiKey?: string;
-}
-
-export interface UseCopilotChatReturn {
-  /** Array of messages currently visible in the chat interface */
-  visibleMessages: Message[];
-
-  /** Send a new message to the chat */
-  appendMessage: (message: Message, options?: AppendMessageOptions) => Promise<void>;
-
-  /** Replace all messages in the chat */
-  setMessages: (messages: Message[]) => void;
-
-  /** Remove a specific message by ID */
-  deleteMessage: (messageId: string) => void;
-
-  /** Regenerate the response for a specific message */
-  reloadMessages: (messageId: string) => Promise<void>;
-
-  /** Stop the current message generation */
-  stopGeneration: () => void;
-
-  /** Clear all messages and reset chat state */
-  reset: () => void;
-
-  /** Whether the chat is currently generating a response */
-  isLoading: boolean;
-
-  /** Manually trigger chat completion (advanced usage) */
-  runChatCompletion: () => Promise<Message[]>;
-
-  /** MCP (Model Context Protocol) server configurations */
-  mcpServers: MCPServerConfig[];
-
-  /** Update MCP server configurations */
-  setMcpServers: (mcpServers: MCPServerConfig[]) => void;
-
-  /**
-   * Current suggestions array
-   * Use this to read the current suggestions or in conjunction with setSuggestions for manual control
-   */
-  suggestions: SuggestionItem[];
-
-  /**
-   * Manually set suggestions
-   * Useful for manual mode or custom suggestion workflows
-   */
-  setSuggestions: (suggestions: SuggestionItem[]) => void;
-
-  /**
-   * Trigger AI-powered suggestion generation
-   * Uses configurations from useCopilotChatSuggestions hooks
-   * Respects global debouncing - only one generation can run at a time
-   */
-  generateSuggestions: () => Promise<void>;
-
-  /**
-   * Clear all current suggestions
-   * Also resets suggestion generation state
-   */
-  resetSuggestions: () => void;
-
-  /** Whether suggestions are currently being generated */
-  isLoadingSuggestions: boolean;
-
-  /** Interrupt content for human-in-the-loop workflows */
-  interrupt: string | React.ReactElement | null;
-}
-
-let globalSuggestionPromise: Promise<void> | null = null;
-
+/**
+ * A lightweight React hook for headless chat interactions.
+ * Perfect for programmatic messaging, background operations, and custom UI implementations.
+ *
+ * **Open Source Friendly** - Works without requiring a `publicApiKey`.
+ */
 export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotChatReturn {
-  const makeSystemMessage = options.makeSystemMessage ?? defaultSystemMessage;
   const {
-    getContextString,
-    getFunctionCallHandler,
-    copilotApiConfig,
+    visibleMessages,
+    appendMessage,
+    reloadMessages,
+    stopGeneration,
+    reset,
     isLoading,
-    setIsLoading,
-    chatInstructions,
-    actions,
-    coagentStatesRef,
-    setCoagentStatesWithRef,
-    coAgentStateRenders,
-    agentSession,
-    setAgentSession,
-    forwardedParameters,
-    agentLock,
-    threadId,
-    setThreadId,
-    runId,
-    setRunId,
-    chatAbortControllerRef,
-    extensions,
-    setExtensions,
-    langGraphInterruptAction,
-    setLangGraphInterruptAction,
-    chatSuggestionConfiguration,
-    suggestions,
-    setSuggestions,
-    runtimeClient,
-  } = useCopilotContext();
-  const { messages, setMessages } = useCopilotMessagesContext();
-
-  // Simple state for MCP servers (keep for interface compatibility)
-  const [mcpServers, setLocalMcpServers] = useState<MCPServerConfig[]>([]);
-
-  // Basic suggestion state for programmatic control
-  const suggestionsAbortControllerRef = useRef<AbortController | null>(null);
-  const isLoadingSuggestionsRef = useRef<boolean>(false);
-
-  const abortSuggestions = useCallback(
-    (clear: boolean = true) => {
-      suggestionsAbortControllerRef.current?.abort("suggestions aborted by user");
-      suggestionsAbortControllerRef.current = null;
-      if (clear) {
-        setSuggestions([]);
-      }
-    },
-    [setSuggestions],
-  );
-
-  // Memoize context with stable dependencies only
-  const stableContext = useMemo(() => {
-    return {
-      actions,
-      copilotApiConfig,
-      chatSuggestionConfiguration,
-      messages,
-      setMessages,
-      getContextString,
-      runtimeClient,
-    };
-  }, [
-    JSON.stringify(Object.keys(actions)),
-    copilotApiConfig.chatApiEndpoint,
-    messages.length,
-    Object.keys(chatSuggestionConfiguration).length,
-  ]);
-
-  // Programmatic suggestion generation function
-  const generateSuggestionsFunc = useCallback(async () => {
-    // If a global suggestion is running, ignore this call
-    if (globalSuggestionPromise) {
-      return globalSuggestionPromise;
-    }
-
-    globalSuggestionPromise = (async () => {
-      try {
-        abortSuggestions();
-        isLoadingSuggestionsRef.current = true;
-        suggestionsAbortControllerRef.current = new AbortController();
-
-        setSuggestions([]);
-
-        await generateSuggestions(
-          stableContext as CopilotContextParams & CopilotMessagesContextParams,
-          chatSuggestionConfiguration,
-          setSuggestions,
-          suggestionsAbortControllerRef,
-        );
-      } catch (error) {
-        // Re-throw to allow caller to handle the error
-        throw error;
-      } finally {
-        isLoadingSuggestionsRef.current = false;
-        globalSuggestionPromise = null;
-      }
-    })();
-
-    return globalSuggestionPromise;
-  }, [stableContext, chatSuggestionConfiguration, setSuggestions, abortSuggestions]);
-
-  const resetSuggestions = useCallback(() => {
-    setSuggestions([]);
-  }, [setSuggestions]);
-
-  // MCP servers logic
-  useEffect(() => {
-    if (mcpServers.length > 0) {
-      const serversCopy = [...mcpServers];
-      copilotApiConfig.mcpServers = serversCopy;
-      if (!copilotApiConfig.properties) {
-        copilotApiConfig.properties = {};
-      }
-      copilotApiConfig.properties.mcpServers = serversCopy;
-    }
-  }, [mcpServers, copilotApiConfig]);
-
-  const setMcpServers = useCallback((servers: MCPServerConfig[]) => {
-    setLocalMcpServers(servers);
-  }, []);
-
-  // Move these function declarations above the useChat call
-  const onCoAgentStateRender = useAsyncCallback(
-    async (args: CoAgentStateRenderHandlerArguments) => {
-      const { name, nodeName, state } = args;
-      let action = Object.values(coAgentStateRenders).find(
-        (action) => action.name === name && action.nodeName === nodeName,
-      );
-      if (!action) {
-        action = Object.values(coAgentStateRenders).find(
-          (action) => action.name === name && !action.nodeName,
-        );
-      }
-      if (action) {
-        await action.handler?.({ state, nodeName });
-      }
-    },
-    [coAgentStateRenders],
-  );
-
-  const makeSystemMessageCallback = useCallback(() => {
-    const systemMessageMaker = makeSystemMessage || defaultSystemMessage;
-    // this always gets the latest context string
-    const contextString = getContextString([], defaultCopilotContextCategories); // TODO: make the context categories configurable
-
-    return new TextMessage({
-      content: systemMessageMaker(contextString, chatInstructions),
-      role: gqlRole.System,
-    });
-  }, [getContextString, makeSystemMessage, chatInstructions]);
-
-  const deleteMessage = useCallback(
-    (messageId: string) => {
-      setMessages((prev) => prev.filter((message) => message.id !== messageId));
-    },
-    [setMessages],
-  );
-
-  // Get chat helpers with updated config
-  const { append, reload, stop, runChatCompletion } = useChat({
-    ...options,
-    actions: Object.values(actions),
-    copilotConfig: copilotApiConfig,
-    initialMessages: aguiToGQL(options.initialMessages || []),
-    onFunctionCall: getFunctionCallHandler(),
-    onCoAgentStateRender,
-    messages,
-    setMessages,
-    makeSystemMessageCallback,
-    isLoading,
-    setIsLoading,
-    coagentStatesRef,
-    setCoagentStatesWithRef,
-    agentSession,
-    setAgentSession,
-    forwardedParameters,
-    threadId,
-    setThreadId,
-    runId,
-    setRunId,
-    chatAbortControllerRef,
-    agentLock,
-    extensions,
-    setExtensions,
-    langGraphInterruptAction,
-    setLangGraphInterruptAction,
-  });
-
-  const latestAppend = useUpdatedRef(append);
-  const latestAppendFunc = useAsyncCallback(
-    async (message: Message, options?: AppendMessageOptions) => {
-      abortSuggestions(options?.clearSuggestions);
-      return await latestAppend.current(aguiToGQL([message])[0], options);
-    },
-    [latestAppend],
-  );
-
-  const latestReload = useUpdatedRef(reload);
-  const latestReloadFunc = useAsyncCallback(
-    async (messageId: string) => {
-      return await latestReload.current(messageId);
-    },
-    [latestReload],
-  );
-
-  const latestStop = useUpdatedRef(stop);
-  const latestStopFunc = useCallback(() => {
-    return latestStop.current();
-  }, [latestStop]);
-
-  const latestDelete = useUpdatedRef(deleteMessage);
-  const latestDeleteFunc = useCallback(
-    (messageId: string) => {
-      return latestDelete.current(messageId);
-    },
-    [latestDelete],
-  );
-
-  const latestSetMessages = useUpdatedRef(setMessages);
-  const latestSetMessagesFunc = useCallback(
-    (messages: Message[]) => {
-      return latestSetMessages.current(aguiToGQL(messages));
-    },
-    [latestSetMessages],
-  );
-
-  const latestRunChatCompletion = useUpdatedRef(runChatCompletion);
-  const latestRunChatCompletionFunc = useAsyncCallback(async () => {
-    return await latestRunChatCompletion.current!();
-  }, [latestRunChatCompletion]);
-
-  const reset = useCallback(() => {
-    latestStopFunc();
-    setMessages([]);
-    setRunId(null);
-    setCoagentStatesWithRef({});
-    let initialAgentSession: AgentSession | null = null;
-    if (agentLock) {
-      initialAgentSession = {
-        agentName: agentLock,
-      };
-    }
-    setAgentSession(initialAgentSession);
-    // Reset suggestions when chat is reset
-    resetSuggestions();
-  }, [
-    latestStopFunc,
-    setMessages,
-    setThreadId,
-    setCoagentStatesWithRef,
-    setAgentSession,
-    agentLock,
-    resetSuggestions,
-  ]);
-
-  const latestReset = useUpdatedRef(reset);
-  const latestResetFunc = useCallback(() => {
-    return latestReset.current();
-  }, [latestReset]);
-
-  const interrupt = useLangGraphInterruptRender();
-
-  return {
-    visibleMessages: gqlToAGUI(messages, actions, coAgentStateRenders),
-    appendMessage: latestAppendFunc,
-    setMessages: latestSetMessagesFunc,
-    reloadMessages: latestReloadFunc,
-    stopGeneration: latestStopFunc,
-    reset: latestResetFunc,
-    deleteMessage: latestDeleteFunc,
-    runChatCompletion: latestRunChatCompletionFunc,
-    isLoading,
+    runChatCompletion,
     mcpServers,
     setMcpServers,
-    suggestions,
-    setSuggestions,
-    generateSuggestions: generateSuggestionsFunc,
-    resetSuggestions,
-    isLoadingSuggestions: isLoadingSuggestionsRef.current,
-    interrupt,
+  } = useCopilotChatInternal(options);
+
+  return {
+    visibleMessages,
+    appendMessage,
+    reloadMessages,
+    stopGeneration,
+    reset,
+    isLoading,
+    runChatCompletion,
+    mcpServers,
+    setMcpServers,
   };
-}
-
-// store `value` in a ref and update
-// it whenever it changes.
-function useUpdatedRef<T>(value: T) {
-  const ref = useRef(value);
-
-  useEffect(() => {
-    ref.current = value;
-  }, [value]);
-
-  return ref;
-}
-
-export function defaultSystemMessage(
-  contextString: string,
-  additionalInstructions?: string,
-): string {
-  return (
-    `
-Please act as an efficient, competent, conscientious, and industrious professional assistant.
-
-Help the user achieve their goals, and you do so in a way that is as efficient as possible, without unnecessary fluff, but also without sacrificing professionalism.
-Always be polite and respectful, and prefer brevity over verbosity.
-
-The user has provided you with the following context:
-\`\`\`
-${contextString}
-\`\`\`
-
-They have also provided you with functions you can call to initiate actions on their behalf, or functions you can call to receive more information.
-
-Please assist them as best you can.
-
-You can ask them for clarifying questions if needed, but don't be annoying about it. If you can reasonably 'fill in the blanks' yourself, do so.
-
-If you would like to call a function, call it without saying anything else.
-In case of a function error:
-- If this error stems from incorrect function parameters or syntax, you may retry with corrected arguments.
-- If the error's source is unclear or seems unrelated to your input, do not attempt further retries.
-` + (additionalInstructions ? `\n\n${additionalInstructions}` : "")
-  );
 }

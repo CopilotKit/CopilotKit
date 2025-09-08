@@ -1,4 +1,7 @@
-![banner](https://github.com/user-attachments/assets/0a6b64d9-e193-4940-a3f6-60334ac34084)
+
+<img width="4096" height="1588" alt="header" src="https://github.com/user-attachments/assets/dd638592-fb74-4e22-8c55-49dfc4d0e462" />
+
+
 <br>
   <div align="start" style="display:flex;justify-content:start;gap:16px;height:20px;margin: 0;">
   <a href="https://www.npmjs.com/package/@copilotkit/react-core" target="_blank">
@@ -46,7 +49,8 @@
 <br />
 <br />
 
-![class-support-ecosystem](https://github.com/user-attachments/assets/6cb425f8-ffcb-49d2-9bbb-87cab5995b78)
+<img width="4096" height="2341" alt="Best in class support across the ecosystem" src="https://github.com/user-attachments/assets/bf399131-2a92-49f8-8748-38ed72353f9c" />
+
 
 ## ✨ Why CopilotKit?
 
@@ -60,7 +64,8 @@
 
 <span>Deploy deeply-integrated AI assistants & agents that work alongside your users inside your applications.</span>
 
-![headless-ui](https://github.com/user-attachments/assets/3b810240-e9f8-43ae-acec-31a58095e223)
+<img width="4096" height="2725" alt="Headless UI" src="https://github.com/user-attachments/assets/4dbe1e74-8b46-4798-a658-f79ee5a66189" />
+
 
 ## 🖥️ Code Samples
 
@@ -99,7 +104,12 @@ useCopilotAction({
 const { agentState } = useCoAgent({ 
   name: "basic_agent", 
   initialState: { input: "NYC" } 
-});
+});![banner](https://github.com/user-attachments/assets/b4d76fab-7439-4010-9319-a5b16546b569)
+![class-support-ecosystem](https://github.com/user-attachments/assets/65de96b7-dc12-4c3d-a704-30c2d3b0ea3c)
+![form-filling-copilot](https://github.com/user-attachments/assets/46b0ad80-33dc-4a49-94ba-f270a32fc123)
+![chat-with-your-data](https://github.com/user-attachments/assets/4ffd9b7a-86d9-4b22-9c17-148de581e7c6)
+![state-machine-copilot](https://github.com/user-attachments/assets/65581290-f4bd-4486-840b-27d3d0c77bc8)
+
 
 // agentic generative UI
 useCoAgentStateRender({
@@ -149,20 +159,22 @@ const response = await ChatOpenAI({ model: "gpt-4o" }).invoke(messages, modified
 ```
 ## 🏆 Featured Examples
 
+
 <p align="center">
   <a href="https://www.copilotkit.ai/examples/form-filling-copilot">
-    <img src="https://github.com/user-attachments/assets/874da84a-67ff-47fa-a6b4-cbc3c65eb704" width="300" />
+    <img width="290" height="304" alt="Banner 2 A" src="https://github.com/user-attachments/assets/90c42b54-8931-45ad-9c0b-53f7f67453a1" />
   </a>
   <a href="https://www.copilotkit.ai/examples/state-machine-copilot">
-    <img src="https://github.com/user-attachments/assets/0b5e45b3-2704-4678-82dc-2f3e1c58e2dd" width="300" />
+    <img width="290" height="304" alt="Banner 2 A-1" src="https://github.com/user-attachments/assets/609c62eb-76af-4866-a353-5e3545470ec3" />
   </a>
   <a href="https://www.copilotkit.ai/examples/chat-with-your-data">
-    <img src="https://github.com/user-attachments/assets/0fed66be-a4c2-4093-8eab-75c0b27a62f6" width="300" />
+    <img width="290" height="304" alt="Banner 2 A-2" src="https://github.com/user-attachments/assets/c614ac4e-d2b3-4514-9ef1-fdba04c0a082" />
   </a>
 </p>
 
 ## 🖥️ AG-UI: The Agent–User Interaction Protocol
 Connect agent workflow to user-facing apps, with deep partnerships and 1st-party integrations across the agentic stack—including LangGraph, CrewAI, and more.
+
 
   <a href="https://github.com/ag-ui-protocol/ag-ui" target="_blank">
    Learn more in the AG-UI README →
