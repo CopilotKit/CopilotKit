@@ -8,6 +8,7 @@ import { AgentSessionInput } from "./agent-session.input";
 import { AgentStateInput } from "./agent-state.input";
 import { ExtensionsInput } from "./extensions.input";
 import { MetaEventInput } from "./meta-event.input";
+import { CopilotContextInput } from "./copilot-context.input";
 
 @InputType()
 export class GenerateCopilotResponseMetadataInput {
@@ -52,4 +53,7 @@ export class GenerateCopilotResponseInput {
 
   @Field(() => [MetaEventInput], { nullable: true })
   metaEvents?: MetaEventInput[];
+
+  @Field(() => [CopilotContextInput], { nullable: true })
+  context?: CopilotContextInput[];
 }
