@@ -1,0 +1,63 @@
+---
+title: Migrate to AG-UI
+description: Migration guide for AG-UI FastAPI based agent
+icon: "lucide/RefreshCw"
+---
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+
+### Migrate FastAPI based agent to using AG-UI FastAPI based agent
+
+AG-UI is the new agent to UI protocol, which is being widely used in CopilotKit.
+It already has an integration with FastAPI based LangGraph agents.
+
+This guide shows how to make the transition.
+
+Assuming your Python agent setup is as follows:
+```
+from fastapi import FastAPI
+from copilotkit.integrations.fastapi import add_fastapi_endpoint
+from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent
+from .agent import graph
+
+app = FastAPI()
+sdk = CopilotKitRemoteEndpoint(
+    agents=[
+        CrewAIAgent(
+            name="sample_agent",
+            description="my agent",
+            graph=graph,
+        ),
+    ],
+)
+
+add_fastapi_endpoint(app, sdk, "/copilotkit")
+```
+
+To migrate, you'll need to import the new endpoint initializer and agent classes.
+Everything else (mainly your graph) stays the same.
+
+```
+from fastapi import FastAPI
+from copilotkit import LangGraphAGUIAgent
+from ag_ui_langgraph import add_langgraph_fastapi_endpoint
+from .agent import graph
+
+app = FastAPI()
+add_langgraph_fastapi_endpoint(
+    app=app,
+    agent=LangGraphAGUIAgent(
+        name="sample_agent",
+        description="A demo of LangGraph subgraphs using a Game Character Creator.",
+        graph=graph,
+    ),
+    path="/agent/sample_agent" <-- Your agent will be available at this path. You may assign it to "/" if you want it to be the root path.
+)
+```
+
+<Accordions>
+    <Accordion title="What about the LangGraph config parameter which was used to configure the agent?">
+        The `langgraph_config` does not exist in the new agent.
+        Instead, the agent is directly configured through the `useCoAgent` hook, or using a similar, yet now, `config` parameter
+    </Accordion>
+</Accordions>
+
