@@ -73,7 +73,6 @@ import { Input as DefaultInput } from "./Input";
 import { RenderMessage as DefaultRenderMessage } from "./messages/RenderMessage";
 import { AssistantMessage as DefaultAssistantMessage } from "./messages/AssistantMessage";
 import { UserMessage as DefaultUserMessage } from "./messages/UserMessage";
-import { ErrorMessage as DefaultErrorMessage } from "./messages/ErrorMessage";
 import { ImageRenderer as DefaultImageRenderer } from "./messages/ImageRenderer";
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import {
@@ -422,7 +421,7 @@ export function CopilotChat({
   AssistantMessage = DefaultAssistantMessage,
   UserMessage = DefaultUserMessage,
   ImageRenderer = DefaultImageRenderer,
-  ErrorMessage = DefaultErrorMessage,
+  ErrorMessage,
   imageUploadsEnabled,
   inputFileAccept = "image/*",
   hideStopButton,

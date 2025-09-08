@@ -100,7 +100,7 @@ export const Messages = ({
           );
         })}
         {interrupt}
-        {chatError && <ErrorMessage error={chatError} isCurrentMessage />}
+        {chatError && ErrorMessage && <ErrorMessage error={chatError} isCurrentMessage />}
       </div>
       <footer className="copilotKitMessagesFooter" ref={messagesEndRef}>
         {children}
