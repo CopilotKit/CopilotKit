@@ -62,7 +62,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
         def update_language(language: str) -> StateSnapshotEvent:
             """Update the language of the agent."""
             updated_state = {"language": language}
-            
+
             return StateSnapshotEvent(
                 type=EventType.STATE_SNAPSHOT,
                 snapshot=updated_state
@@ -167,6 +167,6 @@ function YourMainContent() {
 By default, the Pydantic AI Agent state will only update _between_ Pydantic AI Agent node transitions --
 which means state updates will be discontinuous and delayed.
 
-You likely want to render the agent state as it updates **continuously.**
+{/* You likely want to render the agent state as it updates **continuously.**
 
-See **[emit intermediate state](/pydantic-ai/shared-state/predictive-state-updates).** 
+See **[emit intermediate state](/pydantic-ai/shared-state/predictive-state-updates).**  */}
