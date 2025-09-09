@@ -179,17 +179,17 @@ export class LangGraphAgent extends AGUILangGraphAgent {
     );
   }
 
-  langGraphDefaultMergeState(state: State, messages: LangGraphMessage[], tools: any): State {
+  langGraphDefaultMergeState(state: State, messages: LangGraphMessage[], input: RunAgentInput): State {
     const {
       tools: returnedTools,
       "ag-ui": agui,
       ...rest
-    } = super.langGraphDefaultMergeState(state, messages, tools);
+    } = super.langGraphDefaultMergeState(state, messages, input);
 
-    const combinedTools = {
+    const combinedTools = [
       ...returnedTools,
       ...(agui?.tools ?? []),
-    };
+    ];
 
     return {
       ...rest,
