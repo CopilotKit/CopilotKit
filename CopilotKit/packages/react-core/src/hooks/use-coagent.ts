@@ -282,16 +282,12 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
       }
 
       const newState = result.data?.loadAgentState?.state;
-      if (newState === lastLoadedState.current) return;
-
-      if (result.data?.loadAgentState?.threadExists && newState && newState != "{}") {
-        lastLoadedState.current = newState;
-        lastLoadedThreadId.current = threadId;
-        const fetchedState = parseJson(newState, {});
-        isExternalStateManagement(options)
-          ? options.setState(fetchedState)
-          : setState(fetchedState);
-      }
+      lastLoadedState.current = newState;
+      lastLoadedThreadId.current = threadId;
+      const fetchedState = parseJson(newState, {});
+      isExternalStateManagement(options)
+        ? options.setState(fetchedState)
+        : setState(fetchedState);
     };
     void fetchAgentState();
   }, [threadId]);
