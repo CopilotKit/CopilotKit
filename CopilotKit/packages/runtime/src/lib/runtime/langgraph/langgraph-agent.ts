@@ -179,17 +179,27 @@ export class LangGraphAgent extends AGUILangGraphAgent {
     );
   }
 
-  langGraphDefaultMergeState(state: State, messages: LangGraphMessage[], input: RunAgentInput): State {
+  langGraphDefaultMergeState(
+    state: State,
+    messages: LangGraphMessage[],
+    input: RunAgentInput,
+  ): State {
     const {
       tools: returnedTools,
       "ag-ui": agui,
       ...rest
     } = super.langGraphDefaultMergeState(state, messages, input);
 
-    const combinedTools = [
-      ...returnedTools,
-      ...(agui?.tools ?? []),
+    // tolerate undefined and de-duplicate by stable key (id | name | key)
+    const rawCombinedTools = [
+      ...((returnedTools as any[]) ?? []),
+      ...((agui?.tools as any[]) ?? []),
     ];
+    const combinedTools = Array.from(
+      new Map(
+        rawCombinedTools.map((t: any) => [t?.id ?? t?.name ?? t?.key ?? JSON.stringify(t), t]),
+      ).values(),
+    );
 
     return {
       ...rest,
