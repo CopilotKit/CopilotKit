@@ -12,6 +12,7 @@ const inter = Inter({
 
 export default async function Layout({ children }: { children: ReactNode }) {
   const REB2B_KEY = process.env.NEXT_PUBLIC_REB2B_KEY;
+  const REO_KEY = process.env.NEXT_PUBLIC_REO_KEY;
   return (
     <html lang="en" className={inter.className} suppressHydrationWarning>
       <head>
@@ -26,6 +27,28 @@ export default async function Layout({ children }: { children: ReactNode }) {
           id="reb2b-script"
           strategy="afterInteractive"
           src={`https://b2bjsstore.s3.us-west-2.amazonaws.com/b/${REB2B_KEY}/${REB2B_KEY}.js.gz`}
+        />
+        <Script
+          id="reo-init-script"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+                  !function(){
+                    var e, t, n;
+                    e = "${REO_KEY}";
+                    t = function() {
+                      if (window.Reo) {
+                        window.Reo.init({ clientID: "${REO_KEY}" });
+                      }
+                    };
+                    n = document.createElement("script");
+                    n.src = "https://static.reo.dev/" + e + "/reo.js";
+                    n.defer = true;
+                    n.onload = t;
+                    document.head.appendChild(n);
+                  }();
+                `,
+          }}
         />
       </head>
       <body>
