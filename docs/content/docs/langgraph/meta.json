@@ -15,6 +15,7 @@
     "shared-state",
     "frontend-actions",
     "multi-agent-flows",
+    "agent-app-context",
     "auth",
     "persistence",
     "advanced",
