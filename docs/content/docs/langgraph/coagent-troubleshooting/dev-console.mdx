@@ -1,0 +1,175 @@
+---
+title: Using the Dev Console to Help Troubleshoot
+description: Learn how to enable and use the CopilotKit Dev Console for debugging actions, readable content, and messages during development.
+---
+
+The CopilotKit Dev Console is a powerful debugging tool that helps you troubleshoot issues with actions, readable content, and messages during development. It provides real-time insights into your CopilotKit integration and helps identify common problems.
+
+## Enabling the Dev Console
+
+To enable the Dev Console, add the `showDevConsole` prop to your CopilotKit provider:
+
+```tsx
+import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotPopup } from "@copilotkit/react-ui";
+
+export default function App() {
+  return (
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      showDevConsole={true}  // Enable dev console
+    >
+      <CopilotPopup
+        labels={{
+          title: "Your AI Assistant",
+          initial: "Hi! How can I help you today?",
+        }}
+      />
+      {/* Your app content */}
+    </CopilotKit>
+  );
+}
+```
+
+<Callout type="warning">
+**Production Safety**: The dev console defaults to `false` for production safety. Only enable it during development.
+</Callout>
+
+### Conditional Enabling (Recommended)
+
+For better security, enable the dev console only in development environments:
+
+```tsx
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  showDevConsole={process.env.NODE_ENV === 'development'}
+>
+  {/* Your app content */}
+</CopilotKit>
+```
+
+## Dev Console Features
+
+When enabled, the dev console automatically appears in the chat header and provides several debugging capabilities:
+
+### Version Checking
+- Displays current CopilotKit version status
+- Shows update notifications ("latest", "update-available", "outdated")
+- Provides upgrade banners when newer versions are available
+
+### Error Display & Troubleshooting
+- Shows error banners for debugging issues
+- Provides troubleshooting information and suggestions
+- Displays development-specific error details
+
+### Debug Menu
+- Hide/show functionality for the console
+- Development mode indicators
+- Error visibility controls
+
+## Usage Examples
+
+### Next.js App Router
+
+```tsx
+// app/layout.tsx or app/page.tsx
+import { CopilotKit } from "@copilotkit/react-core";
+
+export default function RootLayout({ children }) {
+  return (
+    <html>
+      <body>
+        <CopilotKit
+          runtimeUrl="/api/copilotkit"
+          showDevConsole={process.env.NODE_ENV === 'development'}
+        >
+          {children}
+        </CopilotKit>
+      </body>
+    </html>
+  );
+}
+```
+
+### With Environment Variables
+
+```tsx
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  showDevConsole={process.env.NODE_ENV === 'development'}
+>
+  {/* Your components */}
+</CopilotKit>
+```
+
+## Troubleshooting Common Issues
+
+The dev console helps identify and resolve several common issues:
+
+### Version Mismatch Issues
+The console displays warnings when your CopilotKit version is outdated, helping you stay up-to-date with the latest features and bug fixes.
+
+### Runtime Connection Problems
+Error banners appear when there are connectivity issues with your CopilotKit runtime, making it easier to diagnose API endpoint problems.
+
+### Development Debugging
+Enhanced error messages and stack traces are available in development mode, providing detailed information about integration issues.
+
+## Customizing Dev Console Appearance
+
+You can customize the dev console appearance using CSS classes:
+
+```css
+/* Main dev console container */
+.copilotKitDevConsole {
+  /* Custom styling */
+}
+
+/* Upgrade notification styling */
+.copilotKitDevConsoleUpgrade {
+  /* Custom upgrade banner styling */
+}
+
+/* Outdated version warning */
+.copilotKitDevConsoleWarnOutdated {
+  /* Custom warning styling */
+}
+```
+
+## Best Practices
+
+### Development Only
+Always disable the dev console in production for security and performance reasons:
+
+```tsx
+showDevConsole={process.env.NODE_ENV === 'development'}
+```
+
+### Environment-Based Configuration
+Use environment variables to control when the dev console is enabled:
+
+```tsx
+showDevConsole={!!process.env.COPILOTKIT_DEBUG}
+```
+
+### Error Monitoring
+Use the console to catch and debug integration issues early in the development process.
+
+### Version Management
+Pay attention to version update notifications to ensure you're using the latest stable version.
+
+## Integration with Other Components
+
+The dev console integrates seamlessly with all CopilotKit components:
+
+- **CopilotPopup**: Appears in the popup header
+- **CopilotSidebar**: Displays in the sidebar header
+- **CopilotChat**: Shows in the chat interface header
+
+No additional setup or components are required beyond setting the `showDevConsole` prop on the main CopilotKit provider.
+
+## Related Documentation
+
+- [CopilotKit Component Reference](/reference/components/CopilotKit) - Complete prop documentation
+- [Error Debugging Guide](/langgraph/coagent-troubleshooting/error-debugging) - Advanced troubleshooting techniques
+- [Common CoAgent Issues](/langgraph/coagent-troubleshooting/common-coagent-issues) - Frequently encountered problems and solutions
