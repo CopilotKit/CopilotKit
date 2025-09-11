@@ -1,6 +1,6 @@
 ---
 title: Migrate to AG-UI
-description: Migrate an agent to stream through AG-UI protocol
+description: Migration guide for agents streaming through the AG-UI protocol
 icon: "lucide/RefreshCw"
 ---
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
@@ -19,7 +19,7 @@ This guide shows how to make the transition.
         id="deployment"
         header={
             <div>
-                <p className="text-xl font-semibold">Choose your agent is served</p>
+                <p className="text-xl font-semibold">Choose how your agent is served</p>
             </div>
         }
     >
@@ -36,7 +36,7 @@ This guide shows how to make the transition.
             remoteEndpoints: [
                 langGraphPlatformEndpoint({
                     deploymentUrl: "https://your-deployment-url",
-                    langsmithApiKey: '<langsmith API key>' // optional
+                    langsmithApiKey: '<langsmith API key>', // optional
                     agents: [], // Your previous agents definition
                 })
             ],
@@ -50,7 +50,7 @@ This guide shows how to make the transition.
             agents: {
                 'sample_agent': new LangGraphAgent({
                     deploymentUrl: "https://your-deployment-url",
-                    langsmithApiKey: '<langsmith API key>' // optional
+                    langsmithApiKey: '<langsmith API key>', // optional
                     graphId: 'sample_agent', // Identical to what is defined in the `langgraph.json` graphs config.
                 }),
             }
@@ -125,7 +125,7 @@ Everything else (mainly your graph) stays the same.
         <Accordions>
             <Accordion title="What about the old LangGraph config parameter which was used to configure the agent?">
                 The `langgraph_config` option doesn’t exist on the new agent.
-                Configure the agent via the `useCoAgent` hook, or with the new `config` parameter on the agent class.
+                Configure the agent via the `useCoAgent` hook or with the new `config` parameter on the agent class.
             </Accordion>
         </Accordions>
     </TailoredContentOption>
