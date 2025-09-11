@@ -25,10 +25,10 @@ import { Message as LangGraphMessage } from "@langchain/langgraph-sdk/dist/types
 import { ThreadState } from "@langchain/langgraph-sdk";
 
 interface CopilotKitStateEnrichment {
-    copilotkit: {
-        actions: StateEnrichment['ag-ui']['tools'];
-        context: StateEnrichment['ag-ui']['context'];
-    }
+  copilotkit: {
+    actions: StateEnrichment["ag-ui"]["tools"];
+    context: StateEnrichment["ag-ui"]["context"];
+  };
 }
 
 export interface PredictStateTool {
@@ -193,10 +193,7 @@ export class LangGraphAgent extends AGUILangGraphAgent {
     input: RunAgentInput,
   ): State<StateEnrichment & CopilotKitStateEnrichment> {
     const aguiMergedState = super.langGraphDefaultMergeState(state, messages, input);
-    const {
-      tools: returnedTools,
-      "ag-ui": agui,
-    } = aguiMergedState
+    const { tools: returnedTools, "ag-ui": agui } = aguiMergedState;
     // tolerate undefined and de-duplicate by stable key (id | name | key)
     const rawCombinedTools = [
       ...((returnedTools as any[]) ?? []),
