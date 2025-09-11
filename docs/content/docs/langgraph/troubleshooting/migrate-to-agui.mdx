@@ -22,7 +22,7 @@ from .agent import graph
 app = FastAPI()
 sdk = CopilotKitRemoteEndpoint(
     agents=[
-        CrewAIAgent(
+        LangGraphAgent(
             name="sample_agent",
             description="my agent",
             graph=graph,
@@ -31,7 +31,7 @@ sdk = CopilotKitRemoteEndpoint(
 )
 
 add_fastapi_endpoint(app, sdk, "/copilotkit")
-```
+```python
 
 To migrate, you'll need to import the new endpoint initializer and agent classes.
 Everything else (mainly your graph) stays the same.
@@ -53,7 +53,7 @@ Everything else (mainly your graph) stays the same.
                 description="A demo of LangGraph subgraphs using a Game Character Creator.",
                 graph=graph,
             ),
-            path="/agent/sample_agent" <-- Your agent will be available at this path. You may assign it to "/" if you want it to be the root path.
+            path="/agent/sample_agent" # Agent will be available at this path. Use "/" to mount at root.
         )
         ```
     </Step>
