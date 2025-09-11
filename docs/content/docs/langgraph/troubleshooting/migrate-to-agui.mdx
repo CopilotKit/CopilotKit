@@ -1,19 +1,19 @@
 ---
 title: Migrate to AG-UI
-description: Migration guide for AG-UI FastAPI based agent
+description: Migration guide for an AG-UI FastAPI-based agent
 icon: "lucide/RefreshCw"
 ---
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 
-### Migrate FastAPI based agent to using AG-UI FastAPI based agent
+### Migrate a FastAPI-based agent to the AG-UI FastAPI agent
 
-AG-UI is the new agent to UI protocol, which is being widely used in CopilotKit.
-It already has an integration with FastAPI based LangGraph agents.
+AG-UI is the new agent-to-UI protocol used in CopilotKit.
+It already integrates with FastAPI-based LangGraph agents.
 
 This guide shows how to make the transition.
 
 Assuming your Python agent setup is as follows:
-```
+```python
 from fastapi import FastAPI
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
 from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent
@@ -31,9 +31,9 @@ sdk = CopilotKitRemoteEndpoint(
 )
 
 add_fastapi_endpoint(app, sdk, "/copilotkit")
-```python
+```
 
-To migrate, you'll need to import the new endpoint initializer and agent classes.
+To migrate, import and use the new endpoint initializer and agent classes.
 Everything else (mainly your graph) stays the same.
 
 <Steps>
@@ -50,10 +50,10 @@ Everything else (mainly your graph) stays the same.
             app=app,
             agent=LangGraphAGUIAgent(
                 name="sample_agent",
-                description="A demo of LangGraph subgraphs using a Game Character Creator.",
+                description="my agent",
                 graph=graph,
             ),
-            path="/agent/sample_agent" # Agent will be available at this path. Use "/" to mount at root.
+            path="/agent/sample_agent" # Agent will be served at this path. Use "/" to mount at root.
         )
         ```
     </Step>
@@ -72,9 +72,9 @@ Everything else (mainly your graph) stays the same.
 </Steps>
 
 <Accordions>
-    <Accordion title="What about the LangGraph config parameter which was used to configure the agent?">
-        The `langgraph_config` does not exist in the new agent.
-        Instead, the agent is directly configured through the `useCoAgent` hook, or using a similar, yet now, `config` parameter
+    <Accordion title="What about the old LangGraph config parameter which was used to configure the agent?">
+        The `langgraph_config` option doesn’t exist on the new agent.
+        Configure the agent via the `useCoAgent` hook, or with the new `config` parameter on the agent class.
     </Accordion>
 </Accordions>
 
