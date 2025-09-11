@@ -1,16 +1,68 @@
 ---
 title: Migrate to AG-UI
-description: Migration guide for an AG-UI FastAPI-based agent
+description: Migrate an agent to stream through AG-UI protocol
 icon: "lucide/RefreshCw"
 ---
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
-
-### Migrate a FastAPI-based agent to the AG-UI FastAPI agent
+import {
+    TailoredContent,
+    TailoredContentOption,
+} from "@/components/react/tailored-content.tsx";
 
 AG-UI is the new agent-to-UI protocol used in CopilotKit.
-It already integrates with FastAPI-based LangGraph agents.
+It already integrates with LangGraph agents.
 
 This guide shows how to make the transition.
+
+<TailoredContent
+        className="step"
+        id="deployment"
+        header={
+            <div>
+                <p className="text-xl font-semibold">Choose your agent is served</p>
+            </div>
+        }
+    >
+    <TailoredContentOption
+        id="lgp"
+        title="LangGraph Platform"
+        description="I am using LangGraph's Platform to serve my agent (cloud or self hosted)."
+    >
+        ### Change your current `CopilotRuntime` instantiation from
+        ```typescript
+        import { langGraphPlatformEndpoint, CopilotRuntime } from "@copilotkit/runtime";
+
+        let runtime = new CopilotRuntime({
+            remoteEndpoints: [
+                langGraphPlatformEndpoint({
+                    deploymentUrl: "https://your-deployment-url",
+                    langsmithApiKey: '<langsmith API key>' // optional
+                    agents: [], // Your previous agents definition
+                })
+            ],
+        })
+        ```
+        To
+        ```typescript
+        import { langGraphPlatformEndpoint, LangGraphAgent } from "@copilotkit/runtime";
+
+        let runtime = new CopilotRuntime({
+            agents: {
+                'sample_agent': new LangGraphAgent({
+                    deploymentUrl: "https://your-deployment-url",
+                    langsmithApiKey: '<langsmith API key>' // optional
+                    graphId: 'sample_agent', // Identical to what is defined in the `langgraph.json` graphs config.
+                }),
+            }
+        })
+        ```
+        And that's it! You're all set!
+    </TailoredContentOption>
+    <TailoredContentOption
+        id="fastapi"
+        title="Self hosted (FastAPI)"
+        description="I am self hosting my agent, and serving it through FastAPI."
+    >
 
 Assuming your Python agent setup is as follows:
 ```python
@@ -70,11 +122,11 @@ Everything else (mainly your graph) stays the same.
         ```
     </Step>
 </Steps>
-
-<Accordions>
-    <Accordion title="What about the old LangGraph config parameter which was used to configure the agent?">
-        The `langgraph_config` option doesn’t exist on the new agent.
-        Configure the agent via the `useCoAgent` hook, or with the new `config` parameter on the agent class.
-    </Accordion>
-</Accordions>
-
+        <Accordions>
+            <Accordion title="What about the old LangGraph config parameter which was used to configure the agent?">
+                The `langgraph_config` option doesn’t exist on the new agent.
+                Configure the agent via the `useCoAgent` hook, or with the new `config` parameter on the agent class.
+            </Accordion>
+        </Accordions>
+    </TailoredContentOption>
+</TailoredContent>
