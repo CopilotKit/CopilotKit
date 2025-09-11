@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { baseOptions } from "../layout.config";
 import { source } from "@/app/source";
 import { SubdocsMenu } from "@/components/react/subdocs-menu";
+import { TopNav } from "@/components/layout/top-nav";
 import { TerminalIcon, RocketIcon, CloudIcon } from "lucide-react";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
 import { SiLangchain } from "react-icons/si";
@@ -17,41 +18,15 @@ import {
 export default function Layout({ children }: { children: ReactNode }) {
   return (
     <>
+      <TopNav />
       <DocsLayout
         tree={source.pageTree}
-        searchToggle={{ enabled: true }}
+        searchToggle={{ enabled: false }}
         sidebar={{
           tabs: false, // Disable default tab picker to rely on root folders
           banner: (
             <SubdocsMenu
               options={[
-                {
-                  title: "Overview",
-                  description: "The Agentic Application Framework Overview",
-                  url: "/",
-                  icon: <RocketIcon className="w-4 h-4" />,
-                  bgGradient:
-                    "bg-gradient-to-b from-blue-700 to-blue-400 text-blue-100",
-                  selectedStyle: "ring-blue-500/70 ring-2 rounded-sm",
-                },
-                {
-                  title: "Copilot Cloud",
-                  description: "Copilot Cloud",
-                  href: "https://cloud.copilotkit.ai",
-                  icon: <CloudIcon className="w-4 h-4" />,
-                  bgGradient:
-                    "bg-gradient-to-b from-blue-700 to-blue-400 text-blue-100",
-                  selectedStyle: "ring-blue-500/70 ring-2 rounded-sm",
-                },
-                {
-                  title: "API Reference",
-                  description: "API Reference",
-                  url: "/reference",
-                  icon: <TerminalIcon className="w-4 h-4" />,
-                  bgGradient:
-                    "bg-gradient-to-b from-teal-700 to-teal-400 text-teal-100",
-                  selectedStyle: "ring-teal-500/70 ring-2 rounded-sm",
-                },
                 {
                   type: "separator",
                 },
