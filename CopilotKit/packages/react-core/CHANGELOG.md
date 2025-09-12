@@ -1,5 +1,13 @@
 # ui
 
+## 1.10.5-next.0
+
+### Patch Changes
+
+- 32c163e: - inspector visibility toggle in ConsoleTrigger component
+  - @copilotkit/runtime-client-gql@1.10.5-next.0
+  - @copilotkit/shared@1.10.5-next.0
+
 ## 1.10.4
 
 ### Patch Changes
