@@ -1,0 +1,173 @@
+---
+title: Shared Context Between the Agent and App
+icon: "lucide/BookA"
+description: Share app specific context with your agent.
+---
+
+One of the most common use cases for CopilotKit is to register app state and context using `useCopilotReadble`.
+This way, you can notify CopilotKit of what is going in your app in real time.
+Some examples might be: the current user, the current page, etc.
+
+This context can then be shared with your LangGraph agent.
+
+## Implementation
+<Callout>
+    Check out the [Frontend Data documentation](https://docs.copilotkit.ai/direct-to-llm/guides/connect-your-data/frontend) to understand what this is and how to use it.
+</Callout>
+
+<Steps>
+    <Step>
+        ### Add the data to the Copilot
+
+        The [`useCopilotReadable` hook](/reference/hooks/useCopilotReadable) is used to add data as context to the Copilot.
+
+        ```tsx title="YourComponent.tsx" showLineNumbers {1, 7-10}
+        "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
+        import { useCopilotReadable } from "@copilotkit/react-core"; // [!code highlight]
+        import { useState } from 'react';
+
+        export function YourComponent() {
+            // Create colleagues state with some sample data
+            const [colleagues, setColleagues] = useState([
+                { id: 1, name: "John Doe", role: "Developer" },
+                { id: 2, name: "Jane Smith", role: "Designer" },
+                { id: 3, name: "Bob Wilson", role: "Product Manager" }
+            ]);
+
+            // Define Copilot readable state
+            // [!code highlight:5]
+            useCopilotReadable({
+                description: "The current user's colleagues",
+                value: colleagues,
+            });
+            return (
+                // Your custom UI component
+                <>...</>
+            );
+        }
+        ```
+    </Step>
+
+    <Step>
+        ### Setup your agent state
+        Make sure your agent state inherits from CopilotKit state definition
+
+        <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+            <Tab value="Python">
+                ```python title="agent/sample_agent/agent.py"
+                # ...
+                from copilotkit import CopilotKitState # extends MessagesState
+                # ...
+
+                # This is the state of the agent.
+                # It inherits from the CopilotKitState properties from CopilotKit.
+                class AgentState(CopilotKitState):
+                    # ... Your defined state properties
+                ```
+            </Tab>
+            <Tab value="TypeScript">
+                ```typescript title="agent-js/src/agent.ts"
+                // ...
+                import { Annotation } from "@langchain/langgraph";
+                import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+                // ...
+
+                // This is the state of the agent.
+                // It inherits from the CopilotKitState properties from CopilotKit.
+                export const AgentStateAnnotation = Annotation.Root({
+                    // ... Your defined state properties
+                    ...CopilotKitStateAnnotation.spec,
+                });
+                export type AgentState = typeof AgentStateAnnotation.State;
+                ```
+            </Tab>
+        </Tabs>
+
+    </Step>
+
+    <Step>
+        ### Consume the data in your LangGraph agent
+        The state of a LangGraph agent is the "hub" for applicative information used by the agent.
+        Naturally, the context from CopilotKit will be injected there.
+
+        <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+            <Tab value="Python">
+                ```python title="agent/sample_agent/agent.py"
+                from langchain_core.messages import SystemMessage
+                from langchain_openai import ChatOpenAI
+                from copilotkit import CopilotKitState
+
+                # add the agent state definition from the previous step
+                class AgentState(CopilotKitState):
+                    # ... Your defined state properties
+
+                def chat_node(state: AgentState, config: RunnableConfig):
+                    # Extract the colleagues from CopilotKit context
+                    colleagues_context_item = next(
+                        (item for item in state["copilotkit"]["context"] if item.get("description") == "The current user's colleagues"),
+                        None
+                    )
+                    colleagues = colleagues_context_item.get("value") if colleagues_context_item else []
+
+                    # Provide the list of colleagues to the LLM
+                    system_message = SystemMessage(
+                        content=f"""You are a helpful assistant that can help emailing colleagues.
+                        The user's colleagues are: {colleagues}"""
+                    )
+
+                    response = ChatOpenAI(model="gpt-4o").invoke(
+                        [system_message, *state["messages"]],
+                        config
+                    )
+
+                    return {
+                        **state,
+                        "messages": response,
+                    }
+                ```
+            </Tab>
+            <Tab value="TypeScript">
+                ```typescript title="agent-js/src/agent.ts"
+                import { SystemMessage } from "@langchain/core/messages";
+                import { ChatOpenAI } from "@langchain/openai";
+
+                // add the agent state definition from the previous step
+                export const AgentStateAnnotation = Annotation.Root({
+                    // ... Your defined state properties
+                    ...CopilotKitStateAnnotation.spec,
+                });
+                export type AgentState = typeof AgentStateAnnotation.State;
+
+                async function chat_node(state: AgentState, config: RunnableConfig) {
+                    // Extract the colleagues from CopilotKit context
+                    const copilotKitContext = state.copilotKit.context
+                    const colleaguesContextItem = copilotKitContext.find(contextItem => contextItem.description === 'The current user\'s colleagues"')
+
+                    // Provide the list of colleagues to the LLM
+                    const systemMessage = new SystemMessage({
+                        content: `
+                          You are a helpful assistant that can help emailing colleagues.
+                          The user's colleagues are: ${colleaguesContextItem.value}
+                        `,
+                    });
+
+                    const response = await new ChatOpenAI({ model: "gpt-4o" }).invoke(
+                        [systemMessage, ...state.messages],
+                        config
+                    );
+
+                    return {
+                        ...state,
+                        messages: response,
+                    };
+                }
+                ```
+            </Tab>
+        </Tabs>
+    </Step>
+
+    <Step>
+        ### Give it a try!
+        Ask your agent a question about the context. It should be able to answer!
+    </Step>
+</Steps>

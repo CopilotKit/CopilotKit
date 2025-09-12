@@ -90,6 +90,7 @@ type CreateMCPClientFunction = (config: MCPEndpointConfig) => Promise<MCPClient>
 // --- MCP Imports ---
 
 import { generateHelpfulErrorMessage } from "../streaming";
+import { CopilotContextInput } from "../../graphql/inputs/copilot-context.input";
 
 export interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
@@ -106,6 +107,7 @@ export interface CopilotRuntimeRequest {
   url?: string;
   extensions?: ExtensionsInput;
   metaEvents?: MetaEventInput[];
+  context?: CopilotContextInput[];
 }
 
 interface CopilotRuntimeResponse {
@@ -484,6 +486,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       agentSession,
       agentStates,
       publicApiKey,
+      context,
     } = request;
 
     const eventSource = new RuntimeEventSource({
@@ -1025,6 +1028,7 @@ please use an LLM adapter instead.`,
       metaEvents,
       publicApiKey,
       forwardedParameters,
+      context,
     } = request;
     const { agentName, nodeName } = agentSession;
 
@@ -1408,6 +1412,7 @@ please use an LLM adapter instead.`,
       agents: this.agents,
       metaEvents: request.metaEvents,
       nodeName: request.agentSession?.nodeName,
+      context: request.context,
     });
 
     const configuredActions =

@@ -257,6 +257,7 @@ export class CopilotResolver {
         url: data.frontend.url,
         extensions: data.extensions,
         metaEvents: data.metaEvents,
+        context: data.context,
       });
     } catch (error) {
       // Catch structured CopilotKit errors at the main mutation level and re-throw as GraphQL errors
