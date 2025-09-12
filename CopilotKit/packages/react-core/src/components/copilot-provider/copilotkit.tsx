@@ -34,6 +34,8 @@ import {
   ConfigurationError,
   MissingPublicApiKeyError,
   CopilotKitError,
+  CopilotErrorEvent,
+  CopilotErrorHandler,
 } from "@copilotkit/shared";
 import { FrontendAction } from "../../types/frontend-action";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
@@ -268,13 +270,61 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     };
   }, [copilotApiConfig.headers, copilotApiConfig.publicApiKey, authStates]);
 
+  const [internalErrorHandlers, _setInternalErrorHandler] = useState<
+    Record<string, CopilotErrorHandler>
+  >({});
+  const setInternalErrorHandler = useCallback((handler: Record<string, CopilotErrorHandler>) => {
+    _setInternalErrorHandler((prev: Record<string, CopilotErrorHandler>) => ({
+      ...prev,
+      ...handler,
+    }));
+  }, []);
+  const removeInternalErrorHandler = useCallback((key: string) => {
+    _setInternalErrorHandler((prev) => {
+      const { [key]: _removed, ...rest } = prev;
+      return rest;
+    });
+  }, []);
+
+  // Keep latest values in refs
+  const onErrorRef = useRef<CopilotErrorHandler | undefined>(props.onError);
+  useEffect(() => {
+    onErrorRef.current = props.onError;
+  }, [props.onError]);
+
+  const internalHandlersRef = useRef<Record<string, CopilotErrorHandler>>({});
+  useEffect(() => {
+    internalHandlersRef.current = internalErrorHandlers;
+  }, [internalErrorHandlers]);
+
+  const handleErrors = useCallback(
+    async (error: CopilotErrorEvent) => {
+      if (copilotApiConfig.publicApiKey && onErrorRef.current) {
+        try {
+          await onErrorRef.current(error);
+        } catch (e) {
+          console.error("Error in public onError handler:", e);
+        }
+      }
+      const handlers = Object.values(internalHandlersRef.current);
+      await Promise.all(
+        handlers.map((h) =>
+          Promise.resolve(h(error)).catch((e) =>
+            console.error("Error in internal error handler:", e),
+          ),
+        ),
+      );
+    },
+    [copilotApiConfig.publicApiKey],
+  );
+
   const runtimeClient = useCopilotRuntimeClient({
     url: copilotApiConfig.chatApiEndpoint,
     publicApiKey: publicApiKey,
     headers,
     credentials: copilotApiConfig.credentials,
     showDevConsole: shouldShowDevConsole(props.showDevConsole),
-    onError: props.onError,
+    onError: handleErrors,
   });
 
   const [chatSuggestionConfiguration, setChatSuggestionConfiguration] = useState<{
@@ -486,9 +536,12 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         langGraphInterruptAction,
         setLangGraphInterruptAction,
         removeLangGraphInterruptAction,
-        onError: props.onError,
         bannerError,
         setBannerError,
+        onError: handleErrors,
+        internalErrorHandlers,
+        setInternalErrorHandler,
+        removeInternalErrorHandler,
       }}
     >
       <MessagesTapProvider>

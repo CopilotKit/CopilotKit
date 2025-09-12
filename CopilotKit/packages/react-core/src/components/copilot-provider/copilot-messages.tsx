@@ -282,7 +282,7 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
       const newMessages = result.data?.loadAgentState?.messages;
       if (newMessages === lastLoadedMessages.current) return;
 
-      if (result.data?.loadAgentState?.threadExists) {
+      if (result.data?.loadAgentState) {
         lastLoadedMessages.current = newMessages;
         lastLoadedThreadId.current = threadId;
         lastLoadedAgentName.current = agentSession?.agentName;

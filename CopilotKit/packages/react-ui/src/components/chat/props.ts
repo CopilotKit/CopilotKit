@@ -55,7 +55,7 @@ export interface CopilotObservabilityHooks {
   onError?: (errorEvent: CopilotErrorEvent) => void;
 }
 
-export interface ButtonProps {}
+export interface ButtonProps { }
 
 export interface WindowProps {
   clickOutsideToClose: boolean;
@@ -64,7 +64,7 @@ export interface WindowProps {
   children?: React.ReactNode;
 }
 
-export interface HeaderProps {}
+export interface HeaderProps { }
 
 export interface SuggestionsProps {
   title: string;
@@ -85,8 +85,10 @@ export interface MessagesProps {
   canRegenerateAssistantMessage?: AssistantMessageProps["canRegenerate"];
   canCopyAssistantMessage?: AssistantMessageProps["canCopy"];
   disableFirstAssistantMessageControls?: AssistantMessageProps["disableFirstMessageControls"];
+  chatError?: ChatError | null;
   AssistantMessage: React.ComponentType<AssistantMessageProps>;
   UserMessage: React.ComponentType<UserMessageProps>;
+  ErrorMessage?: React.ComponentType<ErrorMessageProps>;
   RenderMessage: React.ComponentType<RenderMessageProps>;
   ImageRenderer: React.ComponentType<ImageRendererProps>;
 
@@ -258,6 +260,29 @@ export interface AssistantMessageProps {
   subComponent?: React.JSX.Element;
 }
 
+export interface ErrorMessageProps {
+  /**
+   * The message content from the assistant
+   */
+
+  error: ChatError;
+
+  /**
+   * Indicates if this is the last message
+   */
+  isCurrentMessage?: boolean;
+
+  /**
+   * Callback function to regenerate the assistant's response
+   */
+  onRegenerate?: () => void;
+
+  /**
+   * Callback function when the message is copied
+   */
+  onCopy?: (message: string) => void;
+}
+
 export interface RenderMessageProps {
   message: Message;
   inProgress: boolean;
@@ -340,4 +365,10 @@ export interface ImageRendererProps {
    * Additional CSS class name for styling
    */
   className?: string;
+}
+
+export interface ChatError {
+  message: string;
+  operation?: string;
+  timestamp: number;
 }

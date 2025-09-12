@@ -228,11 +228,17 @@ export interface CopilotContextParams {
   /**
    * Optional trace handler for comprehensive debugging and observability.
    */
-  onError?: CopilotErrorHandler;
+  onError: CopilotErrorHandler;
 
   // banner error state
   bannerError: CopilotKitError | null;
   setBannerError: React.Dispatch<React.SetStateAction<CopilotKitError | null>>;
+  // Internal error handlers
+  // These are used to handle errors that occur during the execution of the chat.
+  // They are not intended for use by the developer. A component can register itself an error listener to be activated somewhere else as needed
+  internalErrorHandlers: Record<string, CopilotErrorHandler>;
+  setInternalErrorHandler: (handler: Record<string, CopilotErrorHandler>) => void;
+  removeInternalErrorHandler: (id: string) => void;
 }
 
 const emptyCopilotContext: CopilotContextParams = {
@@ -303,9 +309,12 @@ const emptyCopilotContext: CopilotContextParams = {
   langGraphInterruptAction: null,
   setLangGraphInterruptAction: () => null,
   removeLangGraphInterruptAction: () => null,
-  onError: undefined,
+  onError: () => {},
   bannerError: null,
   setBannerError: () => {},
+  internalErrorHandlers: {},
+  setInternalErrorHandler: () => {},
+  removeInternalErrorHandler: () => {},
 };
 
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);

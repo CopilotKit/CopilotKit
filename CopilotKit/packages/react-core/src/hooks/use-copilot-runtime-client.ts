@@ -19,7 +19,7 @@ import { shouldShowDevConsole } from "../utils/dev-console";
 
 export interface CopilotRuntimeClientHookOptions extends CopilotRuntimeClientOptions {
   showDevConsole?: boolean;
-  onError?: CopilotErrorHandler;
+  onError: CopilotErrorHandler;
 }
 
 export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions) => {
@@ -31,9 +31,6 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
 
   // Helper function to trace UI errors
   const traceUIError = async (error: CopilotKitError, originalError?: any) => {
-    // Just check if onError and publicApiKey are defined
-    if (!onError || !runtimeOptions.publicApiKey) return;
-
     try {
       const errorEvent: CopilotErrorEvent = {
         type: "error",
@@ -101,6 +98,7 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
               setBannerError(ckError);
               // Trace the error
               traceUIError(ckError, gqlError);
+              // TODO: if onError & renderError should work without key, insert here
             } else {
               // Fallback for unstructured errors
               const fallbackError = new CopilotKitError({
@@ -110,6 +108,7 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
               setBannerError(fallbackError);
               // Trace the fallback error
               traceUIError(fallbackError, gqlError);
+              // TODO: if onError & renderError should work without key, insert here
             }
           };
 
@@ -128,6 +127,7 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
             setBannerError(fallbackError);
             // Trace the non-GraphQL error
             traceUIError(fallbackError, error);
+            // TODO: if onError & renderError should work without key, insert here
           }
         }
       },
