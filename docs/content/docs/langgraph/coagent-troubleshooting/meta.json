@@ -1,6 +1,7 @@
 {
   "title": "Troubleshooting",
   "pages": [
+    "dev-console",
     "error-debugging",
     "common-coagent-issues"
   ]
