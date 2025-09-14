@@ -5,8 +5,14 @@ import {
   GenerateCopilotResponseMutation,
   GenerateCopilotResponseMutationVariables,
   LoadAgentStateQuery,
+  CommitReinforcementLearningStateMutation,
+  CommitReinforcementLearningStateMutationVariables,
+  ReinforcementLearningStateResponse,
 } from "../graphql/@generated/graphql";
-import { generateCopilotResponseMutation } from "../graphql/definitions/mutations";
+import {
+  generateCopilotResponseMutation,
+  commitReinforcementLearningStateMutation,
+} from "../graphql/definitions/mutations";
 import { getAvailableAgentsQuery, loadAgentStateQuery } from "../graphql/definitions/queries";
 import { OperationResultSource, OperationResult } from "urql";
 import {
@@ -192,6 +198,28 @@ export class CopilotRuntimeClient {
       { data },
       { fetch: fetchFn },
     );
+
+    // Add error handling for GraphQL errors - similar to generateCopilotResponse
+    result
+      .toPromise()
+      .then(({ error }) => {
+        if (error && this.handleGQLErrors) {
+          this.handleGQLErrors(error);
+        }
+      })
+      .catch(() => {}); // Suppress promise rejection warnings
+
+    return result;
+  }
+
+  commitReinforcementLearningState(
+    data: CommitReinforcementLearningStateMutationVariables["data"],
+  ) {
+    const fetchFn = createFetchFn();
+    const result = this.client.mutation<
+      CommitReinforcementLearningStateMutation,
+      CommitReinforcementLearningStateMutationVariables
+    >(commitReinforcementLearningStateMutation, { data }, { fetch: fetchFn });
 
     // Add error handling for GraphQL errors - similar to generateCopilotResponse
     result

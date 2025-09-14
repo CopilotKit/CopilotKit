@@ -855,7 +855,7 @@ please use an LLM adapter instead.`,
           const data: InfoResponse = await response.json();
           const endpointAgents = (data?.agents ?? []).map((agent) => ({
             name: agent.name,
-            description: agent.description ?? "" ?? "",
+            description: agent.description ?? "",
             id: randomId(), // Required by Agent type
             endpoint,
           }));
@@ -1009,8 +1009,6 @@ please use an LLM adapter instead.`,
         messages: JSON.stringify(copilotkitMessages),
       };
     }
-
-    throw new Error(`Agent: ${agent.name} could not be resolved`);
   }
 
   private async processAgentRequest(
