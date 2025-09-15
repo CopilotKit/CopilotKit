@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.10.5-next.1
+
+### Patch Changes
+
+- b7bc3a0: - feat: pass copilot readable context to agui agents
+  - @copilotkit/shared@1.10.5-next.1
+
 ## 1.10.5-next.0
 
 ### Patch Changes
