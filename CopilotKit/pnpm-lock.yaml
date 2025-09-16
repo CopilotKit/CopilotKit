@@ -598,8 +598,8 @@ importers:
         specifier: ^0.0.37
         version: 0.0.37
       '@ag-ui/langgraph':
-        specifier: ^0.0.12
-        version: 0.0.12(@ag-ui/client@0.0.37)(@ag-ui/core@0.0.37)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)
+        specifier: ^0.0.13
+        version: 0.0.13(@ag-ui/client@0.0.37)(@ag-ui/core@0.0.37)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)
       '@ag-ui/proto':
         specifier: ^0.0.37
         version: 0.0.37
@@ -971,8 +971,8 @@ packages:
   '@ag-ui/encoder@0.0.37':
     resolution: {integrity: sha512-KD5t0ll3n1pn1ZX1xwQ1YxYZrtJjIttLEsUpj8mQgfh8+ZQ1ZSvlPSciKOQkHf7+Sw9eS6kHVDd5nOOLV1N1xw==}
 
-  '@ag-ui/langgraph@0.0.12':
-    resolution: {integrity: sha512-2j7IqIUYh0WAdvCXH65hd5aSHi23EOKVo78BauXa2vZI8Pricpkq9Adr2coZB2cwCbTV37lMn5yVlpDV0iQvOA==}
+  '@ag-ui/langgraph@0.0.13':
+    resolution: {integrity: sha512-/HtqlXHubs96DC6sVpXhjNlV9yKfc+KhtB913kqWAiGm4by4TnJNQVU+JSkEEy04AN3lSBcA5wuszlv3zvl7Ew==}
     peerDependencies:
       '@ag-ui/client': '>=0.0.37'
       '@ag-ui/core': '>=0.0.37'
@@ -10250,7 +10250,7 @@ snapshots:
       '@ag-ui/core': 0.0.37
       '@ag-ui/proto': 0.0.37
 
-  '@ag-ui/langgraph@0.0.12(@ag-ui/client@0.0.37)(@ag-ui/core@0.0.37)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)':
+  '@ag-ui/langgraph@0.0.13(@ag-ui/client@0.0.37)(@ag-ui/core@0.0.37)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@ag-ui/client': 0.0.37
       '@ag-ui/core': 0.0.37

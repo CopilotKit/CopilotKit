@@ -20,6 +20,7 @@ interface OptionsConfig {
 
 export const CopilotKitPropertiesAnnotation = Annotation.Root({
   actions: Annotation<any[]>,
+  context: Annotation<{ description: string; value: string }[]>,
 });
 
 export const CopilotKitStateAnnotation = Annotation.Root({
