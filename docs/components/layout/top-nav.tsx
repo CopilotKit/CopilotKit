@@ -9,7 +9,8 @@ import {
   TerminalIcon,
   SearchIcon,
   ChevronDownIcon,
-  PlugIcon
+  PlugIcon,
+  BookOpenIcon
 } from "lucide-react";
 import { SiDiscord } from "react-icons/si";
 import {
@@ -159,7 +160,7 @@ export function TopNav() {
                   : "text-gray-700 hover:text-gray-900 hover:bg-gray-50"
               )}
             >
-              <TerminalIcon className="w-4 h-4" />
+              <BookOpenIcon className="w-4 h-4" />
               <span>API Reference</span>
             </Link>
 
