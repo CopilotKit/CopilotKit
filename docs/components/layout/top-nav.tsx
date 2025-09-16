@@ -131,12 +131,12 @@ export function TopNav() {
       }}
     >
           {/* Navigation Items - aligned with content */}
-          <div className="flex items-center space-x-8">
+          <div className="flex items-center space-x-2">
             {/* Overview */}
             <Link
               href="/"
               className={cn(
-                "flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                "flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors",
                 pathname === "/"
                   ? "text-purple-600 border-b-2 border-purple-600"
                   : "text-gray-700 hover:text-gray-900 hover:bg-gray-50"
@@ -153,7 +153,7 @@ export function TopNav() {
             <Link
               href="/reference"
               className={cn(
-                "flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                "flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors",
                 pathname.startsWith("/reference")
                   ? "text-purple-600 border-b-2 border-purple-600"
                   : "text-gray-700 hover:text-gray-900 hover:bg-gray-50"
@@ -163,26 +163,27 @@ export function TopNav() {
               <span>API Reference</span>
             </Link>
 
-            {/* Copilot Cloud */}
-            <Link
-              href="https://cloud.copilotkit.ai"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-700 hover:text-gray-900 hover:bg-gray-50"
-            >
-              <CloudIcon className="w-4 h-4" />
-              <span>Copilot Cloud</span>
-            </Link>
           </div>
 
-      {/* Right side buttons */}
-      <div className="flex items-center space-x-4">
+      {/* Right side: External links and search */}
+      <div className="flex items-center space-x-2">
+        {/* Copilot Cloud */}
+        <Link
+          href="https://cloud.copilotkit.ai"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+        >
+          <CloudIcon className="w-4 h-4" />
+          <span>Copilot Cloud</span>
+        </Link>
+
         {/* Community */}
         <Link
           href="https://discord.gg/qU8pXNqGJs"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+          className="flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-700 hover:text-gray-900 hover:bg-gray-50"
         >
           <SiDiscord className="w-4 h-4" />
           <span>Community</span>
@@ -219,15 +220,15 @@ function IntegrationDropdown({ options }: { options: Array<{ title: string; url:
     >
       <SelectTrigger
         className={cn(
-          "h-auto px-3 py-2 border-0 bg-transparent shadow-none flex items-center space-x-2 text-sm font-medium transition-colors rounded-md w-auto",
+          "h-auto px-3 py-2 border-0 bg-transparent shadow-none flex items-center space-x-2 text-sm font-medium transition-colors rounded-md w-auto [&>svg]:hidden",
           selectedOption && !shouldResetDropdown
             ? "text-purple-600 border-b-2 border-purple-600"
             : "text-gray-700 hover:text-gray-900 hover:bg-gray-50"
         )}
       >
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-1.5">
           {selectedOption?.icon || <PlugIcon className="w-4 h-4" />}
-          <span>{selectedOption?.title || "Select Integration"}</span>
+          <span>{selectedOption?.title || "Integrations"}</span>
         </div>
       </SelectTrigger>
       <SelectContent className="w-auto min-w-48">
@@ -237,7 +238,7 @@ function IntegrationDropdown({ options }: { options: Array<{ title: string; url:
             value={option.url}
             className="cursor-pointer"
           >
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1.5">
               <div className="flex-shrink-0">
                 {option.icon}
               </div>
