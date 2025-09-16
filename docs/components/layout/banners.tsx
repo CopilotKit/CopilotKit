@@ -1,8 +1,11 @@
+"use client";
+
 import { Banner } from "fumadocs-ui/components/banner";
 import Link from "next/link";
 import { PaintbrushIcon } from "lucide-react";
 import { PiGraph } from "react-icons/pi";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
+import { useState, useEffect } from "react";
 
 export function Banners() {
   return (
@@ -43,11 +46,30 @@ export function ModelContextProtocolBanner() {
 }
 
 export function AGUIBanner() {
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsMinimized(true);
+    }, 10000); // 10 seconds
+
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
-    <Banner className="w-full text-white bg-indigo-500 dark:bg-indigo-900 h-24 sm:h-14 !important" variant="rainbow" id="agui-banner">
-      <p className="w-3/4">
-        CopilotKit and our framework partners have launched the AG-UI (Agent-User Interaction) protocol! <Link href="/ag-ui-protocol" target="_blank" className="underline" rel="noopener noreferrer">Learn more</Link>.
-      </p>
-    </Banner>
+    <div 
+      className={`transition-transform duration-300 ease-in-out ${
+        isMinimized && !isHovered ? '-translate-y-8' : 'translate-y-0'
+      }`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <Banner className="w-full text-white bg-indigo-500 dark:bg-indigo-900 h-24 sm:h-14 !important" variant="rainbow" id="agui-banner">
+        <p className="w-3/4">
+          CopilotKit and our framework partners have launched the AG-UI (Agent-User Interaction) protocol! <Link href="/ag-ui-protocol" target="_blank" className="underline" rel="noopener noreferrer">Learn more</Link>.
+        </p>
+      </Banner>
+    </div>
   )
 }
