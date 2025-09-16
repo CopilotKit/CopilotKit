@@ -316,7 +316,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     const isOnlyRecursionLimitDifferent =
       isRecursionLimitSetToDefault &&
       JSON.stringify({ ...newConfig, recursion_limit: null }) ===
-        JSON.stringify({ ...retrievedAssistant.config, recursion_limit: null });
+      JSON.stringify({ ...retrievedAssistant.config, recursion_limit: null });
 
     // If configs are different, we further check: Is the only diff a request to set the recursion limit to its already default?
     if (configsAreDifferent && !isOnlyRecursionLimitDifferent) {
@@ -804,6 +804,13 @@ export function langchainMessagesToCopilotKit(messages: any[]): any[] {
         id: message.id,
       });
     } else if (message.type === "ai") {
+      result.push({
+        role: "assistant",
+        content: content,
+        id: message.id,
+        parentMessageId: message.id,
+      });
+
       if (message.tool_calls && message.tool_calls.length > 0) {
         for (const tool_call of message.tool_calls) {
           result.push({
@@ -813,13 +820,6 @@ export function langchainMessagesToCopilotKit(messages: any[]): any[] {
             parentMessageId: message.id,
           });
         }
-      } else {
-        result.push({
-          role: "assistant",
-          content: content,
-          id: message.id,
-          parentMessageId: message.id,
-        });
       }
     } else if (message.type === "tool") {
       const actionName = tool_call_names[message.tool_call_id] || message.name || "";
