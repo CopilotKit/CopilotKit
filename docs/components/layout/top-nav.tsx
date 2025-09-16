@@ -11,6 +11,7 @@ import {
   ChevronDownIcon,
   PlugIcon
 } from "lucide-react";
+import { SiDiscord } from "react-icons/si";
 import {
   Select,
   SelectContent,
@@ -174,9 +175,21 @@ export function TopNav() {
             </Link>
           </div>
 
-      {/* Search */}
-      <div className="flex items-center">
-        <SearchField />
+      {/* Right side buttons */}
+      <div className="flex items-center space-x-4">
+        {/* Community */}
+        <Link
+          href="https://discord.gg/qU8pXNqGJs"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+        >
+          <SiDiscord className="w-4 h-4" />
+          <span>Community</span>
+        </Link>
+
+        {/* Search Button */}
+        <SearchButton />
       </div>
     </div>
   );
@@ -237,7 +250,7 @@ function IntegrationDropdown({ options }: { options: Array<{ title: string; url:
   );
 }
 
-function SearchField() {
+function SearchButton() {
   const toggleSearch = () => {
     const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
     document.dispatchEvent(
@@ -251,16 +264,13 @@ function SearchField() {
   };
   
   return (
-    <div 
+    <button 
       onClick={toggleSearch} 
-      className="cursor-pointer h-10 px-4 w-[240px] xl:w-[275px] inline-flex items-center gap-2 border bg-fd-secondary/50 p-1.5 text-sm text-fd-muted-foreground transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground rounded-md"
+      className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+      title="Search docs (⌘K)"
     >
       <SearchIcon className="w-4 h-4" />
-      Search docs
-      <div className="ms-auto inline-flex gap-0.5">
-        <kbd className="rounded-md border bg-fd-background px-1.5 text-xs">⌘</kbd>
-        <kbd className="rounded-md border bg-fd-background px-1.5 text-xs">K</kbd>
-      </div>
-    </div>
+      <span>Search</span>
+    </button>
   );
 }
