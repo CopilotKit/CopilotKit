@@ -163,7 +163,9 @@ export function TopNav() {
               <span>API Reference</span>
             </Link>
 
-          </div>
+          {/* Search Button */}
+          <SearchButton />
+        </div>
 
       {/* Right side: External links and search */}
       <div className="flex items-center space-x-2">
@@ -189,8 +191,6 @@ export function TopNav() {
           <span>Community</span>
         </Link>
 
-        {/* Search Button */}
-        <SearchButton />
       </div>
     </div>
   );
