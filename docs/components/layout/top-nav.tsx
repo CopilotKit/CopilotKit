@@ -35,22 +35,13 @@ export function TopNav() {
   ];
 
   return (
-    <div className="w-full bg-white border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-6">
-        <nav className="flex items-center justify-between h-16">
-          {/* Logo Section */}
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-2">
-              <span className="text-xl font-bold text-gray-900">CopilotKit</span>
-              {/* Kite icon placeholder - you can replace with actual kite icon */}
-              <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-blue-500 rounded-sm flex items-center justify-center">
-                <span className="text-white text-xs font-bold">K</span>
-              </div>
-              <span className="text-sm text-gray-600">Docs</span>
-            </div>
-          </div>
-
-          {/* Navigation Items */}
+    <div 
+      className="sticky top-0 bg-white/95 backdrop-blur-sm border-b border-gray-200 z-30 flex items-center justify-between px-6 py-3 mb-6"
+      style={{ 
+        height: '60px'
+      }}
+    >
+          {/* Navigation Items - aligned with content */}
           <div className="flex items-center space-x-8">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -74,14 +65,37 @@ export function TopNav() {
             })}
           </div>
 
-          {/* Search */}
-          <div className="flex items-center">
-            <button className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 transition-colors">
-              <SearchIcon className="w-4 h-4" />
-              <span>Search</span>
-            </button>
-          </div>
-        </nav>
+      {/* Search */}
+      <div className="flex items-center">
+        <SearchField />
+      </div>
+    </div>
+  );
+}
+
+function SearchField() {
+  const toggleSearch = () => {
+    const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "k",
+        metaKey: isMac,
+        ctrlKey: !isMac,
+        bubbles: true,
+      })
+    );
+  };
+  
+  return (
+    <div 
+      onClick={toggleSearch} 
+      className="cursor-pointer h-10 px-4 w-[240px] xl:w-[275px] inline-flex items-center gap-2 border bg-fd-secondary/50 p-1.5 text-sm text-fd-muted-foreground transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground rounded-md"
+    >
+      <SearchIcon className="w-4 h-4" />
+      Search docs
+      <div className="ms-auto inline-flex gap-0.5">
+        <kbd className="rounded-md border bg-fd-background px-1.5 text-xs">⌘</kbd>
+        <kbd className="rounded-md border bg-fd-background px-1.5 text-xs">K</kbd>
       </div>
     </div>
   );

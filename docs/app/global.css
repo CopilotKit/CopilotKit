@@ -177,6 +177,8 @@
   display: none !important;
 }
 
+
+
 figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-auto.max-h-\[600px\].fd-scroll-container {
   background-color: var(--background) !important;
 } 
