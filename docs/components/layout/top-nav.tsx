@@ -206,7 +206,7 @@ function IntegrationDropdown({ options }: { options: Array<{ title: string; url:
     >
       <SelectTrigger
         className={cn(
-          "h-auto px-3 py-2 border-0 bg-transparent shadow-none flex items-center space-x-2 text-sm font-medium transition-colors rounded-md",
+          "h-auto px-3 py-2 border-0 bg-transparent shadow-none flex items-center space-x-2 text-sm font-medium transition-colors rounded-md w-auto",
           selectedOption && !shouldResetDropdown
             ? "text-purple-600 border-b-2 border-purple-600"
             : "text-gray-700 hover:text-gray-900 hover:bg-gray-50"
@@ -215,24 +215,20 @@ function IntegrationDropdown({ options }: { options: Array<{ title: string; url:
         <div className="flex items-center space-x-2">
           {selectedOption?.icon || <PlugIcon className="w-4 h-4" />}
           <span>{selectedOption?.title || "Select Integration"}</span>
-          <ChevronDownIcon className="w-3 h-3" />
         </div>
       </SelectTrigger>
-      <SelectContent className="w-64">
+      <SelectContent className="w-auto min-w-48">
         {options.map((option) => (
           <SelectItem
             key={option.url}
             value={option.url}
             className="cursor-pointer"
           >
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2">
               <div className="flex-shrink-0">
                 {option.icon}
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium">{option.title}</div>
-                <div className="text-xs text-gray-500 truncate">{option.description}</div>
-              </div>
+              <span className="text-sm font-medium">{option.title}</span>
             </div>
           </SelectItem>
         ))}
