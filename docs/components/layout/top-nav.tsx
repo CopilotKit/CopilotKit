@@ -148,17 +148,6 @@ export function TopNav() {
             {/* Integration Dropdown */}
             <IntegrationDropdown options={integrationOptions} />
 
-            {/* Copilot Cloud */}
-            <Link
-              href="https://cloud.copilotkit.ai"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-700 hover:text-gray-900 hover:bg-gray-50"
-            >
-              <CloudIcon className="w-4 h-4" />
-              <span>Copilot Cloud</span>
-            </Link>
-
             {/* API Reference */}
             <Link
               href="/reference"
@@ -171,6 +160,17 @@ export function TopNav() {
             >
               <TerminalIcon className="w-4 h-4" />
               <span>API Reference</span>
+            </Link>
+
+            {/* Copilot Cloud */}
+            <Link
+              href="https://cloud.copilotkit.ai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+            >
+              <CloudIcon className="w-4 h-4" />
+              <span>Copilot Cloud</span>
             </Link>
           </div>
 
