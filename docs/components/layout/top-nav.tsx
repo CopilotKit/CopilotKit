@@ -126,7 +126,7 @@ export function TopNav() {
 
   return (
     <div 
-      className="sticky top-0 bg-white/95 backdrop-blur-sm border-b border-gray-200 z-30 flex items-center justify-between px-6 py-3 -mb-8"
+      className="sticky top-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 z-30 flex items-center justify-between px-6 py-3 -mb-8"
       style={{ 
         height: '60px'
       }}
@@ -139,8 +139,8 @@ export function TopNav() {
               className={cn(
                 "flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors",
                 pathname === "/"
-                  ? "text-purple-600 border-b-2 border-purple-600"
-                  : "text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+                  ? "text-purple-600 dark:text-purple-400 border-b-2 border-purple-600 dark:border-purple-400"
+                  : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
               )}
             >
               <RocketIcon className="w-4 h-4" />
@@ -156,8 +156,8 @@ export function TopNav() {
               className={cn(
                 "flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors",
                 pathname.startsWith("/reference")
-                  ? "text-purple-600 border-b-2 border-purple-600"
-                  : "text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+                  ? "text-purple-600 dark:text-purple-400 border-b-2 border-purple-600 dark:border-purple-400"
+                  : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
               )}
             >
               <BookOpenIcon className="w-4 h-4" />
@@ -175,7 +175,7 @@ export function TopNav() {
           href="https://cloud.copilotkit.ai"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+            className="flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
         >
           <CloudIcon className="w-4 h-4" />
           <span>Copilot Cloud</span>
@@ -186,7 +186,7 @@ export function TopNav() {
           href="https://discord.gg/qU8pXNqGJs"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+            className="flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
         >
           <SiDiscord className="w-4 h-4" />
           <span>Community</span>
@@ -223,8 +223,8 @@ function IntegrationDropdown({ options }: { options: Array<{ title: string; url:
         className={cn(
           "h-auto px-3 py-2 border-0 bg-transparent shadow-none flex items-center space-x-2 text-sm font-medium transition-colors rounded-md w-auto [&>svg]:hidden",
           selectedOption && !shouldResetDropdown
-            ? "text-purple-600 border-b-2 border-purple-600"
-            : "text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+            ? "text-purple-600 dark:text-purple-400 border-b-2 border-purple-600 dark:border-purple-400"
+            : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
         )}
       >
         <div className="flex items-center space-x-1.5">
@@ -268,7 +268,7 @@ function SearchButton() {
   return (
     <button 
       onClick={toggleSearch} 
-      className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+      className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
       title="Search docs (⌘K)"
     >
       <SearchIcon className="w-4 h-4" />
