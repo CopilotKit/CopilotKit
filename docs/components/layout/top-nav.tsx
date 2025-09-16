@@ -1,17 +1,111 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { 
   RocketIcon,
   CloudIcon, 
   TerminalIcon,
-  SearchIcon 
+  SearchIcon,
+  ChevronDownIcon,
+  PlugIcon
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { SiCrewai } from "@icons-pack/react-simple-icons";
+import { SiLangchain } from "react-icons/si";
+import {
+  AG2Icon,
+  MastraIcon,
+  AgnoIcon,
+  LlamaIndexIcon,
+  PydanticAIIcon,
+} from "@/lib/icons/custom-icons";
 
 export function TopNav() {
   const pathname = usePathname();
+
+  // Integration options for the dropdown
+  const integrationOptions = [
+    {
+      title: "Direct to LLM",
+      description: "Get started with CopilotKit quickly",
+      url: "/direct-to-llm",
+      icon: (
+        <RocketIcon
+          className="w-4 h-4"
+          style={{
+            fontSize: "16px",
+            width: "16px",
+            height: "16px",
+          }}
+        />
+      ),
+    },
+    {
+      title: "LangGraph",
+      description: "Documentation for CoAgents with LangGraph",
+      url: "/langgraph",
+      icon: (
+        <SiLangchain
+          className="w-4 h-4"
+          style={{
+            fontSize: "16px",
+            width: "16px",
+            height: "16px",
+          }}
+        />
+      ),
+    },
+    {
+      title: "Mastra",
+      description: "Documentation for CoAgents with Mastra",
+      url: "/mastra",
+      icon: <MastraIcon className="w-4 h-4 text-bold" />,
+    },
+    {
+      title: "CrewAI Crews",
+      description: "Documentation for CoAgents with CrewAI Crews",
+      url: "/crewai-crews",
+      icon: <SiCrewai className="w-4 h-4 text-bold" />,
+    },
+    {
+      title: "CrewAI Flows",
+      description: "Documentation for CoAgents with CrewAI Flows",
+      url: "/crewai-flows",
+      icon: <SiCrewai className="w-4 h-4 text-bold" />,
+    },
+    {
+      title: "PydanticAI",
+      description: "Documentation for CoAgents with PydanticAI",
+      url: "/pydantic-ai",
+      icon: <PydanticAIIcon className="w-4 h-4 text-bold" />,
+    },
+    {
+      title: "Agno",
+      description: "Documentation for CoAgents with Agno",
+      url: "/agno",
+      icon: <AgnoIcon className="w-4 h-4 text-bold" />,
+    },
+    {
+      title: "LlamaIndex",
+      description: "Documentation for CoAgents with LlamaIndex",
+      url: "/llamaindex",
+      icon: <LlamaIndexIcon className="w-4 h-4 text-bold" />,
+    },
+    {
+      title: "AutoGen2",
+      description: "Documentation for CoAgents with AG2",
+      url: "/ag2",
+      icon: <AG2Icon className="w-4 h-4 text-bold" />,
+    },
+  ];
 
   const navItems = [
     {
@@ -19,12 +113,6 @@ export function TopNav() {
       label: "Overview",
       icon: RocketIcon,
       isActive: pathname === "/"
-    },
-    {
-      href: "https://cloud.copilotkit.ai",
-      label: "Copilot Cloud",
-      icon: CloudIcon,
-      isExternal: true
     },
     {
       href: "/reference",
@@ -43,26 +131,47 @@ export function TopNav() {
     >
           {/* Navigation Items - aligned with content */}
           <div className="flex items-center space-x-8">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  target={item.isExternal ? "_blank" : undefined}
-                  rel={item.isExternal ? "noopener noreferrer" : undefined}
-                  className={cn(
-                    "flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                    item.isActive
-                      ? "text-purple-600 border-b-2 border-purple-600"
-                      : "text-gray-700 hover:text-gray-900 hover:bg-gray-50"
-                  )}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
+            {/* Overview */}
+            <Link
+              href="/"
+              className={cn(
+                "flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                pathname === "/"
+                  ? "text-purple-600 border-b-2 border-purple-600"
+                  : "text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+              )}
+            >
+              <RocketIcon className="w-4 h-4" />
+              <span>Overview</span>
+            </Link>
+
+            {/* Integration Dropdown */}
+            <IntegrationDropdown options={integrationOptions} />
+
+            {/* Copilot Cloud */}
+            <Link
+              href="https://cloud.copilotkit.ai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+            >
+              <CloudIcon className="w-4 h-4" />
+              <span>Copilot Cloud</span>
+            </Link>
+
+            {/* API Reference */}
+            <Link
+              href="/reference"
+              className={cn(
+                "flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                pathname.startsWith("/reference")
+                  ? "text-purple-600 border-b-2 border-purple-600"
+                  : "text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+              )}
+            >
+              <TerminalIcon className="w-4 h-4" />
+              <span>API Reference</span>
+            </Link>
           </div>
 
       {/* Search */}
@@ -70,6 +179,65 @@ export function TopNav() {
         <SearchField />
       </div>
     </div>
+  );
+}
+
+function IntegrationDropdown({ options }: { options: Array<{ title: string; url: string; icon: React.ReactNode; description: string }> }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  
+  // Find the currently selected integration
+  const selectedOption = options.find(option => 
+    pathname.startsWith(option.url) && option.url !== "/"
+  );
+  
+  // Check if we're on a page that should reset the dropdown
+  const topLevelPages = ["/", "/reference"];
+  const shouldResetDropdown = topLevelPages.some(page => 
+    page === "/" ? pathname === "/" : pathname.startsWith(page)
+  );
+
+  return (
+    <Select
+      value={shouldResetDropdown ? undefined : selectedOption?.url}
+      onValueChange={(url) => {
+        router.push(url);
+      }}
+    >
+      <SelectTrigger
+        className={cn(
+          "h-auto px-3 py-2 border-0 bg-transparent shadow-none flex items-center space-x-2 text-sm font-medium transition-colors rounded-md",
+          selectedOption && !shouldResetDropdown
+            ? "text-purple-600 border-b-2 border-purple-600"
+            : "text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+        )}
+      >
+        <div className="flex items-center space-x-2">
+          {selectedOption?.icon || <PlugIcon className="w-4 h-4" />}
+          <span>{selectedOption?.title || "Select Integration"}</span>
+          <ChevronDownIcon className="w-3 h-3" />
+        </div>
+      </SelectTrigger>
+      <SelectContent className="w-64">
+        {options.map((option) => (
+          <SelectItem
+            key={option.url}
+            value={option.url}
+            className="cursor-pointer"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0">
+                {option.icon}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium">{option.title}</div>
+                <div className="text-xs text-gray-500 truncate">{option.description}</div>
+              </div>
+            </div>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
