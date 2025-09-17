@@ -1,5 +1,86 @@
 # ui
 
+## 1.10.5-next.1
+
+### Patch Changes
+
+- b7bc3a0: - feat: pass copilot readable context to agui agents
+  - @copilotkit/runtime-client-gql@1.10.5-next.1
+  - @copilotkit/shared@1.10.5-next.1
+
+## 1.10.5-next.0
+
+### Patch Changes
+
+- 32c163e: - inspector visibility toggle in ConsoleTrigger component
+  - @copilotkit/runtime-client-gql@1.10.5-next.0
+  - @copilotkit/shared@1.10.5-next.0
+
+## 1.10.4
+
+### Patch Changes
+
+- ef98963: - feat: add platform-wide error surfacing for custom error rendering
+  - feat: add error as a message option and a component level onError
+- 052d54d: - fix: enable erasing chat state on new thread creation
+- Updated dependencies [a640d8e]
+  - @copilotkit/shared@1.10.4
+  - @copilotkit/runtime-client-gql@1.10.4
+
+## 1.10.4-next.3
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.4-next.3
+- @copilotkit/shared@1.10.4-next.3
+
+## 1.10.4-next.2
+
+### Patch Changes
+
+- ef98963: - feat: add platform-wide error surfacing for custom error rendering
+  - feat: add error as a message option and a component level onError
+  - @copilotkit/runtime-client-gql@1.10.4-next.2
+  - @copilotkit/shared@1.10.4-next.2
+
+## 1.10.4-next.1
+
+### Patch Changes
+
+- Updated dependencies [a640d8e]
+  - @copilotkit/shared@1.10.4-next.1
+  - @copilotkit/runtime-client-gql@1.10.4-next.1
+
+## 1.10.4-next.0
+
+### Patch Changes
+
+- 052d54d: - fix: enable erasing chat state on new thread creation
+  - @copilotkit/runtime-client-gql@1.10.4-next.0
+  - @copilotkit/shared@1.10.4-next.0
+
+## 1.10.3
+
+### Patch Changes
+
+- Updated dependencies [ea74047]
+  - @copilotkit/shared@1.10.3
+  - @copilotkit/runtime-client-gql@1.10.3
+
+## 1.10.3-next.3
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.3-next.3
+- @copilotkit/shared@1.10.3-next.3
+
+## 1.10.3-next.2
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.3-next.2
+- @copilotkit/shared@1.10.3-next.2
+
 ## 1.10.3-next.1
 
 ### Patch Changes

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { flushSync } from "react-dom";
 import {
   FunctionCallHandler,
@@ -231,13 +231,24 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   const { setBannerError } = useToast();
 
   // Get onError from context since it's not part of copilotConfig
-  const { onError } = useCopilotContext();
+  const { onError, showDevConsole, getAllContext } = useCopilotContext();
+
+  const copilotReadableContext = getAllContext();
+
+  const context = useMemo(
+    () =>
+      copilotReadableContext.map((contextItem) => {
+        const [description, ...valueParts] = contextItem.value.split(":");
+        return {
+          description: description.trim(),
+          value: valueParts.join(":").trim(),
+        };
+      }),
+    [copilotReadableContext],
+  );
 
   // Add tracing functionality to use-chat
   const traceUIError = async (error: CopilotKitError, originalError?: any) => {
-    // Just check if onError and publicApiKey are defined
-    if (!onError || !copilotConfig?.publicApiKey) return;
-
     try {
       const traceEvent = {
         type: "error" as const,
@@ -281,14 +292,13 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     ...(publicApiKey ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicApiKey } : {}),
   };
 
-  const { showDevConsole } = useCopilotContext();
-
   const runtimeClient = useCopilotRuntimeClient({
     url: copilotConfig.chatApiEndpoint,
     publicApiKey: copilotConfig.publicApiKey,
     headers,
     credentials: copilotConfig.credentials,
     showDevConsole,
+    onError,
   });
 
   const pendingAppendsRef = useRef<{ message: Message; followUp: boolean }[]>([]);
@@ -415,6 +425,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               return stateObject;
             }),
             forwardedParameters: options.forwardedParameters || {},
+            context,
           },
           properties: finalProperties,
           signal: chatAbortControllerRef.current?.signal,
@@ -527,6 +538,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               statusReason: value.generateCopilotResponse.status.reason,
               statusDetails: value.generateCopilotResponse.status.details,
             });
+            // TODO: if onError & renderError should work without key, insert here
 
             setMessages([...previousMessages, ...newMessages]);
             break;
@@ -575,6 +587,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               originalErrorCode: originalCode,
               preservedStructure: !!originalCode,
             });
+            // TODO: if onError & renderError should work without key, insert here
 
             // Stop processing and break from the loop
             setIsLoading(false);
@@ -875,6 +888,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
       agentSession,
       setAgentSession,
       disableSystemMessage,
+      context,
     ],
   );
 

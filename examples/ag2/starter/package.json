@@ -14,7 +14,7 @@
     "@copilotkit/react-core": "1.8.13",
     "@copilotkit/react-ui": "1.8.13",
     "@copilotkit/runtime": "1.8.13",
-    "next": "15.3.2",
+    "next": "15.4.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "zod": "^3.24.4"

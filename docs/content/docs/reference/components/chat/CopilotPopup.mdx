@@ -178,6 +178,10 @@ A custom assistant message component to use instead of the default.
 A custom user message component to use instead of the default.
 </PropertyReference>
 
+<PropertyReference name="ErrorMessage" type="React.ComponentType<ErrorMessageProps>"  > 
+A custom error message component to use instead of the default.
+</PropertyReference>
+
 <PropertyReference name="Messages" type="React.ComponentType<MessagesProps>"  > 
 A custom Messages component to use instead of the default.
 </PropertyReference>
@@ -223,6 +227,10 @@ Event hooks for CopilotKit chat events.
 <PropertyReference name="renderError" type="(error: { message: string; operation?: string; timestamp: number; onDismiss: () => void; onRetry?: () => void; }) => React.ReactNode"  > 
 Custom error renderer for chat-specific errors.
   When provided, errors will be displayed inline within the chat interface.
+</PropertyReference>
+
+<PropertyReference name="onError" type="CopilotErrorHandler"  > 
+Optional handler for comprehensive debugging and observability.
 </PropertyReference>
 
 <PropertyReference name="defaultOpen" type="boolean"  default="false"> 

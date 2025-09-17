@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.10.3-next.1",
+  "version": "1.10.5-next.1",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -47,11 +47,11 @@
     "zod-to-json-schema": "^3.23.5"
   },
   "dependencies": {
-    "@ag-ui/client": "^0.0.36",
-    "@ag-ui/core": "^0.0.36",
-    "@ag-ui/encoder": "^0.0.36",
-    "@ag-ui/langgraph": "^0.0.10",
-    "@ag-ui/proto": "^0.0.36",
+    "@ag-ui/client": "^0.0.37",
+    "@ag-ui/core": "^0.0.37",
+    "@ag-ui/encoder": "^0.0.37",
+    "@ag-ui/langgraph": "^0.0.13",
+    "@ag-ui/proto": "^0.0.37",
     "@anthropic-ai/sdk": "^0.57.0",
     "@copilotkit/shared": "workspace:*",
     "@graphql-yoga/plugin-defer-stream": "^3.3.1",
@@ -80,10 +80,10 @@
     "zod": "^3.23.3"
   },
   "peerDependencies": {
-    "@ag-ui/client": ">=0.0.34",
-    "@ag-ui/core": ">=0.0.36",
-    "@ag-ui/encoder": ">=0.0.34",
-    "@ag-ui/proto": ">=0.0.34"
+    "@ag-ui/client": ">=0.0.37",
+    "@ag-ui/core": ">=0.0.37",
+    "@ag-ui/encoder": ">=0.0.37",
+    "@ag-ui/proto": ">=0.0.37"
   },
   "keywords": [
     "copilotkit",

@@ -16,6 +16,7 @@ import { AbstractAgent } from "@ag-ui/client";
 import { CopilotKitError, CopilotKitErrorCode, parseJson } from "@copilotkit/shared";
 import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 import { GraphQLContext } from "../integrations/shared";
+import { CopilotContextInput } from "../../graphql/inputs/copilot-context.input";
 
 export function constructAGUIRemoteAction({
   logger,
@@ -25,6 +26,7 @@ export function constructAGUIRemoteAction({
   metaEvents,
   threadMetadata,
   nodeName,
+  context,
   graphqlContext,
 }: {
   logger: Logger;
@@ -34,6 +36,7 @@ export function constructAGUIRemoteAction({
   metaEvents?: MetaEventInput[];
   threadMetadata?: Record<string, any>;
   nodeName?: string;
+  context?: CopilotContextInput[];
   graphqlContext: GraphQLContext;
 }) {
   const action = {
@@ -58,7 +61,7 @@ export function constructAGUIRemoteAction({
       });
 
       let state = {};
-      let config = {};
+      let config: Record<string, unknown> = {};
       if (agentStates) {
         const jsonState = agentStates.find((state) => state.agentName === agent.agentId);
         if (jsonState) {
@@ -76,11 +79,14 @@ export function constructAGUIRemoteAction({
         };
       });
 
+      const { streamSubgraphs, ...restConfig } = config;
+
       const forwardedProps = {
-        config,
+        config: restConfig,
         ...(metaEvents?.length ? { command: { resume: metaEvents[0]?.response } } : {}),
         ...(threadMetadata ? { threadMetadata } : {}),
         ...(nodeName ? { nodeName } : {}),
+        ...(streamSubgraphs ? { streamSubgraphs } : {}),
         // Forward properties from the graphql context to the agent, e.g Authorization token
         ...graphqlContext.properties,
       };
@@ -89,6 +95,7 @@ export function constructAGUIRemoteAction({
         agent.legacy_to_be_removed_runAgentBridged({
           tools,
           forwardedProps,
+          context,
         }) as Observable<RuntimeEvent>
       ).pipe(
         mergeMap((event) => {

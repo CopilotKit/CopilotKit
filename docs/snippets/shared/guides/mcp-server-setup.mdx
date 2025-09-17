@@ -18,7 +18,7 @@ Powered by 🪄 [Tadata](https://tadata.com) - The platform for instantly buildi
     ### Open MCP Settings in Cursor
     1. Press `Shift+Command+J` (Mac) or `Shift+Ctrl+J` (Windows/Linux) to open Cursor's settings.
     2. Look for "MCP Tools" in the left sidebar categories.
-    3. Click "+ New MCP Server".
+    3. Click "Add Custom MCP".
     This will open the mcp.json file in the editor, which you need to edit.
   </Step>
   <Step>
@@ -55,19 +55,29 @@ Powered by 🪄 [Tadata](https://tadata.com) - The platform for instantly buildi
     </Tabs>
   </Step>
 </Steps>
+
 ## Claude Web
 
-[Claude](https://claude.ai/) is Anthropic's AI assistant accessible through a web interface. It supports MCP integrations to connect with external tools and services.
+[Claude](https://claude.ai/) is Anthropic's AI assistant accessible through a web interface. It supports MCP integrations, called Connectors, to connect with external tools and services.
 
 <Steps>
   <Step>
-    In your Claude Integrations page, click "+ Add integration".
+    Navigate to the [Connectors](https://claude.ai/settings/connectors) settings page in Claude.
+    1. Click on your user in the bottom left of the chat box and then select "Settings" from the menu options that appear.
+    2. In the menu along the left side of the Settings page, select "Connectors"
   </Step>
   <Step>
-    In the URL field, enter the following:
+    Click "Add custom connector"
+  </Step>
+  <Step>
+    1. In the Name field, enter a memorable name for the CopilotKit connector, like `CopilotKit`
+    2. In the URL field, enter the following:
     ```
     https://mcp.copilotkit.ai/sse
     ```
+  </Step>
+  <Step>
+    Click "Add"
   </Step>
 </Steps>
 
@@ -75,24 +85,28 @@ Powered by 🪄 [Tadata](https://tadata.com) - The platform for instantly buildi
 
 [Claude Desktop](https://claude.ai/download) is the desktop application version of Claude, offering the same AI capabilities with local system integration and MCP support.
 
+<div className="-mt-2 text-sm text-muted-foreground">
+  These steps are the same as those for Claude Web, above. The only difference is that the Connectors link below navigates to the Connectors settings in the Claude desktop app, instead of the Claude web app.
+</div>
+
 <Steps>
   <Step>
-    Find Claude Integration Settings
+    Navigate to the [Connectors](claude://claude.ai/settings/connectors) settings page in Claude.
+    1. Click on your user in the bottom left of the chat box and then select "Settings" from the menu options that appear.
+    2. In the menu along the left side of the Settings page, select "Connectors"
   </Step>
   <Step>
-    Click the settings button Settings Button in the bottom left of the chat box.
+    Click "Add custom connector"
   </Step>
   <Step>
-    Click "Add Integrations"
-  </Step>
-  <Step>
-    In the integrations page, click "+ Add integration".
-  </Step>
-  <Step>
-    In the URL field, enter the following:
+    1. In the Name field, enter a memorable name for the CopilotKit connector, like `CopilotKit`
+    2. In the URL field, enter the following:
     ```
     https://mcp.copilotkit.ai/sse
     ```
+  </Step>
+  <Step>
+    Click "Add"
   </Step>
 </Steps>
 

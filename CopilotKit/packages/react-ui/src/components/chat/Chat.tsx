@@ -91,12 +91,15 @@ import {
   Severity,
   ErrorVisibility,
   styledConsole,
+  CopilotErrorHandler,
 } from "@copilotkit/shared";
 import { randomId } from "@copilotkit/shared";
 import {
   AssistantMessageProps,
+  ChatError,
   ComponentsMap,
   CopilotObservabilityHooks,
+  ErrorMessageProps,
   ImageRendererProps,
   InputProps,
   MessagesProps,
@@ -242,6 +245,11 @@ export interface CopilotChatProps {
   UserMessage?: React.ComponentType<UserMessageProps>;
 
   /**
+   * A custom error message component to use instead of the default.
+   */
+  ErrorMessage?: React.ComponentType<ErrorMessageProps>;
+
+  /**
    * A custom Messages component to use instead of the default.
    */
   Messages?: React.ComponentType<MessagesProps>;
@@ -325,6 +333,11 @@ export interface CopilotChatProps {
     onDismiss: () => void;
     onRetry?: () => void;
   }) => React.ReactNode;
+
+  /**
+   * Optional handler for comprehensive debugging and observability.
+   */
+  onError?: CopilotErrorHandler;
 }
 
 interface OnStopGenerationArguments {
@@ -409,12 +422,13 @@ export function CopilotChat({
   AssistantMessage = DefaultAssistantMessage,
   UserMessage = DefaultUserMessage,
   ImageRenderer = DefaultImageRenderer,
+  ErrorMessage,
   imageUploadsEnabled,
   inputFileAccept = "image/*",
   hideStopButton,
   observabilityHooks,
   renderError,
-
+  onError,
   // Legacy props - deprecated
   RenderTextMessage,
   RenderActionExecutionMessage,
@@ -422,17 +436,19 @@ export function CopilotChat({
   RenderResultMessage,
   RenderImageMessage,
 }: CopilotChatProps) {
-  const { additionalInstructions, setChatInstructions, copilotApiConfig, setBannerError } =
-    useCopilotContext();
+  const {
+    additionalInstructions,
+    setChatInstructions,
+    copilotApiConfig,
+    setBannerError,
+    setInternalErrorHandler,
+    removeInternalErrorHandler,
+  } = useCopilotContext();
 
   // Destructure stable values to avoid object reference changes
   const { publicApiKey, chatApiEndpoint } = copilotApiConfig;
   const [selectedImages, setSelectedImages] = useState<Array<ImageUpload>>([]);
-  const [chatError, setChatError] = useState<{
-    message: string;
-    operation?: string;
-    timestamp: number;
-  } | null>(null);
+  const [chatError, setChatError] = useState<ChatError | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Helper function to trigger event hooks only if publicApiKey is provided
@@ -468,26 +484,31 @@ export function CopilotChat({
         timestamp: Date.now(),
       });
 
+      const errorEvent: CopilotErrorEvent = {
+        type: "error",
+        timestamp: Date.now(),
+        context: {
+          source: "ui",
+          request: {
+            operation,
+            url: chatApiEndpoint,
+            startTime: Date.now(),
+          },
+          technical: {
+            environment: "browser",
+            userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+            stackTrace: originalError instanceof Error ? originalError.stack : undefined,
+          },
+        },
+        error,
+      };
+
+      if (onError) {
+        onError(errorEvent);
+      }
+
       // Also trigger observability hook if available
       if (publicApiKey && observabilityHooks?.onError) {
-        const errorEvent: CopilotErrorEvent = {
-          type: "error",
-          timestamp: Date.now(),
-          context: {
-            source: "ui",
-            request: {
-              operation,
-              url: chatApiEndpoint,
-              startTime: Date.now(),
-            },
-            technical: {
-              environment: "browser",
-              userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
-              stackTrace: originalError instanceof Error ? originalError.stack : undefined,
-            },
-          },
-          error,
-        };
         observabilityHooks.onError(errorEvent);
       }
 
@@ -506,6 +527,20 @@ export function CopilotChat({
     },
     [publicApiKey, chatApiEndpoint, observabilityHooks, setBannerError],
   );
+
+  useEffect(() => {
+    const id = "chat-component";
+    setInternalErrorHandler({
+      [id]: (error: CopilotErrorEvent) => {
+        if (!error) return;
+        triggerChatError(error.error, "sendMessage");
+      },
+    });
+    return () => {
+      // unregister when this instance unmounts
+      removeInternalErrorHandler?.(id);
+    };
+  }, [triggerChatError, setInternalErrorHandler, removeInternalErrorHandler]);
 
   // Clipboard paste handler
   useEffect(() => {
@@ -732,6 +767,8 @@ export function CopilotChat({
         onThumbsDown={handleThumbsDown}
         markdownTagRenderers={markdownTagRenderers}
         ImageRenderer={ImageRenderer}
+        ErrorMessage={ErrorMessage}
+        chatError={chatError}
         // Legacy props - passed through to Messages component
         RenderTextMessage={RenderTextMessage}
         RenderActionExecutionMessage={RenderActionExecutionMessage}

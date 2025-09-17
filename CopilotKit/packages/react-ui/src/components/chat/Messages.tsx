@@ -11,12 +11,14 @@ export const Messages = ({
   RenderMessage,
   AssistantMessage,
   UserMessage,
+  ErrorMessage,
   ImageRenderer,
   onRegenerate,
   onCopy,
   onThumbsUp,
   onThumbsDown,
   markdownTagRenderers,
+  chatError,
 
   // Legacy props
   RenderTextMessage,
@@ -98,6 +100,7 @@ export const Messages = ({
           );
         })}
         {interrupt}
+        {chatError && ErrorMessage && <ErrorMessage error={chatError} isCurrentMessage />}
       </div>
       <footer className="copilotKitMessagesFooter" ref={messagesEndRef}>
         {children}

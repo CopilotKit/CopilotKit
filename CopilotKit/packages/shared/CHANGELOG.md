@@ -1,5 +1,39 @@
 # @copilotkit/shared
 
+## 1.10.5-next.1
+
+## 1.10.5-next.0
+
+## 1.10.4
+
+### Patch Changes
+
+- a640d8e: - feat: update latest agui langgraph for subgraphs support
+  - feat: update latest agui core packages
+
+## 1.10.4-next.3
+
+## 1.10.4-next.2
+
+## 1.10.4-next.1
+
+### Patch Changes
+
+- a640d8e: - feat: update latest agui langgraph for subgraphs support
+  - feat: update latest agui core packages
+
+## 1.10.4-next.0
+
+## 1.10.3
+
+### Patch Changes
+
+- ea74047: - fix: surface run errors from agui
+
+## 1.10.3-next.3
+
+## 1.10.3-next.2
+
 ## 1.10.3-next.1
 
 ## 1.10.3-next.0

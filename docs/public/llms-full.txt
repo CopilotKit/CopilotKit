@@ -10270,7 +10270,7 @@ which means state updates will be discontinuous and delayed.
 
 You likely want to render the agent state as it updates **continuously.**
 
-See **[emit intermediate state](https://docs.copilotkit.ai/coagents/shared-state/intermediate-state-streaming).**
+See **[predictive state updates](https://docs.copilotkit.ai/coagents/shared-state/predictive-state-updates).**
 
 [Previous\\
 \\
@@ -10562,7 +10562,7 @@ which means state updates will be discontinuous and delayed.
 
 You likely want to render the agent state as it updates **continuously.**
 
-See **[emit intermediate state](https://docs.copilotkit.ai/coagents/shared-state/predictive-state-updates).**
+See **[predictive state updates](https://docs.copilotkit.ai/coagents/shared-state/predictive-state-updates).**
 
 [Previous\\
 \\
@@ -11098,7 +11098,7 @@ which means state updates will be discontinuous and delayed.
 
 You likely want to render the agent state as it updates **continuously.**
 
-See **[emit intermediate state](https://docs.copilotkit.ai/coagents/shared-state/intermediate-state-streaming).**
+See **[predictive state updates](https://docs.copilotkit.ai/coagents/shared-state/predictive-state-updates).**
 
 [Previous\\
 \\
