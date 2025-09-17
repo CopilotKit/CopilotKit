@@ -82,6 +82,7 @@ import {
   useCopilotMessagesContext,
 } from "@copilotkit/react-core";
 import type { SuggestionItem } from "@copilotkit/react-core";
+import type { CopilotContextParams, CopilotMessagesContextParams } from "@copilotkit/react-core";
 import {
   CopilotKitError,
   CopilotKitErrorCode,
@@ -838,7 +839,20 @@ export const useCopilotChatLogic = (
   onSubmitMessage?: (messageContent: string) => Promise<void> | void,
   onStopGeneration?: OnStopGeneration,
   onReloadMessages?: OnReloadMessages,
-) => {
+): {
+  messages: Message[];
+  isLoading: boolean;
+  suggestions: SuggestionItem[];
+  sendMessage: (
+    messageContent: string,
+    imagesToUse?: Array<{ contentType: string; bytes: string }>,
+  ) => Promise<Message>;
+  stopGeneration: () => void;
+  reloadMessages: (messageId: string) => void;
+  resetSuggestions: () => void;
+  context: CopilotContextParams & CopilotMessagesContextParams;
+  actions: CopilotContextParams["actions"];
+} => {
   const {
     messages,
     sendMessage,

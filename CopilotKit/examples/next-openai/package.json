@@ -42,7 +42,7 @@
     "@types/node": "^18.11.17",
     "@types/react": "^18.2.5",
     "@types/react-dom": "^18.2.4",
-    "autoprefixer": "^10.4.13",
+    "autoprefixer": "^10.4.21",
     "cross-env": "^7.0.3",
     "eslint-config-custom": "workspace:*",
     "postcss": "^8.4.20",
