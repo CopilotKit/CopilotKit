@@ -30,6 +30,12 @@ export function TopNav() {
   const router = useRouter();
   const [isIntegrationsOpen, setIsIntegrationsOpen] = useState(false);
   const [forceCloseDropdown, setForceCloseDropdown] = useState(0);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+
+  // Clear pending navigation when pathname changes
+  useEffect(() => {
+    setPendingNavigation(null);
+  }, [pathname]);
 
   // Integration options for the dropdown
   const integrationOptions = [
@@ -134,13 +140,14 @@ export function TopNav() {
             {/* Overview */}
             <button
               onClick={() => {
+                setPendingNavigation("/");
                 setIsIntegrationsOpen(false);
-                setForceCloseDropdown(prev => prev + 1); // Force dropdown re-render
+                setForceCloseDropdown(prev => prev + 1);
                 router.push("/");
               }}
               className={cn(
                 "flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                pathname === "/" && !isIntegrationsOpen
+                pathname === "/" || pendingNavigation === "/"
                   ? "bg-primary/10 text-primary"
                   : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
               )}
@@ -159,13 +166,14 @@ export function TopNav() {
             {/* API Reference */}
             <button
               onClick={() => {
+                setPendingNavigation("/reference");
                 setIsIntegrationsOpen(false);
-                setForceCloseDropdown(prev => prev + 1); // Force dropdown re-render
+                setForceCloseDropdown(prev => prev + 1);
                 router.push("/reference");
               }}
               className={cn(
                 "flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                pathname.startsWith("/reference") && !isIntegrationsOpen
+                pathname.startsWith("/reference") || pendingNavigation === "/reference"
                   ? "bg-primary/10 text-primary"
                   : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
               )}
@@ -219,11 +227,13 @@ function IntegrationDropdown({
   const router = useRouter();
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const [pendingSelection, setPendingSelection] = useState<string | null>(null);
   
   // Reset dropdown state when pathname changes
   useEffect(() => {
     setIsOpen(false);
     onOpenChange(false);
+    setPendingSelection(null); // Clear pending selection when navigation completes
   }, [pathname, onOpenChange]);
 
   // Force close dropdown when parent requests it
@@ -275,11 +285,11 @@ function IntegrationDropdown({
   };
 
   return (
-    <div className="relative" data-integration-dropdown>
+    <div className="relative" data-integration-dropdown key={`dropdown-${pathname}`}>
       <button
         onClick={toggleDropdown}
         className={cn(
-          "flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors focus:outline-none",
+          "flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors focus:outline-none w-44 justify-start",
           shouldShowSelected
             ? "bg-primary/10 text-primary"
             : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
