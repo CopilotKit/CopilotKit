@@ -149,6 +149,28 @@
   .copilotKitMarkdown {
     font-size: 0.875rem !important; /* 14px */
   }
+
+  /* Sidebar navigation font styling to match previous version */
+  [data-sidebar] a,
+  [data-sidebar] button {
+    font-size: 0.6875rem !important; /* 11px */
+    font-weight: 400 !important; /* normal weight */
+    line-height: 1.5 !important;
+  }
+
+  /* Sidebar navigation items */
+  nav[data-orientation="vertical"] a,
+  nav[data-orientation="vertical"] button {
+    font-size: 0.6875rem !important; /* 11px */
+    font-weight: 400 !important; /* normal weight */
+  }
+
+  /* Fumadocs sidebar links */
+  .fd-sidebar a,
+  .fd-sidebar button {
+    font-size: 0.6875rem !important; /* 11px */
+    font-weight: 400 !important; /* normal weight */
+  }
 }
 
 @layer base {

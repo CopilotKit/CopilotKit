@@ -139,7 +139,7 @@ export function TopNav() {
               className={cn(
                 "flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors",
                 pathname === "/"
-                  ? "text-purple-600 dark:text-purple-400 border-b-2 border-purple-600 dark:border-purple-400"
+                  ? "text-primary border-b-2 border-primary"
                   : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
               )}
             >
@@ -156,7 +156,7 @@ export function TopNav() {
               className={cn(
                 "flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors",
                 pathname.startsWith("/reference")
-                  ? "text-purple-600 dark:text-purple-400 border-b-2 border-purple-600 dark:border-purple-400"
+                  ? "text-primary border-b-2 border-primary"
                   : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
               )}
             >
@@ -223,7 +223,7 @@ function IntegrationDropdown({ options }: { options: Array<{ title: string; url:
         className={cn(
           "h-auto px-3 py-2 border-0 bg-transparent shadow-none flex items-center space-x-2 text-sm font-medium transition-colors rounded-md w-auto [&>svg]:hidden",
           selectedOption && !shouldResetDropdown
-            ? "text-purple-600 dark:text-purple-400 border-b-2 border-purple-600 dark:border-purple-400"
+            ? "text-primary border-b-2 border-primary"
             : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
         )}
       >
