@@ -219,11 +219,9 @@ function IntegrationDropdown({
   const router = useRouter();
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
-  const [isNavigating, setIsNavigating] = useState(false);
   
-  // Reset navigation state when pathname changes
+  // Reset dropdown state when pathname changes
   useEffect(() => {
-    setIsNavigating(false);
     setIsOpen(false);
     onOpenChange(false);
   }, [pathname, onOpenChange]);
@@ -232,7 +230,6 @@ function IntegrationDropdown({
   useEffect(() => {
     if (forceClose > 0) {
       setIsOpen(false);
-      setIsNavigating(false);
       onOpenChange(false);
     }
   }, [forceClose, onOpenChange]);
@@ -262,8 +259,8 @@ function IntegrationDropdown({
     page === "/" ? pathname === "/" : pathname.startsWith(page)
   );
 
-  // Show as selected if dropdown is open OR if we're on an integration page OR if we're navigating
-  const shouldShowSelected = isOpen || isNavigating || (selectedOption && !shouldResetDropdown);
+  // Show as selected if dropdown is open OR if we're on an integration page
+  const shouldShowSelected = isOpen || (selectedOption && !shouldResetDropdown);
 
   const toggleDropdown = () => {
     const newIsOpen = !isOpen;
@@ -272,7 +269,6 @@ function IntegrationDropdown({
   };
 
   const handleOptionClick = (url: string) => {
-    setIsNavigating(true);
     setIsOpen(false);
     onOpenChange(false);
     router.push(url);
