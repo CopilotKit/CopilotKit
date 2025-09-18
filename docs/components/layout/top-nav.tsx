@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useSidebar } from "fumadocs-ui/provider";
 import { 
   RocketIcon,
   CloudIcon, 
@@ -31,11 +32,71 @@ export function TopNav() {
   const [isIntegrationsOpen, setIsIntegrationsOpen] = useState(false);
   const [forceCloseDropdown, setForceCloseDropdown] = useState(0);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+  const { collapsed } = useSidebar();
+  const [offsetHeight, setOffsetHeight] = useState(0);
+  
 
   // Clear pending navigation when pathname changes
   useEffect(() => {
     setPendingNavigation(null);
   }, [pathname]);
+
+  // Calculate banner height and title bar height dynamically
+  useEffect(() => {
+    const calculateOffsets = () => {
+      const banner = document.querySelector('[data-banner]') || document.querySelector('#agui-banner');
+      const titleBar = document.querySelector('[data-nav]') || 
+                      document.querySelector('nav') || 
+                      document.querySelector('[role="banner"]') ||
+                      document.querySelector('header') ||
+                      document.querySelector('[data-header]') ||
+                      document.querySelector('.sticky') ||
+                      document.querySelector('[data-topbar]') ||
+                      document.querySelector('#nd-nav');
+      
+      let offsetHeight = 0;
+      let bannerHeight = 0;
+      let titleBarHeight = 0;
+      
+      if (banner) {
+        const style = window.getComputedStyle(banner);
+        if (style.display !== 'none' && style.visibility !== 'hidden') {
+          bannerHeight = banner.offsetHeight;
+        }
+      }
+      
+      if (titleBar) {
+        titleBarHeight = titleBar.offsetHeight;
+      } else {
+        // Fallback to estimated height if we can't find the title bar
+        titleBarHeight = 60;
+      }
+      
+      const totalHeight = bannerHeight + titleBarHeight;
+      setOffsetHeight(totalHeight);
+    };
+
+    // Calculate on mount
+    calculateOffsets();
+
+    // Recalculate on resize
+    window.addEventListener('resize', calculateOffsets);
+
+    // Use MutationObserver to watch for banner visibility changes
+    const observer = new MutationObserver(calculateOffsets);
+    observer.observe(document.body, { 
+      childList: true, 
+      subtree: true, 
+      attributes: true, 
+      attributeFilter: ['style', 'class'] 
+    });
+
+    return () => {
+      window.removeEventListener('resize', calculateBannerHeight);
+      observer.disconnect();
+    };
+  }, []);
+
 
   // Integration options for the dropdown
   const integrationOptions = [
@@ -129,12 +190,14 @@ export function TopNav() {
   ];
 
   return (
-    <div 
-      className="sticky top-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 z-30 items-center justify-between px-6 py-3 -mb-8 hidden lg:flex"
-      style={{ 
-        height: '60px'
-      }}
-    >
+    <>
+      {/* Desktop Navigation - show on large screens regardless of sidebar state */}
+      <div 
+        className="sticky top-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 z-30 items-center justify-between px-6 py-3 -mb-8 hidden lg:flex"
+        style={{ 
+          height: '60px'
+        }}
+      >
           {/* Navigation Items - aligned with content */}
           <div className="flex items-center space-x-2">
             {/* Overview */}
@@ -213,6 +276,94 @@ export function TopNav() {
 
       </div>
     </div>
+
+      {/* Mobile Navigation - show on smaller screens only */}
+      <div className="md:hidden">
+        <div 
+          className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 px-4 py-2 z-20"
+          style={{ 
+            position: 'fixed',
+            top: `${offsetHeight}px`,
+            left: '0',
+            right: '0'
+          }}
+        >
+          <div className="flex items-center justify-between text-sm">
+            {/* Main Navigation */}
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => {
+                  setPendingNavigation("/");
+                  setIsIntegrationsOpen(false);
+                  setForceCloseDropdown(prev => prev + 1);
+                  router.push("/");
+                }}
+                className={cn(
+                  "px-2 py-1 rounded transition-colors",
+                  (pathname === "/" || pendingNavigation === "/") && !isIntegrationsOpen && pendingNavigation !== "/reference"
+                    ? "bg-primary/10 text-primary font-medium"
+                    : "text-gray-700 dark:text-gray-300"
+                )}
+              >
+                Overview
+              </button>
+
+              <IntegrationDropdown 
+                options={integrationOptions} 
+                onOpenChange={setIsIntegrationsOpen}
+                forceClose={forceCloseDropdown}
+                pendingNavigation={pendingNavigation}
+              />
+
+              <button
+                onClick={() => {
+                  setPendingNavigation("/reference");
+                  setIsIntegrationsOpen(false);
+                  setForceCloseDropdown(prev => prev + 1);
+                  router.push("/reference");
+                }}
+                className={cn(
+                  "px-2 py-1 rounded transition-colors",
+                  (pathname.startsWith("/reference") || pendingNavigation === "/reference") && !isIntegrationsOpen && pendingNavigation !== "/"
+                    ? "bg-primary/10 text-primary font-medium"
+                    : "text-gray-700 dark:text-gray-300"
+                )}
+              >
+                API Ref
+              </button>
+            </div>
+
+            {/* Right side: External links and search */}
+            <div className="flex items-center space-x-2">
+              {/* Copilot Cloud */}
+              <Link
+                href="https://cloud.copilotkit.ai"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center space-x-1 px-2 py-1 rounded text-sm transition-colors text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                <CloudIcon className="w-4 h-4" />
+                <span className="hidden sm:inline">Cloud</span>
+              </Link>
+
+              {/* Community */}
+              <Link
+                href="https://discord.gg/qU8pXNqGJs"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center space-x-1 px-2 py-1 rounded text-sm transition-colors text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                <SiDiscord className="w-4 h-4" />
+                <span className="hidden sm:inline">Community</span>
+              </Link>
+
+              {/* Search Button */}
+              <SearchButton />
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -339,11 +490,11 @@ function SearchButton() {
   return (
     <button 
       onClick={toggleSearch} 
-      className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
+      className="flex items-center space-x-1 px-2 py-1 rounded text-sm transition-colors text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
       title="Search docs (⌘K)"
     >
       <SearchIcon className="w-4 h-4" />
-      <span>Search</span>
+      <span className="hidden sm:inline">Search</span>
     </button>
   );
 }
