@@ -337,9 +337,10 @@ export function TopNav() {
       {/* Desktop Navigation - show on medium+ screens when fumadocs title bar is hidden */}
       <div 
         data-nav-container
-        className="sticky top-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 z-30 items-center justify-between px-6 py-3 -mb-8 hidden md:flex"
+        className="sticky bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 z-30 items-center justify-between px-6 py-3 -mb-8 hidden md:flex"
         style={{ 
-          height: '60px'
+          height: '60px',
+          top: `${offsetHeight}px`
         }}
       >
           {/* Navigation Items - aligned with content */}
