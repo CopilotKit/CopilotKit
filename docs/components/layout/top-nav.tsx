@@ -201,14 +201,14 @@ export function TopNav() {
       let bannerHeight = 0;
       let titleBarHeight = 0;
       
-      if (banner) {
+      if (banner && banner instanceof HTMLElement) {
         const style = window.getComputedStyle(banner);
         if (style.display !== 'none' && style.visibility !== 'hidden') {
           bannerHeight = banner.offsetHeight;
         }
       }
       
-      if (titleBar) {
+      if (titleBar && titleBar instanceof HTMLElement) {
         titleBarHeight = titleBar.offsetHeight;
       } else {
         // Fallback to estimated height if we can't find the title bar
@@ -235,7 +235,7 @@ export function TopNav() {
     });
 
     return () => {
-      window.removeEventListener('resize', calculateBannerHeight);
+      window.removeEventListener('resize', calculateOffsets);
       observer.disconnect();
     };
   }, []);
