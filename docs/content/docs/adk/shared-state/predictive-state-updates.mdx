@@ -1,0 +1,197 @@
+---
+title: "Predictive state updates"
+icon: "lucide/Podcast"
+description: Stream in-progress agent state updates to the frontend.
+---
+import {
+  TailoredContent,
+  TailoredContentOption,
+} from "@/components/react/tailored-content.tsx";
+import { FaWrench } from "react-icons/fa";
+import { FaArrowUp } from "react-icons/fa";
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/intermediate-state-render.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
+<Callout>
+  This video shows the result of `npx copilotkit@latest init` with the [implementation](#implementation) section applied to it!
+</Callout>
+
+## What is this?
+
+A Pydantic AI Agent's state updates discontinuosly; only across function transitions in the flow.
+But even a _single function_ in the flow often takes many seconds to run and contain sub-steps of interest to the user.
+
+**Agent-native applications** reflect to the end-user what the agent is doing **as continuously possible.**
+
+CopilotKit enables this through its concept of **_predictive state updates_**.
+
+## When should I use this?
+
+You can use this when you want to provide the user with feedback about what your agent is doing, specifically to:
+
+- **Keep users engaged** by avoiding long loading indicators
+- **Build trust** by demonstrating what the agent is working on
+- Enable **agent steering** - allowing users to course-correct the agent if needed
+
+## Important Note
+
+When a function in your Pydantic AI agent finishes executing, **its returned state becomes the single source of truth**.
+While intermediate state updates are great for real-time feedback, any changes you want to persist must be explicitly
+included in the function's final returned state. Otherwise, they will be overwritten when the function completes.
+
+## Implementation
+
+<Steps>
+    <Step>
+        <h3 className="text-xl font-bold">Define the state</h3>
+        We'll be defining a `observed_steps` field in the state, which will be updated as the agent writes different sections of the report.
+
+        ```python title="agent-py/sample_agent/agent.py"
+        from pydantic import BaseModel
+        from pydantic_ai import Agent
+        from pydantic_ai.ag_ui import StateDeps
+
+        class AgentState(BaseModel):
+            """State for the agent."""
+            observed_steps: list[str] = []
+
+        agent = Agent('openai:gpt-4o-mini', deps_type=StateDeps[AgentState])
+        app = agent.to_ag_ui(deps=StateDeps(AgentState()))
+        ```
+    </Step>
+    <Step>
+        ### Emit the intermediate state
+        <TailoredContent
+            className="step"
+            id="state-emission"
+            header={
+                <div>
+                    <p className="text-xl font-semibold">How would you like to emit state updates?</p>
+                    <p className="text-base">
+                        You can either manually emit state updates or configure specific tool calls to emit updates.
+                    </p>
+                </div>
+            }
+        >
+            <TailoredContentOption
+                id="manual-emission"
+                title="Manual Predictive State Updates"
+                description="Manually emit state updates for maximum control over when updates occur."
+                icon={<FaArrowUp />}
+            >
+                For long-running tasks, you can emit state updates progressively as predictions of the final state. In this example, we simulate a long-running task by executing a series of steps with a one second delay between each update.
+                <Tabs groupId="language" items={['Python']} default="Python">
+                    <Tab value="Python">
+                        ```python title="agent-py/sample_agent/agent.py"
+                        import asyncio
+                        from ag_ui.core import StateDeltaEvent, EventType
+                        from pydantic_ai import Agent
+                        from pydantic_ai.ag_ui import StateDeps
+
+                        @agent.tool_plain
+                        async def update_steps(steps: list[str]) -> StateSnapshotEvent:
+                            """Update the steps of the agent."""
+                            return StateSnapshotEvent(
+                                type=EventType.STATE_SNAPSHOT,
+                                snapshot={
+                                    "observed_steps": steps
+                                }
+                            )
+                        ```
+                    </Tab>
+                </Tabs>
+            </TailoredContentOption>
+
+            <TailoredContentOption
+                id="tool-emission"
+                title="Tool-Based Predictive State Updates"
+                description="Configure specific tool calls to automatically emit intermediate state updates."
+                icon={<FaWrench />}
+            >
+                For long-running tasks, you can configure CopilotKit to automatically predict state updates when specific tool calls are made. In this example, we'll configure CopilotKit to predict state updates whenever the LLM calls the step progress tool.
+                <Tabs groupId="language" items={['Python']} default="Python">
+                    <Tab value="Python">
+                        ```python
+                        from ag_ui.core import CustomEvent, EventType
+
+                        @agent.tool_plain
+                        def enable_document_prediction() -> CustomEvent:
+                            """Enable document state prediction."""
+                            return CustomEvent(
+                                type=EventType.CUSTOM,
+                                name='PredictState',
+                                value=[{
+                                    'state_key': 'observed_steps',
+                                    'tool': 'update_steps',
+                                    'tool_argument': 'steps',
+                                }]
+                            )
+                        ```
+                    </Tab>
+                </Tabs>
+            </TailoredContentOption>
+        </TailoredContent>
+    </Step>
+    <Step>
+        ### Observe the predictions
+        These predictions will be emitted as the agent runs, allowing you to track its progress before the final state is determined.
+
+        ```tsx title="ui/app/page.tsx"
+        import { useCoAgent, useCoAgentStateRender } from '@copilotkit/react-core';
+
+        // ...
+
+        const YourMainContent = () => {
+            // Get access to both predicted and final states
+            const { state } = useCoAgent({ name: "sample_agent" });
+
+            // Add a state renderer to observe predictions
+            useCoAgentStateRender({
+                name: "sample_agent",
+                render: ({ state }) => {
+                    if (!state.observed_steps?.length) return null;
+                    return (
+                        <div>
+                            <h3>Current Progress:</h3>
+                            <ul>
+                                {state.observed_steps.map((step, i) => (
+                                    <li key={i}>{step}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    );
+                },
+            });
+
+            return (
+                <div>
+                    <h1>Agent Progress</h1>
+                    {state.observed_steps?.length > 0 && (
+                        <div>
+                            <h3>Final Steps:</h3>
+                            <ul>
+                                {state.observed_steps.map((step, i) => (
+                                    <li key={i}>{step}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                </div>
+            )
+        }
+        ```
+    </Step>
+    <Step>
+        ### Give it a try!
+        Now you'll notice that the state predictions are emitted as the agent makes progress, giving you insight into its work before the final state is determined.
+        You can apply this pattern to any long-running task in your agent.
+    </Step>
+
+</Steps> 
