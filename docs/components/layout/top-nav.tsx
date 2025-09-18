@@ -42,8 +42,8 @@ export function TopNav() {
   
   // Mobile navigation state
   const [mobileNavWidth, setMobileNavWidth] = useState(0);
-  const [mobileNavState, setMobileNavState] = useState<'full' | 'compact'>('full');
-  const mobileNavStateRef = useRef<'full' | 'compact'>('full');
+  const [mobileNavState, setMobileNavState] = useState<'full' | 'compact' | 'minimal'>('full');
+  const mobileNavStateRef = useRef<'full' | 'compact' | 'minimal'>('full');
   
 
   // Clear pending navigation when pathname changes
@@ -73,9 +73,9 @@ export function TopNav() {
         
         // Desktop navigation states: full -> compact -> minimal
         let newState: 'full' | 'compact' | 'minimal';
-        if (width < 300) {
+        if (width < 750) {
           newState = 'minimal';
-        } else if (width < 530) {
+        } else if (width < 860) {
           newState = 'compact';
         } else {
           newState = 'full';
@@ -124,7 +124,7 @@ export function TopNav() {
   // Measure mobile navigation width and determine state
   useEffect(() => {
     const measureMobileNavWidth = () => {
-      const mobileNavItemsContainer = document.querySelector('[data-mobile-nav-items]');
+      const mobileNavItemsContainer = document.querySelector('[data-mobile-nav-container]');
       console.log('🔍 Measuring mobile nav width, container found:', !!mobileNavItemsContainer);
       
       // Only measure if the mobile nav is visible (hidden by md:hidden means visible on < 768px)
@@ -138,9 +138,11 @@ export function TopNav() {
         const width = mobileNavItemsContainer.clientWidth;
         setMobileNavWidth(width);
         
-        // Mobile navigation states: full -> compact (icons only)
-        let newState: 'full' | 'compact';
-        if (width < 400) {
+        // Mobile navigation states: full -> compact -> minimal
+        let newState: 'full' | 'compact' | 'minimal';
+        if (width < 460) {
+          newState = 'minimal';
+        } else if (width < 655) {
           newState = 'compact';
         } else {
           newState = 'full';
@@ -392,7 +394,7 @@ export function TopNav() {
             </button>
 
           {/* Search Button - hide when sidebar is collapsed */}
-          {!collapsed && <SearchButton />}
+          {!collapsed && <SearchButton navState={desktopNavState} />}
         </div>
 
       {/* Right side: External links and search */}
@@ -429,6 +431,7 @@ export function TopNav() {
       {/* Mobile Navigation - show when fumadocs title bar is visible */}
       <div className="md:hidden">
         <div 
+          data-mobile-nav-container
           className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 px-4 py-2 z-20"
           style={{ 
             position: 'fixed',
@@ -472,44 +475,49 @@ export function TopNav() {
                   router.push("/reference");
                 }}
                 className={cn(
-                  "px-2 py-1 rounded transition-colors",
+                  "flex items-center space-x-1 px-2 py-1 rounded transition-colors",
                   (pathname.startsWith("/reference") || pendingNavigation === "/reference") && !isIntegrationsOpen && pendingNavigation !== "/"
                     ? "bg-primary/10 text-primary font-medium"
                     : "text-gray-700 dark:text-gray-300"
                 )}
               >
-                API Ref
+                <BookOpenIcon className="w-4 h-4" />
+                {mobileNavState === 'full' ? <span>Reference</span> : null}
               </button>
             </div>
 
             {/* Right side: External links and search */}
             <div className="flex items-center space-x-2">
-              {/* Copilot Cloud */}
-              <Link
-                href="https://cloud.copilotkit.ai"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center space-x-1 px-2 py-1 rounded text-sm transition-colors text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
-                title="Copilot Cloud"
-              >
-                <CloudIcon className="w-4 h-4" />
-                {mobileNavState === 'compact' ? null : <span>Cloud</span>}
-              </Link>
+              {/* Copilot Cloud - hide in minimal state */}
+              {mobileNavState !== 'minimal' && (
+                <Link
+                  href="https://cloud.copilotkit.ai"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center space-x-1 px-2 py-1 rounded text-sm transition-colors text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  title="Copilot Cloud"
+                >
+                  <CloudIcon className="w-4 h-4" />
+                  {mobileNavState === 'compact' ? null : <span>Cloud</span>}
+                </Link>
+              )}
 
-              {/* Community */}
-              <Link
-                href="https://discord.gg/qU8pXNqGJs"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center space-x-1 px-2 py-1 rounded text-sm transition-colors text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
-                title="Community Discord"
-              >
-                <SiDiscord className="w-4 h-4" />
-                {mobileNavState === 'compact' ? null : <span>Community</span>}
-              </Link>
+              {/* Community - hide in minimal state */}
+              {mobileNavState !== 'minimal' && (
+                <Link
+                  href="https://discord.gg/qU8pXNqGJs"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center space-x-1 px-2 py-1 rounded text-sm transition-colors text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  title="Community Discord"
+                >
+                  <SiDiscord className="w-4 h-4" />
+                  {mobileNavState === 'compact' ? null : <span>Community</span>}
+                </Link>
+              )}
 
               {/* Search Button */}
-              <SearchButton />
+              <SearchButton navState="minimal" />
             </div>
           </div>
         </div>
@@ -625,7 +633,7 @@ function IntegrationDropdown({
   );
 }
 
-function SearchButton() {
+function SearchButton({ navState }: { navState?: 'full' | 'compact' | 'minimal' }) {
   const toggleSearch = () => {
     const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
     document.dispatchEvent(
@@ -645,7 +653,7 @@ function SearchButton() {
       title="Search docs (⌘K)"
     >
       <SearchIcon className="w-4 h-4" />
-      <span className="hidden sm:inline">Search</span>
+      {navState === 'minimal' ? null : <span>Search</span>}
     </button>
   );
 }
