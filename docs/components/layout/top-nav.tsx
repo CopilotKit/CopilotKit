@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "fumadocs-ui/provider";
@@ -35,11 +35,152 @@ export function TopNav() {
   const { collapsed } = useSidebar();
   const [offsetHeight, setOffsetHeight] = useState(0);
   
+  // Desktop navigation state
+  const [desktopNavWidth, setDesktopNavWidth] = useState(0);
+  const [desktopNavState, setDesktopNavState] = useState<'full' | 'compact' | 'minimal'>('full');
+  const desktopNavStateRef = useRef<'full' | 'compact' | 'minimal'>('full');
+  
+  // Mobile navigation state
+  const [mobileNavWidth, setMobileNavWidth] = useState(0);
+  const [mobileNavState, setMobileNavState] = useState<'full' | 'compact'>('full');
+  const mobileNavStateRef = useRef<'full' | 'compact'>('full');
+  
 
   // Clear pending navigation when pathname changes
   useEffect(() => {
     setPendingNavigation(null);
   }, [pathname]);
+
+  // Keep refs in sync with states
+  useEffect(() => {
+    desktopNavStateRef.current = desktopNavState;
+  }, [desktopNavState]);
+  
+  useEffect(() => {
+    mobileNavStateRef.current = mobileNavState;
+  }, [mobileNavState]);
+
+  // Measure desktop navigation width and determine state
+  useEffect(() => {
+    const measureDesktopNavWidth = () => {
+      const desktopNavItemsContainer = document.querySelector('[data-nav-container]');
+      console.log('🔍 Measuring desktop nav width, container found:', !!desktopNavItemsContainer);
+      
+      // Only measure if the desktop nav is visible (not hidden by md:hidden)
+      if (desktopNavItemsContainer && window.innerWidth >= 768) {
+        const width = desktopNavItemsContainer.clientWidth;
+        setDesktopNavWidth(width);
+        
+        // Desktop navigation states: full -> compact -> minimal
+        let newState: 'full' | 'compact' | 'minimal';
+        if (width < 300) {
+          newState = 'minimal';
+        } else if (width < 530) {
+          newState = 'compact';
+        } else {
+          newState = 'full';
+        }
+        
+        console.log('🔍 Desktop Nav Width Debug:', { 
+          width, 
+          newState, 
+          currentState: desktopNavStateRef.current,
+          willChange: newState !== desktopNavStateRef.current,
+          timestamp: Date.now()
+        });
+        
+        if (newState !== desktopNavStateRef.current) {
+          console.log('🔄 Changing desktop nav state from', desktopNavStateRef.current, 'to', newState, 'at', width);
+          desktopNavStateRef.current = newState;
+          setDesktopNavState(newState);
+        }
+      } else {
+        console.log('❌ Desktop nav items container not found');
+      }
+    };
+
+    // Measure on mount
+    measureDesktopNavWidth();
+    
+    // Debounced resize handler
+    let resizeTimeout: NodeJS.Timeout;
+    const debouncedMeasure = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(measureDesktopNavWidth, 100);
+    };
+    
+    window.addEventListener('resize', debouncedMeasure);
+    
+    // Also measure when sidebar state changes
+    const timeoutId = setTimeout(measureDesktopNavWidth, 100);
+    
+    return () => {
+      window.removeEventListener('resize', debouncedMeasure);
+      clearTimeout(resizeTimeout);
+      clearTimeout(timeoutId);
+    };
+  }, [collapsed]);
+
+  // Measure mobile navigation width and determine state
+  useEffect(() => {
+    const measureMobileNavWidth = () => {
+      const mobileNavItemsContainer = document.querySelector('[data-mobile-nav-items]');
+      console.log('🔍 Measuring mobile nav width, container found:', !!mobileNavItemsContainer);
+      
+      // Only measure if the mobile nav is visible (hidden by md:hidden means visible on < 768px)
+      console.log('🔍 Mobile nav check:', { 
+        containerFound: !!mobileNavItemsContainer, 
+        windowWidth: window.innerWidth, 
+        shouldMeasure: window.innerWidth < 768 
+      });
+      
+      if (mobileNavItemsContainer && window.innerWidth < 768) {
+        const width = mobileNavItemsContainer.clientWidth;
+        setMobileNavWidth(width);
+        
+        // Mobile navigation states: full -> compact (icons only)
+        let newState: 'full' | 'compact';
+        if (width < 400) {
+          newState = 'compact';
+        } else {
+          newState = 'full';
+        }
+        
+        console.log('🔍 Mobile Nav Width Debug:', { 
+          width, 
+          newState, 
+          currentState: mobileNavStateRef.current,
+          willChange: newState !== mobileNavStateRef.current,
+          timestamp: Date.now()
+        });
+        
+        if (newState !== mobileNavStateRef.current) {
+          console.log('🔄 Changing mobile nav state from', mobileNavStateRef.current, 'to', newState, 'at', width);
+          mobileNavStateRef.current = newState;
+          setMobileNavState(newState);
+        }
+      } else {
+        console.log('❌ Mobile nav items container not found');
+      }
+    };
+
+    // Measure on mount
+    measureMobileNavWidth();
+    
+    // Debounced resize handler
+    let resizeTimeout: NodeJS.Timeout;
+    const debouncedMeasure = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(measureMobileNavWidth, 100);
+    };
+    
+    window.addEventListener('resize', debouncedMeasure);
+    
+    return () => {
+      window.removeEventListener('resize', debouncedMeasure);
+      clearTimeout(resizeTimeout);
+    };
+  }, [collapsed]);
 
   // Calculate banner height and title bar height dynamically
   useEffect(() => {
@@ -193,13 +334,14 @@ export function TopNav() {
     <>
       {/* Desktop Navigation - show on medium+ screens when fumadocs title bar is hidden */}
       <div 
+        data-nav-container
         className="sticky top-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 z-30 items-center justify-between px-6 py-3 -mb-8 hidden md:flex"
         style={{ 
           height: '60px'
         }}
       >
           {/* Navigation Items - aligned with content */}
-          <div className="flex items-center space-x-2">
+          <div data-desktop-nav-items className="flex items-center space-x-2">
             {/* Overview */}
             <button
               onClick={() => {
@@ -241,13 +383,16 @@ export function TopNav() {
                   ? "bg-primary/10 text-primary"
                   : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
               )}
+              title="API Reference"
             >
               <BookOpenIcon className="w-4 h-4" />
-              <span>API Reference</span>
+              {desktopNavState === 'minimal' ? null : (
+                <span>{desktopNavState === 'compact' ? 'Reference' : 'API Reference'}</span>
+              )}
             </button>
 
-          {/* Search Button */}
-          <SearchButton />
+          {/* Search Button - hide when sidebar is collapsed */}
+          {!collapsed && <SearchButton />}
         </div>
 
       {/* Right side: External links and search */}
@@ -257,10 +402,13 @@ export function TopNav() {
           href="https://cloud.copilotkit.ai"
           target="_blank"
           rel="noopener noreferrer"
-            className="flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
+          className="flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
+          title="Copilot Cloud"
         >
           <CloudIcon className="w-4 h-4" />
-          <span>Copilot Cloud</span>
+          {desktopNavState === 'minimal' ? null : (
+            <span>{desktopNavState === 'compact' ? 'Cloud' : 'Copilot Cloud'}</span>
+          )}
         </Link>
 
         {/* Community */}
@@ -268,10 +416,11 @@ export function TopNav() {
           href="https://discord.gg/qU8pXNqGJs"
           target="_blank"
           rel="noopener noreferrer"
-            className="flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
+          className="flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
+          title="Community Discord"
         >
           <SiDiscord className="w-4 h-4" />
-          <span>Community</span>
+          {desktopNavState === 'minimal' ? null : <span>Community</span>}
         </Link>
 
       </div>
@@ -290,7 +439,7 @@ export function TopNav() {
         >
           <div className="flex items-center justify-between text-sm">
             {/* Main Navigation */}
-            <div className="flex items-center space-x-4">
+            <div data-mobile-nav-items className="flex items-center space-x-4">
               <button
                 onClick={() => {
                   setPendingNavigation("/");
@@ -341,9 +490,10 @@ export function TopNav() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center space-x-1 px-2 py-1 rounded text-sm transition-colors text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
+                title="Copilot Cloud"
               >
                 <CloudIcon className="w-4 h-4" />
-                <span className="hidden sm:inline">Cloud</span>
+                {mobileNavState === 'compact' ? null : <span>Cloud</span>}
               </Link>
 
               {/* Community */}
@@ -352,9 +502,10 @@ export function TopNav() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center space-x-1 px-2 py-1 rounded text-sm transition-colors text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
+                title="Community Discord"
               >
                 <SiDiscord className="w-4 h-4" />
-                <span className="hidden sm:inline">Community</span>
+                {mobileNavState === 'compact' ? null : <span>Community</span>}
               </Link>
 
               {/* Search Button */}
