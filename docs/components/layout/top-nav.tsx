@@ -338,7 +338,7 @@ export function TopNav() {
       <div 
         data-nav-container
         className={cn(
-          "sticky bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 z-30 items-center justify-between px-6 py-3 -mb-8 hidden md:flex",
+          "fixed bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 z-30 items-center justify-between px-6 py-3 hidden md:flex",
           collapsed && "md:hidden"
         )}
         style={{ 
