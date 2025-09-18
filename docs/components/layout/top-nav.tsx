@@ -130,7 +130,7 @@ export function TopNav() {
 
   return (
     <div 
-      className="sticky top-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 z-30 flex items-center justify-between px-6 py-3 -mb-8"
+      className="sticky top-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 z-30 items-center justify-between px-6 py-3 -mb-8 hidden lg:flex"
       style={{ 
         height: '60px'
       }}
