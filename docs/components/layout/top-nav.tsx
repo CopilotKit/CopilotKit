@@ -191,9 +191,9 @@ export function TopNav() {
 
   return (
     <>
-      {/* Desktop Navigation - show on large screens regardless of sidebar state */}
+      {/* Desktop Navigation - show on medium+ screens when fumadocs title bar is hidden */}
       <div 
-        className="sticky top-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 z-30 items-center justify-between px-6 py-3 -mb-8 hidden lg:flex"
+        className="sticky top-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 z-30 items-center justify-between px-6 py-3 -mb-8 hidden md:flex"
         style={{ 
           height: '60px'
         }}
@@ -277,7 +277,7 @@ export function TopNav() {
       </div>
     </div>
 
-      {/* Mobile Navigation - show on smaller screens only */}
+      {/* Mobile Navigation - show when fumadocs title bar is visible */}
       <div className="md:hidden">
         <div 
           className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 px-4 py-2 z-20"
