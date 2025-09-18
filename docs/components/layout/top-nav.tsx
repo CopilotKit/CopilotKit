@@ -343,7 +343,9 @@ export function TopNav() {
         )}
         style={{ 
           height: '60px',
-          top: `${offsetHeight}px`
+          top: `${offsetHeight}px`,
+          left: !collapsed ? '286px' : '0',
+          right: '0'
         }}
       >
           {/* Navigation Items - aligned with content */}
