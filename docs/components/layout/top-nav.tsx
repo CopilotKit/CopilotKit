@@ -147,7 +147,7 @@ export function TopNav() {
               }}
               className={cn(
                 "flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                pathname === "/" || pendingNavigation === "/"
+                (pathname === "/" || pendingNavigation === "/") && !isIntegrationsOpen && pendingNavigation !== "/reference"
                   ? "bg-primary/10 text-primary"
                   : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
               )}
@@ -161,6 +161,7 @@ export function TopNav() {
               options={integrationOptions} 
               onOpenChange={setIsIntegrationsOpen}
               forceClose={forceCloseDropdown}
+              pendingNavigation={pendingNavigation}
             />
 
             {/* API Reference */}
@@ -173,7 +174,7 @@ export function TopNav() {
               }}
               className={cn(
                 "flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                pathname.startsWith("/reference") || pendingNavigation === "/reference"
+                (pathname.startsWith("/reference") || pendingNavigation === "/reference") && !isIntegrationsOpen && pendingNavigation !== "/"
                   ? "bg-primary/10 text-primary"
                   : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
               )}
@@ -218,11 +219,13 @@ export function TopNav() {
 function IntegrationDropdown({ 
   options, 
   onOpenChange,
-  forceClose
+  forceClose,
+  pendingNavigation
 }: { 
   options: Array<{ title: string; url: string; icon: React.ReactNode; description: string }>; 
   onOpenChange: (open: boolean) => void;
   forceClose: number;
+  pendingNavigation: string | null;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -269,8 +272,8 @@ function IntegrationDropdown({
     page === "/" ? pathname === "/" : pathname.startsWith(page)
   );
 
-  // Show as selected if dropdown is open OR if we're on an integration page
-  const shouldShowSelected = isOpen || (selectedOption && !shouldResetDropdown);
+  // Show as selected if dropdown is open (and not navigating elsewhere) OR if we're on an integration page
+  const shouldShowSelected = (isOpen && !pendingNavigation) || (selectedOption && !shouldResetDropdown);
 
   const toggleDropdown = () => {
     const newIsOpen = !isOpen;
