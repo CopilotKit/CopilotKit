@@ -5,7 +5,6 @@ icon: lucide/Share2
 ---
 
 import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
 
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/node-hitl.mp4"
@@ -44,11 +43,6 @@ you can ensure that the agent is always making the right decisions and ultimatel
 
         If you don't already have an agent, you can use the [llamaindex starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/llamaindex/starter) as a starting point
         as this guide uses it as a starting point.
-    </Step>
-
-    <Step>
-      ### Install the CopilotKit SDK
-      <InstallSDKSnippet components={props.components}/>
     </Step>
 
     <Step>
@@ -135,7 +129,7 @@ you can ensure that the agent is always making the right decisions and ultimatel
     On the agent side, we are already done! LlamaIndex natively supports the AG-UI protocol and will automatically
     pass control back to the frontend when the `writeEssay` action is found in the model's response.
     </Step>
-    
+
     <Step>
         ### Give it a try!
         Try asking your agent to write an essay about the benefits of AI. You'll see that it will generate an essay,

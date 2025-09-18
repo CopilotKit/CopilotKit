@@ -109,7 +109,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                                 "Generating recommendations...",
                                 "Formatting final output..."
                             ]
-                            
+
                             for step in steps:
                                 self.state["observed_steps"] = self.state.get("observed_steps", []) + [step]
                                 await copilotkit_emit_state(config, state) # [!code highlight]
@@ -132,7 +132,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                                 "Generating recommendations...",
                                 "Formatting final output..."
                             ];
-                            
+
                             for (const step of steps) {
                                 state.observed_steps = [...(state.observed_steps ?? []), step];
                                 copilotkitEmitState(config, state);
@@ -146,7 +146,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
 
             <TailoredContentOption
                 id="tool-emission"
-                title="Tool-Based Predictive State Updates" 
+                title="Tool-Based Predictive State Updates"
                 description="Configure specific tool calls to automatically emit intermediate state updates."
                 icon={<FaWrench />}
             >
@@ -272,7 +272,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
         type AgentState = {
             observed_steps: string[];
         };
-        
+
         const YourMainContent = () => {
             // Get access to both predicted and final states
             const { state } = useCoAgent<AgentState>({ name: "sample_agent" });
