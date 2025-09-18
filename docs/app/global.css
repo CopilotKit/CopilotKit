@@ -42,10 +42,28 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-@media (width >= 1550px) {
+/* Fix sidebar width at exactly 286px on all screen sizes */
+@media (min-width: 768px) {
+  :root {
+    --fd-sidebar-width: 286px !important;
+    --fd-layout-offset: 0px !important;
+  }
+  
   #nd-sidebar {
-    width: 20rem !important;
-    --fd-sidebar-width: 20rem !important;
+    width: 286px !important;
+    max-width: 286px !important;
+    min-width: 286px !important;
+    flex: 0 0 286px !important;
+  }
+  
+  /* Ensure all child elements respect the fixed width */
+  #nd-sidebar * {
+    max-width: 286px !important;
+  }
+  
+  /* Override any responsive width changes */
+  #nd-sidebar[data-collapsed="false"] {
+    width: 286px !important;
   }
 } 
 
