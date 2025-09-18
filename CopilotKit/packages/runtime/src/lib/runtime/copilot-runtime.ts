@@ -144,7 +144,14 @@ interface OnAfterRequestOptions {
 
 type OnAfterRequestHandler = (options: OnAfterRequestOptions) => void | Promise<void>;
 
-type OnStopGenerationHandler = () => void | Promise<void>;
+interface OnStopGenerationOptions {
+  threadId: string;
+  runId?: string;
+  url?: string;
+  agentName?: string;
+  lastMessage: MessageInput;
+}
+type OnStopGenerationHandler = (options: OnStopGenerationOptions) => void | Promise<void>;
 
 interface Middleware {
   /**
@@ -496,7 +503,14 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     } = request;
     graphqlContext.request.signal.addEventListener(
       "abort",
-      () => this.onStopGeneration?.(),
+      () =>
+        this.onStopGeneration?.({
+          threadId,
+          runId,
+          url,
+          agentName: agentSession?.agentName,
+          lastMessage: rawMessages[rawMessages.length - 1],
+        }),
       { once: true }, // optional: fire only once
     );
 
