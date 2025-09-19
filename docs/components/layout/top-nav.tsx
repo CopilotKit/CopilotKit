@@ -72,9 +72,9 @@ export function TopNav() {
         
         // Desktop navigation states: full -> compact -> minimal
         let newState: 'full' | 'compact' | 'minimal';
-        if (width < 750) {
+        if (width < 650) {
           newState = 'minimal';
-        } else if (width < 860) {
+        } else if (width < 734) {
           newState = 'compact';
         } else {
           newState = 'full';
