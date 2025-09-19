@@ -44,7 +44,8 @@
 
 /* define a variable dynamic-header-height to include top nav, banner and nd-toc */
 :root {
-  --dynamic-header-height: calc(var(—fd-banner-height) + var(—fd-toc-nav) + 56px) !important;
+  --fd-nav-height: 60px !important;
+  --dynamic-header-height: calc(var(--fd-banner-height) + var(--fd-nav-height)) !important;
 }
 
 /* Fix sidebar width at exactly 286px on all screen sizes */
@@ -59,44 +60,48 @@
     --fd-sidebar-width: 286px !important;
   }
 }
-  
-  #nd-sidebar {
-    width: 286px !important;
-    max-width: 286px !important;
-    min-width: 286px !important;
-    flex: 0 0 286px !important;
-  }
-  
-  /* Ensure all child elements respect the fixed width */
-  #nd-sidebar * {
-    max-width: 286px !important;
-  }
-  
-  /* Override any responsive width changes */
-  #nd-sidebar[data-collapsed="false"] {
-    width: 286px !important;
-  }
 
-  /* Override Fumadocs resizing of article padding on md and lg screens */
-  #nd-page > article {
-    @apply md:pt-12! md:px-12!;
-  }
-  
-  /* Fix content positioning to account for sidebar */
-  main[data-fumadocs-main],
-  .fd-layout-content,
-  [data-fd-content] {
-    margin-left: 286px !important;
-    width: calc(100% - 286px) !important;
-  }
-  
-  /* When sidebar is collapsed, content takes full width */
-  .fd-layout[data-sidebar-collapsed="true"] main[data-fumadocs-main],
-  .fd-layout[data-sidebar-collapsed="true"] .fd-layout-content,
-  .fd-layout[data-sidebar-collapsed="true"] [data-fd-content] {
-    margin-left: 0 !important;
-    width: 100% !important;
-  }
+#nd-toc {
+  padding-top: var(--dynamic-header-height) !important;
+}
+
+#nd-sidebar {
+  width: 286px !important;
+  max-width: 286px !important;
+  min-width: 286px !important;
+  flex: 0 0 286px !important;
+}
+
+/* Ensure all child elements respect the fixed width */
+#nd-sidebar * {
+  max-width: 286px !important;
+}
+
+/* Override any responsive width changes */
+#nd-sidebar[data-collapsed="false"] {
+  width: 286px !important;
+}
+
+/* Override Fumadocs resizing of article padding on md and lg screens */
+#nd-page > article {
+  @apply md:pt-12! md:px-12!;
+}
+
+/* Fix content positioning to account for sidebar */
+main[data-fumadocs-main],
+.fd-layout-content,
+[data-fd-content] {
+  margin-left: 286px !important;
+  width: calc(100% - 286px) !important;
+}
+
+/* When sidebar is collapsed, content takes full width */
+.fd-layout[data-sidebar-collapsed="true"] main[data-fumadocs-main],
+.fd-layout[data-sidebar-collapsed="true"] .fd-layout-content,
+.fd-layout[data-sidebar-collapsed="true"] [data-fd-content] {
+  margin-left: 0 !important;
+  width: 100% !important;
+}
 
 :root {
   --radius: 0.65rem;
