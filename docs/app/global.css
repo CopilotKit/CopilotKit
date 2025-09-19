@@ -49,6 +49,12 @@
     --fd-layout-offset: 0px !important;
   }
   
+  /* Override Fumadocs' responsive classes that set 268px on md screens */
+  #nd-docs-layout {
+    --fd-sidebar-width: 286px !important;
+  }
+}
+  
   #nd-sidebar {
     width: 286px !important;
     max-width: 286px !important;
@@ -65,7 +71,22 @@
   #nd-sidebar[data-collapsed="false"] {
     width: 286px !important;
   }
-} 
+  
+  /* Fix content positioning to account for sidebar */
+  main[data-fumadocs-main],
+  .fd-layout-content,
+  [data-fd-content] {
+    margin-left: 286px !important;
+    width: calc(100% - 286px) !important;
+  }
+  
+  /* When sidebar is collapsed, content takes full width */
+  .fd-layout[data-sidebar-collapsed="true"] main[data-fumadocs-main],
+  .fd-layout[data-sidebar-collapsed="true"] .fd-layout-content,
+  .fd-layout[data-sidebar-collapsed="true"] [data-fd-content] {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
 
 :root {
   --radius: 0.65rem;
