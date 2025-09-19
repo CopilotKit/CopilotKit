@@ -4,8 +4,6 @@ icon: "lucide/Wrench"
 description: Create frontend actions and use them within your LlamaIndex agent.
 ---
 
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
-
 ## Implementation
 
 <Callout>
@@ -59,10 +57,6 @@ Check out the [Frontend Actions overview](/frontend-actions) to understand what 
         Now, we'll need to modify the agent to access these frontend actions. Open up for your agent's folder and continue from there!
     </Step>
     <Step>
-        ### Install the CopilotKit SDK
-        <InstallSDKSnippet components={props.components}/>
-    </Step>
-    <Step>
         ### Accessing Frontend Actions
 
         Since LlamaIndex includes native support for the AG-UI protocol, frontend actions are automatically available to the agent as
@@ -78,4 +72,4 @@ Check out the [Frontend Actions overview](/frontend-actions) to understand what 
         pass control back to the frontend when the `writeEssay` action is found in the model's response.
     </Step>
 
-</Steps> 
+</Steps>
