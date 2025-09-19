@@ -234,6 +234,7 @@ export const PydanticAIIcon = (props: IconBaseProps) => (
 );
 
 export const customIcons = {
+  adk: ADKIcon,
   react: FaReact,
   server: HiOutlineServerStack,
   zap: LuZap,
