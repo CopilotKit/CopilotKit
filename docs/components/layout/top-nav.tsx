@@ -74,7 +74,7 @@ export function TopNav() {
         let newState: 'full' | 'compact' | 'minimal';
         if (width < 650) {
           newState = 'minimal';
-        } else if (width < 734) {
+        } else if (width < 740) {
           newState = 'compact';
         } else {
           newState = 'full';
