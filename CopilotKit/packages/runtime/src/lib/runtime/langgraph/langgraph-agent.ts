@@ -221,6 +221,7 @@ export class LangGraphAgent extends AGUILangGraphAgent {
       config: schemaKeys.config,
       input: schemaKeys.input ? [...schemaKeys.input, ...CONSTANT_KEYS] : null,
       output: schemaKeys.output ? [...schemaKeys.output, ...CONSTANT_KEYS] : null,
+      context: schemaKeys.context ? [...schemaKeys.context, ...CONSTANT_KEYS] : null,
     };
   }
 }
