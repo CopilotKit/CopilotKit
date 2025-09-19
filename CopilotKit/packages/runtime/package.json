@@ -50,7 +50,7 @@
     "@ag-ui/client": "^0.0.38",
     "@ag-ui/core": "^0.0.38",
     "@ag-ui/encoder": "^0.0.38",
-    "@ag-ui/langgraph": "^0.0.14",
+    "@ag-ui/langgraph": "^0.0.15",
     "@ag-ui/proto": "^0.0.38",
     "@anthropic-ai/sdk": "^0.57.0",
     "@copilotkit/shared": "workspace:*",
