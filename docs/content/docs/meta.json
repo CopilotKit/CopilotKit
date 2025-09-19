@@ -9,6 +9,7 @@
     "langgraph",
     "mastra",
     "pydantic-ai",
+    "adk",
     "agno",
     "crewai-flows",
     "crewai-crews",

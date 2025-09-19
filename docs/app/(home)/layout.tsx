@@ -9,6 +9,7 @@ import { SiLangchain } from "react-icons/si";
 import {
   AG2Icon,
   MastraIcon,
+  ADKIcon,
   AgnoIcon,
   LlamaIndexIcon,
   PydanticAIIcon,
@@ -130,6 +131,14 @@ export default function Layout({ children }: { children: ReactNode }) {
                         "Documentation for CoAgents with Pydantic AI",
                       url: "/pydantic-ai",
                       icon: <PydanticAIIcon className="w-4 h-4 text-bold" />,
+                      bgGradient: "bg-black text-white",
+                      selectedStyle: "ring-gray-500 ring-2 rounded-sm",
+                    },
+                    {
+                      title: "ADK",
+                      description: "Documentation for CoAgents with ADK",
+                      url: "/adk",
+                      icon: <ADKIcon className="w-4 h-4 text-bold" />,
                       bgGradient: "bg-black text-white",
                       selectedStyle: "ring-gray-500 ring-2 rounded-sm",
                     },
