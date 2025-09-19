@@ -1,5 +1,5 @@
 {
   "title": "Concepts",
   "root": true,
-  "pages": ["terminology", "agentic-copilots", "pydantic-ai", "state"]
+  "pages": ["terminology", "agentic-copilots", "adk", "state"]
 }

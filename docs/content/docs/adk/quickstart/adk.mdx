@@ -1,6 +1,6 @@
 ---
 title: Quickstart
-description: Turn your Pydantic AI Agents into an agent-native application in 10 minutes.
+description: Turn your ADK Agents into an agent-native application in 10 minutes.
 icon: "lucide/Play"
 ---
 
@@ -22,7 +22,7 @@ import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/coa
 import SelfHostingCopilotRuntimeLangGraphEndpoint from "@/snippets/self-hosting-copilot-runtime-langgraph-endpoint.mdx";
 import SelfHostingCopilotRuntimeStarter from "@/snippets/self-hosting-copilot-runtime-starter.mdx";
 import SelfHostingRemoteEndpoints from "@/snippets/self-hosting-remote-endpoints.mdx";
-import { PydanticAIIcon } from "@/lib/icons/custom-icons";
+import { ADKIcon } from "@/lib/icons/custom-icons";
 import {
   UserIcon,
   PaintbrushIcon,
@@ -56,7 +56,7 @@ Before you begin, you'll need the following:
         id="path"
         header={
             <div>
-                <p className="text-xl font-semibold">Do you already have a Pydantic AI Agent?</p>
+                <p className="text-xl font-semibold">Do you already have an ADK Agent?</p>
                 <p className="text-base">
                     You can either create a new project quickly or bring your existing agent into CopilotKit.
                 </p>
@@ -73,7 +73,7 @@ Before you begin, you'll need the following:
                 ### Run our CLI
 
                 ```bash
-                npx copilotkit@latest create -f pydantic-ai
+                npx copilotkit@latest create -f adk
                 ```
             </Step>
             <Step>
@@ -85,17 +85,17 @@ Before you begin, you'll need the following:
                 </Callout>
             </Step>
             <Step>
-                ### Mount your OpenAI API key
+                ### Mount your Google API key
                 Your agent will need an LLM to talk to. This example uses OpenAI, but you can use any LLM provider you want.
 
                 ```bash
-                export OPENAI_API_KEY=your_openai_api_key
+                export GOOGLE_API_KEY=your_google_api_key
                 ```
 
                 Or set it in your agent's `.env` file.
 
                 ```plaintext title="agent/.env"
-                OPENAI_API_KEY=your_openai_api_key
+                GOOGLE_API_KEY=your_google_api_key
                 ```
             </Step>
             <Step>
@@ -110,28 +110,50 @@ Before you begin, you'll need the following:
         <TailoredContentOption
             id="exiting-agent"
             title="Use an existing agent"
-            description="I already have a Pydantic AI Agent and want to use it with CopilotKit."
-            icon={<PydanticAIIcon className="w-4 h-4 text-bold" />}
+            description="I already have an ADK Agent and want to use it with CopilotKit."
+            icon={<ADKIcon className="w-4 h-4 text-bold" />}
         >
             <Step>
                 ### Add necessary dependencies
-                Pydantic AI's integration relies on [AG-UI](https://docs.ag-ui.com/), as such
+                ADKs integration relies on [AG-UI](https://docs.ag-ui.com/), as such
                 you'll need to install it into your project.
 
-                Our examples will also use uvicorn to run the agent.
+                Our examples will also use fastapi and uvicorn to run the agent.
 
                 ```sh
-                pip install 'pydantic-ai-slim[ag-ui]' uvicorn
+                pip install ag_ui_adk uvicorn fastapi
                 ```
             </Step>
             <Step>
                 ### Expose your agent as an AG-UI ASGI application
 
                 ```python title="agent.py"
-                from pydantic_ai import Agent
+                from fastapi import FastAPI=
+                from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
+                from google.adk.agents import LlmAgent
 
-                agent = Agent('openai:gpt-4.1', instructions='Be fun!')
-                app = agent.to_ag_ui()
+                sample_agent = LlmAgent(
+                    name="assistant",
+                    model="gemini-2.5-flash",
+                    instruction="""
+                    You are a helpful assistant. Help users by answering their questions and assisting with their needs.
+                    """
+                )
+
+                # Create ADK middleware agent instance
+                adk_agent_sample = ADKAgent(
+                    adk_agent=sample_agent,
+                    app_name="demo_app",
+                    user_id="demo_user",
+                    session_timeout_seconds=3600,
+                    use_in_memory_services=True
+                )
+
+                # Create FastAPI app
+                app = FastAPI(title="ADK Middleware Sample Agent")
+
+                # Add the ADK endpoint
+                add_adk_fastapi_endpoint(app, adk_agent_sample, path="/")
 
                 # If you want the server to run on invocation, you can do the following:
                 if __name__ == "__main__":
@@ -143,7 +165,7 @@ Before you begin, you'll need the following:
             <Step>
                 ### Create your frontend
                 CopilotKit runs anywhere that React runs. As such, you can such Next.js,
-                Vite, or any other React environment. 
+                Vite, or any other React environment.
 
                 For this example, we'll create a new Next.js app.
 
@@ -173,28 +195,28 @@ Before you begin, you'll need the following:
                 } from "@copilotkit/runtime";
                 import { HttpAgent } from "@ag-ui/client";
                 import { NextRequest } from "next/server";
-                
+
                 // 1. You can use any service adapter here for multi-agent support. We use
                 //    the empty adapter since we're only using one agent.
                 const serviceAdapter = new ExperimentalEmptyAdapter();
-                
-                // 2. Create the CopilotRuntime instance and utilize the PydanticAI AG-UI
+
+                // 2. Create the CopilotRuntime instance and utilize the ADK AG-UI
                 //    integration to setup the connection.
                 const runtime = new CopilotRuntime({
                   agents: {
                     // Our AG-UI endpoint URL
                     "my_agent": new HttpAgent({ url: "http://localhost:8000/" }),
-                  }   
+                  }
                 });
-                
+
                 // 3. Build a Next.js API route that handles the CopilotKit runtime requests.
                 export const POST = async (req: NextRequest) => {
                   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-                    runtime, 
+                    runtime,
                     serviceAdapter,
                     endpoint: "/api/copilotkit",
                   });
-                
+
                   return handleRequest(req);
                 };
                ```
@@ -202,19 +224,19 @@ Before you begin, you'll need the following:
             <Step>
                 ### Setup the CopilotKit provider
                 The CopilotKit provide component is responsible for managing the session with your current agent. Typically,
-                users will wrap their entire application in the CopilotKit provider.    
+                users will wrap their entire application in the CopilotKit provider.
 
                 ```tsx title="app/layout.tsx"
                 import "./globals.css";
                 import { ReactNode } from "react";
-                import { CopilotKit } from "@copilotkit/react-core"; 
-                
+                import { CopilotKit } from "@copilotkit/react-core";
+
                 export default function RootLayout({ children }: { children: ReactNode }) {
                   return (
                     <html lang="en">
-                      <body> 
+                      <body>
                         {/* This points to the runtime we setup in the previous step */} // [!code highlight:4]
-                        <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent"> 
+                        <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
                           {children}
                         </CopilotKit>
                       </body>
@@ -250,7 +272,7 @@ Before you begin, you'll need the following:
                 ```
 
                 <Callout type="info">
-                    Looking for other chat component options? Check out our [Agentic Chat UI](/pydantic-ai/agentic-chat-ui) guide.
+                    Looking for other chat component options? Check out our [Agentic Chat UI](/adk/agentic-chat-ui) guide.
                 </Callout>
             </Step>
         </TailoredContentOption>
@@ -258,7 +280,7 @@ Before you begin, you'll need the following:
     <Step>
         ### 🎉 Talk to your agent!
 
-        Congrats! You've successfully integrated a Pydantic AI Agent chatbot to your application. To start, try asking a few questions to your agent.
+        Congrats! You've successfully integrated a ADK Agent chatbot to your application. To start, try asking a few questions to your agent.
 
         ```
         Can you tell me a joke?
@@ -287,32 +309,32 @@ Before you begin, you'll need the following:
 
 ## What's next?
 
-You've now got a Pydantic AI Agent running in CopilotKit! Now you can start exploring the various ways that CopilotKit
+You've now got a ADK Agent running in CopilotKit! Now you can start exploring the various ways that CopilotKit
 can help you build power agent native applications.
 
 <Cards>
   <Card
     title="Implement Human in the Loop"
     description="Allow your users and agents to collaborate together on tasks."
-    href="/pydantic-ai/human-in-the-loop"
+    href="/adk/human-in-the-loop"
     icon={<UserIcon />}
   />
   <Card
     title="Utilize the Shared State"
     description="Learn how to synchronize your agent's state with your UI's state, and vice versa."
-    href="/pydantic-ai/shared-state"
+    href="/adk/shared-state"
     icon={<RepeatIcon />}
   />
   <Card
     title="Add some generative UI"
     description="Render your agent's progress and output in the UI."
-    href="/pydantic-ai/generative-ui"
+    href="/adk/generative-ui"
     icon={<PaintbrushIcon />}
   />
   <Card
     title="Setup frontend actions"
     description="Give your agent the ability to call frontend tools, directly updating your application."
-    href="/pydantic-ai/frontend-actions"
+    href="/adk/frontend-actions"
     icon={<WrenchIcon />}
   />
-</Cards> 
+</Cards>

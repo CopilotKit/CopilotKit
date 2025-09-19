@@ -1,41 +1,41 @@
 ---
 title: Overview
-icon: "custom/pydantic"
-description: Bring your Pydantic AI agents to your users with CopilotKit via AG-UI.
+icon: "custom/adk"
+description: Bring your ADK agents to your users with CopilotKit via AG-UI.
 hideHeader: true
 ---
 import { customIcons } from "@/lib/icons/custom-icons";
 import { FrameworkOverview } from "@/components/content/landing-pages/framework-overview";
 
 <FrameworkOverview
-  frameworkName="Pydantic AI"
-  frameworkIcon={<customIcons.pydantic className="h-10 w-10 text-foreground" />}
-  header="Bring your Pydantic AI agents to your users"
-  subheader="Give your Pydantic AI agents real user-interactivity using CopilotKit and AG-UI. Build rich, interactive, agent-powered applications."
+  frameworkName="ADK"
+  frameworkIcon={<customIcons.adk className="h-10 w-10 text-foreground" />}
+  header="Bring your ADK agents to your users"
+  subheader="Give your ADK agents real user-interactivity using CopilotKit and AG-UI. Build rich, interactive, agent-powered applications."
   bannerVideo="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
-  guideLink="/pydantic-ai/quickstart/pydantic-ai"
+  guideLink="/adk/quickstart/adk"
   initCommand="npx copilotkit@latest init"
-  featuresLink="https://feature-viewer.copilotkit.ai/pydantic-ai/feature/agentic_chat"
+  featuresLink="https://feature-viewer.copilotkit.ai/adk/feature/agentic_chat"
   supportedFeatures={[
     {
       title: "Generative UI",
       description: "Render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. Bridges the gap between AI agents and user interfaces.",
-      documentationLink: "/pydantic-ai/generative-ui",
-      demoLink: "https://feature-viewer.copilotkit.ai/pydantic-ai/feature/tool_based_generative_ui",
+      documentationLink: "/adk/generative-ui",
+      demoLink: "https://feature-viewer.copilotkit.ai/adk/feature/tool_based_generative_ui",
       videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4"
     },
     {
       title: "Human in the Loop",
       description: "Empower users to guide agents at key checkpoints. Combine the best of AI and human judgment for more reliable and controllable agent behavior.",
-      documentationLink: "/pydantic-ai/human-in-the-loop",
+      documentationLink: "/adk/human-in-the-loop",
       demoLink: "https://examples-coagents-ai-travel-app.vercel.app/",
       videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
     },
     {
       title: "Shared State",
       description: "Keep your agent and your app in sync. Your agent can see everything in your app, and your app can react to your agent in real-time.",
-      documentationLink: "/pydantic-ai/shared-state",
-      demoLink: "https://feature-viewer.copilotkit.ai/pydantic-ai/feature/shared_state",
+      documentationLink: "/adk/shared-state",
+      demoLink: "https://feature-viewer.copilotkit.ai/adk/feature/shared_state",
       videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4"
     }
   ]}

@@ -1,5 +1,5 @@
 {
-  "title": "Pydantic AI",
+  "title": "ADK",
   "root": true,
   "pages": [
     "---Getting Started---",
@@ -15,7 +15,6 @@
     "shared-state",
     "frontend-actions",
     "multi-agent-flows",
-    "persistence",
     "advanced",
     "---Premium Features---",
     "...premium",

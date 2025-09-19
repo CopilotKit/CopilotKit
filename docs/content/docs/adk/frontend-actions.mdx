@@ -43,7 +43,7 @@ Without frontend actions, agents are limited to just processing and returning da
 
         To use frontend actions, you'll need to setup CopilotKit first. For the sake of brevity, we won't cover it here.
 
-        Check out our [getting started guide](/pydantic-ai/quickstart/pydantic-ai) and come back here when you're setup!
+        Check out our [getting started guide](/adk/quickstart/adk) and come back here when you're setup!
     </Step>
 
     <Step>
@@ -85,17 +85,39 @@ Without frontend actions, agents are limited to just processing and returning da
         Now, we'll need to modify the agent to access these frontend actions. Open up for your agent's folder and continue from there!
     </Step>
     <Step>
-        ### Setup your Pydantic AI Agent
+        ### Setup your ADK Agent
 
-        Pydantic AI automatically picks up frontend actions when you create your agent. No special configuration or state inheritance is needed:
+        ADK automatically picks up frontend actions when you create your agent. No special configuration or state inheritance is needed:
 
         <Tabs groupId="language" items={['Python']} default="Python">
             <Tab value="Python">
                 ```python title="agent-py/sample_agent/agent.py"
-                from pydantic_ai import Agent
+                from fastapi import FastAPI=
+                from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
+                from google.adk.agents import LlmAgent
 
-                agent = Agent('openai:gpt-4o-mini')
-                app = agent.to_ag_ui()
+                sample_agent = LlmAgent(
+                    name="assistant",
+                    model="gemini-2.5-flash",
+                    instruction="""
+                    You are a helpful assistant. Help users by answering their questions and assisting with their needs.
+                    """
+                )
+
+                # Create ADK middleware agent instance
+                adk_agent_sample = ADKAgent(
+                    adk_agent=sample_agent,
+                    app_name="demo_app",
+                    user_id="demo_user",
+                    session_timeout_seconds=3600,
+                    use_in_memory_services=True
+                )
+
+                # Create FastAPI app
+                app = FastAPI(title="ADK Middleware Sample Agent")
+
+                # Add the ADK endpoint
+                add_adk_fastapi_endpoint(app, adk_agent_sample, path="/")
                 ```
             </Tab>
         </Tabs>
@@ -107,4 +129,4 @@ Without frontend actions, agents are limited to just processing and returning da
         You've now given your agent the ability to directly call any CopilotActions you've defined. These actions will be available as tools to the agent where they can be used as needed.
     </Step>
 
-</Steps> 
+</Steps>

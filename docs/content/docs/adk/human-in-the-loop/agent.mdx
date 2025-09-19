@@ -1,6 +1,6 @@
 ---
-title: Pydantic AI Agents
-description: Learn how to implement Human-in-the-Loop (HITL) using Pydantic AI Agents.
+title: ADK Agents
+description: Learn how to implement Human-in-the-Loop (HITL) using ADK Agents.
 icon: lucide/Share2
 ---
 
@@ -25,8 +25,7 @@ import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
 
 ## What is this?
 
-[Flow based agents](https://docs.pydantic-ai.com/concepts/flows) are stateful agents that can be interrupted and resumed
-to allow for user input.
+ADK agents are are stateful agents that can use tool calls to request user confirmation or input.
 
 CopilotKit lets you to add custom UI to take user input and then pass it back to the agent upon completion.
 
@@ -35,7 +34,7 @@ CopilotKit lets you to add custom UI to take user input and then pass it back to
 Human-in-the-loop is a powerful way to implement complex workflows that are production ready. By having a human in the loop,
 you can ensure that the agent is always making the right decisions and ultimately is being steered in the right direction.
 
-Flow based agents are a great way to implement HITL for more complex workflows where you want to ensure the agent is aware
+ADK agents are a great way to implement HITL for more complex workflows where you want to ensure the agent is aware
 of everything that has happened during a HITL interaction.
 
 ## Implementation
@@ -45,9 +44,9 @@ of everything that has happened during a HITL interaction.
         ### Run and connect your agent
 
         You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
-        you can follow the instructions in the [Getting Started](/pydantic-ai/quickstart/pydantic-ai) guide.
+        you can follow the instructions in the [Getting Started](/adk/quickstart/adk) guide.
 
-        If you don't already have an agent, you can use the [coagent starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-pydantic-ai) as a starting point
+        If you don't already have an agent, you can use the [coagent starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-adk) as a starting point
         as this guide uses it as a starting point.
     </Step>
 
@@ -107,8 +106,8 @@ of everything that has happened during a HITL interaction.
     </Step>
 
     <Step>
-    ### Setup the Pydantic AI Agent
-Now we'll setup the Pydantic AI agent. The flow is hard to understand without a complete example, so below
+    ### Setup the ADK Agent
+Now we'll setup the ADK agent. The flow is hard to understand without a complete example, so below
     is the complete implementation of the agent with explanations.
 
     Some main things to note:
@@ -120,18 +119,37 @@ Now we'll setup the Pydantic AI agent. The flow is hard to understand without a 
     <Tabs groupId="language" items={["Python"]}>
       <Tab value="Python">
         ```python title="agent/sample_agent/agent.py"
-        from pydantic_ai import Agent
 
-        agent = Agent('openai:gpt-4o-mini')
+        from fastapi import FastAPI
+        from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
+        from google.adk.agents import LlmAgent
 
-        @agent.tool_plain
-        async def write_essay(topic: str) -> str:
+        def write_essay(topic: str) -> str:
             """Write an essay on the given topic."""
             # This would typically generate an essay
             # The agent will wait for user feedback before proceeding
             return f"Essay draft on '{topic}' has been generated. Please review."
 
-        app = agent.to_ag_ui()
+        essay_agent = Agent(
+          model='gemini-2.5-flash',
+          name="essay_agent",
+          instruction=f"""
+              You are an expert essay writer that can write essays on topics.
+              """
+        )
+
+        adk_agent_essay = ADKAgent(
+          adk_agent=essay_agent,
+          app_name="essay_demo"
+          user_id="demo_user"
+        )
+
+
+        # Create FastAPI app
+        app = FastAPI(title="ADK Middleware Essay Tool Agent")
+
+        # Add the ADK endpoint
+        add_adk_fastapi_endpoint(app, adk_agent_essay, path="/")
         ```
       </Tab>
     </Tabs>
@@ -142,4 +160,4 @@ Now we'll setup the Pydantic AI agent. The flow is hard to understand without a 
         stream the progress and eventually ask you to review it.
     </Step>
 
-</Steps> 
+</Steps>

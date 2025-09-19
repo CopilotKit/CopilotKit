@@ -19,7 +19,7 @@ import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent
 <Callout>
   This video demonstrates the [implementation](#implementation) section applied
   to out [coagents starter
-  project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-pydantic-ai).
+  project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-adk).
 </Callout>
 
 ## What is this?
@@ -39,9 +39,9 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 ### Run and connect your agent
 
 You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
-you can follow the instructions in the [Getting Started](/pydantic-ai/quickstart/pydantic-ai) guide.
+you can follow the instructions in the [Getting Started](/adk/quickstart/adk) guide.
 
-If you don't already have an agent, you can use the [coagent starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-pydantic-ai) as a starting point
+If you don't already have an agent, you can use the [coagent starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-adk) as a starting point
 as this guide uses it as a starting point.
 
 </Step>
@@ -51,20 +51,45 @@ as this guide uses it as a starting point.
 <Tabs groupId="language" items={['Python']} default="Python">
     <Tab value="Python">
         ```python title="agent/sample_agent/agent.py"
-        from pydantic_ai import Agent
+        from fastapi import FastAPI
+        from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
+        from google.adk.agents import LlmAgent
 
-        agent = Agent('openai:gpt-4o-mini')
+        def get_current_time(timezone: str = 'UTC') -> str:
+            """Get the current time in a specific timezone.
 
-        @agent.tool_plain
-        async def get_current_time(timezone: str = 'UTC') -> str:
-            """Get the current time in a specific timezone."""
+            Args:
+                timezone: The timezone to get the current time for.
+
+            Returns:
+                the current time in the specified timezone.
+            """
             from datetime import datetime
             from zoneinfo import ZoneInfo
-            
+
             tz = ZoneInfo(timezone)
             return datetime.now(tz=tz).isoformat()
 
-        app = agent.to_ag_ui()
+        time_agent = Agent(
+          model='gemini-2.5-flash',
+          name="time_agent",
+          instruction=f"""
+              You are an expert time teller that can tell the current time in a specific timezone.
+              """
+        )
+
+        adk_agent_time = ADKAgent(
+          adk_agent=time_agent,
+          app_name="time_demo"
+          user_id="demo_user"
+        )
+
+
+        # Create FastAPI app
+        app = FastAPI(title="ADK Middleware Time Tool Agent")
+
+        # Add the ADK endpoint
+        add_adk_fastapi_endpoint(app, adk_agent_time, path="/")
         ```
     </Tab>
 
@@ -72,7 +97,7 @@ as this guide uses it as a starting point.
 </Step>
 <Step>
 ### Render the tool call in your frontend
-At this point, your agent will be able to call the `get_weather` tool. Now 
+At this point, your agent will be able to call the `get_weather` tool. Now
 we just need to add a `useCopilotAction` hook to render the tool call in
 the UI.
 
@@ -113,4 +138,4 @@ Try asking the agent to get the weather for a location. You should see the custo
 render the tool call and display the arguments that were passed to the tool.
 
 </Step>
-</Steps> 
+</Steps>
