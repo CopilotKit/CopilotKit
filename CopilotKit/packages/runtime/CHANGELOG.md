@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.10.5-next.2
+
+### Patch Changes
+
+- 7467f97: - feat: add stop generation callback and call abort agui agent
+  - @copilotkit/shared@1.10.5-next.2
+
 ## 1.10.5-next.1
 
 ### Patch Changes
