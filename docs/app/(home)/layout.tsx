@@ -8,7 +8,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   return (
     <DocsLayout
       tree={source.pageTree}
-      searchToggle={{ enabled: false }}
+      searchToggle={{ enabled: true }}
       sidebar={{
         tabs: false,
         banner: null,

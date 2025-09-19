@@ -9,7 +9,6 @@ import {
   RocketIcon,
   CloudIcon, 
   TerminalIcon,
-  SearchIcon,
   ChevronDownIcon,
   PlugIcon,
   BookOpenIcon
@@ -399,11 +398,9 @@ export function TopNav() {
               )}
             </button>
 
-          {/* Search Button - hide when sidebar is collapsed */}
-          {!collapsed && <SearchButton navState={desktopNavState} />}
         </div>
 
-      {/* Right side: External links and search */}
+      {/* Right side: External links */}
       <div className="flex items-center space-x-2">
         {/* Copilot Cloud */}
         <Link
@@ -522,8 +519,6 @@ export function TopNav() {
                 </Link>
               )}
 
-              {/* Search Button */}
-              <SearchButton navState="minimal" />
             </div>
           </div>
         </div>
@@ -636,30 +631,5 @@ function IntegrationDropdown({
         </div>
       )}
     </div>
-  );
-}
-
-function SearchButton({ navState }: { navState?: 'full' | 'compact' | 'minimal' }) {
-  const toggleSearch = () => {
-    const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
-    document.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        key: "k",
-        metaKey: isMac,
-        ctrlKey: !isMac,
-        bubbles: true,
-      })
-    );
-  };
-  
-  return (
-    <button 
-      onClick={toggleSearch} 
-      className="flex items-center space-x-1 px-2 py-1 rounded text-sm transition-colors text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
-      title="Search docs (⌘K)"
-    >
-      <SearchIcon className="w-4 h-4" />
-      {navState === 'minimal' ? null : <span>Search</span>}
-    </button>
   );
 }
