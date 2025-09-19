@@ -42,6 +42,11 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* define a variable dynamic-header-height to include top nav, banner and nd-toc */
+:root {
+  --dynamic-header-height: calc(var(—fd-banner-height) + var(—fd-toc-nav) + 56px) !important;
+}
+
 /* Fix sidebar width at exactly 286px on all screen sizes */
 @media (min-width: 768px) {
   :root {
@@ -70,6 +75,11 @@
   /* Override any responsive width changes */
   #nd-sidebar[data-collapsed="false"] {
     width: 286px !important;
+  }
+
+  /* Override Fumadocs resizing of article padding on md and lg screens */
+  #nd-page > article {
+    @apply md:pt-12! md:px-12!;
   }
   
   /* Fix content positioning to account for sidebar */
