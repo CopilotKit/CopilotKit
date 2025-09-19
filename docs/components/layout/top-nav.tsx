@@ -608,7 +608,7 @@ function IntegrationDropdown({
       <button
         onClick={toggleDropdown}
         className={cn(
-          "flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors focus:outline-none w-44 justify-start",
+          "flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors focus:outline-none justify-start",
           shouldShowSelected
             ? "bg-primary/10 text-primary"
             : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
