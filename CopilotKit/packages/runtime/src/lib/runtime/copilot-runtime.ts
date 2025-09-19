@@ -144,6 +144,15 @@ interface OnAfterRequestOptions {
 
 type OnAfterRequestHandler = (options: OnAfterRequestOptions) => void | Promise<void>;
 
+interface OnStopGenerationOptions {
+  threadId: string;
+  runId?: string;
+  url?: string;
+  agentName?: string;
+  lastMessage: MessageInput;
+}
+type OnStopGenerationHandler = (options: OnStopGenerationOptions) => void | Promise<void>;
+
 interface Middleware {
   /**
    * A function that is called before the request is processed.
@@ -301,6 +310,8 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
    * ```
    */
   onError?: CopilotErrorHandler;
+
+  onStopGeneration?: OnStopGenerationHandler;
 }
 
 export class CopilotRuntime<const T extends Parameter[] | [] = []> {
@@ -310,6 +321,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   private langserve: Promise<Action<any>>[] = [];
   private onBeforeRequest?: OnBeforeRequestHandler;
   private onAfterRequest?: OnAfterRequestHandler;
+  private onStopGeneration?: OnStopGenerationHandler;
   private delegateAgentProcessingToServiceAdapter: boolean;
   private observability?: CopilotObservabilityConfig;
   private availableAgents: Pick<AgentWithEndpoint, "name" | "id">[];
@@ -359,6 +371,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
     this.onBeforeRequest = params?.middleware?.onBeforeRequest;
     this.onAfterRequest = params?.middleware?.onAfterRequest;
+    this.onStopGeneration = params?.onStopGeneration;
     this.delegateAgentProcessingToServiceAdapter =
       params?.delegateAgentProcessingToServiceAdapter || false;
     this.observability = params?.observability_c;
@@ -488,6 +501,18 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       publicApiKey,
       context,
     } = request;
+    graphqlContext.request.signal.addEventListener(
+      "abort",
+      () =>
+        this.onStopGeneration?.({
+          threadId,
+          runId,
+          url,
+          agentName: agentSession?.agentName,
+          lastMessage: rawMessages[rawMessages.length - 1],
+        }),
+      { once: true }, // optional: fire only once
+    );
 
     const eventSource = new RuntimeEventSource({
       errorHandler: async (error, context) => {
