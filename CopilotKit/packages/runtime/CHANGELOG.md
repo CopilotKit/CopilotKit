@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.10.5-next.3
+
+### Patch Changes
+
+- 23fe6a1: - chore: publish python sdk using latest agui
+  - feat: use latest agui packages
+  - @copilotkit/shared@1.10.5-next.3
+
 ## 1.10.5-next.2
 
 ### Patch Changes
