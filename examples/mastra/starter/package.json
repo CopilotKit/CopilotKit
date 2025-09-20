@@ -18,7 +18,7 @@
     "@mastra/client-js": "0.10.5",
     "@mastra/core": "0.10.6",
     "mastra": "0.10.6",
-    "next": "15.3.2",
+    "next": "15.4.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "zod": "^3.24.4"
