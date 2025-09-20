@@ -4304,7 +4304,7 @@ On this pageWhat is this?
 
 Render the state of your agent with custom UI components.
 
-This video demonstrates the [implementation](https://docs.copilotkit.ai/coagents/generative-ui/agentic#implementation) section applied to out [coagents starter project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter).
+This video demonstrates the [implementation](https://docs.copilotkit.ai/coagents/generative-ui/agentic#implementation) section applied to our [coagents starter project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter).
 
 ## [What is this?](https://docs.copilotkit.ai/coagents/generative-ui/agentic\#what-is-this)
 
@@ -8667,7 +8667,7 @@ On this pageWhat is this?
 
 Render the state of your agent with custom UI components.
 
-This video demonstrates the [implementation](https://docs.copilotkit.ai/coagents/generative-ui/agentic#implementation) section applied to out [coagents starter project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter).
+This video demonstrates the [implementation](https://docs.copilotkit.ai/coagents/generative-ui/agentic#implementation) section applied to our [coagents starter project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter).
 
 ## [What is this?](https://docs.copilotkit.ai/coagents/generative-ui/agentic\#what-is-this)
 
