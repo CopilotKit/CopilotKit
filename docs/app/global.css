@@ -45,6 +45,7 @@
 /* define a variable dynamic-header-height to include top nav, banner and nd-toc */
 :root {
   --fd-nav-height: 60px !important;
+  --nd-tocnav-height: 28px !important;
   --dynamic-header-height: calc(var(--fd-banner-height) + var(--fd-nav-height)) !important;
 }
 
@@ -59,11 +60,22 @@
   #nd-docs-layout {
     --fd-sidebar-width: 286px !important;
   }
+
+  #nd-tocnav {
+    padding-top: calc(var(--fd-banner-height) + var(--fd-nav-height) + 16px) !important;
+  }
+}
+
+@media (max-width: 767px) {
+  #nd-tocnav {
+    padding-top: calc(var(--fd-banner-height) + 16px) !important;
+  }
 }
 
 #nd-toc {
   padding-top: var(--dynamic-header-height) !important;
 }
+
 
 #nd-sidebar {
   width: 286px !important;
@@ -84,7 +96,7 @@
 
 /* Override Fumadocs resizing of article padding on md and lg screens */
 #nd-page > article {
-  @apply md:pt-12! md:px-12!;
+  @apply sm:pt-12! sm:px-12!;
 }
 
 /* Fix content positioning to account for sidebar */
