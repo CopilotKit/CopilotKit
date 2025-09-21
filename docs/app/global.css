@@ -76,6 +76,17 @@
   padding-top: var(--dynamic-header-height) !important;
 }
 
+/* Move collapsed sidebar button to the right side below 1280px */
+@media (max-width: 1279px) {
+  .fd-layout[data-sidebar-collapsed="true"] [aria-label="Collapse Sidebar"] {
+    position: fixed !important;
+    right: 1rem !important;
+    top: calc(var(--fd-banner-height) + var(--fd-nav-height) + 1rem) !important;
+    left: auto !important;
+    z-index: 50 !important;
+  }
+}
+
 
 #nd-sidebar {
   width: 286px !important;
