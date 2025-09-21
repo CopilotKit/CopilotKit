@@ -96,7 +96,7 @@
 
 /* Override Fumadocs resizing of article padding on md and lg screens */
 #nd-page > article {
-  @apply sm:pt-12! sm:px-12!;
+  @apply pt-12! px-12!;
 }
 
 /* Fix content positioning to account for sidebar */
