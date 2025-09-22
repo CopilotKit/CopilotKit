@@ -26,6 +26,28 @@ import {
   PydanticAIIcon,
 } from "@/lib/icons/custom-icons";
 
+// Function to update nd-tocnav and nd-toc positioning based on actual measured heights
+const updateTocNavPosition = (totalHeight: number) => {
+  const tocNav = document.querySelector('#nd-tocnav') as HTMLElement;
+  const toc = document.querySelector('#nd-toc') as HTMLElement;
+  
+  if (tocNav) {
+    const topPosition = totalHeight;
+    const paddingTop = 16; // 16px additional internal padding
+    tocNav.style.top = `${topPosition}px`;
+    tocNav.style.paddingTop = `${paddingTop}px`;
+    console.log('🔧 Updated #nd-tocnav:', { top: `${topPosition}px`, paddingTop: `${paddingTop}px`, totalHeight });
+  }
+  
+  if (toc) {
+    const topPosition = totalHeight;
+    const paddingTop = 30; // 30px additional internal padding
+    toc.style.top = `${topPosition}px`;
+    toc.style.paddingTop = `${paddingTop}px`;
+    console.log('🔧 Updated #nd-toc:', { top: `${topPosition}px`, paddingTop: `${paddingTop}px`, totalHeight });
+  }
+};
+
 export function TopNav() {
   const pathname = usePathname();
   const router = useRouter();
@@ -188,18 +210,8 @@ export function TopNav() {
   useEffect(() => {
     const calculateOffsets = () => {
       const banner = document.querySelector('[data-banner]') || document.querySelector('#agui-banner');
-      const titleBar = document.querySelector('[data-nav]') || 
-                      document.querySelector('nav') || 
-                      document.querySelector('[role="banner"]') ||
-                      document.querySelector('header') ||
-                      document.querySelector('[data-header]') ||
-                      document.querySelector('.sticky') ||
-                      document.querySelector('[data-topbar]') ||
-                      document.querySelector('#nd-nav');
       
-      let offsetHeight = 0;
       let bannerHeight = 0;
-      let titleBarHeight = 0;
       
       if (banner && banner instanceof HTMLElement) {
         const style = window.getComputedStyle(banner);
@@ -208,15 +220,63 @@ export function TopNav() {
         }
       }
       
-      if (titleBar && titleBar instanceof HTMLElement) {
-        titleBarHeight = titleBar.offsetHeight;
+      // Keep the original nav positioning logic intact
+      // Find fumadocs title bar for nav positioning (not our custom nav)
+      const fumadocsNav = document.querySelector('[data-nav]') || 
+                         document.querySelector('nav:not([data-nav-container]):not([data-mobile-nav-container])') || 
+                         document.querySelector('[role="banner"]') ||
+                         document.querySelector('header:not([data-nav-container]):not([data-mobile-nav-container])') ||
+                         document.querySelector('[data-topbar]') ||
+                         document.querySelector('#nd-nav');
+      
+      let fumadocsNavHeight = 0;
+      if (fumadocsNav && fumadocsNav instanceof HTMLElement) {
+        fumadocsNavHeight = fumadocsNav.offsetHeight;
       } else {
-        // Fallback to estimated height if we can't find the title bar
-        titleBarHeight = 60;
+        fumadocsNavHeight = 60; // fallback
       }
       
-      const totalHeight = bannerHeight + titleBarHeight;
-      setOffsetHeight(totalHeight);
+      // For top nav positioning, use banner + fumadocs nav height
+      const navOffsetHeight = bannerHeight + fumadocsNavHeight;
+      setOffsetHeight(navOffsetHeight);
+      
+      // For TOC positioning, we need banner height + our actual custom nav height
+      const calculateTocPosition = () => {
+        const desktopNav = document.querySelector('[data-nav-container]');
+        const mobileNav = document.querySelector('[data-mobile-nav-container]');
+        
+        let customNavHeight = 0;
+        
+        // Check which custom nav is currently visible and get its height
+        if (desktopNav && window.innerWidth >= 768 && !collapsed) {
+          customNavHeight = desktopNav.offsetHeight;
+          console.log('🔍 Using desktop nav height for TOC:', customNavHeight);
+        } else if (mobileNav && (window.innerWidth < 768 || collapsed)) {
+          customNavHeight = mobileNav.offsetHeight;
+          console.log('🔍 Using mobile nav height for TOC:', customNavHeight);
+        } else {
+          // No custom nav visible, use fumadocs nav height
+          customNavHeight = fumadocsNavHeight;
+          console.log('🔍 Using fumadocs nav height for TOC:', customNavHeight);
+        }
+        
+        const tocTotalHeight = bannerHeight + customNavHeight;
+        
+        console.log('🔍 TOC Height calculation:', { 
+          bannerHeight, 
+          customNavHeight, 
+          tocTotalHeight,
+          fumadocsNavHeight,
+          navOffsetHeight,
+          windowWidth: window.innerWidth,
+          collapsed
+        });
+        
+        updateTocNavPosition(tocTotalHeight);
+      };
+      
+      // Calculate TOC position after a brief delay to ensure nav is rendered
+      setTimeout(calculateTocPosition, 0);
     };
 
     // Calculate on mount
