@@ -26,10 +26,12 @@ import {
   PydanticAIIcon,
 } from "@/lib/icons/custom-icons";
 
-// Function to update nd-tocnav and nd-toc positioning based on actual measured heights
-const updateTocNavPosition = (totalHeight: number) => {
+// Function to update nd-tocnav, nd-toc, sidebar, and subnav positioning based on actual measured heights
+const updateTocNavPosition = (totalHeight: number, bannerHeight: number) => {
   const tocNav = document.querySelector('#nd-tocnav') as HTMLElement;
   const toc = document.querySelector('#nd-toc') as HTMLElement;
+  const sidebar = document.querySelector('#nd-sidebar') as HTMLElement;
+  const subnav = document.querySelector('#nd-subnav') as HTMLElement;
   
   if (tocNav) {
     const topPosition = totalHeight;
@@ -45,6 +47,18 @@ const updateTocNavPosition = (totalHeight: number) => {
     toc.style.top = `${topPosition}px`;
     toc.style.paddingTop = `${paddingTop}px`;
     console.log('🔧 Updated #nd-toc:', { top: `${topPosition}px`, paddingTop: `${paddingTop}px`, totalHeight });
+  }
+  
+  if (sidebar) {
+    const topPosition = bannerHeight; // Sidebar should be positioned below banner only
+    sidebar.style.top = `${topPosition}px`;
+    console.log('🔧 Updated #nd-sidebar:', { top: `${topPosition}px`, bannerHeight });
+  }
+  
+  if (subnav) {
+    const topPosition = bannerHeight; // Subnav should be positioned below banner only
+    subnav.style.top = `${topPosition}px`;
+    console.log('🔧 Updated #nd-subnav:', { top: `${topPosition}px`, bannerHeight });
   }
 };
 
@@ -272,7 +286,7 @@ export function TopNav() {
           collapsed
         });
         
-        updateTocNavPosition(tocTotalHeight);
+        updateTocNavPosition(tocTotalHeight, bannerHeight);
       };
       
       // Calculate TOC position after a brief delay to ensure nav is rendered
