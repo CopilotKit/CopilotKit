@@ -598,8 +598,8 @@ importers:
         specifier: ^0.0.38
         version: 0.0.38
       '@ag-ui/langgraph':
-        specifier: ^0.0.15
-        version: 0.0.15(@ag-ui/client@0.0.38)(@ag-ui/core@0.0.38)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)
+        specifier: ^0.0.16
+        version: 0.0.16(@ag-ui/client@0.0.38)(@ag-ui/core@0.0.38)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)
       '@ag-ui/proto':
         specifier: ^0.0.38
         version: 0.0.38
@@ -974,8 +974,8 @@ packages:
   '@ag-ui/encoder@0.0.38':
     resolution: {integrity: sha512-v07nWtO+cu8HCB4/y/5FONzuRP8BjYLAtTssd5hX26RZh9VgLwu5mWjlF1dmkyLSBNyavf14h3myOA1eA9hjWg==}
 
-  '@ag-ui/langgraph@0.0.15':
-    resolution: {integrity: sha512-0oogAy6y4muw2lk4DGBBCkVCIHP/84hkLeH3iG/mEZXPpLJ+TcucJG3X4gglgZ90+Ya47IbPOoLZ8OUIwZc85Q==}
+  '@ag-ui/langgraph@0.0.16':
+    resolution: {integrity: sha512-qX5DjyOTCE2WmeAMf8NSUXtlzTfquabJQighMRBnIOjoo9SJJcd7UPeHOgRHldpPbgtoPS+nCyaOIO8poi8HyA==}
     peerDependencies:
       '@ag-ui/client': '>=0.0.38'
       '@ag-ui/core': '>=0.0.38'
@@ -10258,7 +10258,7 @@ snapshots:
       '@ag-ui/core': 0.0.38
       '@ag-ui/proto': 0.0.38
 
-  '@ag-ui/langgraph@0.0.15(@ag-ui/client@0.0.38)(@ag-ui/core@0.0.38)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)':
+  '@ag-ui/langgraph@0.0.16(@ag-ui/client@0.0.38)(@ag-ui/core@0.0.38)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@ag-ui/client': 0.0.38
       '@ag-ui/core': 0.0.38
@@ -17324,7 +17324,7 @@ snapshots:
       isstream: 0.1.2
       jsonwebtoken: 9.0.2
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.7.9(debug@4.4.1))
+      retry-axios: 2.6.0(axios@1.7.9)
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -20268,7 +20268,7 @@ snapshots:
       onetime: 5.1.2
       signal-exit: 3.0.7
 
-  retry-axios@2.6.0(axios@1.7.9(debug@4.4.1)):
+  retry-axios@2.6.0(axios@1.7.9):
     dependencies:
       axios: 1.7.9(debug@4.4.1)
 
