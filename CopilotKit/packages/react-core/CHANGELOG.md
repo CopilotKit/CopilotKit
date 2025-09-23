@@ -1,5 +1,13 @@
 # ui
 
+## 1.10.5-next.5
+
+### Patch Changes
+
+- 6112a67: - fix: consider edge cases when regenerate button is used
+  - @copilotkit/runtime-client-gql@1.10.5-next.5
+  - @copilotkit/shared@1.10.5-next.5
+
 ## 1.10.5-next.4
 
 ### Patch Changes
