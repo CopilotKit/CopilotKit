@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.10.5-next.4
+
+### Patch Changes
+
+- e730369: - feat: use latest agui langgraph package
+  - feat: use latest agui fastapi langgraph package and dependencies
+  - @copilotkit/shared@1.10.5-next.4
+
 ## 1.10.5-next.3
 
 ### Patch Changes
