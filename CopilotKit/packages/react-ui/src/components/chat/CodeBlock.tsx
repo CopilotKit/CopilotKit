@@ -1,5 +1,5 @@
-import { FC, memo } from "react";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { FC, memo, useMemo } from "react";
+import { Prism, Light } from "react-syntax-highlighter";
 import { useCopyToClipboard } from "../../hooks/use-copy-to-clipboard";
 import { CheckIcon, CopyIcon, DownloadIcon } from "./Icons";
 
@@ -55,6 +55,15 @@ export const generateRandomString = (length: number, lowercase = false) => {
 
 const CodeBlock: FC<Props> = memo(({ language, value }) => {
   const { isCopied, copyToClipboard } = useCopyToClipboard({ timeout: 2000 });
+
+  const SyntaxHighlighter = useMemo(() => {
+    try {
+      new RegExp("(?<=#)\\w+");
+      return Prism;
+    } catch {
+      return Light;
+    }
+  }, [])
 
   const downloadAsFile = () => {
     if (typeof window === "undefined") {
