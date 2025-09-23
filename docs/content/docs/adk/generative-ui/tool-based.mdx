@@ -51,45 +51,45 @@ as this guide uses it as a starting point.
 <Tabs groupId="language" items={['Python']} default="Python">
     <Tab value="Python">
         ```python title="agent/sample_agent/agent.py"
+        import uvicorn
         from fastapi import FastAPI
         from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
         from google.adk.agents import LlmAgent
 
-        def get_current_time(timezone: str = 'UTC') -> str:
-            """Get the current time in a specific timezone.
+        def get_weather(location: str = 'the entire world') -> str:
+            """Get the weather in a given location.
 
             Args:
-                timezone: The timezone to get the current time for.
+                location: The location to get the weather for.
 
             Returns:
-                the current time in the specified timezone.
+                the weather in the specified location.
             """
-            from datetime import datetime
-            from zoneinfo import ZoneInfo
+            return "it is sunny in " + location
 
-            tz = ZoneInfo(timezone)
-            return datetime.now(tz=tz).isoformat()
-
-        time_agent = Agent(
+        weather_agent = LlmAgent(
           model='gemini-2.5-flash',
-          name="time_agent",
+          name="weather_agent",
           instruction=f"""
-              You are an expert time teller that can tell the current time in a specific timezone.
+              You are an expert weather analyzer that can tell the current weather in a specific location.
+              Use the get_weather tool to get the weather in a specific location. If the user doesn't specify
+              a location, use "the entire world" as the location.
               """
         )
 
-        adk_agent_time = ADKAgent(
-          adk_agent=time_agent,
-          app_name="time_demo"
+        adk_agent_weather = ADKAgent(
+          adk_agent=weather_agent,
+          app_name="weather_demo",
           user_id="demo_user"
         )
 
-
         # Create FastAPI app
-        app = FastAPI(title="ADK Middleware Time Tool Agent")
+        app = FastAPI(title="ADK Middleware Weather Tool Agent")
 
         # Add the ADK endpoint
-        add_adk_fastapi_endpoint(app, adk_agent_time, path="/")
+        add_adk_fastapi_endpoint(app, adk_agent_weather, path="/")
+
+        uvicorn.run(app, host="localhost", port=8000)
         ```
     </Tab>
 
