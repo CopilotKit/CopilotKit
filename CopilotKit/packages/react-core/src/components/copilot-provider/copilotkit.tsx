@@ -543,7 +543,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         setAuthStates_c: updateAuthStates,
         extensions,
         setExtensions: updateExtensions,
-        langGraphInterruptAction: langGraphInterruptActions[internalThreadId],
+        langGraphInterruptAction: langGraphInterruptActions[internalThreadId] ?? null,
         setLangGraphInterruptAction,
         removeLangGraphInterruptAction,
         bannerError,
