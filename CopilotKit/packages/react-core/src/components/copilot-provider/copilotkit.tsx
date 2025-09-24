@@ -424,22 +424,32 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
 
   const showDevConsole = shouldShowDevConsole(props.showDevConsole);
 
-  const [langGraphInterruptAction, _setLangGraphInterruptAction] =
-    useState<LangGraphInterruptAction | null>(null);
-  const setLangGraphInterruptAction = useCallback((action: LangGraphInterruptActionSetterArgs) => {
-    _setLangGraphInterruptAction((prev) => {
-      if (prev == null) return action as LangGraphInterruptAction;
-      if (action == null) return null;
-      let event = prev.event;
-      if (action.event) {
-        // @ts-ignore
-        event = { ...prev.event, ...action.event };
-      }
-      return { ...prev, ...action, event };
-    });
-  }, []);
-  const removeLangGraphInterruptAction = useCallback((): void => {
-    setLangGraphInterruptAction(null);
+  const [langGraphInterruptActions, _setLangGraphInterruptAction] = useState<
+    Record<string, LangGraphInterruptAction | null>
+  >({});
+  const setLangGraphInterruptAction = useCallback(
+    (threadId: string, action: LangGraphInterruptActionSetterArgs) => {
+      _setLangGraphInterruptAction((prev) => {
+        if (action == null)
+          return {
+            ...prev,
+            [threadId]: null,
+          };
+        let event = prev[threadId]?.event;
+        if (action.event) {
+          // @ts-ignore
+          event = { ...prev.event, ...action.event };
+        }
+        return {
+          ...prev,
+          [threadId]: { ...(prev[threadId] ?? {}), ...action, event } as LangGraphInterruptAction,
+        };
+      });
+    },
+    [],
+  );
+  const removeLangGraphInterruptAction = useCallback((threadId: string): void => {
+    setLangGraphInterruptAction(threadId, null);
   }, []);
 
   const memoizedChildren = useMemo(() => children, [children]);
@@ -533,7 +543,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         setAuthStates_c: updateAuthStates,
         extensions,
         setExtensions: updateExtensions,
-        langGraphInterruptAction,
+        langGraphInterruptAction: langGraphInterruptActions[internalThreadId],
         setLangGraphInterruptAction,
         removeLangGraphInterruptAction,
         bannerError,
