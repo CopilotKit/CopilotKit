@@ -63,21 +63,40 @@ const updateTocNavPosition = (totalHeight: number, bannerHeight: number, isColla
     console.log('🔧 Updated #nd-subnav:', { top: `${topPosition}px`, bannerHeight });
   }
   
-  // Move the collapsed sidebar button's parent container to below the banner and the tocnav
-  if (isCollapsed) {
-    const collapseButton = document.querySelector('[aria-label="Collapse Sidebar"]') as HTMLElement;
-    if (collapseButton) {
-      // Get the height of the tocnav if it exists
-      const tocnav = document.querySelector('#nd-tocnav') as HTMLElement;
-      const tocnavHeight = tocnav ? tocnav.offsetHeight : 0;
-      const paddingTop = 16;
-      const topPosition = totalHeight + paddingTop + tocnavHeight  ;
-      
-      // Set the parent's top position (as you discovered manually)
-      const parent = collapseButton.parentElement as HTMLElement;
+  // Handle collapsed sidebar button positioning
+  const collapseButton = document.querySelector('[aria-label="Collapse Sidebar"]') as HTMLElement;
+  if (collapseButton) {
+    const parent = collapseButton.parentElement as HTMLElement;
+    
+    // Check if we're in mobile view (< 768px)
+    const isMobile = window.innerWidth < 768;
+    
+    if (isMobile) {
+      // Hide collapsed sidebar in mobile view since nd-subnav shows the same content
       if (parent) {
+        parent.style.display = 'none';
+        console.log('🔧 Hidden collapse button in mobile view');
+      }
+    } else if (isCollapsed) {
+      // Desktop view with collapsed sidebar - position it correctly
+      if (parent) {
+        parent.style.display = ''; // Ensure it's visible
+        
+        // Get the height of the tocnav if it exists
+        const tocnav = document.querySelector('#nd-tocnav') as HTMLElement;
+        const tocnavHeight = tocnav ? tocnav.offsetHeight : 0;
+        const paddingTop = 16;
+        const topPosition = totalHeight + paddingTop + tocnavHeight;
+        
         parent.style.top = `${topPosition}px`;
         console.log('🔧 Set collapse button parent top:', topPosition);
+      }
+    } else {
+      // Desktop view with expanded sidebar - reset positioning
+      if (parent) {
+        parent.style.display = ''; // Ensure it's visible
+        parent.style.top = ''; // Reset to default positioning
+        console.log('🔧 Reset collapse button positioning (expanded)');
       }
     }
   }
