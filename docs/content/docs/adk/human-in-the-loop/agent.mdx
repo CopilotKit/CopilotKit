@@ -45,9 +45,6 @@ of everything that has happened during a HITL interaction.
 
         You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
         you can follow the instructions in the [Getting Started](/adk/quickstart/adk) guide.
-
-        If you don't already have an agent, you can use the [coagent starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-adk) as a starting point
-        as this guide uses it as a starting point.
     </Step>
 
     <Step>
@@ -119,7 +116,7 @@ Now we'll setup the ADK agent. The flow is hard to understand without a complete
     <Tabs groupId="language" items={["Python"]}>
       <Tab value="Python">
         ```python title="agent/sample_agent/agent.py"
-
+        import uvicorn
         from fastapi import FastAPI
         from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
         from google.adk.agents import LlmAgent
@@ -130,7 +127,7 @@ Now we'll setup the ADK agent. The flow is hard to understand without a complete
             # The agent will wait for user feedback before proceeding
             return f"Essay draft on '{topic}' has been generated. Please review."
 
-        essay_agent = Agent(
+        essay_agent = LlmAgent(
           model='gemini-2.5-flash',
           name="essay_agent",
           instruction=f"""
@@ -140,7 +137,7 @@ Now we'll setup the ADK agent. The flow is hard to understand without a complete
 
         adk_agent_essay = ADKAgent(
           adk_agent=essay_agent,
-          app_name="essay_demo"
+          app_name="essay_demo",
           user_id="demo_user"
         )
 
@@ -150,6 +147,7 @@ Now we'll setup the ADK agent. The flow is hard to understand without a complete
 
         # Add the ADK endpoint
         add_adk_fastapi_endpoint(app, adk_agent_essay, path="/")
+        uvicorn.run(app, host="localhost", port=8000)
         ```
       </Tab>
     </Tabs>

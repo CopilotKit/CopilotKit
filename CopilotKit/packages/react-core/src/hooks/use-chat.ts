@@ -591,7 +591,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
             // Stop processing and break from the loop
             setIsLoading(false);
-            break;
+            throw new Error(structuredError.message);
           }
 
           // add messages to the chat

@@ -1,5 +1,11 @@
 # @copilotkit/runtime
 
+## 1.10.5-next.6
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.5-next.6
+
 ## 1.10.5-next.5
 
 ### Patch Changes

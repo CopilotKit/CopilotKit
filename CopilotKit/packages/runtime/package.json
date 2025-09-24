@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.10.5-next.5",
+  "version": "1.10.5-next.6",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -50,7 +50,7 @@
     "@ag-ui/client": "^0.0.38",
     "@ag-ui/core": "^0.0.38",
     "@ag-ui/encoder": "^0.0.38",
-    "@ag-ui/langgraph": "^0.0.16",
+    "@ag-ui/langgraph": "^0.0.17",
     "@ag-ui/proto": "^0.0.38",
     "@anthropic-ai/sdk": "^0.57.0",
     "@copilotkit/shared": "workspace:*",
