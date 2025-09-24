@@ -30,7 +30,7 @@ const config = {
   skipTrailingSlashRedirect: true,
   skipMiddlewareUrlNormalize: true,
 
-  turbopack: true,
+  // turbopack: true, // Temporarily disabled due to Next.js 15.4.1 compatibility issues
 
   async redirects() {
     return [
@@ -232,6 +232,16 @@ const config = {
       {
         source: "/pydantic-ai/mcp",
         destination: "/pydantic-ai/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/adk/quickstart/adk",
+        destination: "/adk/quickstart",
+        permanent: true,
+      },
+      {
+        source: "/adk/mcp",
+        destination: "/adk/vibe-coding-mcp",
         permanent: true,
       },
     ];

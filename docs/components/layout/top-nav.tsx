@@ -18,6 +18,7 @@ import { SiDiscord } from "react-icons/si";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
 import { SiLangchain } from "react-icons/si";
 import {
+  ADKIcon,
   AG2Icon,
   MastraIcon,
   AgnoIcon,
@@ -313,6 +314,12 @@ export function TopNav() {
       description: "Documentation for CoAgents with AG2",
       url: "/ag2",
       icon: <AG2Icon className="w-4 h-4 text-bold" />,
+    },
+    {
+      title: "ADK",
+      description: "Documentation for CoAgents with ADK",
+      url: "/adk",
+      icon: <ADKIcon className="w-4 h-4 text-bold" />,
     },
   ];
 

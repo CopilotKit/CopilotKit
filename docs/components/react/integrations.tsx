@@ -1,6 +1,6 @@
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { MastraIcon, LlamaIndexIcon, AG2Icon, AgnoIcon, PydanticAIIcon } from "@/lib/icons/custom-icons";
+import { ADKIcon, MastraIcon, LlamaIndexIcon, AG2Icon, AgnoIcon, PydanticAIIcon } from "@/lib/icons/custom-icons";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
 import { SiLangchain } from "react-icons/si";
 import { Brain } from "lucide-react";
@@ -56,6 +56,13 @@ const integrations: Integration[] = [
     href: "/crewai-flows",
   },
   {
+    title: "ADK",
+    description: "ADK is a framework for building and deploying AI agents.",
+    logo: <ADKIcon className="w-8 h-8" />,
+    bgGradient: "bg-[#FF3C1A] text-white",
+    href: "/adk",
+  },
+  {
     title: "Agno",
     description: "Agno is a framework for building and deploying AI agents.",
     logo: <AgnoIcon className="w-8 h-8" />,
@@ -91,7 +98,7 @@ const IntegrationCard: React.FC<IntegrationCardProps> = ({
   className,
 }) => {
   const { title, logo, href } = integration;
-  
+
   return (
     <Card className={cn(
       "group transition-all duration-200 hover:shadow-lg dark:hover:shadow-black/20",
@@ -128,17 +135,17 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
     if (integration.title === "Direct to LLM") {
       return targetPage === "generative-ui" || targetPage === "frontend-actions";
     }
-    
+
     // AutoGen2 missing pages
     if (integration.title === "AutoGen2") {
       return targetPage !== "generative-ui" && targetPage !== "shared-state";
     }
-    
+
     // Frameworks that don't have shared-state pages
     if (targetPage === "shared-state") {
       return !["LlamaIndex", "Mastra", "AutoGen2", "Agno"].includes(integration.title);
     }
-    
+
     // All other frameworks have the standard pages
     return true;
   };
@@ -147,7 +154,7 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
     if (!targetPage) {
       return integration.href;
     }
-    
+
     // Special cases where certain frameworks have pages in different locations
     if (integration.title === "Direct to LLM") {
       if (targetPage === "generative-ui") {
@@ -157,18 +164,18 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
         return "/direct-to-llm/guides/frontend-actions";
       }
     }
-    
+
     // For other frameworks, append the target page
     return `${integration.href}/${targetPage}`;
   };
 
   let filteredIntegrations = integrations;
-  
+
   // Filter out Direct to LLM if suppressed
   if (suppressDirectToLLM) {
     filteredIntegrations = filteredIntegrations.filter(integration => integration.title !== "Direct to LLM");
   }
-  
+
   // Filter out integrations that don't have the target page
   if (targetPage) {
     filteredIntegrations = filteredIntegrations.filter(integration => hasTargetPage(integration, targetPage));
@@ -177,7 +184,7 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
   return (
     <div className="flex flex-row flex-wrap justify-center items-center gap-x-6 gap-y-6 my-8">
       {filteredIntegrations.map((integration, index) => (
-        <a 
+        <a
           key={index}
           href={getHref(integration)}
           className="flex flex-col items-center gap-3 text-center no-underline group"
