@@ -31,7 +31,7 @@ export const DirectToLLMIcon = (props: IconBaseProps) => (
 );
 
 export const ADKIcon = ({ className = "", ...props }: IconBaseProps) => (
-  <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" className={className} {...props}>
     <g transform="scale(0.65)" transformOrigin="center">
       <rect width="512" height="512" rx="128" ry="128" fill="currentColor" />
     </g>
