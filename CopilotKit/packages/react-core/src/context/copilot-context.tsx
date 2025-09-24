@@ -308,7 +308,7 @@ const emptyCopilotContext: CopilotContextParams = {
   setExtensions: () => {},
   langGraphInterruptAction: null,
   setLangGraphInterruptAction: () => {},
-  removeLangGraphInterruptAction: () => null,
+  removeLangGraphInterruptAction: () => {},
   onError: () => {},
   bannerError: null,
   setBannerError: () => {},

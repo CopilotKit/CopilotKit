@@ -30,7 +30,7 @@ export function useLangGraphInterruptRender(): string | React.ReactElement | nul
         setLangGraphInterruptAction(threadId, { event: { response } });
       }, 0);
     },
-    [setLangGraphInterruptAction],
+    [setLangGraphInterruptAction, threadId],
   );
 
   if (

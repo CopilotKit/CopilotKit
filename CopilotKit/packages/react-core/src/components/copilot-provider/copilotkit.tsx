@@ -438,7 +438,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         let event = prev[threadId]?.event;
         if (action.event) {
           // @ts-ignore
-          event = { ...prev.event, ...action.event };
+          event = { ...(prev[threadId]?.event || {}), ...action.event };
         }
         return {
           ...prev,

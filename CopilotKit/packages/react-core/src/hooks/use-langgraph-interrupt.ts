@@ -60,6 +60,7 @@ export function useLangGraphInterrupt<TEventValue = any>(
     isCurrentAction,
     setLangGraphInterruptAction,
     removeLangGraphInterruptAction,
+    threadId,
     ...(dependencies || []),
   ]);
 }
