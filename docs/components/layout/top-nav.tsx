@@ -27,11 +27,13 @@ import {
 } from "@/lib/icons/custom-icons";
 
 // Function to update nd-tocnav, nd-toc, sidebar, and subnav positioning based on actual measured heights
-const updateTocNavPosition = (totalHeight: number, bannerHeight: number) => {
+const updateTocNavPosition = (totalHeight: number, bannerHeight: number, isCollapsed: boolean) => {
   const tocNav = document.querySelector('#nd-tocnav') as HTMLElement;
   const toc = document.querySelector('#nd-toc') as HTMLElement;
   const sidebar = document.querySelector('#nd-sidebar') as HTMLElement;
   const subnav = document.querySelector('#nd-subnav') as HTMLElement;
+
+  console.log('🔧 Updating TOC nav position:', { totalHeight, bannerHeight, isCollapsed });
   
   if (tocNav) {
     const topPosition = totalHeight;
@@ -59,6 +61,25 @@ const updateTocNavPosition = (totalHeight: number, bannerHeight: number) => {
     const topPosition = bannerHeight; // Subnav should be positioned below banner only
     subnav.style.top = `${topPosition}px`;
     console.log('🔧 Updated #nd-subnav:', { top: `${topPosition}px`, bannerHeight });
+  }
+  
+  // Move the collapsed sidebar button's parent container to below the banner and the tocnav
+  if (isCollapsed) {
+    const collapseButton = document.querySelector('[aria-label="Collapse Sidebar"]') as HTMLElement;
+    if (collapseButton) {
+      // Get the height of the tocnav if it exists
+      const tocnav = document.querySelector('#nd-tocnav') as HTMLElement;
+      const tocnavHeight = tocnav ? tocnav.offsetHeight : 0;
+      const paddingTop = 16;
+      const topPosition = totalHeight + paddingTop + tocnavHeight  ;
+      
+      // Set the parent's top position (as you discovered manually)
+      const parent = collapseButton.parentElement as HTMLElement;
+      if (parent) {
+        parent.style.top = `${topPosition}px`;
+        console.log('🔧 Set collapse button parent top:', topPosition);
+      }
+    }
   }
 };
 
@@ -263,10 +284,10 @@ export function TopNav() {
         
         // Check which custom nav is currently visible and get its height
         if (desktopNav && window.innerWidth >= 768 && !collapsed) {
-          customNavHeight = desktopNav.offsetHeight;
+          customNavHeight = (desktopNav as HTMLElement).offsetHeight;
           console.log('🔍 Using desktop nav height for TOC:', customNavHeight);
         } else if (mobileNav && (window.innerWidth < 768 || collapsed)) {
-          customNavHeight = mobileNav.offsetHeight;
+          customNavHeight = (mobileNav as HTMLElement).offsetHeight;
           console.log('🔍 Using mobile nav height for TOC:', customNavHeight);
         } else {
           // No custom nav visible, use fumadocs nav height
@@ -286,7 +307,7 @@ export function TopNav() {
           collapsed
         });
         
-        updateTocNavPosition(tocTotalHeight, bannerHeight);
+        updateTocNavPosition(tocTotalHeight, bannerHeight, collapsed);
       };
       
       // Calculate TOC position after a brief delay to ensure nav is rendered
@@ -312,7 +333,7 @@ export function TopNav() {
       window.removeEventListener('resize', calculateOffsets);
       observer.disconnect();
     };
-  }, []);
+  }, [collapsed]);
 
 
   // Integration options for the dropdown
@@ -372,6 +393,12 @@ export function TopNav() {
       icon: <PydanticAIIcon className="w-4 h-4 text-bold" />,
     },
     {
+      title: "ADK",
+      description: "Documentation for CoAgents with ADK",
+      url: "/adk",
+      icon: <ADKIcon className="w-4 h-4 text-bold" />,
+    },
+    {
       title: "Agno",
       description: "Documentation for CoAgents with Agno",
       url: "/agno",
@@ -389,12 +416,7 @@ export function TopNav() {
       url: "/ag2",
       icon: <AG2Icon className="w-4 h-4 text-bold" />,
     },
-    {
-      title: "ADK",
-      description: "Documentation for CoAgents with ADK",
-      url: "/adk",
-      icon: <ADKIcon className="w-4 h-4 text-bold" />,
-    },
+
   ];
 
   const navItems = [

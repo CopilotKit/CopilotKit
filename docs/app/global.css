@@ -75,6 +75,11 @@ html:root {
   }
 }
 
+/* Fallback positioning for collapsed sidebar button when JS hasn't updated it yet */
+.fd-layout[data-sidebar-collapsed="true"] [aria-label="Collapse Sidebar"]:not([style*="top"]) {
+  top: calc(var(--fd-banner-height) + var(--fd-nav-height) + 1rem) !important;
+}
+
 
 #nd-sidebar {
   width: 286px !important;
