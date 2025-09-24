@@ -95,6 +95,7 @@ jobs:
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+        GOOGLE_API_KEY: ${{ secrets.GOOGLE_GEMINI_API_KEY }}
       with:
         run: |
           node ../scripts/run-dojo-everything.js

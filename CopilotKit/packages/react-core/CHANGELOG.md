@@ -1,5 +1,42 @@
 # ui
 
+## 1.10.5-next.5
+
+### Patch Changes
+
+- 6112a67: - fix: consider edge cases when regenerate button is used
+  - @copilotkit/runtime-client-gql@1.10.5-next.5
+  - @copilotkit/shared@1.10.5-next.5
+
+## 1.10.5-next.4
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.5-next.4
+- @copilotkit/shared@1.10.5-next.4
+
+## 1.10.5-next.3
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.5-next.3
+- @copilotkit/shared@1.10.5-next.3
+
+## 1.10.5-next.2
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.5-next.2
+- @copilotkit/shared@1.10.5-next.2
+
+## 1.10.5-next.1
+
+### Patch Changes
+
+- b7bc3a0: - feat: pass copilot readable context to agui agents
+  - @copilotkit/runtime-client-gql@1.10.5-next.1
+  - @copilotkit/shared@1.10.5-next.1
+
 ## 1.10.5-next.0
 
 ### Patch Changes

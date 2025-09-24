@@ -1,0 +1,13 @@
+---
+title: Shared State
+description: CoAgents maintain a shared state across your UI and agent execution.
+---
+
+CoAgents maintain a shared state that seamlessly connects your UI with the agent's execution. This shared state system allows you to:
+
+- Display the agent's current progress and intermediate results
+- Update the agent's state through UI interactions
+- React to state changes in real-time across your application
+
+The foundation of this system is built on ADK's stateful architecture. ADK Agents maintain their
+internal state throughout execution, which you can access via the `useCoAgentState` hook.

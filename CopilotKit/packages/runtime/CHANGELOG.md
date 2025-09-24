@@ -1,5 +1,41 @@
 # @copilotkit/runtime
 
+## 1.10.5-next.5
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.5-next.5
+
+## 1.10.5-next.4
+
+### Patch Changes
+
+- e730369: - feat: use latest agui langgraph package
+  - feat: use latest agui fastapi langgraph package and dependencies
+  - @copilotkit/shared@1.10.5-next.4
+
+## 1.10.5-next.3
+
+### Patch Changes
+
+- 23fe6a1: - chore: publish python sdk using latest agui
+  - feat: use latest agui packages
+  - @copilotkit/shared@1.10.5-next.3
+
+## 1.10.5-next.2
+
+### Patch Changes
+
+- 7467f97: - feat: add stop generation callback and call abort agui agent
+  - @copilotkit/shared@1.10.5-next.2
+
+## 1.10.5-next.1
+
+### Patch Changes
+
+- b7bc3a0: - feat: pass copilot readable context to agui agents
+  - @copilotkit/shared@1.10.5-next.1
+
 ## 1.10.5-next.0
 
 ### Patch Changes

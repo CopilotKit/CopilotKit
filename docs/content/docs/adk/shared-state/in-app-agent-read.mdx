@@ -1,0 +1,228 @@
+---
+title: Reading agent state
+icon: "lucide/ArrowLeft"
+description: Read the realtime agent state in your native application.
+---
+
+import { ImageZoom } from "fumadocs-ui/components/image-zoom";
+
+<Frame>
+  <ImageZoom
+    src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/read-agent-state.png"
+    alt="read agent state"
+    width={1000}
+    height={1000}
+    className="my-0"
+  />
+</Frame>
+
+<Callout type="info">
+  Pictured above is the [coagent
+  starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter)
+  with the [implementation](#implementation) section applied!
+</Callout>
+
+## What is this?
+
+You can easily use the realtime agent state not only in the chat UI, but also in the native application UX.
+
+## When should I use this?
+
+You can use this when you want to provide the user with feedback about what your agent's state. As your agent's
+state update you can reflect these updates natively in your application.
+
+## Implementation
+
+<Steps>
+  <Step>
+    ### Run and Connect Your Agent to CopilotKit
+
+    You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
+    you can follow the instructions in the [Getting Started](/getting-started) guide.
+
+    If you don't already have an agent, you can use the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter) as a starting point
+    as this guide uses it as a starting point.
+
+  </Step>
+  <Step>
+    ### Define the Agent State
+    ADK Agents are stateful. As you transition through the flow, that state is updated and available to the next function. For this example,
+    let's assume that our agent state looks something like this.
+
+    <Tabs groupId="language" items={["Python"]}>
+      <Tab value="Python">
+        ```python title="agent-py/sample_agent/agent.py"
+          from pydantic import BaseModel
+          from fastapi import FastAPI=
+          from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
+          from google.adk.agents import LlmAgent
+
+          sample_agent = LlmAgent(
+              name="assistant",
+              model="gemini-2.5-flash",
+              instruction="""
+              You are a helpful assistant. Help users by answering their questions and assisting with their needs.
+              """
+          )
+
+        class SomeAgentState(BaseModel):
+            """State for the agent."""
+            language: str = "english"
+
+        def on_before_agent(callback_context: CallbackContext):
+            """
+            Initialize agent state if it doesn't exist.
+            """
+
+            if "language" not in callback_context.state:
+                # Initialize with default recipe
+                default_agent_state = {
+                  "language": "english"
+                }
+                callback_context.state["language"] = default_agent_state["language"]
+
+
+            return None
+
+
+
+        # --- Define the Callback Function ---
+        #  modifying the agent's system prompt to incude the current state of recipe
+        def before_model_modifier(
+            callback_context: CallbackContext, llm_request: LlmRequest
+        ) -> Optional[LlmResponse]:
+            """Inspects/modifies the LLM request or skips the call."""
+            agent_name = callback_context.agent_name
+            if agent_name == "assistant":
+                language_json = "No language yet"
+                if "lanugage" in callback_context.state and callback_context.state["language"] is not None:
+                    try:
+                        language_json = json.dumps(callback_context.state["language"], indent=2)
+                    except Exception as e:
+                        language_json = f"Error serializing language: {str(e)}"
+                # --- Modification Example ---
+                # Add a prefix to the system instruction
+                original_instruction = llm_request.config.system_instruction or types.Content(role="system", parts=[])
+                prefix = f"""You are a helpful assistant
+                This is the current state of the language choice: {language_json}"""
+                # Ensure system_instruction is Content and parts list exists
+                if not isinstance(original_instruction, types.Content):
+                    # Handle case where it might be a string (though config expects Content)
+                    original_instruction = types.Content(role="system", parts=[types.Part(text=str(original_instruction))])
+                if not original_instruction.parts:
+                    original_instruction.parts.append(types.Part(text="")) # Add an empty part if none exist
+
+                # Modify the text of the first part
+                modified_text = prefix + (original_instruction.parts[0].text or "")
+                original_instruction.parts[0].text = modified_text
+                llm_request.config.system_instruction = original_instruction
+
+
+            return None
+
+
+
+        sample_agent = LlmAgent(
+            name="assistant",
+            model="gemini-2.5-flash",
+            instruction="""
+            You are a helpful assistant. Help users by answering their questions and assisting with their needs.
+            Do not use the language specified in state when responding to the user, respond in the language you would normally respond in.
+            You can answer questions about what you have in state if the user asks.
+            """
+            before_agent_callback=on_before_agent,
+            before_model_callback=before_model_modifier,
+        )
+
+        # Create ADK middleware agent instance
+        adk_agent_sample = ADKAgent(
+            adk_agent=sample_agent,
+            app_name="demo_app",
+            user_id="demo_user",
+            session_timeout_seconds=3600,
+            use_in_memory_services=True
+        )
+
+        # Create FastAPI app
+        app = FastAPI(title="ADK Middleware Sample Agent")
+
+        # Add the ADK endpoint
+        add_adk_fastapi_endpoint(app, adk_agent_sample, path="/")
+        ```
+      </Tab>
+    </Tabs>
+
+  </Step>
+  <Step>
+    ### Use the `useCoAgent` Hook
+    With your agent connected and running all that is left is to call the [useCoAgent](/reference/hooks/useCoAgent) hook, pass the agent's name, and
+    optionally provide an initial state.
+
+    ```tsx title="ui/app/page.tsx"
+    import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
+
+    // Define the agent state type, should match the actual state of your agent
+    type AgentState = {
+      language: "english" | "spanish";
+    }
+
+    function YourMainContent() {
+      const { state } = useCoAgent<AgentState>({ // [!code highlight:4]
+        name: "sample_agent",
+        initialState: { language: "spanish" }  // optionally provide an initial state
+      });
+
+      // ...
+
+      return (
+        // style excluded for brevity
+        <div>
+          <h1>Your main content</h1>
+          <p>Language: {state.language}</p> // [!code highlight]
+        </div>
+      );
+    }
+    ```
+    <Callout type="info">
+      The `state` in `useCoAgent` is reactive and will automatically update when the agent's state changes.
+    </Callout>
+
+  </Step>
+  <Step>
+    ### Give it a try!
+    As the agent state updates, your `state` variable will automatically update with it! In this case, you'll see the
+    language set to "spanish" as that's the initial state we set.
+  </Step>
+</Steps>
+
+## Rendering agent state in the chat
+
+You can also render the agent's state in the chat UI. This is useful for informing the user about the agent's state in a
+more in-context way. To do this, you can use the [useCoAgentStateRender](/reference/hooks/useCoAgentStateRender) hook.
+
+```tsx title="ui/app/page.tsx"
+import { useCoAgentStateRender } from "@copilotkit/react-core"; // [!code highlight]
+
+// Define the agent state type, should match the actual state of your agent
+type AgentState = {
+  language: "english" | "spanish";
+};
+
+function YourMainContent() {
+  // ...
+  // [!code highlight:8]
+  useCoAgentStateRender({
+    name: "sample_agent",
+    render: ({ state }) => {
+      if (!state.language) return null;
+      return <div>Language: {state.language}</div>;
+    },
+  });
+  // ...
+}
+```
+
+<Callout type="info">
+  The `state` in `useCoAgentStateRender` is reactive and will automatically
+  update when the agent's state changes.
+</Callout>
