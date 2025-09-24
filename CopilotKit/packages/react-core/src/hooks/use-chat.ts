@@ -981,9 +981,9 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         console.warn(`Regenerate cannot be performed on ${reloadMessageRole} role`);
         return;
       }
+      let historyCutoff: Message[] = [messages[0]];
 
-      let historyCutoff: Message[] = [];
-      if (messages.length > 2) {
+      if (messages.length > 2 && reloadMessageIndex !== 0) {
         // message to regenerate from is now first.
         // Work backwards to find the first the closest user message
         const lastUserMessageBeforeRegenerate = messages
@@ -1000,6 +1000,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
         // Include the user message, remove everything after it
         historyCutoff = messages.slice(0, indexOfLastUserMessageBeforeRegenerate + 1);
+      } else if (messages.length > 2 && reloadMessageIndex === 0) {
+        historyCutoff = [messages[0], messages[1]];
       }
 
       setMessages(historyCutoff);
