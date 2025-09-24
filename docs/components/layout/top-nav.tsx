@@ -34,10 +34,6 @@ const updateTocNavPosition = (totalHeight: number, bannerHeight: number, isColla
   const subnav = document.querySelector('#nd-subnav') as HTMLElement;
 
   console.log('🔧 Updating TOC nav position:', { totalHeight, bannerHeight, isCollapsed });
-  console.log('🔧 TOC nav height:', tocNav ? tocNav.offsetHeight : 0);
-  console.log('🔧 TOC height:', toc ? toc.offsetHeight : 0);
-  console.log('🔧 Sidebar height:', sidebar ? sidebar.offsetHeight : 0);
-  console.log('🔧 Subnav height:', subnav ? subnav.offsetHeight : 0);
   
   if (tocNav) {
     // Check if we're in mobile view to include subnav height
@@ -62,24 +58,22 @@ const updateTocNavPosition = (totalHeight: number, bannerHeight: number, isColla
     });
   }
   
+  // Update Table of Contents positioning
   if (toc) {
     const topPosition = totalHeight;
     const paddingTop = 30; // 30px additional internal padding
     toc.style.top = `${topPosition}px`;
     toc.style.paddingTop = `${paddingTop}px`;
-    console.log('🔧 Updated #nd-toc:', { top: `${topPosition}px`, paddingTop: `${paddingTop}px`, totalHeight });
   }
   
   if (sidebar) {
     const topPosition = bannerHeight; // Sidebar should be positioned below banner only
     sidebar.style.top = `${topPosition}px`;
-    console.log('🔧 Updated #nd-sidebar:', { top: `${topPosition}px`, bannerHeight });
   }
   
   if (subnav) {
     const topPosition = bannerHeight; // Subnav should be positioned below banner only
     subnav.style.top = `${topPosition}px`;
-    console.log('🔧 Updated #nd-subnav:', { top: `${topPosition}px`, bannerHeight });
   }
   
   // Handle collapsed sidebar button positioning
@@ -94,7 +88,6 @@ const updateTocNavPosition = (totalHeight: number, bannerHeight: number, isColla
       // Hide collapsed sidebar in mobile view since nd-subnav shows the same content
       if (parent) {
         parent.style.display = 'none';
-        console.log('🔧 Hidden collapse button in mobile view');
       }
     } else if (isCollapsed) {
       // Desktop view with collapsed sidebar - position it correctly
@@ -108,14 +101,12 @@ const updateTocNavPosition = (totalHeight: number, bannerHeight: number, isColla
         const topPosition = totalHeight + paddingTop + tocnavHeight;
         
         parent.style.top = `${topPosition}px`;
-        console.log('🔧 Set collapse button parent top:', topPosition);
       }
     } else {
       // Desktop view with expanded sidebar - reset positioning
       if (parent) {
         parent.style.display = ''; // Ensure it's visible
         parent.style.top = ''; // Reset to default positioning
-        console.log('🔧 Reset collapse button positioning (expanded)');
       }
     }
   }
