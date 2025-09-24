@@ -34,13 +34,32 @@ const updateTocNavPosition = (totalHeight: number, bannerHeight: number, isColla
   const subnav = document.querySelector('#nd-subnav') as HTMLElement;
 
   console.log('🔧 Updating TOC nav position:', { totalHeight, bannerHeight, isCollapsed });
+  console.log('🔧 TOC nav height:', tocNav ? tocNav.offsetHeight : 0);
+  console.log('🔧 TOC height:', toc ? toc.offsetHeight : 0);
+  console.log('🔧 Sidebar height:', sidebar ? sidebar.offsetHeight : 0);
+  console.log('🔧 Subnav height:', subnav ? subnav.offsetHeight : 0);
   
   if (tocNav) {
-    const topPosition = totalHeight;
+    // Check if we're in mobile view to include subnav height
+    const isMobile = window.innerWidth < 768;
+    let topPosition = totalHeight;
+    
+    if (isMobile && subnav) {
+      // In mobile view, position tocNav below banner + mobile nav + subnav
+      topPosition += subnav.offsetHeight;
+      console.log('🔧 Mobile view: adding subnav height:', subnav.offsetHeight);
+    }
+    
     const paddingTop = 16; // 16px additional internal padding
     tocNav.style.top = `${topPosition}px`;
     tocNav.style.paddingTop = `${paddingTop}px`;
-    console.log('🔧 Updated #nd-tocnav:', { top: `${topPosition}px`, paddingTop: `${paddingTop}px`, totalHeight });
+    console.log('🔧 Updated #nd-tocnav:', { 
+      top: `${topPosition}px`, 
+      paddingTop: `${paddingTop}px`, 
+      totalHeight, 
+      isMobile,
+      subnavHeight: subnav ? subnav.offsetHeight : 0 
+    });
   }
   
   if (toc) {
