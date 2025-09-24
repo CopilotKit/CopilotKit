@@ -41,7 +41,7 @@
  * </PropertyReference>
  *
  * <PropertyReference name="appendMessage" type="(message: DeprecatedGqlMessage, options?) => Promise<void>" deprecated>
- * Append message using old format, use `sendMessage` instead
+ * Append message using old format, use `sendMessage` in `useCopilotChatHeadless_c` instead
  * </PropertyReference>
  *
  * <PropertyReference name="reloadMessages" type="(messageId: string) => Promise<void>">
