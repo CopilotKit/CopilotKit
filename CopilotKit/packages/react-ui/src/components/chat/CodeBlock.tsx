@@ -55,14 +55,16 @@ export const generateRandomString = (length: number, lowercase = false) => {
 
 const CodeBlock: FC<Props> = memo(({ language, value }) => {
   const { isCopied, copyToClipboard } = useCopyToClipboard({ timeout: 2000 });
-  const [SyntaxHighlighter, setSyntaxHighlighter] = useState<typeof Light | typeof Prism>(() => Light)
+  const [SyntaxHighlighter, setSyntaxHighlighter] = useState<typeof Light | typeof Prism>(
+    () => Light,
+  );
 
   useEffect(() => {
     try {
       new RegExp("(?<=#)\\w+");
-      setSyntaxHighlighter(() => Prism)
+      setSyntaxHighlighter(() => Prism);
     } catch {
-      setSyntaxHighlighter(() => Light)
+      setSyntaxHighlighter(() => Light);
     }
   }, []);
 
