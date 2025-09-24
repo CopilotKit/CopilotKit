@@ -10,9 +10,10 @@ interface LogoProps {
 export function Logo({ className, height=40, width=150 }: LogoProps) {
 
   return (
-    <div className={cn("flex md:pb-2 md:pl-1", className)}>
+    <div className={cn("flex items-center gap-2 md:pb-2 md:pl-1", className)}>
       <Image src={"https://cdn.copilotkit.ai/docs/copilotkit/copilotkit-logo-light.png"} width={width} height={height} alt="Logo" className="block dark:hidden" />
       <Image src={"https://cdn.copilotkit.ai/docs/copilotkit/copilotkit-logo-dark.png"} width={width} height={height} alt="Logo" className="hidden dark:block" />
+      <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 mt-1.5">Docs</span>
     </div>
   )
   

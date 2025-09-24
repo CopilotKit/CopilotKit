@@ -42,12 +42,82 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-@media (width >= 1550px) {
-  #nd-sidebar {
-    width: 20rem !important;
-    --fd-sidebar-width: 20rem !important;
+/* define a variable dynamic-header-height to include top nav, banner and nd-toc */
+html:root {
+  --fd-banner-height: 0px !important; /* fallback for any remaining CSS calc usage */
+  --fd-nav-height: 60px !important; /* fallback for any remaining CSS calc usage */
+  --nd-tocnav-height: 28px !important;
+  --dynamic-header-height: calc(var(--fd-banner-height) + var(--fd-nav-height)) !important;
+}
+
+/* Fix sidebar width at exactly 286px on all screen sizes */
+@media (min-width: 768px) {
+  :root {
+    --fd-sidebar-width: 286px !important;
+    --fd-layout-offset: 0px !important;
   }
-} 
+  
+  /* Override Fumadocs' responsive classes that set 268px on md screens */
+  #nd-docs-layout {
+    --fd-sidebar-width: 286px !important;
+  }
+}
+
+
+/* Move collapsed sidebar button to the right side below 1280px */
+@media (max-width: 1279px) {
+  .fd-layout[data-sidebar-collapsed="true"] [aria-label="Collapse Sidebar"] {
+    position: fixed !important;
+    right: 1rem !important;
+    top: calc(var(--fd-banner-height) + var(--fd-nav-height) + 1rem) !important;
+    left: auto !important;
+    z-index: 50 !important;
+  }
+}
+
+/* Fallback positioning for collapsed sidebar button when JS hasn't updated it yet */
+.fd-layout[data-sidebar-collapsed="true"] [aria-label="Collapse Sidebar"]:not([style*="top"]) {
+  top: calc(var(--fd-banner-height) + var(--fd-nav-height) + 1rem) !important;
+}
+
+
+#nd-sidebar {
+  width: 286px !important;
+  max-width: 286px !important;
+  min-width: 286px !important;
+  flex: 0 0 286px !important;
+}
+
+/* Ensure all child elements respect the fixed width */
+#nd-sidebar * {
+  max-width: 286px !important;
+}
+
+/* Override any responsive width changes */
+#nd-sidebar[data-collapsed="false"] {
+  width: 286px !important;
+}
+
+/* Override Fumadocs resizing of article padding on md and lg screens */
+#nd-page > article {
+  @apply pt-12! px-12!;
+}
+
+/* Fix content positioning to account for sidebar */
+main[data-fumadocs-main],
+.fd-layout-content,
+[data-fd-content] {
+  margin-left: 286px !important;
+  width: calc(100% - 286px) !important;
+}
+
+/* When sidebar is collapsed, content takes full width */
+.fd-layout[data-sidebar-collapsed="true"] main[data-fumadocs-main],
+.fd-layout[data-sidebar-collapsed="true"] .fd-layout-content,
+.fd-layout[data-sidebar-collapsed="true"] [data-fd-content] {
+  margin-left: 0 !important;
+  width: 100% !important;
+}
 
 :root {
   --radius: 0.65rem;
@@ -76,7 +146,7 @@
   --chart-5: oklch(0.769 0.188 70.08);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-primary: oklch(0.55 0.25 285);
+  --sidebar-primary: oklch(0.552 0.016 285.938);
   --sidebar-primary-foreground: oklch(0.98 0.005 285);
   --sidebar-accent: oklch(0.967 0.001 286.375);
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
@@ -110,7 +180,7 @@
   --chart-5: oklch(0.645 0.246 16.439);
   --sidebar: oklch(0.21 0.006 285.885);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.65 0.15 285);
+  --sidebar-primary: oklch(0.705 0.015 286.067);
   --sidebar-primary-foreground: oklch(0.95 0.02 285);
   --sidebar-accent: oklch(0.274 0.006 286.033);
   --sidebar-accent-foreground: oklch(0.985 0 0);
@@ -149,6 +219,28 @@
   .copilotKitMarkdown {
     font-size: 0.875rem !important; /* 14px */
   }
+
+  /* Sidebar navigation font styling to match previous version */
+  [data-sidebar] a,
+  [data-sidebar] button {
+    font-size: 0.6875rem !important; /* 11px */
+    font-weight: 400 !important; /* normal weight */
+    line-height: 1.5 !important;
+  }
+
+  /* Sidebar navigation items */
+  nav[data-orientation="vertical"] a,
+  nav[data-orientation="vertical"] button {
+    font-size: 0.6875rem !important; /* 11px */
+    font-weight: 400 !important; /* normal weight */
+  }
+
+  /* Fumadocs sidebar links */
+  .fd-sidebar a,
+  .fd-sidebar button {
+    font-size: 0.6875rem !important; /* 11px */
+    font-weight: 400 !important; /* normal weight */
+  }
 }
 
 @layer base {
@@ -177,6 +269,35 @@
   display: none !important;
 }
 
+
+
 figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-auto.max-h-\[600px\].fd-scroll-container {
   background-color: var(--background) !important;
+}
+
+/* Make banner dismiss button icon match banner text color */
+[data-banner] button,
+[data-banner-id="agui-banner"] button,
+#agui-banner button,
+.fd-banner button,
+div[style*="indigo"] button,
+.bg-indigo-500 button,
+.bg-indigo-900 button {
+  color: white !important;
+  background-color: transparent !important;
+  border: none !important;
+  opacity: 1 !important;
+  transition: opacity 0.2s ease !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}
+
+[data-banner] button:hover,
+[data-banner-id="agui-banner"] button:hover,
+#agui-banner button:hover,
+.fd-banner button:hover,
+div[style*="indigo"] button:hover,
+.bg-indigo-500 button:hover,
+.bg-indigo-900 button:hover {
+  opacity: 0.8 !important;
 } 
