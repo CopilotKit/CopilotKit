@@ -48,13 +48,13 @@ export function constructAGUIRemoteAction({
       actionInputsWithoutAgents,
       threadId,
     }: RemoteAgentHandlerParams): Promise<Observable<RuntimeEvent>> => {
-      graphqlContext.request.signal.addEventListener(
-        "abort",
-        () => {
-          agent.abortRun();
-        },
-        { once: true }, // optional: fire only once
-      );
+      // graphqlContext.request.signal.addEventListener(
+      //   "abort",
+      //   () => {
+      //     agent.abortRun();
+      //   },
+      //   { once: true }, // optional: fire only once
+      // );
       logger.debug({ actionName: agent.agentId }, "Executing remote agent");
 
       const agentWireMessages = convertMessagesToAGUIMessage(messages);
