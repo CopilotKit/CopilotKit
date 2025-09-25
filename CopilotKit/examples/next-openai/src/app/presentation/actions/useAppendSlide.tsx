@@ -5,14 +5,9 @@ import { SlidePreview } from "../components/misc/SlidePreview";
 interface AppendSlideParams {
   setSlides: (_fn: (_slides: SlideModel[]) => SlideModel[]) => void;
   setCurrentSlideIndex: (_fn: (_i: number) => number) => void;
-  slides: SlideModel[];
 }
 
-export default function useAppendSlide({
-  setSlides,
-  setCurrentSlideIndex,
-  slides,
-}: AppendSlideParams) {
+export default function useAppendSlide({ setSlides, setCurrentSlideIndex }: AppendSlideParams) {
   useCopilotAction({
     name: "appendSlide",
     description:
@@ -56,8 +51,11 @@ export default function useAppendSlide({
         backgroundImageDescription,
       };
 
-      setSlides((slides) => [...slides, newSlide]);
-      setCurrentSlideIndex((_i) => slides.length);
+      setSlides((prev) => {
+        const next = [...prev, newSlide];
+        setCurrentSlideIndex(() => next.length - 1);
+        return next;
+      });
     },
     render: (props) => {
       return (

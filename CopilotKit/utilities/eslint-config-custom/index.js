@@ -3,6 +3,7 @@ module.exports = {
     "next",
     "prettier",
   ],
+  plugins: ["@typescript-eslint"],
   parserOptions: {
     ecmaVersion: "latest",
     sourceType: "module",
@@ -74,11 +75,15 @@ module.exports = {
     {
       files: ["*.ts", "*.tsx"],
       rules: {
-        "no-unused-vars": ["error", { 
-          argsIgnorePattern: "^_",
-          varsIgnorePattern: "^_",
-          caughtErrorsIgnorePattern: "^_"
-        }],
+        "no-unused-vars": "off",
+        "@typescript-eslint/no-unused-vars": [
+          "error",
+          {
+            argsIgnorePattern: "^_",
+            varsIgnorePattern: "^_",
+            caughtErrorsIgnorePattern: "^_"
+          }
+        ],
       },
     },
   ],

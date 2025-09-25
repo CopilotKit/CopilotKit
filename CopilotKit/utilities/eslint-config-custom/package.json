@@ -5,7 +5,8 @@
   "main": "index.js",
   "license": "MIT",
   "dependencies": {
-    "eslint-config-next": "^15.0.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "eslint-config-next": "^14.1.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-config-turbo": "^1.12.4"
   },

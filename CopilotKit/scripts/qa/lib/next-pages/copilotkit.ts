@@ -4,8 +4,8 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import {
   CopilotRuntime,
-  OpenAIAdapter,
   copilotRuntimeNextJSPagesRouterEndpoint,
+  OpenAIAdapter,
 } from "@copilotkit/runtime";
 import OpenAI from "openai";
 

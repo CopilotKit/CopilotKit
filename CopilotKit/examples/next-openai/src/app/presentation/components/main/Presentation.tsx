@@ -1,4 +1,5 @@
 "use client";
+
 import { useCopilotReadable } from "@copilotkit/react-core";
 import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { useCallback, useMemo, useState } from "react";
@@ -94,7 +95,6 @@ export const Presentation = ({ performResearch, setPerformResearch }: Presentati
   useAppendSlide({
     setSlides,
     setCurrentSlideIndex,
-    slides,
   });
 
   /**
