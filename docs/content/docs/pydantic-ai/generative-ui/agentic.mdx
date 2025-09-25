@@ -45,8 +45,8 @@ First, you'll need to make sure you have a running Pydantic AI Agent. If you hav
   <Step>
     ### Define your agent state
     If you're not familiar with Pydantic AI, your flows are stateful. As you progress through function, a state object is updated between them. CopilotKit
-    allows you to easily render this state in your application. 
-    
+    allows you to easily render this state in your application.
+
     For the sake of this guide, let's say our state looks like this in our agent.
 
     <Tabs groupId="language" items={['Python']} default="Python">
@@ -103,7 +103,7 @@ First, you'll need to make sure you have a running Pydantic AI Agent. If you hav
     import { useCoAgent } from "@copilotkit/react-core";
     // ...
 
-    // Define the state of the agent, should match the state of the agent in your LangGraph.
+    // Define the state of the agent, should match the state of your Pydantic AI Agent.
     type AgentState = {
       searches: {
         query: string;
@@ -145,7 +145,7 @@ First, you'll need to make sure you have a running Pydantic AI Agent. If you hav
     import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
     // ...
 
-    // Define the state of the agent, should match the state of the agent in your LangGraph.
+    // Define the state of the agent, should match the state of your Pydantic AI Agent.
     type AgentState = {
       searches: {
         query: string;

@@ -1,5 +1,20 @@
 # ui
 
+## 1.10.5-next.7
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.5-next.7
+- @copilotkit/shared@1.10.5-next.7
+
+## 1.10.5-next.6
+
+### Patch Changes
+
+- f3fdd7a: - fix: stop chat from contacting agent that has errored
+  - @copilotkit/runtime-client-gql@1.10.5-next.6
+  - @copilotkit/shared@1.10.5-next.6
+
 ## 1.10.5-next.5
 
 ### Patch Changes
