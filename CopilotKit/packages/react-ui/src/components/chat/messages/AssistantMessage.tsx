@@ -2,9 +2,11 @@ import { AssistantMessageProps } from "../props";
 import { useChatContext } from "../ChatContext";
 import { Markdown } from "../Markdown";
 import { useState } from "react";
+import { useCopilotContext } from "@copilotkit/react-core";
 
 export const AssistantMessage = (props: AssistantMessageProps) => {
   const { icons, labels } = useChatContext();
+  const { chatComponentsCache } = useCopilotContext();
   const {
     message,
     isLoading,
@@ -45,7 +47,12 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
 
   const LoadingIcon = () => <span>{icons.activityIcon}</span>;
   const content = message?.content || "";
-  const subComponent = message?.generativeUI?.();
+
+  const cachedActions = chatComponentsCache?.current?.actions;
+  const actionName = typeof message?.name === "string" ? message.name : undefined;
+  const toRender = (actionName && cachedActions?.[actionName]) ?? cachedActions?.["*"] ?? undefined;
+  const subComponentProps = message?.generativeUIProps?.();
+  const subComponent = typeof toRender === "function" ? toRender(subComponentProps) : toRender;
 
   return (
     <>
