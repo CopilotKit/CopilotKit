@@ -24,7 +24,7 @@
     "@langchain/langgraph": "^0.2.57",
     "@langchain/langgraph-cli": "0.0.40",
     "@langchain/langgraph-checkpoint": "^0.0.16",
-    "zod": "^4.0.14"
+    "zod": "^4.1.11"
   },
   "pnpm": {
     "overrides": {

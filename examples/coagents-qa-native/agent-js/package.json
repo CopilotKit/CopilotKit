@@ -23,6 +23,6 @@
     "@langchain/google-genai": "^0.1.4",
     "@langchain/langgraph": "0.2.44",
     "@langchain/openai": "^0.3.14",
-    "zod": "^4.0.14"
+    "zod": "^4.1.11"
   }
 }

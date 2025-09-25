@@ -126,7 +126,7 @@ importers:
         specifier: ^1.1.1
         version: 1.1.1(react@19.0.0-rc-0bc30748-20241028)
       zod:
-        specifier: ^4.0.14
+        specifier: ^4.1.11
         version: 4.1.11
     devDependencies:
       '@tailwindcss/typography':
@@ -349,7 +349,7 @@ importers:
         specifier: ^0.0.1
         version: 0.0.1
       zod:
-        specifier: ^4.0.14
+        specifier: ^4.1.11
         version: 4.1.11
     devDependencies:
       '@testing-library/react':
@@ -685,7 +685,7 @@ importers:
         specifier: 2.0.0-rc.1
         version: 2.0.0-rc.1(class-validator@0.14.1)(graphql-scalars@1.23.0(graphql@16.9.0))(graphql@16.9.0)
       zod:
-        specifier: ^4.0.14
+        specifier: ^4.1.11
         version: 4.1.11
     devDependencies:
       '@jest/globals':
@@ -828,7 +828,7 @@ importers:
         specifier: ^0.3.3
         version: 0.3.15(@langchain/anthropic@0.3.5(@langchain/core@0.3.66(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@4.1.11)))(encoding@0.1.13))(@langchain/aws@0.1.9(@langchain/core@0.3.66(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@4.1.11))))(@langchain/core@0.3.66(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@4.1.11)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.66(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@4.1.11)))(zod@4.1.11))(axios@1.7.9)(encoding@0.1.13)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@4.1.11))(ws@8.18.1)
       zod:
-        specifier: ^4.0.14
+        specifier: ^4.1.11
         version: 4.1.11
     devDependencies:
       '@langchain/langgraph':
@@ -895,7 +895,7 @@ importers:
         specifier: ^10.0.0
         version: 10.0.0
       zod:
-        specifier: ^4.0.14
+        specifier: ^4.1.11
         version: 4.1.11
     devDependencies:
       '@types/jest':

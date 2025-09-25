@@ -67,7 +67,7 @@
     "@langchain/langgraph": "^0.2.44 || ^0.3.0 || ^0.4.0",
     "langchain": "^0.3.3",
     "typescript": "^5.2.3",
-    "zod": "^4.0.14"
+    "zod": "^4.1.11"
   },
   "keywords": [
     "copilotkit",

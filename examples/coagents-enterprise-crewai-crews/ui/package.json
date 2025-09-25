@@ -26,7 +26,7 @@
     "tailwind-merge": "^3.0.2",
     "tailwindcss": "3",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "^4.0.14"
+    "zod": "^4.1.11"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

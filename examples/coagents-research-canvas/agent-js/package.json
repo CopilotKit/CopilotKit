@@ -25,6 +25,6 @@
     "@langchain/openai": "^0.3.14",
     "@tavily/core": "^0.0.2",
     "html-to-text": "^9.0.5",
-    "zod": "^4.0.14"
+    "zod": "^4.1.11"
   }
 }

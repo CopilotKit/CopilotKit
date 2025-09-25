@@ -58,7 +58,7 @@
     "@scarf/scarf": "^1.3.0",
     "react-markdown": "^8.0.7",
     "untruncate-json": "^0.0.1",
-    "zod": "^4.0.14"
+    "zod": "^4.1.11"
   },
   "keywords": [
     "copilotkit",

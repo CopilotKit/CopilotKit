@@ -23,7 +23,7 @@
     "product-knowledge-base": "file:",
     "react": "^19",
     "react-dom": "^19",
-    "zod": "^4.0.14"
+    "zod": "^4.1.11"
   },
   "devDependencies": {
     "@types/node": "^22",

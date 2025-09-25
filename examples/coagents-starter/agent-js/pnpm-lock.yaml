@@ -30,7 +30,7 @@ importers:
         specifier: ^0.6.9
         version: 0.6.9(@langchain/core@0.3.72(openai@5.12.2(zod@4.1.11)))
       zod:
-        specifier: ^4.0.14
+        specifier: ^4.1.11
         version: 4.1.11
     devDependencies:
       '@types/html-to-text':
