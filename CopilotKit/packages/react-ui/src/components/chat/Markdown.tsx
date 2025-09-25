@@ -1,9 +1,9 @@
-import { FC, memo } from "react";
+import { FC, memo, useEffect, useMemo, useState } from "react";
 import ReactMarkdown, { Options, Components } from "react-markdown";
 import { CodeBlock } from "./CodeBlock";
-import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeRaw from "rehype-raw";
+import { supportsRegexLookbehind } from "../../lib/utils";
 
 const defaultComponents: Components = {
   a({ children, ...props }) {
@@ -130,11 +130,44 @@ type MarkdownProps = {
 };
 
 export const Markdown = ({ content, components }: MarkdownProps) => {
+  type RemarkPluginList = NonNullable<Options["remarkPlugins"]>;
+
+  const baseRemarkPlugins = useMemo<RemarkPluginList>(
+    () => [[remarkMath, { singleDollarTextMath: false }]],
+    [],
+  );
+  const [remarkPlugins, setRemarkPlugins] = useState<RemarkPluginList>(baseRemarkPlugins);
+
+  useEffect(() => {
+    if (!supportsRegexLookbehind()) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadRemarkGfm = async () => {
+      try {
+        const module = await import("remark-gfm");
+        if (!cancelled && module?.default) {
+          setRemarkPlugins([module.default, ...baseRemarkPlugins]);
+        }
+      } catch {
+        // Keep fallback plugins when dynamic import fails.
+      }
+    };
+
+    void loadRemarkGfm();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [baseRemarkPlugins]);
+
   return (
     <div className="copilotKitMarkdown">
       <MemoizedReactMarkdown
         components={{ ...defaultComponents, ...components }}
-        remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: false }]]}
+        remarkPlugins={remarkPlugins}
         rehypePlugins={[rehypeRaw]}
       >
         {content}

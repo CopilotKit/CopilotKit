@@ -1,12 +1,12 @@
-import { FC, memo, useEffect, useState } from "react";
-import { Prism, Light } from "react-syntax-highlighter";
+import { FC, memo, Suspense, lazy, useMemo } from "react";
+import type { CSSProperties } from "react";
 import { useCopyToClipboard } from "../../hooks/use-copy-to-clipboard";
 import { CheckIcon, CopyIcon, DownloadIcon } from "./Icons";
+import { supportsRegexLookbehind } from "../../lib/utils";
+import CodeBlockLightRenderer from "./CodeBlockLightRenderer";
+import { SyntaxHighlighterProps } from "react-syntax-highlighter";
 
-interface CodeActionButtonProps {
-  onClick: () => void;
-  children: React.ReactNode;
-}
+const CodeBlockPrismRenderer = lazy(() => import("./CodeBlockPrismRenderer"));
 
 interface Props {
   language: string;
@@ -53,20 +53,19 @@ export const generateRandomString = (length: number, lowercase = false) => {
   return lowercase ? result.toLowerCase() : result;
 };
 
+const SyntaxHighlighter = (props: SyntaxHighlighterProps) => {
+  const canUsePrism = supportsRegexLookbehind();
+  return canUsePrism ? (
+    <Suspense fallback={<CodeBlockLightRenderer {...props} />}>
+      <CodeBlockPrismRenderer {...props} />
+    </Suspense>
+  ) : (
+    <CodeBlockLightRenderer {...props} />
+  );
+};
+
 const CodeBlock: FC<Props> = memo(({ language, value }) => {
   const { isCopied, copyToClipboard } = useCopyToClipboard({ timeout: 2000 });
-  const [SyntaxHighlighter, setSyntaxHighlighter] = useState<typeof Light | typeof Prism>(
-    () => Light,
-  );
-
-  useEffect(() => {
-    try {
-      new RegExp("(?<=#)\\w+");
-      setSyntaxHighlighter(() => Prism);
-    } catch {
-      setSyntaxHighlighter(() => Light);
-    }
-  }, []);
 
   const downloadAsFile = () => {
     if (typeof window === "undefined") {

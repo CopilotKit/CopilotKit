@@ -25,3 +25,11 @@ export function formatDate(input: string | number | Date): string {
     year: "numeric",
   });
 }
+
+export const supportsRegexLookbehind = (): boolean => {
+  try {
+    return new Function("return /(?<=#)\\w+/.test('#tag');")();
+  } catch {
+    return false;
+  }
+};
