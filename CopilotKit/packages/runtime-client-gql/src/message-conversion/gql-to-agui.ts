@@ -133,14 +133,21 @@ export function gqlActionExecutionMessageToAGUIMessage(
     }
   };
 
+  const createRenderWrapper = (originalRender: any) => {
+    if (!originalRender) return undefined;
+
+    return (props?: any) => {
+      const fullProps = createRenderProps(props);
+      return originalRender(fullProps);
+    };
+  };
+
   return {
     id: message.id,
     role: "assistant",
     content: "",
     toolCalls: [actionExecutionMessageToAGUIMessage(message)],
-    generativeUI: action.render
-      ? (props: any) => action.render(createRenderProps(props))
-      : undefined,
+    generativeUI: createRenderWrapper(action.render),
     generativeUIProps: createRenderProps,
     name: message.name,
   } as agui.AIMessage;
