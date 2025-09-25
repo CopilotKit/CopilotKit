@@ -4,9 +4,9 @@
 import express from "express";
 import {
   CopilotRuntime,
+  copilotRuntimeNodeHttpEndpoint,
   OpenAIAdapter,
   OpenAIAdapterParams,
-  copilotRuntimeNodeHttpEndpoint,
 } from "@copilotkit/runtime";
 import OpenAI from "openai";
 
