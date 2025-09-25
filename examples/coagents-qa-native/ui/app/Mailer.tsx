@@ -51,16 +51,16 @@ export function Mailer() {
       model,
     },
     configurable: {
-      authToken: 'exampleToken'
-    }
+      authToken: "exampleToken",
+    },
   });
 
   useCopilotAction({
     name: "EmailTool",
-    available: "remote",
     parameters: [
       {
         name: "the_email",
+        type: "string",
       },
     ],
     handler: async ({ the_email }) => {
@@ -70,13 +70,13 @@ export function Mailer() {
 
   useCopilotAction({
     name: "DisplayEmail",
-    pairedAction: 'EmailTool',
+    pairedAction: "EmailTool",
     parameters: [
       {
         name: "emailContent",
+        type: "string",
       },
     ],
-
     handler: async ({ emailContent }) => {
       const result = window.confirm(emailContent);
       const action = result ? "SEND" : "CANCEL";
