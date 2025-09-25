@@ -20,7 +20,7 @@ import {
 
 ## Overview
 
-CopilotKit offers *fully headless UI* through the `useCopilotChatHeadless_c` hook. By using this hook, you can build your own chat interfaces
+CopilotKit offers *fully headless UI* through the [`useCopilotChatHeadless_c`](/reference/hooks/useCopilotChatHeadless_c) hook. By using this hook, you can build your own chat interfaces
 from the ground up while still utilizing CopilotKit's core features and ease-of-use.
 
 ## Navigation
@@ -173,7 +173,7 @@ To get there, let's start by building a simple chat interface.
 
 ## Working with Generative UI
 
-You can also render generative UI either via `useCopilotAction` or by reading tools and rendering them directly.
+You can also render generative UI either via [`useCopilotAction`](/reference/hooks/useCopilotAction) or by reading tools and rendering them directly.
 
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/videos/gen-ui.mp4"
@@ -184,9 +184,9 @@ You can also render generative UI either via `useCopilotAction` or by reading to
   muted
 />
 
-### With `useCopilotAction`
-CopilotKit's standard components utilize `useCopilotAction` to allow tools to be both rendered and called in 
-the frontend. These same interfaces are available to you while using the `useCopilotChatHeadless_c` hook.
+### With [`useCopilotAction`](/reference/hooks/useCopilotAction)
+CopilotKit's standard components utilize [`useCopilotAction`](/reference/hooks/useCopilotAction) to allow tools to be both rendered and called in 
+the frontend. These same interfaces are available to you while using the [`useCopilotChatHeadless_c`](/reference/hooks/useCopilotChatHeadless_c) hook.
 
 ```tsx title="src/app/components/chat.tsx"
 import { useCopilotAction } from "@copilotkit/react-core";

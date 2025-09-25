@@ -2,7 +2,7 @@
 <Tabs groupId="component" items={["CopilotChat", "CopilotSidebar", "CopilotPopup", "Headless UI"]}>
   <Tab value="CopilotPopup">
 
-    `CopilotPopup` is a convenience wrapper for `CopilotChat` that lives at the same level as your main content in the view hierarchy. It provides **a floating chat interface** that can be toggled on and off.
+    [`CopilotPopup`](/reference/components/chat/CopilotPopup) is a convenience wrapper for [`CopilotChat`](/reference/components/chat/CopilotChat) that lives at the same level as your main content in the view hierarchy. It provides **a floating chat interface** that can be toggled on and off.
 
     <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/popup-example.gif" alt="Popup Example" className="w-full rounded-lg my-4" />
 
@@ -28,7 +28,7 @@
 
   </Tab>
   <Tab value="CopilotSidebar">
-    `CopilotSidebar` is a convenience wrapper for `CopilotChat` that wraps your main content in the view hierarchy. It provides a **collapsible and expandable sidebar** chat interface.
+    [`CopilotSidebar`](/reference/components/chat/CopilotSidebar) is a convenience wrapper for [`CopilotChat`](/reference/components/chat/CopilotChat) that wraps your main content in the view hierarchy. It provides a **collapsible and expandable sidebar** chat interface.
 
     <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/sidebar-example.gif" alt="Popup Example" className="w-full rounded-lg my-4" />
 
@@ -56,13 +56,13 @@
 
   </Tab>
   <Tab value="CopilotChat">
-    `CopilotChat` is a flexible chat interface component that **can be placed anywhere in your app** and can be resized as you desire.
+    [`CopilotChat`](/reference/components/chat/CopilotChat) is a flexible chat interface component that **can be placed anywhere in your app** and can be resized as you desire.
 
     <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/copilotchat-example.gif" alt="Popup Example" className="w-full rounded-lg my-4" />
 
     ```tsx
     // [!code word:CopilotChat]
-    import { CopilotChat } from "@copilotkit/react-ui";
+    import { CopilotChat } from "@copilotkit/react-ui"; // See reference: /reference/components/chat/CopilotChat
 
     export function YourComponent() {
       return (
@@ -81,7 +81,7 @@
   <Tab value="Headless UI">
     The built-in Copilot UI can be customized in many ways -- both through css and by passing in custom sub-components.
 
-    CopilotKit also offers **fully custom headless UI**, through the `useCopilotChat` hook. Everything built with the built-in UI (and more) can be implemented with the headless UI, providing deep customizability.
+    CopilotKit also offers **fully custom headless UI**, through the [`useCopilotChat`](/reference/hooks/useCopilotChat) hook. Everything built with the built-in UI (and more) can be implemented with the headless UI, providing deep customizability.
 
     ```tsx
     import { useCopilotChat } from "@copilotkit/react-core";
