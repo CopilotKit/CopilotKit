@@ -3,7 +3,6 @@ title: Frontend Actions
 icon: "lucide/Wrench"
 description: Create frontend actions and use them within your AG2 agent.
 ---
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
 
 ## Implementation
 
@@ -59,10 +58,6 @@ Check out the [Frontend Actions overview](/frontend-actions) to understand what 
         Now, we'll need to modify the agent to access these frontend actions. Open up for your agent's folder and continue from there!
     </Step>
     <Step>
-        ### Install the CopilotKit SDK
-        <InstallSDKSnippet components={props.components}/>
-    </Step>
-    <Step>
         ### Inheriting from CopilotKitState
 
         To access the frontend actions provided by CopilotKit, you can inherit from CopilotKitState in your agent's state definition:
@@ -99,4 +94,4 @@ Check out the [Frontend Actions overview](/frontend-actions) to understand what 
         You've now given your agent the ability to directly call any CopilotActions you've defined. These actions will be available as tools to the agent where they can be used as needed.
     </Step>
 
-</Steps> 
+</Steps>

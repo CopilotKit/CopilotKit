@@ -56,13 +56,13 @@ Manually emitted messages are great for **when you don't want to wait for the no
                     await copilotkit_emit_message(config, intermediate_message)
 
                     # simulate a long running task
-                    await asyncio.sleep(2) 
+                    await asyncio.sleep(2)
 
                     response = await model.ainvoke([
                         SystemMessage(content="You are a helpful assistant."),
                         *state["messages"]
                     ], config)
-                    
+
                     return Command(
                         goto=END,
                         update={
