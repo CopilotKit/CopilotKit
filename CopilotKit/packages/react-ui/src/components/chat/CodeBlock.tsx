@@ -1,5 +1,4 @@
-import { FC, memo, Suspense, lazy, useMemo } from "react";
-import type { CSSProperties } from "react";
+import { FC, memo, Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { useCopyToClipboard } from "../../hooks/use-copy-to-clipboard";
 import { CheckIcon, CopyIcon, DownloadIcon } from "./Icons";
 import { supportsRegexLookbehind } from "../../lib/utils";
@@ -54,13 +53,19 @@ export const generateRandomString = (length: number, lowercase = false) => {
 };
 
 const SyntaxHighlighter = (props: SyntaxHighlighterProps) => {
-  const canUsePrism = supportsRegexLookbehind();
-  return canUsePrism ? (
+  const [usePrism, setUsePrism] = useState(false);
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setUsePrism(supportsRegexLookbehind());
+    }
+  }, []);
+  if (!usePrism) {
+    return <CodeBlockLightRenderer {...props} />;
+  }
+  return (
     <Suspense fallback={<CodeBlockLightRenderer {...props} />}>
       <CodeBlockPrismRenderer {...props} />
     </Suspense>
-  ) : (
-    <CodeBlockLightRenderer {...props} />
   );
 };
 
