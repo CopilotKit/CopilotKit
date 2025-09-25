@@ -1,9 +1,0 @@
-{
-  "name": "qa",
-  "private": true,
-  "devDependencies": {
-    "@types/react": "^18.2.5",
-    "@types/react-dom": "^18.2.4",
-    "typescript": "^5.2.3"
-  }
-}
