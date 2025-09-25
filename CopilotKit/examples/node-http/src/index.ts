@@ -1,11 +1,16 @@
 import { createServer } from "node:http";
-import { CopilotRuntime, copilotRuntimeNodeHttpEndpoint, OpenAIAdapter } from "@copilotkit/runtime";
+import {
+  CopilotRuntime,
+  copilotRuntimeNodeHttpEndpoint,
+  OpenAIAdapter,
+  OpenAIAdapterParams,
+} from "@copilotkit/runtime";
 import OpenAI from "openai";
 import * as dotenv from "dotenv";
 dotenv.config();
 
 const openai = new OpenAI();
-const serviceAdapter = new OpenAIAdapter({ openai });
+const serviceAdapter = new OpenAIAdapter({ openai } as unknown as OpenAIAdapterParams);
 
 const runtime = new CopilotRuntime({
   actions: [

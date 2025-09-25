@@ -1,4 +1,7 @@
-import { MultiProviderContent, If } from "@/components/react/multi-provider-content/multi-provider-content";
+import {
+  MultiProviderContent,
+  If,
+} from "@/components/react/multi-provider-content/multi-provider-content";
 import { quickStartProviders } from "@/components/react/multi-provider-content/utils";
 import { IoLogoVercel, IoLogoNodejs } from "react-icons/io5";
 import { SiNestjs } from "react-icons/si";
@@ -49,6 +52,7 @@ import { RiNextjsLine } from "react-icons/ri";
       return handleRequest(req);
     };
     ```
+
   </Tab>
 
     {/* Next.js Pages Router */}
@@ -202,11 +206,11 @@ import { RiNextjsLine } from "react-icons/ri";
 
         ```ts title="copilotkit.controller.ts"
         import { All, Controller, Req, Res } from '@nestjs/common';
-        import { 
-          CopilotRuntime, 
-          copilotRuntimeNestEndpoint, 
+        import {
+          CopilotRuntime,
+          copilotRuntimeNestEndpoint,
           OpenAIAdapter,
-          LangGraphAgent 
+          LangGraphAgent
         } from '@copilotkit/runtime';
         import { Request, Response } from 'express';
         import OpenAI from "openai";
@@ -217,7 +221,7 @@ import { RiNextjsLine } from "react-icons/ri";
           copilotkit(@Req() req: Request, @Res() res: Response) {
             const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
             const serviceAdapter = new OpenAIAdapter({ openai } as any);
-            
+
             const runtime = new CopilotRuntime({
               agents: {
                 // [!code highlight:7]
@@ -245,4 +249,5 @@ import { RiNextjsLine } from "react-icons/ri";
             Remember to point your `runtimeUrl` to the correct endpoint in your client-side code, e.g. `http://localhost:PORT/copilotkit`.
         </Callout>
     </Tab>
+
 </Tabs>
