@@ -77,64 +77,60 @@ export function gqlActionExecutionMessageToAGUIMessage(
     Object.values(actions).find((action: any) => action.name === "*");
 
   // Create render function wrapper that provides proper props
-  const createRenderWrapper = (originalRender: any) => {
-    if (!originalRender) return undefined;
+  const createRenderProps = (props?: any) => {
+    // Determine the correct status based on the same logic as RenderActionExecutionMessage
+    let actionResult: any = actionResults?.get(message.id);
+    let status: "inProgress" | "executing" | "complete" = "inProgress";
 
-    return (props?: any) => {
-      // Determine the correct status based on the same logic as RenderActionExecutionMessage
-      let actionResult: any = actionResults?.get(message.id);
-      let status: "inProgress" | "executing" | "complete" = "inProgress";
+    if (actionResult !== undefined) {
+      status = "complete";
+    } else if (message.status?.code !== MessageStatusCode.Pending) {
+      status = "executing";
+    }
 
-      if (actionResult !== undefined) {
-        status = "complete";
-      } else if (message.status?.code !== MessageStatusCode.Pending) {
-        status = "executing";
+    // if props.result is a string, parse it as JSON but don't throw an error if it's not valid JSON
+    if (typeof props?.result === "string") {
+      try {
+        props.result = JSON.parse(props.result);
+      } catch (e) {
+        /* do nothing */
       }
+    }
 
-      // if props.result is a string, parse it as JSON but don't throw an error if it's not valid JSON
-      if (typeof props?.result === "string") {
-        try {
-          props.result = JSON.parse(props.result);
-        } catch (e) {
-          /* do nothing */
-        }
+    // if actionResult is a string, parse it as JSON but don't throw an error if it's not valid JSON
+    if (typeof actionResult === "string") {
+      try {
+        actionResult = JSON.parse(actionResult);
+      } catch (e) {
+        /* do nothing */
       }
+    }
 
-      // if actionResult is a string, parse it as JSON but don't throw an error if it's not valid JSON
-      if (typeof actionResult === "string") {
-        try {
-          actionResult = JSON.parse(actionResult);
-        } catch (e) {
-          /* do nothing */
-        }
-      }
-
-      // Base props that all actions receive
-      const baseProps = {
-        status: props?.status || status,
-        args: message.arguments || {},
-        result: props?.result || actionResult || undefined,
-        messageId: message.id,
-      };
-
-      // Add properties based on action type
-      if (action.name === "*") {
-        // Wildcard actions get the tool name; ensure it cannot be overridden by incoming props
-        return originalRender({
-          ...baseProps,
-          ...props,
-          name: message.name,
-        });
-      } else {
-        // Regular actions get respond (defaulting to a no-op if not provided)
-        const respond = props?.respond ?? (() => {});
-        return originalRender({
-          ...baseProps,
-          ...props,
-          respond,
-        });
-      }
+    // Base props that all actions receive
+    const baseProps = {
+      status: props?.status || status,
+      args: message.arguments || {},
+      result: props?.result || actionResult || undefined,
+      messageId: message.id,
     };
+
+    // Add properties based on action type
+    if (action.name === "*") {
+      // Wildcard actions get the tool name; ensure it cannot be overridden by incoming props
+      return {
+        ...baseProps,
+        ...props,
+        name: message.name,
+      };
+    } else {
+      // Regular actions get respond (defaulting to a no-op if not provided)
+      const respond = props?.respond ?? (() => {});
+      return {
+        ...baseProps,
+        ...props,
+        respond,
+      };
+    }
   };
 
   return {
@@ -142,7 +138,10 @@ export function gqlActionExecutionMessageToAGUIMessage(
     role: "assistant",
     content: "",
     toolCalls: [actionExecutionMessageToAGUIMessage(message)],
-    generativeUI: createRenderWrapper(action.render),
+    generativeUI: action.render
+      ? (props: any) => action.render(createRenderProps(props))
+      : undefined,
+    generativeUIProps: createRenderProps,
     name: message.name,
   } as agui.AIMessage;
 }
