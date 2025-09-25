@@ -18,7 +18,7 @@ const InterruptRenderer: React.FC<InterruptProps> = ({ event, result, render, re
 };
 
 export function useLangGraphInterruptRender(): string | React.ReactElement | null {
-  const { langGraphInterruptAction, setLangGraphInterruptAction, agentSession } =
+  const { langGraphInterruptAction, setLangGraphInterruptAction, agentSession, threadId } =
     useCopilotContext();
 
   const responseRef = React.useRef<string>();
@@ -27,10 +27,10 @@ export function useLangGraphInterruptRender(): string | React.ReactElement | nul
       responseRef.current = response;
       // Use setTimeout to defer the state update to next tick
       setTimeout(() => {
-        setLangGraphInterruptAction({ event: { response } });
+        setLangGraphInterruptAction(threadId, { event: { response } });
       }, 0);
     },
-    [setLangGraphInterruptAction],
+    [setLangGraphInterruptAction, threadId],
   );
 
   if (
@@ -46,6 +46,7 @@ export function useLangGraphInterruptRender(): string | React.ReactElement | nul
     !agentSession || !enabled
       ? true
       : enabled({ eventValue: event.value, agentMetadata: agentSession });
+
   if (!conditionsMet) {
     return null;
   }
