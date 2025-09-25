@@ -1,5 +1,11 @@
 # @copilotkit/sdk-js
 
+## 1.10.5-next.8
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.5-next.8
+
 ## 1.10.5-next.7
 
 ### Patch Changes
