@@ -84,14 +84,23 @@ export function gqlActionExecutionMessageToAGUIMessage(
 
     if (actionResult !== undefined) {
       status = "complete";
-    } else if (message.status?.code !== MessageStatusCode.Pending) {
+    } else if (message.status?.code != null && message.status.code !== MessageStatusCode.Pending) {
       status = "executing";
     }
 
-    // if props.result is a string, parse it as JSON but don't throw an error if it's not valid JSON
-    if (typeof props?.result === "string") {
+    // Normalize incoming props without mutating the caller object
+    const {
+      status: statusFromProps,
+      result: resultFromPropsRaw,
+      args: _args,
+      messageId: _messageId,
+      name: _name,
+      ...restProps
+    } = (props ?? {}) as any;
+    let resultFromProps = resultFromPropsRaw;
+    if (typeof resultFromProps === "string") {
       try {
-        props.result = JSON.parse(props.result);
+        resultFromProps = JSON.parse(resultFromProps);
       } catch (e) {
         /* do nothing */
       }
@@ -108,9 +117,9 @@ export function gqlActionExecutionMessageToAGUIMessage(
 
     // Base props that all actions receive
     const baseProps = {
-      status: props?.status || status,
-      args: message.arguments || {},
-      result: props?.result || actionResult || undefined,
+      status: statusFromProps ?? status,
+      args: message.arguments ?? {},
+      result: resultFromProps ?? actionResult ?? undefined,
       messageId: message.id,
     };
 
@@ -119,15 +128,15 @@ export function gqlActionExecutionMessageToAGUIMessage(
       // Wildcard actions get the tool name; ensure it cannot be overridden by incoming props
       return {
         ...baseProps,
-        ...props,
+        ...restProps,
         name: message.name,
       };
     } else {
       // Regular actions get respond (defaulting to a no-op if not provided)
-      const respond = props?.respond ?? (() => {});
+      const respond = (props as any)?.respond ?? (() => {});
       return {
         ...baseProps,
-        ...props,
+        ...restProps,
         respond,
       };
     }
