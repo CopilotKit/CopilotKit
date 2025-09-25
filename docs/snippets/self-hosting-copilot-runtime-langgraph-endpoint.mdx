@@ -30,7 +30,6 @@ import { RiNextjsLine } from "react-icons/ri";
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const serviceAdapter = new OpenAIAdapter({ openai } as any);
-
     const runtime = new CopilotRuntime({
       agents: {
         // [!code highlight:7]
@@ -232,6 +231,7 @@ import { RiNextjsLine } from "react-icons/ri";
                 })
               },
             });
+            
 
             const handler = copilotRuntimeNestEndpoint({
               runtime,
@@ -249,5 +249,4 @@ import { RiNextjsLine } from "react-icons/ri";
             Remember to point your `runtimeUrl` to the correct endpoint in your client-side code, e.g. `http://localhost:PORT/copilotkit`.
         </Callout>
     </Tab>
-
 </Tabs>
