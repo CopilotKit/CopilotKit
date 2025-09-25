@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from "react";
+
 export function generateRandomString(length: number) {
   let result = "";
   const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -7,8 +9,6 @@ export function generateRandomString(length: number) {
   }
   return result;
 }
-
-import { useState, useEffect, useRef } from "react";
 
 export function useStateWithLocalStorage(
   defaultValue: string,

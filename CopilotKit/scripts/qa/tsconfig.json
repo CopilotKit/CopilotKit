@@ -1,0 +1,15 @@
+{
+  "extends": "../../utilities/tsconfig/nextjs.json",
+  "compilerOptions": {
+    "jsx": "preserve",
+    "strictNullChecks": true,
+    "moduleResolution": "node",
+    "baseUrl": ".",
+    "paths": {
+      "react": ["../../node_modules/@types/react"],
+      "react-dom": ["../../node_modules/@types/react-dom"]
+    }
+  },
+  "include": ["lib/**/*"],
+  "exclude": ["node_modules"]
+}

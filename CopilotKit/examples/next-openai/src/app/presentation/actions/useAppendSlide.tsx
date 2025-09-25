@@ -3,8 +3,8 @@ import { SlideModel } from "../types";
 import { SlidePreview } from "../components/misc/SlidePreview";
 
 interface AppendSlideParams {
-  setSlides: (fn: (slides: SlideModel[]) => SlideModel[]) => void;
-  setCurrentSlideIndex: (fn: (i: number) => number) => void;
+  setSlides: (_fn: (_slides: SlideModel[]) => SlideModel[]) => void;
+  setCurrentSlideIndex: (_fn: (_i: number) => number) => void;
   slides: SlideModel[];
 }
 
@@ -57,7 +57,7 @@ export default function useAppendSlide({
       };
 
       setSlides((slides) => [...slides, newSlide]);
-      setCurrentSlideIndex((i) => slides.length);
+      setCurrentSlideIndex((_i) => slides.length);
     },
     render: (props) => {
       return (

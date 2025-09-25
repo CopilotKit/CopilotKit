@@ -9,7 +9,7 @@ import { SlideModel } from "../../types";
 
 interface PresentationProps {
   performResearch: boolean;
-  setPerformResearch: (fn: (b: boolean) => boolean) => void;
+  setPerformResearch: (_fn: (_b: boolean) => boolean) => void;
 }
 
 export const Presentation = ({ performResearch, setPerformResearch }: PresentationProps) => {

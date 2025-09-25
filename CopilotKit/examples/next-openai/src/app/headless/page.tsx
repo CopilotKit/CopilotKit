@@ -4,14 +4,15 @@ import {
   CopilotKit,
   useCoAgentStateRender,
   useCopilotAction,
-  useCopilotChatHeadless_c,
+  // @ts-ignore
+  useCopilotChatHeadless_c, // #TODO: fix this
   useLangGraphInterrupt,
 } from "@copilotkit/react-core";
 import { CopilotSidebar, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { randomId } from "@copilotkit/shared";
 import { AnimatedMarkdown } from "flowtoken";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useState, useRef, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
 import "flowtoken/dist/styles.css";
 
@@ -64,12 +65,11 @@ export default function PanelPage() {
   const runtimeUrl =
     searchParams.get("runtimeUrl") || `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
   const publicApiKey = searchParams.get("publicApiKey");
-  const publicLicenseKey = searchParams.get("publicLicenseKey");
+
   const copilotKitProps: Partial<React.ComponentProps<typeof CopilotKit>> = {
     runtimeUrl,
     showDevConsole: true,
     publicApiKey: publicApiKey || undefined,
-    publicLicenseKey: publicLicenseKey || undefined,
   };
 
   return (
@@ -372,7 +372,7 @@ function ChatApp() {
 
   return (
     <>
-      <CopilotSidebar suggestions="manual" clickOutsideToClose={false} />
+      <CopilotSidebar clickOutsideToClose={false} />
       <StickToBottom className="h-full" resize="smooth" initial="smooth">
         <div className="h-screen w-screen flex flex-col">
           {/* Main Chat Area */}

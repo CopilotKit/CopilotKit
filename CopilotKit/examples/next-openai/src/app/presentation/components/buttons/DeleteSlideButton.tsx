@@ -4,9 +4,9 @@ import { TrashIcon } from "@heroicons/react/24/outline";
 
 interface DeleteSlideButtonProps {
   currentSlideIndex: number;
-  setCurrentSlideIndex: (fn: (i: number) => number) => void;
+  setCurrentSlideIndex: (_fn: (_i: number) => number) => void;
   slides: SlideModel[];
-  setSlides: (fn: (slides: SlideModel[]) => SlideModel[]) => void;
+  setSlides: (_fn: (_slides: SlideModel[]) => SlideModel[]) => void;
 }
 
 export function DeleteSlideButton({
@@ -24,7 +24,7 @@ export function DeleteSlideButton({
           ...slides.slice(0, currentSlideIndex),
           ...slides.slice(currentSlideIndex + 1),
         ]);
-        setCurrentSlideIndex((i) => 0);
+        setCurrentSlideIndex((_i) => 0);
       }}
     >
       <TrashIcon className="h-5 w-5" />
