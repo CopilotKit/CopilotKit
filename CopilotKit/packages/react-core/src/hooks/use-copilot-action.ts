@@ -168,7 +168,6 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
   // Convert parameters to JSON Schema if not already provided
   if (isFrontendAction(action) && !action.jsonSchema && action.parameters) {
     action.jsonSchema = JSON.stringify(actionParametersToJsonSchema(action.parameters));
-    console.log("action.jsonSchema", action.jsonSchema);
   }
 
   // const { currentlyActivatingHitlActionMessageIdRef } = useCopilotContext() as any; // <-- REMOVE THIS FOR NOW

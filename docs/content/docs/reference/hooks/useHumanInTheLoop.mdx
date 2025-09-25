@@ -53,10 +53,10 @@ useHumanInTheLoop({
       );
     }
     
-    if (status === "complete" && args.result) {
+    if (status === "complete" && result) {
       return (
         <div className="p-2 text-sm text-gray-600">
-          {args.result.confirmed ? "Items deleted" : "Deletion cancelled"}
+          {result.confirmed ? "Items deleted" : "Deletion cancelled"}
         </div>
       );
     }
