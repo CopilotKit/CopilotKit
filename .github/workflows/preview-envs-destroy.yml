@@ -48,7 +48,7 @@ jobs:
           version: 9
 
       - name: Infra install dependencies
-        working-directory: infra
+        working-directory: e2e/infra
         run: pnpm i
 
       - name: Set variable UNIQUE_ENV_ID
@@ -57,7 +57,7 @@ jobs:
           echo "UNIQUE_ENV_ID=${{ github.event.number && format('PR{0}', github.event.number) || format('PR{0}', inputs.pr_number) }}" >> "$GITHUB_OUTPUT"
 
       - name: cdk destroy
-        working-directory: ./infra
+        working-directory: ./e2e/infra
         run: cdk destroy --profile default --all --force
         env:
           UNIQUE_ENV_ID: ${{ steps.set_unique_env_id.outputs.UNIQUE_ENV_ID }}

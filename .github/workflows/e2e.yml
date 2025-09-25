@@ -33,7 +33,7 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: Save E2E URLs
-        working-directory: examples/e2e
+        working-directory: e2e
         run: |
           echo "${{ inputs.urls }}" | base64 -d > app-configs.json
 
@@ -47,16 +47,16 @@ jobs:
         with:
           node-version: "22"
           cache: "pnpm"
-          cache-dependency-path: "./examples/e2e/pnpm-lock.yaml"
+          cache-dependency-path: "./e2e/pnpm-lock.yaml"
 
       - name: Install Dependencies
-        working-directory: ./examples/e2e
+        working-directory: ./e2e
         run: |
           pnpm install
           pnpm exec playwright install --with-deps
 
       - name: Print app configs
-        working-directory: examples/e2e
+        working-directory: e2e
         run: |
           cat app-configs.json
 
@@ -90,7 +90,7 @@ jobs:
 
       - name: Run Tests
         id: run_tests
-        working-directory: ./examples/e2e
+        working-directory: ./e2e
         run: |
           pnpm playwright test
           echo "::set-output name=exit_code::$?"
@@ -111,4 +111,4 @@ jobs:
         with:
           pr-number: ${{ inputs.pr_number }}
           comment-tag: test-run-status-update
-          file-path: ./examples/e2e/test-results/test-run-comment.md
+          file-path: ./e2e/test-results/test-run-comment.md

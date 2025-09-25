@@ -17,59 +17,61 @@ jobs:
     strategy:
       matrix:
         app:
-          - {
-              project: "coagents-research-canvas",
-              type: "agent",
-              runtime: "python",
-              deps: "local-deps",
-            }
-          - {
-              project: "coagents-research-canvas",
-              type: "agent",
-              runtime: "js",
-              deps: "local-deps",
-            }
-          - { project: "coagents-research-canvas", type: "ui" }
-          - {
-              project: "coagents-routing",
-              type: "agent",
-              runtime: "python",
-              deps: "local-deps",
-            }
-          - {
-              project: "coagents-routing",
-              type: "agent",
-              runtime: "js",
-              deps: "local-deps",
-            }
-          - { project: "coagents-routing", type: "ui" }
-          - {
-              project: "coagents-qa-text",
-              type: "agent",
-              runtime: "python",
-              deps: "local-deps",
-            }
-          - {
-              project: "coagents-qa-text",
-              type: "agent",
-              runtime: "js",
-              deps: "local-deps",
-            }
-          - { project: "coagents-qa-text", type: "ui" }
-          - {
-              project: "coagents-qa-native",
-              type: "agent",
-              runtime: "python",
-              deps: "local-deps",
-            }
-          - {
-              project: "coagents-qa-native",
-              type: "agent",
-              runtime: "js",
-              deps: "local-deps",
-            }
-          - { project: "coagents-qa-native", type: "ui" }
-          - { project: "next-openai", type: "next-openai" }
+          - project: "coagents-research-canvas"
+            type: "agent"
+            runtime: "python"
+            deps: "local-deps"
+            app_dir: "examples/langgraph/research-canvas/agent"
+          - project: "coagents-research-canvas"
+            type: "agent"
+            runtime: "js"
+            deps: "local-deps"
+            app_dir: "examples/langgraph/research-canvas/agent-js"
+          - project: "coagents-research-canvas"
+            type: "ui"
+            app_dir: "examples/langgraph/research-canvas/ui"
+          - project: "coagents-routing"
+            type: "agent"
+            runtime: "python"
+            deps: "local-deps"
+            app_dir: "e2e/apps/coagents-qa-routing/agent"
+          - project: "coagents-routing"
+            type: "agent"
+            runtime: "js"
+            deps: "local-deps"
+            app_dir: "e2e/apps/coagents-qa-routing/agent-js"
+          - project: "coagents-routing"
+            type: "ui"
+            app_dir: "e2e/apps/coagents-qa-routing/ui"
+          - project: "coagents-qa-text"
+            type: "agent"
+            runtime: "python"
+            deps: "local-deps"
+            app_dir: "e2e/apps/coagents-qa-text/agent"
+          - project: "coagents-qa-text"
+            type: "agent"
+            runtime: "js"
+            deps: "local-deps"
+            app_dir: "e2e/apps/coagents-qa-text/agent-js"
+          - project: "coagents-qa-text"
+            type: "ui"
+            app_dir: "e2e/apps/coagents-qa-text/ui"
+          - project: "coagents-qa-native"
+            type: "agent"
+            runtime: "python"
+            deps: "local-deps"
+            app_dir: "e2e/apps/coagents-qa-native/agent"
+          - project: "coagents-qa-native"
+            type: "agent"
+            runtime: "js"
+            deps: "local-deps"
+            app_dir: "e2e/apps/coagents-qa-native/agent-js"
+          - project: "coagents-qa-native"
+            type: "ui"
+            app_dir: "e2e/apps/coagents-qa-native/ui"
+          - project: "next-openai"
+            type: "next-openai"
+            app_dir: "CopilotKit/apps/next-demo"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -108,7 +110,12 @@ jobs:
 
       - name: (UI) Install app dependencies
         if: matrix.app.type == 'ui'
-        working-directory: examples/${{ matrix.app.project }}/${{ matrix.app.type }}
+        working-directory: ./${{ matrix.app.app_dir }}
+        run: pnpm install --frozen-lockfile
+
+      - name: (next-openai) Install app dependencies
+        if: matrix.app.type == 'next-openai'
+        working-directory: ./${{ matrix.app.app_dir }}
         run: pnpm install --frozen-lockfile
 
       - name: (UI, Local Deps) Install monorepo
@@ -123,22 +130,22 @@ jobs:
 
       - name: (UI, Local Deps) Link @copilotkit packages
         if: matrix.app.type == 'ui'
-        working-directory: ./examples/${{ matrix.app.project }}/${{ matrix.app.type }}
+        working-directory: ./${{ matrix.app.app_dir }}
         run: |
-          for package in $(ls -d ../../../CopilotKit/packages/*); do
+          for package in $(ls -d ${GITHUB_WORKSPACE}/CopilotKit/packages/*); do
             pnpm link $package
           done
 
       - name: (UI) Build app
         if: matrix.app.type == 'ui'
-        working-directory: examples/${{ matrix.app.project }}/${{ matrix.app.type }}
+        working-directory: ./${{ matrix.app.app_dir }}
         run: pnpm run build
         env:
           OPENAI_API_KEY: placeholder
 
       - name: (next-openai) Build app
         if: matrix.app.type == 'next-openai'
-        working-directory: CopilotKit/examples/next-openai
+        working-directory: ./${{ matrix.app.app_dir }}
         run: pnpm run example-build
         env:
           OPENAI_API_KEY: placeholder
@@ -148,8 +155,8 @@ jobs:
         run: |
           docker buildx build \
             -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-ui-${{ github.run_id }} \
-            --build-arg APP_DIR=examples/${{ matrix.app.project }}/${{ matrix.app.type }} \
-            -f ./examples/Dockerfile.${{ matrix.app.type }} \
+            --build-arg APP_DIR=${{ matrix.app.app_dir }} \
+            -f ./e2e/Dockerfile.${{ matrix.app.type }} \
             --platform=linux/amd64 \
             --provenance=false \
             --push \
@@ -162,7 +169,7 @@ jobs:
         run: |
           docker buildx build \
             -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:next-openai-${{ github.run_id }} \
-            -f ./CopilotKit/examples/next-openai/Dockerfile \
+            -f ./CopilotKit/apps/next-demo/Dockerfile \
             --platform=linux/amd64 \
             --provenance=false \
             --push \
@@ -175,8 +182,8 @@ jobs:
         run: |
           docker buildx build \
             -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-agent-python-${{ matrix.app.deps }}-${{ github.run_id }} \
-            --build-arg APP_DIR=examples/${{ matrix.app.project }}/agent \
-            -f ./examples/Dockerfile.agent-python \
+            --build-arg APP_DIR=${{ matrix.app.app_dir }} \
+            -f ./e2e/Dockerfile.agent-python \
             --build-arg WITH_LOCAL_DEPS=${{ matrix.app.deps == 'local-deps' }} \
             --platform=linux/amd64 \
             --provenance=false \
@@ -190,8 +197,8 @@ jobs:
         run: |
           docker buildx build \
             -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-agent-js-${{ matrix.app.deps }}-${{ github.run_id }} \
-            --build-arg APP_DIR=examples/${{ matrix.app.project }}/agent-js \
-            -f ./examples/Dockerfile.agent-js \
+            --build-arg APP_DIR=${{ matrix.app.app_dir }} \
+            -f ./e2e/Dockerfile.agent-js \
             --platform=linux/amd64 \
             --provenance=false \
             --push \
@@ -236,7 +243,7 @@ jobs:
           node-version: 21.x
 
       - name: Infra install dependencies
-        working-directory: infra
+        working-directory: e2e/infra
         run: pnpm i
 
       - name: Install AWS CDK
@@ -256,7 +263,7 @@ jobs:
           aws configure set region us-east-1
 
       - name: cdk deploy
-        working-directory: ./infra
+        working-directory: ./e2e/infra
         run: cdk deploy --profile default --all --require-approval never --outputs-file=cdk_outputs.json --concurrency 10
         env:
           UNIQUE_ENV_ID: "PR${{ github.event.number }}"
@@ -264,13 +271,13 @@ jobs:
           GITHUB_PR_NUMBER: "${{ github.event.number }}"
 
       - name: Print CDK Outputs
-        working-directory: infra
+        working-directory: e2e/infra
         run: |
           cat cdk_outputs.json
 
       - name: Generate table from outputs
         id: generate-table
-        working-directory: infra
+        working-directory: e2e/infra
         run: |
           node generate-table
         env:
@@ -288,11 +295,11 @@ jobs:
         uses: thollander/actions-comment-pull-request@v3
         with:
           comment-tag: preview-status-update
-          file-path: ./infra/preview-comment.md
+          file-path: ./e2e/infra/preview-comment.md
 
       - name: Export Variable - E2E URLs
         id: export-e2e-urls
-        working-directory: infra
+        working-directory: e2e/infra
         run: |
           echo "e2e-urls=$(node get-e2e-tests-urls.js | base64 -w 0)" >> "$GITHUB_OUTPUT"
 
