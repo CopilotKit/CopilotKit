@@ -96,17 +96,17 @@ const config = {
       },
       {
         source: "/coagents/advanced/intermediate-state-streaming",
-        destination: "/coagents/shared-state/predictive-state-updates",
+        destination: "/coagents/streaming/state-streaming",
         permanent: true,
       },
       {
         source: "/coagents/shared-state/intermediate-state-streaming",
-        destination: "/coagents/shared-state/predictive-state-updates",
+        destination: "/coagents/streaming/state-streaming",
         permanent: true,
       },
       {
         source: "/coagents/advanced/manually-emitting-messages",
-        destination: "/coagents/advanced/emit-messages",
+        destination: "/coagents/streaming/manually-emitting-agent-messages",
         permanent: true,
       },
       {

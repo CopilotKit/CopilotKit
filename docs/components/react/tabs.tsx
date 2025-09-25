@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import * as TabsPrimitive from '@radix-ui/react-tabs';
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { useRouter, useSearchParams } from 'next/navigation';
 
 interface TabProps {
@@ -110,14 +109,14 @@ export function Tabs({ items, children, defaultValue, groupId, persist, ...props
   };
 
   return (
-    <TabsPrimitive.Root 
-      className="border rounded-md" 
-      value={value} 
+    <TabsPrimitive.Root
+      className="border rounded-md"
+      value={value}
       onValueChange={handleValueChange}
       {...props}
     >
-      <ScrollArea className="w-full rounded-md rounded-b-none relative bg-secondary dark:bg-secondary/40 border-b">
-        <TabsPrimitive.List className="px-4 py-3 flex" role="tablist">
+      <div className="relative w-full overflow-x-auto rounded-md rounded-b-none bg-secondary dark:bg-secondary/40 border-b">
+        <TabsPrimitive.List className="px-4 py-3 flex w-max min-w-full" role="tablist">
           {normalizedItems.map((item) => (
             <TabsPrimitive.Trigger
               key={item.value}
@@ -139,9 +138,8 @@ export function Tabs({ items, children, defaultValue, groupId, persist, ...props
               {item.value}
             </TabsPrimitive.Trigger>
           ))}
-          <ScrollBar orientation="horizontal" className=""/>
         </TabsPrimitive.List>
-      </ScrollArea>
+      </div>
       {React.Children.map(children, (child) => {
         if (!React.isValidElement(child)) return null;
         return React.cloneElement(child as React.ReactElement<TabProps>);

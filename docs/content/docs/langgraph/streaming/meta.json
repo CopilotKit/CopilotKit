@@ -1,0 +1,10 @@
+{
+  "title": "Streaming",
+  "icon": "lucide/Waves",
+  "pages": [
+    "index",
+    "messages-and-tools",
+    "state-streaming",
+    "manually-emitting-agent-messages"
+  ]
+}

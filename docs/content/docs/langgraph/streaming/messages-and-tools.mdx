@@ -1,0 +1,134 @@
+---
+title: Messages & tools
+icon: "lucide/MessagesSquare"
+description: Troubleshoot LangGraph message and tool streaming in CopilotKit.
+---
+
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+
+## My messages are streaming then disappearing
+
+LangGraph agents are stateful. As a graph is traversed, the state is saved at the end of each node. CopilotKit uses the agent's state as the source of truth for what to display in the frontend chat. However, since state is only emitted at the end of a node, CopilotKit allows you to stream predictive state updates (state streaming) *in the middle of a node*. By default, CopilotKit streams messages and tool calls that are actively generated to the chat that initiated the interaction. **If this predictive state is not persisted at the end of the node, it will disappear from the frontend chat.**
+
+In this situation, the most likely scenario is that the `messages` property in the state is being updated in the middle of a node but those edits are not being persisted at the end of the node.
+
+<img src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/message-state-diagram.png" />
+
+<Accordions>
+    <Accordion title="I want these messages to be persisted">
+        To fix this, you can persist the messages by returning the new messages at the end of the node.
+
+         <Tabs groupId="langgraph-persist-messages" items={["Python", "TypeScript"]}>
+            <Tab value="Python">
+                ```python
+                from copilotkit.langgraph import copilotkit_customize_config
+
+                async def chat_node(state: AgentState, config: RunnableConfig):
+                    # 1) Call the model with CopilotKit's modified config
+                    modifiedConfig = copilotkit_customize_config(config)
+                    model = ChatOpenAI(model="gpt-4o")
+                    response = await model.ainvoke(state["messages"], modifiedConfig)
+
+                    # 2) Make sure to return the new messages
+                    return {
+                        messages: response,
+                    }
+                ```
+            </Tab>
+            <Tab value="TypeScript">
+                ```typescript
+                import { copilotkitCustomizeConfig } from '@copilotkit/sdk-js/langgraph';
+
+                async function chatNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
+                    // 1) Call the model with CopilotKit's modified config
+                    const modifiedConfig = copilotkitCustomizeConfig(config);
+                    const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
+                    const response = await model.invoke(state.messages, modifiedConfig);
+
+                    // 2) Make sure to return the new messages
+                    return {
+                        messages: response,
+                    }
+                }
+                ```
+            </Tab>
+        </Tabs>
+    </Accordion>
+    <Accordion title="I don't want these messages to be streamed at all">
+        In this case, you can reference our document on [disabling streaming](/coagents/advanced/disabling-state-streaming). More specifically,
+        you can use the CopilotKit config to disable emitting messages anywhere you'd like a message to not be streamed.
+
+        <Tabs groupId="langgraph-disable-messages" items={["Python", "TypeScript"]}>
+            <Tab value="Python">
+                ```python
+                from copilotkit.langgraph import copilotkit_customize_config
+
+                async def chat_node(state: AgentState, config: RunnableConfig):
+                    # 1) Configure CopilotKit not to emit messages
+                    modifiedConfig = copilotkit_customize_config(
+                        config,
+                        emit_messages=False, # if you want to disable message streaming
+                    )
+
+                    # 2) Call the model with CopilotKit's modified config
+                    model = ChatOpenAI(model="gpt-4o")
+                    response = await model.ainvoke(state["messages"], modifiedConfig)
+
+                    # 3) Don't return the new response to hide it from the user
+                    return state
+                ```
+            </Tab>
+            <Tab value="TypeScript">
+                ```typescript
+                import { copilotkitCustomizeConfig } from '@copilotkit/sdk-js/langgraph';
+
+                async function chatNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
+                    // 1) Configure CopilotKit not to emit messages
+                    const modifiedConfig = copilotkitCustomizeConfig(config, {
+                        emitMessages: false, // if you want to disable message streaming
+                    });
+
+                    // 2) Call the model with CopilotKit's modified config
+                    const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
+                    const response = await model.invoke(state.messages, modifiedConfig);
+
+                    // 3) Don't return the new response to hide it from the user
+                    return state;
+                }
+                ```
+            </Tab>
+        </Tabs>
+
+        <Callout title="Running a subgraph or LangChain?">
+            Just make sure to pass the modified config we defined above as your `RunnableConfig` for the subgraph or LangChain!
+        </Callout>
+    </Accordion>
+</Accordions>
+
+## My messages are not showing up until the end
+
+If your messages or tool calls are only displayed once the graph finishes, make sure you're invoking the graph asynchronously. When you call `ainvoke`, CopilotKit can stream incremental updates. A synchronous `invoke` call waits for the final result before emitting anything.
+
+<Accordions>
+    <Accordion title="You're using llm.invoke() instead of llm.ainvoke()">
+        When you invoke your LangGraph agent, you can invoke it synchronously or asynchronously. If you invoke it synchronously,
+        the tool calls will not be streamed progressively, only the final result will be streamed. If you invoke it asynchronously,
+        the tool calls will be streamed progressively.
+
+        ```python
+        config = copilotkit_customize_config(config, emit_tool_calls=["say_hello_to"])
+        response = await llm_with_tools.ainvoke(
+            [ SystemMessage(content=system_message), *state["messages"] ],
+            config=config
+        )
+        ```
+    </Accordion>
+</Accordions>
+
+## Tool streaming configuration
+
+You can independently toggle tool streaming using `emit_tool_calls` and disable message streaming with `emit_messages`. Pair these controls with [`state streaming`](./state-streaming) to provide richer progress updates across your UI.
+
+<Callout>
+    Want real-time narration while a node executes? Check out [manually emitting agent messages](./manually-emitting-agent-messages) to push updates before state persists.
+</Callout>

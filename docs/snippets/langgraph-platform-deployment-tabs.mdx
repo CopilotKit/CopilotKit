@@ -1,7 +1,7 @@
 import { Tab } from "../components/react/tabs";
 
-<Tabs groupId="lg-deployment-type" items={['Local (LangGraph Studio)', 'Self hosted (FastAPI)', 'LangGraph Platform']}>
-  <Tab value="Local (LangGraph Studio)">
+<Tabs groupId="lg-deployment-type" items={['LangGraph Platform (Local / Dev)', 'FastAPI (Self-Hosted)', 'LangGraph Platform (Cloud / Self-Hosted)']}>
+  <Tab value="LangGraph Platform (Local / Dev)">
     For local development, you can use the [LangGraph CLI](https://langchain-ai.github.io/langgraph/cloud/reference/cli/) to start a development server and LangGraph studio session.
 
     <Callout type="info">
@@ -46,7 +46,7 @@ import { Tab } from "../components/react/tabs";
 
   </Tab>
 
-  <Tab value="Self hosted (FastAPI)">
+  <Tab value="FastAPI (Self-Hosted)">
     <Callout type="info">
       This method is currently only supported for Python LangGraph agents.
     </Callout>
@@ -102,8 +102,8 @@ import { Tab } from "../components/react/tabs";
 
   </Tab>
 
-  <Tab value="LangGraph Platform">
-    For production, you can deploy to LangGraph Platform by following the official [LangGraph Platform deployment guide](https://langchain-ai.github.io/langgraph/cloud/deployment/cloud/).
+  <Tab value="LangGraph Platform (Cloud / Self-Hosted)">
+    For production, you can deploy to LangGraph Platform (Cloud / Self-Hosted) by following the official [LangGraph Platform deployment guide](https://langchain-ai.github.io/langgraph/cloud/deployment/cloud/).
 
     Come back with that URL and a LangSmith API key before proceeding.
 

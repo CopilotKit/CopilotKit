@@ -1,0 +1,64 @@
+---
+title: Streaming overview
+description: Understand how CopilotKit streams LangGraph messages, tools, and state updates.
+icon: "lucide/Waves"
+---
+
+LangGraph agents are stateful. As a graph is traversed, the state is saved at the end of each node. CopilotKit uses the agent's state as the source of truth for what to display in the frontend chat. However, since state is only emitted at the end of a node, CopilotKit allows you to stream predictive state updates *in the middle of a node*. By default, CopilotKit streams messages and tool calls that are actively generated to the chat that initiated the interaction. **If this predictive state is not persisted at the end of the node, it will disappear from the frontend chat.**
+
+## What can stream in CopilotKit?
+
+- **Messages** — stream intermediate assistant updates so that users see progress in real time.
+- **Tool calls** — surface tool inputs/outputs while the agent works.
+- **State** — emit predictive state updates to power custom UIs and dashboards.
+
+## Controlling streaming via `RunnableConfig`
+
+Streaming behaviour is driven by the `RunnableConfig` that CopilotKit passes into your LangGraph nodes. You can opt-in or out of specific streams on a per-node basis by customizing the config before invoking the LLM.
+
+<Tabs groupId="streaming-config" items={["Python", "TypeScript"]}>
+    <Tab value="Python">
+        ```python
+        from copilotkit.langgraph import copilotkit_customize_config
+        from langchain_openai import ChatOpenAI
+
+        async def chat_node(state: AgentState, config: RunnableConfig):
+            modified_config = copilotkit_customize_config(
+                config,
+                emit_messages=True,
+                emit_tool_calls=["say_hello_to"],
+            )
+
+            model = ChatOpenAI(model="gpt-4o")
+            response = await model.ainvoke(state["messages"], modified_config)
+            return {"messages": response}
+        ```
+    </Tab>
+    <Tab value="TypeScript">
+        ```typescript
+        import { copilotkitCustomizeConfig } from "@copilotkit/sdk-js/langgraph";
+        import { ChatOpenAI } from "@langchain/openai";
+
+        async function chatNode(state: AgentState, config: RunnableConfig) {
+            const modifiedConfig = copilotkitCustomizeConfig(config, {
+                emitMessages: true,
+                emitToolCalls: ["say_hello_to"],
+            });
+
+            const model = new ChatOpenAI({ model: "gpt-4o" });
+            const response = await model.invoke(state.messages, modifiedConfig);
+            return { messages: response };
+        }
+        ```
+    </Tab>
+</Tabs>
+
+<Callout>
+    Looking for examples? Dive into the pages below to see how message, tool, and state streaming work together.
+</Callout>
+
+## Next steps
+
+- [Messages & tools](./messages-and-tools)
+- [State streaming](./state-streaming)
+- [Manually emitting agent messages](./manually-emitting-agent-messages)

@@ -238,8 +238,8 @@ Before you begin, you'll need the following:
                     <Step>
                         ### Add a remote endpoint for your LangGraph agent
                         Using Copilot Cloud, you need to connect a remote endpoint that will connect to your LangGraph agent.
-                        <Tabs groupId="lg-deployment-type" items={['Local (LangGraph Studio)', 'Self hosted (FastAPI)', 'LangGraph Platform']}>
-                            <Tab value="Local (LangGraph Studio)">
+                        <Tabs groupId="lg-deployment-type" items={['LangGraph Platform (Local / Dev)', 'FastAPI (Self-Hosted)', 'LangGraph Platform (Cloud / Self-Hosted)']}>
+                            <Tab value="LangGraph Platform (Local / Dev)">
                                 When running your LangGraph agent locally, you can open a tunnel to it so Copilot Cloud can connect to it.
                                 First, make sure you're logged in to [Copilot Cloud](https://cloud.copilotkit.ai), and then authenticate the CLI by running:
                                 ```bash
@@ -265,7 +265,7 @@ Before you begin, you'll need the following:
                                     </Accordion>
                                 </Accordions>
                             </Tab>
-                            <Tab value="Self hosted (FastAPI)">
+                            <Tab value="FastAPI (Self-Hosted)">
                                 **Running your FastAPI server locally**
 
                                 If you're running your FastAPI server locally, you can open a tunnel to it so Copilot Cloud can connect to it.
@@ -297,7 +297,7 @@ Before you begin, you'll need the following:
                                     </Accordion>
                                 </Accordions>
                             </Tab>
-                            <Tab value="LangGraph Platform">
+                            <Tab value="LangGraph Platform (Cloud / Self-Hosted)">
                                 Head over to [Copilot Cloud](https://cloud.copilotkit.ai) sign up and setup a remote endpoint to LangGraph Platform with the following information:
                                 - OpenAI API key
                                 - LangSmith API key

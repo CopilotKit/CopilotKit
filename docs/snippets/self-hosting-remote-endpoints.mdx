@@ -5,8 +5,8 @@ import { SiNestjs } from "react-icons/si";
 import { RiNextjsLine } from "react-icons/ri";
 import { Tab } from "../components/react/tabs";
 
-<Tabs groupId="lg-deployment-type" items={["Local (LangGraph Studio)", "Self hosted (FastAPI)", "LangGraph Platform"]}>
-  <Tab value="Local (LangGraph Studio)">
+<Tabs groupId="lg-deployment-type" items={["LangGraph Platform (Local / Dev)", "FastAPI (Self-Hosted)", "LangGraph Platform (Cloud / Self-Hosted)"]}>
+  <Tab value="LangGraph Platform (Local / Dev)">
     ```ts
     import { 
       CopilotRuntime,
@@ -27,7 +27,7 @@ import { Tab } from "../components/react/tabs";
     // ...
     ```
   </Tab>
-  <Tab value="Self hosted (FastAPI)">
+  <Tab value="FastAPI (Self-Hosted)">
     ```ts
     import { 
       CopilotRuntime,
@@ -46,7 +46,7 @@ import { Tab } from "../components/react/tabs";
     ```
   </Tab>
 
-  <Tab value="LangGraph Platform">
+  <Tab value="LangGraph Platform (Cloud / Self-Hosted)">
     ```ts
     import { 
       CopilotRuntime,
