@@ -881,6 +881,7 @@ describe("message-conversion", () => {
           },
         ],
         generativeUI: expect.any(Function),
+        generativeUIProps: expect.any(Function),
         name: "testAction",
       });
     });
@@ -917,6 +918,7 @@ describe("message-conversion", () => {
           },
         ],
         generativeUI: expect.any(Function),
+        generativeUIProps: expect.any(Function),
         name: "unknownAction",
       });
     });
@@ -1024,6 +1026,7 @@ describe("message-conversion", () => {
           },
         ],
         generativeUI: expect.any(Function),
+        generativeUIProps: expect.any(Function),
         name: "specificAction",
       });
     });
@@ -1125,6 +1128,7 @@ describe("message-conversion", () => {
           },
         ],
         generativeUI: expect.any(Function),
+        generativeUIProps: expect.any(Function),
         name: "testAction",
       });
     });
@@ -1162,6 +1166,7 @@ describe("message-conversion", () => {
           },
         ],
         generativeUI: expect.any(Function),
+        generativeUIProps: expect.any(Function),
         name: "testAction",
       });
     });
@@ -1199,6 +1204,7 @@ describe("message-conversion", () => {
           },
         ],
         generativeUI: expect.any(Function),
+        generativeUIProps: expect.any(Function),
         name: "testAction",
       });
     });
@@ -1236,6 +1242,7 @@ describe("message-conversion", () => {
           },
         ],
         generativeUI: expect.any(Function),
+        generativeUIProps: expect.any(Function),
         name: "testAction",
       });
     });
@@ -1273,6 +1280,7 @@ describe("message-conversion", () => {
           },
         ],
         generativeUI: expect.any(Function),
+        generativeUIProps: expect.any(Function),
         name: "testAction",
       });
     });
@@ -1309,6 +1317,7 @@ describe("message-conversion", () => {
           },
         ],
         generativeUI: expect.any(Function),
+        generativeUIProps: expect.any(Function),
         name: "testAction",
       });
     });
@@ -1345,6 +1354,7 @@ describe("message-conversion", () => {
           },
         ],
         generativeUI: expect.any(Function),
+        generativeUIProps: expect.any(Function),
         name: "testAction",
       });
     });
@@ -1393,6 +1403,7 @@ describe("message-conversion", () => {
           },
         ],
         generativeUI: expect.any(Function),
+        generativeUIProps: expect.any(Function),
         name: "testAction",
       });
     });
@@ -1433,6 +1444,7 @@ describe("message-conversion", () => {
           },
         ],
         generativeUI: expect.any(Function),
+        generativeUIProps: expect.any(Function),
         name: "unknownAction",
       });
     });
