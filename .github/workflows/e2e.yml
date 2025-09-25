@@ -1,114 +1,188 @@
-name: End to End Tests
+name: E2E Applications
 
 on:
-  workflow_call:
-    inputs:
-      ref:
-        type: string
-        required: true
-      sha:
-        type: string
-        required: false
-      urls:
-        type: string
-        required: false
-      pr_number:
-        type: number
-        required: true
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
 
 jobs:
-  e2e_tests:
-    name: E2E Tests
+  e2e:
+    name: ${{ matrix.app.display_name }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      checks: write
-      contents: read
-      pull-requests: write
-      statuses: write
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        app:
+          - name: research-canvas
+            display_name: Research Canvas
+            project: coagents-research-canvas
+            description: Local Research Canvas
+            ui_dir: examples/langgraph/research-canvas/ui
+            agent_dir: examples/langgraph/research-canvas/agent
+            agent_health: http://127.0.0.1:8000/health
+            port: 3000
+            agent_port: 8000
+            remote_action_url: http://127.0.0.1:8000/copilotkit
+            test_grep: coagents-research-canvas
+          - name: routing
+            display_name: Routing Demo
+            project: coagents-routing
+            description: Local Routing Demo
+            ui_dir: e2e/apps/coagents-qa-routing/ui
+            agent_dir: e2e/apps/coagents-qa-routing/agent
+            agent_health: http://127.0.0.1:8000/health
+            port: 3000
+            agent_port: 8000
+            remote_action_url: http://127.0.0.1:8000/copilotkit
+            test_grep: coagents-routing
+          - name: qa-text
+            display_name: QA Text Demo
+            project: coagents-qa-text
+            description: Local QA Text
+            ui_dir: e2e/apps/coagents-qa-text/ui
+            agent_dir: e2e/apps/coagents-qa-text/agent
+            agent_health: http://127.0.0.1:8000/health
+            port: 3000
+            agent_port: 8000
+            remote_action_url: http://127.0.0.1:8000/copilotkit
+            test_grep: coagents-qa-text
+          - name: qa-native
+            display_name: QA Native Demo
+            project: coagents-qa-native
+            description: Local QA Native
+            ui_dir: e2e/apps/coagents-qa-native/ui
+            agent_dir: e2e/apps/coagents-qa-native/agent
+            agent_health: http://127.0.0.1:8000/health
+            port: 3000
+            agent_port: 8000
+            remote_action_url: http://127.0.0.1:8000/copilotkit
+            test_grep: coagents-qa-native
+          - name: next-openai
+            display_name: Next OpenAI Demo
+            project: next-openai
+            description: Local Next OpenAI
+            ui_dir: CopilotKit/apps/next-demo
+            agent_dir: ''
+            agent_health: ''
+            port: 3000
+            agent_port: 8000
+            remote_action_url: ''
+            test_grep: next-openai
+
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+      COPILOT_CLOUD_PROD_PUBLIC_API_KEY: ${{ secrets.COPILOT_CLOUD_PROD_PUBLIC_API_KEY }}
+      COPILOT_CLOUD_STAGING_PUBLIC_API_KEY: ${{ secrets.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.ref }}
-
-      - name: Save E2E URLs
-        working-directory: e2e
-        run: |
-          echo "${{ inputs.urls }}" | base64 -d > app-configs.json
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
-          version: 8
+          version: 10.13.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "pnpm"
-          cache-dependency-path: "./e2e/pnpm-lock.yaml"
+          node-version: 22
+          cache: 'pnpm'
 
-      - name: Install Dependencies
-        working-directory: ./e2e
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
+
+      - name: Install Playwright dependencies
+        working-directory: e2e
         run: |
           pnpm install
           pnpm exec playwright install --with-deps
 
-      - name: Print app configs
+      - name: Install monorepo dependencies
+        working-directory: CopilotKit
+        run: pnpm install --frozen-lockfile
+
+      - name: Install agent dependencies
+        if: matrix.app.agent_dir != ''
+        working-directory: ${{ matrix.app.agent_dir }}
+        run: poetry install --no-interaction --no-ansi
+
+      - name: Install UI dependencies
+        working-directory: ${{ matrix.app.ui_dir }}
+        run: pnpm install --frozen-lockfile
+
+      - name: Start agent
+        if: matrix.app.agent_dir != ''
+        uses: JarvusInnovations/background-action@v1
+        env:
+          PORT: ${{ matrix.app.agent_port }}
+        with:
+          working-directory: ${{ matrix.app.agent_dir }}
+          run: poetry run demo
+          wait-on: |
+            ${{ matrix.app.agent_health }}
+            tcp:127.0.0.1:${{ matrix.app.agent_port }}
+
+      - name: Start application
+        uses: JarvusInnovations/background-action@v1
+        env:
+          PORT: ${{ matrix.app.port }}
+          REMOTE_ACTION_URL: ${{ matrix.app.remote_action_url }}
+          NEXT_PUBLIC_COPILOTKIT_PUBLIC_API_KEY: ${{ secrets.COPILOT_CLOUD_PROD_PUBLIC_API_KEY }}
+          SKIP_ENV_VALIDATION: "true"
+          NODE_ENV: development
+        with:
+          working-directory: ${{ matrix.app.ui_dir }}
+          run: pnpm run dev -- --hostname 0.0.0.0 --port ${{ matrix.app.port }}
+          wait-on: |
+            http://127.0.0.1:${{ matrix.app.port }}
+
+      - name: Prepare app configs
+        run: |
+          cat <<'JSON' > e2e/app-configs.json
+          {
+            "local": {
+              "url": "http://127.0.0.1:${{ matrix.app.port }}",
+              "description": "${{ matrix.app.description }}",
+              "projectName": "${{ matrix.app.project }}"
+            }
+          }
+          JSON
+
+      - name: Reset test results directory
+        run: |
+          rm -rf e2e/test-results
+          mkdir -p e2e/test-results
+
+      - name: Run Playwright tests
         working-directory: e2e
-        run: |
-          cat app-configs.json
-
-      - name: Delete a comment
-        uses: thollander/actions-comment-pull-request@v3
-        with:
-          pr-number: ${{ inputs.pr_number }}
-          comment-tag: test-run-status-update
-          mode: delete
-
-      - name: Comment before running tests
-        uses: thollander/actions-comment-pull-request@v3
-        with:
-          pr-number: ${{ inputs.pr_number }}
-          comment-tag: test-run-status-update
-          message: |
-            Running tests for commit ${{ inputs.sha }}...
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-
-      - name: Configure AWS Profile
-        run: |
-          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile default
-          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile default
-          aws configure set region us-east-1
-
-      - name: Run Tests
-        id: run_tests
-        working-directory: ./e2e
-        run: |
-          pnpm playwright test
-          echo "::set-output name=exit_code::$?"
+        run: pnpm playwright test --grep "${{ matrix.app.test_grep }}"
         env:
           CI: true
-          GITHUB_SHA: ${{ github.sha }}
-          COPILOT_CLOUD_PROD_RUNTIME_URL: "https://api.cloud.copilotkit.ai/copilotkit/v1"
-          COPILOT_CLOUD_PROD_PUBLIC_API_KEY: ${{ secrets.COPILOT_CLOUD_PROD_PUBLIC_API_KEY }}
-          COPILOT_CLOUD_STAGING_RUNTIME_URL: "https://api.cloud.stagingcopilotkit.ai/copilotkit/v1"
-          COPILOT_CLOUD_STAGING_PUBLIC_API_KEY: ${{ secrets.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_ACTIONS_RUN_ID: ${{ github.run_id }}
 
-      - name: Comment post-deployment
+      - name: Upload results
         if: always()
-        uses: thollander/actions-comment-pull-request@v3
+        uses: actions/upload-artifact@v4
         with:
-          pr-number: ${{ inputs.pr_number }}
-          comment-tag: test-run-status-update
-          file-path: ./e2e/test-results/test-run-comment.md
+          name: playwright-${{ matrix.app.name }}-${{ github.run_id }}
+          path: e2e/test-results
+          retention-days: 7
