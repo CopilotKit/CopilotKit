@@ -96,6 +96,7 @@ you can ensure that the agent is always making the right decisions and ultimatel
             parameters: [
               { name: "draft", type: "string", description: "The draft of the essay", required: true },
             ],
+            followUp: false,
             // [!code highlight:25]
             renderAndWaitForResponse: ({ args, respond, status }) => {
               return (
@@ -135,9 +136,9 @@ you can ensure that the agent is always making the right decisions and ultimatel
     </Step>
 
     <Step>
-        ### Give it a try!
-        Try asking your agent to write an essay about the benefits of AI. You'll see that it will generate an essay,
-        stream the progress and eventually ask you to review it.
+    ### Give it a try!
+    Try asking your agent to write an essay about the benefits of AI. You'll see that it will generate an essay,
+    stream the progress and eventually ask you to review it.
     </Step>
 
 </Steps>
