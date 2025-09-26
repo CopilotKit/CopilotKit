@@ -13,7 +13,6 @@
     "generative-ui",
     "shared-state",
     "frontend-actions",
-    "multi-agent-flows",
     "persistence",
     "---Premium Features---",
     "...premium",

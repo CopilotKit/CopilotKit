@@ -82,7 +82,7 @@ state update you can reflect these updates natively in your application.
     export const languageAgent = new Agent({
       name: "Language Agent",
       model: openai("gpt-4o"),
-      instructions: "You are a helpful assistant that can help the user with their language.",
+      instructions: "Always communicate in the preferred language of the user as defined in your working memory. Do not communicate in any other language.",
       memory: new Memory({
         storage: new LibSQLStore({ url: "file::memory:" }),
         options: {
@@ -107,7 +107,7 @@ state update you can reflect these updates natively in your application.
 
     function YourMainContent() {
       const { state } = useCoAgent<AgentState>({ // [!code highlight:5]
-        name: "language_agent",
+          name: "your-mastra-agent-name",
         // optionally provide a type-safe initial state
         initialState: { language: "spanish" }  
       });
@@ -152,7 +152,7 @@ function YourMainContent() {
   // ...
   // [!code highlight:8]
   useCoAgentStateRender({
-    name: "sample_agent",
+    name: "your-mastra-agent-name",
     render: ({ state }) => {
       if (!state.language) return null;
       return <div>Language: {state.language}</div>;
