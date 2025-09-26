@@ -55,7 +55,7 @@ export interface CopilotObservabilityHooks {
   onError?: (errorEvent: CopilotErrorEvent) => void;
 }
 
-export interface ButtonProps {}
+export interface ButtonProps { }
 
 export interface WindowProps {
   clickOutsideToClose: boolean;
@@ -64,7 +64,7 @@ export interface WindowProps {
   children?: React.ReactNode;
 }
 
-export interface HeaderProps {}
+export interface HeaderProps { }
 
 export interface SuggestionsProps {
   title: string;
@@ -82,6 +82,9 @@ export interface MessagesProps {
   messages: Message[];
   inProgress: boolean;
   children?: React.ReactNode;
+  canRegenerateAssistantMessage?: AssistantMessageProps["canRegenerate"];
+  canCopyAssistantMessage?: AssistantMessageProps["canCopy"];
+  disableFirstAssistantMessageControls?: AssistantMessageProps["disableFirstMessageControls"];
   chatError?: ChatError | null;
   AssistantMessage: React.ComponentType<AssistantMessageProps>;
   UserMessage: React.ComponentType<UserMessageProps>;
@@ -206,6 +209,27 @@ export interface AssistantMessageProps {
   markdownTagRenderers?: ComponentsMap;
 
   /**
+   * Whether the assistant's response can be regenerated.
+   */
+  canRegenerate?: boolean;
+
+  /**
+   * Whether the message can be copied.
+   */
+  canCopy?: boolean;
+
+  /**
+   * Whether the first assistant message has its controls disabled.
+   * The controls are the buttons for thumbs up, thumbs down, copy, and regenerate.
+   */
+  disableFirstMessageControls?: boolean;
+
+  /**
+   * The index of the message in the message list.
+   */
+  index?: number;
+
+  /**
    * A custom image rendering component to use instead of the default.
    */
   ImageRenderer?: React.ComponentType<ImageRendererProps>;
@@ -294,6 +318,22 @@ export interface RenderMessageProps {
    * Useful when you want to render custom elements in the message (e.g a reference tag element)
    */
   markdownTagRenderers?: ComponentsMap;
+
+  /**
+   * Whether the assistant's response can be regenerated.
+   */
+  canRegenerateAssistantMessage?: AssistantMessageProps["canRegenerate"];
+
+  /**
+   * Whether the message can be copied.
+   */
+  canCopyAssistantMessage?: AssistantMessageProps["canCopy"];
+
+  /**
+   * Whether the first assistant message has its controls disabled.
+   * The controls are the buttons for thumbs up, thumbs down, copy, and regenerate.
+   */
+  disableFirstAssistantMessageControls?: AssistantMessageProps["disableFirstMessageControls"];
 }
 
 export interface InputProps {
