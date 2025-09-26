@@ -18,6 +18,18 @@ import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
 
 You can easily use the realtime agent state not only in the chat UI, but also in the native application UX.
 
+<Callout type="info" title="Important">
+  This guide assumes you are embedding your Mastra agent inside of Copilot Runtime, like so.
+
+  ```ts
+  const runtime = new CopilotRuntime({
+    agents: MastraAgent.getLocalAgents({ mastra }),
+  });
+  ```
+
+  This feature will **not work** if you are using a **remote Mastra agent**.
+</Callout>
+
 ## When should I use this?
 
 You can use this when you want to provide the user with feedback about what your working memory. As your agent's 
