@@ -766,9 +766,9 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             // execute that action first, and then the "paired FE action"
             if (action && message.isActionExecutionMessage()) {
               // For HITL actions, check if they've already been processed to avoid redundant handler calls.
-              const isRenderAndWaitAction = (action as any)?._isRenderAndWait || false;
+              const pairedFeAction = getPairedFeAction(actions, message);
               const alreadyProcessed =
-                isRenderAndWaitAction &&
+                !pairedFeAction &&
                 finalMessages.some(
                   (fm) => fm.isResultMessage() && fm.actionExecutionId === message.id,
                 );
