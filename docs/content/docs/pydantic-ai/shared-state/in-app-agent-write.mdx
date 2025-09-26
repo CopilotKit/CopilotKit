@@ -49,23 +49,31 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
         from pydantic_ai.ag_ui import StateDeps
         from ag_ui.core import StateSnapshotEvent, EventType
 
+
         class AgentState(BaseModel):
             """State for the agent."""
+
             language: str = "english"
 
-        agent = Agent('openai:gpt-4o-mini', deps_type=StateDeps[AgentState])
+
+        agent = Agent("openai:gpt-4o-mini", deps_type=StateDeps[AgentState])
+
 
         @agent.tool_plain
         def update_language(language: str) -> StateSnapshotEvent:
             """Update the language of the agent."""
             updated_state = {"language": language}
 
-            return StateSnapshotEvent(
-                type=EventType.STATE_SNAPSHOT,
-                snapshot=updated_state
-            )
+            return StateSnapshotEvent(type=EventType.STATE_SNAPSHOT, snapshot=updated_state)
+
 
         app = agent.to_ag_ui(deps=StateDeps(AgentState()))
+
+
+        if __name__ == "__main__":
+            import uvicorn
+
+            uvicorn.run(app, host="0.0.0.0", port=8000)
         ```
       </Tab>
     </Tabs>
