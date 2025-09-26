@@ -48,7 +48,12 @@ export function AGUIBanner() {
   return (
     <Banner className="w-full text-white bg-indigo-500 dark:bg-indigo-900 h-24 sm:h-14 !important" variant="rainbow" id="agui-banner">
       <p className="w-3/4">
-        CopilotKit and our framework partners have launched the AG-UI (Agent-User Interaction) protocol! <Link href="/ag-ui-protocol" target="_blank" className="underline" rel="noopener noreferrer">Learn more</Link>.
+        <span className="hidden md:inline">
+          CopilotKit and our framework partners have launched the AG-UI (Agent-User Interaction) protocol! <Link href="/ag-ui-protocol" target="_blank" className="underline" rel="noopener noreferrer">Learn more</Link>.
+        </span>
+        <span className="md:hidden">
+          CopilotKit and partners have launched AG-UI! <Link href="/ag-ui-protocol" target="_blank" className="underline" rel="noopener noreferrer">Learn More</Link>.
+        </span>
       </p>
     </Banner>
   )

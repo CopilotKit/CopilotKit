@@ -402,7 +402,7 @@ export function TopNav() {
     const bannerContainer = document.querySelector('body') || document.documentElement;
     bannerContainerObserver.observe(bannerContainer, { 
       childList: true, 
-      subtree: true,
+      subtree: true, 
       attributes: true,
       attributeFilter: ['style', 'class', 'hidden']
     });
@@ -429,8 +429,8 @@ export function TopNav() {
     if (fumadocsNav) {
       const navObserver = new MutationObserver(calculateOffsets);
       navObserver.observe(fumadocsNav, { 
-        attributes: true, 
-        attributeFilter: ['style', 'class'] 
+      attributes: true, 
+      attributeFilter: ['style', 'class'] 
       });
       observers.push(navObserver);
 
@@ -735,6 +735,7 @@ export function TopNav() {
           rel="noopener noreferrer"
           className="flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
           title="Copilot Cloud"
+          suppressHydrationWarning={true}
         >
           <CloudIcon className="w-4 h-4" />
           {desktopNavState === 'minimal' ? null : (
@@ -825,6 +826,7 @@ export function TopNav() {
                   rel="noopener noreferrer"
                   className="flex items-center space-x-1 px-2 py-1 rounded text-sm transition-colors text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
                   title="Copilot Cloud"
+                  suppressHydrationWarning={true}
                 >
                   <CloudIcon className="w-4 h-4" />
                   {mobileNavState === 'compact' ? null : <span>Cloud</span>}
