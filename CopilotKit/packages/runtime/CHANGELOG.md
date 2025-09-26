@@ -1,5 +1,24 @@
 # @copilotkit/runtime
 
+## 1.10.5-next.10
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.5-next.10
+
+## 1.10.5-next.9
+
+### Patch Changes
+
+- f199c94: - feat: update agui packages
+  - @copilotkit/shared@1.10.5-next.9
+
+## 1.10.5-next.8
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.5-next.8
+
 ## 1.10.5-next.7
 
 ### Patch Changes

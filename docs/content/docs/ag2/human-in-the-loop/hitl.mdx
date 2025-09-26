@@ -5,7 +5,6 @@ icon: lucide/Share2
 ---
 
 import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
 
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/node-hitl.mp4"
@@ -17,9 +16,6 @@ import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
   muted
 />
 
-<Callout type="info">
-The illustration above is from the [CoAgent Starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter), included here for demonstration purposes.
-</Callout>
 
 ## What is Human-in-the-Loop?
 
@@ -196,7 +192,7 @@ def create_itinerary(
     """Create a realistic, personalized travel itinerary based on member details."""
     # This function will require human approval before execution
     # because it's generating content that should be reviewed
-    
+
     if not destination or days <= 0:
         return {"error": "Invalid destination or number of days."}
 
@@ -279,14 +275,14 @@ def hitl_workflow(ui: UI, params: dict[str, Any]) -> str:
         recipient="User",
         prompt=INITIAL_MESSAGE,
     )
-    
+
     # Create the travel agent
     with llm_config:
         travel_agent = ConversableAgent(
                 name="travel_agent",
                 system_message=SYSTEM_MESSAGE
             )
-        
+
     # Create the customer agent (human input)
     customer = ConversableAgent(
         name="customer",

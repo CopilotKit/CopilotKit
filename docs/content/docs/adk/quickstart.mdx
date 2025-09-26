@@ -11,15 +11,11 @@ import {
 import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
 import { CoAgentsDiagram } from "@/components/react/coagents/coagents-diagram.tsx";
 import { FaPython, FaJs, FaCloud } from "react-icons/fa";
-import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
-import CopilotCloudConfigureRemoteEndpointLangGraph from "@/snippets/copilot-cloud-configure-remote-endpoint-langgraph.mdx";
 import CopilotKitCloudCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
-import LangGraphPlatformDeploymentTabs from "@/snippets/langgraph-platform-deployment-tabs.mdx";
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import FindYourCopilotRuntime from "@/snippets/find-your-copilot-runtime.mdx";
 import CloudCopilotKitProvider from "@/snippets/coagents/cloud-configure-copilotkit-provider.mdx";
 import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/coagents/self-host-configure-copilotkit-provider.mdx";
-import SelfHostingCopilotRuntimeLangGraphEndpoint from "@/snippets/self-hosting-copilot-runtime-langgraph-endpoint.mdx";
 import SelfHostingCopilotRuntimeStarter from "@/snippets/self-hosting-copilot-runtime-starter.mdx";
 import SelfHostingRemoteEndpoints from "@/snippets/self-hosting-remote-endpoints.mdx";
 import { ADKIcon } from "@/lib/icons/custom-icons";
@@ -46,7 +42,7 @@ import CopilotUI from "@/snippets/copilot-ui.mdx";
 
 Before you begin, you'll need the following:
 
-- [**OpenAI API key**](https://platform.openai.com/api-keys)
+- [**Gemini API Key**](https://makersuite.google.com/app/apikey)
 
 ## Getting started
 
@@ -86,7 +82,6 @@ Before you begin, you'll need the following:
             </Step>
             <Step>
                 ### Mount your Google API key
-                Your agent will need an LLM to talk to. This example uses OpenAI, but you can use any LLM provider you want.
 
                 ```bash
                 export GOOGLE_API_KEY=your_google_api_key

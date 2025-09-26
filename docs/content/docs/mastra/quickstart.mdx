@@ -44,7 +44,7 @@ import CopilotUI from "@/snippets/copilot-ui.mdx";
 Before you begin, you'll need the following:
 
 - An OpenAI API key
-- Node.js 18+
+- Node.js 20+
 - Your favorite package manager
 
 ## Getting started
@@ -63,17 +63,17 @@ Before you begin, you'll need the following:
         }
     >
         <TailoredContentOption
-            id="coagents-starter"
-            title="Start with our template"
-            description="Get started quickly with our pre-configured starter template."
-            icon={<img src="https://cdn.copilotkit.ai/docs/copilotkit/images/copilotkit-logo.svg" alt="CopilotKit Logo" width={20} height={20} />}
+            id="starter"
+            title="Start from scratch"
+            description="Get started quickly with our ready-to-go starter application."
         >
             <Step>
-                ### Clone the starter template
+                ### Run our CLI
+
+                First, we'll use our CLI to create a new project for us.
 
                 ```bash
-                git clone https://github.com/CopilotKit/coagents-starter-mastra
-                cd coagents-starter-mastra
+                npx copilotkit@latest create -f mastra
                 ```
             </Step>
             <Step>
@@ -126,22 +126,17 @@ Before you begin, you'll need the following:
         </TailoredContentOption>
         <TailoredContentOption
             id="bring-your-own"
-            title="Integrate with existing agent"
+            title="Use an existing agent"
             description="I already have a Mastra Agent and want to add CopilotKit."
-            icon={<img src="https://cdn.copilotkit.ai/docs/copilotkit/images/copilotkit-logo.svg" alt="CopilotKit Logo" width={20} height={20} />}
         >
             <Step>
                 ### Frontend Setup
-                CopilotKit works with any React-based frontend. If you don't have one yet, you can create a new Next.js app:
+                CopilotKit works with any React-based frontend. We'll use Next.js for this example.
 
                 ```bash
                 npx create-next-app@latest my-copilot-app
                 cd my-copilot-app
                 ```
-
-                <Callout type="info" title="What about other frameworks?">
-                    While we recommend Next.js for its simplicity and features, CopilotKit will work with any React framework (Vite, Remix, Tanstack, etc.) or custom React setup.
-                </Callout>
             </Step>
             <Step>
                 ### Install CopilotKit packages
@@ -162,31 +157,27 @@ Before you begin, you'll need the following:
                   ExperimentalEmptyAdapter,
                   copilotRuntimeNextJSAppRouterEndpoint,
                 } from "@copilotkit/runtime";
-                // [!code highlight:3]
+                import { NextRequest } from "next/server";
+                // [!code highlight:4]
                 import { MastraAgent } from "@ag-ui/mastra"
                 import { MastraClient } from "@mastra/client-js";
-                import { NextRequest } from "next/server";
+                import { mastra } from "@/mastra"; // the path to your existing Mastra instance
 
-                // 1. Base address for the Mastra server
-                const MASTRA_URL = process.env.MASTRA_URL || "http://localhost:4111";
-                
-                // 2. You can use any service adapter here for multi-agent support. We use
-                //    the empty adapter since we're only using one agent.
+                // 1. Service adapter for multi-agent support (using empty adapter for this example)
                 const serviceAdapter = new ExperimentalEmptyAdapter();
-
-                // [!code highlight:8]
-                // 3. Create the CopilotRuntime instance and utilize the Mastra AG-UI
-                //    integration to get the remote agents.
+                
+                // 2. Create the CopilotRuntime instance and utilize the Mastra AG-UI
+                //    integration to connect to your existing agent.
+                // [!code highlight:4]
                 const runtime = new CopilotRuntime({
-                  agents: await MastraAgent.getRemoteAgents({
-                    mastraClient: new MastraClient({ baseUrl: MASTRA_URL }),
-                  }),
+                  agents: MastraAgent.getLocalAgents({ mastra }),
                 });
 
-                // 4. Build a Next.js API route that handles the CopilotKit runtime requests.
+                // 3. Build a Next.js API route that handles the CopilotKit runtime requests.
                 export const POST = async (req: NextRequest) => {
                   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-                    runtime, // [!code highlight]
+                    // [!code highlight:2]
+                    runtime,
                     serviceAdapter,
                     endpoint: "/api/copilotkit",
                   });
@@ -194,34 +185,6 @@ Before you begin, you'll need the following:
                   return handleRequest(req);
                 };
                 ```
-            </Step>
-            <Step>
-                ### Configure Mastra to accept requests from CopilotKit
-
-                If you're running CopilotKit on a different domain than your Mastra server, you'll need to configure Mastra to accept CORS requests.
-
-                ```ts title="mastra/index.ts"
-                import { Mastra } from "@mastra/core/mastra";
-
-                const ENV = process.env.NODE_ENV || "development";
-
-                export const mastra = new Mastra({
-                  // ...
-                  server: {
-                    // [!code highlight:7]
-                    // Disable CORS for development
-                    cors: ENV === "development" ? {
-                      origin: "*",
-                      allowMethods: ["*"],
-                      allowHeaders: ["*"],
-                    } : undefined,
-                  },
-                });
-                ```
-
-                <Callout type="info" title="Want some other runtime hosting options?">
-                  Checkout the [Mastra integration guide](https://mastra.ai/en/docs/frameworks/copilotkit) for more advanced configuration options.
-                </Callout>
             </Step>
             <Step>
                 ### Configure CopilotKit Provider

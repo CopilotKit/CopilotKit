@@ -18,6 +18,18 @@ import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
 
 You can easily use the realtime agent state not only in the chat UI, but also in the native application UX.
 
+<Callout type="info" title="Important">
+  This guide assumes you are embedding your Mastra agent inside of Copilot Runtime, like so.
+
+  ```ts
+  const runtime = new CopilotRuntime({
+    agents: MastraAgent.getLocalAgents({ mastra }),
+  });
+  ```
+
+  This feature will **not work** if you are using a **remote Mastra agent**.
+</Callout>
+
 ## When should I use this?
 
 You can use this when you want to provide the user with feedback about what your working memory. As your agent's 
@@ -70,7 +82,7 @@ state update you can reflect these updates natively in your application.
     export const languageAgent = new Agent({
       name: "Language Agent",
       model: openai("gpt-4o"),
-      instructions: "You are a helpful assistant that can help the user with their language.",
+      instructions: "Always communicate in the preferred language of the user as defined in your working memory. Do not communicate in any other language.",
       memory: new Memory({
         storage: new LibSQLStore({ url: "file::memory:" }),
         options: {
@@ -95,7 +107,7 @@ state update you can reflect these updates natively in your application.
 
     function YourMainContent() {
       const { state } = useCoAgent<AgentState>({ // [!code highlight:5]
-        name: "language_agent",
+          name: "your-mastra-agent-name",
         // optionally provide a type-safe initial state
         initialState: { language: "spanish" }  
       });
@@ -140,7 +152,7 @@ function YourMainContent() {
   // ...
   // [!code highlight:8]
   useCoAgentStateRender({
-    name: "sample_agent",
+    name: "your-mastra-agent-name",
     render: ({ state }) => {
       if (!state.language) return null;
       return <div>Language: {state.language}</div>;

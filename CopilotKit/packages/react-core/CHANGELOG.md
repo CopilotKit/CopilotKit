@@ -1,5 +1,27 @@
 # ui
 
+## 1.10.5-next.10
+
+### Patch Changes
+
+- b79ed5c: - fix: prevent double action calls on none render copilot actions
+  - @copilotkit/runtime-client-gql@1.10.5-next.10
+  - @copilotkit/shared@1.10.5-next.10
+
+## 1.10.5-next.9
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.5-next.9
+- @copilotkit/shared@1.10.5-next.9
+
+## 1.10.5-next.8
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.5-next.8
+- @copilotkit/shared@1.10.5-next.8
+
 ## 1.10.5-next.7
 
 ### Patch Changes

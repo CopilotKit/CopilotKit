@@ -165,13 +165,23 @@ export function NavigationLink({
   const normalizeHref = (input: string): string => {
     if (!input || typeof input !== 'string') return input;
     if (!input.startsWith('/')) return input; // already relative or external
-    const currentTop = (pathname.split('/')[1] || '').trim();
-    const targetTop = (input.split('/')[1] || '').trim();
-    if (currentTop && targetTop && currentTop === targetTop) {
-      const rest = input.split('/').slice(2).join('/');
-      return rest ? `./${rest}` : './';
+
+    const currentSplit = pathname.split('/').filter(x => x);
+    const targetSplit = input.split('/').filter(x => x);
+    while (currentSplit.length > 1 && targetSplit.length > 1 && currentSplit[0] === targetSplit[0]) {
+      currentSplit.shift();
+      targetSplit.shift();
     }
-    return input;
+
+    let rel = '';
+    for (let i = 0; i < currentSplit.length - 1; i++) {
+      rel += '../';
+    }
+    if (rel === '') {
+      rel = './';
+    }
+    rel += targetSplit.join('/');
+    return rel;
   };
 
   const renderedHref = normalizeHref(href);

@@ -3,12 +3,11 @@ title: Agentic Generative UI
 icon: "lucide/Bot"
 description: Render the state of your agent with custom UI components.
 ---
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 
 <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/agentic-generative-ui.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
 <Callout>
-  This video demonstrates the [implementation](#implementation) section applied to out [coagents starter project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter).
+  This video demonstrates the [implementation](#implementation) section applied to our [coagents starter project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter).
 </Callout>
 
 ## What is this?
@@ -34,8 +33,8 @@ is a situation where a user and an agent are working together to solve a problem
   <Step>
     ### Define your agent state
     If you're not familiar with LangGraph, your graphs are stateful. As you progress through nodes, a state object is passed between them. CopilotKit
-    allows you to easily render this state in your application. 
-    
+    allows you to easily render this state in your application.
+
     For the sake of this guide, let's say our state looks like this in our agent.
 
     <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
@@ -171,7 +170,7 @@ is a situation where a user and an agent are working together to solve a problem
     };
 
     function YourMainContent() {
-      // ... 
+      // ...
 
       // [!code highlight:14]
       // styles omitted for brevity
@@ -212,7 +211,7 @@ is a situation where a user and an agent are working together to solve a problem
     };
 
     function YourMainContent() {
-      // ... 
+      // ...
 
       // [!code highlight:5]
       const { state } = useCoAgent<AgentState>({
