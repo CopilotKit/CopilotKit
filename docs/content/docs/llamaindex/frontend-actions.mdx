@@ -4,19 +4,27 @@ icon: "lucide/Wrench"
 description: Create frontend actions and use them within your LlamaIndex agent.
 ---
 
-## Implementation
-
-<Callout>
-Check out the [Frontend Actions overview](/frontend-actions) to understand what they are and when to use them.
+<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<Callout type="info">
+  Pictured above is the [llamaindex starter](https://github.com/copilotkit/with-llamaindex) with the implementation below applied!
 </Callout>
+
+## Implementation
 
 <Steps>
     <Step>
-        ### Setup CopilotKit
+      ### Run and connect your agent
 
-        To use frontend actions, you'll need to setup CopilotKit first. For the sake of brevity, we won't cover it here.
+      You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
+      you can follow the instructions in the [Getting Started](/llamaindex/quickstart) guide.
 
-        Check out our [getting started guide](/llamaindex/quickstart/llamaindex) and come back here when you're setup!
+      <Callout type="info">
+      If you don't already have an agent, simply run the following command to create a new application:
+
+      ```bash
+      npx copilotkit@latest create -f llamaindex
+      ```
+      </Callout>
     </Step>
 
     <Step>
