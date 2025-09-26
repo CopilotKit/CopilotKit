@@ -349,21 +349,215 @@ export function TopNav() {
     // Recalculate on resize
     window.addEventListener('resize', calculateOffsets);
 
-    // Use MutationObserver to watch for banner visibility changes
-    const observer = new MutationObserver(calculateOffsets);
-    observer.observe(document.body, { 
-      childList: true, 
-      subtree: true, 
-      attributes: true, 
-      attributeFilter: ['style', 'class'] 
+    // Create observers for specific elements that affect layout
+    const observers: Array<MutationObserver | ResizeObserver> = [];
+
+    // Watch for banner being added/removed/hidden from DOM (banner dismissal)
+    const bannerContainerObserver = new MutationObserver((mutations) => {
+      let shouldRecalculate = false;
+      
+      mutations.forEach((mutation) => {
+        // Check if banner was added or removed
+        if (mutation.type === 'childList') {
+          const addedBanners = Array.from(mutation.addedNodes).some(node => 
+            node.nodeType === Node.ELEMENT_NODE && 
+            ((node as Element).hasAttribute('data-banner') || 
+             (node as Element).id === 'agui-banner' ||
+             (node as Element).querySelector('[data-banner]') ||
+             (node as Element).querySelector('#agui-banner'))
+          );
+          const removedBanners = Array.from(mutation.removedNodes).some(node => 
+            node.nodeType === Node.ELEMENT_NODE && 
+            ((node as Element).hasAttribute('data-banner') || 
+             (node as Element).id === 'agui-banner' ||
+             (node as Element).querySelector('[data-banner]') ||
+             (node as Element).querySelector('#agui-banner'))
+          );
+          
+          if (addedBanners || removedBanners) {
+            shouldRecalculate = true;
+          }
+        }
+        
+        // Also check if banner visibility/display changed
+        if (mutation.type === 'attributes' && 
+            mutation.target.nodeType === Node.ELEMENT_NODE) {
+          const target = mutation.target as Element;
+          if (target.hasAttribute('data-banner') || 
+              target.id === 'agui-banner' ||
+              target.closest('[data-banner]') ||
+              target.closest('#agui-banner')) {
+            shouldRecalculate = true;
+          }
+        }
+      });
+      
+      if (shouldRecalculate) {
+        // Use setTimeout to avoid calling during DOM manipulation
+        setTimeout(calculateOffsets, 0);
+      }
     });
+    
+    // Watch the document for banner changes - look at a more specific container if possible
+    const bannerContainer = document.querySelector('body') || document.documentElement;
+    bannerContainerObserver.observe(bannerContainer, { 
+      childList: true, 
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['style', 'class', 'hidden']
+    });
+    observers.push(bannerContainerObserver);
+
+    // Watch banner for visibility/style changes (if it exists)
+    const banner = document.querySelector('[data-banner]') || document.querySelector('#agui-banner');
+    if (banner) {
+      const bannerObserver = new MutationObserver(calculateOffsets);
+      bannerObserver.observe(banner, { 
+        attributes: true, 
+        attributeFilter: ['style', 'class', 'hidden'] 
+      });
+      observers.push(bannerObserver);
+
+      // Also watch banner size changes
+      const bannerResizeObserver = new ResizeObserver(calculateOffsets);
+      bannerResizeObserver.observe(banner);
+      observers.push(bannerResizeObserver);
+    }
+
+    // Watch fumadocs nav for changes
+    const fumadocsNav = document.querySelector('#nd-nav');
+    if (fumadocsNav) {
+      const navObserver = new MutationObserver(calculateOffsets);
+      navObserver.observe(fumadocsNav, { 
+        attributes: true, 
+        attributeFilter: ['style', 'class'] 
+      });
+      observers.push(navObserver);
+
+      const navResizeObserver = new ResizeObserver(calculateOffsets);
+      navResizeObserver.observe(fumadocsNav);
+      observers.push(navResizeObserver);
+    }
+
+    // Watch our custom nav containers for changes
+    const desktopNav = document.querySelector('[data-nav-container]');
+    if (desktopNav) {
+      const desktopNavResizeObserver = new ResizeObserver(calculateOffsets);
+      desktopNavResizeObserver.observe(desktopNav);
+      observers.push(desktopNavResizeObserver);
+    }
+
+    const mobileNav = document.querySelector('[data-mobile-nav-container]');
+    if (mobileNav) {
+      const mobileNavResizeObserver = new ResizeObserver(calculateOffsets);
+      mobileNavResizeObserver.observe(mobileNav);
+      observers.push(mobileNavResizeObserver);
+    }
+
+    // Watch for TOC changes (pages with/without TOC)
+    const tocObserver = new MutationObserver((mutations) => {
+      let shouldRecalculate = false;
+      
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'childList') {
+          // Check if TOC elements were added or removed
+          const tocChanges = Array.from(mutation.addedNodes).some(node => 
+            node.nodeType === Node.ELEMENT_NODE && 
+            ((node as Element).id === 'nd-toc' || 
+             (node as Element).id === 'nd-tocnav' ||
+             (node as Element).querySelector('#nd-toc') ||
+             (node as Element).querySelector('#nd-tocnav'))
+          ) || Array.from(mutation.removedNodes).some(node => 
+            node.nodeType === Node.ELEMENT_NODE && 
+            ((node as Element).id === 'nd-toc' || 
+             (node as Element).id === 'nd-tocnav' ||
+             (node as Element).querySelector('#nd-toc') ||
+             (node as Element).querySelector('#nd-tocnav'))
+          );
+          
+          if (tocChanges) {
+            shouldRecalculate = true;
+          }
+        }
+      });
+      
+      if (shouldRecalculate) {
+        // Delay to allow page transition to complete
+        setTimeout(calculateOffsets, 100);
+      }
+    });
+    
+    // Watch the main content area for TOC changes
+    const mainContent = document.querySelector('main') || document.body;
+    tocObserver.observe(mainContent, { 
+      childList: true, 
+      subtree: true 
+    });
+    observers.push(tocObserver);
 
     return () => {
       window.removeEventListener('resize', calculateOffsets);
-      observer.disconnect();
+      observers.forEach(observer => observer.disconnect());
     };
   }, [collapsed]);
 
+  // Handle route changes (Next.js 13+ App Router)
+  useEffect(() => {
+    // Delay to allow new page content to render and TOC to be added/removed
+    const timer = setTimeout(() => {
+      const calculateOffsets = () => {
+        const banner = document.querySelector('[data-banner]') || document.querySelector('#agui-banner');
+        const nav = document.querySelector('[data-nav]') || 
+                   document.querySelector('nav:not([data-nav-container]):not([data-mobile-nav-container])') || 
+                   document.querySelector('[role="banner"]') ||
+                   document.querySelector('header:not([data-nav-container]):not([data-mobile-nav-container])') ||
+                   document.querySelector('[data-topbar]') ||
+                   document.querySelector('#nd-nav');
+        
+        let bannerHeight = 0;
+        let fumadocsNavHeight = 0;
+        
+        // Check if banner exists and is visible
+        if (banner && banner instanceof HTMLElement && banner.offsetHeight > 0 && getComputedStyle(banner).display !== 'none') {
+          bannerHeight = banner.offsetHeight;
+        }
+        
+        if (nav && nav instanceof HTMLElement) {
+          fumadocsNavHeight = nav.offsetHeight;
+        } else {
+          fumadocsNavHeight = 60; // fallback
+        }
+        
+        const navOffsetHeight = bannerHeight + fumadocsNavHeight;
+        setOffsetHeight(navOffsetHeight);
+        
+        // Update TOC positioning
+        const calculateTocPosition = () => {
+          const desktopNav = document.querySelector('[data-nav-container]');
+          const mobileNav = document.querySelector('[data-mobile-nav-container]');
+          
+          let customNavHeight = 0;
+          
+          if (desktopNav && window.innerWidth >= 768 && !collapsed) {
+            customNavHeight = (desktopNav as HTMLElement).offsetHeight;
+          } else if (mobileNav && (window.innerWidth < 768 || collapsed)) {
+            customNavHeight = (mobileNav as HTMLElement).offsetHeight;
+          } else {
+            customNavHeight = fumadocsNavHeight;
+          }
+          
+          const tocTotalHeight = bannerHeight + customNavHeight;
+          updateTocNavPosition(tocTotalHeight, bannerHeight, collapsed);
+        };
+        
+        setTimeout(calculateTocPosition, 0);
+      };
+      
+      calculateOffsets();
+    }, 200);
+    
+    return () => clearTimeout(timer);
+  }, [pathname, collapsed]); // Recalculate when pathname changes
 
   // Integration options for the dropdown
   const integrationOptions = [

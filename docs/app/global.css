@@ -2,9 +2,10 @@
 @import 'fumadocs-ui/css/shadcn.css';
 @import 'fumadocs-ui/css/preset.css';
 
-@custom-variant dark (&:is(.dark *));
+/* @custom-variant dark (&:is(.dark *)); */
 
-@theme inline {
+/* @theme inline - converted to :root selector */
+:root {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -110,7 +111,10 @@ html:root {
 
 /* Override Fumadocs resizing of article padding on md and lg screens */
 #nd-page > article {
-  @apply pt-12! px-12!;
+  /* @apply pt-12! px-12!; */
+  padding-top: 3rem !important;
+  padding-left: 3rem !important;
+  padding-right: 3rem !important;
 }
 
 
