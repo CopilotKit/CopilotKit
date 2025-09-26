@@ -1,13 +1,14 @@
 import {
   CopilotRuntime,
-  OpenAIAdapter,
   copilotRuntimeNextJSPagesRouterEndpoint,
+  OpenAIAdapter,
+  OpenAIAdapterParams,
 } from "@copilotkit/runtime";
 import { NextApiRequest, NextApiResponse } from "next";
 import OpenAI from "openai";
 
 const openai = new OpenAI();
-const serviceAdapter = new OpenAIAdapter({ openai });
+const serviceAdapter = new OpenAIAdapter({ openai } as unknown as OpenAIAdapterParams);
 
 const runtime = new CopilotRuntime({
   actions: [

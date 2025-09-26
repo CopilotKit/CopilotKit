@@ -1,6 +1,6 @@
 interface PerformResearchSwitchProps {
   isEnabled: boolean;
-  setIsEnabled: (fn: (b: boolean) => boolean) => void;
+  setIsEnabled: (_fn: (_b: boolean) => boolean) => void;
 }
 
 export const PerformResearchSwitch = ({ isEnabled, setIsEnabled }: PerformResearchSwitchProps) => {

@@ -4,8 +4,8 @@ import { PlusCircleIcon } from "@heroicons/react/24/outline";
 
 interface AddSlideButtonProps {
   currentSlideIndex: number;
-  setCurrentSlideIndex: (fn: (i: number) => number) => void;
-  setSlides: (fn: (slides: SlideModel[]) => SlideModel[]) => void;
+  setCurrentSlideIndex: (_fn: (_i: number) => number) => void;
+  setSlides: (_fn: (_slides: SlideModel[]) => SlideModel[]) => void;
 }
 
 export function AddSlideButton({

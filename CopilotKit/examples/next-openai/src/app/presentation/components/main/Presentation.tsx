@@ -1,4 +1,5 @@
 "use client";
+
 import { useCopilotReadable } from "@copilotkit/react-core";
 import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { useCallback, useMemo, useState } from "react";
@@ -9,7 +10,7 @@ import { SlideModel } from "../../types";
 
 interface PresentationProps {
   performResearch: boolean;
-  setPerformResearch: (fn: (b: boolean) => boolean) => void;
+  setPerformResearch: (_fn: (_b: boolean) => boolean) => void;
 }
 
 export const Presentation = ({ performResearch, setPerformResearch }: PresentationProps) => {
@@ -94,7 +95,6 @@ export const Presentation = ({ performResearch, setPerformResearch }: Presentati
   useAppendSlide({
     setSlides,
     setCurrentSlideIndex,
-    slides,
   });
 
   /**

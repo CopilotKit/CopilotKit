@@ -1,14 +1,12 @@
 "use client";
 
-import React from "react";
 import { Destination } from "./vacation-list";
 import { useCopilotReadable } from "@copilotkit/react-core";
-import Image from "next/image";
 
 export type DestinationRowProps = {
   destination: Destination;
   isChecked: boolean;
-  onCheckChange: (isChecked: boolean) => void;
+  onCheckChange: (_isChecked: boolean) => void;
   parentCopilotPointer?: string;
 };
 

@@ -13,11 +13,11 @@ import { AddSlideButton } from "../buttons/AddSlideButton";
 
 interface HeaderProps {
   currentSlideIndex: number;
-  setCurrentSlideIndex: (fn: (i: number) => number) => void;
+  setCurrentSlideIndex: (_fn: (_i: number) => number) => void;
   slides: SlideModel[];
-  setSlides: (fn: (slides: SlideModel[]) => SlideModel[]) => void;
+  setSlides: (_fn: (_slides: SlideModel[]) => SlideModel[]) => void;
   performResearch: boolean;
-  setPerformResearch: (fn: (b: boolean) => boolean) => void;
+  setPerformResearch: (_fn: (_b: boolean) => boolean) => void;
 }
 
 export function Header({

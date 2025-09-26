@@ -1,5 +1,6 @@
 import { useCopilotAction } from "@copilotkit/react-core";
 
+// eslint-disable-next-line react-hooks/rules-of-hooks
 useCopilotAction({
   name: "enum",
   parameters: [
@@ -22,7 +23,7 @@ useCopilotAction({
         console.log("Three");
         break;
       default:
-        const exhaustiveCheck: never = arg;
+        const _exhaustiveCheck: never = arg;
     }
     console.log("No args action");
   },

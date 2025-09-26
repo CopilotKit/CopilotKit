@@ -1,5 +1,6 @@
 import { useCopilotAction } from "@copilotkit/react-core";
 
+// eslint-disable-next-line react-hooks/rules-of-hooks
 useCopilotAction({
   name: "object",
   parameters: [
@@ -21,9 +22,9 @@ useCopilotAction({
       ],
     },
   ],
-  handler: async ({ arg }) => {
-    const x: string = arg.x;
-    const y: number = arg.y;
-    const z: boolean = arg.z;
+  handler: async ({ arg }: { arg: { x: string; y: number; z?: boolean } }) => {
+    const _x: string = arg.x;
+    const _y: number = arg.y;
+    const _z: boolean = arg.z || false;
   },
 });

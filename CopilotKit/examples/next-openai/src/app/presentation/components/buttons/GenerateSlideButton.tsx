@@ -14,7 +14,7 @@ export function GenerateSlideButton({ context }: GenerateSlideButtonProps) {
       inProgress={isGeneratingSlide}
       onClick={async () => {
         try {
-          let slideContent = prompt("What should the new slide be about?");
+          const slideContent = prompt("What should the new slide be about?");
           if (slideContent === null) {
             return;
           }

@@ -3,7 +3,7 @@ import { SlideModel } from "../types";
 import { SlidePreview } from "../components/misc/SlidePreview";
 
 interface UpdateSlideParams {
-  partialUpdateSlide: (partialSlide: Partial<SlideModel>) => void;
+  partialUpdateSlide: (_partialSlide: Partial<SlideModel>) => void;
 }
 
 export default function useUpdateSlide({ partialUpdateSlide }: UpdateSlideParams) {

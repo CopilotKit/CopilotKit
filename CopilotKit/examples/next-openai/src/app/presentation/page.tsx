@@ -1,10 +1,10 @@
 "use client";
 
 import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
+import { CopilotSidebar } from "@copilotkit/react-ui";
 import "./styles.css";
 import { Presentation } from "./components/main/Presentation";
-import { useState } from "react";
+import { CSSProperties, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 export default function AIPresentation() {
@@ -30,7 +30,7 @@ export default function AIPresentation() {
           {
             height: `100vh`,
             "--copilot-kit-primary-color": "rgb(28, 28, 28)",
-          } as CopilotKitCSSProperties
+          } as CSSProperties
         }
       >
         <CopilotSidebar
