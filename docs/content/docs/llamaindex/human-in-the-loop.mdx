@@ -1,10 +1,8 @@
 ---
-title: Tool-based
+title: Human-in-the-Loop (HITL)
 description: Learn how to implement Human-in-the-Loop (HITL) using LlamaIndex Agents.
 icon: lucide/Share2
 ---
-
-import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";
 
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/node-hitl.mp4"
@@ -17,9 +15,7 @@ import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent
 />
 
 <Callout type="info">
-  Pictured above is the [llamaindex
-  starter](https://github.com/copilotkit/copilotkit/tree/main/examples/llamaindex/starter)
-  with the implementation below applied!
+  Pictured above is the [llamaindex starter](https://github.com/copilotkit/with-llamaindex) with the implementation below applied!
 </Callout>
 
 ## What is this?
@@ -39,10 +35,15 @@ you can ensure that the agent is always making the right decisions and ultimatel
         ### Run and connect your agent
 
         You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
-        you can follow the instructions in the [Getting Started](/llamaindex/quickstart/llamaindex) guide.
+        you can follow the instructions in the [Getting Started](/llamaindex/quickstart) guide.
 
-        If you don't already have an agent, you can use the [llamaindex starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/llamaindex/starter) as a starting point
-        as this guide uses it as a starting point.
+        <Callout type="info">
+        If you don't already have an agent, simply run the following command to create a new application:
+
+        ```bash
+        npx copilotkit@latest create -f llamaindex
+        ```
+        </Callout>
     </Step>
 
     <Step>
@@ -86,7 +87,7 @@ you can ensure that the agent is always making the right decisions and ultimatel
           // ...
 
           useCopilotAction({
-            name: "writeEssay",
+            name: "write_essay",
             available: "remote",
             description: "Writes an essay and takes the draft as an argument.",
             parameters: [
