@@ -53,18 +53,21 @@ as this guide uses it as a starting point.
         ```python title="agent/sample_agent/agent.py"
         from pydantic_ai import Agent
 
-        agent = Agent('openai:gpt-4o-mini')
+        agent = Agent("openai:gpt-4o-mini")
+
 
         @agent.tool_plain
-        async def get_current_time(timezone: str = 'UTC') -> str:
-            """Get the current time in a specific timezone."""
-            from datetime import datetime
-            from zoneinfo import ZoneInfo
+        async def get_weather(location: str = "Everywhere ever") -> str:
+            """Get the weather for a given location. Ensure location is fully spelled out."""
+            return f"The weather in {location} is sunny."
 
-            tz = ZoneInfo(timezone)
-            return datetime.now(tz=tz).isoformat()
 
         app = agent.to_ag_ui()
+
+        if __name__ == "__main__":
+            import uvicorn
+
+            uvicorn.run(app, host="0.0.0.0", port=8000)
         ```
     </Tab>
 
