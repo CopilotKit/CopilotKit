@@ -60,7 +60,7 @@ as this guide uses it as a starting point.
             """Get the current time in a specific timezone."""
             from datetime import datetime
             from zoneinfo import ZoneInfo
-            
+
             tz = ZoneInfo(timezone)
             return datetime.now(tz=tz).isoformat()
 
@@ -72,7 +72,7 @@ as this guide uses it as a starting point.
 </Step>
 <Step>
 ### Render the tool call in your frontend
-At this point, your agent will be able to call the `get_weather` tool. Now 
+At this point, your agent will be able to call the `get_weather` tool. Now
 we just need to add a `useCopilotAction` hook to render the tool call in
 the UI.
 
@@ -90,7 +90,7 @@ const YourMainContent = () => {
   // [!code highlight:13]
   useCopilotAction({
     name: "get_weather",
-    available: "fronted", // Mark this as render only
+    available: "frontend", // Mark this as render only
     render: ({ status, args }) => {
       return (
         <p className="text-gray-500 mt-2">
@@ -113,4 +113,4 @@ Try asking the agent to get the weather for a location. You should see the custo
 render the tool call and display the arguments that were passed to the tool.
 
 </Step>
-</Steps> 
+</Steps>

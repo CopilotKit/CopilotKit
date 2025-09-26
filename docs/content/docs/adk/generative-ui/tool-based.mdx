@@ -46,7 +46,8 @@ you can follow the instructions in the [Getting Started](/adk/quickstart/adk) gu
         from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
         from google.adk.agents import LlmAgent
 
-        def get_weather(location: str = 'the entire world') -> str:
+
+        def get_weather(location: str = "the entire world") -> str:
             """Get the weather in a given location.
 
             Args:
@@ -57,20 +58,20 @@ you can follow the instructions in the [Getting Started](/adk/quickstart/adk) gu
             """
             return "it is sunny in " + location
 
+
         weather_agent = LlmAgent(
-          model='gemini-2.5-flash',
-          name="weather_agent",
-          instruction=f"""
+            model="gemini-2.5-flash",
+            name="weather_agent",
+            instruction=f"""
               You are an expert weather analyzer that can tell the current weather in a specific location.
               Use the get_weather tool to get the weather in a specific location. If the user doesn't specify
               a location, use "the entire world" as the location.
-              """
+              """,
+            tools=[get_weather],
         )
 
         adk_agent_weather = ADKAgent(
-          adk_agent=weather_agent,
-          app_name="weather_demo",
-          user_id="demo_user"
+            adk_agent=weather_agent, app_name="weather_demo", user_id="demo_user"
         )
 
         # Create FastAPI app
@@ -105,7 +106,7 @@ const YourMainContent = () => {
   // [!code highlight:13]
   useCopilotAction({
     name: "get_weather",
-    available: "fronted", // Mark this as render only
+    available: "frontend", // Mark this as render only
     render: ({ status, args }) => {
       return (
         <p className="text-gray-500 mt-2">
