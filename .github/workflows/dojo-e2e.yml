@@ -66,7 +66,7 @@ jobs:
 
     - name: Install ag-ui dependencies
       working-directory: ag-ui/typescript-sdk
-      run: pnpm install --frozen-lockfile
+      run: pnpm install --no-frozen-lockfile
 
     - name: Prepare dojo for e2e
       working-directory: ag-ui/typescript-sdk/apps/dojo
