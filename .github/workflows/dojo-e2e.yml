@@ -56,6 +56,10 @@ jobs:
       working-directory: CopilotKit
       run: node ../ag-ui/typescript-sdk/apps/dojo/scripts/link-cpk.js .
 
+    - name: Rebuild cpk after linking
+      working-directory: CopilotKit/CopilotKit
+      run: pnpm build
+
     - name: Install ag-ui dependencies
       working-directory: ag-ui/typescript-sdk
       run: pnpm install --no-frozen-lockfile
@@ -104,12 +108,6 @@ jobs:
           tcp:localhost:8007
           tcp:localhost:8008
           tcp:localhost:8009
-
-    - name: Validate linked packages
-      working-directory: ag-ui/typescript-sdk/apps/dojo
-      run: |
-        echo "Checking linked CopilotKit packages..."
-        grep -E "@copilotkit.*CopilotKit" package.json || exit 1
 
     - name: Run tests
       working-directory: ag-ui/typescript-sdk/apps/dojo/e2e
