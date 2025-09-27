@@ -1,6 +1,6 @@
 """FastAPI integration"""
 
-import logging
+from ..logging import get_logger
 import asyncio
 import re
 import uuid
@@ -20,8 +20,7 @@ from ..exc import (
 )
 from ..action import ActionDict
 from ..html import generate_info_html
-logging.basicConfig(level=logging.ERROR)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 def add_fastapi_endpoint(
         fastapi_app: FastAPI,
