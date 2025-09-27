@@ -19,12 +19,13 @@ description: Write to agent's state from your application.
 
 ## What is this?
 
-This guide shows you how to read and write to your agent's state from your application.
+This guide shows you how to read and write to your agent's state from your application. LlamaIndex's `get_ag_ui_workflow_router` handler allows you to have stateful concepts that are automatically loaded into the LLM's context.
+
+From the front-end you can modify this state directly or via tools - enabling a bi-directional concept of state.
 
 ## When should I use this?
 
-You can use this when you want to provide the user with feedback about what your agent is doing, specifically
-when your agent is calling tools. CopilotKit allows you to fully customize how these tools are rendered in the chat.
+You can use this when you want to provide the user with feedback about what your agent is doing, specifically when your agent is calling tools. CopilotKit allows you to fully customize how these tools are rendered in the chat.
 
 ## Implementation
 
@@ -61,7 +62,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     will update the agent state and trigger a rerender of anything that depends on the agent state.
 
     ```tsx title="ui/app/page.tsx"
-    import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
+    import { useCoAgent } from "@copilotkit/react-core";
 
     // Define the agent state type, should match the actual state of your agent
     type AgentState = {
@@ -70,7 +71,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 
     // Example usage in a pseudo React component
     function YourMainContent() {
-      const { state, setState } = useCoAgent<AgentState>({ // [!code highlight]
+      const { state, setState } = useCoAgent<AgentState>({
         name: "sample_agent",
         initialState: { language: "spanish" }  // optionally provide an initial state
       });
@@ -78,7 +79,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
       // ...
 
       const toggleLanguage = () => {
-        setState({ language: state.language === "english" ? "spanish" : "english" }); // [!code highlight]
+        setState({ language: state.language === "english" ? "spanish" : "english" });
       };
 
       // ...
