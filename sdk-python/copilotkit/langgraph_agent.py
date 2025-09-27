@@ -230,6 +230,7 @@ class LangGraphAgent(Agent):
             agent_name=self.name
         )
         current_graph_state.update(state)
+        self.thread_state[thread_id] = current_graph_state
         lg_interrupt_meta_event = next((ev for ev in (meta_events or []) if ev.get("name") == "LangGraphInterruptEvent"), None)
         has_active_interrupts = active_interrupts is not None and len(active_interrupts) > 0
 
@@ -405,6 +406,7 @@ class LangGraphAgent(Agent):
                     event.get("data", {}).get("output"), dict
                 ):
                     current_graph_state.update(event["data"]["output"])
+                    self.thread_state[thread_id] = current_graph_state
 
                 emit_intermediate_state = metadata.get("copilotkit:emit-intermediate-state")
                 manually_emit_intermediate_state = (
@@ -473,6 +475,7 @@ class LangGraphAgent(Agent):
                     state = updated_state
                     prev_node_name = node_name
                     current_graph_state.update(updated_state)
+                    self.thread_state[thread_id] = current_graph_state
                     yield self._emit_state_sync_event(
                         thread_id=thread_id,
                         run_id=run_id,
