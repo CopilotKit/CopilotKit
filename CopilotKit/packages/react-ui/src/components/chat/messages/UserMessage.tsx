@@ -16,5 +16,5 @@ export const UserMessage = (props: UserMessageProps) => {
   }
 
   // Regular text message
-  return <div className="copilotKitMessage copilotKitUserMessage">{message?.content}</div>;
+  return <div className="copilotKitMessage copilotKitUserMessage">{message?.content}asdfasdfasdfasdfasdfasdfafs</div>;
 };
