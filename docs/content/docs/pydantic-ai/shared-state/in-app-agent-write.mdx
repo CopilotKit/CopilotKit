@@ -48,6 +48,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
         from pydantic_ai import Agent, RunContext
         from pydantic_ai.ag_ui import StateDeps
         from ag_ui.core import StateSnapshotEvent, EventType
+        from textwrap import dedent
 
 
         class AgentState(BaseModel):
@@ -65,6 +66,30 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
             updated_state = {"language": language}
 
             return StateSnapshotEvent(type=EventType.STATE_SNAPSHOT, snapshot=updated_state)
+
+
+        @agent.instructions()
+        async def language_instructions(ctx: RunContext[StateDeps[AgentState]]) -> str:
+            """Instructions for the language tracking agent.
+
+            Args:
+                ctx: The run context containing language state information.
+
+            Returns:
+                Instructions string for the language tracking agent.
+            """
+            return dedent(
+                f"""
+                You are a helpful assistant for tracking the language.
+
+                IMPORTANT:
+                - Use the `update_language` tool to update the language
+                - ALWAYS use the lower case for the language
+                - The language is not used for responding, always respond in english. Just track the language.
+
+                The current state of the language is: "{ctx.deps.state.language}"
+                """
+            )
 
 
         app = agent.to_ag_ui(deps=StateDeps(AgentState()))
