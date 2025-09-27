@@ -60,13 +60,13 @@ jobs:
       working-directory: CopilotKit/CopilotKit
       run: pnpm build
 
-    - name: Install ag-ui dependencies
-      working-directory: ag-ui/typescript-sdk
-      run: pnpm install --frozen-lockfile
-
     - name: Link cpk into ag-ui
       working-directory: CopilotKit
       run: node ../ag-ui/typescript-sdk/apps/dojo/scripts/link-cpk.js .
+
+    - name: Install ag-ui dependencies
+      working-directory: ag-ui/typescript-sdk
+      run: pnpm install --frozen-lockfile
 
     - name: Prepare dojo for e2e
       working-directory: ag-ui/typescript-sdk/apps/dojo
