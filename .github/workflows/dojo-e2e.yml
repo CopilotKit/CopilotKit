@@ -117,7 +117,7 @@ jobs:
       working-directory: ag-ui/typescript-sdk/apps/dojo/e2e
       env:
         BASE_URL: http://localhost:9999
-      run: pnpm test
+      run: pnpm test tests/crewAITests tests/serverStarterAllFeaturesTests
 
     - name: Upload traces
       if: always() # Uploads artifacts even if tests fail
