@@ -101,8 +101,7 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
           )}
         </div>
       )}
-      {/* <div style={{ marginBottom: "0.5rem" }}>{subComponent}</div> */}
-      <div>yolo</div> 
+      <div style={{ marginBottom: "0.5rem" }}>{subComponent}</div>
       {isLoading && <LoadingIcon />}
     </>
   );
