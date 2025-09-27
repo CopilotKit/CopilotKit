@@ -13,6 +13,7 @@
     "generative-ui",
     "human-in-the-loop",
     "frontend-actions",
+    "shared-state",
     "multi-agent-flows",
     "---Premium Features---",
     "...premium",
