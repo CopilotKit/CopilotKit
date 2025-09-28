@@ -49,31 +49,27 @@ of everything that has happened during a HITL interaction.
         import { Markdown } from "@copilotkit/react-ui"
 
         function YourMainContent() {
-          // ...
-
           useCopilotAction({
             name: "write_essay",
-            available: "frontend",
+            available: "enabled",
             description: "Writes an essay and takes the draft as an argument.",
             parameters: [
               { name: "draft", type: "string", description: "The draft of the essay", required: true },
             ],
-            // [!code highlight:25]
             renderAndWaitForResponse: ({ args, respond, status }) => {
               return (
                 <div>
                   <Markdown content={args.draft || 'Preparing your draft...'} />
-
                   <div className={`flex gap-4 pt-4 ${status !== "executing" ? "hidden" : ""}`}>
                     <button
-                      onClick={() => respond?.("CANCEL")}
+                      onClick={() => respond?.({ accepted: false })}
                       disabled={status !== "executing"}
                       className="border p-2 rounded-xl w-full"
                     >
-                      Try Again
+                      Reject Draft
                     </button>
                     <button
-                      onClick={() => respond?.("SEND")}
+                      onClick={() => respond?.({ accepted: true })}
                       disabled={status !== "executing"}
                       className="bg-blue-500 text-white p-2 rounded-xl w-full"
                     >
@@ -82,10 +78,14 @@ of everything that has happened during a HITL interaction.
                   </div>
                 </div>
               );
-            },
+            }
           });
 
-          // ...
+          return (
+            <div>
+              ...
+            </div>
+          );
         }
         ```
     </Step>
@@ -109,32 +109,69 @@ Now we'll setup the ADK agent. The flow is hard to understand without a complete
         from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
         from google.adk.agents import LlmAgent
 
-        def write_essay(topic: str) -> str:
-            """Write an essay on the given topic."""
-            # This would typically generate an essay
-            # The agent will wait for user feedback before proceeding
-            return f"Essay draft on '{topic}' has been generated. Please review."
+        DEFINE_ESSAY_TOOL = """
+        {
+            "type": "function",
+            "function": {
+                "name": "write_essay",
+                "description": "Write an essay from a draft",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "draft": {
+                            "type": "string",
+                            "description": "The draft of the essay to write"
+                        }
+                    },
+                    "required": ["draft"]
+                },
+                "returns": {
+                    "type": "object",
+                    "properties": {
+                        "accepted": {
+                            "type": "boolean",
+                            "description": "if the human approved the draft"
+                        }
+                    },
+                    "required": ["accepted"]
+                }
+            }
+        }
+        """
 
-        essay_agent = LlmAgent(
-          model='gemini-2.5-flash',
-          name="essay_agent",
-          instruction=f"""
-              You are an expert essay writer that can write essays on topics.
-              """
+
+        sample_agent = LlmAgent(
+            model="gemini-2.5-flash",
+            name="sample_agent",
+            instruction=f"""
+            You are a human-in-the-loop essay writing assistant that helps write essays with human oversight and approval.
+
+            **Your Primary Role:**
+            - Generate short ~100 word esssay drafts for any topic the user requests.
+            - Facilitate human review and modification of generated draft
+            - When a human approves a draft, return it as text.
+
+            **When a user asks you to write an essay:**
+            - ALWAYS come up with a short (roughly 100 word) draft of an essay on the topic.
+            - ALWAYS submit the draft to the `write_essay` tool.
+            - When the user requests the essay, do not respond with the essay directly before it is approved. Always use the write_essay tool.
+
+            ** PROVIDING THE APPROVED ESSAY TO THE USER: **
+            - When the user approves the essay, *ALWAYS* respond with "HERE IS THE ESSAY: <essay>".
+            - When the user rejects the essay, *ALWAYS* respond with "REJECTED".
+
+            TOOL_REFERENCE: {DEFINE_ESSAY_TOOL}
+            """,
         )
 
-        adk_agent_essay = ADKAgent(
-          adk_agent=essay_agent,
-          app_name="essay_demo",
-          user_id="demo_user"
+        adk_sample_agent = ADKAgent(
+            adk_agent=sample_agent, app_name="essay_demo", user_id="demo_user"
         )
-
 
         # Create FastAPI app
         app = FastAPI(title="ADK Middleware Essay Tool Agent")
-
         # Add the ADK endpoint
-        add_adk_fastapi_endpoint(app, adk_agent_essay, path="/")
+        add_adk_fastapi_endpoint(app, adk_sample_agent, path="/")
         uvicorn.run(app, host="localhost", port=8000)
         ```
       </Tab>
