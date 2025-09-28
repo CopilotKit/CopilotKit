@@ -110,7 +110,7 @@ is a situation where a user and an agent are working together to solve a problem
           agent_name = callback_context.agent_name
           if agent_name == "assistant":
               language_json = "No language yet"
-              if "lanugage" in callback_context.state and callback_context.state["language"] is not None:
+              if "language" in callback_context.state and callback_context.state["language"] is not None:
                   try:
                       language_json = json.dumps(callback_context.state["language"], indent=2)
                   except Exception as e:
