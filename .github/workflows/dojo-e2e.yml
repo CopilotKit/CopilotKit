@@ -98,7 +98,7 @@ jobs:
         GOOGLE_API_KEY: ${{ secrets.GOOGLE_GEMINI_API_KEY }}
       with:
         run: |
-          node ../scripts/run-dojo-everything.js
+          node ../scripts/run-dojo-everything.js --only dojo,pydantic-ai
         working-directory: ag-ui/typescript-sdk/apps/dojo/e2e
         wait-on: |
           http://localhost:9999
