@@ -1,14 +1,15 @@
 {
   "title": "Guides",
   "pages": [
-    "---Getting Started---",
     "quickstart",
-    "self-hosting",
-    "---UI & Customization---",
-    "../../shared/guides/custom-look-and-feel",
-    "copilot-textarea",
-    "../../shared/guides/copilot-suggestions",
+    "vibe-coding-mcp",
+    "---Custom Look and Feel---",
+    "...custom-look-and-feel",
+    "---Guides---",
+    "human-in-the-loop",
     "custom-ai-assistant-behavior",
+    "copilot-suggestions",
+    "self-hosting",
     "---Actions & Integration---",
     "frontend-actions",
     "backend-actions",
@@ -16,10 +17,14 @@
     "generative-ui",
     "connect-your-data",
     "authenticated-actions",
+    "---Premium Features---",
+    "...premium",
     "---Advanced Features---",
     "bring-your-own-llm",
     "model-context-protocol",
     "guardrails",
-    "messages-localstorage"
+    "messages-localstorage",
+    "---Legacy Features---",
+    "copilot-textarea"
   ]
 }

@@ -11,7 +11,7 @@ description: "The CopilotPopup component, providing a popup interface for intera
   */
 }
 <br/>
-<img src="/images/CopilotPopup.gif" width="500" />
+<img src="https://cdn.copilotkit.ai/docs/copilotkit/images/CopilotPopup.gif" width="500" />
  
 A chatbot popup component for the CopilotKit framework. The component allows for a high degree
 of customization through various props and custom CSS.
@@ -37,6 +37,26 @@ import "@copilotkit/react-ui/styles.css";
     initial: "Hi! 👋 How can I assist you today?",
   }}
 />
+```
+ 
+### With Observability Hooks
+ 
+To monitor user interactions, provide the `observabilityHooks` prop.
+Note: This requires a `publicApiKey` in the `<CopilotKit>` provider.
+ 
+```tsx
+<CopilotKit publicApiKey="YOUR_PUBLIC_API_KEY">
+  <CopilotPopup
+    observabilityHooks={{
+      onChatExpanded: () => {
+        console.log("Popup opened");
+      },
+      onChatMinimized: () => {
+        console.log("Popup closed");
+      },
+    }}
+  />
+</CopilotKit>
 ```
  
 ### Look & Feel
@@ -67,6 +87,24 @@ Custom instructions to be added to the system message. Use this property to
   user's needs or the application's requirements.
 </PropertyReference>
 
+<PropertyReference name="suggestions" type="ChatSuggestions"  > 
+Controls the behavior of suggestions in the chat interface.
+ 
+  `auto` (default) - Suggestions are generated automatically:
+    - When the chat is first opened (empty state)
+    - After each message exchange completes
+    - Uses configuration from `useCopilotChatSuggestions` hooks
+ 
+  `manual` - Suggestions are controlled programmatically:
+    - Use `setSuggestions()` to set custom suggestions
+    - Use `generateSuggestions()` to trigger AI generation
+    - Access via `useCopilotChat` hook
+ 
+  `SuggestionItem[]` - Static suggestions array:
+    - Always shows the same suggestions
+    - No AI generation involved
+</PropertyReference>
+
 <PropertyReference name="onInProgress" type="(inProgress: boolean) => void"  > 
 A callback that gets called when the in progress state changes.
 </PropertyReference>
@@ -91,11 +129,11 @@ A callback function to regenerate the assistant's response
 A callback function when the message is copied
 </PropertyReference>
 
-<PropertyReference name="onThumbsUp" type="(message: TextMessage) => void"  > 
+<PropertyReference name="onThumbsUp" type="(message: Message) => void"  > 
 A callback function for thumbs up feedback
 </PropertyReference>
 
-<PropertyReference name="onThumbsDown" type="(message: TextMessage) => void"  > 
+<PropertyReference name="onThumbsDown" type="(message: Message) => void"  > 
 A callback function for thumbs down feedback
 </PropertyReference>
 
@@ -128,6 +166,10 @@ A function that takes in context string and instructions and returns
   instructions is not enough.
 </PropertyReference>
 
+<PropertyReference name="disableSystemMessage" type="boolean"  > 
+Disables inclusion of CopilotKit’s default system message. When true, no system message is sent (this also suppresses any custom message from <code>makeSystemMessage</code>).
+</PropertyReference>
+
 <PropertyReference name="AssistantMessage" type="React.ComponentType<AssistantMessageProps>"  > 
 A custom assistant message component to use instead of the default.
 </PropertyReference>
@@ -136,28 +178,21 @@ A custom assistant message component to use instead of the default.
 A custom user message component to use instead of the default.
 </PropertyReference>
 
+<PropertyReference name="ErrorMessage" type="React.ComponentType<ErrorMessageProps>"  > 
+A custom error message component to use instead of the default.
+</PropertyReference>
+
 <PropertyReference name="Messages" type="React.ComponentType<MessagesProps>"  > 
 A custom Messages component to use instead of the default.
 </PropertyReference>
 
-<PropertyReference name="RenderTextMessage" type="React.ComponentType<RenderMessageProps>"  > 
-A custom RenderTextMessage component to use instead of the default.
-</PropertyReference>
-
-<PropertyReference name="RenderActionExecutionMessage" type="React.ComponentType<RenderMessageProps>"  > 
-A custom RenderActionExecutionMessage component to use instead of the default.
-</PropertyReference>
-
-<PropertyReference name="RenderAgentStateMessage" type="React.ComponentType<RenderMessageProps>"  > 
-A custom RenderAgentStateMessage component to use instead of the default.
-</PropertyReference>
-
-<PropertyReference name="RenderResultMessage" type="React.ComponentType<RenderMessageProps>"  > 
-A custom RenderResultMessage component to use instead of the default.
-</PropertyReference>
-
-<PropertyReference name="RenderImageMessage" type="React.ComponentType<RenderMessageProps>"  > 
-A custom RenderImageMessage component to use instead of the default.
+<PropertyReference name="RenderMessage" type="React.ComponentType<RenderMessageProps>"  > 
+A custom RenderMessage component to use instead of the default.
+ 
+  Warning: This is a break-glass solution to allow for custom
+  rendering of messages. You are most likely looking to swap out
+  the AssistantMessage and UserMessage components instead which
+  are also props.
 </PropertyReference>
 
 <PropertyReference name="RenderSuggestionsList" type="React.ComponentType<RenderSuggestionsListProps>"  > 
@@ -166,6 +201,10 @@ A custom suggestions list component to use instead of the default.
 
 <PropertyReference name="Input" type="React.ComponentType<InputProps>"  > 
 A custom Input component to use instead of the default.
+</PropertyReference>
+
+<PropertyReference name="ImageRenderer" type="React.ComponentType<ImageRendererProps>"  > 
+A custom image rendering component to use instead of the default.
 </PropertyReference>
 
 <PropertyReference name="className" type="string"  > 
@@ -178,6 +217,20 @@ Children to render.
 
 <PropertyReference name="hideStopButton" type="boolean"  > 
 
+</PropertyReference>
+
+<PropertyReference name="observabilityHooks" type="CopilotObservabilityHooks"  > 
+Event hooks for CopilotKit chat events.
+  These hooks only work when publicApiKey is provided.
+</PropertyReference>
+
+<PropertyReference name="renderError" type="(error: { message: string; operation?: string; timestamp: number; onDismiss: () => void; onRetry?: () => void; }) => React.ReactNode"  > 
+Custom error renderer for chat-specific errors.
+  When provided, errors will be displayed inline within the chat interface.
+</PropertyReference>
+
+<PropertyReference name="onError" type="CopilotErrorHandler"  > 
+Optional handler for comprehensive debugging and observability.
 </PropertyReference>
 
 <PropertyReference name="defaultOpen" type="boolean"  default="false"> 

@@ -1,7 +1,33 @@
 {
   "title": "Overview",
-  "root": true,
   "pages": [
-    "index"
+    "---Getting Started---",
+    "index",
+    "[lucide/Play][LLM Quickstart](../direct-to-llm/guides/quickstart)",
+    "[lucide/Play][CoAgent Quickstart](../coagents/quickstart)",
+    "vibe-coding-mcp",
+    "---CopilotKit Features---",
+    "agentic-chat-ui",
+    "custom-look-and-feel",
+    "copilot-suggestions",
+    "human-in-the-loop",
+    "generative-ui",
+    "frontend-actions",
+    "backend-actions",
+    "shared-state",
+    "---Premium Features---",
+    "...premium",
+    "---Connection Protocols---",
+    "ag-ui-protocol",
+    "connect-mcp-servers",
+    "---Learning---",
+    "...../direct-to-llm/tutorials",
+    "...../coagents/tutorials",
+    "...../coagents/videos",
+    "...../direct-to-llm/cookbook",
+    "---Troubleshooting---",
+    "...troubleshooting",
+    "---Other---",
+    "...(other)"
   ]
 }

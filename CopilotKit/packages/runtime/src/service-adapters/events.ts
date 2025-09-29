@@ -38,6 +38,7 @@ export enum RuntimeEventTypes {
   ActionExecutionResult = "ActionExecutionResult",
   AgentStateMessage = "AgentStateMessage",
   MetaEvent = "MetaEvent",
+  RunError = "RunError",
 }
 
 export enum RuntimeMetaEventName {
@@ -62,6 +63,12 @@ export type RunTimeMetaEvent =
       name: RuntimeMetaEventName.LangGraphInterruptResumeEvent;
       data: string;
     };
+
+export type RuntimeErrorEvent = {
+  type: RuntimeEventTypes.RunError;
+  message: string;
+  code?: string;
+};
 
 export type RuntimeEvent =
   | { type: RuntimeEventTypes.TextMessageStart; messageId: string; parentMessageId?: string }
@@ -96,7 +103,8 @@ export type RuntimeEvent =
       state: string;
       running: boolean;
     }
-  | RunTimeMetaEvent;
+  | RunTimeMetaEvent
+  | RuntimeErrorEvent;
 
 interface RuntimeEventWithState {
   event: RuntimeEvent | null;
@@ -240,6 +248,16 @@ export class RuntimeEventSubject extends ReplaySubject<RuntimeEvent> {
 export class RuntimeEventSource {
   private eventStream$ = new RuntimeEventSubject();
   private callback!: EventSourceCallback;
+  private errorHandler?: (error: any, context: any) => Promise<void>;
+  private errorContext?: any;
+
+  constructor(params?: {
+    errorHandler?: (error: any, context: any) => Promise<void>;
+    errorContext?: any;
+  }) {
+    this.errorHandler = params?.errorHandler;
+    this.errorContext = params?.errorContext;
+  }
 
   async stream(callback: EventSourceCallback): Promise<void> {
     this.callback = callback;
@@ -267,9 +285,19 @@ export class RuntimeEventSource {
     actionInputsWithoutAgents: ActionInput[];
     threadId: string;
   }) {
-    this.callback(this.eventStream$).catch((error) => {
+    this.callback(this.eventStream$).catch(async (error) => {
       // Convert streaming errors to structured errors, but preserve already structured ones
       const structuredError = ensureStructuredError(error, convertStreamingErrorToStructured);
+
+      // Call the runtime error handler if provided
+      if (this.errorHandler && this.errorContext) {
+        try {
+          await this.errorHandler(structuredError, this.errorContext);
+        } catch (errorHandlerError) {
+          console.error("Error in streaming error handler:", errorHandlerError);
+        }
+      }
+
       this.eventStream$.error(structuredError);
       this.eventStream$.complete();
     });
@@ -333,6 +361,25 @@ export class RuntimeEventSource {
                 error,
                 convertStreamingErrorToStructured,
               );
+
+              // Call the runtime error handler if provided
+              if (this.errorHandler && this.errorContext) {
+                // Use from() to handle async error handler
+                from(
+                  this.errorHandler(structuredError, {
+                    ...this.errorContext,
+                    action: {
+                      name: eventWithState.action!.name,
+                      executionId: eventWithState.actionExecutionId,
+                    },
+                  }),
+                ).subscribe({
+                  error: (errorHandlerError) => {
+                    console.error("Error in action execution error handler:", errorHandlerError);
+                  },
+                });
+              }
+
               toolCallEventStream$.sendActionExecutionResult({
                 actionExecutionId: eventWithState.actionExecutionId!,
                 actionName: eventWithState.action!.name,

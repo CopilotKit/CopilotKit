@@ -138,22 +138,26 @@ A function that creates an MCP client instance for a given endpoint configuratio
   ```
 </PropertyReference>
 
-<PropertyReference name="onTrace" type="CopilotTraceHandler"  > 
-Optional trace handler for comprehensive debugging and observability.
+<PropertyReference name="onError" type="CopilotErrorHandler"  > 
+Optional error handler for comprehensive debugging and observability.
  
-  Requires publicApiKey: Tracing only works when requests include a valid publicApiKey.
-  This is a premium CopilotKit Cloud feature.
+  Requires publicApiKey: Error handling only works when requests include a valid publicApiKey.
+  This is a premium Copilot Cloud feature.
  
-  @param traceEvent - Structured trace event with rich debugging context
+  @param errorEvent - Structured error event with rich debugging context
  
   @example
   ```typescript
   const runtime = new CopilotRuntime({
-    onTrace: (traceEvent) => {
-      debugDashboard.capture(traceEvent);
+    onError: (errorEvent) => {
+      debugDashboard.capture(errorEvent);
     }
   });
   ```
+</PropertyReference>
+
+<PropertyReference name="onStopGeneration" type="OnStopGenerationHandler"  > 
+
 </PropertyReference>
 
 <PropertyReference name="processRuntimeRequest" type="request: CopilotRuntimeRequest">
@@ -183,11 +187,6 @@ Optional trace handler for comprehensive debugging and observability.
 
 </PropertyReference>
 
-<PropertyReference name="discoverAgentsFromAgui" type="">
-
-
-</PropertyReference>
-
 <PropertyReference name="loadAgentState" type="graphqlContext: GraphQLContext, threadId: string, agentName: string">
 
 
@@ -205,12 +204,12 @@ Optional trace handler for comprehensive debugging and observability.
 
 </PropertyReference>
 
-<PropertyReference name="traceGraphQLError" type="error: { message: string; code: string; type: string }, context: {
+<PropertyReference name="errorGraphQLError" type="error: { message: string; code: string; type: string }, context: {
       operation: string;
       cloudConfigPresent: boolean;
       guardrailsEnabled: boolean;
     }">
-Public method to trace GraphQL validation errors
+Public method to handle GraphQL validation errors
 
   <PropertyReference name="error" type="{ message: string; code: string; type: string }" required>
   

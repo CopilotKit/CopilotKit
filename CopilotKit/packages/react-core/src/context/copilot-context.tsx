@@ -1,4 +1,9 @@
-import { CopilotCloudConfig, FunctionCallHandler, CopilotTraceHandler } from "@copilotkit/shared";
+import {
+  CopilotCloudConfig,
+  FunctionCallHandler,
+  CopilotErrorHandler,
+  CopilotKitError,
+} from "@copilotkit/shared";
 import {
   ActionRenderProps,
   CatchAllActionRenderProps,
@@ -20,6 +25,7 @@ import {
   LangGraphInterruptAction,
   LangGraphInterruptActionSetter,
 } from "../types/interrupt-action";
+import { SuggestionItem } from "../utils/suggestions";
 
 /**
  * Interface for the configuration of the Copilot API.
@@ -195,7 +201,7 @@ export interface CopilotContextParams {
   /**
    * The forwarded parameters to use for the task.
    */
-  forwardedParameters?: Pick<ForwardedParametersInput, "temperature">;
+  forwardedParameters?: Partial<Pick<ForwardedParametersInput, "temperature">>;
   availableAgents: Agent[];
 
   /**
@@ -217,12 +223,22 @@ export interface CopilotContextParams {
   setExtensions: React.Dispatch<React.SetStateAction<ExtensionsInput>>;
   langGraphInterruptAction: LangGraphInterruptAction | null;
   setLangGraphInterruptAction: LangGraphInterruptActionSetter;
-  removeLangGraphInterruptAction: () => void;
+  removeLangGraphInterruptAction: (threadId: string) => void;
 
   /**
    * Optional trace handler for comprehensive debugging and observability.
    */
-  onTrace?: CopilotTraceHandler;
+  onError: CopilotErrorHandler;
+
+  // banner error state
+  bannerError: CopilotKitError | null;
+  setBannerError: React.Dispatch<React.SetStateAction<CopilotKitError | null>>;
+  // Internal error handlers
+  // These are used to handle errors that occur during the execution of the chat.
+  // They are not intended for use by the developer. A component can register itself an error listener to be activated somewhere else as needed
+  internalErrorHandlers: Record<string, CopilotErrorHandler>;
+  setInternalErrorHandler: (handler: Record<string, CopilotErrorHandler>) => void;
+  removeInternalErrorHandler: (id: string) => void;
 }
 
 const emptyCopilotContext: CopilotContextParams = {
@@ -291,9 +307,14 @@ const emptyCopilotContext: CopilotContextParams = {
   extensions: {},
   setExtensions: () => {},
   langGraphInterruptAction: null,
-  setLangGraphInterruptAction: () => null,
-  removeLangGraphInterruptAction: () => null,
-  onTrace: undefined,
+  setLangGraphInterruptAction: () => {},
+  removeLangGraphInterruptAction: () => {},
+  onError: () => {},
+  bannerError: null,
+  setBannerError: () => {},
+  internalErrorHandlers: {},
+  setInternalErrorHandler: () => {},
+  removeInternalErrorHandler: () => {},
 };
 
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);

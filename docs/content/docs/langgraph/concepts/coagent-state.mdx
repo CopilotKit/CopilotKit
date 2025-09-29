@@ -1,0 +1,36 @@
+---
+title: Shared State
+icon: "lucide/Repeat"
+description: CoAgents maintain a shared state across your UI and agent execution.
+---
+
+<Frame className="mb-10">
+    <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-state-diagram.png" alt="Agentic Copilot State Diagram" />
+</Frame>
+
+CoAgents maintain a shared state that seamlessly connects your UI with the agent's execution. This shared state system allows you to:
+- Display the agent's current progress and intermediate results
+- Update the agent's state through UI interactions
+- React to state changes in real-time across your application
+
+The foundation of this system is built on LangGraph's stateful architecture. Unlike traditional LangChains, LangGraphs maintain their
+internal state throughout execution, which you can access via the `useCoAgentState` hook.
+
+### Understanding Predicted State
+
+While your agent runs, you can emit state updates using CopilotKit's `emit_intermediate_state` function, ensuring your UI stays synchronized
+with the agent's progress. The emitted state is called the **predicted state** and is used to provide immediate feedback about ongoing
+operations.
+
+While the core shared state reflects the agent's current node in the execution graph, the predicted state provides immediate
+feedback about ongoing operations. Accordingly, this creates a more fluid user experience by showing real-time progress before the agent
+completes its current task.
+
+When the state is updated (when a node finishes executing), 
+
+For example, when your agent is processing a request, the predicted state might show a loading indicator or partial results, while the actual
+shared state updates once the operation is complete.
+
+Want help implementing this into your CoAgent application? Check out our [intermediate state streaming](/coagents/shared-state/predictive-state-updates)
+documentation.
+

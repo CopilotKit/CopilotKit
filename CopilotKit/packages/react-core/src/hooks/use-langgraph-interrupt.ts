@@ -1,7 +1,7 @@
 import { useContext, useEffect, useMemo } from "react";
 import { CopilotContext } from "../context/copilot-context";
 import { LangGraphInterruptRender } from "../types/interrupt-action";
-import { useCopilotChat } from "./use-copilot-chat";
+import { useCopilotChat } from "./use-copilot-chat_internal";
 import { useToast } from "../components/toast/toast-provider";
 import { dataToUUID } from "@copilotkit/shared";
 
@@ -9,8 +9,12 @@ export function useLangGraphInterrupt<TEventValue = any>(
   action: Omit<LangGraphInterruptRender<TEventValue>, "id">,
   dependencies?: any[],
 ) {
-  const { setLangGraphInterruptAction, removeLangGraphInterruptAction, langGraphInterruptAction } =
-    useContext(CopilotContext);
+  const {
+    setLangGraphInterruptAction,
+    removeLangGraphInterruptAction,
+    langGraphInterruptAction,
+    threadId,
+  } = useContext(CopilotContext);
   const { runChatCompletion } = useCopilotChat();
   const { addToast } = useToast();
 
@@ -49,13 +53,14 @@ export function useLangGraphInterrupt<TEventValue = any>(
       return;
     }
 
-    setLangGraphInterruptAction({ ...action, id: actionId });
+    setLangGraphInterruptAction(threadId, { ...action, id: actionId });
   }, [
     action,
     hasAction,
     isCurrentAction,
     setLangGraphInterruptAction,
     removeLangGraphInterruptAction,
+    threadId,
     ...(dependencies || []),
   ]);
 }

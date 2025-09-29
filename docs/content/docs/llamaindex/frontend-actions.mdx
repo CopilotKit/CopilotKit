@@ -1,51 +1,59 @@
 ---
 title: Frontend Actions
 icon: "lucide/Wrench"
-description: Create frontend actions and use them within your agent.
+description: Create frontend actions and use them within your LlamaIndex agent.
 ---
 
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
-
-<video
-  src="/images/frontend-actions-demo.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
-/>
-<Callout>
-  This video shows the [coagents
-  starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/llamaindex/starter)
-  repo with the [implementation](#implementation) section applied to it!
+<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<Callout type="info">
+  Pictured above is the [llamaindex starter](https://github.com/copilotkit/with-llamaindex) with the implementation below applied!
 </Callout>
-
-## What is this?
-
-Frontend actions are powerful tools that allow your AI agents to directly interact with and update your application's user interface. Think of them as bridges that connect your agent's decision-making capabilities with your frontend's interactive elements.
-
-## When should I use this?
-
-Frontend actions are essential when you want to create truly interactive AI applications where your agent needs to:
-
-- Dynamically update UI elements
-- Trigger frontend animations or transitions
-- Show alerts or notifications
-- Modify application state
-- Handle user interactions programmatically
-
-Without frontend actions, agents are limited to just processing and returning data. By implementing frontend actions, you can create rich, interactive experiences where your agent actively drives the user interface.
 
 ## Implementation
 
 <Steps>
     <Step>
-        ### Setup CopilotKit
+      ### Run and connect your agent
 
-        To use frontend actions, you'll need to setup CopilotKit first. For the sake of brevity, we won't cover it here.
+      You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
+      you can follow the instructions in the [Getting Started](/llamaindex/quickstart) guide.
 
-        Check out our [getting started guide](/llamaindex/quickstart/llamaindex) and come back here when you're setup!
+      <Callout type="info">
+      If you don't already have an agent, simply run the following command to create a new application:
+
+      ```bash
+      npx copilotkit@latest create -f llamaindex
+      ```
+      </Callout>
+    </Step>
+
+    <Step>
+        ### Add a tool to your agent
+        Add a tool to your agent that will be used to say hello to the user. Since the tool will be used in the frontend,
+        we'll add it to the `frontend_tools` list.
+
+        ```python title="agent-py/agent/agent.py"
+        from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
+        from llama_index.llms.openai import OpenAI
+        from fastapi import FastAPI
+
+        def say_hello(name: str) -> str:
+            """Says hello to the user and takes the name as an argument."""
+            return f"Hello, {name}!"
+
+        app = FastAPI()
+
+        router = get_ag_ui_workflow_router(
+            llm=OpenAI(model="gpt-4.1"),
+            frontend_tools=[say_hello],
+        )
+
+        app.include_router(router)
+
+        if __name__ == "__main__":
+            import uvicorn
+            uvicorn.run(app, host="0.0.0.0", port=8000)
+        ```
     </Step>
 
     <Step>
@@ -62,9 +70,8 @@ Without frontend actions, agents are limited to just processing and returning da
 
           // [!code highlight:16]
           useCopilotAction({
-            name: "sayHello",
+            name: "say_hello",
             description: "Say hello to the user",
-            available: "remote", // optional, makes it so the action is *only* available to the agent
             parameters: [
               {
                 name: "name",
@@ -83,27 +90,16 @@ Without frontend actions, agents are limited to just processing and returning da
         ```
     </Step>
     <Step>
-        ###  Modify your agent
-        Now, we'll need to modify the agent to access these frontend actions. Open up for your agent's folder and continue from there!
-    </Step>
-    <Step>
-        ### Install the CopilotKit SDK
-        <InstallSDKSnippet components={props.components}/>
-    </Step>
-    <Step>
-        ### Accessing Frontend Actions
-
-        Since LlamaIndex includes native support for the AG-UI protocol, frontend actions are automatically available to the agent as
-        tools.
-    </Step>
-    <Step>
         ### Give it a try!
-        You've now given your agent the ability to directly call any CopilotActions you've defined. These actions will be available as tools to the agent where they can be used as needed.
+        Your front-end tool will now be executed on the front-end when the it decides to call the `say_hello` action.
     </Step>
     <Step>
-        ### Setup the LlamaIndex Agent
-        On the agent side, we are already done! LlamaIndex natively supports the AG-UI protocol and will automatically
-        pass control back to the frontend when the `writeEssay` action is found in the model's response.
+        ### Try it out!
+        Navigate to the front-end and try it out!
+
+        ```
+        Say hello to the John
+        ```
     </Step>
 
-</Steps> 
+</Steps>

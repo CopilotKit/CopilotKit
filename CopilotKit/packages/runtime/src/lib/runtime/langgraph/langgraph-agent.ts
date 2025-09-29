@@ -14,18 +14,28 @@ import { LangGraphEventTypes } from "../../../agents/langgraph/events";
 import { RawEvent } from "@ag-ui/core";
 import {
   LangGraphAgent as AGUILangGraphAgent,
+  LangGraphHttpAgent,
   type LangGraphAgentConfig,
   ProcessedEvents,
   SchemaKeys,
+  type State,
+  StateEnrichment,
 } from "@ag-ui/langgraph";
 import { Message as LangGraphMessage } from "@langchain/langgraph-sdk/dist/types.messages";
+import { ThreadState } from "@langchain/langgraph-sdk";
+
+interface CopilotKitStateEnrichment {
+  copilotkit: {
+    actions: StateEnrichment["ag-ui"]["tools"];
+    context: StateEnrichment["ag-ui"]["context"];
+  };
+}
 
 export interface PredictStateTool {
   tool: string;
   state_key: string;
   tool_argument: string;
 }
-export type State = Record<string, any>;
 
 export type TextMessageEvents =
   | TextMessageStartEvent
@@ -98,7 +108,9 @@ export class LangGraphAgent extends AGUILangGraphAgent {
         this.activeRun.manuallyEmittedState = customEvent.value;
         this.dispatchEvent({
           type: EventType.STATE_SNAPSHOT,
-          snapshot: this.getStateSnapshot(this.activeRun.manuallyEmittedState),
+          snapshot: this.getStateSnapshot({
+            values: this.activeRun.manuallyEmittedState,
+          } as ThreadState<State>),
           rawEvent: event,
         });
         return true;
@@ -175,17 +187,29 @@ export class LangGraphAgent extends AGUILangGraphAgent {
     );
   }
 
-  langGraphDefaultMergeState(state: State, messages: LangGraphMessage[], tools: any): State {
-    const { tools: returnedTools, ...rest } = super.langGraphDefaultMergeState(
-      state,
-      messages,
-      tools,
+  langGraphDefaultMergeState(
+    state: State,
+    messages: LangGraphMessage[],
+    input: RunAgentInput,
+  ): State<StateEnrichment & CopilotKitStateEnrichment> {
+    const aguiMergedState = super.langGraphDefaultMergeState(state, messages, input);
+    const { tools: returnedTools, "ag-ui": agui } = aguiMergedState;
+    // tolerate undefined and de-duplicate by stable key (id | name | key)
+    const rawCombinedTools = [
+      ...((returnedTools as any[]) ?? []),
+      ...((agui?.tools as any[]) ?? []),
+    ];
+    const combinedTools = Array.from(
+      new Map(
+        rawCombinedTools.map((t: any) => [t?.id ?? t?.name ?? t?.key ?? JSON.stringify(t), t]),
+      ).values(),
     );
 
     return {
-      ...rest,
+      ...aguiMergedState,
       copilotkit: {
-        actions: returnedTools,
+        actions: combinedTools,
+        context: agui?.context ?? [],
       },
     };
   }
@@ -197,6 +221,9 @@ export class LangGraphAgent extends AGUILangGraphAgent {
       config: schemaKeys.config,
       input: schemaKeys.input ? [...schemaKeys.input, ...CONSTANT_KEYS] : null,
       output: schemaKeys.output ? [...schemaKeys.output, ...CONSTANT_KEYS] : null,
+      context: schemaKeys.context ? [...schemaKeys.context, ...CONSTANT_KEYS] : null,
     };
   }
 }
+
+export { LangGraphHttpAgent };

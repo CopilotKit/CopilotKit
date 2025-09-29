@@ -13,9 +13,8 @@ import { Annotation } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 
 // 1. Import necessary helpers for CopilotKit actions
-import { convertActionsToDynamicStructuredTools } from "@copilotkit/sdk-js/langgraph";
-import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
- 
+import { convertActionsToDynamicStructuredTools, CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+
 // 2. Define our agent state, which includes CopilotKit state to
 //    provide actions to the state.
 export const AgentStateAnnotation = Annotation.Root({
@@ -52,7 +51,7 @@ async function chat_node(state: AgentState, config: RunnableConfig) {
   //     the model to call tools that are defined in CopilotKit by the frontend.
   const modelWithTools = model.bindTools!(
     [
-      ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions || []),
+      ...(state.copilotkit?.actions ?? []),
       ...tools,
     ],
   );
@@ -60,7 +59,7 @@ async function chat_node(state: AgentState, config: RunnableConfig) {
   // 6.3 Define the system message, which will be used to guide the model, in this case
   //     we also add in the language to use from the state.
   const systemMessage = new SystemMessage({
-    content: `You are a helpful assistant. Talk in ${state.language || "english"}.`,
+    content: `You are a helpful assistant.`,
   });
 
   // 6.4 Invoke the model with the system message and the messages in the state

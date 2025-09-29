@@ -3,17 +3,23 @@ title: "Remote Endpoint (LangGraph Platform)"
 description: "Connect your CopilotKit application to an agent deployed on LangGraph Platform."
 icon: "custom/langchain"
 ---
+
 import FindCopilotRuntimeSnippet from "@/snippets/find-your-copilot-runtime.mdx";
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
-import { TailoredContent, TailoredContentOption } from "@/components/react/tailored-content.tsx";
+import {
+  TailoredContent,
+  TailoredContentOption,
+} from "@/components/react/tailored-content.tsx";
 import CopilotCloudConfigureRemoteEndpointLangGraphSnippet from "@/snippets/copilot-cloud-configure-remote-endpoint-langgraph.mdx";
 import CopilotCloudConfigureCopilotkitProviderSnippet from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
 import LangGraphPlatformDeploymentTabs from "@/snippets/langgraph-platform-deployment-tabs.mdx";
 import { FaCloud, FaServer } from "react-icons/fa";
 
 <Callout type="info">
-    This guide assumes you've created a LangGraph agent, and have a `langgraph.json` file set up. If you need a quick introduction, check out [this brief example
-    from the LangGraph docs](https://langchain-ai.github.io/langgraph/) or follow one of our demos.
+  This guide assumes you've created a LangGraph agent, and have a
+  `langgraph.json` file set up. If you need a quick introduction, check out
+  [this brief example from the LangGraph
+  docs](https://langchain-ai.github.io/langgraph/) or follow one of our demos.
 </Callout>
 ## Deploy a Graph to LangGraph Platform
 
@@ -93,7 +99,45 @@ import { FaCloud, FaServer } from "react-icons/fa";
         The graph and interactions can viewed in [LangGraph Studio](smith.langchain.com/studio) and any logs should be available on [LangSmith](smith.langchain.com)
 
     </Step>
+
 </Steps>
+
+---
+
+## Authentication
+
+For production deployments, you'll want to implement proper authentication to ensure users can only access their own data and threads. CopilotKit supports passing user authentication tokens to your LangGraph Platform agents.
+
+<Callout type="info">
+  Learn how to implement secure authentication with your LangGraph agents in our
+  comprehensive [LangGraph Agent Authentication
+  Guide](/coagents/shared/guides/langgraph-platform-authentication).
+</Callout>
+
+### Quick Example
+
+Pass authentication tokens through the `properties` prop:
+
+```tsx
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  properties={{
+    authorization: userToken, // Gets forwarded to LangGraph Platform
+  }}
+>
+  <YourApp />
+</CopilotKit>
+```
+
+Your LangGraph agent can then access the authentication context:
+
+```python
+def authenticate_user(state, config):
+    auth_header = config.get("configurable", {}).get("authorization")
+    user_info = validate_jwt_token(auth_header)
+    # Use user_info to control access and permissions
+    return state
+```
 
 ---
 
@@ -104,3 +148,4 @@ A few things to try if you are running into trouble:
 1. Make sure that you listed your agents according to the graphs mentioned in the `langgraph.json` file
 2. Make sure the agent names are the same between the agent Python implementation, the `langgraph.json` file and the remote endpoint declaration
 3. Make sure the LangGraph Platform deployment has all environment variables listed as you need them to be, according to your agent implementation
+4. **Authentication issues**: If you're having trouble with authentication, check that you're passing the `authorization` token in the `properties` prop and that your agent is properly validating it. See the [authentication guide](/coagents/shared/guides/langgraph-platform-authentication) for details.

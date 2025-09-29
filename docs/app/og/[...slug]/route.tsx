@@ -42,9 +42,10 @@ const getInterSemibold = async () => {
   }
 };
 
+// In Next.js 13+ (app directory), route handlers use the following signature:
 export async function GET(
   _: NextRequest,
-  { params }: { params: { slug: string[] } }
+  { params }: { params: Promise<{ slug: string[] }> }
 ) {
   // Skip OG image generation during build phase to avoid fetch errors
   if (process.env.NEXT_PHASE === "phase-production-build") {
@@ -52,7 +53,8 @@ export async function GET(
   }
 
   try {
-    const page = source.getPage(params.slug.slice(0, -1));
+    const resolvedParams = await params;
+    const page = source.getPage(resolvedParams.slug.slice(0, -1));
     if (!page) notFound();
 
     const interFont = await getInter();
@@ -86,7 +88,7 @@ export async function GET(
             backgroundColor: "#000000",
             background: "#FAEEDC",
             backgroundImage:
-              "url('https://docs.copilotkit.ai/images/opengraph-background.png')",
+              "url('https://cdn.copilotkit.ai/docs/copilotkit/images/opengraph-background.png')",
             backgroundSize: "cover",
             backgroundPosition: "0% 0%",
             width: "100%",
@@ -157,7 +159,7 @@ export async function GET(
     return new Response("OG image generation failed - using fallback", {
       status: 307,
       headers: {
-        Location: "/images/og-fallback.png",
+        Location: "https://cdn.copilotkit.ai/docs/copilotkit/images/og-fallback.png",
       },
     });
   }

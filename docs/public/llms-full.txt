@@ -99,7 +99,7 @@ Build Agent-Native Applications (ANAs) powered by CopilotKit and LangGraph.
 
 Full user-interaction infrastructure for your agents, to turn your agents into Copilot Agents (CoAgents).
 
-![CoAgents demonstration](https://docs.copilotkit.ai/images/CoAgents.gif)
+![CoAgents demonstration](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/CoAgents.gif)
 
 ## [Building blocks of a CoAgent](https://docs.copilotkit.ai/coagents\#building-blocks-of-a-coagent)
 
@@ -378,7 +378,7 @@ Bring your own LangGraph agent
 
 I already have a LangGraph agent and want to use it with CopilotKit.
 
-![CopilotKit Logo](https://docs.copilotkit.ai/images/copilotkit-logo.svg)
+![CopilotKit Logo](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/copilotkit-logo.svg)
 
 Use the CoAgents Starter repo
 
@@ -486,7 +486,7 @@ CopilotPopupCopilotSidebarCopilotChatHeadless UI
 
 `CopilotPopup` is a convenience wrapper for `CopilotChat` that lives at the same level as your main content in the view hierarchy. It provides **a floating chat interface** that can be toggled on and off.
 
-![Popup Example](https://docs.copilotkit.ai/images/popup-example.gif)
+![Popup Example](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/popup-example.gif)
 
 ```
 import { CopilotPopup } from "@copilotkit/react-ui";
@@ -784,7 +784,7 @@ On this pageUsage
 
 The useCopilotAction hook allows your copilot to take action in the app.
 
-![](https://docs.copilotkit.ai/images/use-copilot-action/useCopilotAction.gif)
+![](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/use-copilot-action/useCopilotAction.gif)
 
 `useCopilotAction` is a React hook that you can use in your application to provide
 custom actions that can be called by the AI. Essentially, it allows the Copilot to
@@ -1421,7 +1421,7 @@ The useCoAgent hook allows you to share state bidirectionally between your appli
 Usage of this hook assumes some additional setup in your application, for more information
 on that see the CoAgents [getting started guide](https://docs.copilotkit.ai/coagents/quickstart/langgraph).
 
-![CoAgents demonstration](https://docs.copilotkit.ai/images/coagents/SharedStateCoAgents.gif)
+![CoAgents demonstration](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/coagents/SharedStateCoAgents.gif)
 
 This hook is used to integrate an agent into your application. With its use, you can
 render and update the state of an agent, allowing for a dynamic and interactive experience.
@@ -1819,7 +1819,7 @@ On this pageWhat is Generative UI?
 
 Render your agent's behavior with custom UI components.
 
-![Demo of Generative UI showing a meeting scheduling agent](https://docs.copilotkit.ai/images/coagents/AgenticGenerativeUI.gif)
+![Demo of Generative UI showing a meeting scheduling agent](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/coagents/AgenticGenerativeUI.gif)
 
 This example shows our [Research Canvas](https://docs.copilotkit.ai/coagents/videos/research-canvas) making use of Generative UI!
 
@@ -1874,7 +1874,7 @@ Get started with CopilotKit in under 5 minutes.
 
 Copilot Cloud (Recommended)
 
-Use our hosted backend endpoint to get started quickly (OpenAI only).
+Use our hosted backend endpoint to get started quickly.
 
 Self-hosting
 
@@ -1936,7 +1936,7 @@ CopilotPopupCopilotSidebarCopilotChatHeadless UI
 
 `CopilotChat` is a flexible chat interface component that **can be placed anywhere in your app** and can be resized as you desire.
 
-![Popup Example](https://docs.copilotkit.ai/images/copilotchat-example.gif)
+![Popup Example](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/copilotchat-example.gif)
 
 ```
 import { CopilotChat } from "@copilotkit/react-ui";
@@ -2085,7 +2085,7 @@ change without notice.
 
 [`useCopilotChatSuggestions`](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions) is a React hook that generates suggestions in the chat window based on real time application state.
 
-![](https://docs.copilotkit.ai/images/use-copilot-chat-suggestions/use-copilot-chat-suggestions.gif)
+![](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/use-copilot-chat-suggestions/use-copilot-chat-suggestions.gif)
 
 ### [Simple Usage](https://docs.copilotkit.ai/guides/copilot-suggestions\#simple-usage)
 
@@ -2277,7 +2277,7 @@ On this pageInstall @copilotkit/react-textarea
 
 Learn how to use the Copilot Textarea for AI-powered autosuggestions.
 
-![](https://docs.copilotkit.ai/images/CopilotTextarea.gif)
+![](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/CopilotTextarea.gif)
 
 `<CopilotTextarea>` is a React component that acts as a drop-in replacement for the standard `<textarea>`,
 offering enhanced autocomplete features powered by AI. It is context-aware, integrating seamlessly with the
@@ -2358,7 +2358,7 @@ Self Hosting (Copilot Runtime)](https://docs.copilotkit.ai/guides/self-hosting)
 ## CrewAI Support
 CrewAI CrewAI support is here! Checkout the [Crew](https://docs.copilotkit.ai/crewai-crews) and [Flow](https://docs.copilotkit.ai/crewai-flows) documentation.
 
-![CopilotKit Logo](https://docs.copilotkit.ai/images/copilotkit-logo.svg)
+![CopilotKit Logo](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/copilotkit-logo.svg)
 
 # Page Not Found
 
@@ -2631,7 +2631,7 @@ On this pageExample
 
 An AI-powered textarea component for your application, which serves as a drop-in replacement for any textarea.
 
-![](https://docs.copilotkit.ai/images/CopilotTextarea.gif)
+![](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/CopilotTextarea.gif)
 
 `<CopilotTextarea>` is a React component that acts as a drop-in replacement for the standard `<textarea>`,
 offering enhanced autocomplete features powered by AI. It is context-aware, integrating seamlessly with the
@@ -2845,7 +2845,7 @@ Get started with CopilotKit in under 5 minutes.
 
 Copilot Cloud (Recommended)
 
-Use our hosted backend endpoint to get started quickly (OpenAI only).
+Use our hosted backend endpoint to get started quickly.
 
 Self-hosting
 
@@ -2907,7 +2907,7 @@ CopilotPopupCopilotSidebarCopilotChatHeadless UI
 
 `CopilotSidebar` is a convenience wrapper for `CopilotChat` that wraps your main content in the view hierarchy. It provides a **collapsible and expandable sidebar** chat interface.
 
-![Popup Example](https://docs.copilotkit.ai/images/sidebar-example.gif)
+![Popup Example](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/sidebar-example.gif)
 
 ```
 import { CopilotSidebar } from "@copilotkit/react-ui";
@@ -2979,7 +2979,7 @@ Render a componentFetch data & renderrenderAndWaitForResponse (HITL)Render strin
 
 Here's an example to render a calendar meeting.
 
-![Example of render-only Copilot action](https://docs.copilotkit.ai/images/render-only-example.png)
+![Example of render-only Copilot action](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/render-only-example.png)
 
 ```
 "use client" // only necessary if you are using Next.js with the App Router.
@@ -3077,7 +3077,7 @@ can change without notice.
 to the Copilot. Optionally, the hook can also handle hierarchical state within your
 application, passing these parent-child relationships to the Copilot.
 
-![](https://docs.copilotkit.ai/images/use-copilot-chat-suggestions/use-copilot-chat-suggestions.gif)
+![](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/use-copilot-chat-suggestions/use-copilot-chat-suggestions.gif)
 
 ## [Usage](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions\#usage)
 
@@ -3243,7 +3243,7 @@ CoAgents maintain a shared state that seamlessly connects your UI with the agent
 - Update the agent's state through UI interactions
 - React to state changes in real-time across your application
 
-![Agentic Copilot State Diagram](https://docs.copilotkit.ai/images/coagents/coagents-state-diagram.png)
+![Agentic Copilot State Diagram](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-state-diagram.png)
 
 The foundation of this system is built on LangGraph's stateful architecture. Unlike traditional LangChains, LangGraphs maintain their
 internal state throughout execution, which you can access via the `useCoAgentState` hook.
@@ -3345,7 +3345,7 @@ If you're using Next.js with the App Router, you'll need to add the `"use client
 
 After defining the action, ask the copilot to perform the task. For example, you can now ask the copilot to "select an employee" by specifying the `employeeId`.
 
-![Example of Copilot action](https://docs.copilotkit.ai/images/copilot-action-example.gif)
+![Example of Copilot action](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/copilot-action-example.gif)
 
 ## [Next Steps](https://docs.copilotkit.ai/guides/frontend-actions\#next-steps)
 
@@ -3468,7 +3468,7 @@ Bring your own LangGraph agent
 
 I already have a LangGraph agent and want to use it with CopilotKit.
 
-![CopilotKit Logo](https://docs.copilotkit.ai/images/copilotkit-logo.svg)
+![CopilotKit Logo](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/copilotkit-logo.svg)
 
 Use the CoAgents Starter repo
 
@@ -3576,7 +3576,7 @@ CopilotPopupCopilotSidebarCopilotChatHeadless UI
 
 `CopilotPopup` is a convenience wrapper for `CopilotChat` that lives at the same level as your main content in the view hierarchy. It provides **a floating chat interface** that can be toggled on and off.
 
-![Popup Example](https://docs.copilotkit.ai/images/popup-example.gif)
+![Popup Example](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/popup-example.gif)
 
 ```
 import { CopilotPopup } from "@copilotkit/react-ui";
@@ -3655,7 +3655,7 @@ On this pageCoAgents and LangGraph
 
 An agentic framework for building LLM applications that can be used with Copilotkit.
 
-![CoAgents High Level Overview](https://docs.copilotkit.ai/images/coagents/coagents-highlevel-overview.png)
+![CoAgents High Level Overview](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-highlevel-overview.png)
 
 LangGraph is an agentic framework for building LLM applications that can be used with Copilotkit. It is built on top of LangChain's
 [LangGraph](https://langchain-ai.github.io/langgraph/) library and extends it with additional functionality for building agentic
@@ -3983,7 +3983,7 @@ On this pageInstall Dependencies
 
 The CopilotPopup component, providing a popup interface for interacting with your copilot.
 
-![](https://docs.copilotkit.ai/images/CopilotPopup.gif)
+![](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/CopilotPopup.gif)
 
 A chatbot popup component for the CopilotKit framework. The component allows for a high degree
 of customization through various props and custom CSS.
@@ -4103,9 +4103,9 @@ MessagesReact.ComponentType<MessagesProps>
 
 A custom Messages component to use instead of the default.
 
-RenderTextMessageReact.ComponentType<RenderMessageProps>
+RenderMessageReact.ComponentType<RenderMessageProps>
 
-A custom RenderTextMessage component to use instead of the default.
+A custom RenderMessage component to use instead of the default.
 
 RenderActionExecutionMessageReact.ComponentType<RenderMessageProps>
 
@@ -4269,7 +4269,7 @@ generated to the frontend chat that initiated the interaction. **If this predict
 In this situation, the most likely scenario is that the `messages` property in the state is being updated in the middle of a node but those edits are not being
 persisted at the end of a node.
 
-![](https://docs.copilotkit.ai/images/coagents/message-state-diagram.png)
+![](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/coagents/message-state-diagram.png)
 
 ### I want these messages to be persisted
 
@@ -4304,7 +4304,7 @@ On this pageWhat is this?
 
 Render the state of your agent with custom UI components.
 
-This video demonstrates the [implementation](https://docs.copilotkit.ai/coagents/generative-ui/agentic#implementation) section applied to out [coagents starter project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter).
+This video demonstrates the [implementation](https://docs.copilotkit.ai/coagents/generative-ui/agentic#implementation) section applied to our [coagents starter project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter).
 
 ## [What is this?](https://docs.copilotkit.ai/coagents/generative-ui/agentic\#what-is-this)
 
@@ -4512,7 +4512,7 @@ Agentic copilots provide you with advanced control and orchestration over your a
 
 Before we dive into what agentic copilots are, help us help you by telling us your level of experience with LangGraph. We'll explain things in a way that best suits your experience level.
 
-![](https://docs.copilotkit.ai/images/copilotkit-logo.svg)
+![](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/copilotkit-logo.svg)
 
 I'm new to LangGraph
 
@@ -4522,7 +4522,7 @@ I'm already using LangGraph
 
 Help me understand what agentic copilots are, what Copilotkit does to integrate with LangGraph, and how to get started.
 
-![CoAgents Shared State](https://docs.copilotkit.ai/images/coagents/SharedStateCoAgents.gif)
+![CoAgents Shared State](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/coagents/SharedStateCoAgents.gif)
 
 ### [What are Agents?](https://docs.copilotkit.ai/coagents/concepts/agentic-copilots\#what-are-agents)
 
@@ -4646,7 +4646,7 @@ On this pageInstall Dependencies
 
 The CopilotChat component, providing a chat interface for interacting with your copilot.
 
-![](https://docs.copilotkit.ai/images/CopilotChat.gif)
+![](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/CopilotChat.gif)
 
 A chatbot panel component for the CopilotKit framework. The component allows for a high degree
 of customization through various props and custom CSS.
@@ -4764,9 +4764,9 @@ MessagesReact.ComponentType<MessagesProps>
 
 A custom Messages component to use instead of the default.
 
-RenderTextMessageReact.ComponentType<RenderMessageProps>
+RenderMessageReact.ComponentType<RenderMessageProps>
 
-A custom RenderTextMessage component to use instead of the default.
+A custom RenderMessage component to use instead of the default.
 
 RenderActionExecutionMessageReact.ComponentType<RenderMessageProps>
 
@@ -4809,7 +4809,7 @@ CopilotPopup](https://docs.copilotkit.ai/reference/components/chat/CopilotPopup)
 ## CrewAI Components Guide
 CrewAI CrewAI support is here! Checkout the [Crew](https://docs.copilotkit.ai/crewai-crews) and [Flow](https://docs.copilotkit.ai/crewai-flows) documentation.
 
-![CopilotKit Logo](https://docs.copilotkit.ai/images/copilotkit-logo.svg)
+![CopilotKit Logo](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/copilotkit-logo.svg)
 
 # Page Not Found
 
@@ -4834,7 +4834,7 @@ Get started with CopilotKit in under 5 minutes.
 
 Copilot Cloud (Recommended)
 
-Use our hosted backend endpoint to get started quickly (OpenAI only).
+Use our hosted backend endpoint to get started quickly.
 
 Self-hosting
 
@@ -5574,7 +5574,7 @@ On this pageWhat are Multi-Agent Flows?
 
 Use multiple agents to orchestrate complex flows.
 
-![Multi-Agent Flows](https://docs.copilotkit.ai/images/coagents/multi-agent-flows.png)
+![Multi-Agent Flows](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/coagents/multi-agent-flows.png)
 
 ## [What are Multi-Agent Flows?](https://docs.copilotkit.ai/coagents/multi-agent-flows\#what-are-multi-agent-flows)
 
@@ -5612,7 +5612,7 @@ In this mode, CopilotKit will intelligently route requests to the most appropria
 Be advised that when using this mode, you'll have to "exit the workflow" explicitly in your agent code.
 You can find more information about it in the ["Exiting the agent loop" section](https://docs.copilotkit.ai/coagents/advanced/exit-agent).
 
-Router mode requires that you set up an LLM adapter. See how in ["Set up a copilot runtime"](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#set-up-a-copilot-runtime-endpoint) section of the docs.
+Router mode requires that you set up an LLM adapter. See how in ["Set up a copilot runtime"](https://docs.copilotkit.ai/direct-to-llm/guides/quickstart?copilot-hosting=self-hosted#set-up-a-copilot-runtime-endpoint) section of the docs.
 
 ### [Agent Lock Mode](https://docs.copilotkit.ai/coagents/multi-agent-flows\#agent-lock-mode)
 
@@ -5657,7 +5657,7 @@ On this pageInstall Dependencies
 
 The CopilotSidebar component, providing a sidebar interface for interacting with your copilot.
 
-![](https://docs.copilotkit.ai/images/CopilotSidebar.gif)
+![](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/CopilotSidebar.gif)
 
 A chatbot sidebar component for the CopilotKit framework. Highly customizable through various props and custom CSS.
 
@@ -5778,9 +5778,9 @@ MessagesReact.ComponentType<MessagesProps>
 
 A custom Messages component to use instead of the default.
 
-RenderTextMessageReact.ComponentType<RenderMessageProps>
+RenderMessageReact.ComponentType<RenderMessageProps>
 
-A custom RenderTextMessage component to use instead of the default.
+A custom RenderMessage component to use instead of the default.
 
 RenderActionExecutionMessageReact.ComponentType<RenderMessageProps>
 
@@ -5904,7 +5904,7 @@ Bring your own CrewAI Flow agent
 
 I already have a CrewAI Flow agent and want to use it with CopilotKit.
 
-![CopilotKit Logo](https://docs.copilotkit.ai/images/copilotkit-logo.svg)
+![CopilotKit Logo](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/copilotkit-logo.svg)
 
 Use the CoAgents Starter repo
 
@@ -6157,7 +6157,7 @@ CopilotPopupCopilotSidebarCopilotChatHeadless UI
 
 `CopilotPopup` is a convenience wrapper for `CopilotChat` that lives at the same level as your main content in the view hierarchy. It provides **a floating chat interface** that can be toggled on and off.
 
-![Popup Example](https://docs.copilotkit.ai/images/popup-example.gif)
+![Popup Example](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/popup-example.gif)
 
 ```
 import { CopilotPopup } from "@copilotkit/react-ui";
@@ -6523,9 +6523,9 @@ On this pageIntroduction
 
 ## [Introduction](https://docs.copilotkit.ai/guides/guardrails\#introduction)
 
-CopilotKit Cloud provides content moderation capabilities through the `guardrails_c` configuration, helping ensure safe and appropriate AI interactions. The system uses OpenAI's content moderation capabilities to enforce these guardrails.
+Copilot Cloud provides content moderation capabilities through the `guardrails_c` configuration, helping ensure safe and appropriate AI interactions. The system uses OpenAI's content moderation capabilities to enforce these guardrails.
 
-This feature is only available with [CopilotKit Cloud](https://cloud.copilotkit.ai/).
+This feature is only available with [Copilot Cloud](https://cloud.copilotkit.ai/).
 
 ## [Implementation](https://docs.copilotkit.ai/guides/guardrails\#implementation)
 
@@ -6741,7 +6741,7 @@ It's not too hard to write your own LLM adapter from scratch -- see the existing
 
 Copilot Cloud (Recommended)
 
-Use our hosted backend endpoint to get started quickly (OpenAI only).
+Use our hosted backend endpoint to get started quickly.
 
 Self-hosting
 
@@ -6814,7 +6814,7 @@ Get started with CopilotKit in under 5 minutes.
 
 Copilot Cloud (Recommended)
 
-Use our hosted backend endpoint to get started quickly (OpenAI only).
+Use our hosted backend endpoint to get started quickly.
 
 Self-hosting
 
@@ -6956,7 +6956,7 @@ CopilotPopupCopilotSidebarCopilotChatHeadless UI
 
 `CopilotPopup` is a convenience wrapper for `CopilotChat` that lives at the same level as your main content in the view hierarchy. It provides **a floating chat interface** that can be toggled on and off.
 
-![Popup Example](https://docs.copilotkit.ai/images/popup-example.gif)
+![Popup Example](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/popup-example.gif)
 
 ```
 import { CopilotPopup } from "@copilotkit/react-ui";
@@ -6998,7 +6998,7 @@ Customize UI](https://docs.copilotkit.ai/guides/custom-look-and-feel)
 
 ### On this page
 
-[Install CopilotKit](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#install-copilotkit) [Get a Copilot Cloud Public API Key](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#get-a-copilot-cloud-public-api-key) [Setup the CopilotKit Provider](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#setup-the-copilotkit-provider) [Choose a Copilot UI](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#choose-a-copilot-ui) [Install CopilotKit](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#install-copilotkit-1) [Set up a Copilot Runtime Endpoint](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#set-up-a-copilot-runtime-endpoint) [Configure the CopilotKit Provider](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#configure-the-copilotkit-provider) [Choose a Copilot UI](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#choose-a-copilot-ui-1) [Next Steps](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#next-steps)
+[Install CopilotKit](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#install-copilotkit) [Get a Copilot Cloud Public API Key](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#get-a-copilot-cloud-public-api-key) [Setup the CopilotKit Provider](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#setup-the-copilotkit-provider) [Choose a Copilot UI](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#choose-a-copilot-ui) [Install CopilotKit](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#install-copilotkit-1) [Set up a Copilot Runtime Endpoint](https://docs.copilotkit.ai/direct-to-llm/guides/quickstart?copilot-hosting=self-hosted#set-up-a-copilot-runtime-endpoint) [Configure the CopilotKit Provider](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#configure-the-copilotkit-provider) [Choose a Copilot UI](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#choose-a-copilot-ui-1) [Next Steps](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#next-steps)
 
 [Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/(root)/quickstart.mdx)
 
@@ -7071,7 +7071,7 @@ If you're using Next.js with the App Router, you'll need to add the `"use client
 The data you provided is now available to the Copilot.
 Test it out by passing some data in the hook and asking the copilot questions about it.
 
-![Example of connecting data to Copilot](https://docs.copilotkit.ai/images/connect-your-data-example.gif)
+![Example of connecting data to Copilot](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/connect-your-data-example.gif)
 
 [Previous\\
 \\
@@ -7197,7 +7197,7 @@ This video shows an example of our [AI Travel App](https://docs.copilotkit.ai/co
 
 Human-in-the-loop (HITL) allows agents to request human input or approval during execution, making AI systems more reliable and trustworthy. This pattern is essential when building AI applications that need to handle complex decisions or actions that require human judgment.
 
-![Agentic Copilot Human in the Loop](https://docs.copilotkit.ai/images/coagents/coagents-hitl-infographic.png)
+![Agentic Copilot Human in the Loop](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-hitl-infographic.png)
 
 Learn more about HITL in [LangGraph's concept guide](https://langchain-ai.github.io/langgraph/concepts/human_in_the_loop/).
 
@@ -7253,7 +7253,7 @@ Get started with CopilotKit in under 5 minutes.
 
 Copilot Cloud (Recommended)
 
-Use our hosted backend endpoint to get started quickly (OpenAI only).
+Use our hosted backend endpoint to get started quickly.
 
 Self-hosting
 
@@ -8574,7 +8574,7 @@ Render a componentFetch data & renderrenderAndWaitForResponse (HITL)Render strin
 
 Here's an example to render a calendar meeting.
 
-![Example of render-only Copilot action](https://docs.copilotkit.ai/images/render-only-example.png)
+![Example of render-only Copilot action](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/render-only-example.png)
 
 ```
 "use client" // only necessary if you are using Next.js with the App Router.
@@ -8667,7 +8667,7 @@ On this pageWhat is this?
 
 Render the state of your agent with custom UI components.
 
-This video demonstrates the [implementation](https://docs.copilotkit.ai/coagents/generative-ui/agentic#implementation) section applied to out [coagents starter project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter).
+This video demonstrates the [implementation](https://docs.copilotkit.ai/coagents/generative-ui/agentic#implementation) section applied to our [coagents starter project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter).
 
 ## [What is this?](https://docs.copilotkit.ai/coagents/generative-ui/agentic\#what-is-this)
 
@@ -9156,7 +9156,7 @@ You'll need a LangSmith API key which you can get with [this guide](https://docs
 
 ### Using LangGraph Studio
 
-![Configure Remote Endpoint LangGraph](https://docs.copilotkit.ai/images/copilot-cloud/cpk-cloud-lgp-endpoint.gif)
+![Configure Remote Endpoint LangGraph](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/copilot-cloud/cpk-cloud-lgp-endpoint.gif)
 
 🎉 You should now see your LangGraph agent in the list of available agents in CopilotKit!
 
@@ -9336,7 +9336,7 @@ Just skip the tunnel setup and use your hosted FastAPI server address instead.
 npx copilotkit@latest dev --port <port_number>
 ```
 
-![Configure Remote Endpoint](https://docs.copilotkit.ai/images/copilot-cloud/cpk-cloud-remote-endpoint-setup.gif)
+![Configure Remote Endpoint](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/copilot-cloud/cpk-cloud-remote-endpoint-setup.gif)
 
 You should now see your CopilotKit runtime in the list of available agents in CopilotKit!
 
@@ -9421,7 +9421,7 @@ Allow your agent and users to collaborate on complex tasks.
 
 Human-in-the-loop (HITL) allows agents to request human input or approval during execution, making AI systems more reliable and trustworthy. This pattern is essential when building AI applications that need to handle complex decisions or actions that require human judgment.
 
-![Agentic Copilot Human in the Loop](https://docs.copilotkit.ai/images/coagents/coagents-hitl-infographic.png)
+![Agentic Copilot Human in the Loop](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-hitl-infographic.png)
 
 ## [When should I use this?](https://docs.copilotkit.ai/crewai-flows/human-in-the-loop\#when-should-i-use-this)
 
@@ -9467,9 +9467,9 @@ On this pageIntroduction
 
 ## [Introduction](https://docs.copilotkit.ai/guides/authenticated-actions\#introduction)
 
-CopilotKit Cloud enables secure propagation of authentication state within AI conversations, allowing your copilot to interact with authenticated backend services and tools on behalf of the user.
+Copilot Cloud enables secure propagation of authentication state within AI conversations, allowing your copilot to interact with authenticated backend services and tools on behalf of the user.
 
-This feature is only available with [CopilotKit Cloud](https://cloud.copilotkit.ai/).
+This feature is only available with [Copilot Cloud](https://cloud.copilotkit.ai/).
 
 ## [Overview](https://docs.copilotkit.ai/guides/authenticated-actions\#overview)
 
@@ -9485,7 +9485,7 @@ When building AI copilots that interact with user-specific data or services (lik
 
 1. Your frontend app configures authentication state using `authConfig_c`
 2. When a user authenticates, their auth state (headers, metadata) is securely captured
-3. CopilotKit Cloud Runtime maintains this auth context throughout the conversation
+3. Copilot Cloud Runtime maintains this auth context throughout the conversation
 4. When the LLM or runloop needs to call your registered endpoints/tools:
    - All auth headers are automatically propagated
    - Your endpoints receive the same auth context
@@ -10105,7 +10105,7 @@ Resetting the chat clears all conversation history, helping you start fresh or t
 
 PreviewCode
 
-![](https://docs.copilotkit.ai/images/concepts/customize-look-and-feel/reset-chat.gif)
+![](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/concepts/customize-look-and-feel/reset-chat.gif)
 
 [Previous\\
 \\
@@ -10270,7 +10270,7 @@ which means state updates will be discontinuous and delayed.
 
 You likely want to render the agent state as it updates **continuously.**
 
-See **[emit intermediate state](https://docs.copilotkit.ai/coagents/shared-state/intermediate-state-streaming).**
+See **[predictive state updates](https://docs.copilotkit.ai/coagents/shared-state/predictive-state-updates).**
 
 [Previous\\
 \\
@@ -10562,7 +10562,7 @@ which means state updates will be discontinuous and delayed.
 
 You likely want to render the agent state as it updates **continuously.**
 
-See **[emit intermediate state](https://docs.copilotkit.ai/coagents/shared-state/predictive-state-updates).**
+See **[predictive state updates](https://docs.copilotkit.ai/coagents/shared-state/predictive-state-updates).**
 
 [Previous\\
 \\
@@ -11098,7 +11098,7 @@ which means state updates will be discontinuous and delayed.
 
 You likely want to render the agent state as it updates **continuously.**
 
-See **[emit intermediate state](https://docs.copilotkit.ai/coagents/shared-state/intermediate-state-streaming).**
+See **[predictive state updates](https://docs.copilotkit.ai/coagents/shared-state/predictive-state-updates).**
 
 [Previous\\
 \\

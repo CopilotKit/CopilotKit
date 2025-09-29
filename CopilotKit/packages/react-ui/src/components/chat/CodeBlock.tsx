@@ -1,5 +1,5 @@
-import { FC, memo } from "react";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { FC, memo, useEffect, useState } from "react";
+import { Prism, Light } from "react-syntax-highlighter";
 import { useCopyToClipboard } from "../../hooks/use-copy-to-clipboard";
 import { CheckIcon, CopyIcon, DownloadIcon } from "./Icons";
 
@@ -55,6 +55,18 @@ export const generateRandomString = (length: number, lowercase = false) => {
 
 const CodeBlock: FC<Props> = memo(({ language, value }) => {
   const { isCopied, copyToClipboard } = useCopyToClipboard({ timeout: 2000 });
+  const [SyntaxHighlighter, setSyntaxHighlighter] = useState<typeof Light | typeof Prism>(
+    () => Light,
+  );
+
+  useEffect(() => {
+    try {
+      new RegExp("(?<=#)\\w+");
+      setSyntaxHighlighter(() => Prism);
+    } catch {
+      setSyntaxHighlighter(() => Light);
+    }
+  }, []);
 
   const downloadAsFile = () => {
     if (typeof window === "undefined") {
@@ -62,7 +74,7 @@ const CodeBlock: FC<Props> = memo(({ language, value }) => {
     }
     const fileExtension = programmingLanguages[language] || ".file";
     const suggestedFileName = `file-${generateRandomString(3, true)}${fileExtension}`;
-    const fileName = window.prompt("Enter file name" || "", suggestedFileName);
+    const fileName = window.prompt("Enter file name", suggestedFileName);
 
     if (!fileName) {
       // User pressed cancel on prompt.

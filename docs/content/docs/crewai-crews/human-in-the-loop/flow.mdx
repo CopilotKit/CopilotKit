@@ -4,11 +4,10 @@ description: Learn how to implement Human-in-the-Loop (HITL) using CrewAI Crews.
 icon: lucide/Share2
 ---
 
-import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";  
-import InstallSDKSnippet from "@/snippets/install-python-sdk-crew.mdx";
+import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";
 
 <video
-  src="/images/coagents/node-hitl.mp4"
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/node-hitl.mp4"
   className="rounded-lg shadow-xl"
   loop
   playsInline
@@ -17,9 +16,9 @@ import InstallSDKSnippet from "@/snippets/install-python-sdk-crew.mdx";
   muted
 />
 
-<Callout type="info">  
-  Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter-crewai-crews)  
-  with the implementation below applied!  
+<Callout type="info">
+  Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter-crewai-crews)
+  with the implementation below applied!
 </Callout>
 
 ## What is this?
@@ -28,10 +27,10 @@ import InstallSDKSnippet from "@/snippets/install-python-sdk-crew.mdx";
 
 CopilotKit provides custom UI hooks to capture that input and feed it back into the agent—making it easy to implement Human-in-the-Loop (HITL) workflows.
 
-> **Important**  
+> **Important**
 > To implement HITL with CrewAI, you'll need:
-> - [CrewAI](https://www.crewai.com/) for managing and orchestrating the agents  
-> - [CopilotKit Cloud](https://cloud.copilotkit.ai/) to handle UI workflows and communication
+> - [CrewAI](https://www.crewai.com/) for managing and orchestrating the agents
+> - [Copilot Cloud](https://cloud.copilotkit.ai/) to handle UI workflows and communication
 
 ## Why should I use this?
 
@@ -94,16 +93,16 @@ Crew-based agents are ideal for HITL because they preserve execution state and c
 
     You’ll need to configure your CrewAI Crew to pause and wait for human input before continuing.
 
-    - Follow this CrewAI guide: [Human Input on Execution](https://docs.crewai.com/how-to/human-input-on-execution)  
+    - Follow this CrewAI guide: [Human Input on Execution](https://docs.crewai.com/how-to/human-input-on-execution)
     - Reference this working example: [restaurant-finder-crew with HITL](https://github.com/suhasdeshpande/restaurant-finder-crew/tree/main/src/similar_company_finder_template)
 
-    > Reminder: To make this work end-to-end, you must run your crew on [CrewAI](https://www.crewai.com/) and connect it to [CopilotKit Cloud](https://cloud.copilotkit.ai/). These hosted solutions take care of message passing, HITL state syncing, and UI orchestration.
+    > Reminder: To make this work end-to-end, you must run your crew on [CrewAI](https://www.crewai.com/) and connect it to [Copilot Cloud](https://cloud.copilotkit.ai/). These hosted solutions take care of message passing, HITL state syncing, and UI orchestration.
   </Step>
 
   <Step>
     ### Try it out!
 
-    Run a test prompt like:  
+    Run a test prompt like:
     **"Research the state of AI in 2025."**
 
     You’ll see your custom UI appear, giving you the chance to approve or cancel the crew’s execution before it continues.

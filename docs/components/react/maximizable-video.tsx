@@ -14,7 +14,7 @@ export function MaximizableVideo({ src, className = "" }: MaximizableVideoProps)
   return (
     <>
       <div className={`relative group ${className}`}>
-        <div className="absolute -inset-1 rounded-3xl bg-gradient-to-r from-cyan-400 to-pink-500 opacity-75 blur-xl"></div>
+        <div className="absolute -inset-1 rounded-3xl"></div>
         <video
           src={src}
           autoPlay

@@ -1,0 +1,27 @@
+---
+title: AG-UI (Agents<->Users)
+icon: "lucide/Zap"
+description: Bring your agents from any framework to your users through AG-UI and CopilotKit.
+---
+import { IntegrationsGrid } from "@/components/react/integrations";
+import Image from "next/image"
+
+## What is the AG-UI Protocol?
+
+AG-UI is a lightweight, event-based protocol that standardizes how AI agents connect to user-facing applications.
+Built for simplicity and flexibility, it enables seamless integration between AI agents, real time user context, and user interfaces.
+AG-UI is an open standard, developed by the CopilotKit team and several agent framework partners.
+
+<img width="4096" height="1752" alt="Your application-AG-UI protocol" src="https://github.com/user-attachments/assets/dc58c64c-3257-490a-b827-e163475f4166" />
+
+## How CopilotKit uses AG-UI
+
+CopilotKit uses AG-UI to abstract the connection between your applications and the AI Agents that power your copilots.  Your agents can be built using any AG-UI supporting Agent Framework (a growing list, including LangGraph, Mastra, Pydantic AI and others).  This abstraction has several advantages over bespoke framework integrations.
+
+* __Flexibility and Interoperability__: By adhering to the AG-UI standard, CopilotKit components become interchangeable, allowing developers to use them with any AG-UI-compatible agent or to switch between different backend models without changing the UI. 
+* __Unified Communication__: CopilotKit uses the AG-UI protocol to manage all the back-and-forth communication between the frontend and the AI agent, replacing custom WebSocket formats and text parsing.
+* __Frontend Tool Calls__: When an agent needs to use a tool that's integrated into the frontend application, AG-UI events facilitate this interaction. 
+* __UI Components__: CopilotKit provides React components that are built for the AG-UI protocol. These components use AG-UI events to receive and display streaming AI responses and other data from the agent, creating a rich user experience.
+* __State Management__: The AG-UI protocol includes events for managing shared state between the frontend and the agent. CopilotKit can then use these events to keep the application's UI and the agent's state synchronized in real-time.
+
+To learn more, check out the [AG-UI](https://ag-ui.com) website.

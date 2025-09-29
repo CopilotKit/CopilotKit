@@ -1,0 +1,148 @@
+---
+title: "Step 3: Setup CopilotKit"
+---
+import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
+import { TailoredContent, TailoredContentOption } from "@/components/react/tailored-content.tsx";
+import { GoServer } from "react-icons/go";
+import { FaCloud } from "react-icons/fa";
+import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
+
+Now that we have both our application and agent running, let's connect them using CopilotKit. The necessary dependencies are already installed in the `frontend` directory:
+
+- `@copilotkit/react-core`: Core CopilotKit functionality and hooks
+- `@copilotkit/react-ui`: Pre-built UI components for chat interfaces
+
+<Accordions>
+<Accordion title="Install command (optional)">
+  **The package versions in this tutorial are pinned, so updating the dependencies could break the tutorial.**
+
+  ```package-install
+  @copilotkit/react-core @copilotkit/react-ui
+  ```
+</Accordion>
+</Accordions>
+
+<Steps>
+<Step>
+### Set up Copilot Cloud
+Create a [Copilot Cloud account](https://cloud.copilotkit.ai/sign-in) to get started. This provides a production-ready proxy to your LLMs.
+
+<Callout>
+Copilot Cloud includes free LLM credits for development.
+</Callout>
+
+</Step>
+<Step>
+### Get a Copilot Cloud API Key
+
+Once logged in, you'll see some on boarding steps. The main thing we'll need is a public API key. To do this,
+you'll need to create an OpenAI API key and provide it to Copilot Cloud.
+
+<ImageZoom src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tutorials/ai-travel-app/cpkCloudSetup.png" alt="CopilotCloud API Key" height={1000} width={1000} />
+
+</Step>
+<Step>
+### Configure environment variables
+Create and populate the frontend environment file:
+
+```shell
+touch frontend/.env
+```
+
+Then, add your Copilot Cloud API key to the file like so:
+
+```txt title="frontend/.env"
+NEXT_PUBLIC_CPK_PUBLIC_API_KEY=...
+```
+
+</Step>
+<Step>
+### Add the CopilotKit provider
+Wrap your application with the CopilotKit provider:
+
+```tsx title="frontend/src/app/layout.tsx"
+"use client";
+
+// ...
+import { CopilotKit } from "@copilotkit/react-core"; // [!code ++]
+import "@copilotkit/react-ui/styles.css"; // [!code ++]
+// ...
+
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+    return (
+      <html lang="en" className="h-full">
+        <body className={`${lato.variable} ${noto.className} antialiased h-full`}>
+          // [!code ++:4]
+          <CopilotKit
+            publicApiKey={process.env.NEXT_PUBLIC_CPK_PUBLIC_API_KEY}
+          >
+            <TooltipProvider>
+              <ResearchProvider>
+                {children}
+              </ResearchProvider>
+            </TooltipProvider>
+          </CopilotKit> // [!code ++]
+        </body>
+      </html>
+    );
+}
+```
+
+</Step>
+<Step>
+
+### Adding a chat interface
+
+We provide several customizeable components for you to interact with your copilot. Some of these are [`<CopilotPopup/>`](/reference/components/chat/CopilotPopup), [`<CopilotSidebar/>`](/reference/components/chat/CopilotSidebar), and [`<CopilotChat/>`](/reference/components/chat/CopilotChat), and your own fully custom UI via [`useCopilotChat`](/reference/hooks/useCopilotChat).
+
+In this tutorial, we'll use the `<CopilotChat/>` component as we want to aim for a non-modal chat interface.
+
+<Callout>
+  The `Chat` component will serve as a wrapper around the CopilotKit `CopilotChat` component. This is to help simplify
+  what you'll need to write along the way.
+</Callout>
+
+```tsx title="frontend/src/components/Chat.tsx"
+"use client"
+
+import { CopilotChat } from "@copilotkit/react-ui";
+import { INITIAL_MESSAGE, MAIN_CHAT_INSTRUCTIONS, MAIN_CHAT_TITLE } from "@/lib/consts";
+
+export default function Chat({ onSubmitMessage }: { onSubmitMessage: () => void }) {
+  return (
+      // [!code ++:10]
+      <CopilotChat
+          instructions={MAIN_CHAT_INSTRUCTIONS}
+          labels={{
+              title: MAIN_CHAT_TITLE,
+              initial: INITIAL_MESSAGE,
+          }}
+          className="h-full w-full font-noto"
+          onSubmitMessage={onSubmitMessage}
+      />
+      // [!code --:4]
+      <h1 className="text-2xl font-bold flex items-center justify-center h-full mx-auto mr-20">
+        It'd be really cool if we had chat here!
+      </h1>
+  )
+}
+```
+
+</Step>
+</Steps>
+
+## Recap
+
+And we're done! Here's what we did:
+
+- We setup our Copilot cloud account and got an API key.
+- We configured the CopilotKit provider in our application to use our API key.
+- We added the CopilotSidebar to our application.
+
+Now, head back to the app and you'll find a chat interface on the left side of the page. At this point, you can start interacting with your copilot! 🎉 
+
+<Frame>
+  <ImageZoom src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tutorials/research-ana/fe-step-3-finish.png" alt="step-3-finish" height={1000} width={1000} />
+</Frame>
+
+This is a very simple copilot that isn't talking to our LangGraph yet. In the next step, we'll be adding the LangGraph agent to the mix.

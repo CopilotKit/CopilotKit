@@ -1,5 +1,5 @@
 ---
-title: "State Machines"
+title: "Cookbook: State Machines"
 description: "Learn how to guide users through multi-step conversations using a state machine pattern."
 icon: "lucide/Workflow"
 ---
@@ -13,7 +13,7 @@ When building chat-based applications, you often need to guide users through a s
 - Live Example: https://state-machine-copilot.vercel.app/
 - Example Source Code: https://github.com/CopilotKit/CopilotKit/tree/main/examples/copilot-state-machine
 
-<video src="/images/cookbook/state-machine/demo.mp4" controls autoPlay loop muted playsInline className="rounded-xl shadow-lg border" />
+<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/cookbook/state-machine/demo.mp4" controls autoPlay loop muted playsInline className="rounded-xl shadow-lg border" />
 
 <Callout>
 This recipe assumes you have completed the [quickstart guide](/quickstart) and have a basic CopilotKit application running.
@@ -36,7 +36,7 @@ the assistant.
 In this recipe, we combine the `available` prop with React state to control when each stage is active, sometimes through
 standard deterministic update (button clicks), and sometimes through LLM-driven actions.
 
-<ImageZoom src="/images/state-machine-arch.png" alt="State Machine Architecture" width="1000" height="500"/>
+<ImageZoom src="https://cdn.copilotkit.ai/docs/copilotkit/images/state-machine-arch.png" alt="State Machine Architecture" width="1000" height="500"/>
 
 ## Basic Implementation
 
@@ -383,7 +383,7 @@ uses generative UI to show the user available cars that they can choose from.
 
 Click here for the [source code](https://github.com/CopilotKit/CopilotKit/tree/main/examples/copilot-state-machine/src/lib/stages/use-stage-build-car.tsx)
 
-<video src="/images/cookbook/state-machine/gen-ui.mp4" controls autoPlay loop muted playsInline className="rounded-xl shadow-lg border" />
+<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/cookbook/state-machine/gen-ui.mp4" controls autoPlay loop muted playsInline className="rounded-xl shadow-lg border" />
 
 <Tabs items={["Build Car Stage", "Show Car Component"]}>
   <Tab value="Build Car Stage">

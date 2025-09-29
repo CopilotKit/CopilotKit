@@ -9,7 +9,7 @@
  * application, passing these parent-child relationships to the Copilot.
  *
  * <br/>
- * <img src="/images/use-copilot-chat-suggestions/use-copilot-chat-suggestions.gif" width="500" />
+ * <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/use-copilot-chat-suggestions/use-copilot-chat-suggestions.gif" width="500" />
  *
  * ## Usage
  *

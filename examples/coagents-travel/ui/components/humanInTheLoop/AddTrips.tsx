@@ -1,5 +1,5 @@
 
-import { Trip } from "@/lib/types";
+import { Place, Trip } from "@/lib/types";
 import { PlaceCard } from "@/components/PlaceCard";
 import { X, Plus } from "lucide-react";
 import { ActionButtons } from "./ActionButtons";
@@ -14,6 +14,9 @@ export type AddTripsProps = {
 };
 
 export const AddTrips = ({ args, status, handler }: AddTripsProps) => {
+  useEffect(() => {
+    console.log(args, "argsAddTripsargsAddTripsargsAddTrips");
+  }, [args]);
   const [selectedPlaceIds, setSelectedPlaceIds] = useState<Set<string>>(new Set());
   const handleCheck = (placeId: string, checked: boolean) => {
     setSelectedPlaceIds(prev => {
@@ -48,6 +51,8 @@ export const AddTrips = ({ args, status, handler }: AddTripsProps) => {
       ))}
       <ActionButtons
         selectedPlaceIds={selectedPlaceIds}
+        setSelectedPlaceIds={setSelectedPlaceIds}
+        placeIds={args.trips?.map((trip: Trip) => trip.places?.map((place: Place) => place.id))}
         status={status} 
         handler={handler} 
         approve={<><Plus className="w-4 h-4 mr-2" /> Add</>} 

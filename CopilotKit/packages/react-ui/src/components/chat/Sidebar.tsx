@@ -1,6 +1,6 @@
 /**
  * <br/>
- * <img src="/images/CopilotSidebar.gif" width="500" />
+ * <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/CopilotSidebar.gif" width="500" />
  *
  * A chatbot sidebar component for the CopilotKit framework. Highly customizable through various props and custom CSS.
  *
@@ -28,6 +28,28 @@
  * >
  *   <YourApp/>
  * </CopilotSidebar>
+ * ```
+ *
+ * ### With Observability Hooks
+ *
+ * To monitor user interactions, provide the `observabilityHooks` prop.
+ * **Note:** This requires a `publicApiKey` in the `<CopilotKit>` provider.
+ *
+ * ```tsx
+ * <CopilotKit publicApiKey="YOUR_PUBLIC_API_KEY">
+ *   <CopilotSidebar
+ *     observabilityHooks={{
+ *       onChatExpanded: () => {
+ *         console.log("Sidebar opened");
+ *       },
+ *       onChatMinimized: () => {
+ *         console.log("Sidebar closed");
+ *       },
+ *     }}
+ *   >
+ *     <YourApp/>
+ *   </CopilotSidebar>
+ * </CopilotKit>
  * ```
  *
  * ### Look & Feel

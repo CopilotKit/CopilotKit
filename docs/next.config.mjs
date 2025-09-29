@@ -17,6 +17,7 @@ const config = {
       "github-production-user-asset-6210df.s3.amazonaws.com",
       "fonts.gstatic.com",
       "docs.copilotkit.ai",
+      "cdn.copilotkit.ai",
     ],
     remotePatterns: [
       {
@@ -29,14 +30,15 @@ const config = {
   skipTrailingSlashRedirect: true,
   skipMiddlewareUrlNormalize: true,
 
-  optimizeFonts: false,
-
-  experimental: {
-    turbo: true,
-  },
+  turbopack: true,
 
   async redirects() {
     return [
+      {
+        source: "/coagents/:path*",
+        destination: "/langgraph/:path*",
+        permanent: true,
+      },
       {
         source: "/coagents/tutorials/ai-travel-app/overview",
         destination: "/coagents/tutorials/ai-travel-app",
@@ -94,6 +96,11 @@ const config = {
       },
       {
         source: "/coagents/advanced/intermediate-state-streaming",
+        destination: "/coagents/shared-state/predictive-state-updates",
+        permanent: true,
+      },
+      {
+        source: "/coagents/shared-state/intermediate-state-streaming",
         destination: "/coagents/shared-state/predictive-state-updates",
         permanent: true,
       },
@@ -175,6 +182,66 @@ const config = {
       {
         source: "/agno/quickstart/agno",
         destination: "/agno/quickstart",
+        permanent: true,
+      },
+      {
+        source: "/mcp",
+        destination: "/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/ag2/mcp",
+        destination: "/ag2/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/agno/mcp",
+        destination: "/agno/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/crewai-crews/mcp",
+        destination: "/crewai-crews/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/crewai-flows/mcp",
+        destination: "/crewai-flows/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/direct-to-llm/guides/mcp",
+        destination: "/direct-to-llm/guides/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/langgraph/mcp",
+        destination: "/langgraph/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/llamaindex/mcp",
+        destination: "/llamaindex/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/mastra/mcp",
+        destination: "/mastra/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/pydantic-ai/mcp",
+        destination: "/pydantic-ai/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/adk/quickstart/adk",
+        destination: "/adk/quickstart",
+        permanent: true,
+      },
+      {
+        source: "/adk/mcp",
+        destination: "/adk/vibe-coding-mcp",
         permanent: true,
       },
     ];

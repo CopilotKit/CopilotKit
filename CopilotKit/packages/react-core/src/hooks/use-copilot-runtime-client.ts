@@ -12,31 +12,27 @@ import {
   CopilotKitAgentDiscoveryError,
   CopilotKitError,
   CopilotKitErrorCode,
-  ERROR_CONFIG,
-  CopilotTraceHandler,
-  CopilotTraceEvent,
+  CopilotErrorHandler,
+  CopilotErrorEvent,
 } from "@copilotkit/shared";
 import { shouldShowDevConsole } from "../utils/dev-console";
 
 export interface CopilotRuntimeClientHookOptions extends CopilotRuntimeClientOptions {
   showDevConsole?: boolean;
-  onTrace?: CopilotTraceHandler;
+  onError: CopilotErrorHandler;
 }
 
 export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions) => {
   const { setBannerError } = useToast();
-  const { showDevConsole, onTrace, ...runtimeOptions } = options;
+  const { showDevConsole, onError, ...runtimeOptions } = options;
 
   // Deduplication state for structured errors
   const lastStructuredErrorRef = useRef<{ message: string; timestamp: number } | null>(null);
 
   // Helper function to trace UI errors
   const traceUIError = async (error: CopilotKitError, originalError?: any) => {
-    // Just check if onTrace and publicApiKey are defined
-    if (!onTrace || !runtimeOptions.publicApiKey) return;
-
     try {
-      const traceEvent: CopilotTraceEvent = {
+      const errorEvent: CopilotErrorEvent = {
         type: "error",
         timestamp: Date.now(),
         context: {
@@ -54,9 +50,9 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
         },
         error,
       };
-      await onTrace(traceEvent);
-    } catch (traceError) {
-      console.error("Error in onTrace handler:", traceError);
+      await onError(errorEvent);
+    } catch (error) {
+      console.error("Error in onError handler:", error);
     }
   };
 
@@ -102,6 +98,7 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
               setBannerError(ckError);
               // Trace the error
               traceUIError(ckError, gqlError);
+              // TODO: if onError & renderError should work without key, insert here
             } else {
               // Fallback for unstructured errors
               const fallbackError = new CopilotKitError({
@@ -111,6 +108,7 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
               setBannerError(fallbackError);
               // Trace the fallback error
               traceUIError(fallbackError, gqlError);
+              // TODO: if onError & renderError should work without key, insert here
             }
           };
 
@@ -129,6 +127,7 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
             setBannerError(fallbackError);
             // Trace the non-GraphQL error
             traceUIError(fallbackError, error);
+            // TODO: if onError & renderError should work without key, insert here
           }
         }
       },
@@ -142,7 +141,7 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
         setBannerError(warningError);
       },
     });
-  }, [runtimeOptions, setBannerError, showDevConsole, onTrace]);
+  }, [runtimeOptions, setBannerError, showDevConsole, onError]);
 
   return runtimeClient;
 };

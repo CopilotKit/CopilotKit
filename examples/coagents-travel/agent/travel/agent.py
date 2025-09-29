@@ -6,13 +6,12 @@ It defines the workflow graph and the entry point for the agent.
 from typing import cast
 from langchain_core.messages import ToolMessage, AIMessage
 from langgraph.graph import StateGraph, START, END
-from langgraph.checkpoint.memory import MemorySaver
 from travel.trips import trips_node
 from travel.chat import chat_node
 from travel.search import search_node
 from travel.trips import perform_trips_node
 from travel.state import AgentState
-
+from langgraph.checkpoint.memory import MemorySaver
 # Route is responsible for determing the next node based on the last message. This
 # is needed because LangGraph does not automatically route to nodes, instead that
 # is handled through code.
@@ -52,6 +51,6 @@ graph_builder.add_edge("perform_trips_node", "chat_node")
 graph_builder.add_edge("trips_node", "perform_trips_node")
 
 graph = graph_builder.compile(
-    checkpointer=MemorySaver(),
     interrupt_after=["trips_node"],
+    checkpointer=MemorySaver(),
 )
