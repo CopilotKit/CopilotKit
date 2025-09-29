@@ -9,7 +9,7 @@ on:
 jobs:
   e2e:
     name: E2E Tests
-    runs-on: ubuntu-latest-8
+    runs-on: ubuntu-latest
 
     steps:
     - name: Checkout CPK
