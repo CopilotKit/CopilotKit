@@ -22,7 +22,7 @@ jobs:
       with:
         repository: ag-ui-protocol/ag-ui
         path: ag-ui
-        ref: tyler/upgrade-dojo
+        ref: main
 
     - name: Set up Node.js
       uses: actions/setup-node@v4
@@ -44,6 +44,14 @@ jobs:
     - name: Install uv
       uses: astral-sh/setup-uv@v6
 
+    - name: Setup pnpm cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.local/share/pnpm/store
+        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-store-
+
     - name: Install cpk dependencies
       working-directory: CopilotKit/CopilotKit
       run: pnpm install --frozen-lockfile
@@ -52,17 +60,13 @@ jobs:
       working-directory: CopilotKit/CopilotKit
       run: pnpm build
 
+    - name: Install ag-ui dependencies
+      working-directory: ag-ui/typescript-sdk
+      run: pnpm install --frozen-lockfile
+
     - name: Link cpk into ag-ui
       working-directory: CopilotKit
       run: node ../ag-ui/typescript-sdk/apps/dojo/scripts/link-cpk.js .
-
-    - name: Rebuild cpk after linking
-      working-directory: CopilotKit/CopilotKit
-      run: pnpm build
-
-    - name: Install ag-ui dependencies
-      working-directory: ag-ui/typescript-sdk
-      run: pnpm install --no-frozen-lockfile
 
     - name: Prepare dojo for e2e
       working-directory: ag-ui/typescript-sdk/apps/dojo
@@ -113,7 +117,7 @@ jobs:
       working-directory: ag-ui/typescript-sdk/apps/dojo/e2e
       env:
         BASE_URL: http://localhost:9999
-      run: pnpm test tests/serverStarterAllFeaturesTests
+      run: pnpm test
 
     - name: Upload traces
       if: always() # Uploads artifacts even if tests fail
