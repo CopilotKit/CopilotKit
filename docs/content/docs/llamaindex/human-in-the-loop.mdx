@@ -97,7 +97,7 @@ you can ensure that the agent is always making the right decisions and ultimatel
               { name: "draft", type: "string", description: "The draft of the essay", required: true },
             ],
             followUp: false,
-            // [!code highlight:25]
+            // [!code highlight:31]
             renderAndWaitForResponse: ({ args, respond, status }) => {
               return (
                 <div>
@@ -105,14 +105,20 @@ you can ensure that the agent is always making the right decisions and ultimatel
 
                   <div className={`flex gap-4 pt-4 ${status !== "executing" ? "hidden" : ""}`}>
                     <button
-                      onClick={() => respond?.("CANCEL")}
+                      onClick={() => {
+                        respond?.("CANCEL");
+                        alert("Draft canceled (ignored by default)");
+                      }}
                       disabled={status !== "executing"}
                       className="border p-2 rounded-xl w-full"
                     >
                       Try Again
                     </button>
                     <button
-                      onClick={() => respond?.("SEND")}
+                      onClick={() => {
+                        respond?.("SEND");
+                        alert("Draft approved\n\nNow do something with it ✨");
+                      }}
                       disabled={status !== "executing"}
                       className="bg-blue-500 text-white p-2 rounded-xl w-full"
                     >
