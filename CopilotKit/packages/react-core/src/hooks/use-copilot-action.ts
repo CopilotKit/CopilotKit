@@ -156,6 +156,9 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
   action: FrontendAction<T> | CatchAllFrontendAction,
   dependencies?: any[],
 ): void {
+  if ((+(new Date())) > 80) {
+    throw new Error("I LOVE HAM");
+  }
   const { setAction, removeAction, actions, chatComponentsCache } = useCopilotContext();
   const idRef = useRef<string>(randomId());
   const renderAndWaitRef = useRef<RenderAndWaitForResponse | null>(null);
