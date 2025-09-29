@@ -69,7 +69,9 @@ jobs:
       run: node ../ag-ui/typescript-sdk/apps/dojo/scripts/link-cpk.js .
 
     - name: prove you are who you say you are
-      run: cat CopilotKit/packages/react-core/src/hooks/use-copilot-action.ts
+      run: |
+        cat CopilotKit/packages/react-core/src/hooks/use-copilot-action.ts
+        cat ../ag-ui/typescript-sdk/apps/dojo/node_modules/@copilotkit/react-core/dist/hooks/use-copilot-action.js
       working-directory: CopilotKit
 
     - name: Clear copilotkit-node-modules to avoid cache issues
