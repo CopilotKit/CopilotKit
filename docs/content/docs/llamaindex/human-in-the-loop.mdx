@@ -54,20 +54,23 @@ you can ensure that the agent is always making the right decisions and ultimatel
         ```python title="agent-py/agent/agent.py"
         from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
         from llama_index.llms.openai import OpenAI
-        from fastapi import FastAPI
 
         def write_essay(draft: str) -> str:
             """Writes an essay and takes the draft as an argument."""
             return "Essay draft written!"
 
-        app = FastAPI()
-
-        router = get_ag_ui_workflow_router(
+        agentic_chat_router = get_ag_ui_workflow_router(
             llm=OpenAI(model="gpt-4.1"),
             frontend_tools=[write_essay],
         )
+        ```
 
-        app.include_router(router)
+        ```python title="agent-py/agent/server.py"
+        from fastapi import FastAPI
+        from agent.agent import agentic_chat_router
+
+        app = FastAPI()
+        app.include_router(agentic_chat_router)
 
         if __name__ == "__main__":
             import uvicorn
@@ -93,6 +96,7 @@ you can ensure that the agent is always making the right decisions and ultimatel
             parameters: [
               { name: "draft", type: "string", description: "The draft of the essay", required: true },
             ],
+            followUp: false,
             // [!code highlight:25]
             renderAndWaitForResponse: ({ args, respond, status }) => {
               return (
@@ -132,9 +136,9 @@ you can ensure that the agent is always making the right decisions and ultimatel
     </Step>
 
     <Step>
-        ### Give it a try!
-        Try asking your agent to write an essay about the benefits of AI. You'll see that it will generate an essay,
-        stream the progress and eventually ask you to review it.
+    ### Give it a try!
+    Try asking your agent to write an essay about the benefits of AI. You'll see that it will generate an essay,
+    stream the progress and eventually ask you to review it.
     </Step>
 
 </Steps>

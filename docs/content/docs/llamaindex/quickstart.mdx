@@ -183,6 +183,22 @@ Before you begin, you'll need the following:
                 </Tabs>
             </Step>
             <Step>
+                ### Frontend Setup
+                CopilotKit works with any React-based frontend. We'll use Next.js for this example.
+
+                ```bash
+                npx create-next-app@latest my-copilot-app
+                cd my-copilot-app
+                ```
+            </Step>
+            <Step>
+                ### Install CopilotKit packages
+
+                ```package-install
+                @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/llamaindex
+                ```
+            </Step>
+            <Step>
                 ### Create your LlamaIndex agent server
 
                 Create a new file called `agent.py` in your project root:
@@ -228,22 +244,6 @@ Before you begin, you'll need the following:
                 <Callout type="info" title="AG-UI Integration">
                   The `get_ag_ui_workflow_router` creates a standardized API endpoint that CopilotKit can communicate with. This allows your LlamaIndex agent to work seamlessly with the CopilotKit frontend.
                 </Callout>
-            </Step>
-            <Step>
-                ### Frontend Setup
-                CopilotKit works with any React-based frontend. We'll use Next.js for this example.
-
-                ```bash
-                npx create-next-app@latest my-copilot-app
-                cd my-copilot-app
-                ```
-            </Step>
-            <Step>
-                ### Install CopilotKit packages
-
-                ```package-install
-                @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/llamaindex
-                ```
             </Step>
             <Step>
                 ### Setup Copilot Runtime
