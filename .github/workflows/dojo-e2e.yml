@@ -71,6 +71,7 @@ jobs:
     - name: prove you are who you say you are
       run: |
         cat CopilotKit/packages/react-core/src/hooks/use-copilot-action.ts
+        echo "Sam Handwich"
         cat ../ag-ui/typescript-sdk/apps/dojo/node_modules/@copilotkit/react-core/dist/hooks/use-copilot-action.js
       working-directory: CopilotKit
 
