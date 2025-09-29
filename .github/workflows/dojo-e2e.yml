@@ -68,6 +68,14 @@ jobs:
       working-directory: CopilotKit
       run: node ../ag-ui/typescript-sdk/apps/dojo/scripts/link-cpk.js .
 
+    - name: Clear copilotkit-node-modules to avoid cache issues
+      working-directory: ag-ui/typescript-sdk
+      run: |
+        rm -rf apps/*/node_modules/@copilotkit
+        rm -rf integrations/*/node_modules/@copilotkit
+        rm -rf packages/*/node_modules/@copilotkit
+        pnpm install
+
     - name: Prepare dojo for e2e
       working-directory: ag-ui/typescript-sdk/apps/dojo
       run: node ./scripts/prep-dojo-everything.js --only dojo,pydantic-ai
