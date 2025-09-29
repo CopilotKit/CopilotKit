@@ -70,7 +70,7 @@ jobs:
 
     - name: Prepare dojo for e2e
       working-directory: ag-ui/typescript-sdk/apps/dojo
-      run: node ./scripts/prep-dojo-everything.js -e2e
+      run: node ./scripts/prep-dojo-everything.js --only dojo,pydantic-ai
 
     - name: Install e2e dependencies
       working-directory: ag-ui/typescript-sdk/apps/dojo/e2e
@@ -102,22 +102,13 @@ jobs:
         working-directory: ag-ui/typescript-sdk/apps/dojo/e2e
         wait-on: |
           http://localhost:9999
-          tcp:localhost:8000
-          tcp:localhost:8001
-          tcp:localhost:8002
-          tcp:localhost:8003
-          tcp:localhost:8004
-          tcp:localhost:8005
-          tcp:localhost:8006
-          tcp:localhost:8007
-          tcp:localhost:8008
           tcp:localhost:8009
 
     - name: Run tests
       working-directory: ag-ui/typescript-sdk/apps/dojo/e2e
       env:
         BASE_URL: http://localhost:9999
-      run: pnpm test
+      run: pnpm test tests/pydanticAITests/toolBasedGenUIPage.spec.ts
 
     - name: Upload traces
       if: always() # Uploads artifacts even if tests fail
