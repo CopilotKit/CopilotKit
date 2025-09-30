@@ -40,7 +40,7 @@ Include a screenshot of your demo in action:
 
 ---
 
-### 🙋‍♂️ **Who Are You?**
+### 🙋‍♂️ **List your repo here**
 
-Please list your GitHub handle.
+Please list your GitHub project link.
 
