@@ -53,9 +53,9 @@ export function convertActionInputToLangChainTool(actionInput: ActionInput): any
     name: actionInput.name,
     description: actionInput.description,
     schema: convertJsonSchemaToZodSchema(
-      JSON.parse(actionInput.jsonSchema),
+      actionInput.jsonSchema,
       true,
-    ) as z.ZodObject<any>,
+    ),
     func: async () => {
       return "";
     },
