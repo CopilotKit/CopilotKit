@@ -179,4 +179,52 @@
 
 figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-auto.max-h-\[600px\].fd-scroll-container {
   background-color: var(--background) !important;
+}
+
+/* Enhanced shadows for dark mode */
+.dark .shadow-sm {
+  box-shadow: 0 1px 2px 0 rgba(255, 255, 255, 0.05);
+}
+
+.dark .shadow {
+  box-shadow: 0 1px 3px 0 rgba(255, 255, 255, 0.1), 0 1px 2px -1px rgba(255, 255, 255, 0.1);
+}
+
+.dark .shadow-md {
+  box-shadow: 0 4px 6px -1px rgba(255, 255, 255, 0.1), 0 2px 4px -2px rgba(255, 255, 255, 0.1);
+}
+
+.dark .shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(255, 255, 255, 0.1), 0 4px 6px -4px rgba(255, 255, 255, 0.1);
+}
+
+.dark .shadow-xl {
+  box-shadow: 0 20px 25px -5px rgba(255, 255, 255, 0.1), 0 8px 10px -6px rgba(255, 255, 255, 0.1);
+}
+
+/* Make banner dismiss button icon match banner text color */
+[data-banner] button,
+[data-banner-id="agui-banner"] button,
+#agui-banner button,
+.fd-banner button,
+div[style*="indigo"] button,
+.bg-indigo-500 button,
+.bg-indigo-900 button {
+  color: white !important;
+  background-color: transparent !important;
+  border: none !important;
+  opacity: 1 !important;
+  transition: opacity 0.2s ease !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}
+
+[data-banner] button:hover,
+[data-banner-id="agui-banner"] button:hover,
+#agui-banner button:hover,
+.fd-banner button:hover,
+div[style*="indigo"] button:hover,
+.bg-indigo-500 button:hover,
+.bg-indigo-900 button:hover {
+  opacity: 0.8 !important;
 } 
