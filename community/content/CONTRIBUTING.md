@@ -1,42 +1,45 @@
 # Contributing to CopilotKit Hacktoberfest
 
-⭐ Thank you for your interest in contributing!
+⭐ Thank you for your interest in contributing!  
+Follow these steps to get started and submit your Hacktoberfest project.  
 
-Here’s how you can participate during Hacktoberfest:
+---
 
-## How to Contribute in 4 Easy Steps
+## How to Contribute
 
-1. **Pick an Issue**: Choose [GitHub Issues](https://github.com/CopilotKit/CopilotKit/issues) tagged `hacktoberfest` from our issues list and ask to be assigned.
-2. **Fork and Clone**: Fork and clone the [CopilotKit repository](https://github.com/CopilotKit/CopilotKit) to your local machine.
+1. **Pick an Issue**: Browse [GitHub Issues](https://github.com/CopilotKit/CopilotKit/issues) tagged `hacktoberfest` and ask to be assigned. Multiple contributors can join the same issue.  
+2. **Set Up Your Environment**: Install [CopilotKit packages](https://docs.copilotkit.ai/direct-to-llm/guides/quickstart) locally and make sure you can run your project.  
+3. **Develop Your Project**: Build your demo or complete your assigned issue.  
 
-3. **Create a Branch**: Create a branch for your changes.
-4. **Develop**: Work on your assigned issue. Be sure to sync your branch with the main branch frequently to ensure compatibility.
+---
 
-### Preparing Your Submission
+## Preparing Your Demo Submission
 
-1. **Copy the Template**: Navigate to the [TEMPLATE.md](./TEMPLATE.md) file in the repository. Copy its content as the baseline for your submission.
-2. **Add Your Info**: Fill out the template with details about your project:
+1. **Use the Template**: Open [TEMPLATE.md](./TEMPLATE.md) and copy its contents.  
+2. **Fill in Details**: Update the template with:  
+   - **Project Title**  
+   - **Description** (purpose and value of your demo)  
+   - **Technologies Used**  
+   - **App Link** (if deployed)  
+   - **Screenshot**  
+   - **Detailed Description** (features and functionality)  
+   - **About You** (short intro + motivation)  
+   - **Additional Resources** (optional)  
+3. **Save Your File**: Add your completed template as a new `.md` file in the `demos_2025` folder. Name the file after your project in lowercase (e.g., `my-demo.md`).  
 
-   - **Project Title**:
-   - **Description**: Purpose and value of your demo.
-   - **Technologies Being Used**: List technologies and frameworks used.
-   - **App Link**: If live, include the link.
-   - **Screenshot**: Attach a screenshot of your demo.
-   - **Detailed Description**: Explain functionality and features.
-   - **Who Are You?**: Introduce yourself and your motivation.
-   - **Additional Resources/Info**: Link to any extra resources or information.
-
-3. **Create a Demo's File**: Save the pre-filled [template](./TEMPLATE.md) as a Markdown file (.md) in the `demos` folder. Name the file after your project, in lowercase.
+---
 
 ## Submitting Your Contribution
 
-1. **Pull Request**: Submit a pull request (PR) with your project file in the `demos` [directory](../../community/). Ensure your PR description links to the issue you addressed.
-2. **Code Review**: Wait for feedback from the project maintainers and make any required revisions.
-3. **Merge**: After approval, your changes will be merged with the `hacktoberfest-accepted` label to ensure you will receive credit from the official Hacktoberfest organization.
+1. **Open a Pull Request**: Submit a PR that includes your demo file in the `demos_2025` folder. In the PR description, link the issue you worked on.  
+2. **Review Process**: Maintainers will review your PR and provide feedback if changes are needed.  
+3. **Merge & Credit**: Once approved, your PR will be merged and tagged with `hacktoberfest-accepted` so you receive official Hacktoberfest credit.  
+
+---
 
 ## Need Help?
 
-- **Questions**: Use our [Discord support channel](https://discord.com/invite/6dffbvGU3D) for any questions you have.
-- **Resources**: Visit [CopilotKit documentation](https://docs.copilotkit.ai/what-is-copilotkit) for more helpful documentatation info.
+- **Questions**: Join our [Discord support channel](https://discord.com/invite/6dffbvGU3D).  
+- **Resources**: See the [CopilotKit documentation](https://docs.copilotkit.ai/what-is-copilotkit) for setup and usage help.  
 
-⭐ Happy coding and we look forward to your contributions!
+⭐ Happy coding — we can’t wait to see your demos!

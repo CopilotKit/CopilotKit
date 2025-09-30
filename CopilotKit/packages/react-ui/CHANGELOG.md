@@ -1,5 +1,35 @@
 # ui
 
+## 1.10.5
+
+### Patch Changes
+
+- c2de25d: - fix: refrain from using prismjs for syntax highlighting on older browsers
+- Updated dependencies [b7bc3a0]
+- Updated dependencies [f3fdd7a]
+- Updated dependencies [32c163e]
+- Updated dependencies [6112a67]
+  - @copilotkit/react-core@1.10.5
+  - @copilotkit/runtime-client-gql@1.10.5
+  - @copilotkit/shared@1.10.5
+
+## 1.10.5-next.10
+
+### Patch Changes
+
+- Updated dependencies [b79ed5c]
+  - @copilotkit/react-core@1.10.5-next.10
+  - @copilotkit/runtime-client-gql@1.10.5-next.10
+  - @copilotkit/shared@1.10.5-next.10
+
+## 1.10.5-next.9
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.5-next.9
+- @copilotkit/react-core@1.10.5-next.9
+- @copilotkit/shared@1.10.5-next.9
+
 ## 1.10.5-next.8
 
 ### Patch Changes

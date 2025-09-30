@@ -5,7 +5,6 @@ icon: lucide/Share2
 ---
 
 import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
 
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/node-hitl.mp4"
@@ -16,12 +15,6 @@ import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
   autoPlay
   muted
 />
-
-<Callout type="info">
-  Pictured above is the [coagent
-  starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter)
-  with the implementation below applied!
-</Callout>
 
 ## What is this?
 
@@ -49,11 +42,6 @@ of everything that has happened during a HITL interaction.
 
         If you don't already have an agent, you can use the [coagent starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-pydantic-ai) as a starting point
         as this guide uses it as a starting point.
-    </Step>
-
-    <Step>
-      ### Install the CopilotKit SDK
-      <InstallSDKSnippet components={props.components}/>
     </Step>
 
     <Step>
@@ -142,4 +130,4 @@ Now we'll setup the Pydantic AI agent. The flow is hard to understand without a 
         stream the progress and eventually ask you to review it.
     </Step>
 
-</Steps> 
+</Steps>

@@ -16,12 +16,6 @@ import { ImageZoom } from "fumadocs-ui/components/image-zoom";
   />
 </Frame>
 
-<Callout type="info">
-  Pictured above is the [coagent
-  starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter)
-  with the [implementation](#implementation) section applied!
-</Callout>
-
 ## What is this?
 
 You can easily use the realtime agent state not only in the chat UI, but also in the native application UX.
@@ -38,10 +32,8 @@ state update you can reflect these updates natively in your application.
     ### Run and Connect Your Agent to CopilotKit
 
     You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
-    you can follow the instructions in the [Getting Started](/getting-started) guide.
+    you can follow the instructions in the [Getting Started](/pydantic-ai/quickstart) guide.
 
-    If you don't already have an agent, you can use the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter) as a starting point
-    as this guide uses it as a starting point.
 
   </Step>
   <Step>
@@ -53,15 +45,47 @@ state update you can reflect these updates natively in your application.
       <Tab value="Python">
         ```python title="agent-py/sample_agent/agent.py"
         from pydantic import BaseModel
-        from pydantic_ai import Agent
+        from pydantic_ai import Agent, RunContext
         from pydantic_ai.ag_ui import StateDeps
+        from textwrap import dedent
+
 
         class AgentState(BaseModel):
             """State for the agent."""
             language: str = "english"
 
-        agent = Agent('openai:gpt-4o-mini', deps_type=StateDeps[AgentState])
+
+        agent = Agent("openai:gpt-4o-mini", deps_type=StateDeps[AgentState])
+
+
+        @agent.instructions()
+        async def language_instructions(ctx: RunContext[StateDeps[AgentState]]) -> str:
+            """Instructions for the language tracking agent.
+
+            Args:
+                ctx: The run context containing language state information.
+
+            Returns:
+                Instructions string for the language tracking agent.
+            """
+            return dedent(
+                f"""
+                You are a helpful assistant for tracking the language.
+
+                IMPORTANT:
+                - ALWAYS use the lower case for the language
+                - The language is not used for responding, always respond in english. Just track the language.
+
+                The current state of the language is: "{ctx.deps.state.language}"
+                """
+            )
+
         app = agent.to_ag_ui(deps=StateDeps(AgentState()))
+
+        if __name__ == "__main__":
+            import uvicorn
+
+            uvicorn.run(app, host="0.0.0.0", port=8000)
         ```
       </Tab>
     </Tabs>
@@ -145,7 +169,3 @@ function YourMainContent() {
 
 By default, the Pydantic AI Agent state will only update _between_ Pydantic AI Agent node transitions --
 which means state updates will be discontinuous and delayed.
-
-{/* You likely want to render the agent state as it updates **continuously.**
-
-See **[emit intermediate state](/pydantic-ai/shared-state/predictive-state-updates).**  */}

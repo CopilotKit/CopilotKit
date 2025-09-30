@@ -53,18 +53,21 @@ as this guide uses it as a starting point.
         ```python title="agent/sample_agent/agent.py"
         from pydantic_ai import Agent
 
-        agent = Agent('openai:gpt-4o-mini')
+        agent = Agent("openai:gpt-4o-mini")
+
 
         @agent.tool_plain
-        async def get_current_time(timezone: str = 'UTC') -> str:
-            """Get the current time in a specific timezone."""
-            from datetime import datetime
-            from zoneinfo import ZoneInfo
-            
-            tz = ZoneInfo(timezone)
-            return datetime.now(tz=tz).isoformat()
+        async def get_weather(location: str = "Everywhere ever") -> str:
+            """Get the weather for a given location. Ensure location is fully spelled out."""
+            return f"The weather in {location} is sunny."
+
 
         app = agent.to_ag_ui()
+
+        if __name__ == "__main__":
+            import uvicorn
+
+            uvicorn.run(app, host="0.0.0.0", port=8000)
         ```
     </Tab>
 
@@ -72,7 +75,7 @@ as this guide uses it as a starting point.
 </Step>
 <Step>
 ### Render the tool call in your frontend
-At this point, your agent will be able to call the `get_weather` tool. Now 
+At this point, your agent will be able to call the `get_weather` tool. Now
 we just need to add a `useCopilotAction` hook to render the tool call in
 the UI.
 
@@ -90,7 +93,7 @@ const YourMainContent = () => {
   // [!code highlight:13]
   useCopilotAction({
     name: "get_weather",
-    available: "fronted", // Mark this as render only
+    available: "frontend", // Mark this as render only
     render: ({ status, args }) => {
       return (
         <p className="text-gray-500 mt-2">
@@ -113,4 +116,4 @@ Try asking the agent to get the weather for a location. You should see the custo
 render the tool call and display the arguments that were passed to the tool.
 
 </Step>
-</Steps> 
+</Steps>

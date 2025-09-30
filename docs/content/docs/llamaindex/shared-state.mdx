@@ -1,6 +1,6 @@
 ---
-title: Writing agent state
-icon: "lucide/ArrowRight"
+title: Shared state
+icon: "lucide/Repeat"
 description: Write to agent's state from your application.
 ---
 
@@ -19,12 +19,13 @@ description: Write to agent's state from your application.
 
 ## What is this?
 
-This guide shows you how to write to your agent's state from your application.
+This guide shows you how to read and write to your agent's state from your application. LlamaIndex's `get_ag_ui_workflow_router` handler allows you to have stateful concepts that are automatically loaded into the LLM's context.
+
+From the front-end you can modify this state directly or via tools - enabling a bi-directional concept of state.
 
 ## When should I use this?
 
-You can use this when you want to provide the user with feedback about what your agent is doing, specifically
-when your agent is calling tools. CopilotKit allows you to fully customize how these tools are rendered in the chat.
+You can use this when you want to provide the user with feedback about what your agent is doing, specifically when your agent is calling tools. CopilotKit allows you to fully customize how these tools are rendered in the chat.
 
 ## Implementation
 
@@ -33,75 +34,26 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     ### Run and Connect Your Agent to CopilotKit
 
     You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
-    you can follow the instructions in the [Getting Started](/pydantic-ai/quickstart) guide.
+    you can follow the instructions in the [Getting Started](/llamaindex/quickstart) guide.
 
   </Step>
   <Step>
     ### Define the Agent State
-    Pydantic AI Agents are stateful. As you transition through the flow, that state is updated and available to the next function. For this example,
-    let's assume that our agent state looks something like this.
 
-    <Tabs groupId="language" items={["Python", "TypeScript"]}>
-      <Tab value="Python">
-        ```python title="agent-py/sample_agent/agent.py"
-        from pydantic import BaseModel
-        from pydantic_ai import Agent, RunContext
-        from pydantic_ai.ag_ui import StateDeps
-        from ag_ui.core import StateSnapshotEvent, EventType
-        from textwrap import dedent
+    First, define the agent's state in the workflow router.
 
+    ```python title="agent/agent/agent.py"
+    from llama_index.llms.openai import OpenAI
+    from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
 
-        class AgentState(BaseModel):
-            """State for the agent."""
-
-            language: str = "english"
-
-
-        agent = Agent("openai:gpt-4o-mini", deps_type=StateDeps[AgentState])
-
-
-        @agent.tool_plain
-        def update_language(language: str) -> StateSnapshotEvent:
-            """Update the language of the agent."""
-            updated_state = {"language": language}
-
-            return StateSnapshotEvent(type=EventType.STATE_SNAPSHOT, snapshot=updated_state)
-
-
-        @agent.instructions()
-        async def language_instructions(ctx: RunContext[StateDeps[AgentState]]) -> str:
-            """Instructions for the language tracking agent.
-
-            Args:
-                ctx: The run context containing language state information.
-
-            Returns:
-                Instructions string for the language tracking agent.
-            """
-            return dedent(
-                f"""
-                You are a helpful assistant for tracking the language.
-
-                IMPORTANT:
-                - Use the `update_language` tool to update the language
-                - ALWAYS use the lower case for the language
-                - The language is not used for responding, always respond in english. Just track the language.
-
-                The current state of the language is: "{ctx.deps.state.language}"
-                """
-            )
-
-
-        app = agent.to_ag_ui(deps=StateDeps(AgentState()))
-
-
-        if __name__ == "__main__":
-            import uvicorn
-
-            uvicorn.run(app, host="0.0.0.0", port=8000)
-        ```
-      </Tab>
-    </Tabs>
+    agentic_chat_router = get_ag_ui_workflow_router(
+      llm=OpenAI(model="gpt-4.1"),
+      system_prompt=SYSTEM_PROMPT,
+      initial_state={
+        "language": "english"
+      },
+    )
+    ```
 
   </Step>
   <Step>
@@ -110,7 +62,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     will update the agent state and trigger a rerender of anything that depends on the agent state.
 
     ```tsx title="ui/app/page.tsx"
-    import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
+    import { useCoAgent } from "@copilotkit/react-core";
 
     // Define the agent state type, should match the actual state of your agent
     type AgentState = {
@@ -119,7 +71,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 
     // Example usage in a pseudo React component
     function YourMainContent() {
-      const { state, setState } = useCoAgent<AgentState>({ // [!code highlight]
+      const { state, setState } = useCoAgent<AgentState>({
         name: "sample_agent",
         initialState: { language: "spanish" }  // optionally provide an initial state
       });
@@ -127,7 +79,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
       // ...
 
       const toggleLanguage = () => {
-        setState({ language: state.language === "english" ? "spanish" : "english" }); // [!code highlight]
+        setState({ language: state.language === "english" ? "spanish" : "english" });
       };
 
       // ...
@@ -191,12 +143,3 @@ function YourMainContent() {
   );
 }
 ```
-
-### Intermediately Stream and Render Agent State
-
-By default, the Pydantic AI Agent state will only update _between_ Pydantic AI Agent node transitions --
-which means state updates will be discontinuous and delayed.
-
-{/* You likely want to render the agent state as it updates **continuously.**
-
-See **[emit intermediate state](/pydantic-ai/shared-state/predictive-state-updates).**  */}

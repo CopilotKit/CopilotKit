@@ -1,40 +1,44 @@
-# Welcome to CopilotKit 🪁
+# Rename this Markdown file with the name of your project and remove line #1
 
-## 1. Project Title 
-(Rename this Markdown file with the name of your project and remove line #1)
+## 1. Project Title
 
-## 2. Use Case 
-(What problem does this solve?)
+## 2. Name of Issue/Topic
 
-## 3. Technologies Used 
-(List the technologies and frameworks you used (e.g., CopilotKit, Next.js))
+Provide the topic or challenge that your demo addresses.
 
-**Replace this text with your technologies**
-- Next.js
-- CopilotKit
+## 3. Technologies Being Used
+
+List the technologies and frameworks you used (e.g., CopilotKit, LangGraph)
+
+### Note: Please only use the [Shadcn/ui]([https://v0.dev/docs](https://ui.shadcn.com/docs/installation)) for styling components.
+
+- v0 Styling
 - Shadcn-UI Component Styling
-- MongoDB Vector Database
+- CopilotKit
 
+## 4. GitHub Project Link
 
-## 4. GitHub + YouTube
-
-- [ ] GitHub Repo:
+### GitHub Repo Link: 
 https://github.com/NathanTarbert/my-cool-project
 
-- [ ] Deployed Demo:
-https://github.com/NathanTarbert/my-even-cooler-deployed-project
+### The extra mile
 
-- [ ] YouTube: 
-https://my-cooler-youtube-vid
+- If your app is live, include the link here:
+[Live Demo](http://google.com)
 
-Note: Include a screenshot of your demo in action
+- Deploy your app on [Vercel](https://vercel.com/new)
+
+## 6. Screenshot
+
+Include a screenshot of your demo in action:
 ![image](https://github.com/user-attachments/assets/5d2a020c-dc8f-4b27-85db-ba1413bdc8f6)
 
+## 7. Who Are You?
 
+Please list your **GitHub** and **Twitter** handles if you feel comfortable doing so. 
 
-## 6. Who Are You?
+We want to promote what you've built and your hard work
 
-Please list your **Twitter** & **LinkedIn** profile 
+## We want to promote what you're building
 
-## ⭐️ Project README with installation and getting started steps ⭐️👇
-Place the full detailed README here:
+Link to any bonus activities you did such as solving GitHub Issues or posting to Twitter, Dev.to, Medium, etc related to your project and CopilotKit.
