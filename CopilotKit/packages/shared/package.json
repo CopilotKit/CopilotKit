@@ -41,7 +41,7 @@
     "tsconfig": "workspace:*",
     "tsup": "^6.7.0",
     "typescript": "^5.2.3",
-    "zod": "^3.23.3"
+    "zod": "^4.1.11"
   },
   "dependencies": {
     "@ag-ui/core": "^0.0.37",

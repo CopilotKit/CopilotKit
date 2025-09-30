@@ -926,8 +926,8 @@ importers:
         specifier: ^5.2.3
         version: 5.5.4
       zod:
-        specifier: ^3.23.3
-        version: 3.23.8
+        specifier: ^4.1.11
+        version: 4.1.11
 
   utilities/eslint-config-custom:
     dependencies:
