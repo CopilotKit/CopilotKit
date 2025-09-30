@@ -1,44 +1,46 @@
-# Rename this Markdown file with the name of your project and remove line #1
+## 🚀 **Project Title**
 
-## 1. Project Title
+(Note): Make a copy of this file
 
-## 2. Name of Issue/Topic
+### 📝 **Name of Issue/Topic**
 
-Provide the topic or challenge that your demo addresses.
+Briefly describe the issue or challenge that your demo/project addresses.
 
-## 3. Technologies Being Used
+---
 
-List the technologies and frameworks you used (e.g., CopilotKit, LangGraph)
+### 🛠️ **Technologies Being Used**
 
-### Note: Please only use the [Shadcn/ui]([https://v0.dev/docs](https://ui.shadcn.com/docs/installation)) for styling components.
+List all technologies, tools, and frameworks you are utilizing for the project:
 
-- v0 Styling
-- Shadcn-UI Component Styling
-- CopilotKit
+- **Frameworks**: (e.g., Next.js, Mastra)
+- **Styling**: v0 Styling, Shadcn-UI Component Styling
+- **Developer Tools**: CopilotKit
 
-## 4. GitHub Project Link
+---
 
-### GitHub Repo Link: 
-https://github.com/NathanTarbert/my-cool-project
+### 🌐 **App Link**
 
-### The extra mile
-
-- If your app is live, include the link here:
+If your app is live, include the link here:  
 [Live Demo](http://google.com)
 
-- Deploy your app on [Vercel](https://vercel.com/new)
+Deploy your app on [Vercel](https://vercel.com/new)
 
-## 6. Screenshot
+---
 
-Include a screenshot of your demo in action:
+### 🎯 **Twitter Post**
+
+Link to your Twitter/X post.
+
+---
+
+### 📸 **Screenshot**
+
+Include a screenshot of your demo in action:  
 ![image](https://github.com/user-attachments/assets/5d2a020c-dc8f-4b27-85db-ba1413bdc8f6)
 
-## 7. Who Are You?
+---
 
-Please list your **GitHub** and **Twitter** handles if you feel comfortable doing so. 
+### 🙋‍♂️ **List your repo here**
 
-We want to promote what you've built and your hard work
+Please list your GitHub project link.
 
-## We want to promote what you're building
-
-Link to any bonus activities you did such as solving GitHub Issues or posting to Twitter, Dev.to, Medium, etc related to your project and CopilotKit.
