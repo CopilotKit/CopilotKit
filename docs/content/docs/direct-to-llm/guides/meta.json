@@ -3,9 +3,8 @@
   "pages": [
     "quickstart",
     "vibe-coding-mcp",
-    "---Custom Look and Feel---",
-    "...custom-look-and-feel",
     "---Guides---",
+    "custom-look-and-feel",
     "human-in-the-loop",
     "custom-ai-assistant-behavior",
     "copilot-suggestions",
