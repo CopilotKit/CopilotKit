@@ -8,13 +8,15 @@ Briefly describe the issue or challenge that your demo/project addresses.
 
 ---
 
-### 🛠️ **Technologies Being Used**
+### 🛠️ **Technologies Used**
 
 List all technologies, tools, and frameworks you are utilizing for the project:
 
+Example 👇
 - **Frameworks**: (e.g., Next.js, Mastra)
 - **Styling**: v0 Styling, Shadcn-UI Component Styling
 - **Developer Tools**: CopilotKit
+- **Database**: MongoDB
 
 ---
 
@@ -40,7 +42,7 @@ Include a screenshot of your demo in action:
 
 ---
 
-### 🙋‍♂️ **List your repo here**
+### 🙋‍♂️ **List your project repo here**
 
-Please list your GitHub project link.
+Please list your GitHub repo project link.
 
