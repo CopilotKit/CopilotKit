@@ -3,6 +3,7 @@ import { useState, useCallback, useRef } from "react";
 import React from "react";
 import { z } from "zod";
 import { useCopilotAction } from "./use-copilot-action";
+import { zodToJsonSchema } from "zod-to-json-schema";
 
 export type ReactHumanInTheLoop<T> = {
   name: string;
@@ -35,7 +36,7 @@ export function useHumanInTheLoop<T extends Record<string, any> = {}>(
   dependencies?: any[],
 ) {
   // Convert Zod schema to JSON Schema if parameters are provided
-  const jsonSchema = tool.parameters ? JSON.stringify(z.toJSONSchema(tool.parameters)) : undefined;
+  const jsonSchema = tool.parameters ? JSON.stringify(zodToJsonSchema(tool.parameters)) : undefined;
 
   // Create a wrapper component that handles the renderAndWaitForResponse pattern
   const renderAndWaitForResponse = tool.render

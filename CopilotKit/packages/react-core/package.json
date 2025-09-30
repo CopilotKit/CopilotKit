@@ -59,7 +59,8 @@
     "@copilotkit/shared": "workspace:*",
     "@scarf/scarf": "^1.3.0",
     "react-markdown": "^8.0.7",
-    "untruncate-json": "^0.0.1"
+    "untruncate-json": "^0.0.1",
+    "zod-to-json-schema": "^3.24.6"
   },
   "keywords": [
     "copilotkit",
