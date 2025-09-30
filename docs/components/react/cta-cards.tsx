@@ -54,7 +54,7 @@ export function CTACard({ icon, iconKey, title, description, href, iconBgColor =
   
   return (
     <Link href={href} className="no-underline">
-      <Card className="transition-transform hover:scale-105 cursor-pointer shadow-xl shadow-indigo-500/20 h-full">
+      <Card className="transition-transform hover:scale-105 cursor-pointer shadow-xl shadow-indigo-500/20 dark:shadow-indigo-400/20 h-full">
         <CardHeader>
           <div className="flex items-center gap-3">
             <div className={`flex items-center justify-center ${iconBgColor} rounded-full w-10 h-10`}>
