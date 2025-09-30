@@ -44,7 +44,7 @@ state update you can reflect these updates natively in your application.
       <Tab value="Python">
         ```python title="agent-py/sample_agent/agent.py"
           import json
-          from typing import Optional
+          from typing import Dict, Optional
           from pydantic import BaseModel
           from fastapi import FastAPI
           import uvicorn
@@ -54,21 +54,36 @@ state update you can reflect these updates natively in your application.
           from google.adk.agents.callback_context import CallbackContext
           from google.adk.models import LlmResponse, LlmRequest
           from google.genai import types
-
-
-          sample_agent = LlmAgent(
-              name="assistant",
-              model="gemini-2.5-flash",
-              instruction="""
-              You are a helpful assistant. Help users by answering their questions and assisting with their needs.
-              """,
-          )
+          from google.adk.tools import ToolContext
 
 
           class SomeAgentState(BaseModel):
               """State for the agent."""
 
               language: str = "english"
+
+
+          def set_language(tool_context: ToolContext, new_language: str) -> Dict[str, str]:
+              """
+              Set the language
+
+              Args:
+                  "new_language": {
+                      "type": "string",
+                      "description": "The language to be saved in state",
+                  }
+
+              Returns:
+                  Dict indicating success status and message
+              """
+              try:
+                  # Put this into a state object just to confirm the shape
+                  new_state = {"language": new_language}
+                  tool_context.state["language"] = new_state["language"]
+                  return {"status": "success", "message": "language updated successfully"}
+
+              except Exception as e:
+                  return {"status": "error", "message": f"Error updating language: {str(e)}"}
 
 
           def on_before_agent(callback_context: CallbackContext):
@@ -91,7 +106,7 @@ state update you can reflect these updates natively in your application.
           ) -> Optional[LlmResponse]:
               """Inspects/modifies the LLM request or skips the call."""
               agent_name = callback_context.agent_name
-              if agent_name == "assistant":
+              if agent_name == "sample_agent":
                   language_json = "No language yet"
                   if (
                       "language" in callback_context.state
@@ -132,9 +147,11 @@ state update you can reflect these updates natively in your application.
               model="gemini-2.5-flash",
               instruction="""
               You are a helpful assistant. Help users by answering their questions and assisting with their needs.
-              Do not use the language specified in state when responding to the user, respond in the language you would normally respond in.
+              Please use the language specified in state when responding to the user.
+              You can set the language in state by using the set_language tool.
               You can answer questions about what you have in state if the user asks.
               """,
+              tools=[set_language],
               before_agent_callback=on_before_agent,
               before_model_callback=before_model_modifier,
           )
@@ -155,7 +172,6 @@ state update you can reflect these updates natively in your application.
           add_adk_fastapi_endpoint(app, adk_agent_sample, path="/")
 
           uvicorn.run(app, host="localhost", port=8000)
-
         ```
       </Tab>
     </Tabs>
