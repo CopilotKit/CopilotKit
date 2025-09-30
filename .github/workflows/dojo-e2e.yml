@@ -9,7 +9,7 @@ on:
 jobs:
   e2e:
     name: E2E Tests
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest-8
 
     steps:
     - name: Checkout CPK
@@ -62,26 +62,11 @@ jobs:
 
     - name: Install ag-ui dependencies
       working-directory: ag-ui/typescript-sdk
-      run: pnpm install --no-frozen-lockfile
+      run: pnpm install --frozen-lockfile
 
     - name: Link cpk into ag-ui
       working-directory: CopilotKit
       run: node ../ag-ui/typescript-sdk/apps/dojo/scripts/link-cpk.js .
-
-    - name: prove you are who you say you are
-      run: |
-        cat CopilotKit/packages/react-core/src/hooks/use-copilot-action.ts
-        echo "Sam Handwich"
-        cat ../ag-ui/typescript-sdk/apps/dojo/node_modules/@copilotkit/react-core/dist/hooks/use-copilot-action.js
-      working-directory: CopilotKit
-
-    - name: Clear copilotkit-node-modules to avoid cache issues
-      working-directory: ag-ui/typescript-sdk
-      run: |
-        rm -rf apps/*/node_modules/@copilotkit
-        rm -rf integrations/*/node_modules/@copilotkit
-        rm -rf packages/*/node_modules/@copilotkit
-        pnpm install --no-frozen-lockfile
 
     - name: Prepare dojo for e2e
       working-directory: ag-ui/typescript-sdk/apps/dojo
