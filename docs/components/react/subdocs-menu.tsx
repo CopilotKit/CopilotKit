@@ -509,11 +509,13 @@ function SubdocsMenuItemDropdown({
             placeholder={
               <div className="flex items-center">
                 <div className={cn("rounded-sm mr-2 pl-1 pr-1.5 text-primary/50")}>
-                  {selectedOption?.icon || (
+                  {(shouldResetDropdown || !selectedOption) ? (
                     <PlugIcon
                       className="w-4 h-4"
                       style={{ fontSize: '16px', width: '16px', height: '16px' }}
                     />
+                  ) : (
+                    selectedOption.icon
                   )}
                 </div>
                 <div className={cn("font-medium", !isSelected && "text-muted-foreground hover:text-foreground")}>{item.title}</div>
