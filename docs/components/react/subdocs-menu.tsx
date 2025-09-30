@@ -521,12 +521,12 @@ function SubdocsMenuItemDropdown({
             }
           />
         </SelectTrigger>
-        <SelectContent className="p-1 rounded-2xl max-h-[800px] shadow-lg">
+        <SelectContent className="p-1 rounded-2xl max-h-[800px] shadow-lg border border-gray-200 dark:border-gray-700 z-50">
           {item.options.map((option, index) => (
             <SelectItem
               key={`${option.url}-${index}`}
               value={option.url ?? DEFAULT_URL}
-              className="pl-1 py-1 my-1 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer hover:bg-secondary/10"
+              className="pl-1 py-1 my-1 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer hover:bg-accent hover:text-accent-foreground"
             >
               <div className="flex items-center">
                 <div className={cn("rounded-sm p-1.5 mr-2 text-primary")}>

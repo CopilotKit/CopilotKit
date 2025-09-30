@@ -9,22 +9,9 @@ import {
   RocketIcon,
   CloudIcon, 
   TerminalIcon,
-  ChevronDownIcon,
-  PlugIcon,
   BookOpenIcon
 } from "lucide-react";
 import { SiDiscord } from "react-icons/si";
-// Removed Select imports - using custom dropdown instead
-import { SiCrewai } from "@icons-pack/react-simple-icons";
-import { SiLangchain } from "react-icons/si";
-import {
-  ADKIcon,
-  AG2Icon,
-  MastraIcon,
-  AgnoIcon,
-  LlamaIndexIcon,
-  PydanticAIIcon,
-} from "@/lib/icons/custom-icons";
 
 // Function to update nd-tocnav, nd-toc, sidebar, and subnav positioning based on actual measured heights
 const updateTocNavPosition = (totalHeight: number, bannerHeight: number, isCollapsed: boolean) => {
@@ -115,8 +102,6 @@ const updateTocNavPosition = (totalHeight: number, bannerHeight: number, isColla
 export function TopNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const [isIntegrationsOpen, setIsIntegrationsOpen] = useState(false);
-  const [forceCloseDropdown, setForceCloseDropdown] = useState(0);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const { collapsed } = useSidebar();
   const [offsetHeight, setOffsetHeight] = useState(0);
@@ -559,88 +544,6 @@ export function TopNav() {
     return () => clearTimeout(timer);
   }, [pathname, collapsed]); // Recalculate when pathname changes
 
-  // Integration options for the dropdown
-  const integrationOptions = [
-    {
-      title: "Direct to LLM",
-      description: "Get started with CopilotKit quickly",
-      url: "/direct-to-llm",
-      icon: (
-        <RocketIcon
-          className="w-4 h-4"
-          style={{
-            fontSize: "16px",
-            width: "16px",
-            height: "16px",
-          }}
-        />
-      ),
-    },
-    {
-      title: "LangGraph",
-      description: "Documentation for CoAgents with LangGraph",
-      url: "/langgraph",
-      icon: (
-        <SiLangchain
-          className="w-4 h-4"
-          style={{
-            fontSize: "16px",
-            width: "16px",
-            height: "16px",
-          }}
-        />
-      ),
-    },
-    {
-      title: "Mastra",
-      description: "Documentation for CoAgents with Mastra",
-      url: "/mastra",
-      icon: <MastraIcon className="w-4 h-4 text-bold" />,
-    },
-    {
-      title: "CrewAI Crews",
-      description: "Documentation for CoAgents with CrewAI Crews",
-      url: "/crewai-crews",
-      icon: <SiCrewai className="w-4 h-4 text-bold" />,
-    },
-    {
-      title: "CrewAI Flows",
-      description: "Documentation for CoAgents with CrewAI Flows",
-      url: "/crewai-flows",
-      icon: <SiCrewai className="w-4 h-4 text-bold" />,
-    },
-    {
-      title: "PydanticAI",
-      description: "Documentation for CoAgents with PydanticAI",
-      url: "/pydantic-ai",
-      icon: <PydanticAIIcon className="w-4 h-4 text-bold" />,
-    },
-    {
-      title: "ADK",
-      description: "Documentation for CoAgents with ADK",
-      url: "/adk",
-      icon: <ADKIcon className="w-4 h-4 text-bold" />,
-    },
-    {
-      title: "Agno",
-      description: "Documentation for CoAgents with Agno",
-      url: "/agno",
-      icon: <AgnoIcon className="w-4 h-4 text-bold" />,
-    },
-    {
-      title: "LlamaIndex",
-      description: "Documentation for CoAgents with LlamaIndex",
-      url: "/llamaindex",
-      icon: <LlamaIndexIcon className="w-4 h-4 text-bold" />,
-    },
-    {
-      title: "AutoGen2",
-      description: "Documentation for CoAgents with AG2",
-      url: "/ag2",
-      icon: <AG2Icon className="w-4 h-4 text-bold" />,
-    },
-
-  ];
 
   const navItems = [
     {
@@ -679,13 +582,11 @@ export function TopNav() {
             <button
               onClick={() => {
                 setPendingNavigation("/");
-                setIsIntegrationsOpen(false);
-                setForceCloseDropdown(prev => prev + 1);
                 router.push("/");
               }}
               className={cn(
                 "flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                (pathname === "/" || pendingNavigation === "/") && !isIntegrationsOpen && pendingNavigation !== "/reference"
+                (pathname === "/" || pendingNavigation === "/")
                   ? "bg-primary/10 text-primary"
                   : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
               )}
@@ -694,25 +595,16 @@ export function TopNav() {
               <span>Overview</span>
             </button>
 
-            {/* Integration Dropdown */}
-            <IntegrationDropdown 
-              options={integrationOptions} 
-              onOpenChange={setIsIntegrationsOpen}
-              forceClose={forceCloseDropdown}
-              pendingNavigation={pendingNavigation}
-            />
 
             {/* API Reference */}
             <button
               onClick={() => {
                 setPendingNavigation("/reference");
-                setIsIntegrationsOpen(false);
-                setForceCloseDropdown(prev => prev + 1);
                 router.push("/reference");
               }}
               className={cn(
                 "flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                (pathname.startsWith("/reference") || pendingNavigation === "/reference") && !isIntegrationsOpen && pendingNavigation !== "/"
+                (pathname.startsWith("/reference") || pendingNavigation === "/reference")
                   ? "bg-primary/10 text-primary"
                   : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
               )}
@@ -776,13 +668,11 @@ export function TopNav() {
               <button
                 onClick={() => {
                   setPendingNavigation("/");
-                  setIsIntegrationsOpen(false);
-                  setForceCloseDropdown(prev => prev + 1);
                   router.push("/");
                 }}
                 className={cn(
                   "px-2 py-1 rounded transition-colors",
-                  (pathname === "/" || pendingNavigation === "/") && !isIntegrationsOpen && pendingNavigation !== "/reference"
+                  (pathname === "/" || pendingNavigation === "/")
                     ? "bg-primary/10 text-primary font-medium"
                     : "text-gray-700 dark:text-gray-300"
                 )}
@@ -790,23 +680,15 @@ export function TopNav() {
                 Overview
               </button>
 
-              <IntegrationDropdown 
-                options={integrationOptions} 
-                onOpenChange={setIsIntegrationsOpen}
-                forceClose={forceCloseDropdown}
-                pendingNavigation={pendingNavigation}
-              />
 
               <button
                 onClick={() => {
                   setPendingNavigation("/reference");
-                  setIsIntegrationsOpen(false);
-                  setForceCloseDropdown(prev => prev + 1);
                   router.push("/reference");
                 }}
                 className={cn(
                   "flex items-center space-x-1 px-2 py-1 rounded transition-colors",
-                  (pathname.startsWith("/reference") || pendingNavigation === "/reference") && !isIntegrationsOpen && pendingNavigation !== "/"
+                  (pathname.startsWith("/reference") || pendingNavigation === "/reference")
                     ? "bg-primary/10 text-primary font-medium"
                     : "text-gray-700 dark:text-gray-300"
                 )}
@@ -855,109 +737,3 @@ export function TopNav() {
   );
 }
 
-function IntegrationDropdown({ 
-  options, 
-  onOpenChange,
-  forceClose,
-  pendingNavigation
-}: { 
-  options: Array<{ title: string; url: string; icon: React.ReactNode; description: string }>; 
-  onOpenChange: (open: boolean) => void;
-  forceClose: number;
-  pendingNavigation: string | null;
-}) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const [isOpen, setIsOpen] = useState(false);
-  const [pendingSelection, setPendingSelection] = useState<string | null>(null);
-  
-  // Reset dropdown state when pathname changes
-  useEffect(() => {
-    setIsOpen(false);
-    onOpenChange(false);
-    setPendingSelection(null); // Clear pending selection when navigation completes
-  }, [pathname, onOpenChange]);
-
-  // Force close dropdown when parent requests it
-  useEffect(() => {
-    if (forceClose > 0) {
-      setIsOpen(false);
-      onOpenChange(false);
-    }
-  }, [forceClose, onOpenChange]);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (isOpen && !target.closest('[data-integration-dropdown]')) {
-        setIsOpen(false);
-        onOpenChange(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen, onOpenChange]);
-  
-  // Find the currently selected integration
-  const selectedOption = options.find(option => 
-    pathname.startsWith(option.url) && option.url !== "/"
-  );
-  
-  // Check if we're on a page that should reset the dropdown
-  const topLevelPages = ["/", "/reference"];
-  const shouldResetDropdown = topLevelPages.some(page => 
-    page === "/" ? pathname === "/" : pathname.startsWith(page)
-  );
-
-  // Show as selected if dropdown is open (and not navigating elsewhere) OR if we're on an integration page
-  const shouldShowSelected = (isOpen && !pendingNavigation) || (selectedOption && !shouldResetDropdown);
-
-  const toggleDropdown = () => {
-    const newIsOpen = !isOpen;
-    setIsOpen(newIsOpen);
-    onOpenChange(newIsOpen);
-  };
-
-  const handleOptionClick = (url: string) => {
-    setIsOpen(false);
-    onOpenChange(false);
-    router.push(url);
-  };
-
-  return (
-    <div className="relative" data-integration-dropdown key={`dropdown-${pathname}`}>
-      <button
-        onClick={toggleDropdown}
-        className={cn(
-          "flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors focus:outline-none justify-start",
-          shouldShowSelected
-            ? "bg-primary/10 text-primary"
-            : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
-        )}
-      >
-        {selectedOption?.icon || <PlugIcon className="w-4 h-4" />}
-        <span>{selectedOption?.title || "Select Integration"}</span>
-        <ChevronDownIcon className={cn("w-4 h-4 transition-transform", isOpen && "rotate-180")} />
-      </button>
-      
-      {isOpen && (
-        <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 min-w-48">
-          {options.map((option) => (
-            <button
-              key={option.url}
-              onClick={() => handleOptionClick(option.url)}
-              className="w-full flex items-center space-x-1.5 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 first:rounded-t-md last:rounded-b-md transition-colors"
-            >
-              <div className="flex-shrink-0">
-                {option.icon}
-              </div>
-              <span className="font-medium">{option.title}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
