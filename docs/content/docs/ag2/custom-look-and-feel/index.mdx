@@ -1,0 +1,42 @@
+---
+title: "Customize UI"
+description: "Customize the look, feel, and functionality of CopilotKit's UI components."
+icon: "lucide/Settings"
+---
+import { MessageCircleIcon, BrushIcon, PuzzleIcon, SettingsIcon } from "lucide-react";
+
+CopilotKit offers a variety of ways to create a UI interface for your Copilots and CoAgents. This ranges
+from using our built-in UI components to fully customizing the UI with headless UI.
+
+<Cards>
+  <Card
+    className="border border-gray-300 hover:border-gray-400 transition-colors"
+    title={<div className="mb-3"><MessageCircleIcon className="inline mr-2" />Prebuilt Copilot UI</div>}
+    description="Get started quickly with CopilotKit's ready-to-use UI components."
+    href="./custom-look-and-feel/built-in-ui-components"
+  />
+  <Card
+    className="border border-gray-300 hover:border-gray-400 transition-colors"
+    title={<div className="mb-3"><BrushIcon className="inline mr-2" />Styling Copilot UI</div>}
+    description="Customize the appearance of CopilotKit's pre-built components with your own styles."
+    href="./custom-look-and-feel/customize-built-in-ui-components"
+  />
+  <Card
+    className="border border-gray-300 hover:border-gray-400 transition-colors"
+    title={<div className="mb-3"><PuzzleIcon className="inline mr-2" />Custom Components</div>}
+    description="Replace the Copilot UI components with your own while keeping the core functionality."
+    href="./custom-look-and-feel/bring-your-own-components"
+  />
+  <Card
+    className="border border-gray-300 hover:border-gray-400 transition-colors"
+    title={<div className="mb-3"><SettingsIcon className="inline mr-2" />Fully Custom UI</div>}
+    description="Build your UI from scratch using CopilotKit's hooks and core functionality."
+    href="./custom-look-and-feel/headless-ui"
+  />
+  <Card
+    className="border border-gray-300 hover:border-gray-400 transition-colors"
+    title={<div className="mb-3"><SettingsIcon className="inline mr-2" />Markdown Rendering</div>}
+    description="Modify Copilotkit's use of markdown to display elements within the assistant arrow text, such as source citing and reasoning steps."
+    href="./custom-look-and-feel/markdown-rendering"
+  />
+</Cards>
