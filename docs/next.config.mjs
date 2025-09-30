@@ -30,7 +30,7 @@ const config = {
   skipTrailingSlashRedirect: true,
   skipMiddlewareUrlNormalize: true,
 
-  // turbopack: true, // Temporarily disabled due to Next.js 15.4.1 compatibility issues
+  turbopack: true,
 
   async redirects() {
     return [
