@@ -938,7 +938,7 @@ function IntegrationDropdown({
         )}
       >
         {selectedOption?.icon || <PlugIcon className="w-4 h-4" />}
-        <span>{selectedOption?.title || "Select Integration"}</span>
+        <span>{selectedOption?.title || "Integrations"}</span>
         <ChevronDownIcon className={cn("w-4 h-4 transition-transform", isOpen && "rotate-180")} />
       </button>
       
