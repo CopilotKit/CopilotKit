@@ -27,9 +27,9 @@ Deploy your app on [Vercel](https://vercel.com/new)
 
 ---
 
-### 🎯 **Bonus Points**
+### 🎯 **Twitter Post**
 
-Link to any bonus activities, like solving GitHub Issues or posts on Twitter, Dev.to, Medium, etc.
+Link to your Twitter/X post.
 
 ---
 
@@ -42,5 +42,5 @@ Include a screenshot of your demo in action:
 
 ### 🙋‍♂️ **Who Are You?**
 
-Please list your GitHub handle if you feel comfortable doing so.
+Please list your GitHub handle.
 
