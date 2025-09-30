@@ -40,15 +40,18 @@
     "ts-jest": "^29.1.1",
     "tsconfig": "workspace:*",
     "tsup": "^6.7.0",
-    "typescript": "^5.2.3"
+    "typescript": "^5.2.3",
+    "zod": "^3.23.3"
   },
   "dependencies": {
     "@ag-ui/core": "^0.0.37",
     "@segment/analytics-node": "^2.1.2",
     "chalk": "4.1.2",
     "graphql": "^16.8.1",
-    "uuid": "^10.0.0",
-    "zod": "^4.1.11"
+    "uuid": "^10.0.0"
+  },
+  "peerDependencies": {
+    "zod": ">=3.0.0"
   },
   "keywords": [
     "copilotkit",

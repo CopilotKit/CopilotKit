@@ -33,7 +33,8 @@
   },
   "peerDependencies": {
     "react": "^18 || ^19 || ^19.0.0-rc",
-    "react-dom": "^18 || ^19 || ^19.0.0-rc"
+    "react-dom": "^18 || ^19 || ^19.0.0-rc",
+    "zod": ">=3.0.0"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.0",
@@ -50,15 +51,15 @@
     "ts-jest": "^29.1.1",
     "tsconfig": "workspace:*",
     "tsup": "^6.7.0",
-    "typescript": "^5.2.3"
+    "typescript": "^5.2.3",
+    "zod": "^3.23.3"
   },
   "dependencies": {
     "@copilotkit/runtime-client-gql": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@scarf/scarf": "^1.3.0",
     "react-markdown": "^8.0.7",
-    "untruncate-json": "^0.0.1",
-    "zod": "^4.1.11"
+    "untruncate-json": "^0.0.1"
   },
   "keywords": [
     "copilotkit",
