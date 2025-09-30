@@ -500,15 +500,21 @@ function SubdocsMenuItemDropdown({
       >
         <SelectTrigger
           className={cn(
-            "pl-1 py-1 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer",
-            isSelected && "bg-primary/10 text-primary"
+            "pl-1 py-1 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer",
+            isSelected 
+              ? "bg-primary/10 text-primary !border-0" 
+              : "!border !border-primary bg-primary/5 text-primary"
           )}
           ref={selectRef}
+          style={!isSelected ? { borderColor: 'var(--primary)' } : undefined}
         >
           <SelectValue
             placeholder={
               <div className="flex items-center">
-                <div className={cn("rounded-sm mr-2 pl-1 pr-1.5 text-primary/50")}>
+                <div className={cn(
+                  "rounded-sm mr-2 pl-1 pr-1.5",
+                  isSelected ? "text-primary" : "text-primary"
+                )}>
                   {(shouldResetDropdown || !selectedOption) ? (
                     <PlugIcon
                       className="w-4 h-4"
@@ -518,7 +524,7 @@ function SubdocsMenuItemDropdown({
                     selectedOption.icon
                   )}
                 </div>
-                <div className={cn("font-medium", !isSelected && "text-muted-foreground hover:text-foreground")}>{item.title}</div>
+                <div className={cn("font-medium", isSelected ? "text-primary" : "text-primary")}>{item.title}</div>
               </div>
             }
           />
