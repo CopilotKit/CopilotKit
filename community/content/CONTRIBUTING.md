@@ -9,8 +9,7 @@ Follow these steps to get started and submit your Hacktoberfest project.
 
 1. **Pick an Issue**: Browse [GitHub Issues](https://github.com/CopilotKit/CopilotKit/issues) tagged `hacktoberfest` and ask to be assigned. Multiple contributors can join the same issue.  
 2. **Set Up Your Environment**: Install [CopilotKit packages](https://docs.copilotkit.ai/direct-to-llm/guides/quickstart) locally and make sure you can run your project.  
-3. **Create a Branch**: Start a new branch for your contribution. Sync often with `main` to avoid conflicts.  
-4. **Develop Your Project**: Build your demo or complete your assigned issue.  
+3. **Develop Your Project**: Build your demo or complete your assigned issue.  
 
 ---
 
