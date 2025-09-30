@@ -52,10 +52,7 @@ export function convertActionInputToLangChainTool(actionInput: ActionInput): any
   return new DynamicStructuredTool({
     name: actionInput.name,
     description: actionInput.description,
-    schema: convertJsonSchemaToZodSchema(
-      actionInput.jsonSchema,
-      true,
-    ),
+    schema: convertJsonSchemaToZodSchema(actionInput.jsonSchema, true),
     func: async () => {
       return "";
     },
