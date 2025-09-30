@@ -339,6 +339,16 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
   constructor(params?: CopilotRuntimeConstructorParams<T>) {
     if (
+      params?.remoteEndpoints &&
+      params?.remoteEndpoints.some((e) => e.type === EndpointType.LangGraphPlatform)
+    ) {
+      throw new CopilotKitMisuseError({
+        message:
+          "LangGraph Platform remote endpoints are deprecated in favor of the `agents` property. Refer to https://docs.copilotkit.ai/langgraph for more information.",
+      });
+    }
+
+    if (
       params?.actions &&
       params?.remoteEndpoints &&
       params?.remoteEndpoints.some((e) => e.type === EndpointType.LangGraphPlatform)
