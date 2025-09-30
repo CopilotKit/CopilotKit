@@ -1,5 +1,16 @@
 # ui
 
+## 1.10.5
+
+### Patch Changes
+
+- b7bc3a0: - feat: pass copilot readable context to agui agents
+- f3fdd7a: - fix: stop chat from contacting agent that has errored
+- 32c163e: - inspector visibility toggle in ConsoleTrigger component
+- 6112a67: - fix: consider edge cases when regenerate button is used
+  - @copilotkit/runtime-client-gql@1.10.5
+  - @copilotkit/shared@1.10.5
+
 ## 1.10.5-next.10
 
 ### Patch Changes
