@@ -16,9 +16,9 @@ Please show your support and give a ⭐ to the [CopilotKit repository](https://g
 ## How to Participate in 4 Easy Steps
 
 1. **Project Setup and Guidelines**: Check out the [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed setup instructions and contribution guidelines.  
-2. **Choose a Topic**: Browse our [Issues section](https://github.com/CopilotKit/CopilotKit/issues) tagged with `hacktoberfest`. CopilotKit allows multi-assign!  
+2. **Choose a Topic**: Browse our [Issues section](https://github.com/CopilotKit/CopilotKit/issues) tagged with `hacktoberfest`. CopilotKit allows multi-assignment!  
 3. **Submit Your Demo**: Build and submit your project following the steps in the `CONTRIBUTING.md`.  
-4. **Share Your Project**: Post your project on Twitter/X with the hashtag `#CopilotKitHacktoberfest`. The projects with the most likes will be crowned winners!  
+4. **Share Your Project**: Post your project on Twitter/X tagging `@Copilotkit` and adding the hashtag `#CopilotKitHacktoberfest` at the bottom of the post. The projects with the **most likes** will be crowned winners!  
 
 ---
 
@@ -36,10 +36,3 @@ Please show your support and give a ⭐ to the [CopilotKit repository](https://g
 - **Resources**: Explore the [CopilotKit documentation](https://docs.copilotkit.ai/?ref=github_readme).  
 
 ⭐ Happy coding, and we can’t wait to see your projects!
-
-## Need Help?
-
-- **Questions**: Use our [Discord support channel](https://discord.com/invite/6dffbvGU3D) for any questions you have.
-- **Resources**: Visit [CopilotKit documentation](https://docs.copilotkit.ai/?ref=github_readme) for more helpful documentatation info.
-
-⭐ Happy coding, and we look forward to your contributions!
