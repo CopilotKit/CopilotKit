@@ -12,9 +12,11 @@ export default function CopilotKitPage() {
   useFrontendTool({
     name: "setThemeColor",
     description: "Set the theme color of the interface",
-    parameters: z.object({
-      themeColor: z.string().describe("The theme color to set. Make sure to pick nice colors."),
-    }),
+      parameters: [{
+          name: "themeColor",
+          description: "The theme color to set. Make sure to pick nice colors.",
+          required: true,
+      }],
     handler({ themeColor }) {
       setThemeColor(themeColor);
     },
@@ -55,9 +57,11 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
   useFrontendTool({
     name: "addProverb",
     description: "Add a proverb to the list",
-    parameters: z.object({
-      proverb: z.string().describe("The proverb to add. Make it witty, short and concise."),
-    }),
+      parameters: [{
+          name: "proverb",
+          description: "The proverb to add. Make it witty, short and concise.",
+          required: true,
+      }],
     handler: ({ proverb }) => {
       setState({
         ...state,
@@ -70,9 +74,9 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
   useRenderToolCall({
     name: "getWeather",
     description: "Get the weather for a given location.",
-    parameters: z.object({
-      location: z.string().describe("The location to get weather for"),
-    }),
+      parameters: [
+          { name: "location", type: "string", required: true },
+      ],
     render: ({ args }) => {
       return <WeatherCard location={args.location} themeColor={themeColor} />
     },

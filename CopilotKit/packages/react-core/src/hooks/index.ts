@@ -9,7 +9,6 @@ export {
 export { useCopilotChat as useCopilotChatInternal } from "./use-copilot-chat_internal";
 export { useCopilotAction } from "./use-copilot-action";
 export { useFrontendTool } from "./use-frontend-tool";
-export type { ReactFrontendTool } from "./use-frontend-tool";
 export { useCoAgentStateRender } from "./use-coagent-state-render";
 export { useMakeCopilotDocumentReadable } from "./use-make-copilot-document-readable";
 export { type UseChatHelpers } from "./use-chat";
@@ -22,6 +21,4 @@ export { useLangGraphInterruptRender } from "./use-langgraph-interrupt-render";
 export { useCopilotAdditionalInstructions } from "./use-copilot-additional-instructions";
 export type { Tree, TreeNode } from "./use-tree";
 export { useHumanInTheLoop } from "./use-human-in-the-loop";
-export type { ReactHumanInTheLoop } from "./use-human-in-the-loop";
 export { useRenderToolCall } from "./use-render-tool-call";
-export type { ReactRenderToolCall } from "./use-render-tool-call";
