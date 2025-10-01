@@ -20,6 +20,7 @@
     "---Connection Protocols---",
     "ag-ui-protocol",
     "connect-mcp-servers",
+    "a2a-protocol",
     "---Learning---",
     "...../direct-to-llm/tutorials",
     "...../coagents/tutorials",
