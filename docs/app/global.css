@@ -261,20 +261,23 @@ html:root {
   aside button svg {
     color: var(--primary) !important;
     stroke: var(--primary) !important;
-    fill: var(--primary) !important;
+    fill: none !important;
   }
 
-  /* Make all top nav icons purple */
+  /* Make all top nav icons purple - stroked icons */
   [data-nav-container] button svg.lucide,
   [data-nav-container] a svg.lucide,
   [data-mobile-nav-container] button svg.lucide,
-  [data-mobile-nav-container] a svg.lucide,
-  [data-nav-container] button svg,
-  [data-nav-container] a svg,
-  [data-mobile-nav-container] button svg,
-  [data-mobile-nav-container] a svg {
+  [data-mobile-nav-container] a svg.lucide {
     color: var(--primary) !important;
     stroke: var(--primary) !important;
+    fill: none !important;
+  }
+
+  /* Make Discord icon purple - filled icon */
+  [data-nav-container] a[href*="discord"] svg,
+  [data-mobile-nav-container] a[href*="discord"] svg {
+    color: var(--primary) !important;
     fill: var(--primary) !important;
   }
 }
