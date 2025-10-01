@@ -534,13 +534,13 @@ function SubdocsMenuItemDropdown({
             <SelectItem
               key={`${option.url}-${index}`}
               value={option.url ?? DEFAULT_URL}
-              className="pl-1 py-1 my-1 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer hover:bg-accent hover:text-accent-foreground"
+              className="pl-1 py-1 my-1 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer hover:bg-accent hover:text-accent-foreground !text-muted-foreground !font-normal"
             >
-              <div className="flex items-center">
-                <div className={cn("rounded-sm p-1.5 mr-2 text-primary")}>
+              <div className="flex items-center opacity-70">
+                <div className={cn("rounded-sm p-1.5 mr-2")}>
                   {option.icon}
                 </div>
-                <span className="font-medium">{option.title}</span>
+                <span>{option.title}</span>
               </div>
             </SelectItem>
           ))}
