@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { Plug, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { integrations } from "@/components/react/integrations";
+import Image from "next/image";
 
 export function IntegrationPicker() {
   const [isOpen, setIsOpen] = useState(false);
@@ -38,14 +39,45 @@ export function IntegrationPicker() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold mb-3">Select integration</h2>
+          <h2 className="text-3xl font-bold mb-3">Select Your Integration</h2>
           <p className="text-muted-foreground">
             CopilotKit works with any LLM or agent framework. Choose an integration to see the full feature set.
           </p>
         </div>
 
-        {/* Picker */}
-        <div ref={dropdownRef} className="relative w-full max-w-2xl mx-auto">
+        {/* Kite Logo with arrow connecting to picker */}
+        <div className="flex items-center justify-center gap-0 mb-8">
+          {/* Logo */}
+          <div className="flex-shrink-0">
+            <Image
+              src="https://cdn.copilotkit.ai/docs/copilotkit/icons/copilotkit-color.svg"
+              alt="CopilotKit"
+              height={72}
+              width={72}
+            />
+          </div>
+          
+          {/* Connecting arrow (double-headed) */}
+          <div className="flex items-center mx-3">
+            {/* Left arrowhead */}
+            <div 
+              className="w-0 h-0 border-t-[5px] border-t-transparent border-b-[5px] border-b-transparent border-r-[9px]" 
+              style={{ borderRightColor: 'var(--primary)', opacity: 0.8 }}
+            />
+            {/* Arrow line */}
+            <div 
+              className="h-1 w-15" 
+              style={{ backgroundColor: 'var(--primary)', opacity: 0.8 }}
+            />
+            {/* Right arrowhead */}
+            <div 
+              className="w-0 h-0 border-t-[5px] border-t-transparent border-b-[5px] border-b-transparent border-l-[9px]" 
+              style={{ borderLeftColor: 'var(--primary)', opacity: 0.8 }}
+            />
+          </div>
+
+          {/* Picker */}
+          <div ref={dropdownRef} className="relative w-full max-w-sm">
           <button
             onClick={() => setIsOpen(!isOpen)}
             className={cn(
@@ -108,17 +140,13 @@ export function IntegrationPicker() {
                       <div className="font-medium text-foreground">
                         {integration.title}
                       </div>
-                      {integration.description && (
-                        <div className="text-sm text-muted-foreground mt-0.5 line-clamp-1">
-                          {integration.description}
-                        </div>
-                      )}
                     </div>
                   </button>
                 ))}
               </div>
             </div>
           )}
+          </div>
         </div>
       </div>
     </div>
