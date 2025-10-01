@@ -467,6 +467,20 @@ function SubdocsMenuItemDropdown({
   const router = useRouter();
   const selectRef = useRef(null);
   const pathname = usePathname();
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    const checkDarkMode = () => {
+      setIsDark(document.documentElement.classList.contains('dark'));
+    };
+    checkDarkMode();
+    const observer = new MutationObserver(checkDarkMode);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+    return () => observer.disconnect();
+  }, []);
 
   const selectedOption = item.options.find(
     (option) => option.url === selected?.url
@@ -479,6 +493,10 @@ function SubdocsMenuItemDropdown({
   );
 
   const isSelected = selectedOption !== undefined && !shouldResetDropdown;
+  
+  // Primary colors for light and dark mode
+  const primaryColor = isDark ? 'oklch(0.65 0.15 285)' : 'oklch(0.55 0.25 285)';
+  const primaryBg = isDark ? 'oklch(0.65 0.15 285 / 0.1)' : 'oklch(0.55 0.25 285 / 0.1)';
 
   return (
     <div className="w-full">
@@ -500,34 +518,40 @@ function SubdocsMenuItemDropdown({
       >
         <SelectTrigger
           className={cn(
-            "pl-1 py-1 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer",
+            "p-1 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer",
             isSelected 
-              ? "bg-primary/10 text-primary !border-0" 
-              : "!border !border-primary bg-primary/5 text-primary"
+              ? "!border-0" 
+              : "!border"
           )}
           ref={selectRef}
-          style={!isSelected ? { borderColor: 'var(--primary)' } : undefined}
+          style={
+            isSelected 
+              ? { backgroundColor: primaryBg, color: primaryColor, opacity: 1, border: 'none' }
+              : { border: `2px solid ${primaryColor}`, opacity: 1 }
+          }
         >
-          <SelectValue
-            placeholder={
-              <div className="flex items-center">
-                <div className={cn(
-                  "rounded-sm mr-2 pl-1 pr-1.5",
-                  isSelected ? "text-primary" : "text-primary"
-                )}>
-                  {(shouldResetDropdown || !selectedOption) ? (
+          {isSelected && selectedOption ? (
+            <div className="flex items-center gap-3">
+              <div className="rounded-sm p-1.5 pr-0" style={{ color: primaryColor }}>
+                {selectedOption.icon}
+              </div>
+              <div className="font-medium">{selectedOption.title}</div>
+            </div>
+          ) : (
+            <SelectValue
+              placeholder={
+                <div className="flex items-center gap-3 opacity-60">
+                  <div className="rounded-sm p-1.5 pr-0">
                     <PlugIcon
                       className="w-4 h-4"
                       style={{ fontSize: '16px', width: '16px', height: '16px' }}
                     />
-                  ) : (
-                    selectedOption.icon
-                  )}
+                  </div>
+                  <div className="font-medium">{item.title}</div>
                 </div>
-                <div className={cn("font-medium", isSelected ? "text-primary" : "text-primary")}>{item.title}</div>
-              </div>
-            }
-          />
+              }
+            />
+          )}
         </SelectTrigger>
         <SelectContent className="p-1 rounded-2xl max-h-[800px] shadow-lg border border-gray-200 dark:border-gray-700 z-50">
           {item.options.map((option, index) => (
