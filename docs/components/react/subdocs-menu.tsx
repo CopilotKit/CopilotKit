@@ -518,16 +518,16 @@ function SubdocsMenuItemDropdown({
       >
         <SelectTrigger
           className={cn(
-            "p-1 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer",
+            "p-1 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer focus:ring-0 focus:ring-offset-0",
             isSelected 
               ? "!border-0" 
-              : "!border"
+              : "!border focus:!border"
           )}
           ref={selectRef}
           style={
             isSelected 
               ? { backgroundColor: primaryBg, color: primaryColor, opacity: 1, border: 'none' }
-              : { border: `2px solid ${primaryColor}`, opacity: 1 }
+              : { border: `2px solid ${primaryColor}`, opacity: 1, boxShadow: 'none' }
           }
         >
           {isSelected && selectedOption ? (
