@@ -566,10 +566,11 @@ export function TopNav() {
       <div 
         data-nav-container
         className={cn(
-          "fixed bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 z-30 items-center justify-between px-6 py-3 hidden md:flex",
+          "fixed backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 z-30 items-center justify-between px-6 py-3 hidden md:flex",
           collapsed && "md:hidden"
         )}
         style={{ 
+          backgroundColor: 'var(--sidebar)',
           height: '60px',
           top: `${offsetHeight}px`,
           left: !collapsed ? '286px' : '0',
@@ -654,8 +655,9 @@ export function TopNav() {
       <div className="md:hidden">
         <div 
           data-mobile-nav-container
-          className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 px-4 py-2 z-20"
+          className="backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 px-4 py-2 z-20"
           style={{ 
+            backgroundColor: 'var(--sidebar)',
             position: 'fixed',
             top: `${offsetHeight}px`,
             left: '0',
