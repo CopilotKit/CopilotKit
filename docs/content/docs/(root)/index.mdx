@@ -19,6 +19,7 @@ import { Accordion } from 'fumadocs-ui/components/accordion';
 import { LinkToCopilotCloud } from "@/components/react/link-to-copilot-cloud";
 import { QuickstartDropdown } from "@/components/react/quickstart-dropdown";
 import { IntegrationsGrid } from "@/components/react/integrations";
+import { IntegrationPicker } from "@/components/react/integration-picker";
 import { MaximizableVideo } from "@/components/react/maximizable-video";
 import { CopilotKitHero } from "@/components/branding/CopilotKitHero";
 
@@ -70,11 +71,7 @@ npx copilotkit@latest init
   
 </div>
 
-## Integrations
-
-CopilotKit works with any LLM or agent framework.  Choose an integration to see the full feature set.
-
-<IntegrationsGrid />
+<IntegrationPicker />
 
 ## Key Features
 Learn why CopilotKit is used by thousands of developers around the world.
