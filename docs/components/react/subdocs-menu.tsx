@@ -540,14 +540,14 @@ function SubdocsMenuItemDropdown({
           ) : (
             <SelectValue
               placeholder={
-                <div className="flex items-center gap-3 opacity-60">
-                  <div className="rounded-sm p-1.5 pr-0">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-sm p-1.5 pr-0" style={{ color: primaryColor }}>
                     <PlugIcon
                       className="w-4 h-4"
                       style={{ fontSize: '16px', width: '16px', height: '16px' }}
                     />
                   </div>
-                  <div className="font-medium">{item.title}</div>
+                  <div className="font-medium opacity-60">{item.title}</div>
                 </div>
               }
             />
@@ -560,11 +560,11 @@ function SubdocsMenuItemDropdown({
               value={option.url ?? DEFAULT_URL}
               className="pl-1 py-1 my-1 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer hover:bg-accent hover:text-accent-foreground !text-muted-foreground !font-normal"
             >
-              <div className="flex items-center opacity-70">
-                <div className={cn("rounded-sm p-1.5 mr-2")}>
+              <div className="flex items-center">
+                <div className={cn("rounded-sm p-1.5 mr-2")} style={{ color: primaryColor }}>
                   {option.icon}
                 </div>
-                <span>{option.title}</span>
+                <span className="opacity-70">{option.title}</span>
               </div>
             </SelectItem>
           ))}
