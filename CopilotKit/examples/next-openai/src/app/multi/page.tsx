@@ -4,7 +4,7 @@ import { CopilotChat } from "@copilotkit/react-ui";
 import "./styles.css";
 import { CopilotKit, useCopilotAction, useCopilotChat } from "@copilotkit/react-core";
 import { useSearchParams } from "next/navigation";
-import { MessageRole, TextMessage, Message } from "@copilotkit/runtime-client-gql";
+import { MessageRole, TextMessage } from "@copilotkit/runtime-client-gql";
 import { randomId } from "@copilotkit/shared";
 
 const testMessages = [
@@ -92,7 +92,7 @@ function TravelPlanner() {
   // hitl action 2
   useCopilotAction({
     name: "getHotel",
-    renderAndWaitForResponse({ status, args, respond }) {
+    renderAndWaitForResponse({ status, respond }) {
       return (
         <div className="flex flex-col gap-2 bg-blue-500/50 p-4 border border-blue-500 rounded-md w-1/2">
           <p>Hotel</p>

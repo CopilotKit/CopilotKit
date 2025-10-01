@@ -4,7 +4,7 @@ import { SlideModel } from "../../types";
 
 export interface SlideProps {
   slide: SlideModel;
-  partialUpdateSlide: (partialSlide: Partial<SlideModel>) => void;
+  partialUpdateSlide: (_partialSlide: Partial<SlideModel>) => void;
 }
 
 export const Slide = (props: SlideProps) => {
@@ -52,7 +52,7 @@ function SlideImage({ backgroundImage }: { backgroundImage: string }) {
 
 interface SpeakerNotesProps {
   spokenNarration: string;
-  onChange: (newSpokenNarration: string) => void;
+  onChange: (_newSpokenNarration: string) => void;
 }
 
 function SlideSpeakerNotes({ spokenNarration, onChange }: SpeakerNotesProps) {
@@ -78,7 +78,7 @@ function SlideSpeakerNotes({ spokenNarration, onChange }: SpeakerNotesProps) {
 
 interface SlideContentProps {
   content: string;
-  onChange: (newContent: string) => void;
+  onChange: (_newContent: string) => void;
 }
 
 function SlideContent({ content, onChange }: SlideContentProps) {

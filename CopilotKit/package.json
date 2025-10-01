@@ -21,6 +21,7 @@
     "eslint-config-custom": "workspace:*",
     "glob": "^10.3.12",
     "install": "^0.13.0",
+    "next": "^14.0.0",
     "npm": "^10.7.0",
     "prettier": "^3.2.5",
     "prettier-plugin-tailwindcss": "^0.1.11",

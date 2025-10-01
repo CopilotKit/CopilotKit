@@ -9,7 +9,7 @@ export interface SlideModel {
 
 export interface SlideProps {
   slide: SlideModel;
-  partialUpdateSlide: (partialSlide: Partial<SlideModel>) => void;
+  partialUpdateSlide: (_partialSlide: Partial<SlideModel>) => void;
 }
 
 export const Slide = (props: SlideProps) => {

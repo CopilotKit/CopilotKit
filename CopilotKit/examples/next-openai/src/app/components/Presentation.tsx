@@ -1,7 +1,10 @@
 "use client";
-import { useCopilotAction, useCopilotContext } from "@copilotkit/react-core";
-import { CopilotTask } from "@copilotkit/react-core";
-import { useCopilotReadable } from "@copilotkit/react-core";
+import {
+  CopilotTask,
+  useCopilotAction,
+  useCopilotContext,
+  useCopilotReadable,
+} from "@copilotkit/react-core";
 import { useCallback, useMemo, useState } from "react";
 import {
   BackwardIcon,
@@ -13,7 +16,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { resetGlobalAudio, speak } from "../utils";
 import { ActionButton } from "./ActionButton";
-import { SlideModel, Slide } from "./Slide";
+import { Slide, SlideModel } from "./Slide";
 
 export const Presentation = ({ chatInProgress }: { chatInProgress: boolean }) => {
   const [slides, setSlides] = useState<SlideModel[]>([
@@ -143,7 +146,7 @@ export const Presentation = ({ chatInProgress }: { chatInProgress: boolean }) =>
               ...slides.slice(0, currentSlideIndex),
               ...slides.slice(currentSlideIndex + 1),
             ]);
-            setCurrentSlideIndex((i) => 0);
+            setCurrentSlideIndex((_i) => 0);
           }}
           className="ml-5 rounded-r-none"
         >
