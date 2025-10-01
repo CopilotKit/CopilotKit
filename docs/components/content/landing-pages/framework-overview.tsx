@@ -124,11 +124,12 @@ export function FrameworkOverview({
             </Link>
             <Button 
               size="lg" 
-              className="shadow-lg px-8 py-3 text-base font-mono cursor-pointer border-0"
+              className="shadow-lg px-8 py-3 text-base font-mono cursor-pointer"
               onClick={handleCopyCommand}
               style={{ 
                 backgroundColor: primaryBg, 
-                color: primaryColor 
+                color: primaryColor,
+                border: `1px solid ${primaryColor}`
               }}
             >
               npx copilotkit init
