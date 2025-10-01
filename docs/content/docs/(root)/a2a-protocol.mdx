@@ -1,0 +1,151 @@
+---
+title: A2A (Agents<->Agents)
+icon: "lucide/Zap"
+description: Bring your A2A agents to your users through AG-UI and CopilotKit.
+---
+import { IntegrationsGrid } from "@/components/react/integrations";
+import Image from "next/image"
+
+## What is the A2A Protocol?
+
+A2A, or the Agent2Agent protocol, is a protocol introduced by Google for AI agents to interact and collaborate securely in a framework agnostic manner.
+
+<img width="4096" height="1752" alt="Your application-AG-UI protocol" src="https://github.com/user-attachments/assets/dc58c64c-3257-490a-b827-e163475f4166" />
+
+## How CopilotKit uses A2A agents
+
+CopilotKit uses a middleware to expose A2A agents to an AG-UI compatible coodinator. This allows you to expose your A2A agents to your users through the AG-UI protocol.
+
+* __Flexibility and Interoperability__: By making a2a agents available over the AG-UI standard, any A2A agents can work seamless with CopilotKit components.
+* __Unified Communication__: While A2A agents are enabled to communicate with each other over the A2A protocol, AG-UI adds the missing tooling to expose them cleanly to the front end.
+
+To learn more, check out the [A2A](https://a2a-protocol.org/latest/) website.
+
+## How to use A2A agents with CopilotKit
+
+To use A2A agents with CopilotKit, you need to first install the CopilotKit middleware.
+<Steps>
+  <Step>
+    ### Run and Connect Your Agent to CopilotKit
+
+    You'll need to run your agent and connect it to CopilotKit before proceeding.
+
+    #### I already have an AG-UI agent to use as a coordinator.
+
+    Excellent! You can move on to the next step.
+
+    #### I want to start from scratch
+
+    Run the following command to create a brand new project with a pre-configured AG-UI agent:
+
+    ```bash
+    npx copilotkit@latest create -f adk
+    ```
+
+    This will create a new project with a pre-configured ADK AG-UI agent, but you can use any AG-UI agent you want.
+  </Step>
+
+  <Step>
+    ### Install the A2A middleware
+    ```bash
+    npm install @ag-ui/a2a-middleware
+    ```
+  </Step>
+
+  <Step>
+    ### Configure the A2A middleware
+    ```tsx title="src/app/api/copilotkit/route.ts"
+    import { A2AMiddlewareAgent } from "@ag-ui/a2a-middleware"
+
+    ...
+
+    // These are the URLs of the A2A agents
+    const firstA2AAgentUrl = "http://localhost:8001/";
+    const secondA2AAgentUrl = "http://localhost:8002/";
+    const ThirdAgentUrl = "http://localhost:8003/";
+
+    // Update the runtime to use the agent put out by the A2A middleware
+    const runtime = new CopilotRuntime({
+      agents: {
+        a2a_chat: new A2AMiddlewareAgent({
+          description: "Middleware that connects to remote A2A agents",
+          // The URLS to access the A2A agents
+          agentUrls: [firstA2AAgentUrl, secondA2AAgentUrl, ThirdAgentUrl],
+          // The existing ag-ui agent goes here
+          orchestrationAgent: new HttpAgent({url: orchestrationAgentUrl}),
+          instructions: `
+          You are an special agent. You are responsible for hiring employees and other typical HR tasks.
+
+          It's very important to contact all the departments necessary to complete the task.
+          For example, to hire an employee, you must contact all 3 departments: Finance, IT and Buildings Management. Help the Buildings Management department to find a table.
+
+          You can make tool calls on behalf of other agents.
+          DO NOT FORGET TO COMMUNICATE BACK TO THE RELEVANT AGENT IF MAKING A TOOL CALL ON BEHALF OF ANOTHER AGENT!!!
+
+          When choosing a seat with the buildings management agent, You MUST use the \`pickTable\` tool to have the user pick a seat.
+          The buildings management agent will then use the \`pickSeat\` tool to pick a seat.
+          `,
+        })
+      }
+    };
+
+    ```
+  </Step>
+
+  <Step>
+    ### Add a `useCopilotAction` to your Frontend
+    First, we'll create a component that renders the agent's essay draft and waits for user approval.
+
+    ```tsx title="ui/app/page.tsx"
+    import { useCopilotAction } from "@copilotkit/react-core"
+    import { Markdown } from "@copilotkit/react-ui"
+
+    function YourMainContent() {
+      // ...
+
+      useCopilotAction({
+        name: "writeEssay",
+        available: "remote",
+        description: "Writes an essay and takes the draft as an argument.",
+        parameters: [
+          { name: "draft", type: "string", description: "The draft of the essay", required: true },
+        ],
+        // [!code highlight:25]
+        render: ({ args, result, status }) => {
+          return (
+            <>
+              // We can see the message to the A2A agent in the args as soon as it's sent
+              (status === "executing" || status === "complete")  && (
+                <div>
+                  <div>Message to {args.agentName}:</div>
+                  <div>{args.task}</div>
+                </div>
+              )
+              // We can only see the response from the a2a agent when it's complete
+              ( status === "complete")  && (
+                <div>
+                  <div>Message from {args.agentName}:</div>
+                  <div>{result}</div>
+                </div>
+              )
+            </>
+          )
+        },
+      });
+
+      // ...
+    }
+    ```
+  </Step>
+
+  <Step>
+    ### Give it a try!
+    Try asking your agent to write an essay about the benefits of AI. You'll see that it will generate an essay,
+    stream the progress and eventually ask you to review it.
+  </Step>
+</Steps>
+```bash
+npm install @copilotkit/middleware-a2a
+```
+
+Then, you can use the middleware in your application.
