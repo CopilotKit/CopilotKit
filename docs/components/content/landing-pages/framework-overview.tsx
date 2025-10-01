@@ -3,7 +3,7 @@
 import { ExternalLink, ArrowRight, Copy, Check, PlayIcon, BookOpen, LayoutIcon } from 'lucide-react';
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { useState, ReactNode } from "react";
+import { useState, useEffect, ReactNode } from "react";
 import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
 import Image from 'next/image';
 
@@ -60,12 +60,29 @@ export function FrameworkOverview({
 }: FrameworkOverviewProps) {
   const [activeDemo, setActiveDemo] = useState<'saas' | 'canvas'>(liveDemos[0]?.type || 'saas');
   const [copied, setCopied] = useState(false);
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    const checkDarkMode = () => {
+      setIsDark(document.documentElement.classList.contains('dark'));
+    };
+    checkDarkMode();
+    const observer = new MutationObserver(checkDarkMode);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+    return () => observer.disconnect();
+  }, []);
 
   const handleCopyCommand = () => {
     navigator.clipboard.writeText(initCommand);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const primaryColor = isDark ? 'oklch(0.65 0.15 285)' : 'oklch(0.55 0.25 285)';
+  const primaryBg = isDark ? 'oklch(0.65 0.15 285 / 0.15)' : 'oklch(0.55 0.25 285 / 0.15)';
 
   return (
     <div className="min-h-screen bg-background">
@@ -107,8 +124,12 @@ export function FrameworkOverview({
             </Link>
             <Button 
               size="lg" 
-              className="bg-primary/10 dark:bg-primary/20 text-primary hover:bg-primary/20 dark:hover:bg-primary/40 shadow-lg px-8 py-3 text-base font-mono cursor-pointer border border-primary"
+              className="shadow-lg px-8 py-3 text-base font-mono cursor-pointer border-0"
               onClick={handleCopyCommand}
+              style={{ 
+                backgroundColor: primaryBg, 
+                color: primaryColor 
+              }}
             >
               npx copilotkit init
               {copied ? (
