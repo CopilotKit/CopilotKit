@@ -258,6 +258,20 @@ html:root {
     color: var(--primary) !important;
     stroke: var(--primary) !important;
   }
+
+  /* Make all top nav icons purple */
+  [data-nav-container] button svg.lucide,
+  [data-nav-container] a svg.lucide,
+  [data-mobile-nav-container] button svg.lucide,
+  [data-mobile-nav-container] a svg.lucide,
+  [data-nav-container] button svg,
+  [data-nav-container] a svg,
+  [data-mobile-nav-container] button svg,
+  [data-mobile-nav-container] a svg {
+    color: var(--primary) !important;
+    stroke: var(--primary) !important;
+    fill: var(--primary) !important;
+  }
 }
 
 @layer base {
