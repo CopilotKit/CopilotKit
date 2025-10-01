@@ -249,6 +249,15 @@ html:root {
     font-size: 0.6875rem !important; /* 11px */
     font-weight: 400 !important; /* normal weight */
   }
+
+  /* Make all sidebar icons purple */
+  [data-radix-scroll-area-viewport] a svg.lucide,
+  [data-radix-scroll-area-viewport] button svg.lucide,
+  aside a svg.lucide,
+  aside button svg.lucide {
+    color: var(--primary) !important;
+    stroke: var(--primary) !important;
+  }
 }
 
 @layer base {
