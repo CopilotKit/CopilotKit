@@ -1,17 +1,128 @@
-```tsx title="layout.tsx"
-import "./globals.css";
-import { ReactNode } from "react";
-import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
+import { IoLogoNodejs } from "react-icons/io5";
+import { SiNestjs } from "react-icons/si";
+import { RiNextjsLine } from "react-icons/ri";
 
-export default function RootLayout({ children }: { children: ReactNode }) {
-  return (
-    <html lang="en">
-      <body> 
-        {/* Make sure to use the URL you configured in the previous step  */} // [!code highlight:4]
-        <CopilotKit runtimeUrl="/api/copilotkit"> 
-          {children}
+<Tabs groupId="client-setup" items={[
+  { value: 'Next.js App Router', icon: <RiNextjsLine className="text-xl" /> },
+  { value: 'Next.js Pages Router', icon: <RiNextjsLine className="text-xl" /> },
+  { value: 'Node.js Express', icon: <IoLogoNodejs className="text-xl" /> },
+  { value: 'Node.js HTTP', icon: <IoLogoNodejs className="text-xl" /> },
+  { value: 'NestJS', icon: <SiNestjs className="text-xl" /> }
+]}>
+  {/* Next.js App Router */}
+  <Tab value="Next.js App Router">
+    Set up your root layout to wrap your app with CopilotKit:
+
+    ```tsx title="layout.tsx"
+    import "./globals.css";
+    import { ReactNode } from "react";
+    import { CopilotKit } from "@copilotkit/react-core";
+
+    export default function RootLayout({ children }: { children: ReactNode }) {
+      return (
+        <html lang="en">
+          <body>
+            {/* Make sure to use the URL you configured in the previous step  */}
+            <CopilotKit runtimeUrl="/api/copilotkit">
+              {children}
+            </CopilotKit>
+          </body>
+        </html>
+      );
+    }
+    ```
+  </Tab>
+
+  {/* Next.js Pages Router */}
+  <Tab value="Next.js Pages Router">
+    Set up your `_app.tsx` to wrap your app with CopilotKit:
+
+    ```tsx title="_app.tsx"
+    import "@/styles/globals.css";
+    import type { AppProps } from "next/app";
+    import { CopilotKit } from "@copilotkit/react-core";
+    import "@copilotkit/react-ui/styles.css";
+
+    export default function App({ Component, pageProps }: AppProps) {
+      return (
+        {/* Make sure to use the URL you configured in the previous step  */}
+        <CopilotKit runtimeUrl="/api/copilotkit">
+          <Component {...pageProps} />
         </CopilotKit>
-      </body>
-    </html>
-  );
-}
+      );
+    }
+    ```
+  </Tab>
+
+  {/* Node.js Express */}
+  <Tab value="Node.js Express">
+    Set up your React app root to connect to your Express server:
+
+    ```tsx title="layout.tsx"
+    import "./globals.css";
+    import { ReactNode } from "react";
+    import { CopilotKit } from "@copilotkit/react-core";
+
+    export default function RootLayout({ children }: { children: ReactNode }) {
+      return (
+        <html lang="en">
+          <body>
+            {/* Make sure to use the URL you configured in the previous step  */}
+            <CopilotKit runtimeUrl="/api/copilotkit">
+              {children}
+            </CopilotKit>
+          </body>
+        </html>
+      );
+    }
+    ```
+  </Tab>
+
+  {/* Node.js HTTP */}
+  <Tab value="Node.js HTTP">
+    Set up your React app root to connect to your Node.js HTTP server:
+
+    ```tsx title="layout.tsx"
+    import "./globals.css";
+    import { ReactNode } from "react";
+    import { CopilotKit } from "@copilotkit/react-core";
+
+    export default function RootLayout({ children }: { children: ReactNode }) {
+      return (
+        <html lang="en">
+          <body>
+            {/* Make sure to use the URL you configured in the previous step  */}
+            <CopilotKit runtimeUrl="/api/copilotkit">
+              {children}
+            </CopilotKit>
+          </body>
+        </html>
+      );
+    }
+    ```
+  </Tab>
+
+  {/* NestJS */}
+  <Tab value="NestJS">
+    Set up your React app root to connect to your NestJS server:
+
+    ```tsx title="layout.tsx"
+    import "./globals.css";
+    import { ReactNode } from "react";
+    import { CopilotKit } from "@copilotkit/react-core";
+
+    export default function RootLayout({ children }: { children: ReactNode }) {
+      return (
+        <html lang="en">
+          <body>
+            {/* Make sure to use the URL you configured in the previous step  */}
+            <CopilotKit runtimeUrl="/api/copilotkit">
+              {children}
+            </CopilotKit>
+          </body>
+        </html>
+      );
+    }
+    ```
+  </Tab>
+</Tabs>
