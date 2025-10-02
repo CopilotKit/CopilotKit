@@ -210,7 +210,8 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
         // style excluded for brevity
         <div>
           <h1>Your main content</h1>
-          <p>Language: {state.language}</p> // [!code highlight:2]
+          {/* [!code highlight:2] */}
+          <p>Language: {state.language}</p>
           <button onClick={toggleLanguage}>Toggle Language</button>
         </div>
       );

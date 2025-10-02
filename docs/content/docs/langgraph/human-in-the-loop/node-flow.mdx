@@ -142,7 +142,7 @@ is interrupted and then resumes execution from where it left off, unaware of the
                 *state["messages"],
             ], config)
 
-            # [!code highlight:6]
+            # [!code highlight:5]
             # 2.4 Check for the writeEssay tool call and, if found, go  to the
             #     user_feedback_node to handle the user's response
             if isinstance(response, AIMessage) and response.tool_calls:
@@ -159,7 +159,7 @@ is interrupted and then resumes execution from where it left off, unaware of the
         # 4. Define the user_feedback_node, this node will be interrupted before execution
         #    where CopilotKit's renderAndWaitForResponse provide the user's response.
         def user_feedback_node(state: AgentState, config: RunnableConfig) -> Command[Literal["chat_node"]]:
-            # [!code highlight:4]
+            # [!code highlight:3]
             # 3.1 Get the last message from the state, this will be 
             #     what is returned by respond() in the frontend
             last_message = state["messages"][-1]
@@ -183,7 +183,7 @@ is interrupted and then resumes execution from where it left off, unaware of the
         workflow.add_edge("interrupt_node", "user_feedback_node")
         workflow.set_entry_point("chat_node")
 
-        # [!code highlight:3]
+        # [!code highlight:2]
         # 6. Compile the workflow and set the interrupt_after property
         graph = workflow.compile(MemorySaver(), interrupt_after=["interrupt_node"])
         ```

@@ -105,7 +105,8 @@ If you're seeing this error, it means CopilotKit couldn't find the LangGraph age
         ```typescript title="/copilotkit/api/route.ts"
         const runtime = new CopilotRuntime({
           // ... The rest of your CopilotRuntime definition
-          agents: { // [!code highlight:7]
+          // [!code highlight:7]
+          agents: {
             'my_agent': new LangGraphAgent({
               deploymentUrl: '<your-api-url>',
               graphId: 'my_agent',

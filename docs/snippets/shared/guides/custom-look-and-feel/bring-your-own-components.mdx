@@ -69,7 +69,7 @@ const CustomAssistantMessage = (props: AssistantMessageProps) => {
 
   const avatar = <div className={avatarStyles}><SparklesIcon className="h-6 w-6" /></div>
 
-  // [!code highlight:13]
+  // [!code highlight:12]
   return (
     <div className="py-2">
       <div className="flex items-start">
@@ -110,7 +110,7 @@ function Window({ children }: WindowProps) {
 
   if (!open) return null;
 
-  // [!code highlight:16]
+  // [!code highlight:15]
   return (
     <div 
       className="fixed inset-0 bg-black/50 flex items-center justify-center p-4"
@@ -148,7 +148,7 @@ function Button({}: ButtonProps) {
 
   const wrapperStyles = "w-24 bg-blue-500 text-white p-4 rounded-lg text-center cursor-pointer";
 
-  // [!code highlight:11]
+  // [!code highlight:10]
   return (
     <div onClick={() => setOpen(!open)} className={wrapperStyles}>
       <button
@@ -181,7 +181,7 @@ import "@copilotkit/react-ui/styles.css";
 function Header({}: HeaderProps) {
   const { setOpen, icons, labels } = useChatContext();
 
-  // [!code highlight:16]
+  // [!code highlight:15]
   return (
     <div className="flex justify-between items-center p-4 bg-blue-500 text-white">
       <div className="w-24">
@@ -222,7 +222,7 @@ export default function CustomMessages({
 }: MessagesProps) {
   const wrapperStyles = "p-4 flex flex-col gap-2 h-full overflow-y-auto bg-indigo-300";
 
-  // [!code highlight:40]
+  // [!code highlight:14]
   return (
     <div className={wrapperStyles}>
       {messages.map((message, index) => {
@@ -308,7 +308,7 @@ function CustomInput({ inProgress, onSend, isVisible }: InputProps) {
   const inputStyle = "flex-1 p-2 rounded-md border border-gray-300 focus:outline-none focus:border-blue-500 disabled:bg-gray-100";
   const buttonStyle = "px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed";
 
-  // [!code highlight:28]
+  // [!code highlight:27]
   return (
     <div className={wrapperStyle}>
       <input 
