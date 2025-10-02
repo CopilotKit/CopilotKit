@@ -249,6 +249,7 @@ import type { Message } from "@copilotkit/shared";
 // ...
 
 function YourMainContent() {
+  // [!code word:run:1]
   const { state, setState, run } = useCoAgent<AgentState>({
     name: "my_agent",
     initialState: { language: "spanish" }  // optionally provide an initial state
