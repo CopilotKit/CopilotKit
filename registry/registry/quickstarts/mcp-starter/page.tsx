@@ -51,7 +51,6 @@ function YourMainContent() {
 
   // 🪁 Catch-all Tool Rendering for MCP tool calls: https://docs.copilotkit.ai/guides/generative-ui?gen-ui-type=Catch+all+renders
   useDefaultTool({
-    name: "*",
     render: ({ name, status, args, result }: CatchAllActionRenderProps<[]>) => (
       <DefaultToolRender status={status} name={name} args={args} result={result} />
     ),

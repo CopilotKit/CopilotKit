@@ -43,7 +43,6 @@ function Chat(props: HTMLAttributes<HTMLDivElement>) {
   });
 
   useDefaultTool({
-    name: "*",
     render: ({ name, args, status, result }: CatchAllActionRenderProps) => {
       return (
         <ToolCall name={name} args={args} status={status} result={result} />

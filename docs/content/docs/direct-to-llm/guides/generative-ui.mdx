@@ -213,14 +213,13 @@ option to render your custom component through the `render` property.
   </Tab>
 
   <Tab value="Catch all renders">
-    If you want to render tools that are not explicitly referenced in any specific hook call, you can pass `"*"` as the tool name with [`useRenderToolCall`](/reference/hooks/useRenderToolCall).
+    If you want to render tools that are not explicitly referenced in any specific hook call, you can pass `"*"` as the tool name with [`useDefaultTool`](/reference/hooks/useDefaultTool).
     In this case, the render method will receive an additional `name` parameter. This is particularly useful when working with agents that may call arbitrary tools - see more in our [Tool-based Generative UI](/crewai-crews/generative-ui/tool-based) guide.
 
     ```tsx
     import { useDefaultTool, CatchAllToolRenderProps } from "@copilotkit/react-core";
 
     useDefaultTool({
-      name: "*",
       render: ({ name, args, status, result }: CatchAllActionRenderProps<[]>) => {
         return <div>Rendering tool: {name}</div>;
       },
