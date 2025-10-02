@@ -55,71 +55,6 @@ useRenderToolCall({
 });
 ```
 
-### Catch-All Tool Rendering
-
-A powerful pattern is using `useRenderToolCall` with `name: "*"` to render any tool
-call that doesn't have a specific renderer:
-
-```tsx
-import { useRenderToolCall } from "@copilotkit/react-core";
-
-useRenderToolCall({
-  name: "*",
-  render: ({ name, args, status, result }) => {
-    return (
-      <div className="p-4 border rounded my-2">
-        <div className="flex items-center justify-between mb-2">
-          <h4 className="font-semibold">{name}</h4>
-          <span className="text-sm text-gray-500">
-            {status === "inProgress" && "Running..."}
-            {status === "executing" && "Executing..."}
-            {status === "complete" && "Complete"}
-          </span>
-        </div>
-        
-        {Object.keys(args).length > 0 && (
-          <div className="mb-2">
-            <p className="text-sm font-medium text-gray-600">Parameters:</p>
-            <pre className="text-xs bg-gray-100 p-2 rounded mt-1">
-              {JSON.stringify(args, null, 2)}
-            </pre>
-          </div>
-        )}
-        
-        {status === "complete" && result && (
-          <div>
-            <p className="text-sm font-medium text-gray-600">Result:</p>
-            <pre className="text-xs bg-gray-100 p-2 rounded mt-1">
-              {JSON.stringify(result, null, 2)}
-            </pre>
-          </div>
-        )}
-      </div>
-    );
-  },
-});
-```
-
-### Rendering Model Context Protocol (MCP) Tools
-
-```tsx
-import { useRenderToolCall } from "@copilotkit/react-core";
-
-// Render any MCP tool call with a custom UI
-useRenderToolCall({
-  name: "*",
-  render: ({ name, args, status, result }) => {
-    // Custom rendering for MCP tools
-    if (name.startsWith("mcp_")) {
-      return <MCPToolRenderer name={name} args={args} status={status} result={result} />;
-    }
-    
-    // Default rendering for other tools
-    return <DefaultToolRenderer name={name} args={args} status={status} result={result} />;
-  },
-});
-```
-
 ## Parameters
 
 <PropertyReference name="tool" type="ReactRenderToolCall<T>" required>
@@ -173,14 +108,6 @@ useRenderToolCall({
   An optional array of dependencies.
 </PropertyReference>
 
-## Common Use Cases
-
-1. **Backend Tool Visualization**: Display progress and results of long-running backend operations
-2. **Generic Tool Rendering**: Provide a fallback UI for any tool without specific rendering
-3. **MCP Tool Integration**: Render Model Context Protocol tools from various sources
-4. **Debugging**: Display all tool calls during development
-5. **Analytics**: Track and display tool usage
-
 ## Migration from useCopilotAction
 
 If you're migrating from `useCopilotAction` with only a `render` function:
@@ -196,26 +123,6 @@ useCopilotAction({
 useRenderToolCall({
   name: "showResult",
   render: ({ args }) => <ResultCard {...args} />,
-});
-```
-
-For catch-all patterns:
-
-```tsx
-// Before with useCopilotAction
-useCopilotAction({
-  name: "*",
-  render: ({ name, args, status, result }) => (
-    <GenericToolCall name={name} args={args} status={status} result={result} />
-  ),
-});
-
-// After with useRenderToolCall
-useRenderToolCall({
-  name: "*",
-  render: ({ name, args, status, result }) => (
-    <GenericToolCall name={name} args={args} status={status} result={result} />
-  ),
 });
 ```
 

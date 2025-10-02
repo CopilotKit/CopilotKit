@@ -123,15 +123,13 @@ If you're migrating from `useCopilotAction` with only a `render` function:
 ```tsx
 // Before with useCopilotAction
 useCopilotAction({
-  name: "*",
   render: ({ name, args, status, result }) => (
     <GenericToolCall name={name} args={args} status={status} result={result} />
   ),
 });
 
 // After with useRenderToolCall
-useRenderToolCall({
-  name: "*",
+useDefaultTool({
   render: ({ name, args, status, result }) => (
     <GenericToolCall name={name} args={args} status={status} result={result} />
   ),
