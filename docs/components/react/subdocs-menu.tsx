@@ -532,7 +532,7 @@ function SubdocsMenuItemDropdown({
         >
           {isSelected && selectedOption ? (
             <div className="flex items-center gap-3">
-              <div className="rounded-sm p-1.5 pr-0" style={{ color: primaryColor }}>
+              <div className="rounded-sm p-1.5 pr-0" style={{ color: primaryColor, fill: primaryColor }}>
                 {selectedOption.icon}
               </div>
               <div className="font-medium">{selectedOption.title}</div>

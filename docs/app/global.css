@@ -264,6 +264,13 @@ html:root {
     fill: none !important;
   }
 
+  /* LangGraph icon needs fill to be visible */
+  [data-radix-scroll-area-viewport] a[href*="/langgraph"] svg:not(.lucide),
+  aside a[href*="/langgraph"] svg:not(.lucide) {
+    fill: var(--primary) !important;
+    stroke: var(--primary) !important;
+  }
+
   /* Make all top nav icons purple - stroked icons */
   [data-nav-container] button svg.lucide,
   [data-nav-container] a svg.lucide,
