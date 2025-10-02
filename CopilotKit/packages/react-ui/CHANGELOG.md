@@ -1,5 +1,17 @@
 # ui
 
+## 1.10.6-next.0
+
+### Patch Changes
+
+- 0cc9ec2: - fix(react-ui): address hydration issue
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+  - @copilotkit/react-core@1.10.6-next.0
+  - @copilotkit/runtime-client-gql@1.10.6-next.0
+  - @copilotkit/shared@1.10.6-next.0
+
 ## 1.10.5
 
 ### Patch Changes
