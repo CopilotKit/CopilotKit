@@ -591,6 +591,7 @@ export function TopNav() {
                   ? "bg-primary/10 text-primary"
                   : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
               )}
+              title="Overview"
             >
               <RocketIcon className="w-4 h-4" />
               <span>Overview</span>
@@ -612,9 +613,7 @@ export function TopNav() {
               title="API Reference"
             >
               <BookOpenIcon className="w-4 h-4" />
-              {desktopNavState === 'minimal' ? null : (
-                <span>{desktopNavState === 'compact' ? 'Reference' : 'API Reference'}</span>
-              )}
+              <span>API Reference</span>
             </button>
 
         </div>
@@ -673,13 +672,14 @@ export function TopNav() {
                   router.push("/");
                 }}
                 className={cn(
-                  "px-2 py-1 rounded transition-colors",
+                  "flex items-center space-x-1 px-2 py-1 rounded transition-colors",
                   (pathname === "/" || pendingNavigation === "/")
                     ? "bg-primary/10 text-primary font-medium"
                     : "text-gray-700 dark:text-gray-300"
                 )}
               >
-                Overview
+                <RocketIcon className="w-4 h-4" />
+                <span>Overview</span>
               </button>
 
 
@@ -696,7 +696,7 @@ export function TopNav() {
                 )}
               >
                 <BookOpenIcon className="w-4 h-4" />
-                {mobileNavState === 'full' ? <span>Reference</span> : null}
+                <span>Reference</span>
               </button>
             </div>
 
