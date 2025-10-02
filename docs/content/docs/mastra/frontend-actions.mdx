@@ -1,7 +1,7 @@
 ---
-title: Frontend Actions
+title: Frontend Tools
 icon: "lucide/Wrench"
-description: Create frontend actions and use them within your Mastra agent.
+description: Create frontend tools and use them within your Mastra agent.
 ---
 
 <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
@@ -12,35 +12,34 @@ description: Create frontend actions and use them within your Mastra agent.
 ## Implementation
 
 <Callout>
-Check out the [Frontend Actions overview](/frontend-actions) to understand what they are and when to use them.
+Check out the [Frontend Tools overview](/frontend-tools) to understand what they are and when to use them.
 </Callout>
 
 <Steps>
     <Step>
         ### Setup CopilotKit
 
-        To use frontend actions, you'll need to setup CopilotKit first. For the sake of brevity, we won't cover it here.
+        To use frontend tools, you'll need to setup CopilotKit first. For the sake of brevity, we won't cover it here.
 
         Check out our [getting started guide](/mastra/quickstart/mastra) and come back here when you're setup!
     </Step>
 
     <Step>
-        ### Create a frontend action
+        ### Create a frontend tool
 
-        First, you'll need to create a frontend action using the [useCopilotAction](/reference/hooks/useCopilotAction) hook. Here's a simple one to get you started
+        First, you'll need to create a frontend tool using the [useFrontendTool](/reference/hooks/useFrontendTool) hook. Here's a simple one to get you started
         that says hello to the user.
 
         ```tsx title="page.tsx"
-        import { useCopilotAction } from "@copilotkit/react-core" // [!code highlight]
+        import { useFrontendTool } from "@copilotkit/react-core" // [!code highlight]
 
         export function Page() {
           // ...
 
-          // [!code highlight:16]
-          useCopilotAction({
+          // [!code highlight:15]
+          useFrontendTool({
             name: "sayHello",
             description: "Say hello to the user",
-            available: "remote", // optional, makes it so the action is *only* available to the agent
             parameters: [
               {
                 name: "name",
@@ -61,12 +60,12 @@ Check out the [Frontend Actions overview](/frontend-actions) to understand what 
     <Step>
         ### Accessing Frontend Actions
 
-        Since Mastra includes native support for the AG-UI protocol, frontend actions are automatically available to the agent as
+        Since Mastra includes native support for the AG-UI protocol, frontend tools are automatically available to the agent as
         tools.
     </Step>
     <Step>
         ### Give it a try!
-        You've now given your agent the ability to directly call any CopilotActions you've defined. These actions will be available as tools to the agent where they can be used as needed.
+        You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
     </Step>
 
 </Steps> 

@@ -1,6 +1,6 @@
 "use client";
 import "@copilotkit/react-ui/styles.css";
-import { CopilotKit, useCopilotAction } from "@copilotkit/react-core";
+import { CopilotKit, useFrontendTool } from "@copilotkit/react-core";
 import { CopilotChat } from "@copilotkit/react-ui";
 import React, { useState } from "react";
 
@@ -41,8 +41,8 @@ const Chat = () => {
     "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
   );
 
-  // Action: Allow AI to change background color dynamically
-  useCopilotAction({
+  // Tool: Allow AI to change background color dynamically
+  useFrontendTool({
     name: "change_background",
     description:
       "Change the background color of the chat. Can be anything that the CSS background attribute accepts. Regular colors, linear of radial gradients etc.",
