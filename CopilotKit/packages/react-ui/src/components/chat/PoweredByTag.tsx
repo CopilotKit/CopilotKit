@@ -1,8 +1,13 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useDarkMode } from "../../hooks/use-dark-mode";
 
 export function PoweredByTag({ showPoweredBy = true }: { showPoweredBy?: boolean }) {
+  const [mounted, setMounted] = useState(false);
   const isDark = useDarkMode();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   if (!showPoweredBy) {
     return null;
@@ -15,7 +20,7 @@ export function PoweredByTag({ showPoweredBy = true }: { showPoweredBy?: boolean
     textAlign: "center",
     fontSize: "12px",
     padding: "3px 0",
-    color: isDark ? "rgb(69, 69, 69)" : "rgb(214, 214, 214)",
+    color: mounted && isDark ? "rgb(69, 69, 69)" : "rgb(214, 214, 214)",
   };
 
   return (
