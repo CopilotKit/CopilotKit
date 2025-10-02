@@ -219,7 +219,7 @@ option to render your custom component through the `render` property.
     ```tsx
     import { useDefaultTool, CatchAllToolRenderProps } from "@copilotkit/react-core";
 
-    useDefaultTook({
+    useDefaultTool({
       name: "*",
       render: ({ name, args, status, result }: CatchAllActionRenderProps<[]>) => {
         return <div>Rendering tool: {name}</div>;
