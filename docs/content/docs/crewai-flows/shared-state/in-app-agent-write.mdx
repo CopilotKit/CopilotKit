@@ -120,6 +120,7 @@ import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";  // [
 // ...
 
 function YourMainContent() {
+  // [!code word:run:1]
   const { state, setState, run } = useCoAgent<AgentState>({
     name: "sample_agent",
     initialState: { language: "spanish" }  // optionally provide an initial state
