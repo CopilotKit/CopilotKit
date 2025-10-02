@@ -1,0 +1,85 @@
+---
+title: "Step 4: Frontend Tools"
+---
+
+Now it's time to make our copilot even more useful by enabling it to execute tools.
+
+## Available Tools
+
+Once again, let's take a look at our app's state in the [`lib/hooks/use-tasks.tsx`](https://github.com/CopilotKit/example-todos-app/blob/base-start-here/lib/hooks/use-tasks.tsx#L19-L33) file.
+
+Essentially, we want our copilot to be able to call the `addTask`, `setTaskStatus` and `deleteTask` functions.
+
+## The `useFrontendTool` hook
+
+The [`useFrontendTool`](/reference/hooks/useFrontendTool) hook makes tools available to our copilot. Let's implement it in the [`lib/hooks/use-tasks.tsx`](https://github.com/CopilotKit/example-todos-app/blob/base-start-here/lib/hooks/use-tasks.tsx) file.
+
+```tsx filename="lib/hooks/use-tasks.tsx" showLineNumbers {3-3,8-22,24-38,40-61}
+// ... the rest of the file
+
+import { useCopilotReadable, useFrontendTool } from "@copilotkit/react-core"; // [!code highlight]
+import { z } from "zod"; // [!code highlight]
+
+export const TasksProvider = ({ children }: { children: ReactNode }) => {
+  const [tasks, setTasks] = useState<Task[]>(defaultTasks);
+
+  // [!code highlight:10]
+  useFrontendTool({
+    name: "addTask",
+    description: "Adds a task to the todo list",
+    parameters: z.object({
+      title: z.string().describe("The title of the task"),
+    }),
+    handler: ({ title }) => {
+      addTask(title);
+    },
+  });
+
+  // [!code highlight:10]
+  useFrontendTool({
+    name: "deleteTask",
+    description: "Deletes a task from the todo list",
+    parameters: z.object({
+      id: z.number().describe("The id of the task"),
+    }),
+    handler: ({ id }) => {
+      deleteTask(id);
+    },
+  });
+
+  // [!code highlight:11]
+  useFrontendTool({
+    name: "setTaskStatus",
+    description: "Sets the status of a task",
+    parameters: z.object({
+      id: z.number().describe("The id of the task"),
+      status: z.enum(Object.values(TaskStatus) as [string, ...string[]]).describe("The status of the task"),
+    }),
+    handler: ({ id, status }) => {
+      setTaskStatus(id, status);
+    },
+  });
+
+  // ... the rest of the file
+};
+```
+
+The `useFrontendTool` hook is a powerful hook that allows us to register tools with our copilot. It takes an object with the following properties:
+
+- `name` is the name of the tool.
+- `description` is a description of the tool. It's important to choose a good description so that our copilot can choose the right tool.
+- `parameters` is a Zod schema that defines the parameters the tool accepts. This provides runtime validation and TypeScript type inference.
+- `handler` is a function that will be called when the tool is triggered. It's type safe thanks to Zod!
+
+You can check out the full reference for the `useFrontendTool` hook [here](https://docs.copilotkit.ai/reference/hooks/useFrontendTool).
+
+## Try it out!
+
+Now, head back to the app and ask your pilot to do any of the following:
+
+- "Create a task about inviting Daniel to my birthday"
+- "Delete all outstanding tasks"
+- "Mark task with ID 2 as done"
+- etc.
+
+Your copilot is now more helpful than ever 💪

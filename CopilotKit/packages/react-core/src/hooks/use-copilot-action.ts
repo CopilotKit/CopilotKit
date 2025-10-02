@@ -130,7 +130,7 @@
  *
  * This hooks enables you to dynamically generate UI elements and render them in the copilot chat. For more information, check out the [Generative UI](/guides/generative-ui) page.
  */
-import { Parameter, randomId } from "@copilotkit/shared";
+import { Parameter, randomId, actionParametersToJsonSchema } from "@copilotkit/shared";
 import { createElement, Fragment, useEffect, useRef } from "react";
 import { useCopilotContext } from "../context/copilot-context";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
@@ -164,6 +164,11 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
 
   // clone the action to avoid mutating the original object
   action = { ...action };
+
+  // Convert parameters to JSON Schema if not already provided
+  if (isFrontendAction(action) && !action.jsonSchema && action.parameters) {
+    action.jsonSchema = JSON.stringify(actionParametersToJsonSchema(action.parameters));
+  }
 
   // const { currentlyActivatingHitlActionMessageIdRef } = useCopilotContext() as any; // <-- REMOVE THIS FOR NOW
 

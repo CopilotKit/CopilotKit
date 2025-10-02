@@ -1,18 +1,16 @@
 "use client";
-import { useCopilotAction } from "@copilotkit/react-core";
+import { useHumanInTheLoop } from "@copilotkit/react-core";
+import { z } from "zod";
 import { CopilotPopup } from "@copilotkit/react-ui";
 import { useState } from "react";
 
 export default function YourApp() {
-  useCopilotAction({
+  useHumanInTheLoop({
     name: "RequestAssistance",
-    parameters: [
-      {
-        name: "request",
-        type: "string",
-      },
-    ],
-    renderAndWait: ({ args, status, handler }) => {
+    parameters: z.object({
+      request: z.string()
+    }),
+    render: ({ args, status, respond }) => {
       const [response, setResponse] = useState("");
       return (
         <div className="p-4 bg-gray-100 rounded shadow-md">
@@ -29,7 +27,7 @@ export default function YourApp() {
             {status === "executing" && (
               <button
                 className="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600"
-                onClick={() => handler(response)}
+                onClick={() => respond?.(response)}
               >
                 Submit
               </button>
