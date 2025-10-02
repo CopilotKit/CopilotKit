@@ -22,3 +22,4 @@ export { useCopilotAdditionalInstructions } from "./use-copilot-additional-instr
 export type { Tree, TreeNode } from "./use-tree";
 export { useHumanInTheLoop } from "./use-human-in-the-loop";
 export { useRenderToolCall } from "./use-render-tool-call";
+export { useDefaultTool } from "./use-default-tool";

@@ -2,7 +2,7 @@ import { useCopilotAction } from "./use-copilot-action";
 import { FrontendAction } from "../types/frontend-action";
 import { Parameter } from "@copilotkit/shared";
 
-export function useFrontendTool<T extends Parameter[] | [] = []>(
+export function useFrontendTool<const T extends Parameter[] | [] = []>(
   tool: Pick<
     FrontendAction<T>,
     "name" | "description" | "parameters" | "handler" | "followUp" | "render"
@@ -10,10 +10,5 @@ export function useFrontendTool<T extends Parameter[] | [] = []>(
   dependencies?: any[],
 ) {
   // Use the existing useCopilotAction hook
-  useCopilotAction(
-    {
-      ...tool,
-    },
-    dependencies,
-  );
+  useCopilotAction<T>(tool, dependencies);
 }
