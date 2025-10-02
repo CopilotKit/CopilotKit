@@ -271,6 +271,12 @@ html:root {
     stroke: var(--primary) !important;
   }
 
+  /* LangGraph icon in subdocs dropdown selected state */
+  button[role="combobox"] svg:not(.lucide) {
+    fill: var(--primary) !important;
+    stroke: var(--primary) !important;
+  }
+
   /* Make all top nav icons purple - stroked icons */
   [data-nav-container] button svg.lucide,
   [data-nav-container] a svg.lucide,
