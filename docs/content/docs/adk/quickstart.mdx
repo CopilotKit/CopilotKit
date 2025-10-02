@@ -230,7 +230,8 @@ Before you begin, you'll need the following:
                   return (
                     <html lang="en">
                       <body>
-                        {/* This points to the runtime we setup in the previous step */} // [!code highlight:4]
+                        {/* This points to the runtime we setup in the previous step */}
+                        {/* [!code highlight:3] */}
                         <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
                           {children}
                         </CopilotKit>
@@ -246,7 +247,7 @@ Before you begin, you'll need the following:
                 this is done alongside your core page components, e.g. in your `page.tsx` file.
 
                 ```tsx title="page.tsx"
-                // [!code highlight:3]
+                // [!code highlight:2]
                 import "@copilotkit/react-ui/styles.css";
                 import { CopilotSidebar } from "@copilotkit/react-ui";
 
@@ -254,7 +255,7 @@ Before you begin, you'll need the following:
                 return (
                     <main>
                     <h1>Your main content</h1>
-                    // [!code highlight:7]
+                    // [!code highlight:6]
                     <CopilotSidebar
                         labels={{
                             title: "Popup Assistant",

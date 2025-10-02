@@ -51,7 +51,7 @@ async def section_writer(research_query, section_title, idx, state):
 
     # ...
 
-    # [!code highlight:4]
+    # [!code highlight:3]
     # The LLM will take this new config and the tool calls
     # we defined will be emitted to the frontend predictively.
     response = await model.bind_tools([WriteSection]).ainvoke(lc_messages, config)

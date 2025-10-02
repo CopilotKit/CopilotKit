@@ -56,7 +56,7 @@ const runtime = new CopilotRuntime({
             ["user", "Topic: {topic}"],
           ]);
           const chain = prompt.pipe(new ChatOpenAI());
-          // [!code highlight:4]
+          // [!code highlight:3]
           return chain.stream({ // return directly chain.stream
             topic: topic,
           });

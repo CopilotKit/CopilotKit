@@ -158,7 +158,7 @@ Before you begin, you'll need the following:
                   copilotRuntimeNextJSAppRouterEndpoint,
                 } from "@copilotkit/runtime";
                 import { NextRequest } from "next/server";
-                // [!code highlight:4]
+                // [!code highlight:3]
                 import { MastraAgent } from "@ag-ui/mastra"
                 import { MastraClient } from "@mastra/client-js";
                 import { mastra } from "@/mastra"; // the path to your existing Mastra instance
@@ -168,7 +168,7 @@ Before you begin, you'll need the following:
                 
                 // 2. Create the CopilotRuntime instance and utilize the Mastra AG-UI
                 //    integration to connect to your existing agent.
-                // [!code highlight:4]
+                // [!code highlight:3]
                 const runtime = new CopilotRuntime({
                   agents: MastraAgent.getLocalAgents({ mastra }),
                 });
@@ -176,7 +176,7 @@ Before you begin, you'll need the following:
                 // 3. Build a Next.js API route that handles the CopilotKit runtime requests.
                 export const POST = async (req: NextRequest) => {
                   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-                    // [!code highlight:2]
+                    // [!code highlight:3]
                     runtime,
                     serviceAdapter,
                     endpoint: "/api/copilotkit",
@@ -202,7 +202,7 @@ Before you begin, you'll need the following:
                   return (
                     <html lang="en">
                       <body>
-                        /* [!code highlight:7] */
+                        {/* [!code highlight:6] */}
                         <CopilotKit 
                           runtimeUrl="/api/copilotkit" 
                           agent="your-mastra-agent-name"

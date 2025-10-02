@@ -38,7 +38,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
         from langchain.tools import tool
         # ...
 
-        # [!code highlight:7]
+        # [!code highlight:6]
         @tool
         def get_weather(location: str):
             """
@@ -65,7 +65,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
         import { ChatOpenAI } from "@langchain/openai";
         import { tool } from "@langchain/core/tools";
 
-        // [!code highlight:13]
+        // [!code highlight:12]
         const get_weather = tool(
           (args) => {
             return `The weather for ${args.location} is 70 degrees.`;
@@ -110,7 +110,7 @@ import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
 
 const YourMainContent = () => {
   // ...
-  // [!code highlight:13]
+  // [!code highlight:12]
   useCopilotAction({
     name: "get_weather",
     available: "disabled", // Don't allow the agent or UI to call this tool as its only for rendering
