@@ -104,7 +104,8 @@ state update you can reflect these updates natively in your application.
     }
 
     function YourMainContent() {
-      const { state } = useCoAgent<AgentState>({ // [!code highlight:4]
+      // [!code highlight:4]
+      const { state } = useCoAgent<AgentState>({
         name: "sample_agent",
         initialState: { language: "spanish" }  // optionally provide an initial state
       });
@@ -146,7 +147,7 @@ type AgentState = {
 
 function YourMainContent() {
   // ...
-  // [!code highlight:8]
+  // [!code highlight:7]
   useCoAgentStateRender({
     name: "sample_agent",
     render: ({ state }) => {

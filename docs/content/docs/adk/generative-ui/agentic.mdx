@@ -216,8 +216,8 @@ is a situation where a user and an agent are working together to solve a problem
     function YourMainContent() {
       // ...
 
-      // [!code highlight:14]
       // styles omitted for brevity
+      // [!code highlight:8]
       useCoAgentStateRender<AgentState>({
         name: "sample_agent", // the name the agent is served as
         render: ({ state }) => (
@@ -251,7 +251,7 @@ is a situation where a user and an agent are working together to solve a problem
     function YourMainContent() {
       // ...
 
-      // [!code highlight:5]
+      // [!code highlight:3]
       const { state } = useCoAgent<AgentState>({
         name: "sample_agent", // the name the agent is served as
       })
@@ -262,8 +262,7 @@ is a situation where a user and an agent are working together to solve a problem
         <div>
           {/* ... */}
           <div className="flex flex-col gap-2 mt-4">
-            // [!code highlight:6]
-
+            {/* [!code state:run:1] */}
             the current language is {state.language || 'not set'}
           </div>
         </div>

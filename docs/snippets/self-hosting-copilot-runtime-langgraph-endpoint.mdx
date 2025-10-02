@@ -30,7 +30,7 @@ import { RiNextjsLine } from "react-icons/ri";
 
     const runtime = new CopilotRuntime({
       agents: {
-        // [!code highlight:7]
+        // [!code highlight:5]
         'my_agent': new LangGraphAgent({
           deploymentUrl: "your-api-url", // make sure to replace with your real deployment url
           langsmithApiKey: process.env.LANGSMITH_API_KEY, // only used in LangGraph Platform deployments
@@ -71,7 +71,7 @@ import { RiNextjsLine } from "react-icons/ri";
         const handler = async (req: NextApiRequest, res: NextApiResponse) => {
           const runtime = new CopilotRuntime({
             agents: {
-              // [!code highlight:7]
+              // [!code highlight:5]
               'my_agent': new LangGraphAgent({
                 deploymentUrl: "your-api-url", // make sure to replace with your real deployment url
                 langsmithApiKey: process.env.LANGSMITH_API_KEY, // only used in LangGraph Platform deployments
@@ -116,7 +116,7 @@ import { RiNextjsLine } from "react-icons/ri";
         app.use('/copilotkit', (req, res, next) => {
           const runtime = new CopilotRuntime({
             agents: {
-              // [!code highlight:7]
+              // [!code highlight:5]
               'my_agent': new LangGraphAgent({
                 deploymentUrl: "your-api-url", // make sure to replace with your real deployment url
                 langsmithApiKey: process.env.LANGSMITH_API_KEY, // only used in LangGraph Platform deployments
@@ -166,7 +166,7 @@ import { RiNextjsLine } from "react-icons/ri";
         const server = createServer((req, res) => {
           const runtime = new CopilotRuntime({
             agents: {
-              // [!code highlight:7]
+              // [!code highlight:5]
               'my_agent': new LangGraphAgent({
                 deploymentUrl: "your-api-url", // make sure to replace with your real deployment url
                 langsmithApiKey: process.env.LANGSMITH_API_KEY, // only used in LangGraph Platform deployments
@@ -220,7 +220,7 @@ import { RiNextjsLine } from "react-icons/ri";
             
             const runtime = new CopilotRuntime({
               agents: {
-                // [!code highlight:7]
+                // [!code highlight:5]
                 'my_agent': new LangGraphAgent({
                   deploymentUrl: "your-api-url", // make sure to replace with your real deployment url
                   langsmithApiKey: process.env.LANGSMITH_API_KEY, // only used in LangGraph Platform deployments

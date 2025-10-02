@@ -60,7 +60,7 @@ Rendering the outputs of your crew in the UI is essential to provide the user wi
     function YourMainContent() {
       // ...
 
-      // [!code highlight:14]
+      // [!code highlight:13]
       // styles omitted for brevity
       const { state } = useCoAgent<AgentState>({
         name: "research_crew",
@@ -70,11 +70,9 @@ Rendering the outputs of your crew in the UI is essential to provide the user wi
       });
 
       return (
-        <div
-            id="result"
-          >
-            <MarkdownRenderer content={state.outputs} />
-          </div>
+        <div id="result">
+          <MarkdownRenderer content={state.outputs} />
+        </div>
       )
     }
     ```

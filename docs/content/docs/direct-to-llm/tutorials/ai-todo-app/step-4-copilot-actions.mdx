@@ -22,7 +22,7 @@ import { useCopilotReadable, useCopilotAction } from "@copilotkit/react-core"; /
 export const TasksProvider = ({ children }: { children: ReactNode }) => {
   const [tasks, setTasks] = useState<Task[]>(defaultTasks);
 
-  // [!code highlight:16]
+  // [!code highlight:15]
   useCopilotAction({
     name: "addTask",
     description: "Adds a task to the todo list",
@@ -39,7 +39,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     },
   });
 
-  // [!code highlight:16]
+  // [!code highlight:15]
   useCopilotAction({
     name: "deleteTask",
     description: "Deletes a task from the todo list",
@@ -56,7 +56,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     },
   });
 
-  // [!code highlight:23]
+  // [!code highlight:22]
   useCopilotAction({
     name: "setTaskStatus",
     description: "Sets the status of a task",

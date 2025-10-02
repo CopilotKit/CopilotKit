@@ -54,7 +54,7 @@ option to render your custom component through the `render` property.
             required: false
           }
         ],
-        // [!code highlight:15]
+        // [!code highlight:14]
         render: ({ status, args }) => {
           const { date, time, meetingName } = args;
 
@@ -105,7 +105,7 @@ option to render your custom component through the `render` property.
           required: true
         }
       ],
-      // [!code highlight:17]
+      // [!code highlight:16]
       handler: async ({ date }) => {
         // some async operation which can return a result:
         const lastMeeting = await fetchLastMeeting(new Date(date));
@@ -203,7 +203,7 @@ option to render your custom component through the `render` property.
       handler: async ({ taskName }) => {
         return await longRunningOperation(taskName);
       },
-      // [!code highlight:4]
+      // [!code highlight:3]
       render: ({ status, result }) => {
         return status === "complete" ? result : "Processing...";
       },
