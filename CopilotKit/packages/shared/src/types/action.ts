@@ -85,6 +85,7 @@ export type Action<T extends Parameter[] | [] = []> = {
   handler?: T extends []
     ? () => any | Promise<any>
     : (args: MappedParameterTypes<T>) => any | Promise<any>;
+  additionalConfig?: Record<string, any>;
 };
 
 // This is the original "ceiling is being raised" version of MappedParameterTypes.
