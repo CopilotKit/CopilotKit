@@ -38,19 +38,19 @@
     "react": "^18 || ^19 || ^19.0.0-rc"
   },
   "devDependencies": {
-    "@types/jest": "^29.5.4",
-    "@types/react": "^18.2.5",
+    "@types/jest": "^30.0.0",
+    "@types/react": "^19.0.0",
     "@types/react-syntax-highlighter": "^15.5.7",
-    "eslint": "^8.56.0",
+    "eslint": "^9.0.0",
     "eslint-config-custom": "workspace:*",
-    "jest": "^29.6.4",
+    "jest": "^30.0.0",
     "postcss": "^8.4.20",
-    "react": "^18.2.0",
+    "react": "^19.0.0",
     "tailwind-config": "workspace:*",
-    "tailwindcss": "^3.3.0",
+    "tailwindcss": "^4.0.0",
     "ts-jest": "^29.1.1",
     "tsconfig": "workspace:*",
-    "tsup": "^6.7.0",
+    "tsup": "^8.0.0",
     "typescript": "^5.2.3"
   },
   "dependencies": {
