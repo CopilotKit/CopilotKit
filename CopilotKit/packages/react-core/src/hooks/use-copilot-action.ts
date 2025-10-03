@@ -131,7 +131,7 @@
  * This hooks enables you to dynamically generate UI elements and render them in the copilot chat. For more information, check out the [Generative UI](/guides/generative-ui) page.
  */
 import { Parameter, randomId } from "@copilotkit/shared";
-import { createElement, Fragment, useEffect, useRef } from "react";
+import { createElement, Fragment, useEffect, useRef, useMemo } from "react";
 import { useCopilotContext } from "../context/copilot-context";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
 import {
@@ -161,6 +161,10 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
   const renderAndWaitRef = useRef<RenderAndWaitForResponse | null>(null);
   const activatingMessageIdRef = useRef<string | null>(null);
   const { addToast } = useToast();
+
+  // Store the latest render function in a ref so it's always up-to-date
+  const renderFunctionRef = useRef(action.render);
+  renderFunctionRef.current = action.render;
 
   // clone the action to avoid mutating the original object
   action = { ...action };
@@ -272,7 +276,7 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
   }
 
   // If the developer doesn't provide dependencies, we assume they want to
-  // update handler and render function when the action object changes.
+  // update handler when the action object changes.
   // This ensures that any captured variables in the handler are up to date.
   if (dependencies === undefined) {
     if (actions[idRef.current]) {
@@ -280,13 +284,8 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
       if (isFrontendAction(action)) {
         actions[idRef.current].handler = action.handler as any;
       }
-      if (typeof action.render === "function") {
-        if (chatComponentsCache.current !== null) {
-          // TODO: using as any here because the type definitions are getting to tricky
-          // not wasting time on this now - we know the types are compatible
-          chatComponentsCache.current.actions[action.name] = action.render as any;
-        }
-      }
+      // Note: We don't update the render function here anymore, as it's handled
+      // via the renderFunctionRef which is always current
     }
   }
 
@@ -304,11 +303,28 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
     }
   }, [actions]);
 
+  // Create a stable component wrapper that uses the renderFunctionRef
+  // This wrapper is created once and stored in the cache
+  // It will always call the latest render function from the ref
+  const stableRenderWrapper = useMemo(() => {
+    if (typeof action.render !== "function") {
+      return action.render; // String or undefined
+    }
+
+    // Return a stable component function that calls the latest render function
+    return (props: any) => {
+      const currentRenderFunction = renderFunctionRef.current;
+      if (typeof currentRenderFunction === "function") {
+        return currentRenderFunction(props);
+      }
+      return null;
+    };
+  }, [action.name]); // Only recreate if action name changes
+
   useEffect(() => {
     setAction(idRef.current, action as any);
     if (chatComponentsCache.current !== null && action.render !== undefined) {
-      // see comment about type safety above
-      chatComponentsCache.current.actions[action.name] = action.render as any;
+      chatComponentsCache.current.actions[action.name] = stableRenderWrapper as any;
     }
     return () => {
       // NOTE: For now, we don't remove the chatComponentsCache entry when the action is removed.
@@ -328,6 +344,7 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
     JSON.stringify(isFrontendAction(action) ? action.parameters : []),
     // include render only if it's a string
     typeof action.render === "string" ? action.render : undefined,
+    stableRenderWrapper, // Include the stable wrapper in dependencies
     // dependencies set by the developer
     ...(dependencies || []),
   ]);
