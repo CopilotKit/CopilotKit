@@ -77,63 +77,77 @@ export function gqlActionExecutionMessageToAGUIMessage(
     Object.values(actions).find((action: any) => action.name === "*");
 
   // Create render function wrapper that provides proper props
+  const createRenderProps = (props?: any) => {
+    // Determine the correct status based on the same logic as RenderActionExecutionMessage
+    let actionResult: any = actionResults?.get(message.id);
+    let status: "inProgress" | "executing" | "complete" = "inProgress";
+
+    if (actionResult !== undefined) {
+      status = "complete";
+    } else if (message.status?.code != null && message.status.code !== MessageStatusCode.Pending) {
+      status = "executing";
+    }
+
+    // Normalize incoming props without mutating the caller object
+    const {
+      status: statusFromProps,
+      result: resultFromPropsRaw,
+      args: _args,
+      messageId: _messageId,
+      name: _name,
+      ...restProps
+    } = (props ?? {}) as any;
+    let resultFromProps = resultFromPropsRaw;
+    if (typeof resultFromProps === "string") {
+      try {
+        resultFromProps = JSON.parse(resultFromProps);
+      } catch (e) {
+        /* do nothing */
+      }
+    }
+
+    // if actionResult is a string, parse it as JSON but don't throw an error if it's not valid JSON
+    if (typeof actionResult === "string") {
+      try {
+        actionResult = JSON.parse(actionResult);
+      } catch (e) {
+        /* do nothing */
+      }
+    }
+
+    // Base props that all actions receive
+    const baseProps = {
+      status: statusFromProps ?? status,
+      args: message.arguments ?? {},
+      result: resultFromProps ?? actionResult ?? undefined,
+      messageId: message.id,
+    };
+
+    // Add properties based on action type
+    if (action.name === "*") {
+      // Wildcard actions get the tool name; ensure it cannot be overridden by incoming props
+      return {
+        ...baseProps,
+        ...restProps,
+        name: message.name,
+      };
+    } else {
+      // Regular actions get respond (defaulting to a no-op if not provided)
+      const respond = (props as any)?.respond ?? (() => {});
+      return {
+        ...baseProps,
+        ...restProps,
+        respond,
+      };
+    }
+  };
+
   const createRenderWrapper = (originalRender: any) => {
     if (!originalRender) return undefined;
 
     return (props?: any) => {
-      // Determine the correct status based on the same logic as RenderActionExecutionMessage
-      let actionResult: any = actionResults?.get(message.id);
-      let status: "inProgress" | "executing" | "complete" = "inProgress";
-
-      if (actionResult !== undefined) {
-        status = "complete";
-      } else if (message.status?.code !== MessageStatusCode.Pending) {
-        status = "executing";
-      }
-
-      // if props.result is a string, parse it as JSON but don't throw an error if it's not valid JSON
-      if (typeof props?.result === "string") {
-        try {
-          props.result = JSON.parse(props.result);
-        } catch (e) {
-          /* do nothing */
-        }
-      }
-
-      // if actionResult is a string, parse it as JSON but don't throw an error if it's not valid JSON
-      if (typeof actionResult === "string") {
-        try {
-          actionResult = JSON.parse(actionResult);
-        } catch (e) {
-          /* do nothing */
-        }
-      }
-
-      // Base props that all actions receive
-      const baseProps = {
-        status: props?.status || status,
-        args: message.arguments || {},
-        result: props?.result || actionResult || undefined,
-        messageId: message.id,
-      };
-
-      // Add properties based on action type
-      if (action.name === "*") {
-        // Wildcard actions get the tool name; ensure it cannot be overridden by incoming props
-        return originalRender({
-          ...baseProps,
-          ...props,
-          name: message.name,
-        });
-      } else {
-        // Regular actions get respond (defaulting to a no-op if not provided)
-        const respond = props?.respond ?? (() => {});
-        return originalRender({
-          ...baseProps,
-          ...props,
-          respond,
-        });
-      }
+      const fullProps = createRenderProps(props);
+      return originalRender(fullProps);
     };
   };
 
@@ -143,6 +157,7 @@ export function gqlActionExecutionMessageToAGUIMessage(
     content: "",
     toolCalls: [actionExecutionMessageToAGUIMessage(message)],
     generativeUI: createRenderWrapper(action.render),
+    generativeUIProps: createRenderProps,
     name: message.name,
   } as agui.AIMessage;
 }

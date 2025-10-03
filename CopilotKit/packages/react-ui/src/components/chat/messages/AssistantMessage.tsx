@@ -1,10 +1,12 @@
 import { AssistantMessageProps } from "../props";
 import { useChatContext } from "../ChatContext";
 import { Markdown } from "../Markdown";
-import { useState } from "react";
+import React, { useState } from "react";
+import { useCopilotContext } from "@copilotkit/react-core";
 
 export const AssistantMessage = (props: AssistantMessageProps) => {
   const { icons, labels } = useChatContext();
+  const { chatComponentsCache } = useCopilotContext();
   const {
     message,
     isLoading,
@@ -45,8 +47,23 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
 
   const LoadingIcon = () => <span>{icons.activityIcon}</span>;
   const content = message?.content || "";
-  const subComponent = message?.generativeUI?.();
 
+  const cachedActions = chatComponentsCache?.current?.actions;
+  const actionName = typeof message?.name === "string" ? message.name : undefined;
+  const toRender = (actionName && cachedActions?.[actionName]) ?? cachedActions?.["*"] ?? undefined;
+  const subComponentProps = message?.generativeUIProps?.();
+  let subComponent: React.ReactNode = undefined;
+  if (toRender) {
+    if (React.isValidElement(toRender)) {
+      subComponent = toRender;
+    } else if (typeof toRender === "function") {
+      const Comp = toRender as React.ComponentType<any>;
+      subComponent = <Comp {...subComponentProps} />;
+    } else {
+      // Fallback for agent state (and any other) messages that rely on message.generativeUI
+      subComponent = message?.generativeUI?.();
+    }
+  }
   return (
     <>
       {content && (
