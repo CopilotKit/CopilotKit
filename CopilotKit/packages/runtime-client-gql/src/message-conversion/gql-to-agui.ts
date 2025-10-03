@@ -71,80 +71,123 @@ export function gqlActionExecutionMessageToAGUIMessage(
     };
   }
 
-  // Find the specific action first, then fall back to wild card action
-  const action =
-    Object.values(actions).find((action: any) => action.name === message.name) ||
-    Object.values(actions).find((action: any) => action.name === "*");
+  // Check if any action has a render function before creating the wrapper
+  const hasRenderFunction =
+    Object.values(actions).find((action: any) => action.name === message.name)?.render ||
+    Object.values(actions).find((action: any) => action.name === "*")?.render;
 
   // Create render function wrapper that provides proper props
-  const createRenderWrapper = (originalRender: any) => {
-    if (!originalRender) return undefined;
+  // NOTE: We pass actions reference instead of capturing a single action to avoid stale closures
+  const createRenderWrapper = (actionsRef: Record<string, any>) => {
+    // Store the initial render function to detect if aguiToGQL has corrupted the actions object
+    // Must capture this at wrapper creation time, not at first call
+    const initialAction =
+      Object.values(actionsRef).find((action: any) => action.name === message.name) ||
+      Object.values(actionsRef).find((action: any) => action.name === "*");
+    const initialRender = initialAction?.render;
+    let isExecuting = false;
 
-    return (props?: any) => {
-      // Determine the correct status based on the same logic as RenderActionExecutionMessage
-      let actionResult: any = actionResults?.get(message.id);
-      let status: "inProgress" | "executing" | "complete" = "inProgress";
+    const wrapperFn = (props?: any) => {
+      // Prevent re-entry to avoid infinite recursion
+      if (isExecuting) return undefined;
 
-      if (actionResult !== undefined) {
-        status = "complete";
-      } else if (message.status?.code !== MessageStatusCode.Pending) {
-        status = "executing";
-      }
+      isExecuting = true;
+      try {
+        // Fetch the current action from the actions reference to avoid stale closures
+        const currentAction =
+          Object.values(actionsRef).find((action: any) => action.name === message.name) ||
+          Object.values(actionsRef).find((action: any) => action.name === "*");
 
-      // if props.result is a string, parse it as JSON but don't throw an error if it's not valid JSON
-      if (typeof props?.result === "string") {
-        try {
-          props.result = JSON.parse(props.result);
-        } catch (e) {
-          /* do nothing */
+        if (!currentAction?.render) return undefined;
+
+        let originalRender = currentAction.render;
+
+        // If aguiToGQL has replaced the render with the wrapper, fall back to initial render
+        if (originalRender === wrapperFn && initialRender && initialRender !== wrapperFn) {
+          originalRender = initialRender;
         }
-      }
 
-      // if actionResult is a string, parse it as JSON but don't throw an error if it's not valid JSON
-      if (typeof actionResult === "string") {
-        try {
-          actionResult = JSON.parse(actionResult);
-        } catch (e) {
-          /* do nothing */
+        // If even the initial render is the wrapper (shouldn't happen), return undefined
+        if (originalRender === wrapperFn) return undefined;
+
+        // Determine the correct status based on the same logic as RenderActionExecutionMessage
+        let actionResult: any = actionResults?.get(message.id);
+        let status: "inProgress" | "executing" | "complete" = "inProgress";
+
+        if (actionResult !== undefined) {
+          status = "complete";
+        } else if (message.status?.code !== MessageStatusCode.Pending) {
+          status = "executing";
         }
-      }
 
-      // Base props that all actions receive
-      const baseProps = {
-        status: props?.status || status,
-        args: message.arguments || {},
-        result: props?.result || actionResult || undefined,
-        messageId: message.id,
-      };
+        // if props.result is a string, parse it as JSON but don't throw an error if it's not valid JSON
+        if (typeof props?.result === "string") {
+          try {
+            props.result = JSON.parse(props.result);
+          } catch (e) {
+            /* do nothing */
+          }
+        }
 
-      // Add properties based on action type
-      if (action.name === "*") {
-        // Wildcard actions get the tool name; ensure it cannot be overridden by incoming props
-        return originalRender({
-          ...baseProps,
-          ...props,
-          name: message.name,
-        });
-      } else {
-        // Regular actions get respond (defaulting to a no-op if not provided)
-        const respond = props?.respond ?? (() => {});
-        return originalRender({
-          ...baseProps,
-          ...props,
-          respond,
-        });
+        // if actionResult is a string, parse it as JSON but don't throw an error if it's not valid JSON
+        if (typeof actionResult === "string") {
+          try {
+            actionResult = JSON.parse(actionResult);
+          } catch (e) {
+            /* do nothing */
+          }
+        }
+
+        // Base props that all actions receive
+        const baseProps = {
+          status: props?.status || status,
+          args: message.arguments || {},
+          result: props?.result || actionResult || undefined,
+          messageId: message.id,
+        };
+
+        // Add properties based on action type
+        if (currentAction.name === "*") {
+          // Wildcard actions get the tool name; ensure it cannot be overridden by incoming props
+          return originalRender({
+            ...baseProps,
+            ...props,
+            name: message.name,
+          });
+        } else {
+          // Regular actions get respond (defaulting to a no-op if not provided)
+          const respond = props?.respond ?? (() => {});
+          return originalRender({
+            ...baseProps,
+            ...props,
+            respond,
+          });
+        }
+      } finally {
+        isExecuting = false;
       }
     };
+
+    return wrapperFn;
   };
 
-  return {
+  const baseMessage = {
     id: message.id,
     role: "assistant",
     content: "",
     toolCalls: [actionExecutionMessageToAGUIMessage(message)],
-    generativeUI: createRenderWrapper(action.render),
     name: message.name,
-  } as agui.AIMessage;
+  };
+
+  // Only add generativeUI if a render function exists
+  if (hasRenderFunction) {
+    return {
+      ...baseMessage,
+      generativeUI: createRenderWrapper(actions),
+    } as agui.AIMessage;
+  }
+
+  return baseMessage as agui.AIMessage;
 }
 
 function gqlAgentStateMessageToAGUIMessage(
@@ -155,34 +198,78 @@ function gqlAgentStateMessageToAGUIMessage(
     coAgentStateRenders &&
     Object.values(coAgentStateRenders).some((render: any) => render.name === message.agentName)
   ) {
-    const render = Object.values(coAgentStateRenders).find(
+    // Check if the render function exists before creating the wrapper
+    const hasRenderFunction = Object.values(coAgentStateRenders).find(
       (render: any) => render.name === message.agentName,
-    );
+    )?.render;
 
     // Create render function wrapper that provides proper props
-    const createRenderWrapper = (originalRender: any) => {
-      if (!originalRender) return undefined;
+    // NOTE: We pass coAgentStateRenders reference instead of capturing a single render to avoid stale closures
+    const createRenderWrapper = (rendersRef: Record<string, any>) => {
+      // Store the initial render function to detect if aguiToGQL has corrupted the renders object
+      // Must capture this at wrapper creation time, not at first call
+      const initialRenderObj = Object.values(rendersRef).find(
+        (render: any) => render.name === message.agentName,
+      );
+      const initialRender = initialRenderObj?.render;
+      let isExecuting = false;
 
-      return (props?: any) => {
-        // Determine the correct status based on the same logic as RenderActionExecutionMessage
-        const state = message.state;
+      const wrapperFn = (props?: any) => {
+        // Prevent re-entry to avoid infinite recursion
+        if (isExecuting) return undefined;
 
-        // Provide the full props structure that the render function expects
-        const renderProps = {
-          state: state,
-        };
+        isExecuting = true;
+        try {
+          // Fetch the current render from the renders reference to avoid stale closures
+          const currentRender = Object.values(rendersRef).find(
+            (render: any) => render.name === message.agentName,
+          );
 
-        return originalRender(renderProps);
+          if (!currentRender?.render) return undefined;
+
+          let originalRender = currentRender.render;
+
+          // If aguiToGQL has replaced the render with the wrapper, fall back to initial render
+          if (originalRender === wrapperFn && initialRender && initialRender !== wrapperFn) {
+            originalRender = initialRender;
+          }
+
+          // If even the initial render is the wrapper (shouldn't happen), return undefined
+          if (originalRender === wrapperFn) return undefined;
+
+          // Determine the correct status based on the same logic as RenderActionExecutionMessage
+          const state = message.state;
+
+          // Provide the full props structure that the render function expects
+          const renderProps = {
+            state: state,
+          };
+
+          return originalRender(renderProps);
+        } finally {
+          isExecuting = false;
+        }
       };
+
+      return wrapperFn;
     };
 
-    return {
+    const baseMessage = {
       id: message.id,
       role: "assistant",
-      generativeUI: createRenderWrapper(render.render),
       agentName: message.agentName,
       state: message.state,
     };
+
+    // Only add generativeUI if a render function exists
+    if (hasRenderFunction) {
+      return {
+        ...baseMessage,
+        generativeUI: createRenderWrapper(coAgentStateRenders),
+      };
+    }
+
+    return baseMessage;
   }
 
   return {
