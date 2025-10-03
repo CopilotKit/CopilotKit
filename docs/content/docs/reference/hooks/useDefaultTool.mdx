@@ -1,6 +1,6 @@
 ---
 title: "useDefaultTool"
-description: "The useDefaultTool hook enables rendering of a default UI which catches and tool that does not have a specific renderer."
+description: "The useDefaultTool hook enables rendering of a default UI which catches any tool that does not have a specific renderer."
 ---
 
 <br />
@@ -128,7 +128,7 @@ useCopilotAction({
   ),
 });
 
-// After with useRenderToolCall
+// After with useDefaultTool
 useDefaultTool({
   render: ({ name, args, status, result }) => (
     <GenericToolCall name={name} args={args} status={status} result={result} />
