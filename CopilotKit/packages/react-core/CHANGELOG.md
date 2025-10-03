@@ -1,5 +1,13 @@
 # ui
 
+## 1.10.6-next.1
+
+### Patch Changes
+
+- c9e499f: - feat: create targeted convenience wrappers around copilot action
+  - @copilotkit/runtime-client-gql@1.10.6-next.1
+  - @copilotkit/shared@1.10.6-next.1
+
 ## 1.10.6-next.0
 
 ### Patch Changes
