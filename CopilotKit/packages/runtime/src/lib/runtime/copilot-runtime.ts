@@ -608,6 +608,7 @@ please use an LLM adapter instead.`,
         name: action.name,
         description: action.description,
         jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters)),
+        additionalConfig: action.additionalConfig,
       }));
 
       const actionInputs = flattenToolCallsNoDuplicates([
