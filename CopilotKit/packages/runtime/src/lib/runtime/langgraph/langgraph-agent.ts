@@ -24,6 +24,61 @@ import {
 import { Message as LangGraphMessage } from "@langchain/langgraph-sdk/dist/types.messages";
 import { ThreadState } from "@langchain/langgraph-sdk";
 
+// Utility function to sanitize args for JSON serialization
+function sanitizeArgsForSerialization(args: any): any {
+  function sanitizeValue(value: any, visited = new WeakSet()): any {
+    // Handle null/undefined
+    if (value == null) return value;
+
+    // Handle primitives
+    if (typeof value !== "object") return value;
+
+    // Handle circular references
+    if (visited.has(value)) {
+      return null; // or return a placeholder like { __circular: true }
+    }
+    visited.add(value);
+
+    // Handle arrays
+    if (Array.isArray(value)) {
+      return value.map((item) => sanitizeValue(item, visited));
+    }
+
+    // Check for HumanMessage using duck typing
+    if ("content" in value && value.constructor?.name === "HumanMessage") {
+      return {
+        type: "HumanMessage",
+        content: value.content || "",
+        id: value.id || null,
+      };
+    }
+
+    // Handle regular objects
+    const sanitized: any = {};
+    for (const prop in value) {
+      if (!Object.prototype.hasOwnProperty.call(value, prop)) continue;
+
+      try {
+        const propValue = value[prop];
+        // Skip functions and symbols
+        if (typeof propValue === "function" || typeof propValue === "symbol") {
+          continue;
+        }
+
+        const sanitizedProp = sanitizeValue(propValue, visited);
+        sanitized[prop] = sanitizedProp;
+      } catch (e) {
+        // Skip properties that can't be processed
+        continue;
+      }
+    }
+
+    return sanitized;
+  }
+
+  return sanitizeValue(args);
+}
+
 interface CopilotKitStateEnrichment {
   copilotkit: {
     actions: StateEnrichment["ag-ui"]["tools"];
@@ -93,7 +148,7 @@ export class LangGraphAgent extends AGUILangGraphAgent {
         this.subscriber.next({
           type: EventType.TOOL_CALL_ARGS,
           toolCallId: customEvent.value.id,
-          delta: customEvent.value.args,
+          delta: sanitizeArgsForSerialization(customEvent.value.args),
           rawEvent: event,
         });
         this.subscriber.next({
