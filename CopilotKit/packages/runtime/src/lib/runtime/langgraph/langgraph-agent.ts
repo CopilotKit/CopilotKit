@@ -24,6 +24,36 @@ import {
 import { Message as LangGraphMessage } from "@langchain/langgraph-sdk/dist/types.messages";
 import { ThreadState } from "@langchain/langgraph-sdk";
 
+
+function sanitizeArgsForSerialization(args: any): any {
+  return JSON.parse(JSON.stringify(args, (key, value) => {
+ 
+    if (value && typeof value === 'object' && value.constructor && value.constructor.name === 'HumanMessage') {
+      return {
+        type: 'HumanMessage',
+
+        content: value.content || '',
+        id: value.id || null
+      };
+    }
+
+    if (value && typeof value === 'object') {
+      const serializable: any = {};
+      for (const prop in value) {
+        try {
+          JSON.stringify(value[prop]);
+          serializable[prop] = value[prop];
+        } catch (e) {
+          continue;
+        }
+      }
+      return serializable;
+    }
+    
+    return value;
+  }));
+}
+
 interface CopilotKitStateEnrichment {
   copilotkit: {
     actions: StateEnrichment["ag-ui"]["tools"];
@@ -93,7 +123,7 @@ export class LangGraphAgent extends AGUILangGraphAgent {
         this.subscriber.next({
           type: EventType.TOOL_CALL_ARGS,
           toolCallId: customEvent.value.id,
-          delta: customEvent.value.args,
+          delta: sanitizeArgsForSerialization(customEvent.value.args),
           rawEvent: event,
         });
         this.subscriber.next({
