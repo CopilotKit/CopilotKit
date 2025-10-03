@@ -45,7 +45,6 @@ import { ForwardedParametersInput } from "../../graphql/inputs/forwarded-paramet
 
 import {
   isRemoteAgentAction,
-  RemoteAgentAction,
   EndpointType,
   setupRemoteActions,
   EndpointDefinition,
@@ -91,6 +90,7 @@ type CreateMCPClientFunction = (config: MCPEndpointConfig) => Promise<MCPClient>
 
 import { generateHelpfulErrorMessage } from "../streaming";
 import { CopilotContextInput } from "../../graphql/inputs/copilot-context.input";
+import { RemoteAgentAction } from "./agui-action";
 
 export interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
