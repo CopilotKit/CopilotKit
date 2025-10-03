@@ -1,29 +1,29 @@
 ---
-title: "Frontend Actions"
-description: "Learn how to enable your Copilot to take actions in the frontend."
+title: "Frontend Tools"
+description: "Learn how to enable your Copilot to execute tools in the frontend."
 icon: "lucide/Wrench"
 ---
 import { LinkIcon } from "lucide-react";
 import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
 
-# Let the Copilot Take Action
+# Let the Copilot Execute Tools
 
 <Steps>
 
 <Step>
-### `useCopilotAction`
+### `useFrontendTool`
 
-In addition to understanding state, you can empower the copilot to take actions. Use the [`useCopilotAction`](/reference/hooks/useCopilotAction) hook to define specific tasks that the copilot can perform based on user input.
+In addition to understanding state, you can empower the copilot to execute tools. Use the [`useFrontendTool`](/reference/hooks/useFrontendTool) hook to define specific tools that the copilot can execute based on user input.
 
 ```tsx title="YourComponent.tsx"
 "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
-import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
+import { useFrontendTool } from "@copilotkit/react-core"; // [!code highlight]
 
 export function MyComponent() {
   const [todos, setTodos] = useState<string[]>([]);
 
-  // Define Copilot action
-  useCopilotAction({
+  // Define Frontend Tool
+  useFrontendTool({
     name: "addTodoItem",
     description: "Add a new todo item to the list",
     parameters: [
@@ -50,12 +50,12 @@ export function MyComponent() {
 ```
 
 <Accordions>
-  <Accordion title="Changing where/when the action is executed">
-    The `available` prop defaults to `enabled`, but there are other options:
-    - `enabled`: The action is enabled and can be used by the LLM or [CoAgent](/coagents/).
-    - `disabled`: The action is disabled and cannot be used by the LLM or [CoAgent](/coagents/).
-    - `remote`: When using a [CoAgent](/coagents/), the action is only passed to the the CoAgent, but not the LLM.
-    - `frontend`: The action will only render a paired backend action. For more information, check the reference documentation for [useCopilotAction](/reference/hooks/useCopilotAction).
+  <Accordion title="Related Hooks for Different Use Cases">
+    While `useFrontendTool` is for frontend tools with handlers, CopilotKit provides other specialized hooks:
+    - [`useHumanInTheLoop`](/reference/hooks/useHumanInTheLoop): For interactive workflows requiring user input/approval
+    - [`useRenderToolCall`](/reference/hooks/useRenderToolCall): For rendering backend tool calls without handlers
+    
+    Choose the right hook based on your specific use case.
   </Accordion>
 </Accordions>
 </Step>
@@ -67,7 +67,7 @@ export function MyComponent() {
 
 <Step>
 ### Test it out!
-After defining the action, ask the copilot to perform the task. For example, you can now ask the copilot to "select an employee" by specifying the `employeeId`.
+After defining the tool, ask the copilot to execute it. For example, you can now ask the copilot to "add a todo item" with any text you want.
 
 <Frame>
   <img 
@@ -85,21 +85,21 @@ After defining the action, ask the copilot to perform the task. For example, you
 
 <Cards>
   <Card
-    title="useCopilotAction Reference"
-    description="Refer to the documentation for the useCopilotAction hook."
-    href="/reference/hooks/useCopilotAction"
+    title="useFrontendTool Reference"
+    description="Refer to the documentation for the useFrontendTool hook."
+    href="/reference/hooks/useFrontendTool"
     icon={<LinkIcon />}
   />
   <Card
-    title="Actions + Generative UI"
-    description="Learn how to render custom UI components alongside your actions, directly in the CopilotKit chat window."
+    title="Tools + Generative UI"
+    description="Learn how to render custom UI components alongside your tools, directly in the CopilotKit chat window."
     href="/guides/generative-ui"
     icon={<LinkIcon />}
   />
   <Card
-    title="Backend Actions"
-    description="Enable backend services to trigger actions via copilot backend hooks."
-    href="/guides/backend-actions"
+    title="Backend Tools"
+    description="Enable backend services to provide tools via copilot backend hooks."
+    href="/guides/backend-tools"
     icon={<LinkIcon />}
   />
 </Cards>

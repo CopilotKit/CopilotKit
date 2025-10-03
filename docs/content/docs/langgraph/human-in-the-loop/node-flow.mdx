@@ -47,25 +47,24 @@ is interrupted and then resumes execution from where it left off, unaware of the
     </Step>
 
     <Step>
-        ### Add a `useCopilotAction` to your Frontend
+        ### Add a `useHumanInTheLoop` to your Frontend
         First, we'll create a component that renders the agent's essay draft and waits for user approval.
 
         ```tsx title="ui/app/page.tsx"
-        import { useCopilotAction } from "@copilotkit/react-core"
+        import { useHumanInTheLoop } from "@copilotkit/react-core"
         import { Markdown } from "@copilotkit/react-ui"
 
         function YourMainContent() {
           // ...
 
-          useCopilotAction({ 
+          useHumanInTheLoop({ 
             name: "writeEssay",
-            available: "remote",
             description: "Writes an essay and takes the draft as an argument.",
             parameters: [
               { name: "draft", type: "string", description: "The draft of the essay", required: true },
             ],
             // [!code highlight:25]
-            renderAndWaitForResponse: ({ args, respond, status }) => {
+            render: ({ args, respond, status }) => {
               return (
                 <div>
                   <Markdown content={args.draft || 'Preparing your draft...'} />
@@ -102,8 +101,8 @@ is interrupted and then resumes execution from where it left off, unaware of the
     is the complete implementation of the agent with explanations.
 
     Some main things to note:
-    - The agent's state inherits from `CopilotKitState` to bring in the CopilotKit actions.
-    - CopilotKit's actions are binded to the model as tools.
+    - The agent's state inherits from `CopilotKitState` to bring in the CopilotKit tools.
+    - CopilotKit's tools are binded to the model as tools.
     - If the `writeEssay` action is found in the model's response, the agent will transition to the `user_feedback_node`.
     - The agent is interrupted before the `user_feedback_node` to allow for user input.
 
@@ -119,7 +118,7 @@ is interrupted and then resumes execution from where it left off, unaware of the
         from langgraph.types import Command
         from copilotkit import CopilotKitState
 
-        # 1. Define our agent's state and inherit from CopilotKitState, this brings in the CopilotKit actions
+        # 1. Define our agent's state and inherit from CopilotKitState, this brings in the CopilotKit tools
         class AgentState(CopilotKitState): # [!code highlight]
             # 1.1 Define any other state variables
             pass
@@ -127,7 +126,7 @@ is interrupted and then resumes execution from where it left off, unaware of the
         # 2. Define the chat node, this will be where the agent will talk to user and
         #    decide if it needs to call the writeEssay tool
         async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Literal["user_feedback_node", "__end__"]]:
-            # 2.1 Define the model and bind CopilotKit's actions as tools
+            # 2.1 Define the model and bind CopilotKit's tools as tools
             model = ChatOpenAI(model="gpt-4o")
             model_with_tools = model.bind_tools([*state.get("copilotkit", {}).get("actions", [])]) # [!code highlight]
 
@@ -199,11 +198,11 @@ is interrupted and then resumes execution from where it left off, unaware of the
         import { Annotation } from "@langchain/langgraph";
         import { ChatOpenAI } from "@langchain/openai";
 
-        // // 1. Import necessary helpers for CopilotKit actions
+        // // 1. Import necessary helpers for CopilotKit tools
         import { convertActionsToDynamicStructuredTools } from "@copilotkit/sdk-js/langgraph";
         import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
 
-        // 2. Define graph state, inherit from CopilotKitState to bring in CopilotKit actions
+        // 2. Define graph state, inherit from CopilotKitState to bring in CopilotKit tools
         //    and messages.
         export const AgentStateAnnotation = Annotation.Root({
             ...CopilotKitStateAnnotation.spec,
@@ -215,7 +214,7 @@ is interrupted and then resumes execution from where it left off, unaware of the
           // 3.1 Define the model, lower temperature for deterministic responses
           const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
 
-          // 3.2 Bind the tools to the model, include CopilotKit actions. This allows
+          // 3.2 Bind the tools to the model, include CopilotKit tools. This allows
           //     the model to call tools that are defined in CopilotKit by the frontend.
           const modelWithTools = model.bindTools!(
             [ ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions || [])],
@@ -240,7 +239,7 @@ is interrupted and then resumes execution from where it left off, unaware of the
             //       by going to the getFeedback node which will be interrupted after
             //       execution, giving CopilotKit a chance to get feedback from the user.
             //       
-            //       The "writeEssay" tool is a CopilotKit action and is binded in step 3.2.
+            //       The "writeEssay" tool is a CopilotKit tool and is binded in step 3.2.
             if (toolCall.name === "writeEssay") {
               return new Command({
                 goto: "getFeedback",
