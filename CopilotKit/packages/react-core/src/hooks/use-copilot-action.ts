@@ -162,12 +162,11 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
   const activatingMessageIdRef = useRef<string | null>(null);
   const { addToast } = useToast();
 
-  // Store the latest render function in a ref so it's always up-to-date
-  const renderFunctionRef = useRef(action.render);
-  renderFunctionRef.current = action.render;
-
   // clone the action to avoid mutating the original object
   action = { ...action };
+
+  // Create a ref to store the render function - will be set after renderAndWaitForResponse transformation
+  const renderFunctionRef = useRef<any>(null);
 
   // const { currentlyActivatingHitlActionMessageIdRef } = useCopilotContext() as any; // <-- REMOVE THIS FOR NOW
 
@@ -275,6 +274,28 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
     }) as any;
   }
 
+  // Update the render function ref after all transformations
+  renderFunctionRef.current = action.render;
+
+  // Create a stable component wrapper that uses the renderFunctionRef
+  // This wrapper is created once and stored in the cache
+  // It will always call the latest render function from the ref
+  const stableRenderWrapper = useMemo(() => {
+    // Check if we have a render function (either original or from renderAndWaitForResponse transformation)
+    if (typeof action.render !== "function") {
+      return action.render; // String or undefined
+    }
+
+    // Return a stable component function that calls the latest render function
+    return (props: any) => {
+      const currentRenderFunction = renderFunctionRef.current;
+      if (typeof currentRenderFunction === "function") {
+        return currentRenderFunction(props);
+      }
+      return null;
+    };
+  }, [action.name]); // Only recreate if action name changes
+
   // If the developer doesn't provide dependencies, we assume they want to
   // update handler when the action object changes.
   // This ensures that any captured variables in the handler are up to date.
@@ -302,24 +323,6 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
       });
     }
   }, [actions]);
-
-  // Create a stable component wrapper that uses the renderFunctionRef
-  // This wrapper is created once and stored in the cache
-  // It will always call the latest render function from the ref
-  const stableRenderWrapper = useMemo(() => {
-    if (typeof action.render !== "function") {
-      return action.render; // String or undefined
-    }
-
-    // Return a stable component function that calls the latest render function
-    return (props: any) => {
-      const currentRenderFunction = renderFunctionRef.current;
-      if (typeof currentRenderFunction === "function") {
-        return currentRenderFunction(props);
-      }
-      return null;
-    };
-  }, [action.name]); // Only recreate if action name changes
 
   useEffect(() => {
     setAction(idRef.current, action as any);
