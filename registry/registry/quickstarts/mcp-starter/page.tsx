@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { useCopilotChat, useCopilotAction, CatchAllActionRenderProps } from "@copilotkit/react-core";
+import { useCopilotChat, useDefaultTool, CatchAllActionRenderProps } from "@copilotkit/react-core";
 import { CopilotKitCSSProperties, CopilotSidebar, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { MCPEndpointConfig } from "@copilotkit/runtime";
 import { DefaultToolRender } from "@/registry/quickstarts/mcp-starter/components/default-tool-render";
@@ -49,9 +49,8 @@ function YourMainContent() {
     instructions: "Give the user a short and concise suggestion based on the conversation and your available tools. If you have no tools, don't suggest anything.",
   })
 
-  // 🪁 Catch-all Action for rendering MCP tool calls: https://docs.copilotkit.ai/guides/generative-ui?gen-ui-type=Catch+all+renders
-  useCopilotAction({
-    name: "*",
+  // 🪁 Catch-all Tool Rendering for MCP tool calls: https://docs.copilotkit.ai/guides/generative-ui?gen-ui-type=Catch+all+renders
+  useDefaultTool({
     render: ({ name, status, args, result }: CatchAllActionRenderProps<[]>) => (
       <DefaultToolRender status={status} name={name} args={args} result={result} />
     ),
