@@ -18,6 +18,7 @@ export function RenderMessage({
     onCopy,
     onThumbsUp,
     onThumbsDown,
+    messageFeedback,
     markdownTagRenderers,
   } = props;
 
@@ -47,6 +48,7 @@ export function RenderMessage({
           onCopy={onCopy}
           onThumbsUp={onThumbsUp}
           onThumbsDown={onThumbsDown}
+          feedback={messageFeedback?.[message.id] || null}
           markdownTagRenderers={markdownTagRenderers}
           ImageRenderer={ImageRenderer}
         />

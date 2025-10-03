@@ -121,6 +121,16 @@
   transform: scale(1.05);
 }
 
+.copilotKitMessageControlButton.active {
+  background-color: var(--copilot-kit-primary-color);
+  color: var(--copilot-kit-contrast-color);
+}
+
+.copilotKitMessageControlButton.active:hover {
+  background-color: color-mix(in srgb, var(--copilot-kit-primary-color) 90%, black);
+  color: var(--copilot-kit-contrast-color);
+}
+
 .copilotKitMessageControlButton svg {
   width: 1rem;
   height: 1rem;
