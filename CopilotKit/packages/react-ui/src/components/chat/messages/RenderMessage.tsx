@@ -51,5 +51,7 @@ export function RenderMessage({
           ImageRenderer={ImageRenderer}
         />
       );
+    default:
+      return null;
   }
 }
