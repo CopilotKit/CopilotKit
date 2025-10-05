@@ -24,7 +24,7 @@ List of technologies, tools, and frameworks powering this project:
 
 
 ### 🎯 **Twitter Post**
-Don't have account
+[Post](https://x.com/RajG0709/status/1974904870244327813)
 
 ### 📸 **Screenshot**
 
