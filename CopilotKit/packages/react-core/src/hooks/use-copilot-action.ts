@@ -286,11 +286,11 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
       return action.render; // String or undefined
     }
 
-    // Return a stable component function that calls the latest render function
+    // Return a stable component function that renders the latest render function
     return (props: any) => {
-      const currentRenderFunction = renderFunctionRef.current;
-      if (typeof currentRenderFunction === "function") {
-        return currentRenderFunction(props);
+      const Component = renderFunctionRef.current;
+      if (typeof Component === "function") {
+        return createElement(Component, props);
       }
       return null;
     };

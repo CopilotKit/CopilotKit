@@ -145,6 +145,11 @@ export function gqlActionExecutionMessageToAGUIMessage(
   const createRenderWrapper = (originalRender: any) => {
     if (!originalRender) return undefined;
 
+    // If render is a string, return it directly
+    if (typeof originalRender === "string") {
+      return () => originalRender;
+    }
+
     return (props?: any) => {
       const fullProps = createRenderProps(props);
       return originalRender(fullProps);
