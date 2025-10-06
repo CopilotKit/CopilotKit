@@ -48,7 +48,7 @@ import { getErrorActions, UsageBanner } from "../usage-banner";
 import { useCopilotRuntimeClient } from "../../hooks/use-copilot-runtime-client";
 import { shouldShowDevConsole } from "../../utils";
 import { CopilotErrorBoundary } from "../error-boundary/error-boundary";
-import { Agent, ExtensionsInput } from "@copilotkit/runtime-client-gql";
+import { Agent, ExtensionsInput, LangGraphInterruptEvent } from "@copilotkit/runtime-client-gql";
 import {
   LangGraphInterruptAction,
   LangGraphInterruptActionSetterArgs,
@@ -427,18 +427,18 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   const INTERRUPT_EVENTS_STORAGE_KEY = "copilotkit:langGraphInterruptEvents";
 
   const [langGraphInterruptActions, _setLangGraphInterruptAction] = useState<
-    Record<string, LangGraphInterruptAction | null>
+    Record<string, LangGraphInterruptAction>
   >({});
 
   const setLangGraphInterruptAction = useCallback(
     (threadId: string, action: LangGraphInterruptActionSetterArgs) => {
       _setLangGraphInterruptAction((prev) => {
         const newState = (() => {
-          if (action == null)
-            return {
-              ...prev,
-              [threadId]: null,
-            };
+          if (action == null) {
+            // Remove the key entirely instead of setting to null
+            const { [threadId]: _, ...rest } = prev;
+            return rest;
+          }
 
           // Check if this is a new registration (has functions) and restore persisted event if available
           let event = prev[threadId]?.event;
@@ -477,15 +477,17 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         // Persist only the event data to localStorage
         if (typeof window !== "undefined") {
           try {
+            // Only store threads that have events
             const eventsOnly = Object.entries(newState).reduce(
               (acc, [key, value]) => {
-                if (value?.event) {
+                if (value.event) {
                   acc[key] = { event: value.event, id: value.id };
                 }
                 return acc;
               },
-              {} as Record<string, any>,
+              {} as Record<string, { event: LangGraphInterruptEvent; id: string }>,
             );
+
             localStorage.setItem(INTERRUPT_EVENTS_STORAGE_KEY, JSON.stringify(eventsOnly));
           } catch (error) {
             console.warn("Failed to persist interrupt events to localStorage:", error);
