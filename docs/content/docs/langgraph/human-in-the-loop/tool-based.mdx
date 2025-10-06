@@ -1,32 +1,53 @@
 ---
-title: Frontend Tools
+title: Tool-based
 icon: "lucide/Wrench"
-description: Create frontend tools and use them within your LangGraph agent.
+description: Learn how to implement Human-in-the-Loop (HITL) using frontend tools.
 ---
 import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
-import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx"
-import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs"
+import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx"
 import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx"
 
 <IframeSwitcher
-  id="frontend-tools-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?sidebar=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
+  id="render-and-wait-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?sidebar=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?view=code&sidebar=false"
   exampleLabel="Demo"
   codeLabel="Code"
   height="700px"
 />
 
+## What is this?
+
+This guide shows you how to implement Human-in-the-Loop (HITL) workflows using [Frontend Tools](/frontend-tools) with `renderAndWaitForResponse`.
+
+**Frontend Tools** are tools defined in your frontend that your agent can call. When combined with `renderAndWaitForResponse`, the agent can:
+1. Call the tool
+2. Display a custom UI component
+3. Wait for user input
+4. Receive the response and continue
+
+The agent is fully aware of the interaction—it becomes part of the conversation history.
+
+## When should I use this?
+
+Use this approach when:
+- The agent needs to understand and respond to user input
+- You need approval workflows (e.g., "approve before sending email")
+- You want custom UI for user input beyond simple text
+- The interaction should influence the agent's next steps
+
+For simpler workflows where the agent doesn't need awareness, see [interrupt-based flows](/langgraph/human-in-the-loop/interrupt-based) instead.
+
 ## Implementation
-<Callout>
-Check out the [Frontend Tools overview](/frontend-tools) to understand what they are and when to use them.
-</Callout>
+
+In this guide, we will make a frontend tool that will prompt the user for their name and render that name back to them.
 
 <Steps>
     <Step>
-        ### Setup CopilotKit
-
-       <RunAndConnect components={props.components} />
+      ### Run and connect your agent
+      <RunAndConnect components={props.components}  />
     </Step>
 
     <Step>
@@ -42,7 +63,7 @@ Check out the [Frontend Tools overview](/frontend-tools) to understand what they
           // ...
 
           // [!code highlight:15]
-          useFrontendTool({
+          useHumanInTheLoop({
             name: "sayHello",
             description: "Say hello to the user",
             parameters: [
@@ -139,6 +160,6 @@ Check out the [Frontend Tools overview](/frontend-tools) to understand what they
         ### Give it a try!
         You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
 
-        <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+
     </Step>
 </Steps>
