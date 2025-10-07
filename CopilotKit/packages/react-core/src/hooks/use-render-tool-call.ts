@@ -1,15 +1,19 @@
 import { useCopilotAction } from "./use-copilot-action";
-import { FrontendAction } from "../types";
+import { FrontendAction, FrontendActionAvailability } from "../types";
 import { Parameter } from "@copilotkit/shared";
 
+type UseToolCallArgs<T extends Parameter[] | [] = []> = {
+  available?: "disabled" | "enabled";
+} & Pick<FrontendAction<T>, "name" | "description" | "parameters" | "render">;
+
 export function useRenderToolCall<const T extends Parameter[] | [] = []>(
-  tool: Pick<FrontendAction<T>, "name" | "description" | "parameters" | "render">,
+  tool: UseToolCallArgs<T>,
   dependencies?: any[],
 ) {
   useCopilotAction<T>(
     {
       ...tool,
-      available: "frontend",
+      available: tool.available === "disabled" ? tool.available : "frontend",
     },
     dependencies,
   );
