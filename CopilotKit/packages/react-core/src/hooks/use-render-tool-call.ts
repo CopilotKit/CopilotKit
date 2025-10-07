@@ -3,7 +3,7 @@ import { FrontendAction, FrontendActionAvailability } from "../types";
 import { Parameter } from "@copilotkit/shared";
 
 type UseToolCallArgs<T extends Parameter[] | [] = []> = {
-  available?: "disabled" | undefined;
+  available?: "disabled" | "enabled";
 } & Pick<FrontendAction<T>, "name" | "description" | "parameters" | "render">;
 
 export function useRenderToolCall<const T extends Parameter[] | [] = []>(
@@ -13,7 +13,7 @@ export function useRenderToolCall<const T extends Parameter[] | [] = []>(
   useCopilotAction<T>(
     {
       ...tool,
-      available: tool.available ? tool.available : "frontend",
+      available: tool.available === "disabled" ? tool.available : "frontend",
     },
     dependencies,
   );

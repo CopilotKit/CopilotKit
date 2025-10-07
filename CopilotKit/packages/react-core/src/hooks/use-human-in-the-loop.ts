@@ -3,7 +3,7 @@ import { FrontendAction } from "../types";
 import { Parameter } from "@copilotkit/shared";
 
 type UseToolCallArgs<T extends Parameter[] | [] = []> = {
-  available?: "disabled" | undefined;
+  available?: "disabled" | "enabled";
   render: FrontendAction<T>["renderAndWaitForResponse"];
 } & Pick<FrontendAction<T>, "name" | "description" | "parameters">;
 
@@ -16,7 +16,7 @@ export function useHumanInTheLoop<const T extends Parameter[] | [] = []>(
   useCopilotAction(
     {
       ...toolRest,
-      available: tool.available ? tool.available : "remote",
+      available: tool.available === "disabled" ? tool.available : "remote",
       renderAndWaitForResponse: render,
     },
     dependencies,
