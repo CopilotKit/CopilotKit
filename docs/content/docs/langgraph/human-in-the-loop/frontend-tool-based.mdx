@@ -1,48 +1,39 @@
 ---
-title: Tool-based
+title: Frontend Tool Based
 icon: "lucide/Wrench"
-description: Learn how to implement Human-in-the-Loop (HITL) using frontend tools.
+description: Create frontend tools and use them within your LangGraph agent.
 ---
 import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
-import { Tabs, Tab } from "fumadocs-ui/components/tabs"
-import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx"
 import { IframeSwitcher } from "@/components/content"
 import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx"
+import { Tabs, Tab } from "fumadocs-ui/components/tabs"
 
 <IframeSwitcher
-  id="render-and-wait-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?sidebar=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?view=code&sidebar=false"
+  id="frontend-tools-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?sidebar=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs"
   exampleLabel="Demo"
   codeLabel="Code"
   height="700px"
 />
 
 ## What is this?
+Frontend tools enable you to define client-side functions that your LangGraph agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
+the logic runs on the client side, giving you direct access to the frontend environment.
 
-This guide shows you how to implement Human-in-the-Loop (HITL) workflows using [Frontend Tools](/frontend-tools) with `renderAndWaitForResponse`.
+This can be utilized for to let [your agent control the UI](/langgraph/frontend-actions), [generative UI](/langgraph/generative-ui/frontend-tools), or for Human-in-the-loop interactions.
 
-**Frontend Tools** are tools defined in your frontend that your agent can call. When combined with `renderAndWaitForResponse`, the agent can:
-1. Call the tool
-2. Display a custom UI component
-3. Wait for user input
-4. Receive the response and continue
-
-The agent is fully aware of the interaction—it becomes part of the conversation history.
+In this guide, we cover the use of frontend tools for Human-in-the-loop.
 
 ## When should I use this?
-
-Use this approach when:
-- The agent needs to understand and respond to user input
-- You need approval workflows (e.g., "approve before sending email")
-- You want custom UI for user input beyond simple text
-- The interaction should influence the agent's next steps
-
-For simpler workflows where the agent doesn't need awareness, see [interrupt-based flows](/langgraph/human-in-the-loop/interrupt-based) instead.
+Use frontend tools when you need your agent to interact with client-side primitives such as:
+- Reading or modifying React component state
+- Accessing browser APIs like localStorage, sessionStorage, or cookies
+- Triggering UI updates or animations
+- Interacting with third-party frontend libraries
+- Performing actions that require the user's immediate browser context
 
 ## Implementation
-
-In this guide, we will make a frontend tool that will prompt the user for their name and render that name back to them.
 
 <Steps>
     <Step>
@@ -51,31 +42,42 @@ In this guide, we will make a frontend tool that will prompt the user for their 
     </Step>
 
     <Step>
-        ### Create a frontend tool
+        ### Create a frontend human-in-the-loop tool
 
-        First, you'll need to create a frontend tool using the [useFrontendTool](/reference/hooks/useFrontendTool) hook. Here's a simple one to get you started
-        that says hello to the user.
+        Frontend tools can be leveraged in a variety of ways. One of those ways is to have a human-in-the-loop flow where the response
+        of the tool is gated by a user's decision.
+
+        In this example we will simulate a "approval" flow for executing a command. First, use the `useHumanInTheLoop` hook to create a tool that
+        prompts the user for approval.
 
         ```tsx title="page.tsx"
-        import { useFrontendTool } from "@copilotkit/react-core" // [!code highlight]
+        import { useHumanInTheLoop } from "@copilotkit/react-core" // [!code highlight]
 
         export function Page() {
           // ...
 
-          // [!code highlight:15]
           useHumanInTheLoop({
-            name: "sayHello",
-            description: "Say hello to the user",
+            name: "humanApprovedCommand",
+            description: "Ask human for approval to run a command.",
             parameters: [
               {
-                name: "name",
+                name: "command",
                 type: "string",
-                description: "The name of the user to say hello to",
+                description: "The command to run",
                 required: true,
               },
             ],
-            handler: async ({ name }) => {
-              alert(`Hello, ${name}!`);
+            render: ({ args, respond }) => {
+              if (!respond) return <></>;
+              return (
+                <div>
+                  <pre>{args.command}</pre>
+                  // [!code highlight:4]
+                  // Respond will resume execution and be the value will become the tool result.
+                  <button onClick={() => respond(`Command is APPROVED`)}>Approve</button>
+                  <button onClick={() => respond(`Command is DENIED`)}>Deny</button>
+                </div>
+              );
             },
           });
 
@@ -159,7 +161,5 @@ In this guide, we will make a frontend tool that will prompt the user for their 
     <Step>
         ### Give it a try!
         You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
-
-
     </Step>
 </Steps>
