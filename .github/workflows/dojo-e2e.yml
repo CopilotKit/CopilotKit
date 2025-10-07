@@ -64,6 +64,7 @@ jobs:
 
       - name: Build cpk
         working-directory: CopilotKit/CopilotKit
+<<<<<<< HEAD
         run: |
           unset TURBO_API
           unset TURBO_TOKEN
@@ -138,3 +139,81 @@ jobs:
         name: playwright-traces
         path: ag-ui/apps/dojo/e2e/test-results/
         retention-days: 7
+=======
+        run: |
+          unset TURBO_API
+          unset TURBO_TOKEN
+          unset TURBO_TEAM
+          pnpm build
+
+      - name: Install ag-ui dependencies
+        working-directory: ag-ui/typescript-sdk
+        run: pnpm install --frozen-lockfile
+
+      - name: Link cpk into ag-ui
+        working-directory: CopilotKit
+        run: node ../ag-ui/typescript-sdk/apps/dojo/scripts/link-cpk.js .
+
+      - name: Prepare dojo for e2e
+        working-directory: ag-ui/typescript-sdk/apps/dojo
+        run: |
+          unset TURBO_API
+          unset TURBO_TOKEN
+          unset TURBO_TEAM
+          node ./scripts/prep-dojo-everything.js
+
+      - name: Install e2e dependencies
+        working-directory: ag-ui/typescript-sdk/apps/dojo/e2e
+        run: |
+          pnpm install
+
+      - name: write langgraph env files
+        working-directory: ag-ui/typescript-sdk/integrations/langgraph
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+        run: |
+          echo "OPENAI_API_KEY=${OPENAI_API_KEY}" > examples/python/.env
+          echo "LANGSMITH_API_KEY=${LANGSMITH_API_KEY}" >> examples/python/.env
+          echo "OPENAI_API_KEY=${OPENAI_API_KEY}" > examples/typescript/.env
+          echo "LANGSMITH_API_KEY=${LANGSMITH_API_KEY}" >> examples/typescript/.env
+          echo "OPENAI_API_KEY=${OPENAI_API_KEY}" > python/ag_ui_langgraph/.env
+          echo "LANGSMITH_API_KEY=${LANGSMITH_API_KEY}" >> python/ag_ui_langgraph/.env
+
+      - name: Run dojo+agents and tests
+        uses: JarvusInnovations/background-action@v1
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_GEMINI_API_KEY }}
+        with:
+          run: |
+            node ../scripts/run-dojo-everything.js
+          working-directory: ag-ui/typescript-sdk/apps/dojo/e2e
+          wait-on: |
+            http://localhost:9999
+            tcp:localhost:8000
+            tcp:localhost:8001
+            tcp:localhost:8002
+            tcp:localhost:8003
+            tcp:localhost:8004
+            tcp:localhost:8005
+            tcp:localhost:8006
+            tcp:localhost:8007
+            tcp:localhost:8008
+            tcp:localhost:8009
+
+      - name: Run tests
+        working-directory: ag-ui/typescript-sdk/apps/dojo/e2e
+        env:
+          BASE_URL: http://localhost:9999
+        run: pnpm test
+
+      - name: Upload traces
+        if: always() # Uploads artifacts even if tests fail
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: ag-ui/typescript-sdk/apps/dojo/e2e/test-results/
+          retention-days: 7
+>>>>>>> 379116482 (ci: only run tests for relevant changes)
