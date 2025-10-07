@@ -18,6 +18,7 @@
     "tsconfig": "1.4.6"
   },
   "changesets": [
+    "chatty-eggs-hammer",
     "friendly-ducks-mate",
     "spicy-fishes-walk"
   ]
