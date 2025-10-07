@@ -112,10 +112,6 @@ export async function streamLangChainResponse({
   eventStream$,
   actionExecution,
 }: StreamLangChainResponseParams) {
-  // console.log({
-  //   result,
-  //   actionExecution
-  // })
   // We support several types of return values from LangChain functions:
 
   // 1. string
@@ -123,6 +119,11 @@ export async function streamLangChainResponse({
   if (typeof result === "string") {
     if (!actionExecution || actionExecution?.returnDirect) {
       // Just send one chunk with the string as the content.
+      eventStream$.sendActionExecutionResult({
+        actionExecutionId: actionExecution.id,
+        actionName: actionExecution.name,
+        result: result,
+      });
       eventStream$.sendTextMessage(randomId(), result);
     } else {
       // Send as a result
