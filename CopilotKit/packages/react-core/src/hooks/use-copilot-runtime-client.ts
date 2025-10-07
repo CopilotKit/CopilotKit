@@ -130,7 +130,7 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
         setBannerError(warningError);
       },
     });
-  }, [runtimeOptions, setBannerError, showDevConsole, onError]);
+  }, [runtimeOptions, setBannerError, onError]);
 
   return runtimeClient;
 };
