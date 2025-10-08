@@ -1,5 +1,13 @@
 # ui
 
+## 1.10.6-next.2
+
+### Patch Changes
+
+- 3ac64bf: - fix: allow disabling actions in the new action hooks
+  - @copilotkit/runtime-client-gql@1.10.6-next.2
+  - @copilotkit/shared@1.10.6-next.2
+
 ## 1.10.6-next.1
 
 ### Patch Changes
