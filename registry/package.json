@@ -27,7 +27,7 @@
     "openai": "^4.87.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "shadcn": "2.4.0-canary.12",
+    "shadcn": "2.4.0",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "tooltip": "^1.6.1",
