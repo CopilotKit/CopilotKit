@@ -4304,7 +4304,7 @@ On this pageWhat is this?
 
 Render the state of your agent with custom UI components.
 
-This video demonstrates the [implementation](https://docs.copilotkit.ai/coagents/generative-ui/agentic#implementation) section applied to out [coagents starter project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter).
+This video demonstrates the [implementation](https://docs.copilotkit.ai/coagents/generative-ui/agentic#implementation) section applied to our [coagents starter project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter).
 
 ## [What is this?](https://docs.copilotkit.ai/coagents/generative-ui/agentic\#what-is-this)
 
@@ -5612,7 +5612,7 @@ In this mode, CopilotKit will intelligently route requests to the most appropria
 Be advised that when using this mode, you'll have to "exit the workflow" explicitly in your agent code.
 You can find more information about it in the ["Exiting the agent loop" section](https://docs.copilotkit.ai/coagents/advanced/exit-agent).
 
-Router mode requires that you set up an LLM adapter. See how in ["Set up a copilot runtime"](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#set-up-a-copilot-runtime-endpoint) section of the docs.
+Router mode requires that you set up an LLM adapter. See how in ["Set up a copilot runtime"](https://docs.copilotkit.ai/direct-to-llm/guides/quickstart?copilot-hosting=self-hosted#set-up-a-copilot-runtime-endpoint) section of the docs.
 
 ### [Agent Lock Mode](https://docs.copilotkit.ai/coagents/multi-agent-flows\#agent-lock-mode)
 
@@ -6998,7 +6998,7 @@ Customize UI](https://docs.copilotkit.ai/guides/custom-look-and-feel)
 
 ### On this page
 
-[Install CopilotKit](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#install-copilotkit) [Get a Copilot Cloud Public API Key](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#get-a-copilot-cloud-public-api-key) [Setup the CopilotKit Provider](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#setup-the-copilotkit-provider) [Choose a Copilot UI](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#choose-a-copilot-ui) [Install CopilotKit](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#install-copilotkit-1) [Set up a Copilot Runtime Endpoint](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#set-up-a-copilot-runtime-endpoint) [Configure the CopilotKit Provider](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#configure-the-copilotkit-provider) [Choose a Copilot UI](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#choose-a-copilot-ui-1) [Next Steps](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#next-steps)
+[Install CopilotKit](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#install-copilotkit) [Get a Copilot Cloud Public API Key](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#get-a-copilot-cloud-public-api-key) [Setup the CopilotKit Provider](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#setup-the-copilotkit-provider) [Choose a Copilot UI](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#choose-a-copilot-ui) [Install CopilotKit](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#install-copilotkit-1) [Set up a Copilot Runtime Endpoint](https://docs.copilotkit.ai/direct-to-llm/guides/quickstart?copilot-hosting=self-hosted#set-up-a-copilot-runtime-endpoint) [Configure the CopilotKit Provider](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#configure-the-copilotkit-provider) [Choose a Copilot UI](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#choose-a-copilot-ui-1) [Next Steps](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#next-steps)
 
 [Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/(root)/quickstart.mdx)
 
@@ -8667,7 +8667,7 @@ On this pageWhat is this?
 
 Render the state of your agent with custom UI components.
 
-This video demonstrates the [implementation](https://docs.copilotkit.ai/coagents/generative-ui/agentic#implementation) section applied to out [coagents starter project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter).
+This video demonstrates the [implementation](https://docs.copilotkit.ai/coagents/generative-ui/agentic#implementation) section applied to our [coagents starter project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter).
 
 ## [What is this?](https://docs.copilotkit.ai/coagents/generative-ui/agentic\#what-is-this)
 

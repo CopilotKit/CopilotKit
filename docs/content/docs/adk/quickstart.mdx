@@ -11,15 +11,11 @@ import {
 import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
 import { CoAgentsDiagram } from "@/components/react/coagents/coagents-diagram.tsx";
 import { FaPython, FaJs, FaCloud } from "react-icons/fa";
-import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
-import CopilotCloudConfigureRemoteEndpointLangGraph from "@/snippets/copilot-cloud-configure-remote-endpoint-langgraph.mdx";
 import CopilotKitCloudCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
-import LangGraphPlatformDeploymentTabs from "@/snippets/langgraph-platform-deployment-tabs.mdx";
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import FindYourCopilotRuntime from "@/snippets/find-your-copilot-runtime.mdx";
 import CloudCopilotKitProvider from "@/snippets/coagents/cloud-configure-copilotkit-provider.mdx";
 import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/coagents/self-host-configure-copilotkit-provider.mdx";
-import SelfHostingCopilotRuntimeLangGraphEndpoint from "@/snippets/self-hosting-copilot-runtime-langgraph-endpoint.mdx";
 import SelfHostingCopilotRuntimeStarter from "@/snippets/self-hosting-copilot-runtime-starter.mdx";
 import SelfHostingRemoteEndpoints from "@/snippets/self-hosting-remote-endpoints.mdx";
 import { ADKIcon } from "@/lib/icons/custom-icons";
@@ -46,7 +42,7 @@ import CopilotUI from "@/snippets/copilot-ui.mdx";
 
 Before you begin, you'll need the following:
 
-- [**OpenAI API key**](https://platform.openai.com/api-keys)
+- [**Gemini API Key**](https://makersuite.google.com/app/apikey)
 
 ## Getting started
 
@@ -86,7 +82,6 @@ Before you begin, you'll need the following:
             </Step>
             <Step>
                 ### Mount your Google API key
-                Your agent will need an LLM to talk to. This example uses OpenAI, but you can use any LLM provider you want.
 
                 ```bash
                 export GOOGLE_API_KEY=your_google_api_key
@@ -128,7 +123,7 @@ Before you begin, you'll need the following:
                 ### Expose your agent as an AG-UI ASGI application
 
                 ```python title="agent.py"
-                from fastapi import FastAPI=
+                from fastapi import FastAPI
                 from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
                 from google.adk.agents import LlmAgent
 
@@ -235,7 +230,8 @@ Before you begin, you'll need the following:
                   return (
                     <html lang="en">
                       <body>
-                        {/* This points to the runtime we setup in the previous step */} // [!code highlight:4]
+                        {/* This points to the runtime we setup in the previous step */}
+                        {/* [!code highlight:3] */}
                         <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
                           {children}
                         </CopilotKit>
@@ -251,7 +247,7 @@ Before you begin, you'll need the following:
                 this is done alongside your core page components, e.g. in your `page.tsx` file.
 
                 ```tsx title="page.tsx"
-                // [!code highlight:3]
+                // [!code highlight:2]
                 import "@copilotkit/react-ui/styles.css";
                 import { CopilotSidebar } from "@copilotkit/react-ui";
 
@@ -259,7 +255,7 @@ Before you begin, you'll need the following:
                 return (
                     <main>
                     <h1>Your main content</h1>
-                    // [!code highlight:7]
+                    // [!code highlight:6]
                     <CopilotSidebar
                         labels={{
                             title: "Popup Assistant",

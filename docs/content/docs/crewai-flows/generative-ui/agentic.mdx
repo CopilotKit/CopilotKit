@@ -4,7 +4,6 @@ icon: "lucide/Bot"
 description: Render the state of your agent with custom UI components.
 ---
 
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 
 <video
@@ -45,8 +44,8 @@ is a situation where a user and an agent are working together to solve a problem
   <Step>
     ### Define your agent state
     If you're not familiar with CrewAI, your flows are stateful. As you progress through function, a state object is updated between them. CopilotKit
-    allows you to easily render this state in your application. 
-    
+    allows you to easily render this state in your application.
+
     For the sake of this guide, let's say our state looks like this in our agent.
 
     <Tabs groupId="language" items={['Python']} default="Python">
@@ -94,7 +93,7 @@ is a situation where a user and an agent are working together to solve a problem
             ]
             await copilotkit_emit_state(self.state)
 
-            # Simulate state updates # [!code highlight:5]
+            # Simulate state updates # [!code highlight:4]
             for search in self.state.searches:
                 await asyncio.sleep(1)
                 search["done"] = True
@@ -136,7 +135,7 @@ is a situation where a user and an agent are working together to solve a problem
     function YourMainContent() {
       // ...
 
-      // [!code highlight:14]
+      // [!code highlight:13]
       // styles omitted for brevity
       useCoAgentStateRender<AgentState>({
         name: "sample_agent", // the name the agent is served as
@@ -178,7 +177,7 @@ is a situation where a user and an agent are working together to solve a problem
     function YourMainContent() {
       // ...
 
-      // [!code highlight:5]
+      // [!code highlight:3]
       const { state } = useCoAgent<AgentState>({
         name: "sample_agent", // the name the agent is served as
       })
@@ -189,7 +188,7 @@ is a situation where a user and an agent are working together to solve a problem
         <div>
           {/* ... */}
           <div className="flex flex-col gap-2 mt-4">
-            // [!code highlight:6]
+            {/* [!code highlight:5] */}
             {state.searches?.map((search, index) => (
               <div key={index} className="flex flex-row">
                 {search.done ? "✅" : "❌"} {search.query}

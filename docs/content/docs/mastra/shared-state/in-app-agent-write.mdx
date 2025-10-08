@@ -15,6 +15,18 @@ import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
 
 You can easily write to your agent's state from your native application, allowing you to update the agent's working memory from your UI.
 
+<Callout type="info" title="Important">
+  This guide assumes you are embedding your Mastra agent inside of Copilot Runtime, like so.
+
+  ```ts
+  const runtime = new CopilotRuntime({
+    agents: MastraAgent.getLocalAgents({ mastra }),
+  });
+  ```
+
+  This feature will **not work** if you are using a **remote Mastra agent**.
+</Callout>
+
 ## When should I use this?
 
 You can use this when you want to provide user input or control to your agent's working memory. As your application state changes, you can update the agent state to reflect these changes.
@@ -53,7 +65,7 @@ You can use this when you want to provide user input or control to your agent's 
     import { z } from "zod";
     import { Memory } from "@mastra/memory";
 
-    // [!code highlight:5]
+    // [!code highlight:4]
     // 1. Define the agent state schema
     export const AgentStateSchema = z.object({
       language: z.enum(["english", "spanish"]),
@@ -66,11 +78,11 @@ You can use this when you want to provide user input or control to your agent's 
     export const languageAgent = new Agent({
       name: "Language Agent",
       model: openai("gpt-4o"),
-      instructions: "You are a helpful assistant that can help the user with their language.",
+      instructions: "Always communicate in the preferred language of the user as defined in your working memory. Do not communicate in any other language.",
       memory: new Memory({
         storage: new LibSQLStore({ url: "file::memory:" }),
         options: {
-          // [!code highlight:5]
+          // [!code highlight:4]
           workingMemory: {
             enabled: true,
             schema: AgentStateSchema,
@@ -90,8 +102,9 @@ You can use this when you want to provide user input or control to your agent's 
     import { AgentState } from "@/mastra/agents/language-agent";
 
     function YourMainContent() {
-      const { state, setState } = useCoAgent<AgentState>({ // [!code highlight:5]
-        name: "language_agent",
+      // [!code highlight:5]
+      const { state, setState } = useCoAgent<AgentState>({
+        name: "your-mastra-agent-name",
         // optionally provide a type-safe initial state
         initialState: { language: "spanish" }  
       });
@@ -104,7 +117,7 @@ You can use this when you want to provide user input or control to your agent's 
         // style excluded for brevity
         <div>
           <h1>Your main content</h1>
-          // [!code highlight:3]
+          {/* [!code highlight:2] */}
           <p>Language: {state.language}</p> 
           <button onClick={toggleLanguage}>Toggle Language</button>
         </div>
@@ -119,5 +132,10 @@ You can use this when you want to provide user input or control to your agent's 
     ### Give it a try!
     You can now use the `setState` function to update the agent state and `state` to read it. Try toggling the language button
     and talking to your agent. You'll see the language change to match the agent's state.
+
+    <Callout type="info" title="Important">
+      Shared-state in Mastra is prompt-driven. This means that your Agent's awareness of the shared state will be augmented
+      by the instructions you provide to your agent.
+    </Callout>
   </Step>
 </Steps>

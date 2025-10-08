@@ -36,4 +36,7 @@ export type LangGraphInterruptAction = LangGraphInterruptRender & {
 export type LangGraphInterruptActionSetterArgs =
   | (Partial<LangGraphInterruptRender> & { event?: Partial<LangGraphInterruptEvent> })
   | null;
-export type LangGraphInterruptActionSetter = (action: LangGraphInterruptActionSetterArgs) => void;
+export type LangGraphInterruptActionSetter = (
+  threadId: string,
+  action: LangGraphInterruptActionSetterArgs,
+) => void;

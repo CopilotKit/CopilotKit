@@ -1,11 +1,10 @@
 ---
-title: Tool-based
+title: Human-in-the-Loop
 description: Learn how to implement Human-in-the-Loop (HITL) using Mastra Agents.
-icon: lucide/Share2
+icon: lucide/Pause
 ---
 
 import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
 
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/node-hitl.mp4"
@@ -18,15 +17,16 @@ import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
 />
 
 <Callout type="info">
-  Pictured above is the [coagent
-  starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter)
-  with the implementation below applied!
+  Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/mastra/starter) with the implementation below applied!
 </Callout>
 
 ## What is this?
 
-
 CopilotKit lets you to add custom UI to take user input and then pass it back to the agent upon completion.
+
+<Callout type="warning">
+Calling `suspend()` or `resume()` inside of a workflow is not currently supported in this integration.
+</Callout>
 
 ## Why should I use this?
 
@@ -44,7 +44,7 @@ you can ensure that the agent is always making the right decisions and ultimatel
     #### I already have an agent
 
     You can follow the instructions in the [quickstart](/mastra/quickstart) guide.
-    
+
     #### I want to start from scratch
 
     Run the following command to create a brand new project with a pre-configured agent:
@@ -114,4 +114,4 @@ you can ensure that the agent is always making the right decisions and ultimatel
     Try asking your agent to write an essay about the benefits of AI. You'll see that it will generate an essay,
     stream the progress and eventually ask you to review it.
   </Step>
-</Steps> 
+</Steps>

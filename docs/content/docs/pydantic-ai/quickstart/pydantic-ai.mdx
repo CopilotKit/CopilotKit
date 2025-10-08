@@ -12,9 +12,7 @@ import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-ente
 import { CoAgentsDiagram } from "@/components/react/coagents/coagents-diagram.tsx";
 import { FaPython, FaJs, FaCloud } from "react-icons/fa";
 import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
-import CopilotCloudConfigureRemoteEndpointLangGraph from "@/snippets/copilot-cloud-configure-remote-endpoint-langgraph.mdx";
 import CopilotKitCloudCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
-import LangGraphPlatformDeploymentTabs from "@/snippets/langgraph-platform-deployment-tabs.mdx";
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import FindYourCopilotRuntime from "@/snippets/find-your-copilot-runtime.mdx";
 import CloudCopilotKitProvider from "@/snippets/coagents/cloud-configure-copilotkit-provider.mdx";
@@ -143,7 +141,7 @@ Before you begin, you'll need the following:
             <Step>
                 ### Create your frontend
                 CopilotKit runs anywhere that React runs. As such, you can such Next.js,
-                Vite, or any other React environment. 
+                Vite, or any other React environment.
 
                 For this example, we'll create a new Next.js app.
 
@@ -173,28 +171,28 @@ Before you begin, you'll need the following:
                 } from "@copilotkit/runtime";
                 import { HttpAgent } from "@ag-ui/client";
                 import { NextRequest } from "next/server";
-                
+
                 // 1. You can use any service adapter here for multi-agent support. We use
                 //    the empty adapter since we're only using one agent.
                 const serviceAdapter = new ExperimentalEmptyAdapter();
-                
+
                 // 2. Create the CopilotRuntime instance and utilize the PydanticAI AG-UI
                 //    integration to setup the connection.
                 const runtime = new CopilotRuntime({
                   agents: {
                     // Our AG-UI endpoint URL
                     "my_agent": new HttpAgent({ url: "http://localhost:8000/" }),
-                  }   
+                  }
                 });
-                
+
                 // 3. Build a Next.js API route that handles the CopilotKit runtime requests.
                 export const POST = async (req: NextRequest) => {
                   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-                    runtime, 
+                    runtime,
                     serviceAdapter,
                     endpoint: "/api/copilotkit",
                   });
-                
+
                   return handleRequest(req);
                 };
                ```
@@ -202,19 +200,20 @@ Before you begin, you'll need the following:
             <Step>
                 ### Setup the CopilotKit provider
                 The CopilotKit provide component is responsible for managing the session with your current agent. Typically,
-                users will wrap their entire application in the CopilotKit provider.    
+                users will wrap their entire application in the CopilotKit provider.
 
                 ```tsx title="app/layout.tsx"
                 import "./globals.css";
                 import { ReactNode } from "react";
-                import { CopilotKit } from "@copilotkit/react-core"; 
-                
+                import { CopilotKit } from "@copilotkit/react-core";
+
                 export default function RootLayout({ children }: { children: ReactNode }) {
                   return (
                     <html lang="en">
-                      <body> 
-                        {/* This points to the runtime we setup in the previous step */} // [!code highlight:4]
-                        <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent"> 
+                      <body>
+                        {/* This points to the runtime we setup in the previous step */}
+                        {/* [!code highlight:3] */}
+                        <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
                           {children}
                         </CopilotKit>
                       </body>
@@ -229,7 +228,7 @@ Before you begin, you'll need the following:
                 this is done alongside your core page components, e.g. in your `page.tsx` file.
 
                 ```tsx title="page.tsx"
-                // [!code highlight:3]
+                // [!code highlight:2]
                 import "@copilotkit/react-ui/styles.css";
                 import { CopilotSidebar } from "@copilotkit/react-ui";
 
@@ -237,7 +236,7 @@ Before you begin, you'll need the following:
                 return (
                     <main>
                     <h1>Your main content</h1>
-                    // [!code highlight:7]
+                    {/* [!code highlight:6] */}
                     <CopilotSidebar
                         labels={{
                             title: "Popup Assistant",
@@ -315,4 +314,4 @@ can help you build power agent native applications.
     href="/pydantic-ai/frontend-actions"
     icon={<WrenchIcon />}
   />
-</Cards> 
+</Cards>

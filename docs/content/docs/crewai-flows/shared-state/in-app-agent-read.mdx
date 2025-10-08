@@ -18,7 +18,7 @@ import { ImageZoom } from "fumadocs-ui/components/image-zoom";
 
 <Callout type="info">
   Pictured above is the [coagent
-  starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter)
+  starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter-crewai-flows)
   with the [implementation](#implementation) section applied!
 </Callout>
 
@@ -38,9 +38,9 @@ state update you can reflect these updates natively in your application.
     ### Run and Connect Your Agent to CopilotKit
 
     You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
-    you can follow the instructions in the [Getting Started](/getting-started) guide.
+    you can follow the instructions in the [Getting Started](/crewai-flows/quickstart) guide.
 
-    If you don't already have an agent, you can use the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter) as a starting point
+    If you don't already have an agent, you can use the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter-crewai-flows) as a starting point
     as this guide uses it as a starting point.
 
   </Step>
@@ -76,7 +76,8 @@ state update you can reflect these updates natively in your application.
     }
 
     function YourMainContent() {
-      const { state } = useCoAgent<AgentState>({ // [!code highlight:4]
+      // [!code highlight:4]
+      const { state } = useCoAgent<AgentState>({
         name: "sample_agent",
         initialState: { language: "spanish" }  // optionally provide an initial state
       });
@@ -119,7 +120,7 @@ type AgentState = {
 
 function YourMainContent() {
   // ...
-  // [!code highlight:8]
+  // [!code highlight:7]
   useCoAgentStateRender({
     name: "sample_agent",
     render: ({ state }) => {

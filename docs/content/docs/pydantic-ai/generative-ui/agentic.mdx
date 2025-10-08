@@ -4,7 +4,6 @@ icon: "lucide/Bot"
 description: Render the state of your agent with custom UI components.
 ---
 
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 
 <video
@@ -45,28 +44,31 @@ First, you'll need to make sure you have a running Pydantic AI Agent. If you hav
   <Step>
     ### Define your agent state
     If you're not familiar with Pydantic AI, your flows are stateful. As you progress through function, a state object is updated between them. CopilotKit
-    allows you to easily render this state in your application. 
-    
+    allows you to easily render this state in your application.
+
     For the sake of this guide, let's say our state looks like this in our agent.
 
     <Tabs groupId="language" items={['Python']} default="Python">
         <Tab value="Python">
           ```python title="agent-py/sample_agent/agent.py"
+          import asyncio
+          from textwrap import dedent
           from pydantic import BaseModel, Field
-          from pydantic_ai import Agent
+          from pydantic_ai import Agent, RunContext
           from pydantic_ai.ag_ui import StateDeps
+          from ag_ui.core import StateSnapshotEvent, EventType
 
-          class Step(BaseModel):
-              """Represents a step in a plan."""
-              description: str = Field(description='The description of the step')
-              status: str = Field(default='pending', description='The status of the step')
 
-          class Plan(BaseModel):
-              """Represents a plan with multiple steps."""
-              steps: list[Step] = Field(default_factory=list, description='The steps in the plan')
+          class Search(BaseModel):
+              query: str
+              done: bool
 
-          agent = Agent('openai:gpt-4o-mini', deps_type=StateDeps[Plan])
-          app = agent.to_ag_ui(deps=StateDeps(Plan()))
+
+          class AgentState(BaseModel):
+              searches: list[Search] = Field(default_factory=list)
+
+
+          agent = Agent("openai:gpt-4o-mini", deps_type=StateDeps[AgentState])
           ```
         </Tab>
     </Tabs>
@@ -79,16 +81,76 @@ First, you'll need to make sure you have a running Pydantic AI Agent. If you hav
     <Tabs groupId="language" items={['Python']} default="Python">
       <Tab value="Python">
         ```python title="agent-py/sample_agent/agent.py"
-        from ag_ui.core import StateSnapshotEvent, EventType
+        @agent.tool
+        async def add_search(
+            ctx: RunContext[StateDeps[AgentState]], new_query: str
+        ) -> StateSnapshotEvent:
+            """Add a search to the agent's list of searches.
 
-        @agent.tool_plain
-        def create_plan(steps: list[str]) -> StateSnapshotEvent:
-            """Create a plan with multiple steps."""
-            plan_steps = [Step(description=step) for step in steps]
-            return StateSnapshotEvent(
-                type=EventType.STATE_SNAPSHOT,
-                snapshot={"steps": [step.model_dump() for step in plan_steps]}
+            Args:
+            ctx: The run context containing the agent's state.
+                new_query: The query to add to the agent's state.
+
+            """
+            new_search = Search(query=new_query, done=False)
+            searches = ctx.deps.state.searches
+            searches.append(new_search)
+            agent_state = AgentState(searches=searches)
+            ctx.deps.state = agent_state
+
+            return StateSnapshotEvent(type=EventType.STATE_SNAPSHOT, snapshot=agent_state)
+
+
+        @agent.tool
+        async def run_searches(ctx: RunContext[StateDeps[AgentState]]) -> StateSnapshotEvent:
+            """Run the searches in the agent's state.
+
+            Args:
+                ctx: The run context containing the agent's state.
+            """
+            searches = ctx.deps.state.searches
+
+            for search in searches:
+                await asyncio.sleep(1)
+                search.done = True
+
+            agent_state = AgentState(searches=searches)
+            ctx.deps.state = agent_state
+
+            return StateSnapshotEvent(type=EventType.STATE_SNAPSHOT, snapshot=agent_state)
+
+
+        @agent.instructions()
+        async def search_instructions(ctx: RunContext[StateDeps[AgentState]]) -> str:
+            """Instructions for the search agent.
+
+            Args:
+                ctx: The run context containing search state information.
+
+            Returns:
+                Instructions string for the search agent.
+            """
+            return dedent(
+                f"""
+                You are a helpful assistant for storing searches.
+
+                IMPORTANT:
+                - Use the `add_search` tool to add a search to the agent's state
+                - After using the `add_search` tool, YOU MUST ALWAYS use the `run_searches` tool to run the searches in the agent's state.
+                - ONLY USE THE `add_search` TOOL ONCE FOR A GIVEN QUERY.
+
+                The current state of the searches is:
+
+                {ctx.deps.state.model_dump_json(indent=2)}
+                """
             )
+
+
+        app = agent.to_ag_ui(deps=StateDeps(AgentState()))
+        if __name__ == "__main__":
+            import uvicorn
+
+            uvicorn.run(app, host="0.0.0.0", port=8000)
         ```
       </Tab>
     </Tabs>
@@ -103,7 +165,7 @@ First, you'll need to make sure you have a running Pydantic AI Agent. If you hav
     import { useCoAgent } from "@copilotkit/react-core";
     // ...
 
-    // Define the state of the agent, should match the state of the agent in your LangGraph.
+    // Define the state of the agent, should match the state of your Pydantic AI Agent.
     type AgentState = {
       searches: {
         query: string;
@@ -114,7 +176,7 @@ First, you'll need to make sure you have a running Pydantic AI Agent. If you hav
     function YourMainContent() {
       // ...
 
-      // [!code highlight:14]
+      // [!code highlight:13]
       // styles omitted for brevity
       useCoAgentStateRender<AgentState>({
         name: "sample_agent", // the name the agent is served as
@@ -145,7 +207,7 @@ First, you'll need to make sure you have a running Pydantic AI Agent. If you hav
     import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
     // ...
 
-    // Define the state of the agent, should match the state of the agent in your LangGraph.
+    // Define the state of the agent, should match the state of your Pydantic AI Agent.
     type AgentState = {
       searches: {
         query: string;
@@ -156,7 +218,7 @@ First, you'll need to make sure you have a running Pydantic AI Agent. If you hav
     function YourMainContent() {
       // ...
 
-      // [!code highlight:5]
+      // [!code highlight:3]
       const { state } = useCoAgent<AgentState>({
         name: "sample_agent", // the name the agent is served as
       })
@@ -167,7 +229,7 @@ First, you'll need to make sure you have a running Pydantic AI Agent. If you hav
         <div>
           {/* ... */}
           <div className="flex flex-col gap-2 mt-4">
-            // [!code highlight:6]
+            {/* [!code highlight:5] */}
             {state.searches?.map((search, index) => (
               <div key={index} className="flex flex-row">
                 {search.done ? "✅" : "❌"} {search.query}
