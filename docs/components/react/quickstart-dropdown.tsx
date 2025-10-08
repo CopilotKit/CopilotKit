@@ -15,7 +15,7 @@ export function QuickstartDropdown() {
     { label: "CrewAI Flows", url: "/crewai-flows/quickstart/crewai" },
     { label: "CrewAI Crews", url: "/crewai-crews/quickstart/crewai" },
     { label: "AG2", url: "/ag2/quickstart" },
-    { label: "Pydantic AI", url: "/pydantic-ai/quickstart" },
+    { label: "Pydantic AI", url: "/pydantic-ai/quickstart/pydantic-ai" },
     { label: "ADK", url: "/adk/quickstart" },
   ];
 
