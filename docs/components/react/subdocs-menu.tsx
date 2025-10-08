@@ -496,7 +496,7 @@ function SubdocsMenuItemDropdown({
             }, 10);
           }
         }}
-        value={shouldResetDropdown ? undefined : selectedOption?.url}
+        value={shouldResetDropdown ? "" : (selectedOption?.url || "")}
       >
         <SelectTrigger
           className={cn(
