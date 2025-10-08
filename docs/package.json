@@ -7,7 +7,8 @@
     "dev": "next dev",
     "start": "next start",
     "postinstall": "fumadocs-mdx",
-    "prepare": "husky"
+    "prepare": "husky",
+    "check-links": "node scripts/check-broken-links.js"
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.18.2",
