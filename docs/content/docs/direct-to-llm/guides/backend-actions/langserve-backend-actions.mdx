@@ -23,7 +23,8 @@ Here's how to implement LangServe integration:
 ```tsx title="/api/copilotkit/route.ts"
 const runtime = new CopilotRuntime({
   // ... existing configuration
-  langserve: [ // [!code highlight:7]
+  // [!code highlight:7]
+  langserve: [
     {
       chainUrl: "http://my-langserve.chain",
       name: "performResearch",

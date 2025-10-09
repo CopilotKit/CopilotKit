@@ -69,7 +69,7 @@ state update you can reflect these updates natively in your application.
     import { z } from "zod";
     import { Memory } from "@mastra/memory";
 
-    // [!code highlight:5]
+    // [!code highlight:4]
     // 1. Define the agent state schema
     export const AgentStateSchema = z.object({
       language: z.enum(["english", "spanish"]),
@@ -86,7 +86,7 @@ state update you can reflect these updates natively in your application.
       memory: new Memory({
         storage: new LibSQLStore({ url: "file::memory:" }),
         options: {
-          // [!code highlight:5]
+          // [!code highlight:4]
           workingMemory: {
             enabled: true,
             schema: AgentStateSchema,
@@ -106,8 +106,9 @@ state update you can reflect these updates natively in your application.
     import { AgentState } from "@/mastra/agents/language-agent";
 
     function YourMainContent() {
-      const { state } = useCoAgent<AgentState>({ // [!code highlight:5]
-          name: "your-mastra-agent-name",
+      // [!code highlight:5]
+      const { state } = useCoAgent<AgentState>({
+        name: "your-mastra-agent-name",
         // optionally provide a type-safe initial state
         initialState: { language: "spanish" }  
       });
@@ -118,7 +119,7 @@ state update you can reflect these updates natively in your application.
         // style excluded for brevity
         <div>
           <h1>Your main content</h1>
-          // [!code highlight:2]
+          {/* [!code highlight:1] */}
           <p>Language: {state.language}</p> 
         </div>
       );
@@ -150,7 +151,7 @@ type AgentState = {
 
 function YourMainContent() {
   // ...
-  // [!code highlight:8]
+  // [!code highlight:7]
   useCoAgentStateRender({
     name: "your-mastra-agent-name",
     render: ({ state }) => {

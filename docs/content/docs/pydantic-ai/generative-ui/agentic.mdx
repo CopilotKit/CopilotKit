@@ -176,7 +176,7 @@ First, you'll need to make sure you have a running Pydantic AI Agent. If you hav
     function YourMainContent() {
       // ...
 
-      // [!code highlight:14]
+      // [!code highlight:13]
       // styles omitted for brevity
       useCoAgentStateRender<AgentState>({
         name: "sample_agent", // the name the agent is served as
@@ -218,7 +218,7 @@ First, you'll need to make sure you have a running Pydantic AI Agent. If you hav
     function YourMainContent() {
       // ...
 
-      // [!code highlight:5]
+      // [!code highlight:3]
       const { state } = useCoAgent<AgentState>({
         name: "sample_agent", // the name the agent is served as
       })
@@ -229,7 +229,7 @@ First, you'll need to make sure you have a running Pydantic AI Agent. If you hav
         <div>
           {/* ... */}
           <div className="flex flex-col gap-2 mt-4">
-            // [!code highlight:6]
+            {/* [!code highlight:5] */}
             {state.searches?.map((search, index) => (
               <div key={index} className="flex flex-row">
                 {search.done ? "✅" : "❌"} {search.query}

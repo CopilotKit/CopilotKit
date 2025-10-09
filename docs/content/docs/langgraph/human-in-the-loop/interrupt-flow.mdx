@@ -174,7 +174,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
 
     const YourMainContent = () => {
     // ...
-    // [!code highlight:16]
+    // [!code highlight:15]
     // styles omitted for brevity
     useLangGraphInterrupt({
         render: ({ event, resolve }) => (
@@ -315,7 +315,7 @@ For this reason, the hook can take an `enabled` argument which will apply it con
 
         const YourMainContent = () => {
             // ...
-            // [!code highlight:14]
+            // [!code highlight:13]
             useLangGraphInterrupt({
                 enabled: ({ eventValue }) => eventValue.type === 'ask',
                 render: ({ event, resolve }) => (
@@ -360,7 +360,7 @@ const YourMainContent = () => {
 
     // ...
     // styles omitted for brevity
-    // [!code highlight:30]
+    // [!code highlight:28]
     useLangGraphInterrupt({
         handler: async ({ result, event, resolve }) => {
             const { department } = await getUserByEmail(userEmail)

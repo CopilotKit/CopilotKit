@@ -1,6 +1,5 @@
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
 import { Logo } from "./logo";
-import { RocketIcon, CloudIcon, TerminalIcon } from "lucide-react";
 
 /**
  * Shared layout configurations
@@ -14,6 +13,5 @@ export const baseOptions: BaseLayoutProps = {
   nav: {
     title: <Logo />,
   },
-  links: [], // Navigation now handled by TopNav component
 };
 

@@ -7,7 +7,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body> 
-        {/* Make sure to use the URL you configured in the previous step  */} // [!code highlight:4]
+        {/* Make sure to use the URL you configured in the previous step  */}
+        {/* [!code highlight:3] */}
         <CopilotKit runtimeUrl="/api/copilotkit"> 
           {children}
         </CopilotKit>

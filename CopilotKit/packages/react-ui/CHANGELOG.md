@@ -1,5 +1,52 @@
 # ui
 
+## 1.10.6-next.4
+
+### Patch Changes
+
+- Updated dependencies [8626c5a]
+  - @copilotkit/react-core@1.10.6-next.4
+  - @copilotkit/runtime-client-gql@1.10.6-next.4
+  - @copilotkit/shared@1.10.6-next.4
+
+## 1.10.6-next.3
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.6-next.3
+- @copilotkit/react-core@1.10.6-next.3
+- @copilotkit/shared@1.10.6-next.3
+
+## 1.10.6-next.2
+
+### Patch Changes
+
+- Updated dependencies [3ac64bf]
+  - @copilotkit/react-core@1.10.6-next.2
+  - @copilotkit/runtime-client-gql@1.10.6-next.2
+  - @copilotkit/shared@1.10.6-next.2
+
+## 1.10.6-next.1
+
+### Patch Changes
+
+- Updated dependencies [c9e499f]
+  - @copilotkit/react-core@1.10.6-next.1
+  - @copilotkit/runtime-client-gql@1.10.6-next.1
+  - @copilotkit/shared@1.10.6-next.1
+
+## 1.10.6-next.0
+
+### Patch Changes
+
+- 0cc9ec2: - fix(react-ui): address hydration issue
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+  - @copilotkit/react-core@1.10.6-next.0
+  - @copilotkit/runtime-client-gql@1.10.6-next.0
+  - @copilotkit/shared@1.10.6-next.0
+
 ## 1.10.5
 
 ### Patch Changes

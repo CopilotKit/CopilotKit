@@ -45,9 +45,9 @@ export default defineConfig({
         rehypeCode,
         {
           transformers: [
-            transformerNotationDiff(),
-            transformerNotationHighlight(),
-            transformerNotationWordHighlight(),
+            transformerNotationDiff({ matchAlgorithm: "v3" }),
+            transformerNotationHighlight({ matchAlgorithm: "v3" }),
+            transformerNotationWordHighlight({ matchAlgorithm: "v3" }),
           ],
         },
       ],

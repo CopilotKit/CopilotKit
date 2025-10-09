@@ -17,5 +17,11 @@
     "tailwind-config": "1.4.6",
     "tsconfig": "1.4.6"
   },
-  "changesets": []
+  "changesets": [
+    "chatty-eggs-hammer",
+    "friendly-ducks-mate",
+    "neat-timers-dress",
+    "odd-forks-tie",
+    "spicy-fishes-walk"
+  ]
 }

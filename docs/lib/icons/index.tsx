@@ -26,7 +26,7 @@ export function icon(icon: any) {
   }
 
   return (
-    <div key={icon}>
+    <div key={icon} className="text-primary">
       {iconElement}
     </div>
   );

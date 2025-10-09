@@ -44,7 +44,6 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     <Tabs groupId="language" items={["Python", "TypeScript"]}>
       <Tab value="Python">
         ```python title="agent-py/sample_agent/agent.py"
-
         import json
         from typing import Dict, Optional
         from pydantic import BaseModel
@@ -65,7 +64,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
             language: str = "english"
 
 
-        def set_language(tool_context: ToolContext, new_language: list[str]) -> Dict[str, str]:
+        def set_language(tool_context: ToolContext, new_language: str) -> Dict[str, str]:
             """
             Set the language
 
@@ -108,7 +107,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
         ) -> Optional[LlmResponse]:
             """Inspects/modifies the LLM request or skips the call."""
             agent_name = callback_context.agent_name
-            if agent_name == "assistant":
+            if agent_name == "sample_agent":
                 language_json = "No language yet"
                 if (
                     "language" in callback_context.state
@@ -149,9 +148,9 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
             model="gemini-2.5-flash",
             instruction="""
             You are a helpful assistant. Help users by answering their questions and assisting with their needs.
-            Use the set_language tool to set the language to be used in state
+            Please use the language specified in state when responding to the user.
+            You can set the language in state by using the set_language tool.
             You can answer questions about what you have in state if the user asks.
-            Do not use the language specified in state when responding to the user, respond in the language you would normally respond in.
             """,
             tools=[set_language],
             before_agent_callback=on_before_agent,
@@ -195,7 +194,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     // Example usage in a pseudo React component
     function YourMainContent() {
       const { state, setState } = useCoAgent<AgentState>({ // [!code highlight]
-        name: "sample_agent",
+        name: "my_agent",
         initialState: { language: "spanish" }  // optionally provide an initial state
       });
 
@@ -211,7 +210,8 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
         // style excluded for brevity
         <div>
           <h1>Your main content</h1>
-          <p>Language: {state.language}</p> // [!code highlight:2]
+          {/* [!code highlight:2] */}
+          <p>Language: {state.language}</p>
           <button onClick={toggleLanguage}>Toggle Language</button>
         </div>
       );
@@ -235,15 +235,24 @@ If you want to re-run it manually, use the `run` argument on the `useCoAgent` ho
 
 The agent will be re-run, and it will get not only the latest updated state, but also a **hint** that can depend on the data delta between the previous and the current state.
 
+For this example, you'll need to install the `@copilotkit/runtime-client-gql` and `@copilotkit/shared` packages.
+
+```bash
+pnpm add @copilotkit/runtime-client-gql
+pnpm add @copilotkit/shared
+```
+
 ```tsx title="ui/app/page.tsx"
 import { useCoAgent } from "@copilotkit/react-core";
 import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";  // [!code highlight]
+import type { Message } from "@copilotkit/shared";
 
 // ...
 
 function YourMainContent() {
+  // [!code word:run:1]
   const { state, setState, run } = useCoAgent<AgentState>({
-    name: "sample_agent",
+    name: "my_agent",
     initialState: { language: "spanish" }  // optionally provide an initial state
   });
 
@@ -253,11 +262,11 @@ function YourMainContent() {
     setState({ language: newLanguage });
 
     // re-run the agent and provide a hint about what's changed
-    run(({ previousState, currentState }) => { // [!code highlight:6]
+    run(({ _previousState, currentState }) => {
       return new TextMessage({
         role: MessageRole.User,
-        content: `the language has been updated to ${currentState.language}`,
-      });
+        content: `Please confirm that the language has been updated to ${currentState.language}`,
+      }) as Message;
     });
   };
 
