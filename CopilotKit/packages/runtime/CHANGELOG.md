@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.10.6-next.6
+
+### Patch Changes
+
+- 7455309: - feat: use latest agui langgraph integration packages
+  - @copilotkit/shared@1.10.6-next.6
+
 ## 1.10.6-next.5
 
 ### Patch Changes
