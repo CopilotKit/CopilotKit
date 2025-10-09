@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.10.6-next.5
+
+### Patch Changes
+
+- e0dd5d5: - feat: allow additional config in direct to llm actions
+- Updated dependencies [e0dd5d5]
+  - @copilotkit/shared@1.10.6-next.5
+
 ## 1.10.6-next.4
 
 ### Patch Changes
