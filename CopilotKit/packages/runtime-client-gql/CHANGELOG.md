@@ -1,5 +1,13 @@
 # @copilotkit/runtime-client-gql
 
+## 1.10.6
+
+### Patch Changes
+
+- 8626c5a: - fix: surface errors also in production
+- Updated dependencies [e0dd5d5]
+  - @copilotkit/shared@1.10.6
+
 ## 1.10.6-next.6
 
 ### Patch Changes
