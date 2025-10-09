@@ -1,5 +1,15 @@
 # @copilotkit/runtime
 
+## 1.10.6
+
+### Patch Changes
+
+- 01e0a4b: - fix: use all AGUI as peer dependencies
+- e0dd5d5: - feat: allow additional config in direct to llm actions
+- 7455309: - feat: use latest agui langgraph integration packages
+- Updated dependencies [e0dd5d5]
+  - @copilotkit/shared@1.10.6
+
 ## 1.10.6-next.6
 
 ### Patch Changes
