@@ -381,7 +381,7 @@ importers:
         version: 18.3.1(react@18.3.1)
       ts-jest:
         specifier: ^29.1.1
-        version: 29.2.3(@babel/core@7.24.9)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.24.9))(esbuild@0.23.0)(jest@29.7.0(@types/node@20.14.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.5.28(@swc/helpers@0.5.13))(@types/node@20.14.12)(typescript@5.5.4)))(typescript@5.5.4)
+        version: 29.2.3(@babel/core@7.24.9)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.24.9))(esbuild@0.17.19)(jest@29.7.0(@types/node@20.14.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.5.28(@swc/helpers@0.5.13))(@types/node@20.14.12)(typescript@5.5.4)))(typescript@5.5.4)
       tsconfig:
         specifier: workspace:*
         version: link:../../utilities/tsconfig
@@ -502,7 +502,7 @@ importers:
         version: 3.4.6(ts-node@10.9.2(@swc/core@1.5.28(@swc/helpers@0.5.13))(@types/node@20.14.12)(typescript@5.5.4))
       ts-jest:
         specifier: ^29.1.1
-        version: 29.2.3(@babel/core@7.24.9)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.24.9))(esbuild@0.17.19)(jest@29.7.0(@types/node@20.14.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.5.28(@swc/helpers@0.5.13))(@types/node@20.14.12)(typescript@5.5.4)))(typescript@5.5.4)
+        version: 29.2.3(@babel/core@7.24.9)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.24.9))(esbuild@0.23.0)(jest@29.7.0(@types/node@20.14.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.5.28(@swc/helpers@0.5.13))(@types/node@20.14.12)(typescript@5.5.4)))(typescript@5.5.4)
       tsconfig:
         specifier: workspace:*
         version: link:../../utilities/tsconfig
@@ -598,8 +598,8 @@ importers:
         specifier: '>=0.0.39'
         version: 0.0.39
       '@ag-ui/langgraph':
-        specifier: '>=0.0.17'
-        version: 0.0.17(@ag-ui/client@0.0.39)(@ag-ui/core@0.0.39)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)
+        specifier: '>=0.0.18'
+        version: 0.0.18(@ag-ui/client@0.0.39)(@ag-ui/core@0.0.39)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)
       '@ag-ui/proto':
         specifier: '>=0.0.39'
         version: 0.0.39
@@ -974,8 +974,8 @@ packages:
   '@ag-ui/encoder@0.0.39':
     resolution: {integrity: sha512-6fsoFwPWkStK7Uyj3pwBn7+aQjUWf7pbDTSI43cD53sBLvTr5oEFNnoKOzRfC5UqvHc4JjUIuLKPQyjHRwWg4g==}
 
-  '@ag-ui/langgraph@0.0.17':
-    resolution: {integrity: sha512-D5MfoJT+jHCnXSTlOP7nLkwu3oJKG6ihcwijzPc7qL91wsVeqry6unRbu90rQHilK3ITvfjmtJn1c+GvQDXP9Q==}
+  '@ag-ui/langgraph@0.0.18':
+    resolution: {integrity: sha512-soWSV8+xR91jMArZUJoRv85UCgTi3Zt3u3gTMZhvs1t6fGFpAi6+hEQ4AqP13Rgvg90IlmIU8MTWo2k0OZDnoA==}
     peerDependencies:
       '@ag-ui/client': '>=0.0.38'
       '@ag-ui/core': '>=0.0.38'
@@ -10258,7 +10258,7 @@ snapshots:
       '@ag-ui/core': 0.0.39
       '@ag-ui/proto': 0.0.39
 
-  '@ag-ui/langgraph@0.0.17(@ag-ui/client@0.0.39)(@ag-ui/core@0.0.39)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)':
+  '@ag-ui/langgraph@0.0.18(@ag-ui/client@0.0.39)(@ag-ui/core@0.0.39)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@ag-ui/client': 0.0.39
       '@ag-ui/core': 0.0.39
@@ -17324,7 +17324,7 @@ snapshots:
       isstream: 0.1.2
       jsonwebtoken: 9.0.2
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.7.9(debug@4.4.1))
+      retry-axios: 2.6.0(axios@1.7.9)
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -20268,7 +20268,7 @@ snapshots:
       onetime: 5.1.2
       signal-exit: 3.0.7
 
-  retry-axios@2.6.0(axios@1.7.9(debug@4.4.1)):
+  retry-axios@2.6.0(axios@1.7.9):
     dependencies:
       axios: 1.7.9(debug@4.4.1)
 
