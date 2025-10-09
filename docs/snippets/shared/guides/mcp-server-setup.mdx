@@ -110,6 +110,68 @@ Powered by 🪄 [Tadata](https://tadata.com) - The platform for instantly buildi
   </Step>
 </Steps>
 
+## Claude Code
+
+[Claude Code](https://docs.claude.com/en/docs/claude-code) is Anthropic's official CLI for Claude. It supports MCP integrations to connect with external tools and services, enhancing AI capabilities with specialized knowledge.
+
+<Steps>
+  <Step>
+    ### Add MCP Server to Claude Code
+    Use the Claude Code CLI to add the CopilotKit MCP server:
+
+    ```bash
+    claude mcp add --transport sse copilotkit-mcp https://mcp.copilotkit.ai/sse
+    ```
+
+    **Expected Output:**
+    ```
+    Added SSE MCP server copilotkit-mcp with URL: https://mcp.copilotkit.ai/sse to local config
+    File modified: /home/[username]/.claude.json [project: /path/to/your/project]
+    ```
+  </Step>
+  <Step>
+    ### Verify Connection
+    Check that the server is properly connected:
+
+    ```bash
+    claude mcp list
+    ```
+
+    **Expected Output:**
+    ```
+    Checking MCP server health...
+
+    copilotkit-mcp: https://mcp.copilotkit.ai/sse (SSE) - ✓ Connected
+    ```
+
+    <div className="mt-4 p-4 rounded-lg bg-muted">
+      <div className="font-medium text-sm mb-2">💡 Server Name Requirements</div>
+      <div className="text-sm text-muted-foreground">
+        Server names can only contain letters, numbers, hyphens, and underscores. Avoid spaces in server names.
+      </div>
+    </div>
+  </Step>
+  <Step>
+    ### Using MCP Tools in Claude Code
+    Once configured, the CopilotKit MCP server tools are automatically available when you interact with Claude Code for CopilotKit-related development tasks. The AI will intelligently use these tools when relevant to your queries.
+
+    **What the MCP Server Provides:**
+    - Expert guidance for CopilotKit development
+    - Accurate code generation for CopilotKit features
+    - Best practices and implementation patterns
+    - Deep understanding of CopilotKit APIs
+
+    **Management Commands:**
+    ```bash
+    # View server details
+    claude mcp get copilotkit-mcp
+
+    # Remove server if needed
+    claude mcp remove copilotkit-mcp -s local
+    ```
+  </Step>
+</Steps>
+
 ## Windsurf
 
 [Windsurf](https://codeium.com/windsurf) is Codeium's agentic IDE that combines AI-powered coding assistance with traditional development tools. It features the Cascade AI assistant with MCP integration.
@@ -278,68 +340,6 @@ Powered by 🪄 [Tadata](https://tadata.com) - The platform for instantly buildi
     - Red dot: Connection error
 
     You can manage server settings, restart connections, or disable servers from the "Installed" tab in the MCP Servers interface.
-  </Step>
-</Steps>
-
-## Claude Code
-
-[Claude Code](https://docs.claude.com/en/docs/claude-code) is Anthropic's official CLI for Claude. It supports MCP integrations to connect with external tools and services, enhancing AI capabilities with specialized knowledge.
-
-<Steps>
-  <Step>
-    ### Add MCP Server to Claude Code
-    Use the Claude Code CLI to add the CopilotKit MCP server:
-
-    ```bash
-    claude mcp add --transport sse copilotkit-mcp https://mcp.copilotkit.ai/sse
-    ```
-
-    **Expected Output:**
-    ```
-    Added SSE MCP server copilotkit-mcp with URL: https://mcp.copilotkit.ai/sse to local config
-    File modified: /home/[username]/.claude.json [project: /path/to/your/project]
-    ```
-  </Step>
-  <Step>
-    ### Verify Connection
-    Check that the server is properly connected:
-
-    ```bash
-    claude mcp list
-    ```
-
-    **Expected Output:**
-    ```
-    Checking MCP server health...
-
-    copilotkit-mcp: https://mcp.copilotkit.ai/sse (SSE) - ✓ Connected
-    ```
-
-    <div className="mt-4 p-4 rounded-lg bg-muted">
-      <div className="font-medium text-sm mb-2">💡 Server Name Requirements</div>
-      <div className="text-sm text-muted-foreground">
-        Server names can only contain letters, numbers, hyphens, and underscores. Avoid spaces in server names.
-      </div>
-    </div>
-  </Step>
-  <Step>
-    ### Using MCP Tools in Claude Code
-    Once configured, the CopilotKit MCP server tools are automatically available when you interact with Claude Code for CopilotKit-related development tasks. The AI will intelligently use these tools when relevant to your queries.
-
-    **What the MCP Server Provides:**
-    - Expert guidance for CopilotKit development
-    - Accurate code generation for CopilotKit features
-    - Best practices and implementation patterns
-    - Deep understanding of CopilotKit APIs
-
-    **Management Commands:**
-    ```bash
-    # View server details
-    claude mcp get copilotkit-mcp
-
-    # Remove server if needed
-    claude mcp remove copilotkit-mcp -s local
-    ```
   </Step>
 </Steps>
 
