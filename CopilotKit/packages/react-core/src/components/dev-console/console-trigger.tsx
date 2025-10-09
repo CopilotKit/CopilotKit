@@ -4,23 +4,41 @@ import React, { useState, useEffect, useRef } from "react";
 import { useCopilotContext } from "../../context/copilot-context";
 import { CopilotKitIcon } from "./icons";
 import { DeveloperConsoleModal } from "./developer-console-modal";
+import { InspectorMessage } from "./types";
+import {
+  fetchNotifications,
+  countUnreadNotifications,
+  type Notification,
+} from "../../utils/notifications";
 
-// Storage key for hiding the Inspector trigger/modal
+// Storage key for hiding the Inspector trigger/modal (with timestamp)
 const INSPECTOR_HIDE_KEY = "cpk:inspector:hidden";
+// Session storage key for temporary hiding (until browser refresh)
+const INSPECTOR_HIDE_SESSION_KEY = "cpk:inspector:hidden:session";
 
 interface ConsoleTriggerProps {
   position?: "bottom-left" | "bottom-right";
+  inspectorMessages?: InspectorMessage[];
 }
 
-export function ConsoleTrigger({ position = "bottom-right" }: ConsoleTriggerProps) {
+export function ConsoleTrigger({
+  position = "bottom-right",
+  inspectorMessages = [],
+}: ConsoleTriggerProps) {
   const context = useCopilotContext();
   const hasApiKey = Boolean(context.copilotApiConfig.publicApiKey);
+
+  // Notification state
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [buttonPosition, setButtonPosition] = useState<{ x: number; y: number } | null>(null);
   const [mounted, setMounted] = useState(false);
   const [isHidden, setIsHidden] = useState(false);
+  const [hasDragged, setHasDragged] = useState(false);
 
   const dragRef = useRef<{
     startX: number;
@@ -34,26 +52,96 @@ export function ConsoleTrigger({ position = "bottom-right" }: ConsoleTriggerProp
   useEffect(() => {
     setMounted(true);
     try {
+      // Clear session storage on mount (fresh page load)
+      // Session storage is meant to only hide until browser refresh/close
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem(INSPECTOR_HIDE_SESSION_KEY);
+      }
+
+      // Check local storage for long-term hide (with timestamp)
       const hidden =
         typeof window !== "undefined" ? localStorage.getItem(INSPECTOR_HIDE_KEY) : null;
-      if (hidden === "1" || hidden === "true") {
-        setIsHidden(true);
+      if (hidden) {
+        const hideUntil = parseInt(hidden, 10);
+        if (!isNaN(hideUntil) && Date.now() < hideUntil) {
+          setIsHidden(true);
+        } else if (isNaN(hideUntil)) {
+          // Old format, clear it
+          localStorage.removeItem(INSPECTOR_HIDE_KEY);
+        } else if (Date.now() >= hideUntil) {
+          // Expired, clear it
+          localStorage.removeItem(INSPECTOR_HIDE_KEY);
+        }
       }
     } catch {
       // ignore
     }
     if (typeof window !== "undefined" && !buttonPosition) {
-      const buttonSize = 60;
-      const margin = 24;
+      const buttonSize = 36;
+      const margin = 24; // Match chat button spacing
 
       const initialPosition = {
-        x: margin,
-        y: window.innerHeight - buttonSize - margin,
+        x: window.innerWidth - buttonSize - margin,
+        y: window.innerHeight - buttonSize - margin - 60,
       };
 
       setButtonPosition(initialPosition);
     }
   }, [position]);
+
+  // Load notifications on mount
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        // TODO: Accept RSS feed URL as prop and pass it here
+        const notifs = await fetchNotifications();
+        setNotifications(notifs);
+        setUnreadCount(countUnreadNotifications(notifs));
+      } catch (error) {
+        console.debug("Failed to load notifications:", error);
+      }
+    };
+
+    if (mounted) {
+      loadNotifications();
+    }
+  }, [mounted]);
+
+  const snapToEdge = (position: { x: number; y: number }) => {
+    const buttonSize = 36;
+    const margin = 24; // Match chat button spacing
+    const chatButtonOffset = 80; // Extra offset to avoid CopilotKit chat button
+
+    let snappedX = position.x;
+    let snappedY = position.y;
+
+    // Always snap to closest horizontal edge (left or right)
+    const distanceFromLeft = position.x;
+    const distanceFromRight = window.innerWidth - (position.x + buttonSize);
+
+    const snapRight = distanceFromLeft >= distanceFromRight;
+
+    if (snapRight) {
+      snappedX = window.innerWidth - buttonSize - margin;
+    } else {
+      snappedX = margin;
+    }
+
+    // Always snap to closest vertical edge (top or bottom)
+    const distanceFromTop = position.y;
+    const distanceFromBottom = window.innerHeight - (position.y + buttonSize);
+
+    const snapBottom = distanceFromTop >= distanceFromBottom;
+
+    if (snapBottom) {
+      // If snapping to bottom corners, add extra offset to avoid chat button (right) or Next.js icon (left)
+      snappedY = window.innerHeight - buttonSize - margin - chatButtonOffset;
+    } else {
+      snappedY = margin;
+    }
+
+    setButtonPosition({ x: snappedX, y: snappedY });
+  };
 
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -66,6 +154,7 @@ export function ConsoleTrigger({ position = "bottom-right" }: ConsoleTriggerProp
       buttonY: buttonPosition.y,
     };
     setIsDragging(true);
+    setHasDragged(false);
   };
 
   useEffect(() => {
@@ -80,13 +169,18 @@ export function ConsoleTrigger({ position = "bottom-right" }: ConsoleTriggerProp
       const deltaX = e.clientX - dragRef.current.startX;
       const deltaY = e.clientY - dragRef.current.startY;
 
+      // If moved more than 5px, mark as dragged
+      if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+        setHasDragged(true);
+      }
+
       // Calculate new position
       let newX = dragRef.current.buttonX + deltaX;
       let newY = dragRef.current.buttonY + deltaY;
 
       // Keep button within viewport bounds
-      newX = Math.max(0, Math.min(newX, window.innerWidth - 60));
-      newY = Math.max(0, Math.min(newY, window.innerHeight - 60));
+      newX = Math.max(0, Math.min(newX, window.innerWidth - 36));
+      newY = Math.max(0, Math.min(newY, window.innerHeight - 36));
 
       setButtonPosition({ x: newX, y: newY });
     };
@@ -96,6 +190,11 @@ export function ConsoleTrigger({ position = "bottom-right" }: ConsoleTriggerProp
       e.stopPropagation();
       setIsDragging(false);
       dragRef.current = null;
+
+      // Snap to edges
+      if (buttonPosition) {
+        snapToEdge(buttonPosition);
+      }
     };
 
     // Use capture phase to intercept events before they reach other handlers
@@ -106,7 +205,7 @@ export function ConsoleTrigger({ position = "bottom-right" }: ConsoleTriggerProp
       document.removeEventListener("mousemove", handleMouseMove, { capture: true });
       document.removeEventListener("mouseup", handleMouseUp, { capture: true });
     };
-  }, [isDragging]);
+  }, [isDragging, buttonPosition]);
 
   // Don't render until mounted and position is initialized
   if (!mounted || !buttonPosition || isHidden) {
@@ -115,139 +214,103 @@ export function ConsoleTrigger({ position = "bottom-right" }: ConsoleTriggerProp
 
   return (
     <>
-      <button
-        ref={buttonRef}
-        onClick={(e) => {
-          if (!isDragging) {
-            // Modifier-click hides
-            if (e.metaKey || e.altKey) {
-              try {
-                localStorage.setItem(INSPECTOR_HIDE_KEY, "1");
-              } catch {}
-              setIsHidden(true);
-              return;
-            }
-            setIsModalOpen(true);
-          }
-        }}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          try {
-            localStorage.setItem(INSPECTOR_HIDE_KEY, "1");
-          } catch {}
-          setIsHidden(true);
-        }}
-        onMouseDown={handleMouseDown}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        style={{
-          position: "fixed",
-          left: `${buttonPosition.x}px`,
-          top: `${buttonPosition.y}px`,
-          zIndex: 2147483647,
-          width: "60px",
-          height: "60px",
-          background: isDragging ? "#000000" : isHovered ? "#111111" : "#000000",
-          color: "white",
-          borderRadius: "50%",
-          boxShadow: isDragging
-            ? "0 8px 32px rgba(0, 0, 0, 0.6), 0 4px 16px rgba(0, 0, 0, 0.4)"
-            : isHovered
-              ? "0 12px 40px rgba(0, 0, 0, 0.7), 0 6px 20px rgba(0, 0, 0, 0.5)"
-              : "0 6px 20px rgba(0, 0, 0, 0.5), 0 3px 10px rgba(0, 0, 0, 0.3)",
-          transition: isDragging ? "none" : "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          border: "none",
-          cursor: isDragging ? "grabbing" : "grab",
-          opacity: 1,
-          userSelect: "none",
-          transform: isDragging ? "scale(1.05)" : isHovered ? "scale(1.1)" : "scale(1)",
-          backdropFilter: "blur(10px)",
-          pointerEvents: "auto",
-          isolation: "isolate",
-        }}
-        title={
-          hasApiKey
-            ? "Open Inspector (Drag to move)"
-            : "Inspector (License Key Required, Drag to move)"
-        }
-      >
-        {/* Close (hide) control */}
-        <div
+      {!isModalOpen && (
+        <button
+          ref={buttonRef}
           onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            try {
-              localStorage.setItem(INSPECTOR_HIDE_KEY, "1");
-            } catch {
-              // ignore
+            if (!hasDragged) {
+              setIsModalOpen(true);
             }
-            setIsHidden(true);
           }}
+          onMouseDown={handleMouseDown}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
           style={{
-            position: "absolute",
-            bottom: "2px",
-            right: "2px",
-            width: "20px",
-            height: "20px",
+            position: "fixed",
+            left: `${buttonPosition.x}px`,
+            top: `${buttonPosition.y}px`,
+            zIndex: 2147483647,
+            width: "36px",
+            height: "36px",
+            background: isDragging ? "#000000" : isHovered ? "#1a1a1a" : "#000000",
+            color: "white",
             borderRadius: "50%",
-            background: "#ffffff",
-            color: "#ef4444",
-            fontSize: "14px",
-            lineHeight: "18px",
-            textAlign: "center",
-            boxShadow: "0 2px 6px rgba(0,0,0,0.35)",
-            cursor: "pointer",
-            border: "1px solid #e5e7eb",
+            boxShadow: "none",
+            transition: isDragging ? "none" : "all 0.2s ease",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            zIndex: 1,
+            border: "1px solid rgba(255, 255, 255, 0.1)",
+            cursor: isDragging ? "grabbing" : "grab",
+            opacity: 1,
+            userSelect: "none",
+            transform: "scale(1)",
+            pointerEvents: "auto",
           }}
-          title="Hide Inspector"
+          title={
+            hasApiKey
+              ? "Open Inspector (Drag to move)"
+              : "Inspector (License Key Required, Drag to move)"
+          }
         >
-          ×
-        </div>
-        <div
-          style={{
-            width: "28px",
-            height: "28px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.2))",
-          }}
-        >
-          <CopilotKitIcon />
-        </div>
-        {!hasApiKey && (
+          {/* Notification slot - shows warning icon when version is outdated */}
+          {/* This will be populated with notification data */}
           <div
             style={{
-              position: "absolute",
-              top: "-2px",
-              right: "-2px",
-              width: "18px",
-              height: "18px",
-              background: "linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)",
-              borderRadius: "50%",
+              width: "20px",
+              height: "20px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              boxShadow: "0 2px 8px rgba(255, 107, 107, 0.4)",
-              border: "2px solid white",
             }}
           >
-            <span style={{ fontSize: "10px", color: "white", fontWeight: "bold" }}>!</span>
+            <CopilotKitIcon />
           </div>
-        )}
-      </button>
+
+          {/* Notification badge - shows unread count */}
+          {unreadCount > 0 && (
+            <div
+              style={{
+                position: "absolute",
+                top: "-4px",
+                right: "-4px",
+                backgroundColor: "#3b82f6",
+                color: "white",
+                fontSize: "10px",
+                fontWeight: "600",
+                padding: "2px 5px",
+                borderRadius: "10px",
+                minWidth: "16px",
+                height: "16px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                border: "1.5px solid #000000",
+                boxShadow: "0 2px 4px rgba(0, 0, 0, 0.2)",
+              }}
+            >
+              {unreadCount}
+            </div>
+          )}
+        </button>
+      )}
 
       <DeveloperConsoleModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
+        onHideForDay={() => {
+          try {
+            const hideUntil = Date.now() + 24 * 60 * 60 * 1000; // 24 hours from now
+            localStorage.setItem(INSPECTOR_HIDE_KEY, hideUntil.toString());
+          } catch {
+            // ignore
+          }
+          setIsHidden(true);
+          setIsModalOpen(false);
+        }}
         hasApiKey={hasApiKey}
+        buttonPosition={buttonPosition}
+        inspectorMessages={inspectorMessages}
       />
     </>
   );
