@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.10.6-next.3
+
+### Patch Changes
+
+- 01e0a4b: - fix: use all AGUI as peer dependencies
+  - @copilotkit/shared@1.10.6-next.3
+
 ## 1.10.6-next.2
 
 ### Patch Changes
