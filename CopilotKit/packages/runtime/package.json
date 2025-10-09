@@ -78,7 +78,7 @@
     "@ag-ui/client": ">=0.0.39",
     "@ag-ui/core": ">=0.0.39",
     "@ag-ui/encoder": ">=0.0.39",
-    "@ag-ui/langgraph": ">=0.0.17",
+    "@ag-ui/langgraph": ">=0.0.18",
     "@ag-ui/proto": ">=0.0.39"
   },
   "keywords": [
