@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { flushSync } from "react-dom";
 import {
   FunctionCallHandler,
@@ -231,7 +231,21 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   const { setBannerError } = useToast();
 
   // Get onError from context since it's not part of copilotConfig
-  const { onError } = useCopilotContext();
+  const { onError, showDevConsole, getAllContext } = useCopilotContext();
+
+  const copilotReadableContext = getAllContext();
+
+  const context = useMemo(
+    () =>
+      copilotReadableContext.map((contextItem) => {
+        const [description, ...valueParts] = contextItem.value.split(":");
+        return {
+          description: description.trim(),
+          value: valueParts.join(":").trim(),
+        };
+      }),
+    [copilotReadableContext],
+  );
 
   // Add tracing functionality to use-chat
   const traceUIError = async (error: CopilotKitError, originalError?: any) => {
@@ -277,8 +291,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     ...(copilotConfig.headers || {}),
     ...(publicApiKey ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicApiKey } : {}),
   };
-
-  const { showDevConsole } = useCopilotContext();
 
   const runtimeClient = useCopilotRuntimeClient({
     url: copilotConfig.chatApiEndpoint,
@@ -413,6 +425,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               return stateObject;
             }),
             forwardedParameters: options.forwardedParameters || {},
+            context,
           },
           properties: finalProperties,
           signal: chatAbortControllerRef.current?.signal,
@@ -473,7 +486,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             if (ev.name === MetaEventName.LangGraphInterruptEvent) {
               let eventValue = langGraphInterruptEvent(ev as LangGraphInterruptEvent).value;
               eventValue = parseJson(eventValue, eventValue);
-              setLangGraphInterruptAction({
+              setLangGraphInterruptAction(threadId, {
                 event: {
                   ...langGraphInterruptEvent(ev as LangGraphInterruptEvent),
                   value: eventValue,
@@ -578,7 +591,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
             // Stop processing and break from the loop
             setIsLoading(false);
-            break;
+            throw new Error(structuredError.message);
           }
 
           // add messages to the chat
@@ -875,6 +888,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
       agentSession,
       setAgentSession,
       disableSystemMessage,
+      context,
     ],
   );
 
@@ -909,7 +923,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           case MetaEventName.LangGraphInterruptEvent:
             if (event.response) {
               // Flush interrupt event from state
-              setLangGraphInterruptAction(null);
+              setLangGraphInterruptAction(threadId, null);
               const value = (event as LangGraphInterruptEvent).value;
               return [
                 ...acc,
@@ -967,9 +981,9 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         console.warn(`Regenerate cannot be performed on ${reloadMessageRole} role`);
         return;
       }
+      let historyCutoff: Message[] = [messages[0]];
 
-      let historyCutoff: Message[] = [];
-      if (messages.length > 2) {
+      if (messages.length > 2 && reloadMessageIndex !== 0) {
         // message to regenerate from is now first.
         // Work backwards to find the first the closest user message
         const lastUserMessageBeforeRegenerate = messages
@@ -986,6 +1000,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
         // Include the user message, remove everything after it
         historyCutoff = messages.slice(0, indexOfLastUserMessageBeforeRegenerate + 1);
+      } else if (messages.length > 2 && reloadMessageIndex === 0) {
+        historyCutoff = [messages[0], messages[1]];
       }
 
       setMessages(historyCutoff);

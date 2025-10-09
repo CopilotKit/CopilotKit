@@ -9,6 +9,7 @@ import { SiLangchain } from "react-icons/si";
 import {
   AG2Icon,
   MastraIcon,
+  ADKIcon,
   AgnoIcon,
   LlamaIndexIcon,
   PydanticAIIcon,
@@ -105,6 +106,39 @@ export default function Layout({ children }: { children: ReactNode }) {
                         "ring-zinc-800 dark:ring-white ring-2 rounded-sm",
                     },
                     {
+                      title: "Pydantic AI",
+                      description:
+                        "Documentation for CoAgents with Pydantic AI",
+                      url: "/pydantic-ai",
+                      icon: <PydanticAIIcon className="w-4 h-4 text-bold" />,
+                      bgGradient: "bg-black text-white",
+                      selectedStyle: "ring-gray-500 ring-2 rounded-sm",
+                    },
+                    {
+                      title: "Google ADK",
+                      description: "Documentation for CoAgents with ADK",
+                      url: "/adk",
+                      icon: <ADKIcon className="w-4 h-4 text-bold" />,
+                      bgGradient: "bg-black text-white",
+                      selectedStyle: "ring-gray-500 ring-2 rounded-sm",
+                    },                    {
+                      title: "Agno",
+                      description: "Documentation for CoAgents with Agno",
+                      url: "/agno",
+                      icon: <AgnoIcon className="w-4 h-4 text-bold" />,
+                      bgGradient: "bg-[#FF3C1A] text-white",
+                      selectedStyle: "ring-[#FF3C1A] ring-2 rounded-sm",
+                    },
+                    {
+                      title: "LlamaIndex",
+                      description: "Documentation for CoAgents with LlamaIndex",
+                      url: "/llamaindex",
+                      icon: <LlamaIndexIcon className="w-4 h-4 text-bold" />,
+                      bgGradient:
+                        "bg-gradient-to-b from-pink-500 via-purple-500 to-blue-400 text-pink-100",
+                      selectedStyle: "ring-pink-500/70 ring-2 rounded-sm",
+                    },
+                    {
                       title: "CrewAI Flows",
                       description:
                         "Documentation for CoAgents with CrewAI Flows",
@@ -123,32 +157,6 @@ export default function Layout({ children }: { children: ReactNode }) {
                       bgGradient:
                         "bg-gradient-to-b from-[#FA694C] to-[#FE8A71] text-white",
                       selectedStyle: "ring-[#FA694C]/70 ring-2 rounded-sm",
-                    },
-                    {
-                      title: "Pydantic AI",
-                      description:
-                        "Documentation for CoAgents with Pydantic AI",
-                      url: "/pydantic-ai",
-                      icon: <PydanticAIIcon className="w-4 h-4 text-bold" />,
-                      bgGradient: "bg-black text-white",
-                      selectedStyle: "ring-gray-500 ring-2 rounded-sm",
-                    },
-                    {
-                      title: "Agno",
-                      description: "Documentation for CoAgents with Agno",
-                      url: "/agno",
-                      icon: <AgnoIcon className="w-4 h-4 text-bold" />,
-                      bgGradient: "bg-[#FF3C1A] text-white",
-                      selectedStyle: "ring-[#FF3C1A] ring-2 rounded-sm",
-                    },
-                    {
-                      title: "LlamaIndex",
-                      description: "Documentation for CoAgents with LlamaIndex",
-                      url: "/llamaindex",
-                      icon: <LlamaIndexIcon className="w-4 h-4 text-bold" />,
-                      bgGradient:
-                        "bg-gradient-to-b from-pink-500 via-purple-500 to-blue-400 text-pink-100",
-                      selectedStyle: "ring-pink-500/70 ring-2 rounded-sm",
                     },
                     {
                       title: "AutoGen2",

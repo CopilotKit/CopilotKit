@@ -1,42 +1,40 @@
 ---
-title: Frontend Actions
+title: Frontend Tools
 icon: "lucide/Wrench"
-description: Create frontend actions and use them within your AG2 agent.
+description: Create frontend tools and use them within your AG2 agent.
 ---
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
 
 ## Implementation
 
 <Callout>
-Check out the [Frontend Actions overview](/frontend-actions) to understand what they are and when to use them.
+Check out the [Frontend Tools overview](/frontend-tools) to understand what they are and when to use them.
 </Callout>
 
 <Steps>
     <Step>
         ### Setup CopilotKit
 
-        To use frontend actions, you'll need to setup CopilotKit first. For the sake of brevity, we won't cover it here.
+        To use frontend tools, you'll need to setup CopilotKit first. For the sake of brevity, we won't cover it here.
 
         Check out our [getting started guide](/ag2/quickstart/ag2) and come back here when you're setup!
     </Step>
 
     <Step>
-        ### Create a frontend action
+        ### Create a frontend tool
 
-        First, you'll need to create a frontend action using the [useCopilotAction](/reference/hooks/useCopilotAction) hook. Here's a simple one to get you started
+        First, you'll need to create a frontend tool using the [useFrontendTool](/reference/hooks/useFrontendTool) hook. Here's a simple one to get you started
         that says hello to the user.
 
         ```tsx title="page.tsx"
-        import { useCopilotAction } from "@copilotkit/react-core" // [!code highlight]
+        import { useFrontendTool } from "@copilotkit/react-core" // [!code highlight]
 
         export function Page() {
           // ...
 
-          // [!code highlight:16]
-          useCopilotAction({
+          // [!code highlight:15]
+          useFrontendTool({
             name: "sayHello",
             description: "Say hello to the user",
-            available: "remote", // optional, makes it so the action is *only* available to the agent
             parameters: [
               {
                 name: "name",
@@ -56,16 +54,12 @@ Check out the [Frontend Actions overview](/frontend-actions) to understand what 
     </Step>
     <Step>
         ###  Modify your agent
-        Now, we'll need to modify the agent to access these frontend actions. Open up for your agent's folder and continue from there!
-    </Step>
-    <Step>
-        ### Install the CopilotKit SDK
-        <InstallSDKSnippet components={props.components}/>
+        Now, we'll need to modify the agent to access these frontend tools. Open up for your agent's folder and continue from there!
     </Step>
     <Step>
         ### Inheriting from CopilotKitState
 
-        To access the frontend actions provided by CopilotKit, you can inherit from CopilotKitState in your agent's state definition:
+        To access the frontend tools provided by CopilotKit, you can inherit from CopilotKitState in your agent's state definition:
 
         <Tabs groupId="language" items={['Python']} default="Python">
             <Tab value="Python">
@@ -75,14 +69,14 @@ Check out the [Frontend Actions overview](/frontend-actions) to understand what 
             </Tab>
         </Tabs>
 
-        By doing this, your agent's state will include the `copilotkit` property, which contains the frontend actions that can be accessed and invoked.
+        By doing this, your agent's state will include the `copilotkit` property, which contains the frontend tools that can be accessed and invoked.
     </Step>
     <Step>
-        ### Accessing Frontend Actions
+        ### Accessing Frontend Tools
 
-        Once your agent's state includes the `copilotkit` property, you can access the frontend actions and utilize them within your agent's logic.
+        Once your agent's state includes the `copilotkit` property, you can access the frontend tools and utilize them within your agent's logic.
 
-        Here's how you can call a frontend action from your agent:
+        Here's how you can call a frontend tool from your agent:
 
         <Tabs groupId="language" items={['Python']} default="Python">
             <Tab value="Python">
@@ -92,11 +86,11 @@ Check out the [Frontend Actions overview](/frontend-actions) to understand what 
             </Tab>
         </Tabs>
 
-        These actions are automatically populated by CopilotKit and are compatible with LiteLLM's tool call definitions, making it straightforward to integrate them into your agent's workflow.
+        These tools are automatically populated by CopilotKit and are compatible with LiteLLM's tool call definitions, making it straightforward to integrate them into your agent's workflow.
     </Step>
     <Step>
         ### Give it a try!
-        You've now given your agent the ability to directly call any CopilotActions you've defined. These actions will be available as tools to the agent where they can be used as needed.
+        You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
     </Step>
 
-</Steps> 
+</Steps>

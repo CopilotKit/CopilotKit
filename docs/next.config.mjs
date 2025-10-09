@@ -234,6 +234,16 @@ const config = {
         destination: "/pydantic-ai/vibe-coding-mcp",
         permanent: true,
       },
+      {
+        source: "/adk/quickstart/adk",
+        destination: "/adk/quickstart",
+        permanent: true,
+      },
+      {
+        source: "/adk/mcp",
+        destination: "/adk/vibe-coding-mcp",
+        permanent: true,
+      },
     ];
   },
 };

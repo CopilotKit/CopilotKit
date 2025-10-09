@@ -50,7 +50,7 @@ function handleNavigationScroll(fromPath: string, toPath: string) {
   const fromIntegration = fromPath.split('/')[1];
   const toIntegration = toPath.split('/')[1];
   const isIntegrationSwitch = fromIntegration !== toIntegration && toPath !== "/";
-  
+
   // For both integration switches and internal navigation, scroll the main page to top
   setTimeout(() => {
     window.scrollTo({ top: 0, behavior: 'auto' });
@@ -139,7 +139,7 @@ function scrollSidebarToSelectedItem(targetPath?: string) {
 // Global navigation handler for use with any link
 export function useNavigationScroll() {
   const pathname = usePathname();
-  
+
   return (toPath: string) => {
     handleNavigationScroll(pathname, toPath);
     scrollSidebarToSelectedItem(toPath);
@@ -147,14 +147,14 @@ export function useNavigationScroll() {
 }
 
 // Custom Link component for MDX content with navigation scrolling
-export function NavigationLink({ 
-  href, 
-  children, 
-  className, 
-  ...props 
-}: { 
-  href: string; 
-  children: React.ReactNode; 
+export function NavigationLink({
+  href,
+  children,
+  className,
+  ...props
+}: {
+  href: string;
+  children: React.ReactNode;
   className?: string;
   [key: string]: any;
 }) {
@@ -165,17 +165,27 @@ export function NavigationLink({
   const normalizeHref = (input: string): string => {
     if (!input || typeof input !== 'string') return input;
     if (!input.startsWith('/')) return input; // already relative or external
-    const currentTop = (pathname.split('/')[1] || '').trim();
-    const targetTop = (input.split('/')[1] || '').trim();
-    if (currentTop && targetTop && currentTop === targetTop) {
-      const rest = input.split('/').slice(2).join('/');
-      return rest ? `./${rest}` : './';
+
+    const currentSplit = pathname.split('/').filter(x => x);
+    const targetSplit = input.split('/').filter(x => x);
+    while (currentSplit.length > 1 && targetSplit.length > 1 && currentSplit[0] === targetSplit[0]) {
+      currentSplit.shift();
+      targetSplit.shift();
     }
-    return input;
+
+    let rel = '';
+    for (let i = 0; i < currentSplit.length - 1; i++) {
+      rel += '../';
+    }
+    if (rel === '') {
+      rel = './';
+    }
+    rel += targetSplit.join('/');
+    return rel;
   };
 
   const renderedHref = normalizeHref(href);
-  
+
   return (
     <Link
       href={renderedHref}
@@ -200,27 +210,27 @@ export function isActive(
 ): boolean {
   // Exact match
   if (url === pathname) return true;
-  
+
   // For nested matching
   if (nested) {
     // Special handling for root URL
     if (root && url === "/") {
       return pathname === "/";
     }
-    
+
     // For non-root URLs, check if pathname starts with the URL followed by a slash
     // This ensures /direct-to-llm/guides/quickstart matches /direct-to-llm/guides/frontend-actions
     if (url !== "/" && pathname.startsWith(`${url}/`)) {
       return true;
     }
-    
+
     // Special case for direct-to-llm: if the option URL is /direct-to-llm/guides/quickstart
     // and the current path is anywhere under /direct-to-llm/, consider it active
     if (url.includes('/direct-to-llm/') && pathname.startsWith('/direct-to-llm/')) {
       return true;
     }
   }
-  
+
   return false;
 }
 
@@ -281,7 +291,7 @@ export function SubdocsMenu({
 } & HTMLAttributes<HTMLButtonElement>): React.ReactElement {
   const { closeOnRedirect } = useSidebar();
   const pathname = usePathname();
-  
+
   // State for tracking user's explicit navigation preference
   const [storedPreference, setStoredPreference] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -337,7 +347,7 @@ export function SubdocsMenu({
       if (storedOption) {
         return storedOption;
       }
-      
+
       // Check if stored preference matches any dropdown option
       const storedDropdownOption = dropdownOptions.find(option => option.url === storedPreference);
       if (storedDropdownOption) {
@@ -400,7 +410,7 @@ function SubdocsMenuItem({
   onExplicitClick?: (url: string) => void;
 }) {
   const pathname = usePathname();
-  
+
   if (isOption(item)) {
     return (
       <Link
@@ -464,7 +474,7 @@ function SubdocsMenuItemDropdown({
 
   // Check if we're on a page that should reset the dropdown
   const topLevelPages = ["/", "/reference"];
-  const shouldResetDropdown = topLevelPages.some(page => 
+  const shouldResetDropdown = topLevelPages.some(page =>
     page === "/" ? pathname === "/" : pathname.startsWith(page)
   );
 
@@ -486,7 +496,7 @@ function SubdocsMenuItemDropdown({
             }, 10);
           }
         }}
-        value={shouldResetDropdown ? undefined : selectedOption?.url}
+        value={shouldResetDropdown ? "" : (selectedOption?.url || "")}
       >
         <SelectTrigger
           className={cn(

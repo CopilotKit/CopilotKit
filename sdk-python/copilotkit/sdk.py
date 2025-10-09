@@ -226,6 +226,14 @@ class CopilotKitRemoteEndpoint:
         self.agents = agents or []
         self.actions = actions or []
 
+        if isinstance(agents, list):
+            from .langgraph_agent import LangGraphAgent
+            for agent in agents:
+                if isinstance(agent, LangGraphAgent):
+                    raise ValueError(
+                        "LangGraphAgent should be instantiated using LangGraphAGUIAgent. Refer to https://docs.copilotkit.ai/langgraph for more information.")
+        
+
     def info(
         self,
         *,

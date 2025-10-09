@@ -76,7 +76,8 @@ standard deterministic update (button clicks), and sometimes through LLM-driven 
       // Add additional instructions to the system prompt if this stage is active
       useCopilotAdditionalInstructions({
         instructions: "Ask for the user's name politely.",
-        // Use "available" argument to enable this only when the stage is correct! // [!code highlight:2]
+        // [!code highlight:2]
+        // Use "available" argument to enable this only when the stage is correct!
         available: stage === "one" ? "available" : "disabled"
       })
 
@@ -317,7 +318,7 @@ export function useStageGetContactInfo() {
         return (
           <ContactInfo
             status={status}
-            // [!code highlight:11]
+            // [!code highlight:10]
             onSubmit={(name, email, phone) => {
               // Commit the contact information to the global state.
               setContactInfo({ name, email, phone });
@@ -357,7 +358,7 @@ function useStageSellFinancing() {
   });
 
   // Different paths based on financing choice by user, LLM will decide which path to take
-  // [!code highlight:14]
+  // [!code highlight:13]
   useCopilotAction({
     name: "selectFinancing",
     description: "Select the financing option",
@@ -371,7 +372,6 @@ function useStageSellFinancing() {
     available: stage === "sellFinancing" ? "enabled" : "disabled",
     handler: () => setStage("getPaymentInfo"),
   }, [stage]);
-
 }
 ```
 
@@ -403,7 +403,7 @@ Click here for the [source code](https://github.com/CopilotKit/CopilotKit/tree/m
         renderAndWaitForResponse: ({ args, status, respond }) => {
           const { car } = args;
           return (
-            // [!code highlight:11]
+            // [!code highlight:10]
             <ShowCar
               car={(car as Car) || ({} as Car)}
               status={status}
@@ -529,7 +529,7 @@ export function useStageGetPaymentInfo() {
   // Conditionally add additional instructions for the agent's prompt.
   useCopilotAdditionalInstructions({
     available: stage === "getPaymentInfo" ? "enabled" : "disabled",
-    // [!code highlight:6]
+    // [!code highlight:5]
     instructions: `
         CURRENT STATE: You are now getting the payment information of the user. 
         Say, 'Great! Now I need to get your payment information.' and MAKE SURE 

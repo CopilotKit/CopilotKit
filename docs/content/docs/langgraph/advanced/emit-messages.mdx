@@ -51,18 +51,18 @@ Manually emitted messages are great for **when you don't want to wait for the no
                 async def chat_node(state: AgentState, config: RunnableConfig):
                     model = ChatOpenAI(model="gpt-4o")
 
-                    # [!code highlight:3]
+                    # [!code highlight:2]
                     intermediate_message = "Thinking really hard..."
                     await copilotkit_emit_message(config, intermediate_message)
 
                     # simulate a long running task
-                    await asyncio.sleep(2) 
+                    await asyncio.sleep(2)
 
                     response = await model.ainvoke([
                         SystemMessage(content="You are a helpful assistant."),
                         *state["messages"]
                     ], config)
-                    
+
                     return Command(
                         goto=END,
                         update={
@@ -83,7 +83,7 @@ Manually emitted messages are great for **when you don't want to wait for the no
                 async function chat_node(state: AgentState, config: RunnableConfig) {
                     const model = new ChatOpenAI({ model: "gpt-4o" });
 
-                    // [!code highlight:3]
+                    // [!code highlight:2]
                     const intermediateMessage = "Thinking really hard...";
                     await copilotkitEmitMessage(config, intermediateMessage);
 
@@ -96,7 +96,8 @@ Manually emitted messages are great for **when you don't want to wait for the no
                     ], config);
 
                     return {
-                        // Make sure to include the emitted message in the messages history # [!code highlight:2]
+                        // [!code highlight:2]
+                        // Make sure to include the emitted message in the messages history
                         messages: [new AIMessage(intermediateMessage), response],
                     };
                 }

@@ -1,0 +1,186 @@
+---
+title: ADK Agents
+description: Learn how to implement Human-in-the-Loop (HITL) using ADK Agents.
+icon: lucide/Share2
+---
+
+import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/node-hitl.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
+
+## What is this?
+
+ADK agents are are stateful agents that can use tool calls to request user confirmation or input.
+
+CopilotKit lets you to add custom UI to take user input and then pass it back to the agent upon completion.
+
+## Why should I use this?
+
+Human-in-the-loop is a powerful way to implement complex workflows that are production ready. By having a human in the loop,
+you can ensure that the agent is always making the right decisions and ultimately is being steered in the right direction.
+
+ADK agents are a great way to implement HITL for more complex workflows where you want to ensure the agent is aware
+of everything that has happened during a HITL interaction.
+
+## Implementation
+
+<Steps>
+    <Step>
+        ### Run and connect your agent
+
+        You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
+        you can follow the instructions in the [Getting Started](/adk/quickstart/adk) guide.
+    </Step>
+
+    <Step>
+        ### Add a `useCopilotAction` to your Frontend
+        First, we'll create a component that renders the agent's essay draft and waits for user approval.
+
+        ```tsx title="ui/app/page.tsx"
+        import { useCopilotAction } from "@copilotkit/react-core"
+        import { Markdown } from "@copilotkit/react-ui"
+
+        function YourMainContent() {
+          useCopilotAction({
+            name: "write_essay",
+            available: "enabled",
+            description: "Writes an essay and takes the draft as an argument.",
+            parameters: [
+              { name: "draft", type: "string", description: "The draft of the essay", required: true },
+            ],
+            renderAndWaitForResponse: ({ args, respond, status }) => {
+              return (
+                <div>
+                  <Markdown content={args.draft || 'Preparing your draft...'} />
+                  <div className={`flex gap-4 pt-4 ${status !== "executing" ? "hidden" : ""}`}>
+                    <button
+                      onClick={() => respond?.({ accepted: false })}
+                      disabled={status !== "executing"}
+                      className="border p-2 rounded-xl w-full"
+                    >
+                      Reject Draft
+                    </button>
+                    <button
+                      onClick={() => respond?.({ accepted: true })}
+                      disabled={status !== "executing"}
+                      className="bg-blue-500 text-white p-2 rounded-xl w-full"
+                    >
+                      Approve Draft
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+          });
+
+          return (
+            <div>
+              ...
+            </div>
+          );
+        }
+        ```
+    </Step>
+
+    <Step>
+    ### Setup the ADK Agent
+Now we'll setup the ADK agent. The flow is hard to understand without a complete example, so below
+    is the complete implementation of the agent with explanations.
+
+    Some main things to note:
+    - The agent's state inherits from `CopilotKitState` to bring in the CopilotKit actions.
+    - CopilotKit's actions are bound to the model as tools.
+    - If the `writeEssay` action is found in the model's response, the agent will pass control back to the frontend
+      to get user feedback.
+
+    <Tabs groupId="language" items={["Python"]}>
+      <Tab value="Python">
+        ```python title="agent/sample_agent/agent.py"
+        import uvicorn
+        from fastapi import FastAPI
+        from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
+        from google.adk.agents import LlmAgent
+
+        DEFINE_ESSAY_TOOL = """
+        {
+            "type": "function",
+            "function": {
+                "name": "write_essay",
+                "description": "Write an essay from a draft",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "draft": {
+                            "type": "string",
+                            "description": "The draft of the essay to write"
+                        }
+                    },
+                    "required": ["draft"]
+                },
+                "returns": {
+                    "type": "object",
+                    "properties": {
+                        "accepted": {
+                            "type": "boolean",
+                            "description": "if the human approved the draft"
+                        }
+                    },
+                    "required": ["accepted"]
+                }
+            }
+        }
+        """
+
+
+        sample_agent = LlmAgent(
+            model="gemini-2.5-flash",
+            name="sample_agent",
+            instruction=f"""
+            You are a human-in-the-loop essay writing assistant that helps write essays with human oversight and approval.
+
+            **Your Primary Role:**
+            - Generate short ~100 word esssay drafts for any topic the user requests.
+            - Facilitate human review and modification of generated draft
+            - When a human approves a draft, return it as text.
+
+            **When a user asks you to write an essay:**
+            - ALWAYS come up with a short (roughly 100 word) draft of an essay on the topic.
+            - ALWAYS submit the draft to the `write_essay` tool.
+            - When the user requests the essay, do not respond with the essay directly before it is approved. Always use the write_essay tool.
+
+            ** PROVIDING THE APPROVED ESSAY TO THE USER: **
+            - When the user approves the essay, *ALWAYS* respond with "HERE IS THE ESSAY: <essay>".
+            - When the user rejects the essay, *ALWAYS* respond with "REJECTED".
+
+            TOOL_REFERENCE: {DEFINE_ESSAY_TOOL}
+            """,
+        )
+
+        adk_sample_agent = ADKAgent(
+            adk_agent=sample_agent, app_name="essay_demo", user_id="demo_user"
+        )
+
+        # Create FastAPI app
+        app = FastAPI(title="ADK Middleware Essay Tool Agent")
+        # Add the ADK endpoint
+        add_adk_fastapi_endpoint(app, adk_sample_agent, path="/")
+        uvicorn.run(app, host="localhost", port=8000)
+        ```
+      </Tab>
+    </Tabs>
+    </Step>
+    <Step>
+        ### Give it a try!
+        Try asking your agent to write an essay about the benefits of AI. You'll see that it will generate an essay,
+        stream the progress and eventually ask you to review it.
+    </Step>
+
+</Steps>

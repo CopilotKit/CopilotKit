@@ -1,0 +1,277 @@
+---
+title: Writing agent state
+icon: "lucide/ArrowRight"
+description: Write to agent's state from your application.
+---
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/write-agent-state.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
+<Callout>
+  This video shows the result of `npx copilotkit@latest init` with the [implementation](#implementation) section applied to it!
+</Callout>
+
+## What is this?
+
+This guide shows you how to write to your agent's state from your application.
+
+## When should I use this?
+
+You can use this when you want to provide the user with feedback about what your agent is doing, specifically
+when your agent is calling tools. CopilotKit allows you to fully customize how these tools are rendered in the chat.
+
+## Implementation
+
+<Steps>
+  <Step>
+    ### Run and Connect Your Agent to CopilotKit
+
+    You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
+    you can follow the instructions in the [Getting Started](/adk/quickstart) guide.
+
+  </Step>
+  <Step>
+    ### Define the Agent State
+    ADK Agents are stateful. As you transition through the flow, that state is updated and available to the next function. For this example,
+    let's assume that our agent state looks something like this.
+
+    <Tabs groupId="language" items={["Python", "TypeScript"]}>
+      <Tab value="Python">
+        ```python title="agent-py/sample_agent/agent.py"
+        import json
+        from typing import Dict, Optional
+        from pydantic import BaseModel
+        from fastapi import FastAPI
+        import uvicorn
+
+        from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
+        from google.adk.agents import LlmAgent
+        from google.adk.agents.callback_context import CallbackContext
+        from google.adk.models import LlmResponse, LlmRequest
+        from google.genai import types
+        from google.adk.tools import ToolContext
+
+
+        class SomeAgentState(BaseModel):
+            """State for the agent."""
+
+            language: str = "english"
+
+
+        def set_language(tool_context: ToolContext, new_language: str) -> Dict[str, str]:
+            """
+            Set the language
+
+            Args:
+                "new_language": {
+                    "type": "string",
+                    "description": "The language to be saved in state",
+                }
+
+            Returns:
+                Dict indicating success status and message
+            """
+            try:
+                # Put this into a state object just to confirm the shape
+                new_state = {"language": new_language}
+                tool_context.state["language"] = new_state["language"]
+                return {"status": "success", "message": "language updated successfully"}
+
+            except Exception as e:
+                return {"status": "error", "message": f"Error updating language: {str(e)}"}
+
+
+        def on_before_agent(callback_context: CallbackContext):
+            """
+            Initialize agent state if it doesn't exist.
+            """
+
+            if "language" not in callback_context.state:
+                # Initialize with default recipe
+                default_agent_state = {"language": "english"}
+                callback_context.state["language"] = default_agent_state["language"]
+
+            return None
+
+
+        # --- Define the Callback Function ---
+        #  modifying the agent's system prompt to incude the current state of recipe
+        def before_model_modifier(
+            callback_context: CallbackContext, llm_request: LlmRequest
+        ) -> Optional[LlmResponse]:
+            """Inspects/modifies the LLM request or skips the call."""
+            agent_name = callback_context.agent_name
+            if agent_name == "sample_agent":
+                language_json = "No language yet"
+                if (
+                    "language" in callback_context.state
+                    and callback_context.state["language"] is not None
+                ):
+                    try:
+                        language_json = json.dumps(callback_context.state["language"], indent=2)
+                    except Exception as e:
+                        language_json = f"Error serializing language: {str(e)}"
+                # --- Modification Example ---
+                # Add a prefix to the system instruction
+                original_instruction = llm_request.config.system_instruction or types.Content(
+                    role="system", parts=[]
+                )
+                prefix = f"""You are a helpful assistant
+                This is the current state of the language choice: {language_json}"""
+                # Ensure system_instruction is Content and parts list exists
+                if not isinstance(original_instruction, types.Content):
+                    # Handle case where it might be a string (though config expects Content)
+                    original_instruction = types.Content(
+                        role="system", parts=[types.Part(text=str(original_instruction))]
+                    )
+                if not original_instruction.parts:
+                    original_instruction.parts.append(
+                        types.Part(text="")
+                    )  # Add an empty part if none exist
+
+                # Modify the text of the first part
+                modified_text = prefix + (original_instruction.parts[0].text or "")
+                original_instruction.parts[0].text = modified_text
+                llm_request.config.system_instruction = original_instruction
+
+            return None
+
+
+        sample_agent = LlmAgent(
+            name="sample_agent",
+            model="gemini-2.5-flash",
+            instruction="""
+            You are a helpful assistant. Help users by answering their questions and assisting with their needs.
+            Please use the language specified in state when responding to the user.
+            You can set the language in state by using the set_language tool.
+            You can answer questions about what you have in state if the user asks.
+            """,
+            tools=[set_language],
+            before_agent_callback=on_before_agent,
+            before_model_callback=before_model_modifier,
+        )
+
+        # Create ADK middleware agent instance
+        adk_agent_sample = ADKAgent(
+            adk_agent=sample_agent,
+            app_name="demo_app",
+            user_id="demo_user",
+            session_timeout_seconds=3600,
+            use_in_memory_services=True,
+        )
+
+        # Create FastAPI app
+        app = FastAPI(title="ADK Middleware Sample Agent")
+
+        # Add the ADK endpoint
+        add_adk_fastapi_endpoint(app, adk_agent_sample, path="/")
+
+        uvicorn.run(app, host="localhost", port=8000)
+        ```
+      </Tab>
+    </Tabs>
+
+  </Step>
+  <Step>
+    ### Call `setState` function from the `useCoAgent` hook
+    `useCoAgent` returns a `setState` function that you can use to update the agent state. Calling this
+    will update the agent state and trigger a rerender of anything that depends on the agent state.
+
+    ```tsx title="ui/app/page.tsx"
+    import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
+
+    // Define the agent state type, should match the actual state of your agent
+    type AgentState = {
+      language: "english" | "spanish";
+    }
+
+    // Example usage in a pseudo React component
+    function YourMainContent() {
+      const { state, setState } = useCoAgent<AgentState>({ // [!code highlight]
+        name: "my_agent",
+        initialState: { language: "spanish" }  // optionally provide an initial state
+      });
+
+      // ...
+
+      const toggleLanguage = () => {
+        setState({ language: state.language === "english" ? "spanish" : "english" }); // [!code highlight]
+      };
+
+      // ...
+
+      return (
+        // style excluded for brevity
+        <div>
+          <h1>Your main content</h1>
+          {/* [!code highlight:2] */}
+          <p>Language: {state.language}</p>
+          <button onClick={toggleLanguage}>Toggle Language</button>
+        </div>
+      );
+    }
+    ```
+
+  </Step>
+  <Step>
+    ### Give it a try!
+    You can now use the `setState` function to update the agent state and `state` to read it. Try toggling the language button
+    and talking to your agent. You'll see the language change to match the agent's state.
+  </Step>
+</Steps>
+
+## Advanced Usage
+
+### Re-run the agent with a hint about what's changed
+
+The new agent state will be used next time the agent runs.
+If you want to re-run it manually, use the `run` argument on the `useCoAgent` hook.
+
+The agent will be re-run, and it will get not only the latest updated state, but also a **hint** that can depend on the data delta between the previous and the current state.
+
+For this example, you'll need to install the `@copilotkit/runtime-client-gql` and `@copilotkit/shared` packages.
+
+```bash
+pnpm add @copilotkit/runtime-client-gql
+pnpm add @copilotkit/shared
+```
+
+```tsx title="ui/app/page.tsx"
+import { useCoAgent } from "@copilotkit/react-core";
+import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";  // [!code highlight]
+import type { Message } from "@copilotkit/shared";
+
+// ...
+
+function YourMainContent() {
+  // [!code word:run:1]
+  const { state, setState, run } = useCoAgent<AgentState>({
+    name: "my_agent",
+    initialState: { language: "spanish" }  // optionally provide an initial state
+  });
+
+  // setup to be called when some event in the app occurs
+  const toggleLanguage = () => {
+    const newLanguage = state.language === "english" ? "spanish" : "english";
+    setState({ language: newLanguage });
+
+    // re-run the agent and provide a hint about what's changed
+    run(({ _previousState, currentState }) => {
+      return new TextMessage({
+        role: MessageRole.User,
+        content: `Please confirm that the language has been updated to ${currentState.language}`,
+      }) as Message;
+    });
+  };
+
+  return (
+    // ...
+  );
+}
+```

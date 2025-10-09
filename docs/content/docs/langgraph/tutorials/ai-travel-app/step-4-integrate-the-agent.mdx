@@ -77,7 +77,8 @@ import { CopilotRuntime, LangGraphAgent } from '@copilotkit/runtime'; // [!code 
 const runtime = new CopilotRuntime();// [!code --]
 // [!code ++:10]
 const runtime = new CopilotRuntime({
-  agents: { // [!code highlight:8]
+  // [!code highlight:7]
+  agents: {
     'travel': new LangGraphAgent({
       deploymentUrl: "http://localhost:<port_number>",
       graphId: 'travel',
