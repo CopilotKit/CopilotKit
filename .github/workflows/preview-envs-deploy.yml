@@ -2,6 +2,9 @@ name: Preview Environments
 
 on:
   pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
     branches:
       - main
 
