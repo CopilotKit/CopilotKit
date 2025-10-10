@@ -1,1 +1,1 @@
-cd copilotkit && pnpm run precommit
+cd CopilotKit && pnpm run precommit

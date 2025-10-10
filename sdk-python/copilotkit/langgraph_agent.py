@@ -1,5 +1,6 @@
 """LangGraph agent for CopilotKit"""
 
+import os
 import uuid
 import json
 from typing import Optional, List, Callable, Any, cast, Union, TypedDict, Literal
@@ -165,7 +166,7 @@ class LangGraphAgent(Agent):
         )
 
         self.merge_state = None
-        self.thread_state = {}
+        self._thread_state = {}
         if copilotkit_config is not None:
             self.merge_state = copilotkit_config.get("merge_state")
         if not self.merge_state and merge_state is not None:
@@ -613,14 +614,32 @@ class LangGraphAgent(Agent):
         config["configurable"] = config.get("configurable", {})
         config["configurable"]["thread_id"] = thread_id
 
-        if self.thread_state.get(thread_id, None) is None:
-            self.thread_state[thread_id] = {**(await self.graph.aget_state(config)).values}
+        # Always fetch fresh state instead of using stale cache
+        try:
+            graph_state = await self.graph.aget_state(config)
+        except Exception:
+            graph_state = None
 
-        state = self.thread_state[thread_id]
+        # Determine if thread exists based on metadata/created_at presence
+        # Non-existent threads return StateSnapshot with metadata=None, created_at=None
+        # Existing threads (even empty) have metadata and created_at
+        thread_exists = (graph_state is not None and
+                        hasattr(graph_state, 'metadata') and
+                        hasattr(graph_state, 'created_at') and
+                        graph_state.metadata is not None and
+                        graph_state.created_at is not None)
+
+        # Get state values or empty dict
+        state = {**(graph_state.values if graph_state and graph_state.values else {})}
+
+        # Update cache with fresh state
+        self._thread_state[thread_id] = state
+        self._thread_state[f"__{thread_id}__exists"] = thread_exists
+
         if state == {}:
             return {
                 "threadId": thread_id or "",
-                "threadExists": False,
+                "threadExists": thread_exists,
                 "state": {},
                 "messages": []
             }
