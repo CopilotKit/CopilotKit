@@ -18,6 +18,7 @@ export type ToolResult = agui.ToolMessage & {
 
 export type AIMessage = agui.AssistantMessage & {
   generativeUI?: (props?: any) => any;
+  generativeUIProps?: (props?: any) => any;
   agentName?: string;
   state?: any;
   image?: ImageData;
