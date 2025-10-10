@@ -8,13 +8,11 @@ import {
   useState,
   useRef,
   useCallback,
-  useMemo,
   createContext,
   useContext,
 } from "react";
 import { CopilotMessagesContext } from "../../context/copilot-messages-context";
 import {
-  loadMessagesFromJsonRepresentation,
   Message,
   GraphQLError,
 } from "@copilotkit/runtime-client-gql";
@@ -30,54 +28,7 @@ import {
   CopilotKitErrorCode,
 } from "@copilotkit/shared";
 import { SuggestionItem } from "../../utils/suggestions";
-
-// Helper to determine if error should show as banner based on visibility and legacy patterns
-function shouldShowAsBanner(gqlError: GraphQLError): boolean {
-  const extensions = gqlError.extensions;
-  if (!extensions) return false;
-
-  // Priority 1: Check error code for discovery errors (these should always be banners)
-  const code = extensions.code as CopilotKitErrorCode;
-  if (
-    code === CopilotKitErrorCode.AGENT_NOT_FOUND ||
-    code === CopilotKitErrorCode.API_NOT_FOUND ||
-    code === CopilotKitErrorCode.REMOTE_ENDPOINT_NOT_FOUND ||
-    code === CopilotKitErrorCode.CONFIGURATION_ERROR ||
-    code === CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR ||
-    code === CopilotKitErrorCode.UPGRADE_REQUIRED_ERROR
-  ) {
-    return true;
-  }
-
-  // Priority 2: Check banner visibility
-  if (extensions.visibility === ErrorVisibility.BANNER) {
-    return true;
-  }
-
-  // Priority 3: Check for critical errors that should be banners regardless of formal classification
-  const errorMessage = gqlError.message.toLowerCase();
-  if (
-    errorMessage.includes("api key") ||
-    errorMessage.includes("401") ||
-    errorMessage.includes("unauthorized") ||
-    errorMessage.includes("authentication") ||
-    errorMessage.includes("incorrect api key")
-  ) {
-    return true;
-  }
-
-  // Priority 4: Legacy stack trace detection for discovery errors
-  const originalError = extensions.originalError as any;
-  if (originalError?.stack) {
-    return (
-      originalError.stack.includes("CopilotApiDiscoveryError") ||
-      originalError.stack.includes("CopilotKitRemoteEndpointDiscoveryError") ||
-      originalError.stack.includes("CopilotKitAgentDiscoveryError")
-    );
-  }
-
-  return false;
-}
+import { useAgentStateQuery } from "../../queries/agent-state";
 
 /**
  * MessagesTap is used to mitigate performance issues when we only need
@@ -118,11 +69,8 @@ export function MessagesTapProvider({ children }: { children: React.ReactNode })
 
 export function CopilotMessages({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<Message[]>([]);
-  const lastLoadedThreadId = useRef<string>();
-  const lastLoadedAgentName = useRef<string>();
-  const lastLoadedMessages = useRef<string>();
-
   const { updateTapMessages } = useMessagesTap();
+  const lastHandledErrorRef = useRef<any>(null);
 
   const { threadId, agentSession, runtimeClient, showDevConsole, onError, copilotApiConfig } =
     useCopilotContext();
@@ -253,53 +201,40 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
     [setBannerError, showDevConsole, traceUIError],
   );
 
+  const agentName = agentSession?.agentName;
+
+   // Centralized agent state query
+  const { data: fetchedMessages, error: queryError, isSuccess } = useAgentStateQuery({
+    threadId,
+    agentName,
+    runtimeClient,
+  });
+
+  // Handle errors outside the query execution cycle
   useEffect(() => {
-    if (!threadId || threadId === lastLoadedThreadId.current) return;
-    if (
-      threadId === lastLoadedThreadId.current &&
-      agentSession?.agentName === lastLoadedAgentName.current
-    ) {
-      return;
+    if (queryError && queryError !== lastHandledErrorRef.current) {
+      lastHandledErrorRef.current = queryError;
+      handleGraphQLErrors(queryError);
     }
+  }, [queryError, handleGraphQLErrors]);
 
-    const fetchMessages = async () => {
-      if (!agentSession?.agentName) return;
+  // Sync to local state (for compatibility with existing consumers)
+  useEffect(() => {
+    if (!isSuccess) return;
+    setMessages(fetchedMessages);
+  }, [isSuccess, fetchedMessages]);
 
-      const result = await runtimeClient.loadAgentState({
-        threadId,
-        agentName: agentSession?.agentName,
-      });
-
-      // Check for GraphQL errors and manually trigger error handling
-      if (result.error) {
-        // Update refs to prevent infinite retries of the same failed request
-        lastLoadedThreadId.current = threadId;
-        lastLoadedAgentName.current = agentSession?.agentName;
-        handleGraphQLErrors(result.error);
-        return; // Don't try to process the data if there's an error
-      }
-
-      const newMessages = result.data?.loadAgentState?.messages;
-      if (newMessages === lastLoadedMessages.current) return;
-
-      if (result.data?.loadAgentState) {
-        lastLoadedMessages.current = newMessages;
-        lastLoadedThreadId.current = threadId;
-        lastLoadedAgentName.current = agentSession?.agentName;
-
-        const messages = loadMessagesFromJsonRepresentation(JSON.parse(newMessages || "[]"));
-        setMessages(messages);
-      }
-    };
-    void fetchMessages();
-  }, [threadId, agentSession?.agentName]);
-
+  // Keep tap messages in sync
   useEffect(() => {
     updateTapMessages(messages);
   }, [messages, updateTapMessages]);
 
-  const memoizedChildren = useMemo(() => children, [children]);
-  const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
+  const [suggestions, setSuggestionsState] = useState<SuggestionItem[]>([]);
+
+  // Wrap setSuggestions in useCallback to prevent infinite re-renders in consumers
+  const setSuggestions = useCallback((newSuggestions: SuggestionItem[] | ((prev: SuggestionItem[]) => SuggestionItem[])) => {
+    setSuggestionsState(newSuggestions);
+  }, []);
 
   return (
     <CopilotMessagesContext.Provider
@@ -310,7 +245,7 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
         setSuggestions,
       }}
     >
-      {memoizedChildren}
+      {children}
     </CopilotMessagesContext.Provider>
   );
 }

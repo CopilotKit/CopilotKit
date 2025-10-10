@@ -54,6 +54,18 @@ import {
   LangGraphInterruptActionSetterArgs,
 } from "../../types/interrupt-action";
 import { ConsoleTrigger } from "../dev-console/console-trigger";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+// Create a shared query client with optimized defaults
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: false,
+      staleTime: 0,
+    },
+  },
+});
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const enabled = shouldShowDevConsole(props.showDevConsole);
@@ -62,11 +74,13 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const publicApiKey = props.publicApiKey || props.publicLicenseKey;
 
   return (
-    <ToastProvider enabled={enabled}>
-      <CopilotErrorBoundary publicApiKey={publicApiKey} showUsageBanner={enabled}>
-        <CopilotKitInternal {...props}>{children}</CopilotKitInternal>
-      </CopilotErrorBoundary>
-    </ToastProvider>
+    <QueryClientProvider client={queryClient}>
+      <ToastProvider enabled={enabled}>
+        <CopilotErrorBoundary publicApiKey={publicApiKey} showUsageBanner={enabled}>
+          <CopilotKitInternal {...props}>{children}</CopilotKitInternal>
+        </CopilotErrorBoundary>
+      </ToastProvider>
+    </QueryClientProvider>
   );
 }
 
@@ -424,32 +438,22 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
 
   const showDevConsole = shouldShowDevConsole(props.showDevConsole);
 
-  const [langGraphInterruptActions, _setLangGraphInterruptAction] = useState<
-    Record<string, LangGraphInterruptAction | null>
-  >({});
-  const setLangGraphInterruptAction = useCallback(
-    (threadId: string, action: LangGraphInterruptActionSetterArgs) => {
-      _setLangGraphInterruptAction((prev) => {
-        if (action == null)
-          return {
-            ...prev,
-            [threadId]: null,
-          };
-        let event = prev[threadId]?.event;
-        if (action.event) {
-          // @ts-ignore
-          event = { ...(prev[threadId]?.event || {}), ...action.event };
-        }
-        return {
-          ...prev,
-          [threadId]: { ...(prev[threadId] ?? {}), ...action, event } as LangGraphInterruptAction,
-        };
-      });
-    },
-    [],
-  );
-  const removeLangGraphInterruptAction = useCallback((threadId: string): void => {
-    setLangGraphInterruptAction(threadId, null);
+  const [langGraphInterruptAction, _setLangGraphInterruptAction] =
+    useState<LangGraphInterruptAction | null>(null);
+  const setLangGraphInterruptAction = useCallback((action: LangGraphInterruptActionSetterArgs) => {
+    _setLangGraphInterruptAction((prev) => {
+      if (prev == null) return action as LangGraphInterruptAction;
+      if (action == null) return null;
+      let event = prev.event;
+      if (action.event) {
+        // @ts-ignore
+        event = { ...prev.event, ...action.event };
+      }
+      return { ...prev, ...action, event };
+    });
+  }, []);
+  const removeLangGraphInterruptAction = useCallback((): void => {
+    setLangGraphInterruptAction(null);
   }, []);
 
   const memoizedChildren = useMemo(() => children, [children]);
@@ -543,7 +547,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         setAuthStates_c: updateAuthStates,
         extensions,
         setExtensions: updateExtensions,
-        langGraphInterruptAction: langGraphInterruptActions[internalThreadId] ?? null,
+        langGraphInterruptAction,
         setLangGraphInterruptAction,
         removeLangGraphInterruptAction,
         bannerError,

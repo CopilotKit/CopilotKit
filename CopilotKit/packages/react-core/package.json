@@ -56,6 +56,7 @@
     "@copilotkit/runtime-client-gql": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@scarf/scarf": "^1.3.0",
+    "@tanstack/react-query": "^5.62.11",
     "react-markdown": "^8.0.7",
     "untruncate-json": "^0.0.1"
   },
