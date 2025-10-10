@@ -11,7 +11,7 @@
   "dependencies": {
     "@copilotkit/react-core": "1.9.3",
     "@copilotkit/react-ui": "1.9.3",
-    "@copilotkit/runtime": "1.9.3",
+    "@copilotkit/runtime": "1.10.0",
     "@copilotkit/shared": "1.9.3",
     "@leafygreen-ui/avatar": "^2.0.2",
     "@leafygreen-ui/badge": "^9.0.2",
