@@ -19,11 +19,17 @@ try {
  * https://github.com/CopilotKit/CopilotKit/issues/2595
  */
 export class DefaultMCPClient implements MCPClientInterface {
-  private baseUrl: string;
+  private rpcUrl: string;
+  private streamUrl: string;
   private sessionId: string | null = null;
   private eventSource: EventSource | null = null;
   private headers: Record<string, string>;
   private toolsCache: Record<string, MCPTool> | null = null;
+  
+  // Connection state management
+  private isConnecting: boolean = false;
+  private isConnected: boolean = false;
+  private connectionPromise: Promise<void> | null = null;
   
   // Reconnection strategy properties
   private reconnectAttempt: number = 0;
@@ -33,13 +39,55 @@ export class DefaultMCPClient implements MCPClientInterface {
   private readonly maxDelay: number = 30000; // 30 seconds
 
   constructor(config: MCPEndpointConfig) {
-    this.baseUrl = config.endpoint;
+    try {
+      // Split the endpoint into RPC and SSE URLs
+      const endpoint = new URL(config.endpoint);
+      if (endpoint.pathname.endsWith("/sse")) {
+        // If endpoint ends with /sse, use it for SSE and derive RPC URL
+        this.streamUrl = endpoint.toString();
+        endpoint.pathname = endpoint.pathname.replace(/\/sse\/?$/, "/");
+        this.rpcUrl = endpoint.toString();
+      } else {
+        // If endpoint doesn't end with /sse, use it for RPC and derive SSE URL
+        this.rpcUrl = endpoint.toString();
+        const streamEndpoint = new URL(endpoint.toString());
+        if (!streamEndpoint.pathname.endsWith("/")) {
+          streamEndpoint.pathname += "/";
+        }
+        streamEndpoint.pathname += "sse";
+        this.streamUrl = streamEndpoint.toString();
+      }
+    } catch (error) {
+      throw new Error(`Invalid MCP endpoint URL: ${config.endpoint}. ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+    
     this.headers = config.apiKey 
       ? { Authorization: `Bearer ${config.apiKey}` }
       : {};
   }
 
   async connect(): Promise<void> {
+    // Prevent multiple concurrent connection attempts
+    if (this.isConnecting && this.connectionPromise) {
+      return this.connectionPromise;
+    }
+    
+    if (this.isConnected) {
+      return;
+    }
+    
+    this.isConnecting = true;
+    this.connectionPromise = this.performConnection();
+    
+    try {
+      await this.connectionPromise;
+    } finally {
+      this.isConnecting = false;
+      this.connectionPromise = null;
+    }
+  }
+  
+  private async performConnection(): Promise<void> {
     // Use the proven HttpStreamClient approach from the registry
     // This handles both HTTP Stream and hybrid SSE/HTTP servers correctly
     const initRequest = {
@@ -56,54 +104,86 @@ export class DefaultMCPClient implements MCPClientInterface {
       },
     };
 
-    const response = await fetch(this.baseUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json, text/event-stream",
-        ...this.headers,
-      },
-      body: JSON.stringify(initRequest),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-    if (!response.ok) {
-      throw new Error(`Failed to initialize MCP connection: ${response.status} ${response.statusText}`);
-    }
+    try {
+      const response = await fetch(this.rpcUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json, text/event-stream",
+          ...this.headers,
+        },
+        body: JSON.stringify(initRequest),
+        signal: controller.signal,
+      });
 
-    // Handle SSE response format (hybrid servers)
-    let responseData;
-    const contentType = response.headers.get("content-type");
-    if (contentType?.includes("text/event-stream")) {
-      const text = await response.text();
-      const lines = text.split("\n");
-      const dataLine = lines.find((line) => line.startsWith("data:"));
-      if (dataLine) {
-        responseData = JSON.parse(dataLine.substring(5).trim());
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Failed to initialize MCP connection: ${response.status} ${response.statusText}`);
       }
-    } else {
-      responseData = await response.json();
-    }
 
-    // Extract session ID from headers or response body
-    const sessionIdFromHeaders =
-      response.headers.get("Mcp-Session-Id") ??
-      response.headers.get("X-Session-Id");
-    const sessionIdFromBody =
-      responseData?.result?.session?.id ??
-      responseData?.result?.sessionId ??
-      responseData?.result?.session?.uri;
-    this.sessionId = sessionIdFromHeaders ?? sessionIdFromBody ?? null;
-    
-    if (!this.sessionId) {
-      throw new Error("Failed to determine MCP session id from initialize response.");
+      // Handle SSE response format (hybrid servers)
+      let responseData;
+      const contentType = response.headers.get("content-type");
+      if (contentType?.includes("text/event-stream")) {
+        const text = await response.text();
+        const lines = text.split("\n");
+        const dataLine = lines.find((line) => line.startsWith("data:"));
+        if (dataLine) {
+          try {
+            responseData = JSON.parse(dataLine.substring(5).trim());
+          } catch (parseError) {
+            throw new Error(`Failed to parse SSE response data: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+          }
+        } else {
+          throw new Error("No data line found in SSE response");
+        }
+      } else {
+        try {
+          responseData = await response.json();
+        } catch (parseError) {
+          throw new Error(`Failed to parse JSON response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+        }
+      }
+
+      // Validate response structure
+      if (!responseData || typeof responseData !== 'object') {
+        throw new Error("Invalid response data structure");
+      }
+
+      // Extract session ID from headers or response body
+      const sessionIdFromHeaders =
+        response.headers.get("Mcp-Session-Id") ??
+        response.headers.get("X-Session-Id");
+      const sessionIdFromBody =
+        responseData?.result?.session?.id ??
+        responseData?.result?.sessionId ??
+        responseData?.result?.session?.uri;
+      this.sessionId = sessionIdFromHeaders ?? sessionIdFromBody ?? null;
+      
+      if (!this.sessionId) {
+        throw new Error("Failed to determine MCP session id from initialize response.");
+      }
+      
+      // Open SSE stream for server messages if we have a session
+      if (this.sessionId) {
+        this.openEventStream();
+      }
+      
+      this.isConnected = true;
+      console.log(`Connected to MCP server with session: ${this.sessionId}`);
+      
+    } catch (error) {
+      clearTimeout(timeoutId);
+      this.isConnected = false;
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error("Connection timeout after 30 seconds");
+      }
+      throw error;
     }
-    
-    // Open SSE stream for server messages if we have a session
-    if (this.sessionId) {
-      this.openEventStream();
-    }
-    
-    console.log(`Connected to MCP server with session: ${this.sessionId}`);
   }
 
   private openEventStream(): void {
@@ -124,8 +204,8 @@ export class DefaultMCPClient implements MCPClientInterface {
       this.reconnectTimer = null;
     }
 
-    const url = new URL(this.baseUrl);
-    url.searchParams.append("session", this.sessionId);
+    const url = new URL(this.streamUrl);
+    url.searchParams.set("session", this.sessionId);
     
     const eventSourceOptions: any =
       Object.keys(this.headers).length > 0 ? { headers: this.headers } : undefined;
@@ -200,6 +280,11 @@ export class DefaultMCPClient implements MCPClientInterface {
       return this.toolsCache;
     }
 
+    // Ensure we're connected before making requests
+    if (!this.isConnected || !this.sessionId) {
+      throw new Error("MCP client is not connected. Call connect() first.");
+    }
+
     const request = {
       jsonrpc: "2.0",
       id: "tools-" + Date.now(),
@@ -207,52 +292,89 @@ export class DefaultMCPClient implements MCPClientInterface {
       params: {},
     };
 
-    const response = await fetch(this.baseUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json, text/event-stream",
-        "Mcp-Session-Id": this.sessionId!,
-        ...this.headers,
-      },
-      body: JSON.stringify(request),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
 
-    if (!response.ok) {
-      throw new Error(`Failed to list tools: ${response.status} ${response.statusText}`);
-    }
+    try {
+      const response = await fetch(this.rpcUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json, text/event-stream",
+          "Mcp-Session-Id": this.sessionId,
+          ...this.headers,
+        },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      });
 
-    // Handle SSE response format
-    let result;
-    const contentType = response.headers.get("content-type");
-    if (contentType?.includes("text/event-stream")) {
-      const text = await response.text();
-      const lines = text.split("\n");
-      const dataLine = lines.find((line) => line.startsWith("data:"));
-      if (dataLine) {
-        result = JSON.parse(dataLine.substring(5).trim());
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Failed to list tools: ${response.status} ${response.statusText}`);
       }
-    } else {
-      result = await response.json();
-    }
 
-    const toolsMap: Record<string, MCPTool> = {};
-
-    if (result.result?.tools) {
-      for (const tool of result.result.tools) {
-        toolsMap[tool.name] = {
-          description: tool.description,
-          schema: tool.inputSchema,
-          execute: async (args: any) => this.callTool(tool.name, args),
-        };
+      // Handle SSE response format
+      let result;
+      const contentType = response.headers.get("content-type");
+      if (contentType?.includes("text/event-stream")) {
+        const text = await response.text();
+        const lines = text.split("\n");
+        const dataLine = lines.find((line) => line.startsWith("data:"));
+        if (dataLine) {
+          try {
+            result = JSON.parse(dataLine.substring(5).trim());
+          } catch (parseError) {
+            throw new Error(`Failed to parse SSE tools response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+          }
+        } else {
+          throw new Error("No data line found in tools SSE response");
+        }
+      } else {
+        try {
+          result = await response.json();
+        } catch (parseError) {
+          throw new Error(`Failed to parse tools JSON response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+        }
       }
-    }
 
-    this.toolsCache = toolsMap;
-    return toolsMap;
+      // Validate response structure
+      if (!result || typeof result !== 'object') {
+        throw new Error("Invalid tools response structure");
+      }
+
+      const toolsMap: Record<string, MCPTool> = {};
+
+      if (result.result?.tools && Array.isArray(result.result.tools)) {
+        for (const tool of result.result.tools) {
+          if (tool.name && typeof tool.name === 'string') {
+            toolsMap[tool.name] = {
+              description: tool.description || "",
+              schema: tool.inputSchema || {},
+              execute: async (args: any) => this.callTool(tool.name, args),
+            };
+          }
+        }
+      }
+
+      this.toolsCache = toolsMap;
+      return toolsMap;
+      
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error("Tools request timeout after 15 seconds");
+      }
+      throw error;
+    }
   }
 
   private async callTool(name: string, args: any): Promise<any> {
+    // Ensure we're connected before making requests
+    if (!this.isConnected || !this.sessionId) {
+      throw new Error("MCP client is not connected. Call connect() first.");
+    }
+
     const request = {
       jsonrpc: "2.0",
       id: `tool-${name}-${Date.now()}`,
@@ -263,36 +385,66 @@ export class DefaultMCPClient implements MCPClientInterface {
       },
     };
 
-    const response = await fetch(this.baseUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json, text/event-stream",
-        "Mcp-Session-Id": this.sessionId!,
-        ...this.headers,
-      },
-      body: JSON.stringify(request),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-    if (!response.ok) {
-      throw new Error(`Failed to call tool ${name}: ${response.status} ${response.statusText}`);
-    }
+    try {
+      const response = await fetch(this.rpcUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json, text/event-stream",
+          "Mcp-Session-Id": this.sessionId,
+          ...this.headers,
+        },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      });
 
-    // Handle SSE response format
-    let result;
-    const contentType = response.headers.get("content-type");
-    if (contentType?.includes("text/event-stream")) {
-      const text = await response.text();
-      const lines = text.split("\n");
-      const dataLine = lines.find((line) => line.startsWith("data:"));
-      if (dataLine) {
-        result = JSON.parse(dataLine.substring(5).trim());
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Failed to call tool ${name}: ${response.status} ${response.statusText}`);
       }
-    } else {
-      result = await response.json();
-    }
 
-    return result.result;
+      // Handle SSE response format
+      let result;
+      const contentType = response.headers.get("content-type");
+      if (contentType?.includes("text/event-stream")) {
+        const text = await response.text();
+        const lines = text.split("\n");
+        const dataLine = lines.find((line) => line.startsWith("data:"));
+        if (dataLine) {
+          try {
+            result = JSON.parse(dataLine.substring(5).trim());
+          } catch (parseError) {
+            throw new Error(`Failed to parse SSE tool call response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+          }
+        } else {
+          throw new Error("No data line found in tool call SSE response");
+        }
+      } else {
+        try {
+          result = await response.json();
+        } catch (parseError) {
+          throw new Error(`Failed to parse tool call JSON response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+        }
+      }
+
+      // Validate response structure
+      if (!result || typeof result !== 'object') {
+        throw new Error("Invalid tool call response structure");
+      }
+
+      return result.result;
+      
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error(`Tool call timeout after 30 seconds: ${name}`);
+      }
+      throw error;
+    }
   }
 
   async close(): Promise<void> {
@@ -312,19 +464,29 @@ export class DefaultMCPClient implements MCPClientInterface {
 
     if (this.sessionId) {
       try {
-        await fetch(this.baseUrl, {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+        
+        await fetch(this.rpcUrl, {
           method: "DELETE",
           headers: {
             "Mcp-Session-Id": this.sessionId,
             ...this.headers,
           },
+          signal: controller.signal,
         });
+        
+        clearTimeout(timeoutId);
       } catch (error) {
         console.warn("Error closing MCP session:", error);
       }
       this.sessionId = null;
     }
 
+    // Reset connection state
+    this.isConnected = false;
+    this.isConnecting = false;
+    this.connectionPromise = null;
     this.toolsCache = null;
     this.reconnectAttempt = 0; // Reset reconnection counter
   }
