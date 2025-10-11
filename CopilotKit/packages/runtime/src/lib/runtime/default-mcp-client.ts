@@ -42,8 +42,8 @@ export class DefaultMCPClient implements MCPClientInterface {
     try {
       // Split the endpoint into RPC and SSE URLs
       const endpoint = new URL(config.endpoint);
-      if (endpoint.pathname.endsWith("/sse")) {
-        // If endpoint ends with /sse, use it for SSE and derive RPC URL
+      if (/\/sse\/?$/.test(endpoint.pathname)) {
+        // If endpoint ends with /sse or /sse/, use it for SSE and derive RPC URL
         this.streamUrl = endpoint.toString();
         endpoint.pathname = endpoint.pathname.replace(/\/sse\/?$/, "/");
         this.rpcUrl = endpoint.toString();
