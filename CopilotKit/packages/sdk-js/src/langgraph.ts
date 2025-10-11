@@ -416,7 +416,7 @@ export function convertActionToDynamicStructuredTool(actionInput: any): DynamicS
  * ```typescript
  * import { convertActionsToDynamicStructuredTools } from "@copilotkit/sdk-js";
  *
- * const tools = convertActionsToDynamicStructuredTools(state.copilotkit.actions);
+ * const tools = convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []);
  * ```
  */
 export function convertActionsToDynamicStructuredTools(
