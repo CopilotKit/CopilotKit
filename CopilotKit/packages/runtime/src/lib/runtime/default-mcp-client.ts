@@ -1,12 +1,28 @@
 import { MCPTool, MCPClient as MCPClientInterface, MCPEndpointConfig } from "./mcp-tools-utils";
 
-// EventSource polyfill for Node.js environments
+// Dynamic EventSource import for Node.js environments
 let EventSourceImpl: typeof EventSource | undefined;
-try {
-  EventSourceImpl = typeof EventSource !== "undefined" ? EventSource : require("eventsource");
-} catch (e) {
-  // EventSource polyfill not available, will throw error when needed
-  EventSourceImpl = undefined;
+let isNodeEnvironment = false;
+
+// Initialize EventSource implementation
+async function initializeEventSource(): Promise<void> {
+  if (typeof EventSource !== "undefined") {
+    // Browser environment - use native EventSource
+    EventSourceImpl = EventSource;
+    isNodeEnvironment = false;
+  } else {
+    // Node.js environment - use dynamic import
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const eventsourceModule = await eval('import("eventsource")');
+      EventSourceImpl = eventsourceModule.default || eventsourceModule;
+      isNodeEnvironment = true;
+    } catch (e) {
+      // EventSource polyfill not available, will throw error when needed
+      EventSourceImpl = undefined;
+      isNodeEnvironment = false;
+    }
+  }
 }
 
 /**
@@ -95,7 +111,7 @@ export class DefaultMCPClient implements MCPClientInterface {
       id: "init-" + Date.now(),
       method: "initialize",
       params: {
-        protocolVersion: "2025-03-26",
+        protocolVersion: "2025-06-18",
         capabilities: {},
         clientInfo: {
           name: "copilotkit-default-client",
@@ -170,7 +186,7 @@ export class DefaultMCPClient implements MCPClientInterface {
       
       // Open SSE stream for server messages if we have a session
       if (this.sessionId) {
-        this.openEventStream();
+        await this.openEventStream();
       }
       
       this.isConnected = true;
@@ -186,8 +202,13 @@ export class DefaultMCPClient implements MCPClientInterface {
     }
   }
 
-  private openEventStream(): void {
+  private async openEventStream(): Promise<void> {
     if (!this.sessionId) return;
+
+    // Initialize EventSource implementation if not already done
+    if (!EventSourceImpl) {
+      await initializeEventSource();
+    }
 
     // Clean up existing EventSource connection to prevent leaks
     if (this.eventSource) {
@@ -207,8 +228,15 @@ export class DefaultMCPClient implements MCPClientInterface {
     const url = new URL(this.streamUrl);
     url.searchParams.set("session", this.sessionId);
     
-    const eventSourceOptions: any =
-      Object.keys(this.headers).length > 0 ? { headers: this.headers } : undefined;
+    // Prepare EventSource options - only include headers in Node.js environment
+    const eventSourceOptions: any = {};
+    if (isNodeEnvironment && Object.keys(this.headers).length > 0) {
+      // Include all headers for Node.js polyfill (including auth and session headers)
+      eventSourceOptions.headers = {
+        ...this.headers,
+        "Mcp-Session-Id": this.sessionId,
+      };
+    }
     
     if (!EventSourceImpl) {
       throw new Error("EventSource is not available in this environment.");
@@ -267,10 +295,10 @@ export class DefaultMCPClient implements MCPClientInterface {
     
     console.log(`Attempting reconnection ${this.reconnectAttempt}/${this.maxRetries} in ${Math.round(finalDelay)}ms`);
 
-    this.reconnectTimer = setTimeout(() => {
+    this.reconnectTimer = setTimeout(async () => {
       this.reconnectTimer = null;
       if (this.sessionId) {
-        this.openEventStream();
+        await this.openEventStream();
       }
     }, finalDelay);
   }
@@ -350,7 +378,11 @@ export class DefaultMCPClient implements MCPClientInterface {
           if (tool.name && typeof tool.name === 'string') {
             toolsMap[tool.name] = {
               description: tool.description || "",
-              schema: tool.inputSchema || {},
+              schema: {
+                parameters: {
+                  jsonSchema: tool.inputSchema || {}
+                }
+              },
               execute: async (args: any) => this.callTool(tool.name, args),
             };
           }
