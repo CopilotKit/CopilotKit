@@ -83,6 +83,7 @@ import {
   convertMCPToolsToActions,
   generateMcpToolInstructions,
 } from "./mcp-tools-utils";
+import { createDefaultMCPClient } from "./default-mcp-client";
 import { LangGraphAgent } from "./langgraph/langgraph-agent";
 // Define the function type alias here or import if defined elsewhere
 type CreateMCPClientFunction = (config: MCPEndpointConfig) => Promise<MCPClient>;
@@ -260,7 +261,8 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
   /**
    * Configuration for connecting to Model Context Protocol (MCP) servers.
    * Allows fetching and using tools defined on external MCP-compliant servers.
-   * Requires providing the `createMCPClient` function during instantiation.
+   * A default MCP client implementation is provided, but you can also provide your own
+   * via the `createMCPClient` function.
    * @experimental
    */
   mcpServers?: MCPEndpointConfig[];
@@ -269,8 +271,18 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
    * A function that creates an MCP client instance for a given endpoint configuration.
    * This function is responsible for using the appropriate MCP client library
    * (e.g., `@copilotkit/runtime`, `ai`) to establish a connection.
-   * Required if `mcpServers` is provided.
+   * 
+   * **Optional**: If not provided, a default implementation will be used that handles
+   * both HTTP Stream and hybrid SSE/HTTP servers automatically.
    *
+   * ```typescript
+   * // Simple usage - works out of the box
+   * const runtime = new CopilotRuntime({
+   *   mcpServers: [{ endpoint: "https://your-mcp-server.com/sse" }]
+   * });
+   * ```
+   * 
+   * For custom implementations:
    * ```typescript
    * import { experimental_createMCPClient } from "ai"; // Import from vercel ai library
    * // ...
@@ -389,16 +401,10 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     this.onError = params?.onError;
     // +++ MCP Initialization +++
     this.mcpServersConfig = params?.mcpServers;
-    this.createMCPClientImpl = params?.createMCPClient;
+    this.createMCPClientImpl = params?.createMCPClient || createDefaultMCPClient;
 
-    // Validate: If mcpServers are provided, createMCPClient must also be provided
-    if (this.mcpServersConfig && this.mcpServersConfig.length > 0 && !this.createMCPClientImpl) {
-      throw new CopilotKitMisuseError({
-        message:
-          "MCP Integration Error: `mcpServers` were provided, but the `createMCPClient` function was not passed to the CopilotRuntime constructor. " +
-          "Please provide an implementation for `createMCPClient`.",
-      });
-    }
+    // Note: MCP servers now work out of the box with a default implementation
+    // Users can still provide their own createMCPClient for custom behavior
 
     // Warning if actions are defined alongside LangGraph platform (potentially MCP too?)
     if (
@@ -894,7 +900,7 @@ please use an LLM adapter instead.`,
           const data: InfoResponse = await response.json();
           const endpointAgents = (data?.agents ?? []).map((agent) => ({
             name: agent.name,
-            description: agent.description ?? "" ?? "",
+            description: agent.description ?? "",
             id: randomId(), // Required by Agent type
             endpoint,
           }));

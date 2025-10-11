@@ -8,4 +8,5 @@ export * from "./integrations";
 export * from "./logger";
 export * from "./runtime/copilot-runtime";
 export * from "./runtime/mcp-tools-utils";
+export * from "./runtime/default-mcp-client";
 export * from "./runtime/langgraph/langgraph-agent";

@@ -132,6 +132,43 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
 
         export default McpServerManager;
         ```
+
+<Callout type="info">
+**Easy MCP Integration**: CopilotKit now provides automatic MCP client handling that works out of the box! Simply add your MCP server endpoints and CopilotKit will handle the connection automatically. No additional configuration needed.
+</Callout>
+
+### Simple Usage (Works Out of the Box)
+
+MCP servers now work automatically with no additional setup:
+
+```typescript
+import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
+
+const runtime = new CopilotRuntime({
+  mcpServers: [
+    { endpoint: "https://your-mcp-server.com/sse" }
+  ]
+});
+
+const serviceAdapter = new OpenAIAdapter();
+```
+
+### Advanced Usage (Custom Client)
+
+For advanced use cases, you can still provide your own MCP client:
+
+```typescript
+import { CopilotRuntime, OpenAIAdapter, createDefaultMCPClient } from "@copilotkit/runtime";
+
+const runtime = new CopilotRuntime({
+  mcpServers: [
+    { endpoint: "https://your-mcp-server.com/sse" }
+  ],
+  createMCPClient: createDefaultMCPClient  // Optional: use custom implementation
+});
+
+const serviceAdapter = new OpenAIAdapter();
+```
       </Step>
       <Step>
         #### Add the Chat Interface

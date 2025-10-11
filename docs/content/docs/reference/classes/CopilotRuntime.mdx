@@ -108,7 +108,8 @@ Configuration for LLM request/response logging.
 <PropertyReference name="mcpServers" type="MCPEndpointConfig[]"  > 
 Configuration for connecting to Model Context Protocol (MCP) servers.
   Allows fetching and using tools defined on external MCP-compliant servers.
-  Requires providing the `createMCPClient` function during instantiation.
+  A default MCP client implementation is provided, but you can also provide your own
+  via the `createMCPClient` function.
   @experimental
 </PropertyReference>
 
@@ -116,8 +117,18 @@ Configuration for connecting to Model Context Protocol (MCP) servers.
 A function that creates an MCP client instance for a given endpoint configuration.
   This function is responsible for using the appropriate MCP client library
   (e.g., `@copilotkit/runtime`, `ai`) to establish a connection.
-  Required if `mcpServers` is provided.
+  
+  Optional: If not provided, a default implementation will be used that handles
+  both HTTP Stream and hybrid SSE/HTTP servers automatically.
  
+  ```typescript
+  // Simple usage - works out of the box
+  const runtime = new CopilotRuntime({
+    mcpServers: [{ endpoint: "https://your-mcp-server.com/sse" }]
+  });
+  ```
+  
+  For custom implementations:
   ```typescript
   import { experimental_createMCPClient } from "ai"; // Import from vercel ai library
   // ...
