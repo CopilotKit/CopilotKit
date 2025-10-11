@@ -155,16 +155,27 @@ const serviceAdapter = new OpenAIAdapter();
 
 ### Advanced Usage (Custom Client)
 
-For advanced use cases, you can still provide your own MCP client:
+For advanced use cases, you can provide your own MCP client implementation:
 
 ```typescript
-import { CopilotRuntime, OpenAIAdapter, createDefaultMCPClient } from "@copilotkit/runtime";
+import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
+import { experimental_createMCPClient } from "ai"; // Import from vercel ai library
 
 const runtime = new CopilotRuntime({
   mcpServers: [
     { endpoint: "https://your-mcp-server.com/sse" }
   ],
-  createMCPClient: createDefaultMCPClient  // Optional: use custom implementation
+  async createMCPClient(config) {
+    return await experimental_createMCPClient({
+      transport: {
+        type: "sse",
+        url: config.endpoint,
+        headers: config.apiKey
+          ? { Authorization: `Bearer ${config.apiKey}` }
+          : undefined,
+      },
+    });
+  }
 });
 
 const serviceAdapter = new OpenAIAdapter();

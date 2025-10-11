@@ -1,5 +1,14 @@
 import { MCPTool, MCPClient as MCPClientInterface, MCPEndpointConfig } from "./mcp-tools-utils";
 
+// EventSource polyfill for Node.js environments
+let EventSourceImpl: typeof EventSource | undefined;
+try {
+  EventSourceImpl = typeof EventSource !== "undefined" ? EventSource : require("eventsource");
+} catch (e) {
+  // EventSource polyfill not available, will throw error when needed
+  EventSourceImpl = undefined;
+}
+
 /**
  * Optimal MCP Client implementation for CopilotKit
  * 
@@ -68,15 +77,25 @@ export class DefaultMCPClient implements MCPClientInterface {
       responseData = await response.json();
     }
 
-    this.sessionId = response.headers.get("Mcp-Session-Id") || 
-                    response.headers.get("X-Session-Id") ||
-                    `session-${Date.now()}`;
-
+    // Extract session ID from headers or response body
+    const sessionIdFromHeaders =
+      response.headers.get("Mcp-Session-Id") ??
+      response.headers.get("X-Session-Id");
+    const sessionIdFromBody =
+      responseData?.result?.session?.id ??
+      responseData?.result?.sessionId ??
+      responseData?.result?.session?.uri;
+    this.sessionId = sessionIdFromHeaders ?? sessionIdFromBody ?? null;
+    
+    if (!this.sessionId) {
+      throw new Error("Failed to determine MCP session id from initialize response.");
+    }
+    
     // Open SSE stream for server messages if we have a session
     if (this.sessionId) {
       this.openEventStream();
     }
-
+    
     console.log(`Connected to MCP server with session: ${this.sessionId}`);
   }
 
@@ -85,8 +104,15 @@ export class DefaultMCPClient implements MCPClientInterface {
 
     const url = new URL(this.baseUrl);
     url.searchParams.append("session", this.sessionId);
-
-    this.eventSource = new EventSource(url.toString());
+    
+    const eventSourceOptions: any =
+      Object.keys(this.headers).length > 0 ? { headers: this.headers } : undefined;
+    
+    if (!EventSourceImpl) {
+      throw new Error("EventSource is not available in this environment.");
+    }
+    
+    this.eventSource = new EventSourceImpl(url.toString(), eventSourceOptions);
 
     this.eventSource.onmessage = (event) => {
       try {
