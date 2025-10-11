@@ -24,6 +24,13 @@ export class DefaultMCPClient implements MCPClientInterface {
   private eventSource: EventSource | null = null;
   private headers: Record<string, string>;
   private toolsCache: Record<string, MCPTool> | null = null;
+  
+  // Reconnection strategy properties
+  private reconnectAttempt: number = 0;
+  private reconnectTimer: NodeJS.Timeout | null = null;
+  private readonly maxRetries: number = 5;
+  private readonly baseDelay: number = 1000; // 1 second
+  private readonly maxDelay: number = 30000; // 30 seconds
 
   constructor(config: MCPEndpointConfig) {
     this.baseUrl = config.endpoint;
@@ -102,6 +109,21 @@ export class DefaultMCPClient implements MCPClientInterface {
   private openEventStream(): void {
     if (!this.sessionId) return;
 
+    // Clean up existing EventSource connection to prevent leaks
+    if (this.eventSource) {
+      this.eventSource.onmessage = null;
+      this.eventSource.onerror = null;
+      this.eventSource.onopen = null;
+      this.eventSource.close();
+      this.eventSource = null;
+    }
+
+    // Clear any pending reconnect timer
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
     const url = new URL(this.baseUrl);
     url.searchParams.append("session", this.sessionId);
     
@@ -125,17 +147,52 @@ export class DefaultMCPClient implements MCPClientInterface {
 
     this.eventSource.onerror = (error) => {
       console.error("SSE connection error:", error);
-      // Attempt to reconnect after a delay
-      setTimeout(() => {
-        if (this.sessionId) {
-          this.openEventStream();
-        }
-      }, 1000);
+      this.handleReconnection();
     };
 
     this.eventSource.onopen = () => {
       console.log("SSE connection opened");
+      // Reset reconnection attempt counter on successful connection
+      this.reconnectAttempt = 0;
     };
+  }
+
+  private handleReconnection(): void {
+    // Check if we should stop retrying
+    if (this.reconnectAttempt >= this.maxRetries) {
+      console.error(`Max reconnection attempts (${this.maxRetries}) reached. Giving up.`);
+      return;
+    }
+
+    // Check if session still exists
+    if (!this.sessionId) {
+      console.error("No session ID available for reconnection.");
+      return;
+    }
+
+    // Prevent multiple concurrent reconnect attempts
+    if (this.reconnectTimer) {
+      return;
+    }
+
+    // Calculate exponential backoff delay with jitter
+    const delay = Math.min(
+      this.baseDelay * Math.pow(2, this.reconnectAttempt),
+      this.maxDelay
+    );
+    const jitter = Math.random() * 0.1 * delay; // 10% jitter
+    const finalDelay = delay + jitter;
+
+    this.reconnectAttempt++;
+    
+    console.log(`Attempting reconnection ${this.reconnectAttempt}/${this.maxRetries} in ${Math.round(finalDelay)}ms`);
+
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      if (this.sessionId) {
+        this.openEventStream();
+      }
+    }, finalDelay);
   }
 
   async tools(): Promise<Record<string, MCPTool>> {
@@ -239,7 +296,16 @@ export class DefaultMCPClient implements MCPClientInterface {
   }
 
   async close(): Promise<void> {
+    // Clear any pending reconnect timer
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
     if (this.eventSource) {
+      this.eventSource.onmessage = null;
+      this.eventSource.onerror = null;
+      this.eventSource.onopen = null;
       this.eventSource.close();
       this.eventSource = null;
     }
@@ -260,6 +326,7 @@ export class DefaultMCPClient implements MCPClientInterface {
     }
 
     this.toolsCache = null;
+    this.reconnectAttempt = 0; // Reset reconnection counter
   }
 }
 
