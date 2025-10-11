@@ -13,8 +13,8 @@ async function initializeEventSource(): Promise<void> {
   } else {
     // Node.js environment - use dynamic import
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const eventsourceModule = await eval('import("eventsource")');
+      // @ts-ignore - eventsource is an optional dependency
+      const eventsourceModule = await import("eventsource");
       EventSourceImpl = eventsourceModule.default || eventsourceModule;
       isNodeEnvironment = true;
     } catch (e) {
