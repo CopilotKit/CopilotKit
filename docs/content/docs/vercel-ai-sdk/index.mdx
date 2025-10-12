@@ -11,7 +11,7 @@ import { FrameworkOverview } from "@/components/content/landing-pages/framework-
   frameworkName="Vercel AI SDK"
   frameworkIcon={<customIcons.vercel className="h-12 w-12 text-foreground" />}
   header="Build AI-powered applications with Vercel AI SDK"
-  subheader="Integrate CopilotKit with Vercel AI SDK to create sophisticated AI applications with streaming, tool calls, and multi-step workflows."
+  subheader="Integrate CopilotKit with Vercel AI SDK to create sophisticated AI applications with streaming, tool calls, and chat interfaces."
   bannerVideo="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
   guideLink="/vercel-ai-sdk/quickstart"
   initCommand="npx copilotkit@latest init"
@@ -20,22 +20,22 @@ import { FrameworkOverview } from "@/components/content/landing-pages/framework-
     {
       title: "Streaming Responses",
       description: "Real-time message streaming to the frontend with native TypeScript support and full type safety.",
-      documentationLink: "/vercel-ai-sdk/streaming",
-      demoLink: "https://feature-viewer.copilotkit.ai/vercel-ai-sdk/feature/basic_chat",
+      documentationLink: "/vercel-ai-sdk/agentic-chat-ui",
+      demoLink: "https://examples-vercel-ai-sdk-starter.vercel.app",
       videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4"
     },
     {
       title: "Tool Calls",
       description: "Execute functions and tools seamlessly with comprehensive error handling and validation.",
-      documentationLink: "/vercel-ai-sdk/tool-calls",
-      demoLink: "https://feature-viewer.copilotkit.ai/vercel-ai-sdk/feature/advanced_workflow",
+      documentationLink: "/vercel-ai-sdk/frontend-actions",
+      demoLink: "https://examples-vercel-ai-sdk-starter.vercel.app",
       videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
     },
     {
-      title: "Multi-step Workflows",
-      description: "Complex agent workflows with state management, parallel execution, and progress tracking.",
-      documentationLink: "/vercel-ai-sdk/workflows",
-      demoLink: "https://feature-viewer.copilotkit.ai/vercel-ai-sdk/feature/advanced_workflow",
+      title: "AI Chat Applications",
+      description: "Build sophisticated chat applications with streaming, tool calls, and real-time collaboration.",
+      documentationLink: "/vercel-ai-sdk/agentic-chat-ui",
+      demoLink: "https://examples-vercel-ai-sdk-starter.vercel.app",
       videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4"
     }
   ]}
@@ -49,8 +49,8 @@ import { FrameworkOverview } from "@/components/content/landing-pages/framework-
     },
     {
       type: "canvas",
-      title: "Workflow Builder",
-      description: "An advanced workflow builder with multi-step processes, state management, and parallel execution. Ideal for complex automation, data processing, and business process management.",
+      title: "Advanced Chat Features",
+      description: "Demonstrates advanced chat features including generative UI, human-in-the-loop interactions, and shared state management using Vercel AI SDK.",
       iframeUrl: "https://examples-vercel-ai-sdk-feature-viewer.vercel.app/"
     }
   ]}
