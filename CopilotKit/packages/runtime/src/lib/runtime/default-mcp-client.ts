@@ -180,13 +180,12 @@ export class DefaultMCPClient implements MCPClientInterface {
         responseData?.result?.session?.uri;
       this.sessionId = sessionIdFromHeaders ?? sessionIdFromBody ?? null;
       
-      if (!this.sessionId) {
-        throw new Error("Failed to determine MCP session id from initialize response.");
-      }
-      
-      // Open SSE stream for server messages if we have a session
+      // Session ID is optional - some MCP servers don't use sessions
+      // Only open SSE stream if we have a session ID
       if (this.sessionId) {
         await this.openEventStream();
+      } else {
+        console.log("MCP server does not use sessions - proceeding without SSE stream");
       }
       
       this.isConnected = true;
@@ -309,7 +308,7 @@ export class DefaultMCPClient implements MCPClientInterface {
     }
 
     // Ensure we're connected before making requests
-    if (!this.isConnected || !this.sessionId) {
+    if (!this.isConnected) {
       throw new Error("MCP client is not connected. Call connect() first.");
     }
 
@@ -329,7 +328,7 @@ export class DefaultMCPClient implements MCPClientInterface {
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json, text/event-stream",
-          "Mcp-Session-Id": this.sessionId,
+          ...(this.sessionId ? { "Mcp-Session-Id": this.sessionId } : {}),
           ...this.headers,
         },
         body: JSON.stringify(request),
@@ -403,7 +402,7 @@ export class DefaultMCPClient implements MCPClientInterface {
 
   private async callTool(name: string, args: any): Promise<any> {
     // Ensure we're connected before making requests
-    if (!this.isConnected || !this.sessionId) {
+    if (!this.isConnected) {
       throw new Error("MCP client is not connected. Call connect() first.");
     }
 
@@ -426,7 +425,7 @@ export class DefaultMCPClient implements MCPClientInterface {
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json, text/event-stream",
-          "Mcp-Session-Id": this.sessionId,
+          ...(this.sessionId ? { "Mcp-Session-Id": this.sessionId } : {}),
           ...this.headers,
         },
         body: JSON.stringify(request),
@@ -502,7 +501,7 @@ export class DefaultMCPClient implements MCPClientInterface {
         await fetch(this.rpcUrl, {
           method: "DELETE",
           headers: {
-            "Mcp-Session-Id": this.sessionId,
+            ...(this.sessionId ? { "Mcp-Session-Id": this.sessionId } : {}),
             ...this.headers,
           },
           signal: controller.signal,

@@ -275,6 +275,10 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
    * **Optional**: If not provided, a default implementation will be used that handles
    * both HTTP Stream and hybrid SSE/HTTP servers automatically.
    *
+   * **Important**: Custom MCP clients must handle both session-based and non-session-based servers.
+   * Some MCP servers (like FastMCP) don't use sessions and return 200 responses without session IDs.
+   * Your implementation should gracefully handle missing session IDs.
+   *
    * ```typescript
    * // Simple usage - works out of the box
    * const runtime = new CopilotRuntime({
