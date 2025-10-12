@@ -1,0 +1,57 @@
+---
+title: Introduction
+icon: "custom/vercel-ai-sdk"
+description: Build AI-powered applications with CopilotKit and Vercel AI SDK.
+hideHeader: true
+---
+import { customIcons } from "@/lib/icons/custom-icons";
+import { FrameworkOverview } from "@/components/content/landing-pages/framework-overview";
+
+<FrameworkOverview
+  frameworkName="Vercel AI SDK"
+  frameworkIcon={<customIcons.vercel className="h-12 w-12 text-foreground" />}
+  header="Build AI-powered applications with Vercel AI SDK"
+  subheader="Integrate CopilotKit with Vercel AI SDK to create sophisticated AI applications with streaming, tool calls, and multi-step workflows."
+  bannerVideo="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
+  guideLink="/vercel-ai-sdk/quickstart"
+  initCommand="npx copilotkit@latest init"
+  featuresLink="https://feature-viewer.copilotkit.ai/vercel-ai-sdk/feature/basic_chat"
+  supportedFeatures={[
+    {
+      title: "Streaming Responses",
+      description: "Real-time message streaming to the frontend with native TypeScript support and full type safety.",
+      documentationLink: "/vercel-ai-sdk/streaming",
+      demoLink: "https://feature-viewer.copilotkit.ai/vercel-ai-sdk/feature/basic_chat",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4"
+    },
+    {
+      title: "Tool Calls",
+      description: "Execute functions and tools seamlessly with comprehensive error handling and validation.",
+      documentationLink: "/vercel-ai-sdk/tool-calls",
+      demoLink: "https://feature-viewer.copilotkit.ai/vercel-ai-sdk/feature/advanced_workflow",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
+    },
+    {
+      title: "Multi-step Workflows",
+      description: "Complex agent workflows with state management, parallel execution, and progress tracking.",
+      documentationLink: "/vercel-ai-sdk/workflows",
+      demoLink: "https://feature-viewer.copilotkit.ai/vercel-ai-sdk/feature/advanced_workflow",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4"
+    }
+  ]}
+  architectureImage="https://cdn.copilotkit.ai/docs/copilotkit/images/vercel-ai-sdk/overview.png"
+  liveDemos={[
+    {
+      type: "saas",
+      title: "AI Chat Application",
+      description: "A modern chat application powered by Vercel AI SDK with streaming responses, tool calls, and real-time collaboration. Perfect for customer support, content generation, and interactive AI experiences.",
+      iframeUrl: "https://examples-vercel-ai-sdk-starter.vercel.app?copilotOpen=true"
+    },
+    {
+      type: "canvas",
+      title: "Workflow Builder",
+      description: "An advanced workflow builder with multi-step processes, state management, and parallel execution. Ideal for complex automation, data processing, and business process management.",
+      iframeUrl: "https://examples-vercel-ai-sdk-feature-viewer.vercel.app/"
+    }
+  ]}
+/>

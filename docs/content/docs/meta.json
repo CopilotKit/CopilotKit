@@ -8,6 +8,7 @@
     "direct-to-llm",
     "langgraph",
     "mastra",
+    "vercel-ai-sdk",
     "pydantic-ai",
     "adk",
     "agno",

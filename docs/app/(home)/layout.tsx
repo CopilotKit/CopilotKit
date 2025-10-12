@@ -13,6 +13,7 @@ import {
   AgnoIcon,
   LlamaIndexIcon,
   PydanticAIIcon,
+  VercelIcon,
 } from "@/lib/icons/custom-icons";
 
 export default function Layout({ children }: { children: ReactNode }) {
@@ -137,6 +138,14 @@ export default function Layout({ children }: { children: ReactNode }) {
                       bgGradient:
                         "bg-gradient-to-b from-pink-500 via-purple-500 to-blue-400 text-pink-100",
                       selectedStyle: "ring-pink-500/70 ring-2 rounded-sm",
+                    },
+                    {
+                      title: "Vercel AI SDK",
+                      description: "Documentation for CoAgents with Vercel AI SDK",
+                      url: "/vercel-ai-sdk",
+                      icon: <VercelIcon className="w-4 h-4 text-bold" />,
+                      bgGradient: "bg-black text-white",
+                      selectedStyle: "ring-gray-500 ring-2 rounded-sm",
                     },
                     {
                       title: "CrewAI Flows",

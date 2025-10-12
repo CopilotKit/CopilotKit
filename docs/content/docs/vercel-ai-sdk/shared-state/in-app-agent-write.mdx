@@ -1,0 +1,141 @@
+---
+title: Writing agent state
+icon: "lucide/ArrowRight"
+description: Write to agent's state from your application.
+---
+import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
+
+<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/write-agent-state.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<Callout type="info">
+  Pictured above is the [vercel ai sdk starter](https://github.com/copilotkit/copilotkit/tree/main/examples/vercel-ai-sdk/starter) with
+  the [implementation](#implementation) section applied!
+</Callout>
+
+## What is this?
+
+You can easily write to your agent's state from your native application, allowing you to update the agent's working memory from your UI.
+
+<Callout type="info" title="Important">
+  This guide assumes you are using Vercel AI SDK with CopilotKit runtime, like so.
+
+  ```ts
+  const runtime = new CopilotRuntime({
+    chat: async ({ messages, tools }) => {
+      const result = await streamText({
+        model: openai("gpt-4o"),
+        messages,
+        tools,
+      });
+      return result.toDataStreamResponse();
+    },
+  });
+  ```
+
+  This feature works with Vercel AI SDK's streaming and tool calling capabilities.
+</Callout>
+
+## When should I use this?
+
+You can use this when you want to provide user input or control to your agent's working memory. As your application state changes, you can update the agent state to reflect these changes.
+
+## Implementation
+
+<Steps>
+  <Step>
+    ### Run and Connect Your Agent to CopilotKit
+
+    You'll need to run your agent and connect it to CopilotKit before proceeding.
+
+    #### I already have an agent
+
+    You can follow the instructions in the [quickstart](/vercel-ai-sdk/quickstart) guide.
+    
+    #### I want to start from scratch
+
+    Run the following command to create a brand new project with a pre-configured agent:
+
+    ```bash
+    npx copilotkit@latest create -f vercel-ai-sdk
+    ```
+  </Step>
+  <Step>
+    ### Define the Agent State
+    Vercel AI SDK works with CopilotKit to provide shared state between your agent and your application.
+    You can use `useCopilotWritable` to make your application state writable by the agent.
+
+    ```tsx title="app/page.tsx"
+    import { useCopilotWritable } from "@copilotkit/react-core";
+    import { useState } from "react";
+
+    export function Page() {
+      // [!code highlight:6]
+      const [language, setLanguage] = useState<"english" | "spanish">("english");
+      
+      // Make language state writable by the agent
+      useCopilotWritable({
+        description: "The user's preferred language",
+        value: language,
+        setValue: setLanguage,
+      });
+
+      return (
+        <div>
+          <h1>Current Language: {language}</h1>
+          {/* Your app content */}
+        </div>
+      );
+    }
+    ```
+  </Step>
+  <Step>
+    ### Use the Agent State in Your Runtime
+    With your state defined, you can now use it in your Vercel AI SDK runtime to provide context-aware responses.
+
+    ```tsx title="api/copilotkit/route.ts"
+    import { CopilotRuntime } from "@copilotkit/runtime";
+    import { streamText } from "ai";
+    import { openai } from "@ai-sdk/openai";
+
+    const runtime = new CopilotRuntime({
+      chat: async ({ messages, tools, context }) => {
+        // Get the language preference from context
+        const languageContext = context?.find(ctx => 
+          ctx.description === 'The user\'s preferred language'
+        );
+        
+        const preferredLanguage = languageContext?.value || 'english';
+        
+        const result = await streamText({
+          model: openai("gpt-4o"),
+          messages: [
+            {
+              role: "system",
+              content: `Always communicate in ${preferredLanguage}. Do not communicate in any other language.`
+            },
+            ...messages
+          ],
+          tools,
+        });
+        
+        return result.toDataStreamResponse();
+      },
+    });
+
+    export const POST = async (req: Request) => {
+      return runtime.response(req);
+    };
+    ```
+    <Callout type="info">
+      The context from `useCopilotWritable` is automatically available in your chat handler and can be used to provide personalized responses.
+    </Callout>
+  </Step>
+  <Step>
+    ### Give it a try!
+    You can now toggle the language in your UI and talk to your agent. The agent will respond in the selected language.
+
+    <Callout type="info" title="Important">
+      Shared-state in Vercel AI SDK is context-driven. This means that your agent's awareness of the shared state will be augmented
+      by the context you provide through `useCopilotWritable`.
+    </Callout>
+  </Step>
+</Steps>
