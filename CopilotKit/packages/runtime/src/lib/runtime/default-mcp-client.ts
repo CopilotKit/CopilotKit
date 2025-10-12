@@ -294,10 +294,12 @@ export class DefaultMCPClient implements MCPClientInterface {
     
     console.log(`Attempting reconnection ${this.reconnectAttempt}/${this.maxRetries} in ${Math.round(finalDelay)}ms`);
 
-    this.reconnectTimer = setTimeout(async () => {
+    this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       if (this.sessionId) {
-        await this.openEventStream();
+        this.openEventStream().catch((error) => {
+          console.error("Error during MCP reconnection:", error);
+        });
       }
     }, finalDelay);
   }
