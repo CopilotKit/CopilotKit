@@ -33,7 +33,7 @@ export default function SharedState() {
   return (
     
       <CopilotKit
-        runtimeUrl={AGENT_TYPE == "general" ? "/api/copilotkit?langgraph=true" : "/api/copilotkit"}
+        runtimeUrl={AGENT_TYPE == "langgraph" ? "/api/copilotkit?langgraph=true" : "/api/copilotkit"}
         showDevConsole={false}
         agent="shared_state"
       >

@@ -9,7 +9,7 @@ import { AGENT_TYPE } from "@/config";
 const AgenticGenerativeUI: React.FC = () => {
   return (
     <CopilotKit
-      runtimeUrl={AGENT_TYPE == "general" ? "/api/copilotkit?langgraph=true" : "/api/copilotkit"}
+      runtimeUrl={AGENT_TYPE == "langgraph" ? "/api/copilotkit?langgraph=true" : "/api/copilotkit"}
       showDevConsole={false}
       agent="agentic_generative_ui"
     >
