@@ -9,7 +9,6 @@ from typing import Dict, List, Any
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, END, START
 from langgraph.types import Command, interrupt
-from langgraph.checkpoint.memory import MemorySaver
 
 # CopilotKit imports
 from copilotkit import CopilotKitState
@@ -284,4 +283,4 @@ workflow.add_conditional_edges(
 )
 
 # Compile the graph
-human_in_the_loop_graph = workflow.compile(checkpointer=MemorySaver())
+human_in_the_loop_graph = workflow.compile()

@@ -9,7 +9,6 @@ import asyncio
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, END, START
 from langgraph.types import Command, interrupt
-from langgraph.checkpoint.memory import MemorySaver
 
 # CopilotKit imports
 from copilotkit import CopilotKitState
@@ -136,4 +135,4 @@ workflow.add_edge("reporting_node", END)
 
 
 # Compile the graph
-no_chat = workflow.compile(checkpointer=MemorySaver())
+no_chat = workflow.compile()

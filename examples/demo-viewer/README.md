@@ -2,6 +2,8 @@
 
 A modern, interactive viewer for exploring CopilotKit agent demos with a clean, responsive UI and dark/light theme support.
 
+![Demo Viewer Screenshot](docs/demo.JPG)
+
 ## Overview
 
 The Demo Viewer provides a centralized interface for browsing, viewing, and exploring the source code of various CopilotKit agent demos. It features:
@@ -41,6 +43,7 @@ Add the following line to the `.env` file in the project root:
 ```bash
 # Set to 'langgraph' to view LangGraph demos, or 'crewai' for CrewAI demos (default)
 NEXT_PUBLIC_AGENT_TYPE=langgraph
+LG_DEPLOYMENT_URL=http://localhost:8000
 ```
 
 Make sure to restart the Demo Viewer (`pnpm run dev`) after changing this variable.
