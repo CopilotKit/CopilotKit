@@ -232,7 +232,8 @@ class CopilotKitRemoteEndpoint:
                 if isinstance(agent, LangGraphAgent):
                     warnings.warn(
                         "LangGraphAgent should be instantiated using LangGraphAGUIAgent. Refer to https://docs.copilotkit.ai/langgraph for more information.",
-                        UserWarning
+                        UserWarning,
+                        stacklevel=2
                     )
 
     def info(
