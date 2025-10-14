@@ -430,6 +430,7 @@ function SubdocsMenuItem({
           item.props?.className,
           selected === item && `opacity-100 bg-primary/10 text-primary`
         )}
+        suppressHydrationWarning
       >
         <div
           className={cn(
