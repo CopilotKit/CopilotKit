@@ -501,9 +501,11 @@ function SubdocsMenuItemDropdown({
       >
         <SelectTrigger
           className={cn(
-            "pl-1 py-0.5 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer opacity-60 hover:opacity-100",
-            isSelected && "opacity-100 bg-primary/10 text-primary"
+            "pl-1 py-0.5 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer opacity-60 hover:opacity-100",
+            !isSelected && "border-2",
+            isSelected && "border-0 opacity-100 bg-primary/10 text-primary"
           )}
+          style={!isSelected ? { borderColor: 'oklch(0.65 0.15 285)' } : undefined}
           ref={selectRef}
         >
           <SelectValue
