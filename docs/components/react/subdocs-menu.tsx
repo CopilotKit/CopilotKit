@@ -434,13 +434,12 @@ function SubdocsMenuItem({
       >
         <div
           className={cn(
-            "rounded-sm p-1 pr-0 text-muted-foreground",
-            selected === item && "text-primary"
+            "rounded-sm p-1 pr-0",
           )}
         >
           {item.icon}
         </div>
-        <div className="font-medium">{item.title}</div>
+        <div>{item.title}</div>
       </Link>
     );
   } else if (isOptionDropdown(item)) {
@@ -510,7 +509,7 @@ function SubdocsMenuItemDropdown({
           <SelectValue
             placeholder={
               <div className="flex items-center">
-                <div className={cn("rounded-sm mr-2 p-1 pr-0 text-muted-foreground", isSelected && "text-primary")}>
+                <div className={cn("rounded-sm mr-2 p-1 pr-0")}>
                   {selectedOption?.icon || (
                     <PlugIcon
                       className="w-4 h-4"
@@ -518,7 +517,7 @@ function SubdocsMenuItemDropdown({
                     />
                   )}
                 </div>
-                <div className={cn("font-medium", !isSelected && "text-muted-foreground hover:text-foreground")}>{item.title}</div>
+                <div>{item.title}</div>
               </div>
             }
           />
@@ -531,10 +530,10 @@ function SubdocsMenuItemDropdown({
               className="pl-1 py-0.5 my-0 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer hover:bg-secondary/10"
             >
               <div className="flex items-center">
-                <div className={cn("rounded-sm p-1 mr-2 text-muted-foreground")}>
+                <div className={cn("rounded-sm p-1 mr-2")}>
                   {option.icon}
                 </div>
-                <span className="font-medium">{option.title}</span>
+                <span>{option.title}</span>
               </div>
             </SelectItem>
           ))}
