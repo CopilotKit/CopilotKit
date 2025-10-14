@@ -127,3 +127,49 @@ export type Action<T extends Parameter[] | [] = []> = {
 //     : // Use the direct mapping from 'TypeMap' for the parameter's type
 //       TypeMap[P["type"] extends keyof TypeMap ? P["type"] : "string"];
 // };
+
+// A precise, safe helper that converts `Parameter[]` definitions into a plain TS record type.
+// - Supports readonly arrays (e.g. when using `as const`).
+// - Infers enum literal unions when provided as a literal array.
+// - Recursively maps `object` and `object[]` using their `attributes`.
+// - Avoids `any` by using `unknown` and `object` fallbacks where structure is unspecified.
+type EnumElement<P> = P extends { enum?: readonly (infer E)[] } ? E : never;
+
+type CoreParamType<P extends AbstractParameter> =
+// string with optional enum
+  P extends { type: "string" }
+    ? [EnumElement<P>] extends [never]
+      ? string
+      : EnumElement<P>
+    : // object with attributes
+    P extends { type: "object"; attributes: infer A }
+      ? A extends readonly Parameter[]
+        ? ParametersToRecord<A>
+        : A extends Parameter[]
+          ? ParametersToRecord<A>
+          : object
+      : P extends { type: "object" }
+        ? object
+        : // object[] with attributes
+        P extends { type: "object[]"; attributes: infer A }
+          ? A extends readonly Parameter[]
+            ? Array<ParametersToRecord<A>>
+            : A extends Parameter[]
+              ? Array<ParametersToRecord<A>>
+              : object[]
+          : P extends { type: "object[]" }
+            ? object[]
+            : // base/fallback mapping for other primitive and array types
+            P extends { type: infer T }
+              ? T extends keyof TypeMap
+                ? TypeMap[T]
+                : string
+              : string;
+
+type WithOptional<P extends AbstractParameter, V> = P["required"] extends false
+  ? V | undefined
+  : V;
+
+export type ParametersToRecord<T extends readonly Parameter[] | [] = []> = T extends []
+  ? Record<string, unknown>
+  : { [P in T[number] as P["name"]]: WithOptional<P, CoreParamType<P>> };

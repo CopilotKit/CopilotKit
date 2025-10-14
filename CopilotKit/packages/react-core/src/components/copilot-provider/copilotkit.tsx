@@ -15,6 +15,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, SetStateAction } from "react";
+import { CopilotKitProvider } from "@copilotkitnext/react";
 import {
   CopilotContext,
   CopilotApiConfig,
@@ -556,8 +557,10 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     >
       <MessagesTapProvider>
         <CopilotMessages>
-          {memoizedChildren}
-          {showDevConsole && <ConsoleTrigger />}
+          <CopilotKitProvider {...props}>
+            {memoizedChildren}
+            {showDevConsole && <ConsoleTrigger />}
+          </CopilotKitProvider>
         </CopilotMessages>
       </MessagesTapProvider>
       {bannerError && showDevConsole && (
