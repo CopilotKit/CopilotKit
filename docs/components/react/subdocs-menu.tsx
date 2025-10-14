@@ -501,8 +501,8 @@ function SubdocsMenuItemDropdown({
       >
         <SelectTrigger
           className={cn(
-            "pl-1 py-0.5 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer",
-            isSelected && "bg-primary/10 text-primary"
+            "pl-1 py-0.5 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer opacity-60 hover:opacity-100",
+            isSelected && "opacity-100 bg-primary/10 text-primary"
           )}
           ref={selectRef}
         >
@@ -527,7 +527,7 @@ function SubdocsMenuItemDropdown({
             <SelectItem
               key={`${option.url}-${index}`}
               value={option.url ?? DEFAULT_URL}
-              className="pl-1 py-0.5 my-0 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer hover:bg-secondary/10"
+              className="pl-1 py-0.5 my-0 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer opacity-60 hover:opacity-100 hover:bg-secondary/10"
             >
               <div className="flex items-center">
                 <div className={cn("rounded-sm p-1 mr-2 text-primary")}>
