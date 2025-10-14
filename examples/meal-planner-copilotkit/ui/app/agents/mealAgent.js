@@ -117,10 +117,19 @@ export class MealPlanningAgent {
         ],
       });
 
-      const content = completion.choices[0]?.message?.content;
-      if (content) {
-        return JSON.parse(content).recipes;
+          const content = completion.choices[0]?.message?.content;
+      if (!content) {
+        console.warn('OpenAI response missing content. Falling back to local matches.');
+        return this.findMatchingRecipes(ingredients);
       }
+
+      const parsed = JSON.parse(content);
+      if (!Array.isArray(parsed?.recipes)) {
+        console.warn('OpenAI response missing recipes array. Falling back to local matches.');
+        return this.findMatchingRecipes(ingredients);
+      }
+
+      return parsed.recipes;
     } catch (error) {
       console.error('AI recipe generation failed:', error);
       // Fallback to our matching algorithm

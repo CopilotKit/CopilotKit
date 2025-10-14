@@ -29,3 +29,25 @@ A smart meal planning application that suggests recipes based on available ingre
 1. Navigate to the UI directory:
 ```bash
 cd examples/meal-planner-copilotkit/ui
+```
+
+2. Install dependencies:
+```bash
+pnpm install
+# or
+npm install
+```
+
+3. Set up environment variables:
+```bash
+cp .env.local.example .env.local
+```
+
+4. Run the development server:
+```bash
+pnpm dev
+# or
+npm run dev
+```
+
+5. Open http://localhost:3000 in your browser.
