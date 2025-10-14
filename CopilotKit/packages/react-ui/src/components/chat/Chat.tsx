@@ -448,7 +448,9 @@ export function CopilotChat({
   const { publicApiKey, chatApiEndpoint } = copilotApiConfig;
   const [selectedImages, setSelectedImages] = useState<Array<ImageUpload>>([]);
   const [chatError, setChatError] = useState<ChatError | null>(null);
-  const [messageFeedback, setMessageFeedback] = useState<Record<string, "thumbsUp" | "thumbsDown">>({});
+  const [messageFeedback, setMessageFeedback] = useState<Record<string, "thumbsUp" | "thumbsDown">>(
+    {},
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Helper function to trigger event hooks only if publicApiKey is provided
