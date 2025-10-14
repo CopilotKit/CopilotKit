@@ -371,7 +371,7 @@ export function SubdocsMenu({
   }, [closeOnRedirect]);
 
       return (
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-1.5">
         {options.map((item, index) => {
           if (isSeparator(item)) {
             return <hr key={`separator-${index}`} className="my-2 border-t border-primary/40" />;
@@ -426,7 +426,7 @@ function SubdocsMenuItem({
         }}
         {...item.props}
         className={cn(
-          "p-1 rounded-xl flex flex-row gap-3 items-center cursor-pointer group opacity-60 hover:opacity-100",
+          "px-1.5 py-1 rounded-xl flex flex-row gap-3 items-center cursor-pointer group opacity-60 hover:opacity-100",
           item.props?.className,
           selected === item && `opacity-100 bg-primary/10 text-primary`
         )}
@@ -501,7 +501,7 @@ function SubdocsMenuItemDropdown({
       >
         <SelectTrigger
           className={cn(
-            "pl-1 py-1 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer",
+            "pl-1.5 py-1 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer",
             isSelected && "bg-primary/10 text-primary"
           )}
           ref={selectRef}
@@ -509,7 +509,7 @@ function SubdocsMenuItemDropdown({
           <SelectValue
             placeholder={
               <div className="flex items-center">
-                <div className={cn("rounded-sm mr-2 pl-1 pr-1.5 text-primary/50")}>
+                <div className={cn("rounded-sm mr-2 p-1.5 pr-0 text-primary/50")}>
                   {selectedOption?.icon || (
                     <PlugIcon
                       className="w-4 h-4"
