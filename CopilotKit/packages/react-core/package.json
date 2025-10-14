@@ -32,15 +32,19 @@
     "unlink:global": "pnpm unlink --global"
   },
   "peerDependencies": {
+    "@copilotkitnext/core": "0.0.16",
+    "@copilotkitnext/react": "0.0.16",
     "react": "^18 || ^19 || ^19.0.0-rc",
-    "react-dom": "^18 || ^19 || ^19.0.0-rc"
+    "react-dom": "^18 || ^19 || ^19.0.0-rc",
+    "zod": ">=3.0.0"
   },
   "devDependencies": {
+    "@ag-ui/client": "^0.0.40",
     "@testing-library/react": "^16.3.0",
     "@testing-library/react-hooks": "^8.0.1",
     "@types/jest": "^29.5.4",
-    "@types/react": "^18.2.5",
-    "@types/react-dom": "^18.2.4",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.0.2",
     "eslint": "^8.56.0",
     "eslint-config-custom": "workspace:*",
     "jest": "^29.6.4",
@@ -50,7 +54,8 @@
     "ts-jest": "^29.1.1",
     "tsconfig": "workspace:*",
     "tsup": "^6.7.0",
-    "typescript": "^5.2.3"
+    "typescript": "^5.2.3",
+    "zod": ">=3.0.0"
   },
   "dependencies": {
     "@copilotkit/runtime-client-gql": "workspace:*",

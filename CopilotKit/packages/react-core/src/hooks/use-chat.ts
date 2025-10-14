@@ -199,6 +199,9 @@ export interface AppendMessageOptions {
 }
 
 export function useChat(options: UseChatOptions): UseChatHelpers {
+  console.log("**********");
+  console.log("USE CHAT WAS CALLED");
+  console.log("**********");
   const {
     messages,
     setMessages,
@@ -226,7 +229,9 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     setLangGraphInterruptAction,
     disableSystemMessage = false,
   } = options;
-  const runChatCompletionRef = useRef<(previousMessages: Message[]) => Promise<Message[]>>();
+  const runChatCompletionRef = useRef<(previousMessages: Message[]) => Promise<Message[]>>(
+    undefined!,
+  );
   const addErrorToast = useErrorToast();
   const { setBannerError } = useToast();
 
