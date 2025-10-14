@@ -12,7 +12,7 @@ A smart meal planning application that suggests recipes based on available ingre
 
 ## Tech Stack
 
-- **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS
+- **Frontend**: Next.js 15, React, TypeScript, Tailwind CSS
 - **UI Framework**: CopilotKit React Components
 - **AI Agent**: LlamaIndex for intelligent recipe matching
 - **Styling**: Tailwind CSS
