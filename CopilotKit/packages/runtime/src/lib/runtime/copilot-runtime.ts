@@ -35,6 +35,10 @@ import {
   RemoteChain,
   RemoteChainParameters,
 } from "../../service-adapters";
+import {
+  CopilotRuntime as CopilotRuntimeVNext,
+  CopilotRuntimeOptions as CopilotRuntimeOptionsVNext,
+} from "@copilotkitnext/runtime";
 
 import { MessageInput } from "../../graphql/inputs/message.input";
 import { ActionInput } from "../../graphql/inputs/action.input";

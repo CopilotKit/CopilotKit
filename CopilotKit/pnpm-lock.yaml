@@ -609,6 +609,9 @@ importers:
       '@copilotkit/shared':
         specifier: workspace:*
         version: link:../shared
+      '@copilotkitnext/runtime':
+        specifier: ^0.0.16
+        version: 0.0.16(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))
       '@graphql-yoga/plugin-defer-stream':
         specifier: ^3.3.1
         version: 3.6.1(graphql-yoga@5.6.1(graphql@16.9.0))(graphql@16.9.0)
@@ -965,14 +968,23 @@ packages:
   '@ag-ui/client@0.0.39':
     resolution: {integrity: sha512-VHusZRv0dBtxqKSh/fcLbS/txUpXuE68/2s8RiMoav1snEDonwPGNjvOdE15WResgnlEWPU5qPuSgPykvt2/+A==}
 
+  '@ag-ui/client@0.0.40-alpha.6':
+    resolution: {integrity: sha512-QIgOY8nJvv3mrDz9OXyaoxwj3Js28YPYXz+myRQ2idR1ghoKq0V9MEZrXoHOE4O6Z7PnUSw5z7zZIemh7YK/5w==}
+
   '@ag-ui/core@0.0.37':
     resolution: {integrity: sha512-7bmjPn1Ol0Zo00F+MrPr0eOwH4AFZbhmq/ZMhCsrMILtVYBiBLcLU9QFBpBL3Zm9MCHha8b79N7JE2FzwcMaVA==}
 
   '@ag-ui/core@0.0.39':
     resolution: {integrity: sha512-T5Hp4oFkQ+H5MynWAvSwrX/rNYJOD+PJ4qPQ0o771oSZQAxoIvDDft47Cx5wRyBNNLXAe1RWqJjfWUUwJFNKqA==}
 
+  '@ag-ui/core@0.0.40-alpha.6':
+    resolution: {integrity: sha512-XkZAnmtewucr0yayWxK2GEcOoxaHZ6cSZZKkVFKAEOPJuUwFCFstqS3vh0Z5rUy2ZE8eh8WJylBHidiCRW4yuA==}
+
   '@ag-ui/encoder@0.0.39':
     resolution: {integrity: sha512-6fsoFwPWkStK7Uyj3pwBn7+aQjUWf7pbDTSI43cD53sBLvTr5oEFNnoKOzRfC5UqvHc4JjUIuLKPQyjHRwWg4g==}
+
+  '@ag-ui/encoder@0.0.40-alpha.6':
+    resolution: {integrity: sha512-q+bpJGp4fMjQplHowmbNaOQrICHzmk1J394jZXmTv/RjysNHtcDrWHythXBiPAnNRutYeqsG6bQJ5PASbQYiqg==}
 
   '@ag-ui/langgraph@0.0.18':
     resolution: {integrity: sha512-soWSV8+xR91jMArZUJoRv85UCgTi3Zt3u3gTMZhvs1t6fGFpAi6+hEQ4AqP13Rgvg90IlmIU8MTWo2k0OZDnoA==}
@@ -982,6 +994,9 @@ packages:
 
   '@ag-ui/proto@0.0.39':
     resolution: {integrity: sha512-xlj/PzZHkJ3CgoQC5QP9g7DEl/78wUK1+A2rdkoLKoNAMOkM2g6jKw0N88iFIh5GZhtiCNN2wb8XwRWPYx9XQQ==}
+
+  '@ag-ui/proto@0.0.40-alpha.6':
+    resolution: {integrity: sha512-xFw9igIC7OGdq/t1biUXRMinaC0sPLkavjj2oz820KaJe1uZOTSRfAK1qEgswoHJU1N4vRg0RQDEhd1wN8+GGg==}
 
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
@@ -1629,6 +1644,16 @@ packages:
 
   '@changesets/write@0.3.2':
     resolution: {integrity: sha512-kDxDrPNpUgsjDbWBvUo27PzKX4gqeKOlhibaOXDJA6kuBisGqNHv/HwGJrAu8U/dSf8ZEFIeHIPtvSlZI1kULw==}
+
+  '@copilotkitnext/runtime@0.0.16':
+    resolution: {integrity: sha512-53acORWuUE92gMEYacz81GAptRxvWEo1hKAUjJ+LocjyMOnbFD/L/hyGHg4j/G5tJjg8JVzmqXKuZDib48Wk1w==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      openai: ^5.9.0
+
+  '@copilotkitnext/shared@0.0.16':
+    resolution: {integrity: sha512-6Nmwmbsne0aNmDsBV2zFT3hKL+t3Np3surOC6R+qK9onPxnR/aQCZfWNTYcGhrJwctpzyP03V8BP37GNdnak3w==}
+    engines: {node: '>=18'}
 
   '@cspotcode/source-map-support@0.8.1':
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
@@ -6720,6 +6745,10 @@ packages:
   hoist-non-react-statics@3.3.2:
     resolution: {integrity: sha512-/gGivxi8JPKWNm/W0jSmzcMPpfpPLc3dY/6GxhX2hQ9iGj3aDfklV4ET7NjKpSinLpJ5vafa9iiGIEZg10SfBw==}
 
+  hono@4.9.12:
+    resolution: {integrity: sha512-SrTC0YxqPwnN7yKa8gg/giLyQ2pILCKoideIHbYbFQlWZjYt68D2A4Ae1hehO/aDQ6RmTcpqOV/O2yBtMzx/VQ==}
+    engines: {node: '>=16.9.0'}
+
   html-encoding-sniffer@4.0.0:
     resolution: {integrity: sha512-Y22oTqIU4uuPgEemfz7NDJz6OeKf12Lsu+QC+s3BVpda64lTiMYCyGwg5ki4vFxkMwQdeZDl2adZoqUgdFuTgQ==}
     engines: {node: '>=18'}
@@ -9270,6 +9299,7 @@ packages:
   source-map@0.8.0-beta.0:
     resolution: {integrity: sha512-2ymg6oRBpebeZi9UUNsgQ89bhx01TcTkmNTGnNO88imTmbSgy4nfujrgVEFKWpMTEGA11EDkTt7mqObTPdigIA==}
     engines: {node: '>= 8'}
+    deprecated: The work that was done in this beta branch won't be included in future versions
 
   space-separated-tokens@1.1.5:
     resolution: {integrity: sha512-q/JSVd1Lptzhf5bkYm4ob4iWPjx0KiRe3sRFBNrVqbJkFaBm5vbbowy1mymoPNLRa52+oadOhJ+K49wsSeSjTA==}
@@ -10243,6 +10273,18 @@ snapshots:
       uuid: 11.1.0
       zod: 3.25.76
 
+  '@ag-ui/client@0.0.40-alpha.6':
+    dependencies:
+      '@ag-ui/core': 0.0.40-alpha.6
+      '@ag-ui/encoder': 0.0.40-alpha.6
+      '@ag-ui/proto': 0.0.40-alpha.6
+      '@types/uuid': 10.0.0
+      fast-json-patch: 3.1.1
+      rxjs: 7.8.1
+      untruncate-json: 0.0.1
+      uuid: 11.1.0
+      zod: 3.25.76
+
   '@ag-ui/core@0.0.37':
     dependencies:
       rxjs: 7.8.1
@@ -10253,10 +10295,20 @@ snapshots:
       rxjs: 7.8.1
       zod: 3.25.76
 
+  '@ag-ui/core@0.0.40-alpha.6':
+    dependencies:
+      rxjs: 7.8.1
+      zod: 3.25.76
+
   '@ag-ui/encoder@0.0.39':
     dependencies:
       '@ag-ui/core': 0.0.39
       '@ag-ui/proto': 0.0.39
+
+  '@ag-ui/encoder@0.0.40-alpha.6':
+    dependencies:
+      '@ag-ui/core': 0.0.40-alpha.6
+      '@ag-ui/proto': 0.0.40-alpha.6
 
   '@ag-ui/langgraph@0.0.18(@ag-ui/client@0.0.39)(@ag-ui/core@0.0.39)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)':
     dependencies:
@@ -10277,6 +10329,12 @@ snapshots:
   '@ag-ui/proto@0.0.39':
     dependencies:
       '@ag-ui/core': 0.0.39
+      '@bufbuild/protobuf': 2.2.5
+      '@protobuf-ts/protoc': 2.11.1
+
+  '@ag-ui/proto@0.0.40-alpha.6':
+    dependencies:
+      '@ag-ui/core': 0.0.40-alpha.6
       '@bufbuild/protobuf': 2.2.5
       '@protobuf-ts/protoc': 2.11.1
 
@@ -11645,6 +11703,21 @@ snapshots:
       fs-extra: 7.0.1
       human-id: 1.0.2
       prettier: 2.8.8
+
+  '@copilotkitnext/runtime@0.0.16(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))':
+    dependencies:
+      '@ag-ui/client': 0.0.40-alpha.6
+      '@ag-ui/core': 0.0.40-alpha.6
+      '@ag-ui/encoder': 0.0.40-alpha.6
+      '@copilotkitnext/shared': 0.0.16
+      hono: 4.9.12
+      openai: 4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)
+      rxjs: 7.8.1
+
+  '@copilotkitnext/shared@0.0.16':
+    dependencies:
+      partial-json: 0.1.7
+      uuid: 11.1.0
 
   '@cspotcode/source-map-support@0.8.1':
     dependencies:
@@ -17255,6 +17328,8 @@ snapshots:
     dependencies:
       react-is: 16.13.1
 
+  hono@4.9.12: {}
+
   html-encoding-sniffer@4.0.0:
     dependencies:
       whatwg-encoding: 3.1.1
@@ -17324,7 +17399,7 @@ snapshots:
       isstream: 0.1.2
       jsonwebtoken: 9.0.2
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.7.9)
+      retry-axios: 2.6.0(axios@1.7.9(debug@4.4.1))
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -20268,7 +20343,7 @@ snapshots:
       onetime: 5.1.2
       signal-exit: 3.0.7
 
-  retry-axios@2.6.0(axios@1.7.9):
+  retry-axios@2.6.0(axios@1.7.9(debug@4.4.1)):
     dependencies:
       axios: 1.7.9(debug@4.4.1)
 
