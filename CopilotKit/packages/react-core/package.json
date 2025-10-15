@@ -57,7 +57,7 @@
   "dependencies": {
     "@copilotkit/runtime-client-gql": "workspace:*",
     "@copilotkit/shared": "workspace:*",
-    "@copilotkitnext/react": "0.0.14",
+    "@copilotkitnext/react": "0.0.17-alpha.0",
     "@scarf/scarf": "^1.3.0",
     "react-markdown": "^8.0.7",
     "untruncate-json": "^0.0.1"

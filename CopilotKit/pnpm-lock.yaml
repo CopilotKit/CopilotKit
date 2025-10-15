@@ -337,8 +337,8 @@ importers:
         specifier: workspace:*
         version: link:../shared
       '@copilotkitnext/react':
-        specifier: 0.0.14
-        version: 0.0.14(@types/react-dom@18.3.0)(@types/react@18.3.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 0.0.17-alpha.0
+        version: 0.0.17-alpha.0(@types/react-dom@18.3.0)(@types/react@18.3.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@scarf/scarf':
         specifier: ^1.3.0
         version: 1.3.0
@@ -384,7 +384,7 @@ importers:
         version: 18.3.1(react@18.3.1)
       ts-jest:
         specifier: ^29.1.1
-        version: 29.2.3(@babel/core@7.24.9)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.24.9))(esbuild@0.23.0)(jest@29.7.0(@types/node@20.14.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.5.28(@swc/helpers@0.5.13))(@types/node@20.14.12)(typescript@5.5.4)))(typescript@5.5.4)
+        version: 29.2.3(@babel/core@7.24.9)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.24.9))(esbuild@0.17.19)(jest@29.7.0(@types/node@20.14.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.5.28(@swc/helpers@0.5.13))(@types/node@20.14.12)(typescript@5.5.4)))(typescript@5.5.4)
       tsconfig:
         specifier: workspace:*
         version: link:../../utilities/tsconfig
@@ -508,7 +508,7 @@ importers:
         version: 3.4.6(ts-node@10.9.2(@swc/core@1.5.28(@swc/helpers@0.5.13))(@types/node@20.14.12)(typescript@5.5.4))
       ts-jest:
         specifier: ^29.1.1
-        version: 29.2.3(@babel/core@7.24.9)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.24.9))(esbuild@0.17.19)(jest@29.7.0(@types/node@20.14.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.5.28(@swc/helpers@0.5.13))(@types/node@20.14.12)(typescript@5.5.4)))(typescript@5.5.4)
+        version: 29.2.3(@babel/core@7.24.9)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.24.9))(esbuild@0.23.0)(jest@29.7.0(@types/node@20.14.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.5.28(@swc/helpers@0.5.13))(@types/node@20.14.12)(typescript@5.5.4)))(typescript@5.5.4)
       tsconfig:
         specifier: workspace:*
         version: link:../../utilities/tsconfig
@@ -971,8 +971,8 @@ packages:
   '@ag-ui/client@0.0.39':
     resolution: {integrity: sha512-VHusZRv0dBtxqKSh/fcLbS/txUpXuE68/2s8RiMoav1snEDonwPGNjvOdE15WResgnlEWPU5qPuSgPykvt2/+A==}
 
-  '@ag-ui/client@0.0.40-alpha.3':
-    resolution: {integrity: sha512-Za1j4r/9MZoic1DCmPGiRFIjSkGgr5sqnadYjQV6v/qvbv+cx4+8GX8K3snBcRX6H3EceOtQ9eY2BSZcR+Nc1g==}
+  '@ag-ui/client@0.0.40-alpha.6':
+    resolution: {integrity: sha512-QIgOY8nJvv3mrDz9OXyaoxwj3Js28YPYXz+myRQ2idR1ghoKq0V9MEZrXoHOE4O6Z7PnUSw5z7zZIemh7YK/5w==}
 
   '@ag-ui/core@0.0.37':
     resolution: {integrity: sha512-7bmjPn1Ol0Zo00F+MrPr0eOwH4AFZbhmq/ZMhCsrMILtVYBiBLcLU9QFBpBL3Zm9MCHha8b79N7JE2FzwcMaVA==}
@@ -980,14 +980,14 @@ packages:
   '@ag-ui/core@0.0.39':
     resolution: {integrity: sha512-T5Hp4oFkQ+H5MynWAvSwrX/rNYJOD+PJ4qPQ0o771oSZQAxoIvDDft47Cx5wRyBNNLXAe1RWqJjfWUUwJFNKqA==}
 
-  '@ag-ui/core@0.0.40-alpha.3':
-    resolution: {integrity: sha512-35ctuwk4/799c7uCSYfwHLmy5tUFg35VONqdmv6n1xl3kbH7qYA4L6xaGeCaI/YtTAVDs1KuUb/alSifrfPSAA==}
+  '@ag-ui/core@0.0.40-alpha.6':
+    resolution: {integrity: sha512-XkZAnmtewucr0yayWxK2GEcOoxaHZ6cSZZKkVFKAEOPJuUwFCFstqS3vh0Z5rUy2ZE8eh8WJylBHidiCRW4yuA==}
 
   '@ag-ui/encoder@0.0.39':
     resolution: {integrity: sha512-6fsoFwPWkStK7Uyj3pwBn7+aQjUWf7pbDTSI43cD53sBLvTr5oEFNnoKOzRfC5UqvHc4JjUIuLKPQyjHRwWg4g==}
 
-  '@ag-ui/encoder@0.0.40-alpha.3':
-    resolution: {integrity: sha512-hFCkR9x409ZzU9a0u9WTAnaWWAIRTpos4X9GfDXlrNXzmkHr1zwpzmJsvTbmnpAtg/stpLQuWebej4dk/8QBzg==}
+  '@ag-ui/encoder@0.0.40-alpha.6':
+    resolution: {integrity: sha512-q+bpJGp4fMjQplHowmbNaOQrICHzmk1J394jZXmTv/RjysNHtcDrWHythXBiPAnNRutYeqsG6bQJ5PASbQYiqg==}
 
   '@ag-ui/langgraph@0.0.18':
     resolution: {integrity: sha512-soWSV8+xR91jMArZUJoRv85UCgTi3Zt3u3gTMZhvs1t6fGFpAi6+hEQ4AqP13Rgvg90IlmIU8MTWo2k0OZDnoA==}
@@ -998,8 +998,8 @@ packages:
   '@ag-ui/proto@0.0.39':
     resolution: {integrity: sha512-xlj/PzZHkJ3CgoQC5QP9g7DEl/78wUK1+A2rdkoLKoNAMOkM2g6jKw0N88iFIh5GZhtiCNN2wb8XwRWPYx9XQQ==}
 
-  '@ag-ui/proto@0.0.40-alpha.3':
-    resolution: {integrity: sha512-VS9R2SGMJ+fbNq4hRT3jKe/FKeqRRev+DtKd1JIkwYiR+CaXF2h+gxi5xypCMiSyHzrH7QtftXI5nWU871HxAA==}
+  '@ag-ui/proto@0.0.40-alpha.6':
+    resolution: {integrity: sha512-xFw9igIC7OGdq/t1biUXRMinaC0sPLkavjj2oz820KaJe1uZOTSRfAK1qEgswoHJU1N4vRg0RQDEhd1wN8+GGg==}
 
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
@@ -1672,23 +1672,23 @@ packages:
   '@chevrotain/utils@11.0.3':
     resolution: {integrity: sha512-YslZMgtJUyuMbZ+aKvfF3x1f5liK4mWNxghFRv7jqRR9C3R3fAOGTTKvxXDa2Y1s9zSbcpuO0cAxDYsc9SrXoQ==}
 
-  '@copilotkitnext/core@0.0.14':
-    resolution: {integrity: sha512-v7ayw0/Ef7Gsp57uF3noqITMGfZ7hQrd2xzL/9+LP/XjqQ3B5bsCslDnmYRRdD04ONg/iBXXHk4vVrxVXz1/9Q==}
+  '@copilotkitnext/core@0.0.17-alpha.0':
+    resolution: {integrity: sha512-UwZDG5CT3F2gg7VCbN7Y0EGMNiAhSg/57HAD/W27VjJs3twDKhRIkY3eglzuYukTzB3SRHCKRp6f+KVEIaPEAQ==}
     engines: {node: '>=18'}
 
-  '@copilotkitnext/react@0.0.14':
-    resolution: {integrity: sha512-SZmHWBrlj4G9hYxwNs+JiHDKh8oAvreEnXxkCS3h7XOB1Gn1Wx80VQ9wFvhDT+aU1pFONpDkhMzHApy4ldMbBQ==}
+  '@copilotkitnext/react@0.0.17-alpha.0':
+    resolution: {integrity: sha512-iUS665PuSGVJs7FHp3kal3XbOVbE+nWJjr59jiromMPi4FnyyBoc3IeymVN/bu/a2QklrFFFvar9AHjkiQEx2g==}
     engines: {node: '>=18'}
     peerDependencies:
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
 
-  '@copilotkitnext/shared@0.0.14':
-    resolution: {integrity: sha512-fR2KgEP6upUK2Fv6NvV2dBSS1zKKBngcVHGZM0G6mgns3GrJODtMN2Z36wd9zOWz/F5uCjUMny/acslvXFI4IA==}
+  '@copilotkitnext/shared@0.0.17-alpha.0':
+    resolution: {integrity: sha512-kj8VKyaIDTTsf0OGGbOMJuOlqPirrFO2EPtqgPCVfeegnJc/3c+oncCY9E0qMSzeCRbtZGEAMtJ36Hafx1QxOw==}
     engines: {node: '>=18'}
 
-  '@copilotkitnext/web-inspector@0.0.14':
-    resolution: {integrity: sha512-PF5yz/WeKm7ze9lUMzEmzmQEG/H0O82zdqH2Z0yKooJtjt+VEQFFoUaP+aV93/Eaqiv/CxK5cA75e3rxj4hQtQ==}
+  '@copilotkitnext/web-inspector@0.0.17-alpha.0':
+    resolution: {integrity: sha512-nbnLMCozw7589v9WIWlRNGxEI8CKC4jpqALXtoWqxhE0WrVjDTXn0P9q5rhvl2Noa4fNn3ydrTT8HPnVWrxx/w==}
     engines: {node: '>=18'}
 
   '@cspotcode/source-map-support@0.8.1':
@@ -11194,11 +11194,11 @@ snapshots:
       uuid: 11.1.0
       zod: 3.25.76
 
-  '@ag-ui/client@0.0.40-alpha.3':
+  '@ag-ui/client@0.0.40-alpha.6':
     dependencies:
-      '@ag-ui/core': 0.0.40-alpha.3
-      '@ag-ui/encoder': 0.0.40-alpha.3
-      '@ag-ui/proto': 0.0.40-alpha.3
+      '@ag-ui/core': 0.0.40-alpha.6
+      '@ag-ui/encoder': 0.0.40-alpha.6
+      '@ag-ui/proto': 0.0.40-alpha.6
       '@types/uuid': 10.0.0
       fast-json-patch: 3.1.1
       rxjs: 7.8.1
@@ -11216,7 +11216,7 @@ snapshots:
       rxjs: 7.8.1
       zod: 3.25.76
 
-  '@ag-ui/core@0.0.40-alpha.3':
+  '@ag-ui/core@0.0.40-alpha.6':
     dependencies:
       rxjs: 7.8.1
       zod: 3.25.76
@@ -11226,10 +11226,10 @@ snapshots:
       '@ag-ui/core': 0.0.39
       '@ag-ui/proto': 0.0.39
 
-  '@ag-ui/encoder@0.0.40-alpha.3':
+  '@ag-ui/encoder@0.0.40-alpha.6':
     dependencies:
-      '@ag-ui/core': 0.0.40-alpha.3
-      '@ag-ui/proto': 0.0.40-alpha.3
+      '@ag-ui/core': 0.0.40-alpha.6
+      '@ag-ui/proto': 0.0.40-alpha.6
 
   '@ag-ui/langgraph@0.0.18(@ag-ui/client@0.0.39)(@ag-ui/core@0.0.39)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)':
     dependencies:
@@ -11253,9 +11253,9 @@ snapshots:
       '@bufbuild/protobuf': 2.2.5
       '@protobuf-ts/protoc': 2.11.1
 
-  '@ag-ui/proto@0.0.40-alpha.3':
+  '@ag-ui/proto@0.0.40-alpha.6':
     dependencies:
-      '@ag-ui/core': 0.0.40-alpha.3
+      '@ag-ui/core': 0.0.40-alpha.6
       '@bufbuild/protobuf': 2.2.5
       '@protobuf-ts/protoc': 2.11.1
 
@@ -12651,21 +12651,21 @@ snapshots:
 
   '@chevrotain/utils@11.0.3': {}
 
-  '@copilotkitnext/core@0.0.14':
+  '@copilotkitnext/core@0.0.17-alpha.0':
     dependencies:
-      '@ag-ui/client': 0.0.40-alpha.3
-      '@copilotkitnext/shared': 0.0.14
+      '@ag-ui/client': 0.0.40-alpha.6
+      '@copilotkitnext/shared': 0.0.17-alpha.0
       rxjs: 7.8.1
       zod: 3.25.76
       zod-to-json-schema: 3.24.6(zod@3.25.76)
 
-  '@copilotkitnext/react@0.0.14(@types/react-dom@18.3.0)(@types/react@18.3.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@copilotkitnext/react@0.0.17-alpha.0(@types/react-dom@18.3.0)(@types/react@18.3.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@ag-ui/client': 0.0.40-alpha.3
-      '@ag-ui/core': 0.0.40-alpha.3
-      '@copilotkitnext/core': 0.0.14
-      '@copilotkitnext/shared': 0.0.14
-      '@copilotkitnext/web-inspector': 0.0.14
+      '@ag-ui/client': 0.0.40-alpha.6
+      '@ag-ui/core': 0.0.40-alpha.6
+      '@copilotkitnext/core': 0.0.17-alpha.0
+      '@copilotkitnext/shared': 0.0.17-alpha.0
+      '@copilotkitnext/web-inspector': 0.0.17-alpha.0
       '@lit-labs/react': 2.1.3(@types/react@18.3.3)
       '@radix-ui/react-dropdown-menu': 2.1.16(@types/react-dom@18.3.0)(@types/react@18.3.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@radix-ui/react-slot': 1.2.3(@types/react@18.3.3)(react@18.3.1)
@@ -12687,15 +12687,15 @@ snapshots:
       - '@types/react-dom'
       - supports-color
 
-  '@copilotkitnext/shared@0.0.14':
+  '@copilotkitnext/shared@0.0.17-alpha.0':
     dependencies:
       partial-json: 0.1.7
       uuid: 11.1.0
 
-  '@copilotkitnext/web-inspector@0.0.14':
+  '@copilotkitnext/web-inspector@0.0.17-alpha.0':
     dependencies:
-      '@ag-ui/client': 0.0.40-alpha.3
-      '@copilotkitnext/core': 0.0.14
+      '@ag-ui/client': 0.0.40-alpha.6
+      '@copilotkitnext/core': 0.0.17-alpha.0
       lit: 3.3.1
       lucide: 0.525.0
 
