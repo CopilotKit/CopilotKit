@@ -4,7 +4,7 @@ import { baseOptions } from "../layout.config";
 import { source } from "@/app/source";
 import { SubdocsMenu } from "@/components/react/subdocs-menu";
 import { TerminalIcon, RocketIcon, CloudIcon } from "lucide-react";
-import { SiCrewai } from "@icons-pack/react-simple-icons";
+import { SiCrewai, SiDiscord } from "@icons-pack/react-simple-icons";
 import { SiLangchain } from "react-icons/si";
 import {
   AG2Icon,
@@ -43,6 +43,15 @@ export default function Layout({ children }: { children: ReactNode }) {
                   bgGradient:
                     "bg-gradient-to-b from-blue-700 to-blue-400 text-blue-100",
                   selectedStyle: "ring-blue-500/70 ring-2 rounded-sm",
+                },
+                {
+                  title: "Discord Community",
+                  description: "Join our Discord community",
+                  href: "https://go.copilotkit.ai/discord-community",
+                  icon: <SiDiscord className="w-4 h-4" />,
+                  bgGradient:
+                    "bg-gradient-to-b from-indigo-600 to-indigo-500 text-white",
+                  selectedStyle: "ring-indigo-500/70 ring-2 rounded-sm",
                 },
                 {
                   title: "API Reference",
