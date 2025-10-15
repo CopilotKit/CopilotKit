@@ -1,6 +1,3 @@
 {
-    "pages": [
-        "interrupt-flow",
-        "node-flow"
-    ]
+  "pages": ["interrupt-flow", "frontend-tool-based"]
 }
