@@ -5,6 +5,9 @@ import { useCopilotContext } from "../../context/copilot-context";
 import { CopilotKitIcon } from "./icons";
 import { DeveloperConsoleModal } from "./developer-console-modal";
 
+// Storage key for hiding the Inspector trigger/modal
+const INSPECTOR_HIDE_KEY = "cpk:inspector:hidden";
+
 interface ConsoleTriggerProps {
   position?: "bottom-left" | "bottom-right";
 }
@@ -17,6 +20,7 @@ export function ConsoleTrigger({ position = "bottom-right" }: ConsoleTriggerProp
   const [isDragging, setIsDragging] = useState(false);
   const [buttonPosition, setButtonPosition] = useState<{ x: number; y: number } | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [isHidden, setIsHidden] = useState(false);
 
   const dragRef = useRef<{
     startX: number;
@@ -29,6 +33,15 @@ export function ConsoleTrigger({ position = "bottom-right" }: ConsoleTriggerProp
   // Initialize on client side only
   useEffect(() => {
     setMounted(true);
+    try {
+      const hidden =
+        typeof window !== "undefined" ? localStorage.getItem(INSPECTOR_HIDE_KEY) : null;
+      if (hidden === "1" || hidden === "true") {
+        setIsHidden(true);
+      }
+    } catch {
+      // ignore
+    }
     if (typeof window !== "undefined" && !buttonPosition) {
       const buttonSize = 60;
       const margin = 24;
@@ -96,7 +109,7 @@ export function ConsoleTrigger({ position = "bottom-right" }: ConsoleTriggerProp
   }, [isDragging]);
 
   // Don't render until mounted and position is initialized
-  if (!mounted || !buttonPosition) {
+  if (!mounted || !buttonPosition || isHidden) {
     return null;
   }
 
@@ -104,10 +117,25 @@ export function ConsoleTrigger({ position = "bottom-right" }: ConsoleTriggerProp
     <>
       <button
         ref={buttonRef}
-        onClick={() => {
+        onClick={(e) => {
           if (!isDragging) {
+            // Modifier-click hides
+            if (e.metaKey || e.altKey) {
+              try {
+                localStorage.setItem(INSPECTOR_HIDE_KEY, "1");
+              } catch {}
+              setIsHidden(true);
+              return;
+            }
             setIsModalOpen(true);
           }
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          try {
+            localStorage.setItem(INSPECTOR_HIDE_KEY, "1");
+          } catch {}
+          setIsHidden(true);
         }}
         onMouseDown={handleMouseDown}
         onMouseEnter={() => setIsHovered(true)}
@@ -146,6 +174,42 @@ export function ConsoleTrigger({ position = "bottom-right" }: ConsoleTriggerProp
             : "Inspector (License Key Required, Drag to move)"
         }
       >
+        {/* Close (hide) control */}
+        <div
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            try {
+              localStorage.setItem(INSPECTOR_HIDE_KEY, "1");
+            } catch {
+              // ignore
+            }
+            setIsHidden(true);
+          }}
+          style={{
+            position: "absolute",
+            bottom: "2px",
+            right: "2px",
+            width: "20px",
+            height: "20px",
+            borderRadius: "50%",
+            background: "#ffffff",
+            color: "#ef4444",
+            fontSize: "14px",
+            lineHeight: "18px",
+            textAlign: "center",
+            boxShadow: "0 2px 6px rgba(0,0,0,0.35)",
+            cursor: "pointer",
+            border: "1px solid #e5e7eb",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1,
+          }}
+          title="Hide Inspector"
+        >
+          ×
+        </div>
         <div
           style={{
             width: "28px",

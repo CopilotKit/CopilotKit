@@ -27,10 +27,15 @@ from .logging import get_logger
 
 logger = get_logger(__name__)
 
+class CopilotContextItem(TypedDict):
+    """Copilot context item"""
+    description: str
+    value: Any
 
 class CopilotKitProperties(TypedDict):
     """CopilotKit state"""
     actions: List[Any]
+    context: List[CopilotContextItem]
 
 class CopilotKitState(MessagesState):
     """CopilotKit state"""

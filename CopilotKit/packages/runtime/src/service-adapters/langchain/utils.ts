@@ -50,6 +50,7 @@ export function convertMessageToLangChainMessage(message: Message): BaseMessage 
 
 export function convertActionInputToLangChainTool(actionInput: ActionInput): any {
   return new DynamicStructuredTool({
+    ...actionInput,
     name: actionInput.name,
     description: actionInput.description,
     schema: convertJsonSchemaToZodSchema(
@@ -68,6 +69,7 @@ interface StreamLangChainResponseParams {
   actionExecution?: {
     id: string;
     name: string;
+    returnDirect?: boolean;
   };
 }
 
@@ -115,8 +117,13 @@ export async function streamLangChainResponse({
   // 1. string
 
   if (typeof result === "string") {
-    if (!actionExecution) {
+    if (!actionExecution || actionExecution?.returnDirect) {
       // Just send one chunk with the string as the content.
+      eventStream$.sendActionExecutionResult({
+        actionExecutionId: actionExecution.id,
+        actionName: actionExecution.name,
+        result: result,
+      });
       eventStream$.sendTextMessage(randomId(), result);
     } else {
       // Send as a result

@@ -4,11 +4,12 @@ import { baseOptions } from "../layout.config";
 import { source } from "@/app/source";
 import { SubdocsMenu } from "@/components/react/subdocs-menu";
 import { TerminalIcon, RocketIcon, CloudIcon } from "lucide-react";
-import { SiCrewai } from "@icons-pack/react-simple-icons";
+import { SiCrewai, SiDiscord } from "@icons-pack/react-simple-icons";
 import { SiLangchain } from "react-icons/si";
 import {
   AG2Icon,
   MastraIcon,
+  ADKIcon,
   AgnoIcon,
   LlamaIndexIcon,
   PydanticAIIcon,
@@ -42,6 +43,15 @@ export default function Layout({ children }: { children: ReactNode }) {
                   bgGradient:
                     "bg-gradient-to-b from-blue-700 to-blue-400 text-blue-100",
                   selectedStyle: "ring-blue-500/70 ring-2 rounded-sm",
+                },
+                {
+                  title: "Discord Community",
+                  description: "Join our Discord community",
+                  href: "https://go.copilotkit.ai/discord-community",
+                  icon: <SiDiscord className="w-4 h-4" />,
+                  bgGradient:
+                    "bg-gradient-to-b from-indigo-600 to-indigo-500 text-white",
+                  selectedStyle: "ring-indigo-500/70 ring-2 rounded-sm",
                 },
                 {
                   title: "API Reference",
@@ -105,6 +115,39 @@ export default function Layout({ children }: { children: ReactNode }) {
                         "ring-zinc-800 dark:ring-white ring-2 rounded-sm",
                     },
                     {
+                      title: "Pydantic AI",
+                      description:
+                        "Documentation for CoAgents with Pydantic AI",
+                      url: "/pydantic-ai",
+                      icon: <PydanticAIIcon className="w-4 h-4 text-bold" />,
+                      bgGradient: "bg-black text-white",
+                      selectedStyle: "ring-gray-500 ring-2 rounded-sm",
+                    },
+                    {
+                      title: "Google ADK",
+                      description: "Documentation for CoAgents with ADK",
+                      url: "/adk",
+                      icon: <ADKIcon className="w-4 h-4 text-bold" />,
+                      bgGradient: "bg-black text-white",
+                      selectedStyle: "ring-gray-500 ring-2 rounded-sm",
+                    },                    {
+                      title: "Agno",
+                      description: "Documentation for CoAgents with Agno",
+                      url: "/agno",
+                      icon: <AgnoIcon className="w-4 h-4 text-bold" />,
+                      bgGradient: "bg-[#FF3C1A] text-white",
+                      selectedStyle: "ring-[#FF3C1A] ring-2 rounded-sm",
+                    },
+                    {
+                      title: "LlamaIndex",
+                      description: "Documentation for CoAgents with LlamaIndex",
+                      url: "/llamaindex",
+                      icon: <LlamaIndexIcon className="w-4 h-4 text-bold" />,
+                      bgGradient:
+                        "bg-gradient-to-b from-pink-500 via-purple-500 to-blue-400 text-pink-100",
+                      selectedStyle: "ring-pink-500/70 ring-2 rounded-sm",
+                    },
+                    {
                       title: "CrewAI Flows",
                       description:
                         "Documentation for CoAgents with CrewAI Flows",
@@ -123,32 +166,6 @@ export default function Layout({ children }: { children: ReactNode }) {
                       bgGradient:
                         "bg-gradient-to-b from-[#FA694C] to-[#FE8A71] text-white",
                       selectedStyle: "ring-[#FA694C]/70 ring-2 rounded-sm",
-                    },
-                    {
-                      title: "Pydantic AI",
-                      description:
-                        "Documentation for CoAgents with Pydantic AI",
-                      url: "/pydantic-ai",
-                      icon: <PydanticAIIcon className="w-4 h-4 text-bold" />,
-                      bgGradient: "bg-black text-white",
-                      selectedStyle: "ring-gray-500 ring-2 rounded-sm",
-                    },
-                    {
-                      title: "Agno",
-                      description: "Documentation for CoAgents with Agno",
-                      url: "/agno",
-                      icon: <AgnoIcon className="w-4 h-4 text-bold" />,
-                      bgGradient: "bg-[#FF3C1A] text-white",
-                      selectedStyle: "ring-[#FF3C1A] ring-2 rounded-sm",
-                    },
-                    {
-                      title: "LlamaIndex",
-                      description: "Documentation for CoAgents with LlamaIndex",
-                      url: "/llamaindex",
-                      icon: <LlamaIndexIcon className="w-4 h-4 text-bold" />,
-                      bgGradient:
-                        "bg-gradient-to-b from-pink-500 via-purple-500 to-blue-400 text-pink-100",
-                      selectedStyle: "ring-pink-500/70 ring-2 rounded-sm",
                     },
                     {
                       title: "AutoGen2",

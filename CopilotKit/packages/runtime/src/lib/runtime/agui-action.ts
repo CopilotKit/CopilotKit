@@ -13,9 +13,14 @@ import {
 } from "@ag-ui/client";
 
 import { AbstractAgent } from "@ag-ui/client";
-import { CopilotKitError, CopilotKitErrorCode, parseJson } from "@copilotkit/shared";
+import { Action, CopilotKitError, CopilotKitErrorCode, parseJson } from "@copilotkit/shared";
 import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 import { GraphQLContext } from "../integrations/shared";
+import { CopilotContextInput } from "../../graphql/inputs/copilot-context.input";
+
+export type RemoteAgentAction = Action<[]> & {
+  remoteAgentHandler: (params: RemoteAgentHandlerParams) => Promise<Observable<RuntimeEvent>>;
+};
 
 export function constructAGUIRemoteAction({
   logger,
@@ -25,6 +30,7 @@ export function constructAGUIRemoteAction({
   metaEvents,
   threadMetadata,
   nodeName,
+  context,
   graphqlContext,
 }: {
   logger: Logger;
@@ -34,17 +40,25 @@ export function constructAGUIRemoteAction({
   metaEvents?: MetaEventInput[];
   threadMetadata?: Record<string, any>;
   nodeName?: string;
+  context?: CopilotContextInput[];
   graphqlContext: GraphQLContext;
-}) {
-  const action = {
+}): RemoteAgentAction[] {
+  const action: RemoteAgentAction = {
     name: agent.agentId,
     description: agent.description,
     parameters: [],
-    handler: async (_args: any) => {},
+    handler: async () => {},
     remoteAgentHandler: async ({
       actionInputsWithoutAgents,
       threadId,
     }: RemoteAgentHandlerParams): Promise<Observable<RuntimeEvent>> => {
+      graphqlContext.request.signal.addEventListener(
+        "abort",
+        () => {
+          agent.abortRun();
+        },
+        { once: true }, // optional: fire only once
+      );
       logger.debug({ actionName: agent.agentId }, "Executing remote agent");
 
       const agentWireMessages = convertMessagesToAGUIMessage(messages);
@@ -92,6 +106,7 @@ export function constructAGUIRemoteAction({
         agent.legacy_to_be_removed_runAgentBridged({
           tools,
           forwardedProps,
+          context,
         }) as Observable<RuntimeEvent>
       ).pipe(
         mergeMap((event) => {

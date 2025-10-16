@@ -2,8 +2,6 @@ import { Action, CopilotKitErrorCode } from "@copilotkit/shared";
 import { GraphQLContext } from "../integrations/shared";
 import { Logger } from "pino";
 import { Message } from "../../graphql/types/converted";
-import { RuntimeEvent } from "../../service-adapters/events";
-import { Observable } from "rxjs";
 import { ActionInput } from "../../graphql/inputs/action.input";
 import { AgentStateInput } from "../../graphql/inputs/agent-state.input";
 import {
@@ -18,7 +16,8 @@ import {
 } from "@copilotkit/shared";
 import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 import { AbstractAgent } from "@ag-ui/client";
-import { constructAGUIRemoteAction } from "./agui-action";
+import { constructAGUIRemoteAction, RemoteAgentAction } from "./agui-action";
+import { CopilotContextInput } from "../../graphql/inputs/copilot-context.input";
 
 export type EndpointDefinition = CopilotKitEndpoint | LangGraphPlatformEndpoint;
 
@@ -63,10 +62,6 @@ export type RemoteAgentHandlerParams = {
   nodeName?: string;
   additionalMessages?: Message[];
   metaEvents?: MetaEventInput[];
-};
-
-export type RemoteAgentAction = Action<any> & {
-  remoteAgentHandler: (params: RemoteAgentHandlerParams) => Promise<Observable<RuntimeEvent>>;
 };
 
 export function isRemoteAgentAction(action: Action<any>): action is RemoteAgentAction {
@@ -132,6 +127,7 @@ export async function setupRemoteActions({
   agents,
   metaEvents,
   nodeName,
+  context,
 }: {
   remoteEndpointDefinitions: EndpointDefinition[];
   graphqlContext: GraphQLContext;
@@ -141,7 +137,8 @@ export async function setupRemoteActions({
   agents: Record<string, AbstractAgent>;
   metaEvents?: MetaEventInput[];
   nodeName?: string;
-}): Promise<Action[]> {
+  context?: CopilotContextInput[];
+}): Promise<Action<any>[]> {
   const logger = graphqlContext.logger.child({ component: "remote-actions.fetchRemoteActions" });
   logger.debug({ remoteEndpointDefinitions }, "Fetching from remote endpoints");
 
@@ -211,6 +208,7 @@ export async function setupRemoteActions({
         threadMetadata,
         nodeName,
         graphqlContext,
+        context,
       }),
     );
   }

@@ -1,4 +1,4 @@
-import { useCopilotAction } from "@copilotkit/react-core";
+import { useFrontendTool } from "@copilotkit/react-core";
 import { SlideModel } from "../types";
 import { SlidePreview } from "../components/misc/SlidePreview";
 
@@ -13,7 +13,7 @@ export default function useAppendSlide({
   setCurrentSlideIndex,
   slides,
 }: AppendSlideParams) {
-  useCopilotAction({
+  useFrontendTool({
     name: "appendSlide",
     description:
       "Add a slide after all the existing slides. Call this function multiple times to add multiple slides.",

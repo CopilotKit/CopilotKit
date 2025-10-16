@@ -45,7 +45,6 @@ import { ForwardedParametersInput } from "../../graphql/inputs/forwarded-paramet
 
 import {
   isRemoteAgentAction,
-  RemoteAgentAction,
   EndpointType,
   setupRemoteActions,
   EndpointDefinition,
@@ -90,6 +89,8 @@ type CreateMCPClientFunction = (config: MCPEndpointConfig) => Promise<MCPClient>
 // --- MCP Imports ---
 
 import { generateHelpfulErrorMessage } from "../streaming";
+import { CopilotContextInput } from "../../graphql/inputs/copilot-context.input";
+import { RemoteAgentAction } from "./agui-action";
 
 export interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
@@ -106,6 +107,7 @@ export interface CopilotRuntimeRequest {
   url?: string;
   extensions?: ExtensionsInput;
   metaEvents?: MetaEventInput[];
+  context?: CopilotContextInput[];
 }
 
 interface CopilotRuntimeResponse {
@@ -141,6 +143,15 @@ interface OnAfterRequestOptions {
 }
 
 type OnAfterRequestHandler = (options: OnAfterRequestOptions) => void | Promise<void>;
+
+interface OnStopGenerationOptions {
+  threadId: string;
+  runId?: string;
+  url?: string;
+  agentName?: string;
+  lastMessage: MessageInput;
+}
+type OnStopGenerationHandler = (options: OnStopGenerationOptions) => void | Promise<void>;
 
 interface Middleware {
   /**
@@ -299,6 +310,8 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
    * ```
    */
   onError?: CopilotErrorHandler;
+
+  onStopGeneration?: OnStopGenerationHandler;
 }
 
 export class CopilotRuntime<const T extends Parameter[] | [] = []> {
@@ -308,6 +321,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   private langserve: Promise<Action<any>>[] = [];
   private onBeforeRequest?: OnBeforeRequestHandler;
   private onAfterRequest?: OnAfterRequestHandler;
+  private onStopGeneration?: OnStopGenerationHandler;
   private delegateAgentProcessingToServiceAdapter: boolean;
   private observability?: CopilotObservabilityConfig;
   private availableAgents: Pick<AgentWithEndpoint, "name" | "id">[];
@@ -324,6 +338,16 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   // --- MCP Client Factory ---
 
   constructor(params?: CopilotRuntimeConstructorParams<T>) {
+    if (
+      params?.remoteEndpoints &&
+      params?.remoteEndpoints.some((e) => e.type === EndpointType.LangGraphPlatform)
+    ) {
+      throw new CopilotKitMisuseError({
+        message:
+          "LangGraph Platform remote endpoints are deprecated in favor of the `agents` property. Refer to https://docs.copilotkit.ai/langgraph for more information.",
+      });
+    }
+
     if (
       params?.actions &&
       params?.remoteEndpoints &&
@@ -357,6 +381,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
     this.onBeforeRequest = params?.middleware?.onBeforeRequest;
     this.onAfterRequest = params?.middleware?.onAfterRequest;
+    this.onStopGeneration = params?.onStopGeneration;
     this.delegateAgentProcessingToServiceAdapter =
       params?.delegateAgentProcessingToServiceAdapter || false;
     this.observability = params?.observability_c;
@@ -484,7 +509,20 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       agentSession,
       agentStates,
       publicApiKey,
+      context,
     } = request;
+    graphqlContext.request.signal.addEventListener(
+      "abort",
+      () =>
+        this.onStopGeneration?.({
+          threadId,
+          runId,
+          url,
+          agentName: agentSession?.agentName,
+          lastMessage: rawMessages[rawMessages.length - 1],
+        }),
+      { once: true }, // optional: fire only once
+    );
 
     const eventSource = new RuntimeEventSource({
       errorHandler: async (error, context) => {
@@ -570,6 +608,7 @@ please use an LLM adapter instead.`,
         name: action.name,
         description: action.description,
         jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters)),
+        additionalConfig: action.additionalConfig,
       }));
 
       const actionInputs = flattenToolCallsNoDuplicates([
@@ -1025,6 +1064,7 @@ please use an LLM adapter instead.`,
       metaEvents,
       publicApiKey,
       forwardedParameters,
+      context,
     } = request;
     const { agentName, nodeName } = agentSession;
 
@@ -1408,6 +1448,7 @@ please use an LLM adapter instead.`,
       agents: this.agents,
       metaEvents: request.metaEvents,
       nodeName: request.agentSession?.nodeName,
+      context: request.context,
     });
 
     const configuredActions =

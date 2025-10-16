@@ -27,26 +27,6 @@ tool calls in a more complex example.
 If you have already done that, you can check the following:
 
 <Accordions>
-    <Accordion title="You have not specified the tool call in the `copilotkit_customize_config`">
-        In your LangGraph agent, you have must specify which tool calls will be emitted to the CopilotKit runtime. By default,
-        only streamed messages are emitted. You can fix this by adding the following to the node making the tool call.
-
-        ```python
-        from copilotkit.langgraph import copilotkit_customize_config, copilotkit_emit_message
-        from langgraph_core.runnables import RunnableConfig
-        from langchain.tools import tool
-
-        @tool
-        def say_hello_to(name: str) -> str:
-            return f"Hello, {name}!"
-
-        async def my_node(state: State, config: RunnableConfig) -> State:
-            # ...
-            config = copilotkit_customize_config(config, emit_tool_calls=["say_hello_to"]) # [code highlight]
-            # ...
-            return state
-        ```
-    </Accordion>
     <Accordion title="You're using llm.invoke() instead of llm.ainvoke()">
         <p>
             When you invoke your LangGraph agent, you can invoke it synchronously or asynchronously. If you invoke it synchronously,
@@ -125,7 +105,8 @@ If you're seeing this error, it means CopilotKit couldn't find the LangGraph age
         ```typescript title="/copilotkit/api/route.ts"
         const runtime = new CopilotRuntime({
           // ... The rest of your CopilotRuntime definition
-          agents: { // [!code highlight:7]
+          // [!code highlight:7]
+          agents: {
             'my_agent': new LangGraphAgent({
               deploymentUrl: '<your-api-url>',
               graphId: 'my_agent',

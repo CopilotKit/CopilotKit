@@ -58,7 +58,11 @@ jobs:
 
     - name: Build cpk
       working-directory: CopilotKit/CopilotKit
-      run: pnpm build
+      run: |
+        unset TURBO_API
+        unset TURBO_TOKEN
+        unset TURBO_TEAM
+        pnpm build
 
     - name: Install ag-ui dependencies
       working-directory: ag-ui/typescript-sdk
@@ -70,7 +74,11 @@ jobs:
 
     - name: Prepare dojo for e2e
       working-directory: ag-ui/typescript-sdk/apps/dojo
-      run: node ./scripts/prep-dojo-everything.js -e2e
+      run: |
+        unset TURBO_API
+        unset TURBO_TOKEN
+        unset TURBO_TEAM
+        node ./scripts/prep-dojo-everything.js
 
     - name: Install e2e dependencies
       working-directory: ag-ui/typescript-sdk/apps/dojo/e2e
@@ -95,6 +103,7 @@ jobs:
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+        GOOGLE_API_KEY: ${{ secrets.GOOGLE_GEMINI_API_KEY }}
       with:
         run: |
           node ../scripts/run-dojo-everything.js

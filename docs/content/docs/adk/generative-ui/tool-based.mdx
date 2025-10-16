@@ -1,0 +1,132 @@
+---
+title: Tool-based Generative UI
+icon: "lucide/Wrench"
+description: Render your agent's tool calls with custom UI components.
+---
+
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tool-based-gen-ui.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
+## What is this?
+
+Tools are a way for the LLM to call predefined, typically, deterministic functions. CopilotKit allows you to render these tools in the UI
+as a custom component, which we call **Generative UI**.
+
+## When should I use this?
+
+Rendering tools in the UI is useful when you want to provide the user with feedback about what your agent is doing, specifically
+when your agent is calling tools. CopilotKit allows you to fully customize how these tools are rendered in the chat.
+
+## Implementation
+
+<Steps>
+<Step>
+### Run and connect your agent
+
+You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
+you can follow the instructions in the [Getting Started](/adk/quickstart/adk) guide.
+</Step>
+<Step>
+### Give your agent a tool to call
+
+<Tabs groupId="language" items={['Python']} default="Python">
+    <Tab value="Python">
+        ```python title="agent/sample_agent/agent.py"
+        import uvicorn
+        from fastapi import FastAPI
+        from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
+        from google.adk.agents import LlmAgent
+
+
+        def get_weather(location: str = "the entire world") -> str:
+            """Get the weather in a given location.
+
+            Args:
+                location: The location to get the weather for.
+
+            Returns:
+                the weather in the specified location.
+            """
+            return "it is sunny in " + location
+
+
+        weather_agent = LlmAgent(
+            model="gemini-2.5-flash",
+            name="weather_agent",
+            instruction=f"""
+              You are an expert weather analyzer that can tell the current weather in a specific location.
+              Use the get_weather tool to get the weather in a specific location. If the user doesn't specify
+              a location, use "the entire world" as the location.
+              """,
+            tools=[get_weather],
+        )
+
+        adk_agent_weather = ADKAgent(
+            adk_agent=weather_agent, app_name="weather_demo", user_id="demo_user"
+        )
+
+        # Create FastAPI app
+        app = FastAPI(title="ADK Middleware Weather Tool Agent")
+
+        # Add the ADK endpoint
+        add_adk_fastapi_endpoint(app, adk_agent_weather, path="/")
+
+        uvicorn.run(app, host="localhost", port=8000)
+        ```
+    </Tab>
+
+</Tabs>
+</Step>
+<Step>
+### Render the tool call in your frontend
+At this point, your agent will be able to call the `get_weather` tool. Now
+we just need to add a `useCopilotAction` hook to render the tool call in
+the UI.
+
+<Callout type="info" title="Important">
+  In order to render a tool call in the UI, the name of the action must match
+  the name of the tool.
+</Callout>
+
+```tsx title="app/page.tsx"
+import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
+// ...
+
+const YourMainContent = () => {
+  // ...
+  // [!code highlight:13]
+  useCopilotAction({
+    name: "get_weather",
+    available: "frontend", // Mark this as render only
+    render: ({ status, args }) => {
+      return (
+        <p className="text-gray-500 mt-2">
+          {status !== "complete" && "Calling weather API..."}
+          {status === "complete" &&
+            `Called the weather API for ${args.location}.`}
+        </p>
+      );
+    },
+  });
+  // ...
+};
+```
+
+</Step>
+<Step>
+### Give it a try!
+
+Try asking the agent to get the weather for a location. You should see the custom UI component that we added
+render the tool call and display the arguments that were passed to the tool.
+
+</Step>
+</Steps>

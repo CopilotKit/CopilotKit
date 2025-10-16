@@ -50,7 +50,7 @@ function handleNavigationScroll(fromPath: string, toPath: string) {
   const fromIntegration = fromPath.split('/')[1];
   const toIntegration = toPath.split('/')[1];
   const isIntegrationSwitch = fromIntegration !== toIntegration && toPath !== "/";
-  
+
   // For both integration switches and internal navigation, scroll the main page to top
   setTimeout(() => {
     window.scrollTo({ top: 0, behavior: 'auto' });
@@ -139,7 +139,7 @@ function scrollSidebarToSelectedItem(targetPath?: string) {
 // Global navigation handler for use with any link
 export function useNavigationScroll() {
   const pathname = usePathname();
-  
+
   return (toPath: string) => {
     handleNavigationScroll(pathname, toPath);
     scrollSidebarToSelectedItem(toPath);
@@ -147,14 +147,14 @@ export function useNavigationScroll() {
 }
 
 // Custom Link component for MDX content with navigation scrolling
-export function NavigationLink({ 
-  href, 
-  children, 
-  className, 
-  ...props 
-}: { 
-  href: string; 
-  children: React.ReactNode; 
+export function NavigationLink({
+  href,
+  children,
+  className,
+  ...props
+}: {
+  href: string;
+  children: React.ReactNode;
   className?: string;
   [key: string]: any;
 }) {
@@ -165,17 +165,27 @@ export function NavigationLink({
   const normalizeHref = (input: string): string => {
     if (!input || typeof input !== 'string') return input;
     if (!input.startsWith('/')) return input; // already relative or external
-    const currentTop = (pathname.split('/')[1] || '').trim();
-    const targetTop = (input.split('/')[1] || '').trim();
-    if (currentTop && targetTop && currentTop === targetTop) {
-      const rest = input.split('/').slice(2).join('/');
-      return rest ? `./${rest}` : './';
+
+    const currentSplit = pathname.split('/').filter(x => x);
+    const targetSplit = input.split('/').filter(x => x);
+    while (currentSplit.length > 1 && targetSplit.length > 1 && currentSplit[0] === targetSplit[0]) {
+      currentSplit.shift();
+      targetSplit.shift();
     }
-    return input;
+
+    let rel = '';
+    for (let i = 0; i < currentSplit.length - 1; i++) {
+      rel += '../';
+    }
+    if (rel === '') {
+      rel = './';
+    }
+    rel += targetSplit.join('/');
+    return rel;
   };
 
   const renderedHref = normalizeHref(href);
-  
+
   return (
     <Link
       href={renderedHref}
@@ -200,27 +210,27 @@ export function isActive(
 ): boolean {
   // Exact match
   if (url === pathname) return true;
-  
+
   // For nested matching
   if (nested) {
     // Special handling for root URL
     if (root && url === "/") {
       return pathname === "/";
     }
-    
+
     // For non-root URLs, check if pathname starts with the URL followed by a slash
     // This ensures /direct-to-llm/guides/quickstart matches /direct-to-llm/guides/frontend-actions
     if (url !== "/" && pathname.startsWith(`${url}/`)) {
       return true;
     }
-    
+
     // Special case for direct-to-llm: if the option URL is /direct-to-llm/guides/quickstart
     // and the current path is anywhere under /direct-to-llm/, consider it active
     if (url.includes('/direct-to-llm/') && pathname.startsWith('/direct-to-llm/')) {
       return true;
     }
   }
-  
+
   return false;
 }
 
@@ -281,7 +291,7 @@ export function SubdocsMenu({
 } & HTMLAttributes<HTMLButtonElement>): React.ReactElement {
   const { closeOnRedirect } = useSidebar();
   const pathname = usePathname();
-  
+
   // State for tracking user's explicit navigation preference
   const [storedPreference, setStoredPreference] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -337,7 +347,7 @@ export function SubdocsMenu({
       if (storedOption) {
         return storedOption;
       }
-      
+
       // Check if stored preference matches any dropdown option
       const storedDropdownOption = dropdownOptions.find(option => option.url === storedPreference);
       if (storedDropdownOption) {
@@ -361,7 +371,7 @@ export function SubdocsMenu({
   }, [closeOnRedirect]);
 
       return (
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-1">
         {options.map((item, index) => {
           if (isSeparator(item)) {
             return <hr key={`separator-${index}`} className="my-2 border-t border-primary/40" />;
@@ -400,7 +410,7 @@ function SubdocsMenuItem({
   onExplicitClick?: (url: string) => void;
 }) {
   const pathname = usePathname();
-  
+
   if (isOption(item)) {
     return (
       <Link
@@ -416,19 +426,20 @@ function SubdocsMenuItem({
         }}
         {...item.props}
         className={cn(
-          "p-1 rounded-xl flex flex-row gap-3 items-center cursor-pointer group opacity-60 hover:opacity-100",
+          "px-1 py-0.5 rounded-xl flex flex-row gap-3 items-center cursor-pointer group opacity-60 hover:opacity-100",
           item.props?.className,
           selected === item && `opacity-100 bg-primary/10 text-primary`
         )}
+        suppressHydrationWarning
       >
         <div
           className={cn(
-            "rounded-sm p-1.5 pr-0 text-primary",
+            "rounded-sm p-1 pr-0 text-primary opacity-100",
           )}
         >
           {item.icon}
         </div>
-        <div className="font-medium">{item.title}</div>
+        <div>{item.title}</div>
       </Link>
     );
   } else if (isOptionDropdown(item)) {
@@ -464,7 +475,7 @@ function SubdocsMenuItemDropdown({
 
   // Check if we're on a page that should reset the dropdown
   const topLevelPages = ["/", "/reference"];
-  const shouldResetDropdown = topLevelPages.some(page => 
+  const shouldResetDropdown = topLevelPages.some(page =>
     page === "/" ? pathname === "/" : pathname.startsWith(page)
   );
 
@@ -486,19 +497,21 @@ function SubdocsMenuItemDropdown({
             }, 10);
           }
         }}
-        value={shouldResetDropdown ? undefined : selectedOption?.url}
+        value={shouldResetDropdown ? "" : (selectedOption?.url || "")}
       >
         <SelectTrigger
           className={cn(
-            "pl-1 py-1 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer",
-            isSelected && "bg-primary/10 text-primary"
+            "pl-1 py-0.5 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer opacity-60 hover:opacity-100",
+            !isSelected && "border-2",
+            isSelected && "border-0 opacity-100 bg-primary/10 text-primary"
           )}
+          style={!isSelected ? { borderColor: 'oklch(0.65 0.15 285)' } : undefined}
           ref={selectRef}
         >
           <SelectValue
             placeholder={
               <div className="flex items-center">
-                <div className={cn("rounded-sm mr-2 pl-1 pr-1.5 text-primary/50")}>
+                <div className={cn("rounded-sm mr-2 p-1 pr-0 text-primary opacity-100")}>
                   {selectedOption?.icon || (
                     <PlugIcon
                       className="w-4 h-4"
@@ -506,7 +519,7 @@ function SubdocsMenuItemDropdown({
                     />
                   )}
                 </div>
-                <div className={cn("font-medium", !isSelected && "text-muted-foreground hover:text-foreground")}>{item.title}</div>
+                <div>{item.title}</div>
               </div>
             }
           />
@@ -516,13 +529,13 @@ function SubdocsMenuItemDropdown({
             <SelectItem
               key={`${option.url}-${index}`}
               value={option.url ?? DEFAULT_URL}
-              className="pl-1 py-1 my-1 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer hover:bg-secondary/10"
+              className="pl-1 py-0.5 my-0 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer opacity-60 hover:opacity-100 hover:bg-secondary/10"
             >
               <div className="flex items-center">
-                <div className={cn("rounded-sm p-1.5 mr-2 text-primary")}>
+                <div className={cn("rounded-sm p-1 mr-2 text-primary")}>
                   {option.icon}
                 </div>
-                <span className="font-medium">{option.title}</span>
+                <span>{option.title}</span>
               </div>
             </SelectItem>
           ))}

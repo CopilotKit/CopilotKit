@@ -451,6 +451,9 @@ export function CopilotChat({
   const { chatApiEndpoint } = copilotApiConfig;
   const [selectedImages, setSelectedImages] = useState<Array<ImageUpload>>([]);
   const [chatError, setChatError] = useState<ChatError | null>(null);
+  const [messageFeedback, setMessageFeedback] = useState<Record<string, "thumbsUp" | "thumbsDown">>(
+    {},
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const triggerObservabilityHook = useCallback(
@@ -705,6 +708,12 @@ export function CopilotChat({
       onThumbsUp(message);
     }
 
+    // Update feedback state
+    setMessageFeedback((prev) => ({
+      ...prev,
+      [message.id]: "thumbsUp",
+    }));
+
     // Trigger feedback given event
     triggerObservabilityHook("onFeedbackGiven", message.id, "thumbsUp");
   };
@@ -713,6 +722,12 @@ export function CopilotChat({
     if (onThumbsDown) {
       onThumbsDown(message);
     }
+
+    // Update feedback state
+    setMessageFeedback((prev) => ({
+      ...prev,
+      [message.id]: "thumbsDown",
+    }));
 
     // Trigger feedback given event
     triggerObservabilityHook("onFeedbackGiven", message.id, "thumbsDown");
@@ -743,6 +758,7 @@ export function CopilotChat({
         onCopy={handleCopy}
         onThumbsUp={handleThumbsUp}
         onThumbsDown={handleThumbsDown}
+        messageFeedback={messageFeedback}
         markdownTagRenderers={markdownTagRenderers}
         ImageRenderer={ImageRenderer}
         ErrorMessage={ErrorMessage}

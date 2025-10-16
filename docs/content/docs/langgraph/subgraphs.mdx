@@ -1,0 +1,34 @@
+---
+title: Subgraphs
+description: Use multiple agents as subgraphs in your application.
+icon: "lucide/Network"
+---
+
+## What are Subgraphs?
+
+A subgraph is simply a graph used as a node inside another graph.
+Think of it as encapsulation for LangGraph: each subgraph is a self-contained unit that can be combined to build larger, more complex systems.
+
+## When should I use this?
+
+Subgraphs are useful when you need to structure a graph into smaller, reusable pieces.
+They let you build multi-agent systems, reuse node sets across multiple graphs, and let different teams develop separate parts of a graph independently.
+
+## How does CopilotKit support this?
+
+CopilotKit supports streaming directly from subgraphs, so nested graphs can emit events in real time just like a single graph.
+
+Using this feature requires no extra steps on the agent side.
+All you need to do, is to enable subgraph streaming in the `useCoAgent` hook:
+```tsx
+  const { state, nodeName } = useCoAgent<AgentState>({
+    name: "sample_agent",
+    initialState: INITIAL_STATE,
+    config: {
+      streamSubgraphs: true, // [!code highlight]
+    }
+  });
+```
+
+The subgraph nodes will stream as usual, and you will be able to see which subgraph is streaming using the `nodeName` variable.
+You can also use `interrupt()` directly from a subgraph.
