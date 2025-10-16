@@ -113,6 +113,11 @@ export interface MessagesProps {
   onThumbsDown?: (message: Message) => void;
 
   /**
+   * Map of message IDs to their feedback state
+   */
+  messageFeedback?: Record<string, "thumbsUp" | "thumbsDown">;
+
+  /**
    * A list of markdown components to render in assistant message.
    * Useful when you want to render custom elements in the message (e.g a reference tag element)
    */
@@ -201,6 +206,11 @@ export interface AssistantMessageProps {
    * Callback function for thumbs down feedback
    */
   onThumbsDown?: (message: Message) => void;
+
+  /**
+   * The feedback state for this message ("thumbsUp" or "thumbsDown")
+   */
+  feedback?: "thumbsUp" | "thumbsDown" | null;
 
   /**
    * A list of markdown components to render in assistant message.
@@ -312,6 +322,11 @@ export interface RenderMessageProps {
    * Callback function for thumbs down feedback
    */
   onThumbsDown?: (message: Message) => void;
+
+  /**
+   * Map of message IDs to their feedback state
+   */
+  messageFeedback?: Record<string, "thumbsUp" | "thumbsDown">;
 
   /**
    * A list of markdown components to render in assistant message.

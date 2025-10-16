@@ -371,7 +371,7 @@ export function SubdocsMenu({
   }, [closeOnRedirect]);
 
       return (
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-1">
         {options.map((item, index) => {
           if (isSeparator(item)) {
             return <hr key={`separator-${index}`} className="my-2 border-t border-primary/40" />;
@@ -426,19 +426,20 @@ function SubdocsMenuItem({
         }}
         {...item.props}
         className={cn(
-          "p-1 rounded-xl flex flex-row gap-3 items-center cursor-pointer group opacity-60 hover:opacity-100",
+          "px-1 py-0.5 rounded-xl flex flex-row gap-3 items-center cursor-pointer group opacity-60 hover:opacity-100",
           item.props?.className,
           selected === item && `opacity-100 bg-primary/10 text-primary`
         )}
+        suppressHydrationWarning
       >
         <div
           className={cn(
-            "rounded-sm p-1.5 pr-0 text-primary",
+            "rounded-sm p-1 pr-0 text-primary opacity-100",
           )}
         >
           {item.icon}
         </div>
-        <div className="font-medium">{item.title}</div>
+        <div>{item.title}</div>
       </Link>
     );
   } else if (isOptionDropdown(item)) {
@@ -496,19 +497,21 @@ function SubdocsMenuItemDropdown({
             }, 10);
           }
         }}
-        value={shouldResetDropdown ? undefined : selectedOption?.url}
+        value={shouldResetDropdown ? "" : (selectedOption?.url || "")}
       >
         <SelectTrigger
           className={cn(
-            "pl-1 py-1 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer",
-            isSelected && "bg-primary/10 text-primary"
+            "pl-1 py-0.5 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer opacity-60 hover:opacity-100",
+            !isSelected && "border-2",
+            isSelected && "border-0 opacity-100 bg-primary/10 text-primary"
           )}
+          style={!isSelected ? { borderColor: 'oklch(0.65 0.15 285)' } : undefined}
           ref={selectRef}
         >
           <SelectValue
             placeholder={
               <div className="flex items-center">
-                <div className={cn("rounded-sm mr-2 pl-1 pr-1.5 text-primary/50")}>
+                <div className={cn("rounded-sm mr-2 p-1 pr-0 text-primary opacity-100")}>
                   {selectedOption?.icon || (
                     <PlugIcon
                       className="w-4 h-4"
@@ -516,7 +519,7 @@ function SubdocsMenuItemDropdown({
                     />
                   )}
                 </div>
-                <div className={cn("font-medium", !isSelected && "text-muted-foreground hover:text-foreground")}>{item.title}</div>
+                <div>{item.title}</div>
               </div>
             }
           />
@@ -526,13 +529,13 @@ function SubdocsMenuItemDropdown({
             <SelectItem
               key={`${option.url}-${index}`}
               value={option.url ?? DEFAULT_URL}
-              className="pl-1 py-1 my-1 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer hover:bg-secondary/10"
+              className="pl-1 py-0.5 my-0 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer opacity-60 hover:opacity-100 hover:bg-secondary/10"
             >
               <div className="flex items-center">
-                <div className={cn("rounded-sm p-1.5 mr-2 text-primary")}>
+                <div className={cn("rounded-sm p-1 mr-2 text-primary")}>
                   {option.icon}
                 </div>
-                <span className="font-medium">{option.title}</span>
+                <span>{option.title}</span>
               </div>
             </SelectItem>
           ))}

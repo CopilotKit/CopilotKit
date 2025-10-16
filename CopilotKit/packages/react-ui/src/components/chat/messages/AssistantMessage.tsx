@@ -13,6 +13,7 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
     onThumbsUp,
     onThumbsDown,
     isCurrentMessage,
+    feedback,
     markdownTagRenderers,
     canRegenerate = true,
     canCopy = true,
@@ -40,11 +41,15 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
   };
 
   const handleThumbsUp = () => {
-    if (onThumbsUp && message) onThumbsUp(message);
+    if (onThumbsUp && message) {
+      onThumbsUp(message);
+    }
   };
 
   const handleThumbsDown = () => {
-    if (onThumbsDown && message) onThumbsDown(message);
+    if (onThumbsDown && message) {
+      onThumbsDown(message);
+    }
   };
 
   const LoadingIcon = () => <span>{icons.activityIcon}</span>;
@@ -87,7 +92,9 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
               )}
               {onThumbsUp && (
                 <button
-                  className="copilotKitMessageControlButton"
+                  className={`copilotKitMessageControlButton ${
+                    feedback === "thumbsUp" ? "active" : ""
+                  }`}
                   onClick={handleThumbsUp}
                   aria-label={labels.thumbsUp}
                   title={labels.thumbsUp}
@@ -97,7 +104,9 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
               )}
               {onThumbsDown && (
                 <button
-                  className="copilotKitMessageControlButton"
+                  className={`copilotKitMessageControlButton ${
+                    feedback === "thumbsDown" ? "active" : ""
+                  }`}
                   onClick={handleThumbsDown}
                   aria-label={labels.thumbsDown}
                   title={labels.thumbsDown}

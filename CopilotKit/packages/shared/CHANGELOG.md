@@ -1,5 +1,23 @@
 # @copilotkit/shared
 
+## 1.10.6
+
+### Patch Changes
+
+- e0dd5d5: - feat: allow additional config in direct to llm actions
+
+## 1.10.6-next.6
+
+## 1.10.6-next.5
+
+### Patch Changes
+
+- e0dd5d5: - feat: allow additional config in direct to llm actions
+
+## 1.10.6-next.4
+
+## 1.10.6-next.3
+
 ## 1.10.6-next.2
 
 ## 1.10.6-next.1

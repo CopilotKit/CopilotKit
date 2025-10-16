@@ -18,6 +18,7 @@ export function RenderMessage({
     onCopy,
     onThumbsUp,
     onThumbsDown,
+    messageFeedback,
     markdownTagRenderers,
     canRegenerateAssistantMessage,
     canCopyAssistantMessage,
@@ -50,6 +51,7 @@ export function RenderMessage({
           onCopy={onCopy}
           onThumbsUp={onThumbsUp}
           onThumbsDown={onThumbsDown}
+          feedback={messageFeedback?.[message.id] || null}
           markdownTagRenderers={markdownTagRenderers}
           canRegenerate={canRegenerateAssistantMessage}
           canCopy={canCopyAssistantMessage}
