@@ -97,6 +97,15 @@ import { generateHelpfulErrorMessage } from "../streaming";
 import { CopilotContextInput } from "../../graphql/inputs/copilot-context.input";
 import { RemoteAgentAction } from "./agui-action";
 
+function isPromiseLike<T>(value: unknown): value is PromiseLike<T> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "then" in (value as object) &&
+    typeof (value as { then: unknown }).then === "function"
+  );
+}
+
 export interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
   messages: MessageInput[];
@@ -318,12 +327,12 @@ export interface CopilotRuntimeConstructorParams_BASE<T extends Parameter[] | []
 
   onStopGeneration?: OnStopGenerationHandler;
 
-  /** Optional transcription service for audio processing. */
-  transcriptionService?: CopilotRuntimeOptionsVNext["transcriptionService"];
-  /** Optional *before* middleware – callback function or webhook URL. */
-  beforeRequestMiddleware?: CopilotRuntimeOptionsVNext["beforeRequestMiddleware"];
-  /** Optional *after* middleware – callback function or webhook URL. */
-  afterRequestMiddleware?: CopilotRuntimeOptionsVNext["afterRequestMiddleware"];
+  // /** Optional transcription service for audio processing. */
+  // transcriptionService?: CopilotRuntimeOptionsVNext["transcriptionService"];
+  // /** Optional *before* middleware – callback function or webhook URL. */
+  // beforeRequestMiddleware?: CopilotRuntimeOptionsVNext["beforeRequestMiddleware"];
+  // /** Optional *after* middleware – callback function or webhook URL. */
+  // afterRequestMiddleware?: CopilotRuntimeOptionsVNext["afterRequestMiddleware"];
 }
 
 // (duplicate BASE interface removed)
@@ -336,13 +345,7 @@ type BeforeRequestMiddlewareFnResult = ReturnType<BeforeRequestMiddlewareFn>;
 type AfterRequestMiddlewareFn = Exclude<AfterRequestMiddleware, string>;
 type AfterRequestMiddlewareFnParameters = Parameters<AfterRequestMiddlewareFn>;
 
-interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []>
-  extends CopilotRuntimeConstructorParams_BASE<T> {
-  runner?: CopilotRuntimeOptionsVNext["runner"];
-  transcriptionService?: CopilotRuntimeOptionsVNext["transcriptionService"];
-  beforeRequestMiddleware?: CopilotRuntimeOptionsVNext["beforeRequestMiddleware"];
-  afterRequestMiddleware?: CopilotRuntimeOptionsVNext["afterRequestMiddleware"];
-}
+interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []> extends CopilotRuntimeConstructorParams_BASE<T>, Omit<CopilotRuntimeOptionsVNext, "agents" | "transcriptionService"> {}
 
 /**
  * Central runtime object passed to all request handlers.
@@ -350,11 +353,11 @@ interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []>
 export class CopilotRuntimeNEW extends CopilotRuntimeVNext {
   constructor(params?: CopilotRuntimeConstructorParams) {
     super({
-      //// @ts-expect-error - TODO: fix this: might be a mismatch of AbstractAgent types from runtime and CopilotRuntimeVNext.runtime
       agents: params?.agents ?? {},
       runner: params?.runner ?? new InMemoryAgentRunnerVNext(),
-      // exposing new transcription and middleware options from vnext runtime
-      transcriptionService: params?.transcriptionService,
+      // TODO: add support for transcriptionService from CopilotRuntimeOptionsVNext once it is ready
+      // transcriptionService: params?.transcriptionService,
+
       // beforeRequestMiddleware: (...mwParams: BeforeRequestMiddlewareFnParameters): BeforeRequestMiddlewareFnResult => {
       //   const { request, runtime, path } = mwParams[0];
       //   const agent = this.agents[request.agent];
@@ -494,7 +497,19 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     this.delegateAgentProcessingToServiceAdapter =
       params?.delegateAgentProcessingToServiceAdapter || false;
     this.observability = params?.observability_c;
-    this.agents = params?.agents ?? {};
+    const incomingAgents = params?.agents;
+    if (isPromiseLike<Record<string, AbstractAgent>>(incomingAgents)) {
+      this.agents = {};
+      // PromiseLike may not have .catch in the type; attach error handling via then's second arg
+      incomingAgents.then(
+        (resolved) => {
+          this.agents = resolved;
+        },
+        () => {}
+      );
+    } else {
+      this.agents = (incomingAgents as Record<string, AbstractAgent>) ?? {};
+    }
     this.onError = params?.onError;
     // +++ MCP Initialization +++
     this.mcpServersConfig = params?.mcpServers;
