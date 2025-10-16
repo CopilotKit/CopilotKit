@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  '@ag-ui/client': 0.0.40-alpha.6
+  '@ag-ui/core': 0.0.40-alpha.6
+  '@ag-ui/encoder': 0.0.40-alpha.6
+
 importers:
 
   .:
@@ -589,17 +594,17 @@ importers:
   packages/runtime:
     dependencies:
       '@ag-ui/client':
-        specifier: '>=0.0.39'
-        version: 0.0.39
+        specifier: 0.0.40-alpha.6
+        version: 0.0.40-alpha.6
       '@ag-ui/core':
-        specifier: '>=0.0.39'
-        version: 0.0.39
+        specifier: 0.0.40-alpha.6
+        version: 0.0.40-alpha.6
       '@ag-ui/encoder':
-        specifier: '>=0.0.39'
-        version: 0.0.39
+        specifier: 0.0.40-alpha.6
+        version: 0.0.40-alpha.6
       '@ag-ui/langgraph':
         specifier: '>=0.0.18'
-        version: 0.0.18(@ag-ui/client@0.0.39)(@ag-ui/core@0.0.39)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)
+        version: 0.0.18(@ag-ui/client@0.0.40-alpha.6)(@ag-ui/core@0.0.40-alpha.6)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)
       '@ag-ui/proto':
         specifier: '>=0.0.39'
         version: 0.0.39
@@ -883,8 +888,8 @@ importers:
   packages/shared:
     dependencies:
       '@ag-ui/core':
-        specifier: ^0.0.37
-        version: 0.0.37
+        specifier: 0.0.40-alpha.6
+        version: 0.0.40-alpha.6
       '@segment/analytics-node':
         specifier: ^2.1.2
         version: 2.1.2(encoding@0.1.13)
@@ -965,23 +970,11 @@ packages:
       graphql:
         optional: true
 
-  '@ag-ui/client@0.0.39':
-    resolution: {integrity: sha512-VHusZRv0dBtxqKSh/fcLbS/txUpXuE68/2s8RiMoav1snEDonwPGNjvOdE15WResgnlEWPU5qPuSgPykvt2/+A==}
-
   '@ag-ui/client@0.0.40-alpha.6':
     resolution: {integrity: sha512-QIgOY8nJvv3mrDz9OXyaoxwj3Js28YPYXz+myRQ2idR1ghoKq0V9MEZrXoHOE4O6Z7PnUSw5z7zZIemh7YK/5w==}
 
-  '@ag-ui/core@0.0.37':
-    resolution: {integrity: sha512-7bmjPn1Ol0Zo00F+MrPr0eOwH4AFZbhmq/ZMhCsrMILtVYBiBLcLU9QFBpBL3Zm9MCHha8b79N7JE2FzwcMaVA==}
-
-  '@ag-ui/core@0.0.39':
-    resolution: {integrity: sha512-T5Hp4oFkQ+H5MynWAvSwrX/rNYJOD+PJ4qPQ0o771oSZQAxoIvDDft47Cx5wRyBNNLXAe1RWqJjfWUUwJFNKqA==}
-
   '@ag-ui/core@0.0.40-alpha.6':
     resolution: {integrity: sha512-XkZAnmtewucr0yayWxK2GEcOoxaHZ6cSZZKkVFKAEOPJuUwFCFstqS3vh0Z5rUy2ZE8eh8WJylBHidiCRW4yuA==}
-
-  '@ag-ui/encoder@0.0.39':
-    resolution: {integrity: sha512-6fsoFwPWkStK7Uyj3pwBn7+aQjUWf7pbDTSI43cD53sBLvTr5oEFNnoKOzRfC5UqvHc4JjUIuLKPQyjHRwWg4g==}
 
   '@ag-ui/encoder@0.0.40-alpha.6':
     resolution: {integrity: sha512-q+bpJGp4fMjQplHowmbNaOQrICHzmk1J394jZXmTv/RjysNHtcDrWHythXBiPAnNRutYeqsG6bQJ5PASbQYiqg==}
@@ -989,8 +982,8 @@ packages:
   '@ag-ui/langgraph@0.0.18':
     resolution: {integrity: sha512-soWSV8+xR91jMArZUJoRv85UCgTi3Zt3u3gTMZhvs1t6fGFpAi6+hEQ4AqP13Rgvg90IlmIU8MTWo2k0OZDnoA==}
     peerDependencies:
-      '@ag-ui/client': '>=0.0.38'
-      '@ag-ui/core': '>=0.0.38'
+      '@ag-ui/client': 0.0.40-alpha.6
+      '@ag-ui/core': 0.0.40-alpha.6
 
   '@ag-ui/proto@0.0.39':
     resolution: {integrity: sha512-xlj/PzZHkJ3CgoQC5QP9g7DEl/78wUK1+A2rdkoLKoNAMOkM2g6jKw0N88iFIh5GZhtiCNN2wb8XwRWPYx9XQQ==}
@@ -10261,18 +10254,6 @@ snapshots:
     optionalDependencies:
       graphql: 16.9.0
 
-  '@ag-ui/client@0.0.39':
-    dependencies:
-      '@ag-ui/core': 0.0.39
-      '@ag-ui/encoder': 0.0.39
-      '@ag-ui/proto': 0.0.39
-      '@types/uuid': 10.0.0
-      fast-json-patch: 3.1.1
-      rxjs: 7.8.1
-      untruncate-json: 0.0.1
-      uuid: 11.1.0
-      zod: 3.25.76
-
   '@ag-ui/client@0.0.40-alpha.6':
     dependencies:
       '@ag-ui/core': 0.0.40-alpha.6
@@ -10285,35 +10266,20 @@ snapshots:
       uuid: 11.1.0
       zod: 3.25.76
 
-  '@ag-ui/core@0.0.37':
-    dependencies:
-      rxjs: 7.8.1
-      zod: 3.25.76
-
-  '@ag-ui/core@0.0.39':
-    dependencies:
-      rxjs: 7.8.1
-      zod: 3.25.76
-
   '@ag-ui/core@0.0.40-alpha.6':
     dependencies:
       rxjs: 7.8.1
       zod: 3.25.76
-
-  '@ag-ui/encoder@0.0.39':
-    dependencies:
-      '@ag-ui/core': 0.0.39
-      '@ag-ui/proto': 0.0.39
 
   '@ag-ui/encoder@0.0.40-alpha.6':
     dependencies:
       '@ag-ui/core': 0.0.40-alpha.6
       '@ag-ui/proto': 0.0.40-alpha.6
 
-  '@ag-ui/langgraph@0.0.18(@ag-ui/client@0.0.39)(@ag-ui/core@0.0.39)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)':
+  '@ag-ui/langgraph@0.0.18(@ag-ui/client@0.0.40-alpha.6)(@ag-ui/core@0.0.40-alpha.6)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@ag-ui/client': 0.0.39
-      '@ag-ui/core': 0.0.39
+      '@ag-ui/client': 0.0.40-alpha.6
+      '@ag-ui/core': 0.0.40-alpha.6
       '@langchain/core': 0.3.66(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))
       '@langchain/langgraph-sdk': 0.1.5(@langchain/core@0.3.66(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(react-dom@19.1.0(react@18.3.1))(react@18.3.1)
       partial-json: 0.1.7
@@ -10328,7 +10294,7 @@ snapshots:
 
   '@ag-ui/proto@0.0.39':
     dependencies:
-      '@ag-ui/core': 0.0.39
+      '@ag-ui/core': 0.0.40-alpha.6
       '@bufbuild/protobuf': 2.2.5
       '@protobuf-ts/protoc': 2.11.1
 

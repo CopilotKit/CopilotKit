@@ -38,6 +38,7 @@ import {
 import {
   CopilotRuntime as CopilotRuntimeVNext,
   CopilotRuntimeOptions as CopilotRuntimeOptionsVNext,
+  InMemoryAgentRunner as InMemoryAgentRunnerVNext,
 } from "@copilotkitnext/runtime";
 
 import { MessageInput } from "../../graphql/inputs/message.input";
@@ -171,7 +172,7 @@ interface Middleware {
 
 type AgentWithEndpoint = Agent & { endpoint: EndpointDefinition };
 
-export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []> {
+export interface CopilotRuntimeConstructorParams_BASE<T extends Parameter[] | [] = []> {
   /**
    * Middleware to be used by the runtime.
    *
@@ -316,6 +317,110 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
   onError?: CopilotErrorHandler;
 
   onStopGeneration?: OnStopGenerationHandler;
+
+  /** Optional transcription service for audio processing. */
+  transcriptionService?: CopilotRuntimeOptionsVNext["transcriptionService"];
+  /** Optional *before* middleware – callback function or webhook URL. */
+  beforeRequestMiddleware?: CopilotRuntimeOptionsVNext["beforeRequestMiddleware"];
+  /** Optional *after* middleware – callback function or webhook URL. */
+  afterRequestMiddleware?: CopilotRuntimeOptionsVNext["afterRequestMiddleware"];
+}
+
+// (duplicate BASE interface removed)
+
+type BeforeRequestMiddleware = CopilotRuntimeOptionsVNext["beforeRequestMiddleware"];
+type AfterRequestMiddleware = CopilotRuntimeOptionsVNext["afterRequestMiddleware"];
+type BeforeRequestMiddlewareFn = Exclude<BeforeRequestMiddleware, string>;
+type BeforeRequestMiddlewareFnParameters = Parameters<BeforeRequestMiddlewareFn>;
+type BeforeRequestMiddlewareFnResult = ReturnType<BeforeRequestMiddlewareFn>;
+type AfterRequestMiddlewareFn = Exclude<AfterRequestMiddleware, string>;
+type AfterRequestMiddlewareFnParameters = Parameters<AfterRequestMiddlewareFn>;
+
+interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []>
+  extends CopilotRuntimeConstructorParams_BASE<T> {
+  runner?: CopilotRuntimeOptionsVNext["runner"];
+  transcriptionService?: CopilotRuntimeOptionsVNext["transcriptionService"];
+  beforeRequestMiddleware?: CopilotRuntimeOptionsVNext["beforeRequestMiddleware"];
+  afterRequestMiddleware?: CopilotRuntimeOptionsVNext["afterRequestMiddleware"];
+}
+
+/**
+ * Central runtime object passed to all request handlers.
+ */
+export class CopilotRuntimeNEW extends CopilotRuntimeVNext {
+  constructor(params?: CopilotRuntimeConstructorParams) {
+    super({
+      //// @ts-expect-error - TODO: fix this: might be a mismatch of AbstractAgent types from runtime and CopilotRuntimeVNext.runtime
+      agents: params?.agents ?? {},
+      runner: params?.runner ?? new InMemoryAgentRunnerVNext(),
+      // exposing new transcription and middleware options from vnext runtime
+      transcriptionService: params?.transcriptionService,
+      // beforeRequestMiddleware: (...mwParams: BeforeRequestMiddlewareFnParameters): BeforeRequestMiddlewareFnResult => {
+      //   const { request, runtime, path } = mwParams[0];
+      //   const agent = this.agents[request.agent];
+      //   return params.middleware.onBeforeRequest?.({
+      //     threadId: …,
+      //     runId: …,
+      //     inputMessages: …,
+      //     properties: …,
+      //     url: …,
+      //   });
+      // },
+      // TODO: figure out the right mappings for middleware
+      beforeRequestMiddleware: async (...mwParams: BeforeRequestMiddlewareFnParameters): Promise<Awaited<BeforeRequestMiddlewareFnResult>> => {
+        const { request, runtime, path } = mwParams[0];
+        // Bridge: best-effort extraction for legacy middleware signature
+        // We avoid consuming the body irreversibly; vNext middleware contract passes Request clone downstream if modified
+        try {
+          const clone = request.clone();
+          let body: unknown = undefined;
+          try {
+            body = await clone.json();
+          } catch {
+            // ignore non-JSON bodies
+          }
+
+          // Legacy expects threadId/runId/inputMessages/properties/url
+          const threadId = (body as any)?.threadId ?? undefined;
+          const runId = (body as any)?.runId ?? undefined;
+          const inputMessages = (body as any)?.messages ?? [];
+          const properties = (body as any)?.forwardedProps ?? (body as any)?.properties ?? undefined;
+          const url = request.url;
+
+          await params?.middleware?.onBeforeRequest?.({
+            threadId,
+            runId,
+            inputMessages,
+            properties,
+            url,
+          });
+        } catch {
+          // Swallow errors from legacy middleware to avoid breaking the pipeline
+        }
+        // Do not modify request for legacy handler by default
+        return;
+      },
+      afterRequestMiddleware: async (...mwParams: AfterRequestMiddlewareFnParameters): Promise<Awaited<ReturnType<AfterRequestMiddlewareFn>>> => {
+        const { response, runtime, path } = mwParams[0];
+        // We cannot reconstruct output messages reliably here; legacy onAfterRequest is best-effort
+        // Provide threadId/runId/url; omit input/output messages
+        try {
+          const url = undefined as string | undefined; // legacy consumed earlier; not available here
+          await params?.middleware?.onAfterRequest?.({
+            threadId: (runtime as any)?.threadId,
+            runId: undefined,
+            inputMessages: [],
+            outputMessages: [],
+            properties: undefined,
+            url,
+          });
+        } catch {
+          // non-blocking
+        }
+        return;
+      },
+    });
+  }
 }
 
 export class CopilotRuntime<const T extends Parameter[] | [] = []> {
@@ -898,7 +1003,7 @@ please use an LLM adapter instead.`,
           const data: InfoResponse = await response.json();
           const endpointAgents = (data?.agents ?? []).map((agent) => ({
             name: agent.name,
-            description: agent.description ?? "" ?? "",
+            description: agent.description ?? "",
             id: randomId(), // Required by Agent type
             endpoint,
           }));
