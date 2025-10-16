@@ -149,7 +149,9 @@ export const Input = ({
           </button>
         </div>
       </div>
-      <PoweredByTag showPoweredBy={showPoweredBy} />
+      <div style={{
+        height: 12
+      }} />
     </div>
   );
 };

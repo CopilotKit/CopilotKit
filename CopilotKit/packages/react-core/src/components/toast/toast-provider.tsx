@@ -92,7 +92,15 @@ function getErrorColors(severity: ErrorSeverity): ErrorColors {
 export function useToast() {
   const context = useContext(ToastContext);
   if (!context) {
-    throw new Error("useToast must be used within a ToastProvider");
+    return {
+      toasts: [],
+      addToast: (toast: PartialBy<Toast, "id">) => { },
+      addGraphQLErrorsToast: (errors: GraphQLError[]) => { },
+      removeToast: (id: string) => { },
+      enabled: false,
+      bannerError: null,
+      setBannerError: (error: CopilotKitError | null) => { },
+    }
   }
   return context;
 }

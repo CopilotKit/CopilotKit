@@ -141,6 +141,7 @@ export type FrontendAction<
   available?: FrontendActionAvailability;
   pairedAction?: string;
   followUp?: boolean;
+  isToolReady?: boolean;
 } & (
     | {
         render?:

@@ -337,6 +337,8 @@ export interface CopilotChatProps {
    * Optional handler for comprehensive debugging and observability.
    */
   onError?: CopilotErrorHandler;
+
+  showMessageControls?: boolean;
 }
 
 interface OnStopGenerationArguments {
@@ -434,6 +436,7 @@ export function CopilotChat({
   RenderAgentStateMessage,
   RenderResultMessage,
   RenderImageMessage,
+  showMessageControls
 }: CopilotChatProps) {
   const {
     additionalInstructions,
@@ -445,30 +448,18 @@ export function CopilotChat({
   } = useCopilotContext();
 
   // Destructure stable values to avoid object reference changes
-  const { publicApiKey, chatApiEndpoint } = copilotApiConfig;
+  const { chatApiEndpoint } = copilotApiConfig;
   const [selectedImages, setSelectedImages] = useState<Array<ImageUpload>>([]);
   const [chatError, setChatError] = useState<ChatError | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Helper function to trigger event hooks only if publicApiKey is provided
   const triggerObservabilityHook = useCallback(
     (hookName: keyof CopilotObservabilityHooks, ...args: any[]) => {
-      if (publicApiKey && observabilityHooks?.[hookName]) {
+      if (observabilityHooks?.[hookName]) {
         (observabilityHooks[hookName] as any)(...args);
       }
-      if (observabilityHooks?.[hookName] && !publicApiKey) {
-        setBannerError(
-          new CopilotKitError({
-            message: "observabilityHooks requires a publicApiKey to function.",
-            code: CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR,
-            severity: Severity.CRITICAL,
-            visibility: ErrorVisibility.BANNER,
-          }),
-        );
-        styledConsole.publicApiKeyRequired("observabilityHooks");
-      }
     },
-    [publicApiKey, observabilityHooks, setBannerError],
+    [observabilityHooks, setBannerError],
   );
 
   // Helper function to trigger chat error and render error UI
@@ -507,24 +498,12 @@ export function CopilotChat({
       }
 
       // Also trigger observability hook if available
-      if (publicApiKey && observabilityHooks?.onError) {
+      if (observabilityHooks?.onError) {
         observabilityHooks.onError(errorEvent);
       }
 
-      // Show banner error if onError hook is used without publicApiKey
-      if (observabilityHooks?.onError && !publicApiKey) {
-        setBannerError(
-          new CopilotKitError({
-            message: "observabilityHooks.onError requires a publicApiKey to function.",
-            code: CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR,
-            severity: Severity.CRITICAL,
-            visibility: ErrorVisibility.BANNER,
-          }),
-        );
-        styledConsole.publicApiKeyRequired("observabilityHooks.onError");
-      }
     },
-    [publicApiKey, chatApiEndpoint, observabilityHooks, setBannerError],
+    [chatApiEndpoint, observabilityHooks, setBannerError],
   );
 
   useEffect(() => {
@@ -822,7 +801,7 @@ export function WrappedCopilotChat({
   const chatContext = React.useContext(ChatContext);
   if (!chatContext) {
     return (
-      <ChatContextProvider icons={icons} labels={labels} open={true} setOpen={() => {}}>
+      <ChatContextProvider icons={icons} labels={labels} open={true} setOpen={() => { }}>
         <div className={`copilotKitChat ${className ?? ""}`}>{children}</div>
       </ChatContextProvider>
     );

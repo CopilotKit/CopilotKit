@@ -234,6 +234,8 @@ export interface AssistantMessageProps {
    * ```
    */
   subComponent?: React.JSX.Element;
+
+  showMessageControls?: boolean;
 }
 
 export interface ErrorMessageProps {

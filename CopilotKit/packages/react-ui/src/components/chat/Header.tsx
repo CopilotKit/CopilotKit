@@ -1,14 +1,18 @@
 import { HeaderProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import { CopilotDevConsole } from "../dev-console";
-import React from "react";
 
-export const Header = ({}: HeaderProps) => {
+export const Header = ({ }: HeaderProps) => {
   const { setOpen, icons, labels } = useChatContext();
 
   return (
     <div className="copilotKitHeader">
-      <div>{labels.title}</div>
+      <div>
+        <div>
+          {labels.title}
+        </div>
+        {!!labels.belowTitleRender && labels.belowTitleRender}
+      </div>
       <div className="copilotKitHeaderControls">
         <CopilotDevConsole />
         <button
@@ -19,6 +23,6 @@ export const Header = ({}: HeaderProps) => {
           {icons.headerCloseIcon}
         </button>
       </div>
-    </div>
+    </div >
   );
 };

@@ -189,6 +189,13 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
 
     // add a handler that will be called when the action is executed
     action.handler = useAsyncCallback(async () => {
+      if (!action.isToolReady) {
+        return {
+          success: false,
+          message: "This tool is not ready to use, please try again later."
+        }
+      }
+
       const currentActivatingId = activatingMessageIdRef.current;
       // we create a new promise when the handler is called
       let resolve: (result: any) => void;
@@ -236,14 +243,14 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
         // and its promise infrastructure is ready.
         handler:
           status === "executing" &&
-          renderAndWaitRef.current &&
-          renderAndWaitRef.current.messageId === currentRenderMessageId
+            renderAndWaitRef.current &&
+            renderAndWaitRef.current.messageId === currentRenderMessageId
             ? renderAndWaitRef.current!.resolve
             : undefined,
         respond:
           status === "executing" &&
-          renderAndWaitRef.current &&
-          renderAndWaitRef.current.messageId === currentRenderMessageId
+            renderAndWaitRef.current &&
+            renderAndWaitRef.current.messageId === currentRenderMessageId
             ? renderAndWaitRef.current!.resolve
             : undefined,
       } as T extends [] ? ActionRenderPropsNoArgsWait<T> : ActionRenderPropsWait<T>;

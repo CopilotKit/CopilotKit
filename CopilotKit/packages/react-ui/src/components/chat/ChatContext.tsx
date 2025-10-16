@@ -104,6 +104,8 @@ export interface CopilotChatLabels {
    */
   title?: string;
 
+  belowTitleRender?: React.ReactNode;
+
   /**
    * The placeholder to display in the input.
    * @default "Type a message..."
@@ -206,6 +208,7 @@ export const ChatContextProvider = ({
         thumbsUp: "Thumbs up",
         thumbsDown: "Thumbs down",
         copied: "Copied!",
+        belowTitleRender: null,
       },
       ...labels,
     }),
