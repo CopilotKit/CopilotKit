@@ -15,6 +15,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, SetStateAction } from "react";
+import { CopilotKitProvider } from "@copilotkitnext/react";
 import {
   CopilotContext,
   CopilotApiConfig,
@@ -45,7 +46,6 @@ import { CoagentState } from "../../types/coagent-state";
 import { CopilotMessages, MessagesTapProvider } from "./copilot-messages";
 import { ToastProvider } from "../toast/toast-provider";
 import { getErrorActions, UsageBanner } from "../usage-banner";
-import { useCopilotRuntimeClient } from "../../hooks/use-copilot-runtime-client";
 import { shouldShowDevConsole } from "../../utils";
 import { CopilotErrorBoundary } from "../error-boundary/error-boundary";
 import { Agent, ExtensionsInput } from "@copilotkit/runtime-client-gql";
@@ -64,7 +64,9 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   return (
     <ToastProvider enabled={enabled}>
       <CopilotErrorBoundary publicApiKey={publicApiKey} showUsageBanner={enabled}>
-        <CopilotKitInternal {...props}>{children}</CopilotKitInternal>
+        <CopilotKitProvider runtimeUrl={props.runtimeUrl}>
+          <CopilotKitInternal {...props}>{children}</CopilotKitInternal>
+        </CopilotKitProvider>
       </CopilotErrorBoundary>
     </ToastProvider>
   );
@@ -318,14 +320,14 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     [copilotApiConfig.publicApiKey],
   );
 
-  const runtimeClient = useCopilotRuntimeClient({
-    url: copilotApiConfig.chatApiEndpoint,
-    publicApiKey: publicApiKey,
-    headers,
-    credentials: copilotApiConfig.credentials,
-    showDevConsole: shouldShowDevConsole(props.showDevConsole),
-    onError: handleErrors,
-  });
+  // const runtimeClient = useCopilotRuntimeClient({
+  //   url: copilotApiConfig.chatApiEndpoint,
+  //   publicApiKey: publicApiKey,
+  //   headers,
+  //   credentials: copilotApiConfig.credentials,
+  //   showDevConsole: shouldShowDevConsole(props.showDevConsole),
+  //   onError: handleErrors,
+  // });
 
   const [chatSuggestionConfiguration, setChatSuggestionConfiguration] = useState<{
     [key: string]: CopilotChatSuggestionConfiguration;
@@ -367,18 +369,18 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   );
   const hasLoadedAgents = useRef(false);
 
-  useEffect(() => {
-    if (hasLoadedAgents.current) return;
-
-    const fetchData = async () => {
-      const result = await runtimeClient.availableAgents();
-      if (result.data?.availableAgents) {
-        setAvailableAgents(result.data.availableAgents.agents);
-      }
-      hasLoadedAgents.current = true;
-    };
-    void fetchData();
-  }, []);
+  // useEffect(() => {
+  //   if (hasLoadedAgents.current) return;
+  //
+  //   const fetchData = async () => {
+  //     const result = await runtimeClient.availableAgents();
+  //     if (result.data?.availableAgents) {
+  //       setAvailableAgents(result.data.availableAgents.agents);
+  //     }
+  //     hasLoadedAgents.current = true;
+  //   };
+  //   void fetchData();
+  // }, []);
 
   let initialAgentSession: AgentSession | null = null;
   if (props.agent) {
@@ -529,7 +531,6 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         setCoagentStatesWithRef,
         agentSession,
         setAgentSession,
-        runtimeClient,
         forwardedParameters,
         agentLock,
         threadId: internalThreadId,

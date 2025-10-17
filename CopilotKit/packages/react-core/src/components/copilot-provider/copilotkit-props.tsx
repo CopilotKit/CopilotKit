@@ -2,11 +2,12 @@ import { ForwardedParametersInput } from "@copilotkit/runtime-client-gql";
 import { ReactNode } from "react";
 import { AuthState } from "../../context/copilot-context";
 import { CopilotErrorHandler } from "@copilotkit/shared";
+import { CopilotKitProviderProps } from "@copilotkitnext/react";
 /**
  * Props for CopilotKit.
  */
 
-export interface CopilotKitProps {
+export interface CopilotKitProps extends CopilotKitProviderProps {
   /**
    * Your Copilot Cloud API key.
    *

@@ -1,7 +1,7 @@
 import { useContext, useEffect, useMemo } from "react";
 import { CopilotContext } from "../context/copilot-context";
 import { LangGraphInterruptRender } from "../types/interrupt-action";
-import { useCopilotChat } from "./use-copilot-chat_internal";
+import { useCopilotChatInternal } from "./use-copilot-chat_internal";
 import { useToast } from "../components/toast/toast-provider";
 import { dataToUUID } from "@copilotkit/shared";
 
@@ -15,7 +15,7 @@ export function useLangGraphInterrupt<TEventValue = any>(
     langGraphInterruptAction,
     threadId,
   } = useContext(CopilotContext);
-  const { runChatCompletion } = useCopilotChat();
+  // const { agent } = useCopilotChatInternal();
   const { addToast } = useToast();
 
   const actionId = dataToUUID(JSON.stringify(action), "lgAction");
@@ -31,11 +31,11 @@ export function useLangGraphInterrupt<TEventValue = any>(
   );
 
   // Run chat completion to submit a response event. Only if it's the current action
-  useEffect(() => {
-    if (hasAction && isCurrentAction && langGraphInterruptAction?.event?.response) {
-      runChatCompletion();
-    }
-  }, [langGraphInterruptAction?.event?.response, runChatCompletion, hasAction, isCurrentAction]);
+  // useEffect(() => {
+  //   if (hasAction && isCurrentAction && langGraphInterruptAction?.event?.response) {
+  //     runChatCompletion();
+  //   }
+  // }, [langGraphInterruptAction?.event?.response, runChatCompletion, hasAction, isCurrentAction]);
 
   useEffect(() => {
     if (!action) return;

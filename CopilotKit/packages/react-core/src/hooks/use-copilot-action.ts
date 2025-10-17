@@ -130,18 +130,11 @@
  *
  * This hooks enables you to dynamically generate UI elements and render them in the copilot chat. For more information, check out the [Generative UI](/guides/generative-ui) page.
  */
-import { Parameter, randomId } from "@copilotkit/shared";
-import { createElement, Fragment, useEffect, useRef } from "react";
-import { useCopilotContext } from "../context/copilot-context";
-import { useAsyncCallback } from "../components/error-boundary/error-utils";
-import {
-  ActionRenderProps,
-  ActionRenderPropsNoArgsWait,
-  ActionRenderPropsWait,
-  CatchAllFrontendAction,
-  FrontendAction,
-} from "../types/frontend-action";
-import { useToast } from "../components/toast/toast-provider";
+import { Parameter } from "@copilotkit/shared";
+import { CatchAllFrontendAction, FrontendAction } from "../types/frontend-action";
+import { useFrontendTool, UseFrontendToolArgs } from "./use-frontend-tool";
+import { useRenderToolCall, UseRenderToolCallArgs } from "./use-render-tool-call";
+import { useHumanInTheLoop, UseHumanInTheLoopArgs } from "./use-human-in-the-loop";
 
 // We implement useCopilotAction dependency handling so that
 // the developer has the option to not provide any dependencies.
@@ -156,192 +149,36 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
   action: FrontendAction<T> | CatchAllFrontendAction,
   dependencies?: any[],
 ): void {
-  const { setAction, removeAction, actions, chatComponentsCache } = useCopilotContext();
-  const idRef = useRef<string>(randomId());
-  const renderAndWaitRef = useRef<RenderAndWaitForResponse | null>(null);
-  const activatingMessageIdRef = useRef<string | null>(null);
-  const { addToast } = useToast();
-
-  // clone the action to avoid mutating the original object
-  action = { ...action };
-
-  // const { currentlyActivatingHitlActionMessageIdRef } = useCopilotContext() as any; // <-- REMOVE THIS FOR NOW
-
-  // If the developer provides a renderAndWaitForResponse function, we transform the action
-  // to use a promise internally, so that we can treat it like a normal action.
-  if (
-    // renderAndWaitForResponse is not available for catch all actions
-    isFrontendAction(action) &&
-    // check if renderAndWaitForResponse is set
-    (action.renderAndWait || action.renderAndWaitForResponse)
-  ) {
-    (action as any)._isRenderAndWait = true; // Internal flag to identify this action type later
-    const renderAndWait = action.renderAndWait || action.renderAndWaitForResponse;
-    // remove the renderAndWait function from the action
-    action.renderAndWait = undefined;
-    action.renderAndWaitForResponse = undefined;
-
-    // Add a method for use-chat.ts to set the activating message ID.
-    // This helps correlate the action instance with the message being processed by use-chat.
-    (action as any)._setActivatingMessageId = (id: string | null) => {
-      activatingMessageIdRef.current = id;
-    };
-
-    // add a handler that will be called when the action is executed
-    action.handler = useAsyncCallback(async () => {
-      const currentActivatingId = activatingMessageIdRef.current;
-      // we create a new promise when the handler is called
-      let resolve: (result: any) => void;
-      let reject: (error: any) => void;
-      const promise = new Promise<any>((resolvePromise, rejectPromise) => {
-        resolve = resolvePromise;
-        reject = rejectPromise;
-      });
-      renderAndWaitRef.current = {
-        promise,
-        resolve: resolve!,
-        reject: reject!,
-        messageId: currentActivatingId,
-      };
-      // then we await the promise (it will be resolved in the original renderAndWait function)
-      const result = await promise;
-      return result;
-    }, []) as any;
-
-    // add a render function that will be called when the action is rendered
-    action.render = ((props: ActionRenderProps<T> & { messageId?: string }): React.ReactElement => {
-      const currentRenderMessageId = props.messageId;
-      // For renderAndWaitForResponse, the 'executing' state might be set by use-chat before
-      // this specific action instance's handler (and thus its promise) is ready.
-      // This logic adjusts the status to 'inProgress' if the current render
-      // isn't for the actively processing HITL action, preventing premature interaction.
-      let status = props.status;
-      if (props.status === "executing") {
-        if (!renderAndWaitRef.current || !renderAndWaitRef.current.promise) {
-          status = "inProgress";
-        } else if (
-          renderAndWaitRef.current.messageId !== currentRenderMessageId &&
-          activatingMessageIdRef.current !== currentRenderMessageId
-        ) {
-          status = "inProgress";
-        }
-        // If conditions met, status remains 'executing'
-      }
-      // Create type safe waitProps based on whether T extends empty array or not
-      const waitProps = {
-        status,
-        args: props.args,
-        result: props.result,
-        // handler and respond should only be provided if this is the truly active instance
-        // and its promise infrastructure is ready.
-        handler:
-          status === "executing" &&
-          renderAndWaitRef.current &&
-          renderAndWaitRef.current.messageId === currentRenderMessageId
-            ? renderAndWaitRef.current!.resolve
-            : undefined,
-        respond:
-          status === "executing" &&
-          renderAndWaitRef.current &&
-          renderAndWaitRef.current.messageId === currentRenderMessageId
-            ? renderAndWaitRef.current!.resolve
-            : undefined,
-      } as T extends [] ? ActionRenderPropsNoArgsWait<T> : ActionRenderPropsWait<T>;
-
-      // Type guard to check if renderAndWait is for no args case
-      const isNoArgsRenderWait = (
-        _fn:
-          | ((props: ActionRenderPropsNoArgsWait<T>) => React.ReactElement)
-          | ((props: ActionRenderPropsWait<T>) => React.ReactElement),
-      ): _fn is (props: ActionRenderPropsNoArgsWait<T>) => React.ReactElement => {
-        return action.parameters?.length === 0;
-      };
-
-      // Safely call renderAndWait with correct props type
-      if (renderAndWait) {
-        if (isNoArgsRenderWait(renderAndWait)) {
-          return renderAndWait(waitProps as ActionRenderPropsNoArgsWait<T>);
-        } else {
-          return renderAndWait(waitProps as ActionRenderPropsWait<T>);
-        }
-      }
-
-      // Return empty Fragment instead of null
-      return createElement(Fragment);
-    }) as any;
+  if (action.name === "*") {
+    return useRenderToolCall(action as UseRenderToolCallArgs<T>);
   }
-
-  // If the developer doesn't provide dependencies, we assume they want to
-  // update handler and render function when the action object changes.
-  // This ensures that any captured variables in the handler are up to date.
-  if (dependencies === undefined) {
-    if (actions[idRef.current]) {
-      // catch all actions don't have a handler
-      if (isFrontendAction(action)) {
-        actions[idRef.current].handler = action.handler as any;
-      }
-      if (typeof action.render === "function") {
-        if (chatComponentsCache.current !== null) {
-          // TODO: using as any here because the type definitions are getting to tricky
-          // not wasting time on this now - we know the types are compatible
-          chatComponentsCache.current.actions[action.name] = action.render as any;
-        }
-      }
+  if ("renderAndWaitForResponse" in action || "renderAndWait" in action) {
+    let render = action.render;
+    if (!render && "renderAndWaitForResponse" in action) {
+      // @ts-expect-error -- renderAndWaitForResponse is deprecated, but we need to support it for backwards compatibility
+      render = action.renderAndWaitForResponse;
+    }
+    if (!render && "renderAndWait" in action) {
+      // @ts-expect-error -- renderAndWait is deprecated, but we need to support it for backwards compatibility
+      render = action.renderAndWait;
+    }
+    return useHumanInTheLoop({ ...action, render } as UseHumanInTheLoopArgs<T>);
+  }
+  if ("available" in action) {
+    if (action.available === "enabled") {
+      return useFrontendTool(action as UseFrontendToolArgs<T>);
+    }
+    if (action.available === "remote") {
+      return useFrontendTool(action as UseFrontendToolArgs<T>);
+    }
+    if (action.available === "frontend") {
+      return useRenderToolCall(action as UseRenderToolCallArgs<T>);
+    }
+    if (action.available === "disabled") {
+      return useRenderToolCall(action as UseRenderToolCallArgs<T>);
     }
   }
-
-  useEffect(() => {
-    const hasDuplicate = Object.values(actions).some(
-      (otherAction) => otherAction.name === action.name && otherAction !== actions[idRef.current],
-    );
-
-    if (hasDuplicate) {
-      addToast({
-        type: "warning",
-        message: `Found an already registered action with name ${action.name}.`,
-        id: `dup-action-${action.name}`,
-      });
-    }
-  }, [actions]);
-
-  useEffect(() => {
-    setAction(idRef.current, action as any);
-    if (chatComponentsCache.current !== null && action.render !== undefined) {
-      // see comment about type safety above
-      chatComponentsCache.current.actions[action.name] = action.render as any;
-    }
-    return () => {
-      // NOTE: For now, we don't remove the chatComponentsCache entry when the action is removed.
-      // This is because we currently don't have access to the messages array in CopilotContext.
-      // UPDATE: We now have access, we should remove the entry if not referenced by any message.
-      removeAction(idRef.current);
-    };
-  }, [
-    setAction,
-    removeAction,
-    isFrontendAction(action) ? action.description : undefined,
-    action.name,
-    isFrontendAction(action) ? action.disabled : undefined,
-    isFrontendAction(action) ? action.available : undefined,
-    // This should be faster than deep equality checking
-    // In addition, all major JS engines guarantee the order of object keys
-    JSON.stringify(isFrontendAction(action) ? action.parameters : []),
-    // include render only if it's a string
-    typeof action.render === "string" ? action.render : undefined,
-    // dependencies set by the developer
-    ...(dependencies || []),
-  ]);
-}
-
-function isFrontendAction<T extends Parameter[]>(
-  action: FrontendAction<T> | CatchAllFrontendAction,
-): action is FrontendAction<T> {
-  return action.name !== "*";
-}
-
-interface RenderAndWaitForResponse {
-  promise: Promise<any>;
-  resolve: (result: any) => void;
-  reject: (error: any) => void;
-  messageId: string | null;
+  if ("handler" in action) {
+    return useFrontendTool(action as UseFrontendToolArgs<T>);
+  }
 }

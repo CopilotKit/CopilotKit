@@ -63,6 +63,7 @@
  */
 import { useEffect, useRef } from "react";
 import { useCopilotContext } from "../context/copilot-context";
+import { useAgentContext } from "@copilotkitnext/react";
 
 /**
  * Options for the useCopilotReadable hook.
@@ -106,32 +107,11 @@ function convertToJSON(description: string, value: any): string {
  * Adds the given information to the Copilot context to make it readable by Copilot.
  */
 export function useCopilotReadable(
-  {
+  { description, value }: UseCopilotReadableOptions,
+  dependencies?: any[],
+): void {
+  useAgentContext({
     description,
     value,
-    parentId,
-    categories,
-    convert,
-    available = "enabled",
-  }: UseCopilotReadableOptions,
-  dependencies?: any[],
-): string | undefined {
-  const { addContext, removeContext } = useCopilotContext();
-  const idRef = useRef<string>();
-  convert = convert || convertToJSON;
-
-  const information = convert(description, value);
-
-  useEffect(() => {
-    if (available === "disabled") return;
-
-    const id = addContext(information, parentId, categories);
-    idRef.current = id;
-
-    return () => {
-      removeContext(id);
-    };
-  }, [available, information, parentId, addContext, removeContext, ...(dependencies || [])]);
-
-  return idRef.current;
+  });
 }
