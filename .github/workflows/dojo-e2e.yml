@@ -65,15 +65,15 @@ jobs:
         pnpm build
 
     - name: Install ag-ui dependencies
-      working-directory: ag-ui/typescript-sdk
+      working-directory: ag-ui
       run: pnpm install --frozen-lockfile
 
     - name: Link cpk into ag-ui
       working-directory: CopilotKit
-      run: node ../ag-ui/typescript-sdk/apps/dojo/scripts/link-cpk.js .
+      run: node ../ag-ui/apps/dojo/scripts/link-cpk.js .
 
     - name: Prepare dojo for e2e
-      working-directory: ag-ui/typescript-sdk/apps/dojo
+      working-directory: ag-ui/apps/dojo
       run: |
         unset TURBO_API
         unset TURBO_TOKEN
