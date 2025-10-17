@@ -81,22 +81,20 @@ jobs:
         node ./scripts/prep-dojo-everything.js
 
     - name: Install e2e dependencies
-      working-directory: ag-ui/typescript-sdk/apps/dojo/e2e
+      working-directory: ag-ui/apps/dojo/e2e
       run: |
         pnpm install
 
     - name: write langgraph env files
-      working-directory: ag-ui/typescript-sdk/integrations/langgraph
+      working-directory: ag-ui/integrations/langgraph
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
       run: |
-        echo "OPENAI_API_KEY=${OPENAI_API_KEY}" > examples/python/.env
-        echo "LANGSMITH_API_KEY=${LANGSMITH_API_KEY}" >> examples/python/.env
-        echo "OPENAI_API_KEY=${OPENAI_API_KEY}" > examples/typescript/.env
-        echo "LANGSMITH_API_KEY=${LANGSMITH_API_KEY}" >> examples/typescript/.env
-        echo "OPENAI_API_KEY=${OPENAI_API_KEY}" > python/ag_ui_langgraph/.env
-        echo "LANGSMITH_API_KEY=${LANGSMITH_API_KEY}" >> python/ag_ui_langgraph/.env
+        echo "OPENAI_API_KEY=${OPENAI_API_KEY}" > python/examples/.env
+        echo "LANGSMITH_API_KEY=${LANGSMITH_API_KEY}" >> python/examples/.env
+        echo "OPENAI_API_KEY=${OPENAI_API_KEY}" > typescript/examples/.env
+        echo "LANGSMITH_API_KEY=${LANGSMITH_API_KEY}" >> typescript/examples/.env
 
     - name: Run dojo+agents and tests
       uses: JarvusInnovations/background-action@v1
@@ -106,8 +104,8 @@ jobs:
         GOOGLE_API_KEY: ${{ secrets.GOOGLE_GEMINI_API_KEY }}
       with:
         run: |
-          node ../scripts/run-dojo-everything.js
-        working-directory: ag-ui/typescript-sdk/apps/dojo/e2e
+          node ./scripts/run-dojo-everything.js
+        working-directory: ag-ui/apps/dojo
         wait-on: |
           http://localhost:9999
           tcp:localhost:8000
@@ -122,7 +120,7 @@ jobs:
           tcp:localhost:8009
 
     - name: Run tests
-      working-directory: ag-ui/typescript-sdk/apps/dojo/e2e
+      working-directory: ag-ui/apps/dojo/e2e
       env:
         BASE_URL: http://localhost:9999
       run: pnpm test
@@ -132,5 +130,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: playwright-traces
-        path: ag-ui/typescript-sdk/apps/dojo/e2e/test-results/
+        path: ag-ui/apps/dojo/e2e/test-results/
         retention-days: 7
