@@ -54,7 +54,8 @@ export interface GroqAdapterParams {
 }
 
 export class GroqAdapter implements CopilotServiceAdapter {
-  private model: string = DEFAULT_MODEL;
+  public model: string = DEFAULT_MODEL;
+  public provider = "groq";
 
   private disableParallelToolCalls: boolean = false;
   private _groq: Groq;

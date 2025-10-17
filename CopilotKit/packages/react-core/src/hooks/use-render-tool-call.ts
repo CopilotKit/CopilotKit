@@ -4,10 +4,9 @@ import {
   ActionRenderPropsWait,
   FrontendAction,
 } from "../types";
-import { Parameter } from "@copilotkit/shared";
+import { Parameter, getZodParameters } from "@copilotkit/shared";
 import React, { useEffect, useRef } from "react";
 import { defineToolCallRenderer, useCopilotKit } from "@copilotkitnext/react";
-import { getZodParameters } from "../utils/utils";
 
 export type UseRenderToolCallArgs<T extends Parameter[] | [] = []> = Pick<
   FrontendAction<T>,

@@ -71,7 +71,8 @@ export interface AnthropicAdapterParams {
 }
 
 export class AnthropicAdapter implements CopilotServiceAdapter {
-  private model: string = DEFAULT_MODEL;
+  public model: string = DEFAULT_MODEL;
+  public provider = "anthropic";
   private promptCaching: AnthropicPromptCachingConfig;
 
   private _anthropic: Anthropic;

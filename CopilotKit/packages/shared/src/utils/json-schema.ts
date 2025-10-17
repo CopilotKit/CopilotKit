@@ -250,3 +250,9 @@ export function convertJsonSchemaToZodSchema(jsonSchema: any, required: boolean)
   }
   throw new Error("Invalid JSON schema");
 }
+
+export function getZodParameters<T extends [] | Parameter[] | undefined>(parameters: T): any {
+  if (!parameters) return z.object({});
+  const jsonParams = actionParametersToJsonSchema(parameters);
+  return convertJsonSchemaToZodSchema(jsonParams, true);
+}

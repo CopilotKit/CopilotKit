@@ -1,4 +1,3 @@
-import { ResponseStatus } from './../../../../../../examples/coagents-enterprise-crewai-crews/ui/src/types/index';
 /**
  * <Callout type="info">
  *   This is the reference for the `CopilotRuntime` class. For more information and example code snippets, please see [Concept: Copilot Runtime](/concepts/copilot-runtime).
@@ -32,8 +31,8 @@ import {
   randomId,
   readBody,
   ResolvedCopilotKitError,
+  getZodParameters,
 } from "@copilotkit/shared";
-import { type Message as AGUIMessage } from "@copilotkit/shared"; // named agui for clarity, but this only includes agui message types
 import { type RunAgentInput } from "@ag-ui/core";
 import { aguiToGQL } from "../../graphql/message-conversion/agui-to-gql";
 import {
@@ -103,7 +102,7 @@ type CreateMCPClientFunction = (config: MCPEndpointConfig) => Promise<MCPClient>
 import { generateHelpfulErrorMessage } from "../streaming";
 import { CopilotContextInput } from "../../graphql/inputs/copilot-context.input";
 import { RemoteAgentAction } from "./agui-action";
-import { ResponseStatusUnion } from '../../graphql/types/response-status.type';
+import { BasicAgent, BasicAgentConfiguration } from "@copilotkitnext/agent";
 
 function isPromiseLike<T>(value: unknown): value is PromiseLike<T> {
   return (
@@ -179,7 +178,7 @@ interface Middleware {
   /**
    * A function that is called before the request is processed.
    */
-  /** 
+  /**
    * @deprecated This middleware hook is deprecated and will be removed in a future version.
    * Use updated middleware integration methods in CopilotRuntimeVNext instead.
    */
@@ -188,7 +187,7 @@ interface Middleware {
   /**
    * A function that is called after the request is processed.
    */
-  /** 
+  /**
    * @deprecated This middleware hook is deprecated and will be removed in a future version.
    * Use updated middleware integration methods in CopilotRuntimeVNext instead.
    */
@@ -220,7 +219,7 @@ export interface CopilotRuntimeConstructorParams_BASE<T extends Parameter[] | []
    * }) => void | Promise<void>;
    * ```
    */
-  /** 
+  /**
    * @deprecated This middleware hook is deprecated and will be removed in a future version.
    * Use updated middleware integration methods in CopilotRuntimeVNext instead.
    */
@@ -365,7 +364,9 @@ type BeforeRequestMiddlewareFnResult = ReturnType<BeforeRequestMiddlewareFn>;
 type AfterRequestMiddlewareFn = Exclude<AfterRequestMiddleware, string>;
 type AfterRequestMiddlewareFnParameters = Parameters<AfterRequestMiddlewareFn>;
 
-interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []> extends Omit<CopilotRuntimeConstructorParams_BASE<T>, "agents">, Omit<CopilotRuntimeOptionsVNext, "agents" | "transcriptionService"> {
+interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []>
+  extends Omit<CopilotRuntimeConstructorParams_BASE<T>, "agents">,
+    Omit<CopilotRuntimeOptionsVNext, "agents" | "transcriptionService"> {
   /**
    * This satisfies...
    *  – the optional constraint in `CopilotRuntimeConstructorParams_BASE`
@@ -379,6 +380,8 @@ interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []> exten
  * Central runtime object passed to all request handlers.
  */
 export class CopilotRuntimeNEW extends CopilotRuntimeVNext {
+  params?: CopilotRuntimeConstructorParams;
+
   constructor(params?: CopilotRuntimeConstructorParams) {
     super({
       agents: params?.agents ?? {},
@@ -386,68 +389,103 @@ export class CopilotRuntimeNEW extends CopilotRuntimeVNext {
       // TODO: add support for transcriptionService from CopilotRuntimeOptionsVNext once it is ready
       // transcriptionService: params?.transcriptionService,
 
-      beforeRequestMiddleware: params.beforeRequestMiddleware ?? (
-        params?.middleware?.onBeforeRequest == null
+      beforeRequestMiddleware:
+        params.beforeRequestMiddleware ??
+        (params?.middleware?.onBeforeRequest == null
           ? undefined
-          : (async (...mwParams: BeforeRequestMiddlewareFnParameters) => {
-            const { request, runtime, path } = mwParams[0];
-            const body = await readBody(request) as RunAgentInput;
-            const gqlMessages = (aguiToGQL(body.messages) as Message[]).reduce(
-              (acc, msg) => {
-                if ("role" in msg && msg.role === "user") {
-                  acc.inputMessages.push(msg);
-                } else {
-                  acc.outputMessages.push(msg);
-                }
-                return acc;
-              },
-              { inputMessages: [] as Message[], outputMessages: [] as Message[] }
-            );
-            const { inputMessages, outputMessages } = gqlMessages;
-            params?.middleware?.onBeforeRequest({
-              threadId: body.threadId,
-              runId: body.runId,
-              inputMessages,
-              properties: body.forwardedProps,
-              url: request.url,
-            } satisfies OnBeforeRequestOptions);
-            return request;
-          }
-        )
-      ),
-      afterRequestMiddleware: params.afterRequestMiddleware ?? (
-        params?.middleware?.onAfterRequest == null
+          : async (...mwParams: BeforeRequestMiddlewareFnParameters) => {
+              const { request, runtime, path } = mwParams[0];
+              const body = (await readBody(request)) as RunAgentInput;
+              const gqlMessages = (aguiToGQL(body.messages) as Message[]).reduce(
+                (acc, msg) => {
+                  if ("role" in msg && msg.role === "user") {
+                    acc.inputMessages.push(msg);
+                  } else {
+                    acc.outputMessages.push(msg);
+                  }
+                  return acc;
+                },
+                { inputMessages: [] as Message[], outputMessages: [] as Message[] },
+              );
+              const { inputMessages, outputMessages } = gqlMessages;
+              params?.middleware?.onBeforeRequest({
+                threadId: body.threadId,
+                runId: body.runId,
+                inputMessages,
+                properties: body.forwardedProps,
+                url: request.url,
+              } satisfies OnBeforeRequestOptions);
+              return request;
+            }),
+      afterRequestMiddleware:
+        params.afterRequestMiddleware ??
+        (params?.middleware?.onAfterRequest == null
           ? undefined
-          : (async (...mwParams: AfterRequestMiddlewareFnParameters) => {
-            // TODO: implement `onAfterRequest`, pending v2 middleware updates
-            // const { response, runtime, path } = mwParams[0];
-            // const body = await readBody(response) as RunAgentInput;
-            // const gqlMessages = (aguiToGQL(body.messages) as Message[]).reduce(
-            //   (acc, msg) => {
-            //     if ("role" in msg && msg.role === "user") {
-            //       acc.inputMessages.push(msg);
-            //     } else {
-            //       acc.outputMessages.push(msg);
-            //     }
-            //     return acc;
-            //   },
-            //   { inputMessages: [] as Message[], outputMessages: [] as Message[] }
-            // );
-            // const { inputMessages, outputMessages } = gqlMessages;
-            // params?.middleware?.onAfterRequest({
-            //   threadId: body.threadId,
-            //   runId: body.runId,
-            //   inputMessages,
-            //   outputMessages,
-            //   properties: body.forwardedProps,
-            //   url: response.url,
-            // } satisfies OnAfterRequestOptions);
+          : async (...mwParams: AfterRequestMiddlewareFnParameters) => {
+              // TODO: implement `onAfterRequest`, pending v2 middleware updates
+              // const { response, runtime, path } = mwParams[0];
+              // const body = await readBody(response) as RunAgentInput;
+              // const gqlMessages = (aguiToGQL(body.messages) as Message[]).reduce(
+              //   (acc, msg) => {
+              //     if ("role" in msg && msg.role === "user") {
+              //       acc.inputMessages.push(msg);
+              //     } else {
+              //       acc.outputMessages.push(msg);
+              //     }
+              //     return acc;
+              //   },
+              //   { inputMessages: [] as Message[], outputMessages: [] as Message[] }
+              // );
+              // const { inputMessages, outputMessages } = gqlMessages;
+              // params?.middleware?.onAfterRequest({
+              //   threadId: body.threadId,
+              //   runId: body.runId,
+              //   inputMessages,
+              //   outputMessages,
+              //   properties: body.forwardedProps,
+              //   url: response.url,
+              // } satisfies OnAfterRequestOptions);
 
-            // @ts-expect-error - running `onAfterRequest` with no args, is pending v2 middleware updates
-            params?.middleware?.onAfterRequest();
-          }
-        )
-      ),
+              // @ts-expect-error - running `onAfterRequest` with no args, is pending v2 middleware updates
+              params?.middleware?.onAfterRequest();
+            }),
+    });
+    this.params = params;
+  }
+
+  handleServiceAdapter(serviceAdapter: CopilotServiceAdapter) {
+    const agent = {
+      model: `${serviceAdapter.provider}/${serviceAdapter.model}`,
+      tools: [],
+    };
+    const agentTools = this.params.actions ? this.getToolsFromActions(this.params.actions) : [];
+    if (agentTools) {
+      agent.tools = agentTools;
+    }
+    this.agents = {
+      ...this.agents,
+      default: new BasicAgent(agent),
+    };
+  }
+
+  // Receive this.params.action and turn it into the AbstractAgent tools
+  private getToolsFromActions(
+    actions: ActionsConfiguration<any>,
+  ): BasicAgentConfiguration["tools"] {
+    // Resolve actions to an array (handle function case)
+    const actionsArray =
+      typeof actions === "function" ? actions({ properties: {}, url: undefined }) : actions;
+
+    // Convert each Action to a ToolDefinition
+    return actionsArray.map((action) => {
+      // Convert JSON schema to Zod schema
+      const zodSchema = getZodParameters(action.parameters || []);
+
+      return {
+        name: action.name,
+        description: action.description || "",
+        parameters: zodSchema,
+      };
     });
   }
 }
@@ -531,7 +569,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         (resolved) => {
           this.agents = resolved;
         },
-        () => {}
+        () => {},
       );
     } else {
       this.agents = (incomingAgents as Record<string, AbstractAgent>) ?? {};
