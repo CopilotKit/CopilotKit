@@ -91,6 +91,7 @@ import {
   MCPClient,
   MCPEndpointConfig,
   MCPTool,
+  extractParametersFromSchema,
   convertMCPToolsToActions,
   generateMcpToolInstructions,
 } from "./mcp-tools-utils";
@@ -381,6 +382,8 @@ interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []>
  */
 export class CopilotRuntimeNEW extends CopilotRuntimeVNext {
   params?: CopilotRuntimeConstructorParams;
+  // Cache MCP tools per endpoint to avoid re-fetching repeatedly
+  private mcpToolsCache: Map<string, BasicAgentConfiguration["tools"]> = new Map();
 
   constructor(params?: CopilotRuntimeConstructorParams) {
     super({
@@ -466,6 +469,27 @@ export class CopilotRuntimeNEW extends CopilotRuntimeVNext {
       ...this.agents,
       default: new BasicAgent(agent),
     };
+
+    // TODO: (un-comment) implement MCP tools loading and merging into the default agent tools when available
+    // // Load MCP tools asynchronously and merge into the default agent tools when available
+    // // Uses only runtime-level mcpServers here; request-level overrides (if any) can be
+    // // supported via an overload to getToolsFromMCP when request properties are available.
+    // void (async () => {
+    //   try {
+    //     const mcpTools = await this.getToolsFromMCP();
+    //     if (mcpTools.length > 0) {
+    //       const combinedTools = [...agent.tools, ...mcpTools];
+    //       // Recreate the default agent with the combined toolset
+    //       this.agents = {
+    //         ...this.agents,
+    //         default: new BasicAgent({ model: agent.model, tools: combinedTools }),
+    //       };
+    //     }
+    //   } catch (e) {
+    //     // Do not throw during service adapter handling; just log for visibility
+    //     console.error("MCP: failed to load tools for default agent:", e);
+    //   }
+    // })();
   }
 
   // Receive this.params.action and turn it into the AbstractAgent tools
@@ -488,7 +512,94 @@ export class CopilotRuntimeNEW extends CopilotRuntimeVNext {
       };
     });
   }
+
+  // Resolve MCP tools to BasicAgent tool definitions
+  // Optionally accepts request-scoped properties to merge request-provided mcpServers
+  private async getToolsFromMCP(options?: {
+    properties?: Record<string, unknown>;
+  }): Promise<BasicAgentConfiguration["tools"]> {
+    const runtimeMcpServers = (this.params?.mcpServers ?? []) as MCPEndpointConfig[];
+    const createMCPClient = this.params?.createMCPClient as
+      | CreateMCPClientFunction
+      | undefined;
+
+    // If no runtime config and no request overrides, nothing to do
+    const requestMcpServers = ((options?.properties as { mcpServers?: MCPEndpointConfig[] } | undefined)?.mcpServers ??
+      (options?.properties as { mcpEndpoints?: MCPEndpointConfig[] } | undefined)?.mcpEndpoints ??
+      []) as MCPEndpointConfig[];
+
+    const hasAnyServers = (runtimeMcpServers?.length ?? 0) > 0 || (requestMcpServers?.length ?? 0) > 0;
+    if (!hasAnyServers) {
+      return [];
+    }
+
+    if (!createMCPClient) {
+      // Mirror legacy behavior: when servers are provided without a factory, treat as misconfiguration
+      throw new CopilotKitMisuseError({
+        message:
+          "MCP Integration Error: `mcpServers` were provided, but the `createMCPClient` function was not passed to the CopilotRuntime constructor. Please provide an implementation for `createMCPClient`.",
+      });
+    }
+
+    // Merge and dedupe endpoints by URL; request-level overrides take precedence
+    const effectiveEndpoints = (() => {
+      const byUrl = new Map<string, MCPEndpointConfig>();
+      for (const ep of runtimeMcpServers) {
+        if (ep?.endpoint) byUrl.set(ep.endpoint, ep);
+      }
+      for (const ep of requestMcpServers) {
+        if (ep?.endpoint) byUrl.set(ep.endpoint, ep);
+      }
+      return Array.from(byUrl.values());
+    })();
+
+    const allTools: BasicAgentConfiguration["tools"] = [];
+
+    for (const config of effectiveEndpoints) {
+      const endpointUrl = config.endpoint;
+      // Return cached tool definitions when available
+      const cached = this.mcpToolsCache.get(endpointUrl);
+      if (cached) {
+        allTools.push(...cached);
+        continue;
+      }
+
+      try {
+        const client = await createMCPClient(config);
+        const toolsMap = await client.tools();
+
+        const toolDefs: BasicAgentConfiguration["tools"] = Object.entries(toolsMap).map(
+          ([toolName, tool]: [string, MCPTool]) => {
+            const params: Parameter[] = extractParametersFromSchema(tool);
+            const zodSchema = getZodParameters(params);
+            return {
+              name: toolName,
+              description: tool.description || `MCP tool: ${toolName} (from ${endpointUrl})`,
+              parameters: zodSchema,
+            };
+          },
+        );
+
+        // Cache per endpoint and add to aggregate
+        this.mcpToolsCache.set(endpointUrl, toolDefs);
+        allTools.push(...toolDefs);
+      } catch (error) {
+        console.error(`MCP: Failed to fetch tools from endpoint ${endpointUrl}. Skipping. Error:`, error);
+        // Cache empty to prevent repeated attempts within lifecycle
+        this.mcpToolsCache.set(endpointUrl, []);
+      }
+    }
+
+    // Dedupe tools by name while preserving last-in wins (request overrides)
+    const dedupedByName = new Map<string, (typeof allTools)[number]>();
+    for (const tool of allTools) {
+      dedupedByName.set(tool.name, tool);
+    }
+
+    return Array.from(dedupedByName.values());
+  }
 }
+
 
 export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   public actions: ActionsConfiguration<T>;
