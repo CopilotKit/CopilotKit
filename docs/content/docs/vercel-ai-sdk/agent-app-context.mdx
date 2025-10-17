@@ -1,0 +1,97 @@
+---
+title: Readables
+icon: "lucide/BookA"
+description: Share app specific context with your agent.
+---
+
+## What is this?
+
+One of the most common use cases for CopilotKit is to register app state and context using `useCopilotReadble`.
+This way, you can notify your agent of what is going in your app in real time.
+
+## When should I use this?
+
+You can use this when you want to provide the user with feedback about what your working memory. As your agent's 
+state update you can reflect these updates natively in your application.
+
+Some examples might be: the current user, the current page, etc. This be shared with your agent in real time.
+
+## Implementation
+<Steps>
+    <Step>
+        ### Wrap your data in a readable
+
+        The [`useCopilotReadable` hook](/reference/hooks/useCopilotReadable) is used to add data as context to the Copilot.
+
+        ```tsx title="YourComponent.tsx" showLineNumbers {1, 7-10}
+        "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
+        import { useCopilotReadable } from "@copilotkit/react-core"; // [!code highlight]
+        import { useState } from 'react';
+
+        export function YourComponent() {
+            // Create colleagues state with some sample data
+            const [colleagues, setColleagues] = useState([
+                { id: 1, name: "John Doe", role: "Developer" },
+                { id: 2, name: "Jane Smith", role: "Designer" },
+                { id: 3, name: "Bob Wilson", role: "Product Manager" }
+            ]);
+
+            // Define Copilot readable state
+            // [!code highlight:4]
+            useCopilotReadable({
+                description: "The current user's colleagues",
+                value: colleagues,
+            });
+            return (
+                // Your custom UI component
+                <>...</>
+            );
+        }
+        ```
+    </Step>
+
+    <Step>
+        ### Use the data in your Vercel AI SDK agent
+
+        Vercel AI SDK automatically receives the context from CopilotKit through the chat function.
+        The context is available in your chat handler and can be used to provide more intelligent responses.
+
+        ```tsx title="api/copilotkit/route.ts"
+        import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
+        import { streamText } from "ai";
+        import { openai } from "@ai-sdk/openai";
+
+        const runtime = new CopilotRuntime({
+          chat: async ({ messages, tools, context }) => {
+            // Context from useCopilotReadable is available here
+            const colleaguesContext = context?.find(ctx => 
+              ctx.description === 'The current user\'s colleagues'
+            );
+            
+            const result = await streamText({
+              model: openai("gpt-4o"),
+              messages: [
+                {
+                  role: "system",
+                  content: `You are a helpful assistant that can help emailing colleagues.
+                  The user's colleagues are: ${colleaguesContext?.value || 'No colleagues data available'}`
+                },
+                ...messages
+              ],
+              tools,
+            });
+            
+            return result.toDataStreamResponse();
+          },
+        });
+
+        export const POST = async (req: Request) => {
+          return runtime.response(req);
+        };
+        ```
+    </Step>
+    <Step>
+        ### Give it a try!
+        Ask your agent a question about the context. It should be able to answer!
+    </Step>
+</Steps>

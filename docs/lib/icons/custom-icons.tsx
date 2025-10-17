@@ -262,6 +262,18 @@ export const A2AIcon = (props: IconBaseProps) => (
 
 
 
+export const VercelIcon = ({ className = "", ...props }: IconBaseProps) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    {...props}
+  >
+    <path d="M12 1L22 20H2L12 1Z" fill="currentColor"/>
+  </svg>
+);
+
 export const customIcons = {
   a2a: A2AIcon,
   adk: ADKIcon,
@@ -283,4 +295,6 @@ export const customIcons = {
   pydantic: PydanticAIIcon,
   llm: RocketIcon,
   "direct-to-llm": RocketIcon,
+  vercel: VercelIcon,
+  "vercel-ai-sdk": VercelIcon,
 };

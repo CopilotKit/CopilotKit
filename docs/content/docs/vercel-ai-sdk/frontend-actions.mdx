@@ -1,0 +1,71 @@
+---
+title: Frontend Tools
+icon: "lucide/Wrench"
+description: Create frontend tools and use them within your Vercel AI SDK agent.
+---
+
+<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<Callout type="info">
+  Pictured above is the [vercel ai sdk starter](https://github.com/copilotkit/copilotkit/tree/main/examples/vercel-ai-sdk/starter) with the implementation below applied!
+</Callout>
+
+## Implementation
+
+<Callout>
+Check out the [Frontend Tools overview](/frontend-tools) to understand what they are and when to use them.
+</Callout>
+
+<Steps>
+    <Step>
+        ### Setup CopilotKit
+
+        To use frontend tools, you'll need to setup CopilotKit first. For the sake of brevity, we won't cover it here.
+
+        Check out our [getting started guide](/vercel-ai-sdk/quickstart) and come back here when you're setup!
+    </Step>
+
+    <Step>
+        ### Create a frontend tool
+
+        First, you'll need to create a frontend tool using the [useCopilotAction](/reference/hooks/useCopilotAction) hook. Here's a simple one to get you started
+        that says hello to the user.
+
+        ```tsx title="page.tsx"
+        import { useCopilotAction } from "@copilotkit/react-core" // [!code highlight]
+
+        export function Page() {
+          // ...
+
+          // [!code highlight:15]
+          useCopilotAction({
+            name: "sayHello",
+            description: "Say hello to the user",
+            parameters: [
+              {
+                name: "name",
+                type: "string",
+                description: "The name of the user to say hello to",
+                required: true,
+              },
+            ],
+            handler: async ({ name }) => {
+              alert(`Hello, ${name}!`);
+            },
+          });
+
+          // ...
+        }
+        ```
+    </Step>
+    <Step>
+        ### Accessing Frontend Tools
+
+        Since Vercel AI SDK includes native support for the AG-UI protocol, frontend tools are automatically available to the agent as
+        tools.
+    </Step>
+    <Step>
+        ### Give it a try!
+        You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
+    </Step>
+
+</Steps>
