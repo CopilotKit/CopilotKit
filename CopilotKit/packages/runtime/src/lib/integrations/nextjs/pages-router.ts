@@ -1,5 +1,5 @@
-import { YogaServerInstance, createYoga } from "graphql-yoga";
-import { CreateCopilotRuntimeServerOptions, GraphQLContext, getCommonConfig } from "../shared";
+import { createCopilotEndpoint } from "@copilotkitnext/runtime";
+import { CreateCopilotRuntimeServerOptions, getCommonConfig } from "../shared";
 import telemetry, { getRuntimeInstanceTelemetryInfo } from "../../telemetry-client";
 
 export const config = {
@@ -8,8 +8,6 @@ export const config = {
   },
 };
 
-export type CopilotRuntimeServerInstance<T> = YogaServerInstance<T, Partial<GraphQLContext>>;
-
 // This import is needed to fix the type error
 // Fix is currently in TypeScript 5.5 beta, waiting for stable version
 // https://github.com/microsoft/TypeScript/issues/42873#issuecomment-2066874644
@@ -17,7 +15,7 @@ export type {} from "@whatwg-node/server";
 
 export function copilotRuntimeNextJSPagesRouterEndpoint(
   options: CreateCopilotRuntimeServerOptions,
-): CopilotRuntimeServerInstance<GraphQLContext> {
+): ReturnType<typeof createCopilotEndpoint> {
   const commonConfig = getCommonConfig(options);
 
   telemetry.setGlobalProperties({
@@ -37,10 +35,11 @@ export function copilotRuntimeNextJSPagesRouterEndpoint(
   const logger = commonConfig.logging;
   logger.debug("Creating NextJS Pages Router endpoint");
 
-  const yoga = createYoga({
-    ...commonConfig,
-    graphqlEndpoint: options.endpoint,
-  });
+  const serviceAdapter = options.serviceAdapter;
+  options.runtime.handleServiceAdapter(serviceAdapter);
 
-  return yoga;
+  return createCopilotEndpoint({
+    runtime: options.runtime,
+    basePath: options.baseUrl,
+  });
 }
