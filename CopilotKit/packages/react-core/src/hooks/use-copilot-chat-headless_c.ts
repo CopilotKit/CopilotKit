@@ -161,7 +161,7 @@
 import { useEffect } from "react";
 import { useCopilotContext } from "../context/copilot-context";
 import {
-  useCopilotChat as useCopilotChatInternal,
+  useCopilotChatInternal,
   defaultSystemMessage,
   UseCopilotChatOptions as UseCopilotChatOptions_c,
   UseCopilotChatReturn as UseCopilotChatReturn_c,

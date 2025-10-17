@@ -168,6 +168,7 @@ export interface AssistantMessageProps {
    */
 
   message?: AIMessage;
+  messages?: Message[];
 
   /**
    * Indicates if this is the last message
@@ -271,6 +272,7 @@ export interface ErrorMessageProps {
 
 export interface RenderMessageProps {
   message: Message;
+  messages: Message[];
   inProgress: boolean;
   index: number;
   isCurrentMessage: boolean;

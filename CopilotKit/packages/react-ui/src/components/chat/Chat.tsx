@@ -74,14 +74,12 @@ import { RenderMessage as DefaultRenderMessage } from "./messages/RenderMessage"
 import { AssistantMessage as DefaultAssistantMessage } from "./messages/AssistantMessage";
 import { UserMessage as DefaultUserMessage } from "./messages/UserMessage";
 import { ImageRenderer as DefaultImageRenderer } from "./messages/ImageRenderer";
-import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   SystemMessageFunction,
-  useCopilotChatInternal as useCopilotChat,
   useCopilotContext,
-  useCopilotMessagesContext,
+  useCopilotChatInternal,
 } from "@copilotkit/react-core";
-import type { SuggestionItem } from "@copilotkit/react-core";
 import {
   CopilotKitError,
   CopilotKitErrorCode,
@@ -91,8 +89,8 @@ import {
   ErrorVisibility,
   styledConsole,
   CopilotErrorHandler,
+  randomUUID,
 } from "@copilotkit/shared";
-import { randomId } from "@copilotkit/shared";
 import {
   AssistantMessageProps,
   ChatError,
@@ -107,9 +105,10 @@ import {
   UserMessageProps,
 } from "./props";
 
-import { HintFunction, runAgent, stopAgent } from "@copilotkit/react-core";
+import { HintFunction } from "@copilotkit/react-core";
 import { ImageUploadQueue } from "./ImageUploadQueue";
 import { Suggestions as DefaultRenderSuggestionsList } from "./Suggestions";
+import type { Suggestion } from "@copilotkitnext/core";
 
 /**
  * The type of suggestions to use in the chat.
@@ -118,7 +117,7 @@ import { Suggestions as DefaultRenderSuggestionsList } from "./Suggestions";
  * `manual` - Suggestions are controlled programmatically.
  * `SuggestionItem[]` - Static suggestions array.
  */
-export type ChatSuggestions = "auto" | "manual" | SuggestionItem[];
+export type ChatSuggestions = "auto" | "manual" | Suggestion[];
 
 /**
  * Props for CopilotChat component.
@@ -625,15 +624,14 @@ export function CopilotChat({
     stopGeneration,
     reloadMessages,
     suggestions: currentSuggestions,
-  } = useCopilotChatLogic(
-    suggestions,
-    makeSystemMessage,
-    disableSystemMessage,
-    onInProgress,
-    onSubmitMessage,
-    onStopGeneration,
-    onReloadMessages,
-  );
+  } = useCopilotChatInternal();
+  // suggestions,
+  // makeSystemMessage,
+  // disableSystemMessage,
+  // onInProgress,
+  // onSubmitMessage,
+  // onStopGeneration,
+  // onReloadMessages,
 
   // Track loading state changes for chat start/stop events
   const prevIsLoading = useRef(isLoading);
@@ -659,7 +657,12 @@ export function CopilotChat({
     // Trigger message sent event
     triggerObservabilityHook("onMessageSent", text);
 
-    return sendMessage(text, images);
+    // TODO: send images?
+    return sendMessage({
+      id: randomUUID(),
+      content: text,
+      role: "user",
+    });
   };
 
   const chatContext = React.useContext(ChatContext);
@@ -814,6 +817,7 @@ export function CopilotChat({
       )}
       <Input
         inProgress={isLoading}
+        // @ts-ignore
         onSend={handleSendMessage}
         isVisible={isVisible}
         onStop={stopGeneration}
@@ -845,304 +849,3 @@ export function WrappedCopilotChat({
   }
   return <>{children}</>;
 }
-
-export const useCopilotChatLogic = (
-  chatSuggestions: ChatSuggestions,
-  makeSystemMessage?: SystemMessageFunction,
-  disableSystemMessage?: boolean,
-  onInProgress?: (isLoading: boolean) => void,
-  onSubmitMessage?: (messageContent: string) => Promise<void> | void,
-  onStopGeneration?: OnStopGeneration,
-  onReloadMessages?: OnReloadMessages,
-) => {
-  const {
-    messages,
-    sendMessage,
-    setMessages,
-    reloadMessages: defaultReloadMessages,
-    stopGeneration: defaultStopGeneration,
-    runChatCompletion,
-    isLoading,
-    suggestions,
-    setSuggestions,
-    generateSuggestions,
-    resetSuggestions: resetSuggestionsFromHook,
-    isLoadingSuggestions,
-  } = useCopilotChat({
-    makeSystemMessage,
-    disableSystemMessage,
-  });
-
-  const generalContext = useCopilotContext();
-  const messagesContext = useCopilotMessagesContext();
-
-  // Get actions from context for message conversion
-  const { actions } = generalContext;
-
-  // Suggestion state management
-  const [suggestionsFailed, setSuggestionsFailed] = useState(false);
-  const hasGeneratedInitialSuggestions = useRef<boolean>(false);
-
-  // Handle static suggestions (when suggestions prop is an array)
-  useEffect(() => {
-    if (Array.isArray(chatSuggestions)) {
-      setSuggestions(chatSuggestions);
-      hasGeneratedInitialSuggestions.current = true;
-    }
-  }, [JSON.stringify(chatSuggestions), setSuggestions]);
-
-  // Error handling wrapper
-  const generateSuggestionsWithErrorHandling = useCallback(
-    async (context: string) => {
-      try {
-        await generateSuggestions();
-      } catch (error) {
-        console.error("Failed to generate suggestions:", error);
-        setSuggestionsFailed(true);
-      }
-    },
-    [generateSuggestions],
-  );
-
-  // Automatic suggestion generation logic
-  useEffect(() => {
-    // Only proceed if in auto mode, not currently loading, and not failed
-    if (chatSuggestions !== "auto" || isLoadingSuggestions || suggestionsFailed) {
-      return;
-    }
-
-    // Don't run during chat loading (when the assistant is responding)
-    if (isLoading) {
-      return;
-    }
-
-    // Check if we have any configurations
-    if (Object.keys(generalContext.chatSuggestionConfiguration).length === 0) {
-      return;
-    }
-
-    // Generate initial suggestions when chat is empty
-    if (messages.length === 0 && !hasGeneratedInitialSuggestions.current) {
-      hasGeneratedInitialSuggestions.current = true;
-      generateSuggestionsWithErrorHandling("initial");
-      return;
-    }
-
-    // Generate post-message suggestions after assistant responds
-    if (messages.length > 0 && suggestions.length === 0) {
-      generateSuggestionsWithErrorHandling("post-message");
-      return;
-    }
-  }, [
-    chatSuggestions,
-    isLoadingSuggestions,
-    suggestionsFailed,
-    messages.length,
-    isLoading,
-    suggestions.length,
-    Object.keys(generalContext.chatSuggestionConfiguration).join(","), // Use stable string instead of object reference
-    generateSuggestionsWithErrorHandling,
-  ]);
-
-  // Reset suggestion state when switching away from auto mode
-  useEffect(() => {
-    if (chatSuggestions !== "auto") {
-      hasGeneratedInitialSuggestions.current = false;
-      setSuggestionsFailed(false);
-    }
-  }, [chatSuggestions]);
-
-  // Memoize context to prevent infinite re-renders
-  const stableContext = useMemo(
-    () => ({
-      ...generalContext,
-      ...messagesContext,
-    }),
-    [
-      // Only include stable dependencies
-      generalContext.actions,
-      messagesContext.messages.length,
-      generalContext.isLoading,
-    ],
-  );
-
-  // Wrapper for resetSuggestions that also resets local state
-  const resetSuggestions = useCallback(() => {
-    resetSuggestionsFromHook();
-    setSuggestionsFailed(false);
-    hasGeneratedInitialSuggestions.current = false;
-  }, [resetSuggestionsFromHook]);
-
-  useEffect(() => {
-    onInProgress?.(isLoading);
-  }, [onInProgress, isLoading]);
-
-  const safelySendMessage = async (
-    messageContent: string,
-    imagesToUse?: Array<{ contentType: string; bytes: string }>,
-  ) => {
-    const images = imagesToUse || [];
-
-    // Clear existing suggestions when user sends a message
-    // This prevents stale suggestions from remaining visible during new conversation flow
-    if (chatSuggestions === "auto" || chatSuggestions === "manual") {
-      setSuggestions([]);
-    }
-
-    let firstMessage: Message | null = null;
-
-    // Send text message if content provided
-    if (messageContent.trim().length > 0) {
-      const textMessage: Message = {
-        id: randomId(),
-        role: "user",
-        content: messageContent,
-      };
-
-      // Call user-provided submit handler if available
-      if (onSubmitMessage) {
-        try {
-          await onSubmitMessage(messageContent);
-        } catch (error) {
-          console.error("Error in onSubmitMessage:", error);
-        }
-      }
-
-      // Send the message and clear suggestions for auto/manual modes
-      await sendMessage(textMessage, {
-        followUp: images.length === 0,
-        clearSuggestions: chatSuggestions === "auto" || chatSuggestions === "manual",
-      });
-
-      if (!firstMessage) {
-        firstMessage = textMessage;
-      }
-    }
-
-    // Send image messages
-    if (images.length > 0) {
-      for (let i = 0; i < images.length; i++) {
-        const imageMessage = {
-          id: randomId(),
-          role: "user" as const,
-          image: {
-            format: images[i].contentType.replace("image/", ""),
-            bytes: images[i].bytes,
-          },
-        } as unknown as Message;
-        await sendMessage(imageMessage, { followUp: i === images.length - 1 });
-        if (!firstMessage) {
-          firstMessage = imageMessage;
-        }
-      }
-    }
-
-    if (!firstMessage) {
-      // Should not happen if send button is properly disabled, but handle just in case
-      return { role: "user", content: "", id: randomId() } as Message; // Return a dummy message
-    }
-
-    // The hook implicitly triggers API call on appendMessage.
-    // We return the first message sent (either text or first image)
-    return firstMessage;
-  };
-
-  const currentAgentName = generalContext.agentSession?.agentName;
-  const restartCurrentAgent = async (hint?: HintFunction) => {
-    if (generalContext.agentSession) {
-      generalContext.setAgentSession({
-        ...generalContext.agentSession,
-        nodeName: undefined,
-        threadId: undefined,
-      });
-      generalContext.setCoagentStates((prevAgentStates) => {
-        return {
-          ...prevAgentStates,
-          [generalContext.agentSession!.agentName]: {
-            ...prevAgentStates[generalContext.agentSession!.agentName],
-            threadId: undefined,
-            nodeName: undefined,
-            runId: undefined,
-          },
-        };
-      });
-    }
-  };
-  const runCurrentAgent = async (hint?: HintFunction) => {
-    if (generalContext.agentSession) {
-      await runAgent(
-        generalContext.agentSession.agentName,
-        stableContext,
-        messagesContext.messages,
-        sendMessage,
-        runChatCompletion,
-      );
-    }
-  };
-  const stopCurrentAgent = () => {
-    if (generalContext.agentSession) {
-      stopAgent(generalContext.agentSession.agentName, stableContext);
-    }
-  };
-  const setCurrentAgentState = (state: any) => {
-    if (generalContext.agentSession) {
-      generalContext.setCoagentStates((prevAgentStates) => {
-        return {
-          ...prevAgentStates,
-          [generalContext.agentSession!.agentName]: {
-            state,
-          },
-        } as any;
-      });
-    }
-  };
-
-  function stopGeneration() {
-    // Clear suggestions when stopping generation
-    setSuggestions([]);
-
-    if (onStopGeneration) {
-      onStopGeneration({
-        messages: messages,
-        setMessages,
-        stopGeneration: defaultStopGeneration,
-        currentAgentName,
-        restartCurrentAgent,
-        stopCurrentAgent,
-        runCurrentAgent,
-        setCurrentAgentState,
-      });
-    } else {
-      defaultStopGeneration();
-    }
-  }
-  function reloadMessages(messageId: string) {
-    if (onReloadMessages) {
-      onReloadMessages({
-        messages: messages,
-        setMessages,
-        stopGeneration: defaultStopGeneration,
-        currentAgentName,
-        restartCurrentAgent,
-        stopCurrentAgent,
-        runCurrentAgent,
-        setCurrentAgentState,
-        messageId,
-      });
-    } else {
-      defaultReloadMessages(messageId);
-    }
-  }
-
-  return {
-    messages,
-    isLoading,
-    suggestions,
-    sendMessage: safelySendMessage,
-    stopGeneration,
-    reloadMessages,
-    resetSuggestions,
-    context: stableContext,
-    actions,
-  };
-};

@@ -25,7 +25,6 @@ import {
   LangGraphInterruptAction,
   LangGraphInterruptActionSetter,
 } from "../types/interrupt-action";
-import { SuggestionItem } from "../utils/suggestions";
 
 /**
  * Interface for the configuration of the Copilot API.
@@ -95,10 +94,10 @@ export interface CopilotApiConfig {
 }
 
 export type InChatRenderFunction<TProps = ActionRenderProps<any> | CatchAllActionRenderProps<any>> =
-  (props: TProps) => string | JSX.Element;
+  (props: TProps) => string | React.JSX.Element;
 export type CoagentInChatRenderFunction = (
   props: CoAgentStateRenderProps<any>,
-) => string | JSX.Element | undefined | null;
+) => string | React.JSX.Element | undefined | null;
 
 export interface ChatComponentsCache {
   actions: Record<string, InChatRenderFunction | string>;
@@ -195,9 +194,6 @@ export interface CopilotContextParams {
   // i.e. when using `stop()` from `useChat`
   chatAbortControllerRef: React.MutableRefObject<AbortController | null>;
 
-  // runtime
-  runtimeClient: CopilotRuntimeClient;
-
   /**
    * The forwarded parameters to use for the task.
    */
@@ -271,7 +267,6 @@ const emptyCopilotContext: CopilotContextParams = {
   getDocumentsContext: (categories: string[]) => returnAndThrowInDebug([]),
   addDocumentContext: () => returnAndThrowInDebug(""),
   removeDocumentContext: () => {},
-  runtimeClient: {} as any,
 
   copilotApiConfig: new (class implements CopilotApiConfig {
     get chatApiEndpoint(): string {

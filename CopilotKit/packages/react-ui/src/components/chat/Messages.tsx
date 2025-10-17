@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { MessagesProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import { Message } from "@copilotkit/shared";
-import { useCopilotChatInternal as useCopilotChat } from "@copilotkit/react-core";
+import { useCopilotChatInternal } from "@copilotkit/react-core";
 import { LegacyRenderMessage, LegacyRenderProps } from "./messages/LegacyRenderMessage";
 
 export const Messages = ({
@@ -29,7 +29,7 @@ export const Messages = ({
   RenderImageMessage,
 }: MessagesProps) => {
   const { labels } = useChatContext();
-  const { messages: visibleMessages, interrupt } = useCopilotChat();
+  const { messages: visibleMessages, interrupt } = useCopilotChatInternal();
   const initialMessages = useMemo(() => makeInitialMessages(labels.initial), [labels.initial]);
   const messages = [...initialMessages, ...visibleMessages];
   const { messagesContainerRef, messagesEndRef } = useScrollToBottom(messages);
@@ -86,6 +86,7 @@ export const Messages = ({
             <MessageRenderer
               key={index}
               message={message}
+              messages={messages}
               inProgress={inProgress}
               index={index}
               isCurrentMessage={isCurrentMessage}
