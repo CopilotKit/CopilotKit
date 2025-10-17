@@ -9,11 +9,11 @@ function isLocalhost(): boolean {
 }
 
 export function shouldShowDevConsole(showDevConsole?: boolean): boolean {
-  // If explicitly set, use that value
-  if (showDevConsole !== undefined) {
-    return showDevConsole;
-  }
+  // DEPRECATED: The showDevConsole prop is deprecated for the new Inspector.
+  // The Inspector is now always enabled by default and can only be hidden via
+  // the "Disable inspector" option in the Inspector menu itself.
+  // This ensures everyone sees the new Inspector UI on upgrade.
 
-  // If not set, default to true on localhost
-  return isLocalhost();
+  // Always show the inspector (ignoring the deprecated showDevConsole prop)
+  return true;
 }
