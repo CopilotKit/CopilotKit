@@ -208,25 +208,25 @@ function actionExecutionMessageToAGUIMessage(
 
 export function gqlTextMessageToAGUIMessage(message: gql.TextMessage): agui.Message {
   switch (message.role) {
-    case gql.Role.Developer:
+    case gql.Role.developer:
       return {
         id: message.id,
         role: "developer",
         content: message.content,
       };
-    case gql.Role.System:
+    case gql.Role.system:
       return {
         id: message.id,
         role: "system",
         content: message.content,
       };
-    case gql.Role.Assistant:
+    case gql.Role.assistant:
       return {
         id: message.id,
         role: "assistant",
         content: message.content,
       };
-    case gql.Role.User:
+    case gql.Role.user:
       return {
         id: message.id,
         role: "user",
@@ -261,7 +261,7 @@ export function gqlImageMessageToAGUIMessage(message: gql.ImageMessage): agui.Me
   }
 
   // Determine the role based on the message role
-  const role = message.role === gql.Role.Assistant ? "assistant" : "user";
+  const role = message.role === gql.Role.assistant ? "assistant" : "user";
 
   // Create the image message with proper typing
   const imageMessage: agui.Message = {

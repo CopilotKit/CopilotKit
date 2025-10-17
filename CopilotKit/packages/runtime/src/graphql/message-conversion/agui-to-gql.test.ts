@@ -24,7 +24,7 @@ describe("agui-to-gql", () => {
       expect(result).toBeInstanceOf(gql.TextMessage);
       expect(result.id).toBe("dev-message-id");
       expect(result.content).toBe("Hello from developer");
-      expect(result.role).toBe(gql.Role.Developer);
+      expect(result.role).toBe(gql.Role.developer);
     });
 
     test("should convert system message", () => {
@@ -39,7 +39,7 @@ describe("agui-to-gql", () => {
       expect(result).toBeInstanceOf(gql.TextMessage);
       expect(result.id).toBe("system-message-id");
       expect(result.content).toBe("System instruction");
-      expect(result.role).toBe(gql.Role.System);
+      expect(result.role).toBe(gql.Role.system);
     });
 
     test("should convert assistant message", () => {
@@ -54,7 +54,7 @@ describe("agui-to-gql", () => {
       expect(result).toBeInstanceOf(gql.TextMessage);
       expect(result.id).toBe("assistant-message-id");
       expect(result.content).toBe("Assistant response");
-      expect(result.role).toBe(gql.Role.Assistant);
+      expect(result.role).toBe(gql.Role.assistant);
     });
 
     test("should convert user message", () => {
@@ -69,7 +69,7 @@ describe("agui-to-gql", () => {
       expect(result).toBeInstanceOf(gql.TextMessage);
       expect(result.id).toBe("user-message-id");
       expect(result.content).toBe("User input");
-      expect(result.role).toBe(gql.Role.User);
+      expect(result.role).toBe(gql.Role.user);
     });
 
     test("should throw error for unsupported role", () => {
@@ -214,12 +214,12 @@ describe("agui-to-gql", () => {
       expect(result[0]).toBeInstanceOf(gql.TextMessage);
       expect(result[0].id).toBe("dev-1");
       expect((result[0] as gql.TextMessage).content).toBe("Hello");
-      expect((result[0] as gql.TextMessage).role).toBe(gql.Role.Developer);
+      expect((result[0] as gql.TextMessage).role).toBe(gql.Role.developer);
 
       expect(result[1]).toBeInstanceOf(gql.TextMessage);
       expect(result[1].id).toBe("assistant-1");
       expect((result[1] as gql.TextMessage).content).toBe("Hi there");
-      expect((result[1] as gql.TextMessage).role).toBe(gql.Role.Assistant);
+      expect((result[1] as gql.TextMessage).role).toBe(gql.Role.assistant);
     });
 
     test("should convert an array of text messages including user messages", () => {
@@ -247,17 +247,17 @@ describe("agui-to-gql", () => {
       expect(result[0]).toBeInstanceOf(gql.TextMessage);
       expect(result[0].id).toBe("user-1");
       expect((result[0] as gql.TextMessage).content).toBe("Hello from user");
-      expect((result[0] as gql.TextMessage).role).toBe(gql.Role.User);
+      expect((result[0] as gql.TextMessage).role).toBe(gql.Role.user);
 
       expect(result[1]).toBeInstanceOf(gql.TextMessage);
       expect(result[1].id).toBe("assistant-1");
       expect((result[1] as gql.TextMessage).content).toBe("Hi there");
-      expect((result[1] as gql.TextMessage).role).toBe(gql.Role.Assistant);
+      expect((result[1] as gql.TextMessage).role).toBe(gql.Role.assistant);
 
       expect(result[2]).toBeInstanceOf(gql.TextMessage);
       expect(result[2].id).toBe("user-2");
       expect((result[2] as gql.TextMessage).content).toBe("Another user message");
-      expect((result[2] as gql.TextMessage).role).toBe(gql.Role.User);
+      expect((result[2] as gql.TextMessage).role).toBe(gql.Role.user);
     });
 
     test("should handle assistant messages with tool calls", () => {
@@ -438,11 +438,11 @@ describe("agui-to-gql", () => {
       expect(result).toHaveLength(5);
       expect(result[0]).toBeInstanceOf(gql.TextMessage);
       expect(result[0].id).toBe("user-1");
-      expect((result[0] as gql.TextMessage).role).toBe(gql.Role.User);
+      expect((result[0] as gql.TextMessage).role).toBe(gql.Role.user);
 
       expect(result[1]).toBeInstanceOf(gql.TextMessage);
       expect(result[1].id).toBe("assistant-1");
-      expect((result[1] as gql.TextMessage).role).toBe(gql.Role.Assistant);
+      expect((result[1] as gql.TextMessage).role).toBe(gql.Role.assistant);
 
       expect(result[2]).toBeInstanceOf(gql.ActionExecutionMessage);
       expect(result[2].id).toBe("tool-call-1");
@@ -452,7 +452,7 @@ describe("agui-to-gql", () => {
 
       expect(result[4]).toBeInstanceOf(gql.TextMessage);
       expect(result[4].id).toBe("user-2");
-      expect((result[4] as gql.TextMessage).role).toBe(gql.Role.User);
+      expect((result[4] as gql.TextMessage).role).toBe(gql.Role.user);
     });
   });
 
@@ -537,7 +537,7 @@ describe("agui-to-gql", () => {
 
       expect(result).toHaveLength(1);
       expect(result[0]).toBeInstanceOf(gql.TextMessage);
-      expect((result[0] as gql.TextMessage).role).toBe(gql.Role.User);
+      expect((result[0] as gql.TextMessage).role).toBe(gql.Role.user);
     });
 
     test("should handle multiple tool calls with render functions", () => {
@@ -672,7 +672,7 @@ describe("agui-to-gql", () => {
       expect(result.id).toBe("image-2");
       expect(result.format).toBe("jpeg");
       expect(result.bytes).toBe("base64stringdata");
-      expect(result.role).toBe(gql.Role.Assistant);
+      expect(result.role).toBe(gql.Role.assistant);
     });
 
     test("should convert valid user image message", () => {
@@ -691,7 +691,7 @@ describe("agui-to-gql", () => {
       expect(result.id).toBe("image-3");
       expect(result.format).toBe("png");
       expect(result.bytes).toBe("anotherbase64string");
-      expect(result.role).toBe(gql.Role.User);
+      expect(result.role).toBe(gql.Role.user);
     });
   });
 

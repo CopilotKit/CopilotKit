@@ -26,6 +26,8 @@ import {
   CopilotKitMisuseError,
   CopilotRequestContext,
   ensureStructuredError,
+  MaybePromise,
+  NonEmptyRecord,
   Parameter,
   randomId,
   readBody,
@@ -353,6 +355,33 @@ export interface CopilotRuntimeConstructorParams_BASE<T extends Parameter[] | []
   // afterRequestMiddleware?: CopilotRuntimeOptionsVNext["afterRequestMiddleware"];
 }
 
+export interface CopilotRuntimeConstructorParams_AUDIT<T extends Parameter[] | [] = []> {
+  // ✅
+  // middleware?: Middleware;
+  // ❌/✅
+  actions?: ActionsConfiguration<T>;
+  // ❌/✅
+  remoteActions?: CopilotKitEndpoint[];
+  // ❌/✅
+  remoteEndpoints?: EndpointDefinition[];
+  // ❌/✅
+  langserve?: RemoteChainParameters[];
+  // ❌/✅
+  agents?: Record<string, AbstractAgent>;
+  // ❌/✅
+  delegateAgentProcessingToServiceAdapter?: boolean;
+  // ❌/✅
+  observability_c?: CopilotObservabilityConfig;
+  // ❌/✅
+  mcpServers?: MCPEndpointConfig[];
+  // ❌/✅
+  createMCPClient?: CreateMCPClientFunction;
+  // ❌/✅
+  onError?: CopilotErrorHandler;
+  // ❌/✅
+  onStopGeneration?: OnStopGenerationHandler;
+}
+
 // (duplicate BASE interface removed)
 
 type BeforeRequestMiddleware = CopilotRuntimeOptionsVNext["beforeRequestMiddleware"];
@@ -363,7 +392,15 @@ type BeforeRequestMiddlewareFnResult = ReturnType<BeforeRequestMiddlewareFn>;
 type AfterRequestMiddlewareFn = Exclude<AfterRequestMiddleware, string>;
 type AfterRequestMiddlewareFnParameters = Parameters<AfterRequestMiddlewareFn>;
 
-interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []> extends CopilotRuntimeConstructorParams_BASE<T>, Omit<CopilotRuntimeOptionsVNext, "agents" | "transcriptionService"> {}
+interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []> extends Omit<CopilotRuntimeConstructorParams_BASE<T>, "agents">, Omit<CopilotRuntimeOptionsVNext, "agents" | "transcriptionService"> {
+  /**
+   * This satisfies...
+   *  – the optional constraint in `CopilotRuntimeConstructorParams_BASE`
+   *  – the `MaybePromise<NonEmptyRecord<T>>` constraint in `CopilotRuntimeOptionsVNext`
+   *  – the `Record<string, AbstractAgent>` constraint in `both
+   */
+  agents?: MaybePromise<NonEmptyRecord<Record<string, AbstractAgent>>>;
+}
 
 /**
  * Central runtime object passed to all request handlers.
@@ -622,7 +659,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         id: randomId(),
         createdAt: new Date(),
         textMessage: {
-          role: MessageRole.System,
+          role: MessageRole.system,
           content: instructions,
         },
         actionExecutionMessage: undefined,
@@ -755,7 +792,7 @@ please use an LLM adapter instead.`,
         ...serverSideActionsInput,
         ...clientSideActionsInput.filter(
           // Filter remote actions from CopilotKit core loop
-          (action) => action.available !== ActionInputAvailability.Remote,
+          (action) => action.available !== ActionInputAvailability.remote,
         ),
       ]);
 

@@ -871,19 +871,19 @@ function copilotkitMessagesToLangChain(messages: Message[]): LangGraphPlatformMe
         // Human message
         result.push({
           ...message,
-          role: MessageRole.User,
+          role: MessageRole.user,
         });
       } else if (message.role === "system") {
         // System message
         result.push({
           ...message,
-          role: MessageRole.System,
+          role: MessageRole.system,
         });
       } else if (message.role === "assistant") {
         // Assistant message
         result.push({
           ...message,
-          role: MessageRole.Assistant,
+          role: MessageRole.assistant,
         });
       }
       continue;
@@ -894,13 +894,13 @@ function copilotkitMessagesToLangChain(messages: Message[]): LangGraphPlatformMe
       if (message.role === "user") {
         result.push({
           ...message,
-          role: MessageRole.User,
+          role: MessageRole.user,
           content: "",
         });
       } else if (message.role === "assistant") {
         result.push({
           ...message,
-          role: MessageRole.Assistant,
+          role: MessageRole.assistant,
           content: "",
         });
       }
@@ -936,7 +936,7 @@ function copilotkitMessagesToLangChain(messages: Message[]): LangGraphPlatformMe
         type: "ActionExecutionMessage",
         content: "",
         tool_calls: tool_calls,
-        role: MessageRole.Assistant,
+        role: MessageRole.assistant,
         status: { code: MessageStatusCode.Success },
       } satisfies LangGraphPlatformActionExecutionMessage);
 
@@ -951,7 +951,7 @@ function copilotkitMessagesToLangChain(messages: Message[]): LangGraphPlatformMe
         id: message.id,
         tool_call_id: message.actionExecutionId,
         name: message.actionName,
-        role: MessageRole.Tool,
+        role: MessageRole.tool,
         status: { code: MessageStatusCode.Success },
       } satisfies LangGraphPlatformResultMessage);
       continue;

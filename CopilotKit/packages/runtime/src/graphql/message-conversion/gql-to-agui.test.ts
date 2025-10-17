@@ -16,7 +16,7 @@ describe("message-conversion", () => {
       const gqlMessage = new gql.TextMessage({
         id: "dev-message-id",
         content: "Hello from developer",
-        role: gql.Role.Developer,
+        role: gql.Role.developer,
       });
 
       const result = gqlTextMessageToAGUIMessage(gqlMessage);
@@ -32,7 +32,7 @@ describe("message-conversion", () => {
       const gqlMessage = new gql.TextMessage({
         id: "system-message-id",
         content: "System instruction",
-        role: gql.Role.System,
+        role: gql.Role.system,
       });
 
       const result = gqlTextMessageToAGUIMessage(gqlMessage);
@@ -48,7 +48,7 @@ describe("message-conversion", () => {
       const gqlMessage = new gql.TextMessage({
         id: "assistant-message-id",
         content: "Assistant response",
-        role: gql.Role.Assistant,
+        role: gql.Role.assistant,
       });
 
       const result = gqlTextMessageToAGUIMessage(gqlMessage);
@@ -98,12 +98,12 @@ describe("message-conversion", () => {
         new gql.TextMessage({
           id: "dev-1",
           content: "Hello",
-          role: gql.Role.Developer,
+          role: gql.Role.developer,
         }),
         new gql.TextMessage({
           id: "assistant-1",
           content: "Hi there",
-          role: gql.Role.Assistant,
+          role: gql.Role.assistant,
         }),
       ];
 
@@ -152,12 +152,12 @@ describe("message-conversion", () => {
         new gql.TextMessage({
           id: "dev-1",
           content: "Run action",
-          role: gql.Role.Developer,
+          role: gql.Role.developer,
         }),
         new gql.TextMessage({
           id: "assistant-1",
           content: "I'll run the action",
-          role: gql.Role.Assistant,
+          role: gql.Role.assistant,
         }),
         new gql.ResultMessage({
           id: "result-1",
@@ -193,7 +193,7 @@ describe("message-conversion", () => {
       const assistantMsg = new gql.TextMessage({
         id: "assistant-1",
         content: "I'll execute an action",
-        role: gql.Role.Assistant,
+        role: gql.Role.assistant,
       });
 
       const actionExecMsg = new gql.ActionExecutionMessage({
@@ -233,7 +233,7 @@ describe("message-conversion", () => {
       const assistantMsg = new gql.TextMessage({
         id: "assistant-1",
         content: "I'll execute multiple actions",
-        role: gql.Role.Assistant,
+        role: gql.Role.assistant,
       });
 
       const action1 = new gql.ActionExecutionMessage({
@@ -295,7 +295,7 @@ describe("message-conversion", () => {
       const developerMsg = new gql.TextMessage({
         id: "dev-1",
         content: "Developer message",
-        role: gql.Role.Developer,
+        role: gql.Role.developer,
       });
 
       const actionExecMsg = new gql.ActionExecutionMessage({
@@ -624,7 +624,7 @@ describe("message-conversion", () => {
         id: "agent-state-1",
         agentName: "testAgent",
         state: { status: "running", data: "test data" },
-        role: gql.Role.Assistant,
+        role: gql.Role.assistant,
       });
 
       const mockRender = vi.fn();
@@ -663,7 +663,7 @@ describe("message-conversion", () => {
         id: "agent-state-1",
         agentName: "testAgent",
         state: { status: "running", data: "test data" },
-        role: gql.Role.Assistant,
+        role: gql.Role.assistant,
       });
 
       const result = gqlToAGUI([agentStateMsg]);
@@ -685,7 +685,7 @@ describe("message-conversion", () => {
         id: "agent-state-1",
         agentName: "unknownAgent",
         state: { status: "running", data: "test data" },
-        role: gql.Role.Assistant,
+        role: gql.Role.assistant,
       });
 
       const coAgentStateRenders = {
@@ -713,7 +713,7 @@ describe("message-conversion", () => {
       const userMsg = new gql.TextMessage({
         id: "user-1",
         content: "Hello from user",
-        role: gql.Role.User,
+        role: gql.Role.user,
       });
 
       const result = gqlToAGUI([userMsg]);
@@ -730,14 +730,14 @@ describe("message-conversion", () => {
       const textMsg = new gql.TextMessage({
         id: "text-1",
         content: "Hello",
-        role: gql.Role.Assistant,
+        role: gql.Role.assistant,
       });
 
       const agentStateMsg = new gql.AgentStateMessage({
         id: "agent-state-1",
         agentName: "testAgent",
         state: { status: "running" },
-        role: gql.Role.Assistant,
+        role: gql.Role.assistant,
       });
 
       const mockRender = vi.fn();
@@ -773,7 +773,7 @@ describe("message-conversion", () => {
         id: "img-1",
         format: "bmp", // not in VALID_IMAGE_FORMATS
         bytes: "somebase64string",
-        role: gql.Role.User,
+        role: gql.Role.user,
       });
       expect(() => gqlImageMessageToAGUIMessage(invalidImageMsg)).toThrow("Invalid image format");
     });
@@ -783,7 +783,7 @@ describe("message-conversion", () => {
         id: "img-2",
         format: "jpeg",
         bytes: "",
-        role: gql.Role.User,
+        role: gql.Role.user,
       });
       expect(() => gqlImageMessageToAGUIMessage(invalidImageMsg)).toThrow(
         "Image bytes must be a non-empty string",
@@ -795,7 +795,7 @@ describe("message-conversion", () => {
         id: "img-3",
         format: "jpeg",
         bytes: "somebase64string",
-        role: gql.Role.User,
+        role: gql.Role.user,
       });
       const result = gqlImageMessageToAGUIMessage(validImageMsg);
       expect(result).toMatchObject({
@@ -814,7 +814,7 @@ describe("message-conversion", () => {
         id: "img-user-1",
         format: "jpeg",
         bytes: "userbase64string",
-        role: gql.Role.User,
+        role: gql.Role.user,
       });
       const result = gqlImageMessageToAGUIMessage(validImageMsg);
       expect(result).toMatchObject({
@@ -833,7 +833,7 @@ describe("message-conversion", () => {
         id: "img-assistant-1",
         format: "png",
         bytes: "assistantbase64string",
-        role: gql.Role.Assistant,
+        role: gql.Role.assistant,
       });
       const result = gqlImageMessageToAGUIMessage(validImageMsg);
       expect(result).toMatchObject({

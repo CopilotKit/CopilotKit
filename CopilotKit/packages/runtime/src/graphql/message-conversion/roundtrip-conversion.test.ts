@@ -36,7 +36,7 @@ describe("roundtrip message conversion", () => {
     const gqlMsg = new gql.TextMessage({
       id: "assistant-1",
       content: "Hi!",
-      role: gql.Role.Assistant,
+      role: gql.Role.assistant,
     });
     const aguiMsgs = gqlToAGUI(gqlMsg);
     const gqlMsgs2 = aguiToGQL(aguiMsgs);
@@ -121,7 +121,7 @@ describe("roundtrip message conversion", () => {
       id: "agent-state-1",
       agentName: "testAgent",
       state: { status: "running" },
-      role: gql.Role.Assistant,
+      role: gql.Role.assistant,
     });
     const aguiMsgs = gqlToAGUI([agentStateMsg]);
     const gqlMsgs2 = aguiToGQL(aguiMsgs);
@@ -164,7 +164,7 @@ describe("roundtrip message conversion", () => {
       id: "img-1",
       format: "jpeg",
       bytes: "somebase64string",
-      role: gql.Role.User,
+      role: gql.Role.user,
     });
     const aguiMsgs = gqlToAGUI(gqlMsg);
     const gqlMsgs2 = aguiToGQL(aguiMsgs);
@@ -326,7 +326,7 @@ describe("roundtrip message conversion", () => {
     // 2. An ActionExecutionMessage (the tool call itself)
     expect(gqlMsgs2).toHaveLength(2);
     expect(gqlMsgs2[0].id).toBe("wildcard-action-1");
-    expect((gqlMsgs2[0] as any).role).toBe(gql.Role.Assistant);
+    expect((gqlMsgs2[0] as any).role).toBe(gql.Role.assistant);
     expect(gqlMsgs2[1].id).toBe("wildcard-action-1");
     expect((gqlMsgs2[1] as any).name).toBe("unknownAction");
     expect((gqlMsgs2[1] as any).arguments).toEqual({ test: "wildcard-gql-value" });

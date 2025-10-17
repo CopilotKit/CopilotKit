@@ -57,7 +57,7 @@ export function aguiToGQL(
           id: message.id,
           agentName,
           state,
-          role: gql.Role.Assistant,
+          role: gql.Role.assistant,
         }),
       );
       // Optionally preserve render function
@@ -139,13 +139,13 @@ export function aguiTextMessageToGQLMessage(message: agui.Message): gql.TextMess
   let roleValue: MessageRole;
 
   if (message.role === "developer") {
-    roleValue = gql.Role.Developer;
+    roleValue = gql.Role.developer;
   } else if (message.role === "system") {
-    roleValue = gql.Role.System;
+    roleValue = gql.Role.system;
   } else if (message.role === "assistant") {
-    roleValue = gql.Role.Assistant;
+    roleValue = gql.Role.assistant;
   } else {
-    roleValue = gql.Role.User;
+    roleValue = gql.Role.user;
   }
 
   return new gql.TextMessage({
@@ -261,7 +261,7 @@ export function aguiMessageWithRenderToGQL(
         id: message.id,
         agentName: "unknown",
         state: {},
-        role: gql.Role.Assistant,
+        role: gql.Role.assistant,
       }),
     );
     if (coAgentStateRenders) {
@@ -284,9 +284,9 @@ export function aguiMessageWithImageToGQLMessage(message: agui.Message): gql.Ima
 
   let roleValue: MessageRole;
   if (message.role === "assistant") {
-    roleValue = gql.Role.Assistant;
+    roleValue = gql.Role.assistant;
   } else {
-    roleValue = gql.Role.User;
+    roleValue = gql.Role.user;
   }
 
   if (message.role !== "assistant" && message.role !== "user") {
