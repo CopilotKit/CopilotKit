@@ -457,18 +457,16 @@ export class CopilotRuntimeNEW extends CopilotRuntimeVNext {
   }
 
   handleServiceAdapter(serviceAdapter: CopilotServiceAdapter) {
-    const agent = {
-      model: `${serviceAdapter.provider}/${serviceAdapter.model}`,
-      tools: [],
-    };
-    const agentTools = this.params.actions ? this.getToolsFromActions(this.params.actions) : [];
-    if (agentTools) {
-      agent.tools = agentTools;
-    }
     this.agents = {
       ...this.agents,
-      default: new BasicAgent(agent),
+      default: new BasicAgent({
+        model: `${serviceAdapter.provider}/${serviceAdapter.model}`,
+      }),
     };
+
+    if (!this.params.actions?.length) return;
+
+    this.assignToolsToAgents(this.getToolsFromActions(this.params.actions));
 
     // TODO: (un-comment) implement MCP tools loading and merging into the default agent tools when available
     // // Load MCP tools asynchronously and merge into the default agent tools when available
@@ -511,6 +509,15 @@ export class CopilotRuntimeNEW extends CopilotRuntimeVNext {
         parameters: zodSchema,
       };
     });
+  }
+
+  private assignToolsToAgents(tools: BasicAgentConfiguration["tools"]): void {
+    // Add tools to all existing BasicAgents by mutating their internal config
+    for (const existingAgent of Object.values(this.agents)) {
+      const config = existingAgent.config ?? {};
+      const existingTools = config.tools ?? [];
+      config.tools = [...existingTools, ...tools];
+    }
   }
 
   // Resolve MCP tools to BasicAgent tool definitions
