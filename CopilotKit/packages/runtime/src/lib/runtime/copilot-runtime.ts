@@ -458,7 +458,7 @@ export class CopilotRuntimeNEW extends CopilotRuntimeVNext {
     this.observability = params?.observability_c;
   }
 
-  handleServiceAdapter(serviceAdapter: CopilotServiceAdapter) {
+  async handleServiceAdapter(serviceAdapter: CopilotServiceAdapter) {
     this.agents = {
       ...this.agents,
       default: new BasicAgent({
@@ -468,28 +468,8 @@ export class CopilotRuntimeNEW extends CopilotRuntimeVNext {
 
     if (!this.params.actions?.length) return;
 
-    this.assignToolsToAgents(this.getToolsFromActions(this.params.actions));
-
-    // TODO: (un-comment) implement MCP tools loading and merging into the default agent tools when available
-    // // Load MCP tools asynchronously and merge into the default agent tools when available
-    // // Uses only runtime-level mcpServers here; request-level overrides (if any) can be
-    // // supported via an overload to getToolsFromMCP when request properties are available.
-    // void (async () => {
-    //   try {
-    //     const mcpTools = await this.getToolsFromMCP();
-    //     if (mcpTools.length > 0) {
-    //       const combinedTools = [...agent.tools, ...mcpTools];
-    //       // Recreate the default agent with the combined toolset
-    //       this.agents = {
-    //         ...this.agents,
-    //         default: new BasicAgent({ model: agent.model, tools: combinedTools }),
-    //       };
-    //     }
-    //   } catch (e) {
-    //     // Do not throw during service adapter handling; just log for visibility
-    //     console.error("MCP: failed to load tools for default agent:", e);
-    //   }
-    // })();
+    const mcpTools = await this.getToolsFromMCP();
+    this.assignToolsToAgents([...this.getToolsFromActions(this.params.actions), ...mcpTools]);
   }
 
   // Receive this.params.action and turn it into the AbstractAgent tools
