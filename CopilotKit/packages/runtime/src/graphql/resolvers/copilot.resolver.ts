@@ -75,13 +75,13 @@ const invokeGuardrails = async ({
 }) => {
   if (
     data.messages.length &&
-    data.messages[data.messages.length - 1].textMessage?.role === MessageRole.user
+    data.messages[data.messages.length - 1].textMessage?.role === MessageRole.User
   ) {
     const messages = data.messages
       .filter(
         (m) =>
           m.textMessage !== undefined &&
-          (m.textMessage.role === MessageRole.user || m.textMessage.role === MessageRole.assistant),
+          (m.textMessage.role === MessageRole.User || m.textMessage.role === MessageRole.Assistant),
       )
       .map((m) => ({
         role: m.textMessage!.role,
@@ -244,7 +244,7 @@ export class CopilotResolver {
         serviceAdapter,
         messages: data.messages,
         actions: data.frontend.actions.filter(
-          (action) => action.available !== ActionInputAvailability.disabled,
+          (action) => action.available !== ActionInputAvailability.Disabled,
         ),
         threadId: data.threadId,
         runId: data.runId,
@@ -435,7 +435,7 @@ export class CopilotResolver {
                     id: randomId(),
                     createdAt: new Date(),
                     content: result.reason,
-                    role: MessageRole.assistant,
+                    role: MessageRole.Assistant,
                   }),
                 ];
                 resolveOutputMessagesPromise(outputMessages);
@@ -501,7 +501,7 @@ export class CopilotResolver {
                   parentMessageId: event.parentMessageId,
                   status: firstValueFrom(streamingTextStatus),
                   createdAt: new Date(),
-                  role: MessageRole.assistant,
+                  role: MessageRole.Assistant,
                   content: new Repeater(async (pushTextChunk, stopStreamingText) => {
                     logger.debug("Text message content repeater created");
 
@@ -555,7 +555,7 @@ export class CopilotResolver {
                             id: messageId,
                             createdAt: new Date(),
                             content: textChunks.join(""),
-                            role: MessageRole.assistant,
+                            role: MessageRole.Assistant,
                           }),
                         );
                       },
@@ -674,7 +674,7 @@ export class CopilotResolver {
                   active: event.active,
                   state: event.state,
                   running: event.running,
-                  role: MessageRole.assistant,
+                  role: MessageRole.Assistant,
                   createdAt: new Date(),
                 });
                 outputMessages.push(
@@ -687,7 +687,7 @@ export class CopilotResolver {
                     active: event.active,
                     state: event.state,
                     running: event.running,
-                    role: MessageRole.assistant,
+                    role: MessageRole.Assistant,
                     createdAt: new Date(),
                   }),
                 );

@@ -15,6 +15,7 @@ import { LangGraphPlatformAgent, LangGraphPlatformEndpoint } from "./remote-acti
 import { CopilotRequestContextProperties } from "../integrations";
 import { ActionExecutionMessage, Message, MessageType } from "../../graphql/types/converted";
 import { MessageRole } from "../../graphql/types/enums";
+import { MessageStatusCode } from "../../graphql/types/message-status.type";
 import { CustomEventNames, LangGraphEventTypes } from "../../agents/langgraph/events";
 import telemetry from "../telemetry-client";
 import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
@@ -870,19 +871,19 @@ function copilotkitMessagesToLangChain(messages: Message[]): LangGraphPlatformMe
         // Human message
         result.push({
           ...message,
-          role: MessageRole.user,
+          role: MessageRole.User,
         });
       } else if (message.role === "system") {
         // System message
         result.push({
           ...message,
-          role: MessageRole.system,
+          role: MessageRole.System,
         });
       } else if (message.role === "assistant") {
         // Assistant message
         result.push({
           ...message,
-          role: MessageRole.assistant,
+          role: MessageRole.Assistant,
         });
       }
       continue;
@@ -893,13 +894,13 @@ function copilotkitMessagesToLangChain(messages: Message[]): LangGraphPlatformMe
       if (message.role === "user") {
         result.push({
           ...message,
-          role: MessageRole.user,
+          role: MessageRole.User,
           content: "",
         });
       } else if (message.role === "assistant") {
         result.push({
           ...message,
-          role: MessageRole.assistant,
+          role: MessageRole.Assistant,
           content: "",
         });
       }
@@ -935,7 +936,8 @@ function copilotkitMessagesToLangChain(messages: Message[]): LangGraphPlatformMe
         type: "ActionExecutionMessage",
         content: "",
         tool_calls: tool_calls,
-        role: MessageRole.assistant,
+        role: MessageRole.Assistant,
+        status: { code: MessageStatusCode.Success },
       } satisfies LangGraphPlatformActionExecutionMessage);
 
       continue;
@@ -949,7 +951,8 @@ function copilotkitMessagesToLangChain(messages: Message[]): LangGraphPlatformMe
         id: message.id,
         tool_call_id: message.actionExecutionId,
         name: message.actionName,
-        role: MessageRole.tool,
+        role: MessageRole.Tool,
+        status: { code: MessageStatusCode.Success },
       } satisfies LangGraphPlatformResultMessage);
       continue;
     }

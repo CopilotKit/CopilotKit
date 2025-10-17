@@ -1,3 +1,4 @@
+import { ResponseStatus } from './../../../../../../examples/coagents-enterprise-crewai-crews/ui/src/types/index';
 /**
  * <Callout type="info">
  *   This is the reference for the `CopilotRuntime` class. For more information and example code snippets, please see [Concept: Copilot Runtime](/concepts/copilot-runtime).
@@ -15,20 +16,24 @@
 import {
   Action,
   actionParametersToJsonSchema,
-  Parameter,
-  ResolvedCopilotKitError,
-  CopilotKitApiDiscoveryError,
-  randomId,
-  CopilotKitError,
+  CopilotErrorEvent,
+  CopilotErrorHandler,
   CopilotKitAgentDiscoveryError,
-  CopilotKitMisuseError,
+  CopilotKitApiDiscoveryError,
+  CopilotKitError,
   CopilotKitErrorCode,
   CopilotKitLowLevelError,
-  CopilotErrorHandler,
-  CopilotErrorEvent,
+  CopilotKitMisuseError,
   CopilotRequestContext,
   ensureStructuredError,
+  Parameter,
+  randomId,
+  readBody,
+  ResolvedCopilotKitError,
 } from "@copilotkit/shared";
+import { type Message as AGUIMessage } from "@copilotkit/shared"; // named agui for clarity, but this only includes agui message types
+import { type RunAgentInput } from "@ag-ui/core";
+import { aguiToGQL } from "../../graphql/message-conversion/agui-to-gql";
 import {
   CopilotServiceAdapter,
   EmptyAdapter,
@@ -96,6 +101,7 @@ type CreateMCPClientFunction = (config: MCPEndpointConfig) => Promise<MCPClient>
 import { generateHelpfulErrorMessage } from "../streaming";
 import { CopilotContextInput } from "../../graphql/inputs/copilot-context.input";
 import { RemoteAgentAction } from "./agui-action";
+import { ResponseStatusUnion } from '../../graphql/types/response-status.type';
 
 function isPromiseLike<T>(value: unknown): value is PromiseLike<T> {
   return (
@@ -171,10 +177,18 @@ interface Middleware {
   /**
    * A function that is called before the request is processed.
    */
+  /** 
+   * @deprecated This middleware hook is deprecated and will be removed in a future version.
+   * Use updated middleware integration methods in CopilotRuntimeVNext instead.
+   */
   onBeforeRequest?: OnBeforeRequestHandler;
 
   /**
    * A function that is called after the request is processed.
+   */
+  /** 
+   * @deprecated This middleware hook is deprecated and will be removed in a future version.
+   * Use updated middleware integration methods in CopilotRuntimeVNext instead.
    */
   onAfterRequest?: OnAfterRequestHandler;
 }
@@ -203,6 +217,10 @@ export interface CopilotRuntimeConstructorParams_BASE<T extends Parameter[] | []
    *   properties: any;
    * }) => void | Promise<void>;
    * ```
+   */
+  /** 
+   * @deprecated This middleware hook is deprecated and will be removed in a future version.
+   * Use updated middleware integration methods in CopilotRuntimeVNext instead.
    */
   middleware?: Middleware;
 
@@ -358,70 +376,68 @@ export class CopilotRuntimeNEW extends CopilotRuntimeVNext {
       // TODO: add support for transcriptionService from CopilotRuntimeOptionsVNext once it is ready
       // transcriptionService: params?.transcriptionService,
 
-      // beforeRequestMiddleware: (...mwParams: BeforeRequestMiddlewareFnParameters): BeforeRequestMiddlewareFnResult => {
-      //   const { request, runtime, path } = mwParams[0];
-      //   const agent = this.agents[request.agent];
-      //   return params.middleware.onBeforeRequest?.({
-      //     threadId: …,
-      //     runId: …,
-      //     inputMessages: …,
-      //     properties: …,
-      //     url: …,
-      //   });
-      // },
-      // TODO: figure out the right mappings for middleware
-      beforeRequestMiddleware: async (...mwParams: BeforeRequestMiddlewareFnParameters): Promise<Awaited<BeforeRequestMiddlewareFnResult>> => {
-        const { request, runtime, path } = mwParams[0];
-        // Bridge: best-effort extraction for legacy middleware signature
-        // We avoid consuming the body irreversibly; vNext middleware contract passes Request clone downstream if modified
-        try {
-          const clone = request.clone();
-          let body: unknown = undefined;
-          try {
-            body = await clone.json();
-          } catch {
-            // ignore non-JSON bodies
+      beforeRequestMiddleware: params.beforeRequestMiddleware ?? (
+        params?.middleware?.onBeforeRequest == null
+          ? undefined
+          : (async (...mwParams: BeforeRequestMiddlewareFnParameters) => {
+            const { request, runtime, path } = mwParams[0];
+            const body = await readBody(request) as RunAgentInput;
+            const gqlMessages = (aguiToGQL(body.messages) as Message[]).reduce(
+              (acc, msg) => {
+                if ("role" in msg && msg.role === "user") {
+                  acc.inputMessages.push(msg);
+                } else {
+                  acc.outputMessages.push(msg);
+                }
+                return acc;
+              },
+              { inputMessages: [] as Message[], outputMessages: [] as Message[] }
+            );
+            const { inputMessages, outputMessages } = gqlMessages;
+            params?.middleware?.onBeforeRequest({
+              threadId: body.threadId,
+              runId: body.runId,
+              inputMessages,
+              properties: body.forwardedProps,
+              url: request.url,
+            } satisfies OnBeforeRequestOptions);
+            return request;
           }
+        )
+      ),
+      afterRequestMiddleware: params.afterRequestMiddleware ?? (
+        params?.middleware?.onAfterRequest == null
+          ? undefined
+          : (async (...mwParams: AfterRequestMiddlewareFnParameters) => {
+            // TODO: implement `onAfterRequest`, pending v2 middleware updates
+            // const { response, runtime, path } = mwParams[0];
+            // const body = await readBody(response) as RunAgentInput;
+            // const gqlMessages = (aguiToGQL(body.messages) as Message[]).reduce(
+            //   (acc, msg) => {
+            //     if ("role" in msg && msg.role === "user") {
+            //       acc.inputMessages.push(msg);
+            //     } else {
+            //       acc.outputMessages.push(msg);
+            //     }
+            //     return acc;
+            //   },
+            //   { inputMessages: [] as Message[], outputMessages: [] as Message[] }
+            // );
+            // const { inputMessages, outputMessages } = gqlMessages;
+            // params?.middleware?.onAfterRequest({
+            //   threadId: body.threadId,
+            //   runId: body.runId,
+            //   inputMessages,
+            //   outputMessages,
+            //   properties: body.forwardedProps,
+            //   url: response.url,
+            // } satisfies OnAfterRequestOptions);
 
-          // Legacy expects threadId/runId/inputMessages/properties/url
-          const threadId = (body as any)?.threadId ?? undefined;
-          const runId = (body as any)?.runId ?? undefined;
-          const inputMessages = (body as any)?.messages ?? [];
-          const properties = (body as any)?.forwardedProps ?? (body as any)?.properties ?? undefined;
-          const url = request.url;
-
-          await params?.middleware?.onBeforeRequest?.({
-            threadId,
-            runId,
-            inputMessages,
-            properties,
-            url,
-          });
-        } catch {
-          // Swallow errors from legacy middleware to avoid breaking the pipeline
-        }
-        // Do not modify request for legacy handler by default
-        return;
-      },
-      afterRequestMiddleware: async (...mwParams: AfterRequestMiddlewareFnParameters): Promise<Awaited<ReturnType<AfterRequestMiddlewareFn>>> => {
-        const { response, runtime, path } = mwParams[0];
-        // We cannot reconstruct output messages reliably here; legacy onAfterRequest is best-effort
-        // Provide threadId/runId/url; omit input/output messages
-        try {
-          const url = undefined as string | undefined; // legacy consumed earlier; not available here
-          await params?.middleware?.onAfterRequest?.({
-            threadId: (runtime as any)?.threadId,
-            runId: undefined,
-            inputMessages: [],
-            outputMessages: [],
-            properties: undefined,
-            url,
-          });
-        } catch {
-          // non-blocking
-        }
-        return;
-      },
+            // @ts-expect-error - running `onAfterRequest` with no args, is pending v2 middleware updates
+            params?.middleware?.onAfterRequest();
+          }
+        )
+      ),
     });
   }
 }
@@ -606,7 +622,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         id: randomId(),
         createdAt: new Date(),
         textMessage: {
-          role: MessageRole.system,
+          role: MessageRole.System,
           content: instructions,
         },
         actionExecutionMessage: undefined,
@@ -739,7 +755,7 @@ please use an LLM adapter instead.`,
         ...serverSideActionsInput,
         ...clientSideActionsInput.filter(
           // Filter remote actions from CopilotKit core loop
-          (action) => action.available !== ActionInputAvailability.remote,
+          (action) => action.available !== ActionInputAvailability.Remote,
         ),
       ]);
 

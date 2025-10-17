@@ -1,11 +1,11 @@
 import { registerEnumType } from "type-graphql";
 
 export enum MessageRole {
-  user = "user",
-  assistant = "assistant",
-  system = "system",
-  tool = "tool",
-  developer = "developer",
+  Assistant = "assistant",
+  Developer = "developer",
+  System = "system",
+  Tool = "tool",
+  User = "user",
 }
 
 export enum CopilotRequestType {
@@ -17,9 +17,9 @@ export enum CopilotRequestType {
 }
 
 export enum ActionInputAvailability {
-  disabled = "disabled",
-  enabled = "enabled",
-  remote = "remote",
+  Disabled = "disabled",
+  Enabled = "enabled",
+  Remote = "remote",
 }
 
 registerEnumType(MessageRole, {
