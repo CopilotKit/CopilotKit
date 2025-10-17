@@ -320,15 +320,6 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     [copilotApiConfig.publicApiKey],
   );
 
-  // const runtimeClient = useCopilotRuntimeClient({
-  //   url: copilotApiConfig.chatApiEndpoint,
-  //   publicApiKey: publicApiKey,
-  //   headers,
-  //   credentials: copilotApiConfig.credentials,
-  //   showDevConsole: shouldShowDevConsole(props.showDevConsole),
-  //   onError: handleErrors,
-  // });
-
   const [chatSuggestionConfiguration, setChatSuggestionConfiguration] = useState<{
     [key: string]: CopilotChatSuggestionConfiguration;
   }>({});

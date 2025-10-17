@@ -1,9 +1,7 @@
 import { useRef, useEffect, useCallback, useMemo } from "react";
 import { useCopilotContext } from "../context/copilot-context";
 import { SystemMessageFunction } from "../types";
-import { AppendMessageOptions } from "./use-chat";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
-import type { AgentSubscriber } from "@ag-ui/client";
 import { Message } from "@copilotkit/shared";
 import { gqlToAGUI, Message as DeprecatedGqlMessage } from "@copilotkit/runtime-client-gql";
 import { useLangGraphInterruptRender } from "./use-langgraph-interrupt-render";
@@ -11,6 +9,17 @@ import { useAgent, useCopilotChatConfiguration, useCopilotKit } from "@copilotki
 import { randomUUID } from "@copilotkit/shared";
 import { Suggestion } from "@copilotkitnext/core";
 import { useLazyToolRenderer } from "./use-lazy-tool-renderer";
+
+export interface AppendMessageOptions {
+  /**
+   * Whether to run the chat completion after appending the message. Defaults to `true`.
+   */
+  followUp?: boolean;
+  /**
+   * Whether to clear the suggestions after appending the message. Defaults to `true`.
+   */
+  clearSuggestions?: boolean;
+}
 
 export interface UseCopilotChatOptions {
   /**

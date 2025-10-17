@@ -13,15 +13,6 @@ jest.mock("../use-copilot-chat_internal", () => ({
   }),
 }));
 
-jest.mock("../use-copilot-runtime-client", () => ({
-  useCopilotRuntimeClient: () => ({
-    loadAgentState: jest.fn().mockResolvedValue({
-      data: { loadAgentState: { state: "{}", threadExists: false } },
-      error: null,
-    }),
-  }),
-}));
-
 jest.mock("../../context", () => ({
   useCopilotContext: () => ({
     availableAgents: [],
