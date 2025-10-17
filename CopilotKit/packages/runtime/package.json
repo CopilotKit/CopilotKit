@@ -49,7 +49,6 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.57.0",
-    "@copilotkit/runtime-client-gql": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@copilotkitnext/runtime": "^0.0.17",
     "@graphql-yoga/plugin-defer-stream": "^3.3.1",

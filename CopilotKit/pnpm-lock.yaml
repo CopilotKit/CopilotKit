@@ -626,9 +626,6 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.57.0
         version: 0.57.0
-      '@copilotkit/runtime-client-gql':
-        specifier: workspace:*
-        version: link:../runtime-client-gql
       '@copilotkit/shared':
         specifier: workspace:*
         version: link:../shared
@@ -12485,7 +12482,7 @@ snapshots:
       openai: 4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)
       ws: 8.18.1
       zod: 3.23.8
-      zod-to-json-schema: 3.24.5(zod@3.23.8)
+      zod-to-json-schema: 3.24.6(zod@3.23.8)
     transitivePeerDependencies:
       - bufferutil
       - encoding
@@ -14360,7 +14357,7 @@ snapshots:
     dependencies:
       '@google/generative-ai': 0.7.1
       '@langchain/core': 0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))
-      zod-to-json-schema: 3.24.5(zod@3.23.8)
+      zod-to-json-schema: 3.24.6(zod@3.23.8)
     transitivePeerDependencies:
       - zod
     optional: true
@@ -14369,7 +14366,7 @@ snapshots:
     dependencies:
       '@google/generative-ai': 0.7.1
       '@langchain/core': 0.3.66(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.25.76))
-      zod-to-json-schema: 3.24.5(zod@3.25.76)
+      zod-to-json-schema: 3.24.6(zod@3.25.76)
     transitivePeerDependencies:
       - zod
     optional: true
@@ -23874,6 +23871,10 @@ snapshots:
   zod-to-json-schema@3.24.5(zod@3.25.76):
     dependencies:
       zod: 3.25.76
+
+  zod-to-json-schema@3.24.6(zod@3.23.8):
+    dependencies:
+      zod: 3.23.8
 
   zod-to-json-schema@3.24.6(zod@3.25.76):
     dependencies:
