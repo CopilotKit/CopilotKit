@@ -44,11 +44,14 @@
     "tsconfig": "workspace:*",
     "tsup": "^6.7.0",
     "typescript": "^5.2.3",
+    "vitest": "^3.2.4",
     "zod-to-json-schema": "^3.23.5"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.57.0",
     "@copilotkit/shared": "workspace:*",
+    "@copilotkitnext/agent": "^0.0.17",
+    "@copilotkitnext/runtime": "^0.0.17",
     "@graphql-yoga/plugin-defer-stream": "^3.3.1",
     "@langchain/aws": "^0.1.9",
     "@langchain/community": "^0.3.29",

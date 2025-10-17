@@ -15,6 +15,7 @@ import { LangGraphPlatformAgent, LangGraphPlatformEndpoint } from "./remote-acti
 import { CopilotRequestContextProperties } from "../integrations";
 import { ActionExecutionMessage, Message, MessageType } from "../../graphql/types/converted";
 import { MessageRole } from "../../graphql/types/enums";
+import { MessageStatusCode } from "../../graphql/types/message-status.type";
 import { CustomEventNames, LangGraphEventTypes } from "../../agents/langgraph/events";
 import telemetry from "../telemetry-client";
 import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
@@ -936,6 +937,7 @@ function copilotkitMessagesToLangChain(messages: Message[]): LangGraphPlatformMe
         content: "",
         tool_calls: tool_calls,
         role: MessageRole.assistant,
+        status: { code: MessageStatusCode.Success },
       } satisfies LangGraphPlatformActionExecutionMessage);
 
       continue;
@@ -950,6 +952,7 @@ function copilotkitMessagesToLangChain(messages: Message[]): LangGraphPlatformMe
         tool_call_id: message.actionExecutionId,
         name: message.actionName,
         role: MessageRole.tool,
+        status: { code: MessageStatusCode.Success },
       } satisfies LangGraphPlatformResultMessage);
       continue;
     }

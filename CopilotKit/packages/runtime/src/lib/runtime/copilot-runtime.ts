@@ -15,26 +15,37 @@
 import {
   Action,
   actionParametersToJsonSchema,
-  Parameter,
-  ResolvedCopilotKitError,
-  CopilotKitApiDiscoveryError,
-  randomId,
-  CopilotKitError,
+  CopilotErrorEvent,
+  CopilotErrorHandler,
   CopilotKitAgentDiscoveryError,
-  CopilotKitMisuseError,
+  CopilotKitApiDiscoveryError,
+  CopilotKitError,
   CopilotKitErrorCode,
   CopilotKitLowLevelError,
-  CopilotErrorHandler,
-  CopilotErrorEvent,
+  CopilotKitMisuseError,
   CopilotRequestContext,
   ensureStructuredError,
+  MaybePromise,
+  NonEmptyRecord,
+  Parameter,
+  randomId,
+  readBody,
+  ResolvedCopilotKitError,
+  getZodParameters,
 } from "@copilotkit/shared";
+import { type RunAgentInput } from "@ag-ui/core";
+import { aguiToGQL } from "../../graphql/message-conversion/agui-to-gql";
 import {
   CopilotServiceAdapter,
   EmptyAdapter,
   RemoteChain,
   RemoteChainParameters,
 } from "../../service-adapters";
+import {
+  CopilotRuntime as CopilotRuntimeVNext,
+  CopilotRuntimeOptions as CopilotRuntimeOptionsVNext,
+  InMemoryAgentRunner as InMemoryAgentRunnerVNext,
+} from "@copilotkitnext/runtime";
 
 import { MessageInput } from "../../graphql/inputs/message.input";
 import { ActionInput } from "../../graphql/inputs/action.input";
@@ -80,6 +91,7 @@ import {
   MCPClient,
   MCPEndpointConfig,
   MCPTool,
+  extractParametersFromSchema,
   convertMCPToolsToActions,
   generateMcpToolInstructions,
 } from "./mcp-tools-utils";
@@ -91,6 +103,16 @@ type CreateMCPClientFunction = (config: MCPEndpointConfig) => Promise<MCPClient>
 import { generateHelpfulErrorMessage } from "../streaming";
 import { CopilotContextInput } from "../../graphql/inputs/copilot-context.input";
 import { RemoteAgentAction } from "./agui-action";
+import { BasicAgent, BasicAgentConfiguration } from "@copilotkitnext/agent";
+
+function isPromiseLike<T>(value: unknown): value is PromiseLike<T> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "then" in (value as object) &&
+    typeof (value as { then: unknown }).then === "function"
+  );
+}
 
 export interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
@@ -157,17 +179,25 @@ interface Middleware {
   /**
    * A function that is called before the request is processed.
    */
+  /**
+   * @deprecated This middleware hook is deprecated and will be removed in a future version.
+   * Use updated middleware integration methods in CopilotRuntimeVNext instead.
+   */
   onBeforeRequest?: OnBeforeRequestHandler;
 
   /**
    * A function that is called after the request is processed.
+   */
+  /**
+   * @deprecated This middleware hook is deprecated and will be removed in a future version.
+   * Use updated middleware integration methods in CopilotRuntimeVNext instead.
    */
   onAfterRequest?: OnAfterRequestHandler;
 }
 
 type AgentWithEndpoint = Agent & { endpoint: EndpointDefinition };
 
-export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []> {
+export interface CopilotRuntimeConstructorParams_BASE<T extends Parameter[] | [] = []> {
   /**
    * Middleware to be used by the runtime.
    *
@@ -189,6 +219,10 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
    *   properties: any;
    * }) => void | Promise<void>;
    * ```
+   */
+  /**
+   * @deprecated This middleware hook is deprecated and will be removed in a future version.
+   * Use updated middleware integration methods in CopilotRuntimeVNext instead.
    */
   middleware?: Middleware;
 
@@ -312,7 +346,402 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
   onError?: CopilotErrorHandler;
 
   onStopGeneration?: OnStopGenerationHandler;
+
+  // /** Optional transcription service for audio processing. */
+  // transcriptionService?: CopilotRuntimeOptionsVNext["transcriptionService"];
+  // /** Optional *before* middleware – callback function or webhook URL. */
+  // beforeRequestMiddleware?: CopilotRuntimeOptionsVNext["beforeRequestMiddleware"];
+  // /** Optional *after* middleware – callback function or webhook URL. */
+  // afterRequestMiddleware?: CopilotRuntimeOptionsVNext["afterRequestMiddleware"];
 }
+
+// (duplicate BASE interface removed)
+
+type BeforeRequestMiddleware = CopilotRuntimeOptionsVNext["beforeRequestMiddleware"];
+type AfterRequestMiddleware = CopilotRuntimeOptionsVNext["afterRequestMiddleware"];
+type BeforeRequestMiddlewareFn = Exclude<BeforeRequestMiddleware, string>;
+type BeforeRequestMiddlewareFnParameters = Parameters<BeforeRequestMiddlewareFn>;
+type BeforeRequestMiddlewareFnResult = ReturnType<BeforeRequestMiddlewareFn>;
+type AfterRequestMiddlewareFn = Exclude<AfterRequestMiddleware, string>;
+type AfterRequestMiddlewareFnParameters = Parameters<AfterRequestMiddlewareFn>;
+
+interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []>
+  extends Omit<CopilotRuntimeConstructorParams_BASE<T>, "agents">,
+    Omit<CopilotRuntimeOptionsVNext, "agents" | "transcriptionService"> {
+  /**
+   * This satisfies...
+   *  – the optional constraint in `CopilotRuntimeConstructorParams_BASE`
+   *  – the `MaybePromise<NonEmptyRecord<T>>` constraint in `CopilotRuntimeOptionsVNext`
+   *  – the `Record<string, AbstractAgent>` constraint in `both
+   */
+  agents?: MaybePromise<NonEmptyRecord<Record<string, AbstractAgent>>>;
+}
+
+/**
+ * Central runtime object passed to all request handlers.
+ */
+export class CopilotRuntimeNEW extends CopilotRuntimeVNext {
+  params?: CopilotRuntimeConstructorParams;
+  private observability?: CopilotObservabilityConfig;
+  // Cache MCP tools per endpoint to avoid re-fetching repeatedly
+  private mcpToolsCache: Map<string, BasicAgentConfiguration["tools"]> = new Map();
+
+  constructor(params?: CopilotRuntimeConstructorParams) {
+    super({
+      agents: params?.agents ?? {},
+      runner: params?.runner ?? new InMemoryAgentRunnerVNext(),
+      // TODO: add support for transcriptionService from CopilotRuntimeOptionsVNext once it is ready
+      // transcriptionService: params?.transcriptionService,
+
+      beforeRequestMiddleware:
+        params.beforeRequestMiddleware ??
+        (params?.middleware?.onBeforeRequest == null
+          ? undefined
+          : async (...mwParams: BeforeRequestMiddlewareFnParameters) => {
+              const { request, runtime, path } = mwParams[0];
+              const body = (await readBody(request)) as RunAgentInput;
+              const gqlMessages = (aguiToGQL(body.messages) as Message[]).reduce(
+                (acc, msg) => {
+                  if ("role" in msg && msg.role === "user") {
+                    acc.inputMessages.push(msg);
+                  } else {
+                    acc.outputMessages.push(msg);
+                  }
+                  return acc;
+                },
+                { inputMessages: [] as Message[], outputMessages: [] as Message[] },
+              );
+              const { inputMessages, outputMessages } = gqlMessages;
+              params?.middleware?.onBeforeRequest({
+                threadId: body.threadId,
+                runId: body.runId,
+                inputMessages,
+                properties: body.forwardedProps,
+                url: request.url,
+              } satisfies OnBeforeRequestOptions);
+              return request;
+            }),
+      afterRequestMiddleware:
+        params.afterRequestMiddleware ??
+        (params?.middleware?.onAfterRequest == null
+          ? undefined
+          : async (...mwParams: AfterRequestMiddlewareFnParameters) => {
+              // TODO: implement `onAfterRequest`, pending v2 middleware updates
+              // const { response, runtime, path } = mwParams[0];
+              // const body = await readBody(response) as RunAgentInput;
+              // const gqlMessages = (aguiToGQL(body.messages) as Message[]).reduce(
+              //   (acc, msg) => {
+              //     if ("role" in msg && msg.role === "user") {
+              //       acc.inputMessages.push(msg);
+              //     } else {
+              //       acc.outputMessages.push(msg);
+              //     }
+              //     return acc;
+              //   },
+              //   { inputMessages: [] as Message[], outputMessages: [] as Message[] }
+              // );
+              // const { inputMessages, outputMessages } = gqlMessages;
+              // params?.middleware?.onAfterRequest({
+              //   threadId: body.threadId,
+              //   runId: body.runId,
+              //   inputMessages,
+              //   outputMessages,
+              //   properties: body.forwardedProps,
+              //   url: response.url,
+              // } satisfies OnAfterRequestOptions);
+
+              // @ts-expect-error - running `onAfterRequest` with no args, is pending v2 middleware updates
+              params?.middleware?.onAfterRequest();
+            }),
+    });
+    this.params = params;
+    this.observability = params?.observability_c;
+  }
+
+  async handleServiceAdapter(serviceAdapter: CopilotServiceAdapter) {
+    this.agents = {
+      ...this.agents,
+      default: new BasicAgent({
+        model: `${serviceAdapter.provider}/${serviceAdapter.model}`,
+      }),
+    };
+
+    if (!this.params.actions?.length) return;
+
+    const mcpTools = await this.getToolsFromMCP();
+    this.assignToolsToAgents([...this.getToolsFromActions(this.params.actions), ...mcpTools]);
+  }
+
+  // Receive this.params.action and turn it into the AbstractAgent tools
+  private getToolsFromActions(
+    actions: ActionsConfiguration<any>,
+  ): BasicAgentConfiguration["tools"] {
+    // Resolve actions to an array (handle function case)
+    const actionsArray =
+      typeof actions === "function" ? actions({ properties: {}, url: undefined }) : actions;
+
+    // Convert each Action to a ToolDefinition
+    return actionsArray.map((action) => {
+      // Convert JSON schema to Zod schema
+      const zodSchema = getZodParameters(action.parameters || []);
+
+      return {
+        name: action.name,
+        description: action.description || "",
+        parameters: zodSchema,
+      };
+    });
+  }
+
+  private assignToolsToAgents(tools: BasicAgentConfiguration["tools"]): void {
+    // Add tools to all existing BasicAgents by mutating their internal config
+    for (const existingAgent of Object.values(this.agents)) {
+      const config = existingAgent.config ?? {};
+      const existingTools = config.tools ?? [];
+      config.tools = [...existingTools, ...tools];
+    }
+  }
+
+  // Observability Methods
+
+  /**
+   * Log LLM request if observability is enabled
+   */
+  private async logObservabilityRequest(
+    requestData: LLMRequestData,
+    publicApiKey?: string,
+  ): Promise<void> {
+    if (this.observability?.enabled && publicApiKey) {
+      try {
+        await this.observability.hooks.handleRequest(requestData);
+      } catch (error) {
+        console.error("Error logging LLM request:", error);
+      }
+    }
+  }
+
+  /**
+   * Log final LLM response after request completes
+   */
+  private logObservabilityPostRequest(
+    outputMessagesPromise: Promise<Message[]>,
+    baseData: {
+      threadId: string;
+      runId?: string;
+      model?: string;
+      provider?: string;
+      agentName?: string;
+      nodeName?: string;
+    },
+    streamedChunks: any[],
+    requestStartTime: number,
+    publicApiKey?: string,
+  ): void {
+    if (this.observability?.enabled && publicApiKey) {
+      try {
+        outputMessagesPromise
+          .then((outputMessages) => {
+            const responseData: LLMResponseData = {
+              threadId: baseData.threadId,
+              runId: baseData.runId,
+              model: baseData.model,
+              // Use collected chunks for progressive mode or outputMessages for regular mode
+              output: this.observability.progressive ? streamedChunks : outputMessages,
+              latency: Date.now() - requestStartTime,
+              timestamp: Date.now(),
+              provider: baseData.provider,
+              isFinalResponse: true,
+              agentName: baseData.agentName,
+              nodeName: baseData.nodeName,
+            };
+
+            try {
+              this.observability.hooks.handleResponse(responseData);
+            } catch (logError) {
+              console.error("Error logging LLM response:", logError);
+            }
+          })
+          .catch((error) => {
+            console.error("Failed to get output messages for logging:", error);
+          });
+      } catch (error) {
+        console.error("Error setting up logging for LLM response:", error);
+      }
+    }
+  }
+
+  /**
+   * Setup progressive logging by wrapping the event stream
+   */
+  private setupProgressiveLogging(
+    eventSource: RuntimeEventSource,
+    streamedChunks: any[],
+    requestStartTime: number,
+    context: {
+      threadId?: string;
+      runId?: string;
+      model?: string;
+      provider?: string;
+      agentName?: string;
+      nodeName?: string;
+    },
+    publicApiKey?: string,
+  ): void {
+    if (this.observability?.enabled && this.observability.progressive && publicApiKey) {
+      // Keep reference to original stream function
+      const originalStream = eventSource.stream.bind(eventSource);
+
+      // Wrap the stream function to intercept events
+      eventSource.stream = async (callback) => {
+        await originalStream(async (eventStream$) => {
+          // Create subscription to capture streaming events
+          eventStream$.subscribe({
+            next: (event) => {
+              // Only log content chunks
+              if (event.type === RuntimeEventTypes.TextMessageContent) {
+                // Store the chunk
+                streamedChunks.push(event.content);
+
+                // Log each chunk separately for progressive mode
+                try {
+                  const progressiveData: LLMResponseData = {
+                    threadId: context.threadId || "",
+                    runId: context.runId,
+                    model: context.model,
+                    output: event.content,
+                    latency: Date.now() - requestStartTime,
+                    timestamp: Date.now(),
+                    provider: context.provider,
+                    isProgressiveChunk: true,
+                    agentName: context.agentName,
+                    nodeName: context.nodeName,
+                  };
+
+                  // Use Promise to handle async logger without awaiting
+                  Promise.resolve()
+                    .then(() => {
+                      this.observability.hooks.handleResponse(progressiveData);
+                    })
+                    .catch((error) => {
+                      console.error("Error in progressive logging:", error);
+                    });
+                } catch (error) {
+                  console.error("Error preparing progressive log data:", error);
+                }
+              }
+            },
+          });
+
+          // Call the original callback with the event stream
+          await callback(eventStream$);
+        });
+      };
+    }
+  }
+
+  /**
+   * Log error if observability is enabled
+   */
+  private async logObservabilityError(
+    errorData: LLMErrorData,
+    publicApiKey?: string,
+  ): Promise<void> {
+    if (this.observability?.enabled && publicApiKey) {
+      try {
+        await this.observability.hooks.handleError(errorData);
+      } catch (logError) {
+        console.error("Error logging LLM error:", logError);
+      }
+    }
+  }
+
+  // Resolve MCP tools to BasicAgent tool definitions
+  // Optionally accepts request-scoped properties to merge request-provided mcpServers
+  private async getToolsFromMCP(options?: {
+    properties?: Record<string, unknown>;
+  }): Promise<BasicAgentConfiguration["tools"]> {
+    const runtimeMcpServers = (this.params?.mcpServers ?? []) as MCPEndpointConfig[];
+    const createMCPClient = this.params?.createMCPClient as
+      | CreateMCPClientFunction
+      | undefined;
+
+    // If no runtime config and no request overrides, nothing to do
+    const requestMcpServers = ((options?.properties as { mcpServers?: MCPEndpointConfig[] } | undefined)?.mcpServers ??
+      (options?.properties as { mcpEndpoints?: MCPEndpointConfig[] } | undefined)?.mcpEndpoints ??
+      []) as MCPEndpointConfig[];
+
+    const hasAnyServers = (runtimeMcpServers?.length ?? 0) > 0 || (requestMcpServers?.length ?? 0) > 0;
+    if (!hasAnyServers) {
+      return [];
+    }
+
+    if (!createMCPClient) {
+      // Mirror legacy behavior: when servers are provided without a factory, treat as misconfiguration
+      throw new CopilotKitMisuseError({
+        message:
+          "MCP Integration Error: `mcpServers` were provided, but the `createMCPClient` function was not passed to the CopilotRuntime constructor. Please provide an implementation for `createMCPClient`.",
+      });
+    }
+
+    // Merge and dedupe endpoints by URL; request-level overrides take precedence
+    const effectiveEndpoints = (() => {
+      const byUrl = new Map<string, MCPEndpointConfig>();
+      for (const ep of runtimeMcpServers) {
+        if (ep?.endpoint) byUrl.set(ep.endpoint, ep);
+      }
+      for (const ep of requestMcpServers) {
+        if (ep?.endpoint) byUrl.set(ep.endpoint, ep);
+      }
+      return Array.from(byUrl.values());
+    })();
+
+    const allTools: BasicAgentConfiguration["tools"] = [];
+
+    for (const config of effectiveEndpoints) {
+      const endpointUrl = config.endpoint;
+      // Return cached tool definitions when available
+      const cached = this.mcpToolsCache.get(endpointUrl);
+      if (cached) {
+        allTools.push(...cached);
+        continue;
+      }
+
+      try {
+        const client = await createMCPClient(config);
+        const toolsMap = await client.tools();
+
+        const toolDefs: BasicAgentConfiguration["tools"] = Object.entries(toolsMap).map(
+          ([toolName, tool]: [string, MCPTool]) => {
+            const params: Parameter[] = extractParametersFromSchema(tool);
+            const zodSchema = getZodParameters(params);
+            return {
+              name: toolName,
+              description: tool.description || `MCP tool: ${toolName} (from ${endpointUrl})`,
+              parameters: zodSchema,
+            };
+          },
+        );
+
+        // Cache per endpoint and add to aggregate
+        this.mcpToolsCache.set(endpointUrl, toolDefs);
+        allTools.push(...toolDefs);
+      } catch (error) {
+        console.error(`MCP: Failed to fetch tools from endpoint ${endpointUrl}. Skipping. Error:`, error);
+        // Cache empty to prevent repeated attempts within lifecycle
+        this.mcpToolsCache.set(endpointUrl, []);
+      }
+    }
+
+    // Dedupe tools by name while preserving last-in wins (request overrides)
+    const dedupedByName = new Map<string, (typeof allTools)[number]>();
+    for (const tool of allTools) {
+      dedupedByName.set(tool.name, tool);
+    }
+
+    return Array.from(dedupedByName.values());
+  }
+}
+
 
 export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   public actions: ActionsConfiguration<T>;
@@ -385,7 +814,19 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     this.delegateAgentProcessingToServiceAdapter =
       params?.delegateAgentProcessingToServiceAdapter || false;
     this.observability = params?.observability_c;
-    this.agents = params?.agents ?? {};
+    const incomingAgents = params?.agents;
+    if (isPromiseLike<Record<string, AbstractAgent>>(incomingAgents)) {
+      this.agents = {};
+      // PromiseLike may not have .catch in the type; attach error handling via then's second arg
+      incomingAgents.then(
+        (resolved) => {
+          this.agents = resolved;
+        },
+        () => {},
+      );
+    } else {
+      this.agents = (incomingAgents as Record<string, AbstractAgent>) ?? {};
+    }
     this.onError = params?.onError;
     // +++ MCP Initialization +++
     this.mcpServersConfig = params?.mcpServers;
@@ -894,7 +1335,7 @@ please use an LLM adapter instead.`,
           const data: InfoResponse = await response.json();
           const endpointAgents = (data?.agents ?? []).map((agent) => ({
             name: agent.name,
-            description: agent.description ?? "" ?? "",
+            description: agent.description ?? "",
             id: randomId(), // Required by Agent type
             endpoint,
           }));

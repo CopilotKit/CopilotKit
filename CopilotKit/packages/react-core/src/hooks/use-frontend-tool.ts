@@ -1,7 +1,6 @@
 import { ActionRenderProps, FrontendAction } from "../types/frontend-action";
-import { Parameter } from "@copilotkit/shared";
+import { Parameter, getZodParameters } from "@copilotkit/shared";
 import { useFrontendTool as useFrontendToolVNext } from "@copilotkitnext/react";
-import { getZodParameters } from "../utils/utils";
 
 export type UseFrontendToolArgs<T extends Parameter[] | [] = []> = {
   available?: "disabled" | "enabled";

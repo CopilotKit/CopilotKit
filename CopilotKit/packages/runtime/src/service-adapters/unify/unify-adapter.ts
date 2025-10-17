@@ -33,8 +33,9 @@ export interface UnifyAdapterParams {
 
 export class UnifyAdapter implements CopilotServiceAdapter {
   private apiKey: string;
-  private model: string;
+  public model: string;
   private start: boolean;
+  public provider = "unify";
 
   constructor(options?: UnifyAdapterParams) {
     if (options?.apiKey) {

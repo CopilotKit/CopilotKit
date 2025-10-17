@@ -33,7 +33,8 @@ interface OllamaAdapterOptions {
 }
 
 export class ExperimentalOllamaAdapter implements CopilotServiceAdapter {
-  private model: string;
+  public model: string;
+  public provider = "ollama";
 
   constructor(options?: OllamaAdapterOptions) {
     if (options?.model) {

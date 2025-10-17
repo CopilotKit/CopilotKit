@@ -1,7 +1,6 @@
 import { ActionRenderPropsWait, FrontendAction } from "../types";
-import { Parameter } from "@copilotkit/shared";
+import { Parameter, getZodParameters } from "@copilotkit/shared";
 import { useHumanInTheLoop as useHumanInTheLoopVNext } from "@copilotkitnext/react";
-import { getZodParameters } from "../utils/utils";
 
 export type UseHumanInTheLoopArgs<T extends Parameter[] | [] = []> = {
   available?: "disabled" | "enabled";

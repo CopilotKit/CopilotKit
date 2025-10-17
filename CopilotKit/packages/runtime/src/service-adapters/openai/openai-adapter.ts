@@ -96,7 +96,8 @@ export interface OpenAIAdapterParams {
 }
 
 export class OpenAIAdapter implements CopilotServiceAdapter {
-  private model: string = DEFAULT_MODEL;
+  public model: string = DEFAULT_MODEL;
+  public provider = "openai";
 
   private disableParallelToolCalls: boolean = false;
   private _openai: OpenAI;
