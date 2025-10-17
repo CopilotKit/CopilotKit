@@ -355,33 +355,6 @@ export interface CopilotRuntimeConstructorParams_BASE<T extends Parameter[] | []
   // afterRequestMiddleware?: CopilotRuntimeOptionsVNext["afterRequestMiddleware"];
 }
 
-export interface CopilotRuntimeConstructorParams_AUDIT<T extends Parameter[] | [] = []> {
-  // ✅
-  // middleware?: Middleware;
-  // ❌/✅
-  actions?: ActionsConfiguration<T>;
-  // ❌/✅
-  remoteActions?: CopilotKitEndpoint[];
-  // ❌/✅
-  remoteEndpoints?: EndpointDefinition[];
-  // ❌/✅
-  langserve?: RemoteChainParameters[];
-  // ❌/✅
-  agents?: Record<string, AbstractAgent>;
-  // ❌/✅
-  delegateAgentProcessingToServiceAdapter?: boolean;
-  // ❌/✅
-  observability_c?: CopilotObservabilityConfig;
-  // ❌/✅
-  mcpServers?: MCPEndpointConfig[];
-  // ❌/✅
-  createMCPClient?: CreateMCPClientFunction;
-  // ❌/✅
-  onError?: CopilotErrorHandler;
-  // ❌/✅
-  onStopGeneration?: OnStopGenerationHandler;
-}
-
 // (duplicate BASE interface removed)
 
 type BeforeRequestMiddleware = CopilotRuntimeOptionsVNext["beforeRequestMiddleware"];
