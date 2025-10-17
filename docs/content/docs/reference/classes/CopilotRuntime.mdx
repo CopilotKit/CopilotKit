@@ -22,6 +22,15 @@ import { CopilotRuntime } from "@copilotkit/runtime";
 const copilotKit = new CopilotRuntime();
 ```
 
+## Constructor Parameters
+
+<PropertyReference name="agents" type="MaybePromise<NonEmptyRecord<Record<string, AbstractAgent>>>"  > 
+This satisfies...
+   – the optional constraint in `CopilotRuntimeConstructorParams_BASE`
+   – the `MaybePromise<NonEmptyRecord<T>>` constraint in `CopilotRuntimeOptionsVNext`
+   – the `Record<string, AbstractAgent>` constraint in `both
+</PropertyReference>
+
 <PropertyReference name="processRuntimeRequest" type="request: CopilotRuntimeRequest">
 
 
