@@ -382,6 +382,7 @@ interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []>
  */
 export class CopilotRuntimeNEW extends CopilotRuntimeVNext {
   params?: CopilotRuntimeConstructorParams;
+  private observability?: CopilotObservabilityConfig;
   // Cache MCP tools per endpoint to avoid re-fetching repeatedly
   private mcpToolsCache: Map<string, BasicAgentConfiguration["tools"]> = new Map();
 
@@ -454,6 +455,7 @@ export class CopilotRuntimeNEW extends CopilotRuntimeVNext {
             }),
     });
     this.params = params;
+    this.observability = params?.observability_c;
   }
 
   handleServiceAdapter(serviceAdapter: CopilotServiceAdapter) {
@@ -517,6 +519,159 @@ export class CopilotRuntimeNEW extends CopilotRuntimeVNext {
       const config = existingAgent.config ?? {};
       const existingTools = config.tools ?? [];
       config.tools = [...existingTools, ...tools];
+    }
+  }
+
+  // Observability Methods
+
+  /**
+   * Log LLM request if observability is enabled
+   */
+  private async logObservabilityRequest(
+    requestData: LLMRequestData,
+    publicApiKey?: string,
+  ): Promise<void> {
+    if (this.observability?.enabled && publicApiKey) {
+      try {
+        await this.observability.hooks.handleRequest(requestData);
+      } catch (error) {
+        console.error("Error logging LLM request:", error);
+      }
+    }
+  }
+
+  /**
+   * Log final LLM response after request completes
+   */
+  private logObservabilityPostRequest(
+    outputMessagesPromise: Promise<Message[]>,
+    baseData: {
+      threadId: string;
+      runId?: string;
+      model?: string;
+      provider?: string;
+      agentName?: string;
+      nodeName?: string;
+    },
+    streamedChunks: any[],
+    requestStartTime: number,
+    publicApiKey?: string,
+  ): void {
+    if (this.observability?.enabled && publicApiKey) {
+      try {
+        outputMessagesPromise
+          .then((outputMessages) => {
+            const responseData: LLMResponseData = {
+              threadId: baseData.threadId,
+              runId: baseData.runId,
+              model: baseData.model,
+              // Use collected chunks for progressive mode or outputMessages for regular mode
+              output: this.observability.progressive ? streamedChunks : outputMessages,
+              latency: Date.now() - requestStartTime,
+              timestamp: Date.now(),
+              provider: baseData.provider,
+              isFinalResponse: true,
+              agentName: baseData.agentName,
+              nodeName: baseData.nodeName,
+            };
+
+            try {
+              this.observability.hooks.handleResponse(responseData);
+            } catch (logError) {
+              console.error("Error logging LLM response:", logError);
+            }
+          })
+          .catch((error) => {
+            console.error("Failed to get output messages for logging:", error);
+          });
+      } catch (error) {
+        console.error("Error setting up logging for LLM response:", error);
+      }
+    }
+  }
+
+  /**
+   * Setup progressive logging by wrapping the event stream
+   */
+  private setupProgressiveLogging(
+    eventSource: RuntimeEventSource,
+    streamedChunks: any[],
+    requestStartTime: number,
+    context: {
+      threadId?: string;
+      runId?: string;
+      model?: string;
+      provider?: string;
+      agentName?: string;
+      nodeName?: string;
+    },
+    publicApiKey?: string,
+  ): void {
+    if (this.observability?.enabled && this.observability.progressive && publicApiKey) {
+      // Keep reference to original stream function
+      const originalStream = eventSource.stream.bind(eventSource);
+
+      // Wrap the stream function to intercept events
+      eventSource.stream = async (callback) => {
+        await originalStream(async (eventStream$) => {
+          // Create subscription to capture streaming events
+          eventStream$.subscribe({
+            next: (event) => {
+              // Only log content chunks
+              if (event.type === RuntimeEventTypes.TextMessageContent) {
+                // Store the chunk
+                streamedChunks.push(event.content);
+
+                // Log each chunk separately for progressive mode
+                try {
+                  const progressiveData: LLMResponseData = {
+                    threadId: context.threadId || "",
+                    runId: context.runId,
+                    model: context.model,
+                    output: event.content,
+                    latency: Date.now() - requestStartTime,
+                    timestamp: Date.now(),
+                    provider: context.provider,
+                    isProgressiveChunk: true,
+                    agentName: context.agentName,
+                    nodeName: context.nodeName,
+                  };
+
+                  // Use Promise to handle async logger without awaiting
+                  Promise.resolve()
+                    .then(() => {
+                      this.observability.hooks.handleResponse(progressiveData);
+                    })
+                    .catch((error) => {
+                      console.error("Error in progressive logging:", error);
+                    });
+                } catch (error) {
+                  console.error("Error preparing progressive log data:", error);
+                }
+              }
+            },
+          });
+
+          // Call the original callback with the event stream
+          await callback(eventStream$);
+        });
+      };
+    }
+  }
+
+  /**
+   * Log error if observability is enabled
+   */
+  private async logObservabilityError(
+    errorData: LLMErrorData,
+    publicApiKey?: string,
+  ): Promise<void> {
+    if (this.observability?.enabled && publicApiKey) {
+      try {
+        await this.observability.hooks.handleError(errorData);
+      } catch (logError) {
+        console.error("Error logging LLM error:", logError);
+      }
     }
   }
 
