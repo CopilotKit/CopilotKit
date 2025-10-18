@@ -1,8 +1,16 @@
-import { Arg, Ctx, Mutation, Query, Resolver } from "type-graphql";
+import {
+  CopilotKitError,
+  CopilotKitLowLevelError,
+  isStructuredCopilotKitError,
+  randomId,
+} from "@copilotkit/shared";
+import { plainToInstance } from "class-transformer";
+import { GraphQLError } from "graphql";
+import { GraphQLJSONObject } from "graphql-scalars";
+import { Repeater } from "graphql-yoga";
 import {
   ReplaySubject,
   Subject,
-  Subscription,
   filter,
   finalize,
   firstValueFrom,
@@ -12,53 +20,42 @@ import {
   takeWhile,
   tap,
 } from "rxjs";
-import { GenerateCopilotResponseInput } from "../inputs/generate-copilot-response.input";
-import { CopilotResponse } from "../types/copilot-response.type";
-import {
-  CopilotKitLangGraphInterruptEvent,
-  LangGraphInterruptEvent,
-} from "../types/meta-events.type";
-import { ActionInputAvailability, MessageRole } from "../types/enums";
-import { Repeater } from "graphql-yoga";
+import { Arg, Ctx, Mutation, Query, Resolver } from "type-graphql";
+import { LangGraphEventTypes } from "../../agents/langgraph/events";
 import type { CopilotRequestContextProperties, GraphQLContext } from "../../lib/integrations";
+import telemetry from "../../lib/telemetry-client";
 import {
   RuntimeEvent,
   RuntimeEventTypes,
   RuntimeMetaEventName,
 } from "../../service-adapters/events";
 import {
-  FailedMessageStatus,
-  MessageStatusCode,
-  MessageStatusUnion,
-  SuccessMessageStatus,
-} from "../types/message-status.type";
-import { ResponseStatusUnion, SuccessResponseStatus } from "../types/response-status.type";
-import { GraphQLJSONObject } from "graphql-scalars";
-import { plainToInstance } from "class-transformer";
-import { GuardrailsResult } from "../types/guardrails-result.type";
-import { GraphQLError } from "graphql";
-import {
   GuardrailsValidationFailureResponse,
   MessageStreamInterruptedResponse,
   UnknownErrorResponse,
 } from "../../utils";
+import { GenerateCopilotResponseInput } from "../inputs/generate-copilot-response.input";
+import { AgentsResponse } from "../types/agents-response.type";
 import {
   ActionExecutionMessage,
   AgentStateMessage,
   Message,
-  MessageType,
   ResultMessage,
   TextMessage,
 } from "../types/converted";
-import telemetry from "../../lib/telemetry-client";
-import { randomId } from "@copilotkit/shared";
-import { AgentsResponse } from "../types/agents-response.type";
-import { LangGraphEventTypes } from "../../agents/langgraph/events";
+import { CopilotResponse } from "../types/copilot-response.type";
+import { ActionInputAvailability, MessageRole } from "../types/enums";
+import { GuardrailsResult } from "../types/guardrails-result.type";
 import {
-  CopilotKitError,
-  CopilotKitLowLevelError,
-  isStructuredCopilotKitError,
-} from "@copilotkit/shared";
+  FailedMessageStatus,
+  MessageStatusUnion,
+  SuccessMessageStatus,
+} from "../types/message-status.type";
+import {
+  CopilotKitLangGraphInterruptEvent,
+  LangGraphInterruptEvent,
+} from "../types/meta-events.type";
+import { ResponseStatusUnion, SuccessResponseStatus } from "../types/response-status.type";
 
 const invokeGuardrails = async ({
   baseUrl,
@@ -134,7 +131,7 @@ export class CopilotResolver {
 
     return {
       agents: agentsWithEndpoints.map(
-        ({ endpoint, ...agentWithoutEndpoint }) => agentWithoutEndpoint,
+        ({ endpoint: _endpoint, ...agentWithoutEndpoint }) => agentWithoutEndpoint,
       ),
     };
   }
@@ -310,23 +307,17 @@ export class CopilotResolver {
       status: firstValueFrom(responseStatus$),
       extensions,
       metaEvents: new Repeater(async (push, stop) => {
-        let eventStreamSubscription: Subscription;
-
-        eventStreamSubscription = eventStream.subscribe({
+        const eventStreamSubscription = eventStream.subscribe({
           next: async (event) => {
             if (event.type != RuntimeEventTypes.MetaEvent) {
               return;
             }
             switch (event.name) {
-              // @ts-ignore
               case LangGraphEventTypes.OnInterrupt:
                 push(
                   plainToInstance(LangGraphInterruptEvent, {
-                    // @ts-ignore
                     type: event.type,
-                    // @ts-ignore
                     name: RuntimeMetaEventName.LangGraphInterruptEvent,
-                    // @ts-ignore
                     value: event.value,
                   }),
                 );
@@ -458,11 +449,9 @@ export class CopilotResolver {
           });
         }
 
-        let eventStreamSubscription: Subscription;
-
         logger.debug("Event stream created, subscribing to event stream");
 
-        eventStreamSubscription = eventStream.subscribe({
+        const eventStreamSubscription = eventStream.subscribe({
           next: async (event) => {
             switch (event.type) {
               case RuntimeEventTypes.MetaEvent:
@@ -506,7 +495,6 @@ export class CopilotResolver {
                     logger.debug("Text message content repeater created");
 
                     const textChunks: string[] = [];
-                    let textSubscription: Subscription;
 
                     interruptStreaming$
                       .pipe(
@@ -528,7 +516,7 @@ export class CopilotResolver {
 
                     logger.debug("Subscribing to text message content stream");
 
-                    textSubscription = textMessageContentStream.subscribe({
+                    const textSubscription = textMessageContentStream.subscribe({
                       next: async (e: RuntimeEvent) => {
                         if (e.type == RuntimeEventTypes.TextMessageContent) {
                           await pushTextChunk(e.content);
@@ -596,42 +584,42 @@ export class CopilotResolver {
                     logger.debug("Action execution argument stream created");
 
                     const argumentChunks: string[] = [];
-                    let actionExecutionArgumentSubscription: Subscription;
 
-                    actionExecutionArgumentSubscription = actionExecutionArgumentStream.subscribe({
-                      next: async (e: RuntimeEvent) => {
-                        if (e.type == RuntimeEventTypes.ActionExecutionArgs) {
-                          await pushArgumentsChunk(e.args);
-                          argumentChunks.push(e.args);
-                        }
-                      },
-                      error: (err) => {
-                        logger.error({ err }, "Error in action execution argument stream");
-                        streamingArgumentsStatus.next(
-                          plainToInstance(FailedMessageStatus, {
-                            reason:
-                              "An unknown error has occurred in the action execution argument stream",
-                          }),
-                        );
-                        stopStreamingArguments();
-                        actionExecutionArgumentSubscription?.unsubscribe();
-                      },
-                      complete: () => {
-                        logger.debug("Action execution argument stream completed");
-                        streamingArgumentsStatus.next(new SuccessMessageStatus());
-                        stopStreamingArguments();
-                        actionExecutionArgumentSubscription?.unsubscribe();
+                    const actionExecutionArgumentSubscription =
+                      actionExecutionArgumentStream.subscribe({
+                        next: async (e: RuntimeEvent) => {
+                          if (e.type == RuntimeEventTypes.ActionExecutionArgs) {
+                            await pushArgumentsChunk(e.args);
+                            argumentChunks.push(e.args);
+                          }
+                        },
+                        error: (err) => {
+                          logger.error({ err }, "Error in action execution argument stream");
+                          streamingArgumentsStatus.next(
+                            plainToInstance(FailedMessageStatus, {
+                              reason:
+                                "An unknown error has occurred in the action execution argument stream",
+                            }),
+                          );
+                          stopStreamingArguments();
+                          actionExecutionArgumentSubscription?.unsubscribe();
+                        },
+                        complete: () => {
+                          logger.debug("Action execution argument stream completed");
+                          streamingArgumentsStatus.next(new SuccessMessageStatus());
+                          stopStreamingArguments();
+                          actionExecutionArgumentSubscription?.unsubscribe();
 
-                        outputMessages.push(
-                          plainToInstance(ActionExecutionMessage, {
-                            id: event.actionExecutionId,
-                            createdAt: new Date(),
-                            name: event.actionName,
-                            arguments: argumentChunks.join(""),
-                          }),
-                        );
-                      },
-                    });
+                          outputMessages.push(
+                            plainToInstance(ActionExecutionMessage, {
+                              id: event.actionExecutionId,
+                              createdAt: new Date(),
+                              name: event.actionName,
+                              arguments: argumentChunks.join(""),
+                            }),
+                          );
+                        },
+                      });
                   }),
                 });
                 break;

@@ -66,6 +66,9 @@ export default [
       "no-constant-binary-expression": "off", // Allow constant expressions
       "no-empty": "off", // Allow empty blocks
 
+      // TypeScript rules
+      "@typescript-eslint/no-explicit-any": "warn", // Use warning instead of error due to too many existing any types in codebase
+
       "react/jsx-uses-react": "off",
       "react/react-in-jsx-scope": "off",
     },

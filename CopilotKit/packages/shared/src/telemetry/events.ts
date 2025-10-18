@@ -7,7 +7,7 @@ export type AnalyticsEvents = {
     "cloud.public_api_key"?: string;
     "cloud.base_url"?: string;
   };
-  "oss.runtime.server_action_executed": {};
+  "oss.runtime.server_action_executed": Record<string, any>;
   "oss.runtime.remote_action_executed": RemoteActionExecutionInfo;
   "oss.runtime.agent_execution_stream_started": { hashedLgcKey?: string };
   "oss.runtime.agent_execution_stream_ended": AgentExecutionResponseInfo;

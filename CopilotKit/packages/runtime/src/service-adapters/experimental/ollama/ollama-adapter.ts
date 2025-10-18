@@ -46,7 +46,7 @@ export class ExperimentalOllamaAdapter implements CopilotServiceAdapter {
   async process(
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
-    const { messages, actions, eventSource } = request;
+    const { messages, eventSource } = request;
     // const messages = this.transformMessages(forwardedProps.messages);
 
     const ollama = new Ollama({

@@ -211,7 +211,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   let wasInitiatedWithExistingThread = true;
   try {
     await client.threads.get(threadId);
-  } catch (error) {
+  } catch (_error) {
     wasInitiatedWithExistingThread = false;
     await client.threads.create({ threadId });
   }
@@ -712,7 +712,7 @@ class StreamingStateExtractor {
       let parsedValue;
       try {
         parsedValue = parsePartialJson(value);
-      } catch (error) {
+      } catch (_error) {
         if (key in this.previouslyParsableState) {
           parsedValue = this.previouslyParsableState[key];
         } else {
@@ -738,7 +738,6 @@ function langGraphDefaultMergeState(
   state: State,
   messages: LangGraphPlatformMessage[],
   actions: ExecutionAction[],
-  agentName: string,
 ): State {
   if (messages.length > 0 && "role" in messages[0] && messages[0].role === "system") {
     // remove system message

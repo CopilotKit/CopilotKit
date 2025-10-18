@@ -1,8 +1,8 @@
 import { Analytics } from "@segment/analytics-node";
-import { AnalyticsEvents } from "./events";
-import { flattenObject } from "./utils";
 import { v4 as uuidv4 } from "uuid";
+import { AnalyticsEvents } from "./events";
 import scarfClient from "./scarf-client";
+import { flattenObject } from "./utils";
 
 export class TelemetryClient {
   segment: Analytics | undefined;
@@ -18,7 +18,6 @@ export class TelemetryClient {
     packageName,
     packageVersion,
     telemetryDisabled,
-    telemetryBaseUrl,
     sampleRate,
   }: {
     packageName: string;
@@ -42,7 +41,6 @@ export class TelemetryClient {
 
     this.setSampleRate(sampleRate);
 
-     
     const writeKey = process.env.COPILOTKIT_SEGMENT_WRITE_KEY || "n7XAZtQCGS2v1vvBy3LgBCv2h3Y8whja";
 
     this.segment = new Analytics({
@@ -112,9 +110,7 @@ export class TelemetryClient {
 
     _sampleRate = sampleRate ?? 0.05;
 
-     
     if (process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE) {
-       
       _sampleRate = parseFloat(process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE);
     }
 

@@ -28,7 +28,7 @@ import {
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
 } from "../service-adapter";
-import { Message, ResultMessage, TextMessage } from "../../graphql/types/converted";
+import { Message, ResultMessage } from "../../graphql/types/converted";
 import {
   convertActionInputToOpenAITool,
   convertMessageToOpenAIMessage,
@@ -312,7 +312,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
 }
 
 function getRunIdFromStream(stream: AssistantStream): Promise<string> {
-  return new Promise<string>((resolve, reject) => {
+  return new Promise<string>((resolve) => {
     const runIdGetter = (event: AssistantStreamEvent) => {
       if (event.event === "thread.run.created") {
         const runId = event.data.id;

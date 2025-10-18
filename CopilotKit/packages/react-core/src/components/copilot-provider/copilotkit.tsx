@@ -359,7 +359,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     ) => {
       const newValue = typeof value === "function" ? value(coagentStatesRef.current) : value;
       coagentStatesRef.current = newValue;
-      setCoagentStates((prev) => {
+      setCoagentStates((_prev) => {
         return newValue;
       });
     },
@@ -437,7 +437,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
           };
         let event = prev[threadId]?.event;
         if (action.event) {
-          // @ts-ignore
+          // @ts-expect-error - TypeScript can't infer proper types for object spreading with optional properties
           event = { ...(prev[threadId]?.event || {}), ...action.event };
         }
         return {
@@ -469,7 +469,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         const isSameLength = Object.keys(resolved).length === Object.keys(prev).length;
         const isEqual =
           isSameLength &&
-          // @ts-ignore
+          // @ts-expect-error - TypeScript can't infer proper types for object spreading with optional properties
           Object.entries(resolved).every(([key, value]) => prev[key] === value);
 
         return isEqual ? prev : resolved;
@@ -484,9 +484,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         const resolved = typeof newAuthStates === "function" ? newAuthStates(prev) : newAuthStates;
         const isSameLength = Object.keys(resolved).length === Object.keys(prev).length;
         const isEqual =
-          isSameLength &&
-          // @ts-ignore
-          Object.entries(resolved).every(([key, value]) => prev[key] === value);
+          isSameLength && Object.entries(resolved).every(([key, value]) => prev[key] === value);
 
         return isEqual ? prev : resolved;
       });

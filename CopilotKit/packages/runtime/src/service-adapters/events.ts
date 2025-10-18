@@ -351,7 +351,7 @@ export class RuntimeEventSource {
             eventWithState.actionExecutionId,
             actionInputsWithoutAgents,
             threadId,
-          ).catch((error) => {});
+          ).catch((_error) => {});
 
           telemetry.capture("oss.runtime.server_action_executed", {});
           return concat(of(eventWithState.event!), toolCallEventStream$).pipe(
@@ -424,7 +424,7 @@ async function executeAction(
   if (actionArguments) {
     try {
       args = JSON.parse(actionArguments);
-    } catch (e) {
+    } catch (_e) {
       console.error("Action argument unparsable", { actionArguments });
       eventStream$.sendActionExecutionResult({
         actionExecutionId,

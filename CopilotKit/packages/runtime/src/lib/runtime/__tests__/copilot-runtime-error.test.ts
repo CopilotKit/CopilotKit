@@ -147,7 +147,7 @@ describe("CopilotRuntime onError types", () => {
       const mockHeaders = new Map([["x-copilotcloud-public-api-key", "test-key-123"]]);
 
       // Simulate header extraction logic
-      const extractPublicApiKey = (headers: Map<string, string>, hasCloudConfig: boolean) => {
+      const extractPublicApiKey = (headers: Map<string, string>, _hasCloudConfig: boolean) => {
         const publicApiKeyFromHeaders = headers.get("x-copilotcloud-public-api-key");
         return publicApiKeyFromHeaders || null;
       };
