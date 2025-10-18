@@ -92,7 +92,7 @@ export function useAsyncCallback<T extends (...args: any[]) => Promise<any>>(
       return await callback(...args);
     } catch (error) {
       console.error("Error in async callback:", error);
-      // @ts-expect-error
+      // @ts-expect-error -- same type of errors
       addErrorToast([error]);
       throw error;
     }

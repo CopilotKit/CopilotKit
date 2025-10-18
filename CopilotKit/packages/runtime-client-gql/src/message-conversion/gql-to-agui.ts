@@ -1,5 +1,5 @@
-import * as gql from "../client";
 import agui from "@copilotkit/shared";
+import * as gql from "../client";
 import { MessageStatusCode } from "../graphql/@generated/graphql";
 
 // Define valid image formats based on the supported formats in the codebase
@@ -95,7 +95,7 @@ export function gqlActionExecutionMessageToAGUIMessage(
       if (typeof props?.result === "string") {
         try {
           props.result = JSON.parse(props.result);
-        } catch (e) {
+        } catch (_e) {
           /* do nothing */
         }
       }
@@ -104,7 +104,7 @@ export function gqlActionExecutionMessageToAGUIMessage(
       if (typeof actionResult === "string") {
         try {
           actionResult = JSON.parse(actionResult);
-        } catch (e) {
+        } catch (_e) {
           /* do nothing */
         }
       }
@@ -163,7 +163,7 @@ function gqlAgentStateMessageToAGUIMessage(
     const createRenderWrapper = (originalRender: any) => {
       if (!originalRender) return undefined;
 
-      return (props?: any) => {
+      return (_props?: any) => {
         // Determine the correct status based on the same logic as RenderActionExecutionMessage
         const state = message.state;
 

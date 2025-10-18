@@ -1,9 +1,9 @@
 import { FC, memo } from "react";
-import ReactMarkdown, { Options, Components } from "react-markdown";
-import { CodeBlock } from "./CodeBlock";
+import ReactMarkdown, { Components, Options } from "react-markdown";
+import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import rehypeRaw from "rehype-raw";
+import { CodeBlock } from "./CodeBlock";
 
 const defaultComponents: Components = {
   a({ children, ...props }) {
@@ -14,7 +14,7 @@ const defaultComponents: Components = {
     );
   },
   // @ts-expect-error -- inline
-  code({ children, className, inline, ...props }) {
+  code({ children, className, inline: _inline, ...props }) {
     if (Array.isArray(children) && children.length) {
       if (children[0] == "▍") {
         return (

@@ -140,7 +140,7 @@ const shouldMerge = (op: Operation, prev: Operation | undefined): boolean => {
   return false;
 };
 
-export const defaultShouldSave = (op: Operation, prev: Operation | undefined): boolean => {
+export const defaultShouldSave = (op: Operation, _prev: Operation | undefined): boolean => {
   if (op.type === "set_selection") {
     return false;
   }

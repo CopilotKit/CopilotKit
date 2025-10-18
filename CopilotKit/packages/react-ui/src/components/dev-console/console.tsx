@@ -1,6 +1,17 @@
 "use client";
 
 import { useCopilotContext, useCopilotMessagesContext } from "@copilotkit/react-core";
+import { COPILOTKIT_VERSION } from "@copilotkit/shared";
+import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
+import { useEffect, useRef, useState } from "react";
+import { SmallSpinnerIcon } from "../chat/Icons";
+import { CopilotKitHelpModal } from "../help-modal";
+import {
+  CheckIcon,
+  ChevronDownIcon,
+  ExclamationMarkIcon,
+  ExclamationMarkTriangleIcon,
+} from "./icons";
 import {
   getPublishedCopilotKitVersion,
   logActions,
@@ -8,18 +19,6 @@ import {
   logReadables,
   shouldShowDevConsole,
 } from "./utils";
-import React, { useEffect, useRef, useState } from "react";
-import {
-  CheckIcon,
-  ChevronDownIcon,
-  CopilotKitIcon,
-  ExclamationMarkIcon,
-  ExclamationMarkTriangleIcon,
-} from "./icons";
-import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
-import { COPILOTKIT_VERSION } from "@copilotkit/shared";
-import { SmallSpinnerIcon } from "../chat/Icons";
-import { CopilotKitHelpModal } from "../help-modal";
 
 type VersionStatus = "unknown" | "checking" | "latest" | "update-available" | "outdated";
 
@@ -42,7 +41,7 @@ export function CopilotDevConsole() {
   const [versionStatus, setVersionStatus] = useState<VersionStatus>("unknown");
   const [latestVersion, setLatestVersion] = useState<string>("");
   const consoleRef = useRef<HTMLDivElement>(null);
-  const [debugButtonMode, setDebugButtonMode] = useState<"full" | "compact">("full");
+  const [debugButtonMode] = useState<"full" | "compact">("full");
 
   const checkForUpdates = (force: boolean = false) => {
     setVersionStatus("checking");
@@ -95,7 +94,6 @@ export function CopilotDevConsole() {
       }
     >
       <VersionInfo
-        showDevConsole={context.showDevConsole}
         versionStatus={versionStatus}
         currentVersion={currentVersion}
         latestVersion={latestVersion}
@@ -113,41 +111,29 @@ export function CopilotDevConsole() {
 }
 
 function VersionInfo({
-  showDevConsole,
   versionStatus,
   currentVersion,
   latestVersion,
 }: {
-  showDevConsole: boolean;
   versionStatus: VersionStatus;
   currentVersion: string;
   latestVersion: string;
 }) {
   const [copyStatus, setCopyStatus] = useState<string>("");
 
-  let versionLabel = "";
   let versionIcon: any = "";
   let currentVersionLabel = currentVersion;
 
   if (versionStatus === "latest") {
-    versionLabel = "latest";
     versionIcon = CheckIcon;
   } else if (versionStatus === "checking") {
-    versionLabel = "checking";
     versionIcon = SmallSpinnerIcon;
   } else if (versionStatus === "update-available") {
-    versionLabel = "update available";
     versionIcon = ExclamationMarkIcon;
     currentVersionLabel = `${currentVersion} → ${latestVersion}`;
   } else if (versionStatus === "outdated") {
-    versionLabel = "outdated";
     versionIcon = ExclamationMarkTriangleIcon;
     currentVersionLabel = `${currentVersion} → ${latestVersion}`;
-  }
-
-  let asideLabel = "";
-  if (showDevConsole === true) {
-    asideLabel = "(enabled)";
   }
 
   const installCommand = [

@@ -498,7 +498,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               // @ts-expect-error -- same type of messages
               rawMessagesResponse = [...rawMessagesResponse, ...data.messages];
               interruptMessages = convertGqlOutputToMessages(
-                // @ts-expect-error
+                // @ts-expect-error -- same type of messages
                 filterAdjacentAgentStateMessages(data.messages),
               );
             }

@@ -1,19 +1,18 @@
-import { randomId } from "@copilotkit/shared";
+import { parseJson, randomId } from "@copilotkit/shared";
 import {
   ActionExecutionMessageInput,
+  AgentStateMessageInput,
+  BaseMessageOutput,
+  CopilotKitLangGraphInterruptEvent as GqlCopilotKitLangGraphInterruptEvent,
+  LangGraphInterruptEvent as GqlLangGraphInterruptEvent,
+  ImageMessageInput,
   MessageRole,
   MessageStatus,
+  MessageStatusCode,
+  MetaEventName,
   ResultMessageInput,
   TextMessageInput,
-  BaseMessageOutput,
-  AgentStateMessageInput,
-  MessageStatusCode,
-  LangGraphInterruptEvent as GqlLangGraphInterruptEvent,
-  MetaEventName,
-  CopilotKitLangGraphInterruptEvent as GqlCopilotKitLangGraphInterruptEvent,
-  ImageMessageInput,
 } from "../graphql/@generated/graphql";
-import { parseJson } from "@copilotkit/shared";
 
 type MessageType =
   | "TextMessage"
@@ -156,13 +155,12 @@ export function langGraphInterruptEvent(
   return { ...eventProps, name: MetaEventName.LangGraphInterruptEvent, type: "MetaEvent" };
 }
 
-export type LangGraphInterruptEvent<TValue extends any = any> = GqlLangGraphInterruptEvent & {
+export type LangGraphInterruptEvent<TValue = any> = GqlLangGraphInterruptEvent & {
   value: TValue;
 };
 
-type CopilotKitLangGraphInterruptEvent<TValue extends any = any> =
-  GqlCopilotKitLangGraphInterruptEvent & {
-    data: GqlCopilotKitLangGraphInterruptEvent["data"] & { value: TValue };
-  };
+type CopilotKitLangGraphInterruptEvent<TValue = any> = GqlCopilotKitLangGraphInterruptEvent & {
+  data: GqlCopilotKitLangGraphInterruptEvent["data"] & { value: TValue };
+};
 
 export type MetaEvent = LangGraphInterruptEvent | CopilotKitLangGraphInterruptEvent;

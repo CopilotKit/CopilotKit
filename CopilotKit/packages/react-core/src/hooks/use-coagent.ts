@@ -253,7 +253,9 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
       // coagentStatesRef.current || {}
       const coagentState: CoagentState = getCoagentState({ coagentStates, name, options });
       const updatedState =
-        typeof newState === "function" ? (newState as Function)(coagentState.state) : newState;
+        typeof newState === "function"
+          ? (newState as (prevState: T | undefined) => T)(coagentState.state)
+          : newState;
 
       setCoagentStatesWithRef({
         ...coagentStatesRef.current,
@@ -287,9 +289,11 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
         lastLoadedState.current = newState;
         lastLoadedThreadId.current = threadId;
         const fetchedState = parseJson(newState, {});
-        isExternalStateManagement(options)
-          ? options.setState(fetchedState)
-          : setState(fetchedState);
+        if (isExternalStateManagement(options)) {
+          options.setState(fetchedState);
+        } else {
+          setState(fetchedState);
+        }
       }
     };
     void fetchAgentState();

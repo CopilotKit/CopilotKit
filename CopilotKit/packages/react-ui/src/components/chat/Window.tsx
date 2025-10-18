@@ -1,8 +1,7 @@
-import React, { useCallback, useEffect } from "react";
-import { WindowProps } from "./props";
-import { useChatContext } from "./ChatContext";
-import { useCopilotContext } from "@copilotkit/react-core";
 import { isMacOS } from "@copilotkit/shared";
+import React, { useCallback, useEffect } from "react";
+import { useChatContext } from "./ChatContext";
+import { WindowProps } from "./props";
 
 export const Window = ({
   children,
@@ -11,7 +10,6 @@ export const Window = ({
   hitEscapeToClose,
 }: WindowProps) => {
   const windowRef = React.useRef<HTMLDivElement>(null);
-  const context = useCopilotContext();
 
   const { open, setOpen } = useChatContext();
 
