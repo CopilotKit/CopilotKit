@@ -486,7 +486,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             if (ev.name === MetaEventName.LangGraphInterruptEvent) {
               let eventValue = langGraphInterruptEvent(ev as LangGraphInterruptEvent).value;
               eventValue = parseJson(eventValue, eventValue);
-              setLangGraphInterruptAction(threadId, {
+              setLangGraphInterruptAction( {
                 event: {
                   ...langGraphInterruptEvent(ev as LangGraphInterruptEvent),
                   value: eventValue,
@@ -923,7 +923,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           case MetaEventName.LangGraphInterruptEvent:
             if (event.response) {
               // Flush interrupt event from state
-              setLangGraphInterruptAction(threadId, null);
+              setLangGraphInterruptAction( null);
               const value = (event as LangGraphInterruptEvent).value;
               return [
                 ...acc,

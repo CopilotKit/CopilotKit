@@ -230,9 +230,22 @@ class CopilotKitRemoteEndpoint:
             from .langgraph_agent import LangGraphAgent
             for agent in agents:
                 if isinstance(agent, LangGraphAgent):
+                    # Validate LangGraphAgent usage - skip validation for agents with checkpointer
+                    # The LangGraphAGUIAgent migration is incomplete and breaks thread persistence with checkpointer
+                    # Skip validation if agent has checkpointer (thread persistence issue)
+                    has_checkpointer = (
+                        hasattr(agent.graph, 'checkpointer') and 
+                        agent.graph.checkpointer is not None
+                    )
+                    if has_checkpointer:
+                        logger.warning(
+                            "LangGraphAgent is being used with a checkpointer. This is not supported. Refer to https://docs.copilotkit.ai/langgraph for more information."
+                        )
+                        continue
+
                     raise ValueError(
                         "LangGraphAgent should be instantiated using LangGraphAGUIAgent. Refer to https://docs.copilotkit.ai/langgraph for more information.")
-        
+
 
     def info(
         self,

@@ -1,0 +1,6 @@
+packages:
+  - "CopilotKit/packages/*"
+  - "CopilotKit/examples/*"
+  - "CopilotKit/utilities/*"
+  - "examples/*/ui"
+  - "examples/*/agent-js"

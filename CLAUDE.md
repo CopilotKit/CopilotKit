@@ -2,7 +2,7 @@
 
 ### sdk-python
 
-Run the Python SDK tests:
+Run the Python SDK tests for thread state management:
 
 ```bash
 cd sdk-python/
@@ -10,36 +10,49 @@ poetry install
 poetry run pytest -v
 ```
 
-Expected: All 8 tests should pass.
+**Expected:** All 8 tests should pass.
 
-### coagents-starter (Frontend + Backend Integration)
+**What these tests verify:**
+- Thread creation and isolation
+- Thread state persistence and retrieval
+- Switching between threads without state leakage
+- Message accumulation within threads
+- Rapid thread switching handling
 
-Test the thread switching UI with SimpleThreadManager:
+### coagents-starter - Thread History & Switching
 
+Manual integration tests for frontend/backend thread switching functionality.
+
+**Quick start:**
 ```bash
-# 1. Terminal 1 - Start Python backend
+# Setup (first time only)
+cd examples/coagents-starter/agent-py
+cp .env.example .env
+# Edit .env and add your OPENAI_API_KEY
+
+cd ../ui
+cp .env.example .env
+# Edit .env and add your OPENAI_API_KEY
+
+# Run backend (Terminal 1)
 cd examples/coagents-starter/agent-py
 poetry install
 poetry run python -m sample_agent.demo
 
-# 2. Terminal 2 - Start Next.js frontend
+# Run frontend (Terminal 2)
 cd examples/coagents-starter/ui
 pnpm install
 pnpm dev
-
-# Services will run on (from .env file):
-# - Backend: http://localhost:8020/copilotkit
-# - Frontend: http://localhost:3015
 ```
 
-**Manual Test Walkthrough:**
-1. Open http://localhost:3015 in browser
-2. Send message "Hello from thread 1" and wait for response
-3. Click "New" button (top-left) to create Thread #2
-4. Send message "Hello from thread 2" and wait for response
-5. Click triangle (▶) to expand thread list
-6. Click "Thread #1" to switch back
-7. Verify Thread #1 messages appear (not Thread #2 messages)
-8. Rapidly switch between threads - verify no stale messages
+**Services:**
+- Backend: http://localhost:8020/copilotkit
+- Frontend: http://localhost:3015
 
-See `examples/coagents-starter/ui/TESTING.md` for complete test plan.
+**Test coverage:**
+- Thread creation and switching
+- Message isolation between threads
+- Thread list UI functionality
+- Rapid switching without race conditions
+
+📋 **Complete test plan:** See [examples/coagents-starter/ui/TESTING.md](examples/coagents-starter/ui/TESTING.md) for detailed test scenarios and expected results.

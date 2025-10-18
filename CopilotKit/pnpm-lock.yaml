@@ -76,7 +76,7 @@ importers:
         version: 0.3.5(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(encoding@0.1.13)
       '@langchain/community':
         specifier: ^0.3.29
-        version: 0.3.29(5099bc1ff93bfc18d973fa3e5be6b5c5)
+        version: 0.3.29(b7crrjwnjjiwkliep4xaabxdg4)
       '@langchain/core':
         specifier: ^0.3.38
         version: 0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))
@@ -188,7 +188,7 @@ importers:
         version: 2.1.5(react@18.3.1)
       '@langchain/community':
         specifier: ^0.3.29
-        version: 0.3.29(5099bc1ff93bfc18d973fa3e5be6b5c5)
+        version: 0.3.29(b7crrjwnjjiwkliep4xaabxdg4)
       '@langchain/core':
         specifier: ^0.3.38
         version: 0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))
@@ -339,6 +339,9 @@ importers:
       '@scarf/scarf':
         specifier: ^1.3.0
         version: 1.3.0
+      '@tanstack/react-query':
+        specifier: ^5.62.11
+        version: 5.90.3(react@18.3.1)
       react-markdown:
         specifier: ^8.0.7
         version: 8.0.7(@types/react@18.3.3)(react@18.3.1)
@@ -617,7 +620,7 @@ importers:
         version: 0.1.9(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))
       '@langchain/community':
         specifier: ^0.3.29
-        version: 0.3.29(5099bc1ff93bfc18d973fa3e5be6b5c5)
+        version: 0.3.29(b7crrjwnjjiwkliep4xaabxdg4)
       '@langchain/core':
         specifier: ^0.3.38
         version: 0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))
@@ -4620,6 +4623,14 @@ packages:
     resolution: {integrity: sha512-0wDLwCVF5V3x3b1SGXPCDcdsbDHMBe+lkFzBRaHeLvNi+nrrnZ1lA18u+OTWO8iSWU2GxUOCvlXtDuqftc1oiA==}
     peerDependencies:
       tailwindcss: '>=3.0.0 || insiders || >=4.0.0-alpha.20 || >=4.0.0-beta.1'
+
+  '@tanstack/query-core@5.90.3':
+    resolution: {integrity: sha512-HtPOnCwmx4dd35PfXU8jjkhwYrsHfuqgC8RCJIwWglmhIUIlzPP0ZcEkDAc+UtAWCiLm7T8rxeEfHZlz3hYMCA==}
+
+  '@tanstack/react-query@5.90.3':
+    resolution: {integrity: sha512-i/LRL6DtuhG6bjGzavIMIVuKKPWx2AnEBIsBfuMm3YoHne0a20nWmsatOCBcVSaT0/8/5YFjNkebHAPLVUSi0Q==}
+    peerDependencies:
+      react: ^18 || ^19
 
   '@tanstack/react-virtual@3.8.3':
     resolution: {integrity: sha512-9ICwbDUUzN99CJIGc373i8NLoj6zFTKI2Hlcmo0+lCSAhPQ5mxq4dGOMKmLYoEFyHcGQ64Bd6ZVbnPpM6lNK5w==}
@@ -13088,7 +13099,7 @@ snapshots:
       - encoding
       - openai
 
-  '@langchain/community@0.3.29(5099bc1ff93bfc18d973fa3e5be6b5c5)':
+  '@langchain/community@0.3.29(b7crrjwnjjiwkliep4xaabxdg4)':
     dependencies:
       '@browserbasehq/stagehand': 1.12.0(@playwright/test@1.50.1)(deepmerge@4.3.1)(dotenv@16.4.7)(encoding@0.1.13)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(zod@3.23.8)
       '@ibm-cloud/watsonx-ai': 1.4.0(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))
@@ -14527,6 +14538,13 @@ snapshots:
       lodash.merge: 4.6.2
       postcss-selector-parser: 6.0.10
       tailwindcss: 3.4.6(ts-node@10.9.2(@swc/core@1.5.28(@swc/helpers@0.5.13))(@types/node@18.19.42)(typescript@5.5.4))
+
+  '@tanstack/query-core@5.90.3': {}
+
+  '@tanstack/react-query@5.90.3(react@18.3.1)':
+    dependencies:
+      '@tanstack/query-core': 5.90.3
+      react: 18.3.1
 
   '@tanstack/react-virtual@3.8.3(react-dom@19.1.0(react@18.3.1))(react@18.3.1)':
     dependencies:

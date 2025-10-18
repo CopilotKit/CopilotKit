@@ -13,6 +13,20 @@ The frontend fix (PR #2606) eliminates race conditions when switching between th
 
 ## Setup
 
+### 0. Configure Environment Variables (First Time Only)
+
+```bash
+# Setup backend .env
+cd examples/coagents-starter/agent-py
+cp .env.example .env
+# Edit .env and add your OPENAI_API_KEY
+
+# Setup frontend .env
+cd ../ui
+cp .env.example .env
+# Edit .env and add your OPENAI_API_KEY
+```
+
 ### 1. Start the Backend (with PR #2605 changes)
 
 ```bash
@@ -31,7 +45,7 @@ pnpm dev
 
 ### 3. Open Browser
 
-Navigate to http://localhost:3000
+Navigate to http://localhost:3015
 
 ## Manual Test Plan
 

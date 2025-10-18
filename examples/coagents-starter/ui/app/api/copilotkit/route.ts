@@ -2,31 +2,21 @@ import { NextRequest } from "next/server";
 import {
   CopilotRuntime,
   copilotRuntimeNextJSAppRouterEndpoint,
-  ExperimentalEmptyAdapter,
-  // uncomment this if you want to use LangGraph Platform
-  // langGraphPlatformEndpoint,
+  copilotKitEndpoint,
+  OpenAIAdapter,
 } from "@copilotkit/runtime";
+import OpenAI from "openai";
 
-const serviceAdapter = new ExperimentalEmptyAdapter();
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const serviceAdapter = new OpenAIAdapter({ openai } as any);
+
+const baseUrl = process.env.REMOTE_ACTION_URL || "http://localhost:8020/copilotkit";
 
 const runtime = new CopilotRuntime({
   remoteEndpoints: [
-    // Uncomment this if you want to use LangGraph JS, make sure to
-    // remove the remote action url below too.
-    //
-    // langGraphPlatformEndpoint({
-    //   deploymentUrl: "http://localhost:8000",
-    //   langsmithApiKey: process.env.LANGSMITH_API_KEY || "", // only used in LangGraph Platform deployments
-    //   agents: [
-    //     {
-    //       name: "sample_agent",
-    //       description: "A helpful LLM agent.",
-    //     },
-    //   ],
-    // }),
-    {
-      url: process.env.REMOTE_ACTION_URL || "http://localhost:8000/copilotkit",
-    },
+    copilotKitEndpoint({
+      url: baseUrl,
+    }),
   ],
 });
 

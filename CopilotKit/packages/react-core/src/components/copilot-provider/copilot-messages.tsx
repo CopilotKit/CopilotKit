@@ -29,6 +29,7 @@ import {
 } from "@copilotkit/shared";
 import { SuggestionItem } from "../../utils/suggestions";
 import { useAgentStateQuery } from "../../queries/agent-state";
+import { useQueryClient } from "@tanstack/react-query";
 
 /**
  * MessagesTap is used to mitigate performance issues when we only need
@@ -202,6 +203,7 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
   );
 
   const agentName = agentSession?.agentName;
+  const queryClient = useQueryClient();
 
    // Centralized agent state query
   const { data: fetchedMessages, error: queryError, isSuccess } = useAgentStateQuery({
@@ -218,9 +220,27 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
     }
   }, [queryError, handleGraphQLErrors]);
 
+  // Clear messages immediately when thread/agent changes to prevent showing stale data
+  const previousThreadId = useRef<string | null>(null);
+  const previousAgentName = useRef<string | null>(null);
+  useEffect(() => {
+    const threadChanged = previousThreadId.current !== null && previousThreadId.current !== threadId;
+    const agentChanged = previousAgentName.current !== null && previousAgentName.current !== agentName;
+
+    if (threadChanged || agentChanged) {
+      setMessages([]);
+    }
+
+    previousThreadId.current = threadId || null;
+    previousAgentName.current = agentName || null;
+  }, [threadId, agentName]);
+
   // Sync to local state (for compatibility with existing consumers)
+  // IMPORTANT: Only set messages if they match the current thread to prevent race conditions
   useEffect(() => {
     if (!isSuccess) return;
+    // fetchedMessages comes from the query which is keyed by [threadId, agentName]
+    // So these messages are guaranteed to be for the current thread
     setMessages(fetchedMessages);
   }, [isSuccess, fetchedMessages]);
 

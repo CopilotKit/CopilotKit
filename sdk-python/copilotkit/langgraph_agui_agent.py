@@ -180,3 +180,11 @@ class LangGraphAGUIAgent(LangGraphAgent):
                 'context': agui_properties.get('context', [])
             },
         }
+
+    def dict_repr(self):
+        """Dict representation for CopilotKit SDK"""
+        return {
+            'name': self.name,
+            'description': self.description or '',
+            'type': 'langgraph'
+        }

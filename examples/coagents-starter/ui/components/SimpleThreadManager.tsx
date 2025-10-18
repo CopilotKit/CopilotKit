@@ -1,116 +1,102 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { ChevronRight, Plus } from "lucide-react";
+import {
+  useCurrentThreadId,
+  useSetCurrentThreadId,
+  useThreads,
+  useCreateThread,
+} from "./CopilotKitWithThreads";
 
-// Thread metadata structure - compatible with future RemoteThreadManager
-export type ThreadMetadata = {
-  id: string;
-  name: string;
-  createdAt: Date;
-};
-
-export function SimpleThreadManager({
-  currentThreadId,
-  onThreadChange,
-}: {
-  currentThreadId: string;
-  onThreadChange: (threadId: string) => void;
-}) {
-  const [threads, setThreads] = useState<ThreadMetadata[]>([]);
+export function SimpleThreadManager() {
+  const currentThreadId = useCurrentThreadId();
+  const setCurrentThreadId = useSetCurrentThreadId();
+  const threads = useThreads();
+  const createThread = useCreateThread();
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Track threads as they're created
-  useEffect(() => {
-    if (!threads.find(t => t.id === currentThreadId)) {
-      const newThread: ThreadMetadata = {
-        id: currentThreadId,
-        name: `Thread #${threads.length + 1}`,
-        createdAt: new Date(),
-      };
-      setThreads(prev => [...prev, newThread]);
-    }
-  }, [currentThreadId, threads]);
-
   const handleNewThread = () => {
-    const newThreadId = crypto.randomUUID();
-    onThreadChange(newThreadId);
+    createThread();
   };
 
   const handleSelectThread = (threadId: string) => {
-    onThreadChange(threadId);
+    setCurrentThreadId(threadId);
     setIsExpanded(false);
   };
 
   const currentThread = threads.find(t => t.id === currentThreadId);
-  const otherThreads = threads.filter(t => t.id !== currentThreadId);
+  // Sort other threads by creation date (newest first)
+  const otherThreads = threads
+    .filter(t => t.id !== currentThreadId)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   const showExpandIcon = threads.length > 1;
 
   return (
-    <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-lg">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200/80 min-w-[280px] max-w-[320px]">
       {/* Header - Always visible */}
       <div className="flex items-center gap-2 p-3">
         {/* Expand/Collapse icon - only shown when multiple threads exist */}
         {showExpandIcon && (
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="text-gray-600 hover:text-gray-800 transition-colors"
+            className="flex-shrink-0 w-7 h-7 flex items-center justify-center bg-gray-200 hover:bg-gray-400 rounded-full transition-colors"
             aria-label={isExpanded ? "Collapse thread list" : "Expand thread list"}
+            style={{ color: 'var(--copilot-kit-primary-color)' }}
           >
-            <svg
-              className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
+            <ChevronRight className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
           </button>
         )}
 
-        {/* Current thread name */}
+        {/* Current thread info */}
         <div className="flex-1 min-w-0">
           <div className="font-medium text-gray-900 text-sm">
             {currentThread?.name || "Thread #1"}
           </div>
-          <div className="text-xs text-gray-500 font-mono truncate">
-            {currentThreadId.slice(0, 8)}...
+          {currentThread && (
+            <div className="text-xs text-gray-500 mt-0.5">
+              {formatDate(currentThread.createdAt)}
+            </div>
+          )}
+          <div className="text-xs text-gray-400 font-mono truncate mt-0.5 select-all">
+            {currentThreadId}
           </div>
         </div>
 
         {/* New Thread button */}
         <button
           onClick={handleNewThread}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm font-medium transition-colors"
+          className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all hover:scale-105"
+          style={{
+            backgroundColor: 'var(--copilot-kit-primary-color)',
+            color: 'var(--copilot-kit-contrast-color)',
+          }}
           title="Create new thread"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
+          <Plus className="w-3.5 h-3.5" />
           <span>New</span>
         </button>
       </div>
 
       {/* Expanded thread list */}
       {isExpanded && otherThreads.length > 0 && (
-        <div className="border-t border-gray-200">
+        <div className="border-t border-gray-100">
           <div className="p-2 space-y-1">
             {otherThreads.map((thread) => (
               <button
                 key={thread.id}
                 onClick={() => handleSelectThread(thread.id)}
-                className="w-full text-left px-3 py-2 rounded-md hover:bg-gray-100 transition-colors group"
+                className="w-full text-left px-3 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors border border-gray-200"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-gray-900 text-sm">
-                      {thread.name}
-                    </div>
-                    <div className="text-xs text-gray-500 font-mono truncate">
-                      {thread.id.slice(0, 8)}...
-                    </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-gray-900 text-sm select-text">
+                    {thread.name}
                   </div>
-                  <div className="text-xs text-gray-400 ml-2">
+                  <div className="text-xs text-gray-500 mt-0.5 select-text">
                     {formatDate(thread.createdAt)}
+                  </div>
+                  <div className="text-xs text-gray-400 font-mono truncate mt-0.5 select-all">
+                    {thread.id}
                   </div>
                 </div>
               </button>

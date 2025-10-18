@@ -1,29 +1,47 @@
 """
-This serves the "sample_agent" agent. This is an example of self-hosting an agent
-through our FastAPI integration. However, you can also host in LangGraph platform.
+This serves the "sample_agent" agent using CopilotKit SDK with AsyncSqliteSaver for thread persistence.
 """
 
 import os
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
-load_dotenv() # pylint: disable=wrong-import-position
-# os.environ["LANGGRAPH_API"] = "false"
+load_dotenv()
 
 from fastapi import FastAPI
 import uvicorn
-from copilotkit import LangGraphAGUIAgent
-from ag_ui_langgraph import add_langgraph_fastapi_endpoint
-from sample_agent.agent import graph
+from copilotkit.integrations.fastapi import add_fastapi_endpoint
+from copilotkit import CopilotKitSDK, LangGraphAgent
+from sample_agent.agent import workflow
+from langgraph.checkpoint.memory import MemorySaver
 
-app = FastAPI()
-add_langgraph_fastapi_endpoint(
-    app=app,
-    agent=LangGraphAGUIAgent(
-        name="sample_agent",
-        description="An example agent to use as a starting point for your own agent.",
-        graph=graph,
-    ),
-    path="/",
-)
+@asynccontextmanager
+async def lifespan(fastapi_app: FastAPI):
+    """Lifespan for the FastAPI app with MemorySaver for thread persistence."""
+    # Use MemorySaver for in-memory checkpointing (can switch to AsyncSqliteSaver for persistence)
+    checkpointer = MemorySaver()
+    graph = workflow.compile(checkpointer=checkpointer)
+
+    # Create SDK with the compiled graph
+    sdk = CopilotKitSDK(
+        agents=[
+            LangGraphAgent(
+                name="sample_agent",
+                description="An example agent to use as a starting point for your own agent.",
+                graph=graph,
+            ),
+        ],
+    )
+
+    # Add the CopilotKit FastAPI endpoint
+    add_fastapi_endpoint(fastapi_app, sdk, "/copilotkit")
+    yield
+
+app = FastAPI(lifespan=lifespan)
+
+@app.get("/health")
+def health():
+    """Health check."""
+    return {"status": "ok"}
 
 def main():
     """Run the uvicorn server."""
@@ -34,3 +52,6 @@ def main():
         port=port,
         reload=True,
     )
+
+if __name__ == "__main__":
+    main()
