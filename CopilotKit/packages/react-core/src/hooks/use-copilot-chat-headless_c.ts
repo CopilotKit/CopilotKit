@@ -161,18 +161,18 @@
 import { useEffect } from "react";
 import { useCopilotContext } from "../context/copilot-context";
 import {
-  useCopilotChat as useCopilotChatInternal,
   defaultSystemMessage,
+  MCPServerConfig,
+  useCopilotChat as useCopilotChatInternal,
   UseCopilotChatOptions as UseCopilotChatOptions_c,
   UseCopilotChatReturn as UseCopilotChatReturn_c,
-  MCPServerConfig,
 } from "./use-copilot-chat_internal";
 
 import {
-  ErrorVisibility,
-  Severity,
   CopilotKitError,
   CopilotKitErrorCode,
+  ErrorVisibility,
+  Severity,
   styledConsole,
 } from "@copilotkit/shared";
 
@@ -250,8 +250,4 @@ function useCopilotChatHeadless_c(options: UseCopilotChatOptions_c = {}): UseCop
 }
 
 export { defaultSystemMessage, useCopilotChatHeadless_c };
-export type { UseCopilotChatOptions_c, UseCopilotChatReturn_c, MCPServerConfig };
-
-const noKeyWarning = () => {
-  styledConsole.logCopilotKitPlatformMessage();
-};
+export type { MCPServerConfig, UseCopilotChatOptions_c, UseCopilotChatReturn_c };

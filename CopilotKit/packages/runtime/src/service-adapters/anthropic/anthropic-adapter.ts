@@ -309,7 +309,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
         let didOutputText = false;
         let currentMessageId = randomId();
         let currentToolCallId = randomId();
-        let filterThinkingTextBuffer = new FilterThinkingTextBuffer();
+        const filterThinkingTextBuffer = new FilterThinkingTextBuffer();
         let hasReceivedContent = false;
 
         try {

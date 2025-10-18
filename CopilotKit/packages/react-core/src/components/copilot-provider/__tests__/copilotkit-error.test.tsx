@@ -64,7 +64,7 @@ describe("CopilotKit onError types", () => {
 
     it("should handle async error handlers", async () => {
       // RED: Will fail - testing async handler support
-      const asyncHandler: CopilotErrorHandler = async (errorEvent: CopilotErrorEvent) => {
+      const asyncHandler: CopilotErrorHandler = async (_errorEvent: CopilotErrorEvent) => {
         await Promise.resolve();
         return;
       };

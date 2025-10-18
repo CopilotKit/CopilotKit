@@ -37,7 +37,6 @@ export const ImageUploadQueue: React.FC<ImageUploadQueueProps> = ({
             overflow: "hidden",
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={`data:${image.contentType};base64,${image.bytes}`}
             alt={`Selected image ${index + 1}`}

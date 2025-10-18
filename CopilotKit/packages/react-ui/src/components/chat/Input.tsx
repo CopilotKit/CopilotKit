@@ -1,17 +1,16 @@
-import React, { useMemo, useRef, useState } from "react";
-import { InputProps } from "./props";
-import { useChatContext } from "./ChatContext";
-import AutoResizingTextarea from "./Textarea";
-import { usePushToTalk } from "../../hooks/use-push-to-talk";
 import { useCopilotContext } from "@copilotkit/react-core";
+import React, { useMemo, useRef, useState } from "react";
+import { usePushToTalk } from "../../hooks/use-push-to-talk";
+import { useChatContext } from "./ChatContext";
 import { PoweredByTag } from "./PoweredByTag";
+import { InputProps } from "./props";
+import AutoResizingTextarea from "./Textarea";
 
 const MAX_NEWLINES = 6;
 
 export const Input = ({
   inProgress,
   onSend,
-  isVisible = false,
   onStop,
   onUpload,
   hideStopButton = false,

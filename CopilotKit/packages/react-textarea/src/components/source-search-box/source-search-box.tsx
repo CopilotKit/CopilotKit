@@ -1,17 +1,13 @@
 import { useState } from "react";
 import {
   Command,
-  CommandDialog,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
   CommandSeparator,
-  CommandShortcut,
 } from "../ui/command";
-
-import { Calculator, Calendar, CreditCard, Settings, Smile, User } from "lucide-react";
 
 import { DocumentPointer } from "@copilotkit/react-core";
 
@@ -31,7 +27,7 @@ export function SourceSearchBox(props: SourceSearchBoxProps) {
       onValueChange={(value) => {
         setSelectedValue(value);
       }}
-      filter={(value, search) => {
+      filter={(value, _search) => {
         // if the search term is empty, show all commands
         if (props.searchTerm === "") return 1;
 
@@ -56,7 +52,7 @@ export function SourceSearchBox(props: SourceSearchBoxProps) {
               <CommandItem
                 key={`word-${filePointer.sourceApplication}.${filePointer.name}`}
                 value={filePointer.name}
-                onSelect={(value) => {
+                onSelect={(_value) => {
                   props.onSelectedFile(filePointer);
                 }}
               >
