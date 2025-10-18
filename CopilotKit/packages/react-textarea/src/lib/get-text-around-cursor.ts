@@ -1,4 +1,4 @@
-import { Editor, Node, Path, Range, Text, Element, BasePoint, BaseRange, Point } from "slate";
+import { BaseRange, Editor, Element, Node, Path, Point, Range, Text } from "slate";
 import { EditorAutocompleteState } from "../types/base/editor-autocomplete-state";
 
 export interface EditorTextState {

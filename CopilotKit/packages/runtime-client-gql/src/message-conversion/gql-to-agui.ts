@@ -21,7 +21,7 @@ export function gqlToAGUI(
   actions?: Record<string, any>,
   coAgentStateRenders?: Record<string, any>,
 ): agui.Message[] {
-  let aguiMessages: agui.Message[] = [];
+  const aguiMessages: agui.Message[] = [];
   messages = Array.isArray(messages) ? messages : [messages];
 
   // Create a map of action execution ID to result for completed actions

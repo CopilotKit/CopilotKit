@@ -1,51 +1,51 @@
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
-import { flushSync } from "react-dom";
 import {
-  FunctionCallHandler,
-  COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
-  CoAgentStateRenderHandler,
-  randomId,
-  parseJson,
-  CopilotKitError,
-  CopilotKitErrorCode,
-} from "@copilotkit/shared";
-import {
-  Message,
-  TextMessage,
-  ResultMessage,
+  ActionExecutionMessage,
+  AgentStateInput,
+  convertGqlOutputToMessages,
   convertMessagesToGqlInput,
+  CopilotKitLangGraphInterruptEvent,
+  CopilotRequestType,
+  CopilotRuntimeClient,
+  ExtensionsInput,
   filterAdjacentAgentStateMessages,
   filterAgentStateMessages,
-  convertGqlOutputToMessages,
-  MessageStatusCode,
-  MessageRole,
-  Role,
-  CopilotRequestType,
   ForwardedParametersInput,
-  loadMessagesFromJsonRepresentation,
-  ExtensionsInput,
-  CopilotRuntimeClient,
   langGraphInterruptEvent,
-  MetaEvent,
-  MetaEventName,
-  ActionExecutionMessage,
-  CopilotKitLangGraphInterruptEvent,
   LangGraphInterruptEvent,
+  loadMessagesFromJsonRepresentation,
+  Message,
+  MessageRole,
+  MessageStatusCode,
+  MetaEvent,
   MetaEventInput,
-  AgentStateInput,
+  MetaEventName,
+  ResultMessage,
+  Role,
+  TextMessage,
 } from "@copilotkit/runtime-client-gql";
+import {
+  CoAgentStateRenderHandler,
+  COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
+  CopilotKitError,
+  CopilotKitErrorCode,
+  FunctionCallHandler,
+  parseJson,
+  randomId,
+} from "@copilotkit/shared";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import { flushSync } from "react-dom";
 
-import { CopilotApiConfig } from "../context";
-import { FrontendAction, processActionsForRuntimeRequest } from "../types/frontend-action";
-import { CoagentState } from "../types/coagent-state";
-import { AgentSession, useCopilotContext } from "../context/copilot-context";
-import { useCopilotRuntimeClient } from "./use-copilot-runtime-client";
 import { useAsyncCallback, useErrorToast } from "../components/error-boundary/error-utils";
 import { useToast } from "../components/toast/toast-provider";
+import { CopilotApiConfig } from "../context";
+import { AgentSession, useCopilotContext } from "../context/copilot-context";
+import { CoagentState } from "../types/coagent-state";
+import { FrontendAction, processActionsForRuntimeRequest } from "../types/frontend-action";
 import {
   LangGraphInterruptAction,
   LangGraphInterruptActionSetter,
 } from "../types/interrupt-action";
+import { useCopilotRuntimeClient } from "./use-copilot-runtime-client";
 
 export type UseChatOptions = {
   /**
@@ -215,7 +215,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     agentSession,
     setAgentSession,
     threadId,
-    setThreadId,
     runId,
     setRunId,
     chatAbortControllerRef,
@@ -437,7 +436,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
       const reader = stream.getReader();
 
-      let executedCoAgentStateRenders: string[] = [];
+      const executedCoAgentStateRenders: string[] = [];
       let followUp: FrontendAction["followUp"] = undefined;
 
       let messages: Message[] = [];
@@ -452,7 +451,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             const readResult = await reader.read();
             done = readResult.done;
             value = readResult.value;
-          } catch (readError) {
+          } catch (_readError) {
             break;
           }
 
@@ -499,7 +498,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               // @ts-expect-error -- same type of messages
               rawMessagesResponse = [...rawMessagesResponse, ...data.messages];
               interruptMessages = convertGqlOutputToMessages(
-                // @ts-ignore
+                // @ts-expect-error
                 filterAdjacentAgentStateMessages(data.messages),
               );
             }
@@ -672,7 +671,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             setMessages([...previousMessages, ...newMessages]);
           }
         }
-        let finalMessages = constructFinalMessages(
+        const finalMessages = constructFinalMessages(
           [...syncedMessages, ...interruptMessages],
           previousMessages,
           newMessages,
@@ -1070,7 +1069,7 @@ async function executeAction({
   isRenderAndWait: boolean;
 }) {
   let result: any;
-  let error: Error | null = null;
+  const error: Error | null = null;
 
   const currentMessagesForHandler = getFinalMessages();
 

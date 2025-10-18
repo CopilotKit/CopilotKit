@@ -1,8 +1,8 @@
-import React, { useCallback } from "react";
 import { GraphQLError } from "@copilotkit/runtime-client-gql";
-import { useToast } from "../toast/toast-provider";
-import { ExclamationMarkIcon } from "../toast/exclamation-mark-icon";
+import { useCallback } from "react";
 import ReactMarkdown from "react-markdown";
+import { ExclamationMarkIcon } from "../toast/exclamation-mark-icon";
+import { useToast } from "../toast/toast-provider";
 
 interface OriginalError {
   message?: string;
@@ -92,7 +92,7 @@ export function useAsyncCallback<T extends (...args: any[]) => Promise<any>>(
       return await callback(...args);
     } catch (error) {
       console.error("Error in async callback:", error);
-      // @ts-ignore
+      // @ts-expect-error
       addErrorToast([error]);
       throw error;
     }

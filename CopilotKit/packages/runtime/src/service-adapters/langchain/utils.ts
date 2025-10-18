@@ -176,7 +176,7 @@ export async function streamLangChainResponse({
   else if (result && "getReader" in result) {
     maybeSendActionExecutionResultIsMessage(eventStream$, actionExecution);
 
-    let reader = result.getReader();
+    const reader = result.getReader();
 
     let mode: "function" | "message" | null = null;
     let currentMessageId: string;
@@ -204,7 +204,7 @@ export async function streamLangChainResponse({
         }
 
         if (isAIMessageChunk(value)) {
-          let chunk = value.tool_call_chunks?.[0];
+          const chunk = value.tool_call_chunks?.[0];
           toolCallArgs = chunk?.args;
           hasToolCall = chunk != undefined;
           if (chunk?.name) toolCallDetails.name = chunk.name;
@@ -221,7 +221,7 @@ export async function streamLangChainResponse({
           toolCallName = toolCallDetails.name;
           toolCallId = toolCallDetails.id;
         } else if (isBaseMessageChunk(value)) {
-          let chunk = value.additional_kwargs?.tool_calls?.[0];
+          const chunk = value.additional_kwargs?.tool_calls?.[0];
           toolCallName = chunk?.function?.name;
           toolCallId = chunk?.id;
           toolCallArgs = chunk?.function?.arguments;

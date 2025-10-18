@@ -96,7 +96,7 @@ export class RemoteLangGraphEventSource {
             acc.isToolCallStart = toolCallChunks.some((chunk: any) => chunk.name && chunk.id);
             acc.isMessageStart = prevMessageId !== acc.lastMessageId && !acc.isToolCallStart;
 
-            let previousRoundHadToolCall = acc.isToolCall;
+            const previousRoundHadToolCall = acc.isToolCall;
             acc.isToolCall = toolCallCheck;
             // Previous "acc.isToolCall" was set but now it won't pass the check, it means the tool call just ended.
             if (previousRoundHadToolCall && !toolCallCheck) {
@@ -315,7 +315,7 @@ export class RemoteLangGraphEventSource {
         }
 
         // Determine a more helpful error message based on context
-        let helpfulMessage = generateHelpfulErrorMessage(error, "LangGraph agent connection");
+        const helpfulMessage = generateHelpfulErrorMessage(error, "LangGraph agent connection");
 
         // For all other errors, preserve the raw error information in a structured format
         throw new CopilotKitLowLevelError({

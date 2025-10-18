@@ -125,7 +125,7 @@ export class CopilotResolver {
 
   @Query(() => AgentsResponse)
   async availableAgents(@Ctx() ctx: GraphQLContext) {
-    let logger = ctx.logger.child({ component: "CopilotResolver.availableAgents" });
+    const logger = ctx.logger.child({ component: "CopilotResolver.availableAgents" });
 
     logger.debug("Processing");
     const agentsWithEndpoints = await ctx._copilotkit.runtime.discoverAgentsFromEndpoints(ctx);

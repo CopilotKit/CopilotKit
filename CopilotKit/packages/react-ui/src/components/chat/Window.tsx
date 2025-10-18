@@ -132,7 +132,7 @@ export const Window = ({
 };
 
 const preventScroll = (event: TouchEvent): void => {
-  let targetElement = event.target as Element;
+  const targetElement = event.target as Element;
 
   // Function to check if the target has the parent with a given class
   const hasParentWithClass = (element: Element, className: string): boolean => {

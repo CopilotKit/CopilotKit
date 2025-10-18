@@ -39,13 +39,13 @@ export type JSONSchema =
 
 export function actionParametersToJsonSchema(actionParameters: Parameter[]): JSONSchema {
   // Create the parameters object based on the argumentAnnotations
-  let parameters: { [key: string]: any } = {};
-  for (let parameter of actionParameters || []) {
+  const parameters: { [key: string]: any } = {};
+  for (const parameter of actionParameters || []) {
     parameters[parameter.name] = convertAttribute(parameter);
   }
 
-  let requiredParameterNames: string[] = [];
-  for (let arg of actionParameters || []) {
+  const requiredParameterNames: string[] = [];
+  for (const arg of actionParameters || []) {
     if (arg.required !== false) {
       requiredParameterNames.push(arg.name);
     }
@@ -232,20 +232,20 @@ export function convertJsonSchemaToZodSchema(jsonSchema: any, required: boolean)
         jsonSchema.required ? jsonSchema.required.includes(key) : false,
       );
     }
-    let schema = z.object(spec).describe(jsonSchema.description);
+    const schema = z.object(spec).describe(jsonSchema.description);
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "string") {
-    let schema = z.string().describe(jsonSchema.description);
+    const schema = z.string().describe(jsonSchema.description);
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "number") {
-    let schema = z.number().describe(jsonSchema.description);
+    const schema = z.number().describe(jsonSchema.description);
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "boolean") {
-    let schema = z.boolean().describe(jsonSchema.description);
+    const schema = z.boolean().describe(jsonSchema.description);
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "array") {
-    let itemSchema = convertJsonSchemaToZodSchema(jsonSchema.items, true);
-    let schema = z.array(itemSchema).describe(jsonSchema.description);
+    const itemSchema = convertJsonSchemaToZodSchema(jsonSchema.items, true);
+    const schema = z.array(itemSchema).describe(jsonSchema.description);
     return required ? schema : schema.optional();
   }
   throw new Error("Invalid JSON schema");

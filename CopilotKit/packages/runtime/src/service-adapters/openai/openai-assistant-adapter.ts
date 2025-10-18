@@ -154,7 +154,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
     messages: Message[],
     eventSource: RuntimeEventSource,
   ) {
-    let run = await this.openai.beta.threads.runs.retrieve(threadId, runId);
+    const run = await this.openai.beta.threads.runs.retrieve(threadId, runId);
 
     if (!run.required_action) {
       throw new Error("No tool outputs required");
@@ -229,7 +229,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
       ...(this.fileSearchEnabled ? [{ type: "file_search" } as AssistantTool] : []),
     ];
 
-    let stream = this.openai.beta.threads.runs.stream(threadId, {
+    const stream = this.openai.beta.threads.runs.stream(threadId, {
       assistant_id: this.assistantId,
       instructions,
       tools: tools,
@@ -313,7 +313,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
 
 function getRunIdFromStream(stream: AssistantStream): Promise<string> {
   return new Promise<string>((resolve, reject) => {
-    let runIdGetter = (event: AssistantStreamEvent) => {
+    const runIdGetter = (event: AssistantStreamEvent) => {
       if (event.event === "thread.run.created") {
         const runId = event.data.id;
         stream.off("event", runIdGetter);

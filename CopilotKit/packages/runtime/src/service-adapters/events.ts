@@ -519,7 +519,7 @@ async function executeAction(
 
 function convertStreamingErrorToStructured(error: any): CopilotKitError {
   // Determine a more helpful error message based on context
-  let helpfulMessage = generateHelpfulErrorMessage(error, "event streaming connection");
+  const helpfulMessage = generateHelpfulErrorMessage(error, "event streaming connection");
 
   // For network-related errors, use CopilotKitLowLevelError to preserve the original error
   if (

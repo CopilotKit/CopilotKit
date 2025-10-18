@@ -21,19 +21,6 @@ export interface UseTreeReturn {
   getAllElements: () => Tree;
 }
 
-const findNode = (nodes: Tree, id: TreeNodeId): TreeNode | undefined => {
-  for (const node of nodes) {
-    if (node.id === id) {
-      return node;
-    }
-    const result = findNode(node.children, id);
-    if (result) {
-      return result;
-    }
-  }
-  return undefined;
-};
-
 const removeNode = (nodes: Tree, id: TreeNodeId): Tree => {
   return nodes.reduce((result: Tree, node) => {
     if (node.id !== id) {
@@ -197,7 +184,7 @@ export default useTree;
 function setsHaveIntersection<T>(setA: Set<T>, setB: Set<T>): boolean {
   const [smallerSet, largerSet] = setA.size <= setB.size ? [setA, setB] : [setB, setA];
 
-  for (let item of smallerSet) {
+  for (const item of smallerSet) {
     if (largerSet.has(item)) {
       return true;
     }

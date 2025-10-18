@@ -1,22 +1,22 @@
-import { useRef, useEffect, useCallback, useState, useMemo } from "react";
-import { AgentSession, useCopilotContext, CopilotContextParams } from "../context/copilot-context";
-import { useCopilotMessagesContext, CopilotMessagesContextParams } from "../context";
-import { SystemMessageFunction } from "../types";
-import { useChat, AppendMessageOptions } from "./use-chat";
-import { defaultCopilotContextCategories } from "../components";
 import { CoAgentStateRenderHandlerArguments } from "@copilotkit/shared";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { defaultCopilotContextCategories } from "../components";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
-import { reloadSuggestions as generateSuggestions } from "../utils";
+import { CopilotMessagesContextParams, useCopilotMessagesContext } from "../context";
+import { AgentSession, CopilotContextParams, useCopilotContext } from "../context/copilot-context";
+import { SystemMessageFunction } from "../types";
 import type { SuggestionItem } from "../utils";
+import { reloadSuggestions as generateSuggestions } from "../utils";
+import { AppendMessageOptions, useChat } from "./use-chat";
 
-import { Message } from "@copilotkit/shared";
 import {
-  Role as gqlRole,
-  TextMessage,
   aguiToGQL,
-  gqlToAGUI,
   Message as DeprecatedGqlMessage,
+  Role as gqlRole,
+  gqlToAGUI,
+  TextMessage,
 } from "@copilotkit/runtime-client-gql";
+import { Message } from "@copilotkit/shared";
 import { useLangGraphInterruptRender } from "./use-langgraph-interrupt-render";
 
 export interface UseCopilotChatOptions {
@@ -298,9 +298,6 @@ export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotC
           setSuggestions,
           suggestionsAbortControllerRef,
         );
-      } catch (error) {
-        // Re-throw to allow caller to handle the error
-        throw error;
       } finally {
         isLoadingSuggestionsRef.current = false;
         globalSuggestionPromise = null;

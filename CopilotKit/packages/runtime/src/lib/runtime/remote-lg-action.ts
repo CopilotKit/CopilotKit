@@ -248,7 +248,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   );
 
   if (lgInterruptMetaEvent?.response) {
-    let response = lgInterruptMetaEvent.response;
+    const response = lgInterruptMetaEvent.response;
     payload.command = { resume: parseJson(response, response) };
   }
 
@@ -257,7 +257,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     await client.threads.updateState(threadId, { values: state, asNode: nodeName });
   }
 
-  let streamInfo: {
+  const streamInfo: {
     provider?: string;
     langGraphHost?: string;
     langGraphVersion?: string;
@@ -365,7 +365,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     telemetry.capture("oss.runtime.agent_execution_stream_started", {
       hashedLgcKey: streamInfo.hashedLgcKey,
     });
-    for await (let streamResponseChunk of streamResponse) {
+    for await (const streamResponseChunk of streamResponse) {
       if (!["events", "values", "error", "updates"].includes(streamResponseChunk.event)) continue;
 
       if (streamResponseChunk.event === "error") {

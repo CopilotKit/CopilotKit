@@ -339,7 +339,7 @@ export class CopilotKitAgentDiscoveryError extends CopilotKitError {
  */
 export class CopilotKitLowLevelError extends CopilotKitError {
   constructor({ error, url, message }: { error: Error; url: string; message?: string }) {
-    let code = CopilotKitErrorCode.NETWORK_ERROR;
+    const code = CopilotKitErrorCode.NETWORK_ERROR;
 
     // @ts-expect-error -- code may exist
     const errorCode = error.code as string;

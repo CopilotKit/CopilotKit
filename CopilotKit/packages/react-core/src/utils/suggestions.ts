@@ -5,11 +5,11 @@
  * and streaming validation to prevent infinite retry loops and console spam.
  */
 
-import { extract } from "./extract";
-import { actionParametersToJsonSchema } from "@copilotkit/shared";
 import { CopilotRequestType } from "@copilotkit/runtime-client-gql";
+import { actionParametersToJsonSchema } from "@copilotkit/shared";
 import { CopilotContextParams, CopilotMessagesContextParams } from "../context";
 import { CopilotChatSuggestionConfiguration } from "../types";
+import { extract } from "./extract";
 
 export interface SuggestionItem {
   title: string;

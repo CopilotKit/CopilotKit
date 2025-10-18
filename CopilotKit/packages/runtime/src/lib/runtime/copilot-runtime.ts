@@ -1535,7 +1535,7 @@ please use an LLM adapter instead.`,
 
   private convertStreamingErrorToStructured(error: any): CopilotKitError {
     // Determine a more helpful error message based on context
-    let helpfulMessage = generateHelpfulErrorMessage(error, "agent streaming connection");
+    const helpfulMessage = generateHelpfulErrorMessage(error, "agent streaming connection");
 
     // For network-related errors, use CopilotKitLowLevelError to preserve the original error
     if (
@@ -1639,7 +1639,7 @@ please use an LLM adapter instead.`,
 }
 
 export function flattenToolCallsNoDuplicates(toolsByPriority: ActionInput[]): ActionInput[] {
-  let allTools: ActionInput[] = [];
+  const allTools: ActionInput[] = [];
   const allToolNames: string[] = [];
   for (const tool of toolsByPriority) {
     if (!allToolNames.includes(tool.name)) {

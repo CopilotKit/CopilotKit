@@ -14,46 +14,46 @@
  * ```
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, SetStateAction } from "react";
+import { Agent, ExtensionsInput } from "@copilotkit/runtime-client-gql";
 import {
-  CopilotContext,
-  CopilotApiConfig,
-  ChatComponentsCache,
-  AgentSession,
-  AuthState,
-} from "../../context/copilot-context";
-import useTree from "../../hooks/use-tree";
-import { CopilotChatSuggestionConfiguration, DocumentPointer } from "../../types";
-import { flushSync } from "react-dom";
-import {
-  COPILOT_CLOUD_CHAT_URL,
-  CopilotCloudConfig,
-  FunctionCallHandler,
-  COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
-  randomUUID,
   ConfigurationError,
-  MissingPublicApiKeyError,
-  CopilotKitError,
+  COPILOT_CLOUD_CHAT_URL,
+  COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
+  CopilotCloudConfig,
   CopilotErrorEvent,
   CopilotErrorHandler,
+  CopilotKitError,
+  FunctionCallHandler,
+  MissingPublicApiKeyError,
+  randomUUID,
 } from "@copilotkit/shared";
-import { FrontendAction } from "../../types/frontend-action";
+import { SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
+import {
+  AgentSession,
+  AuthState,
+  ChatComponentsCache,
+  CopilotApiConfig,
+  CopilotContext,
+} from "../../context/copilot-context";
+import { useCopilotRuntimeClient } from "../../hooks/use-copilot-runtime-client";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
-import { CopilotKitProps } from "./copilotkit-props";
+import useTree from "../../hooks/use-tree";
+import { CopilotChatSuggestionConfiguration, DocumentPointer } from "../../types";
 import { CoAgentStateRender } from "../../types/coagent-action";
 import { CoagentState } from "../../types/coagent-state";
-import { CopilotMessages, MessagesTapProvider } from "./copilot-messages";
-import { ToastProvider } from "../toast/toast-provider";
-import { getErrorActions, UsageBanner } from "../usage-banner";
-import { useCopilotRuntimeClient } from "../../hooks/use-copilot-runtime-client";
-import { shouldShowDevConsole } from "../../utils";
-import { CopilotErrorBoundary } from "../error-boundary/error-boundary";
-import { Agent, ExtensionsInput } from "@copilotkit/runtime-client-gql";
+import { FrontendAction } from "../../types/frontend-action";
 import {
   LangGraphInterruptAction,
   LangGraphInterruptActionSetterArgs,
 } from "../../types/interrupt-action";
+import { shouldShowDevConsole } from "../../utils";
 import { ConsoleTrigger } from "../dev-console/console-trigger";
+import { CopilotErrorBoundary } from "../error-boundary/error-boundary";
+import { ToastProvider } from "../toast/toast-provider";
+import { getErrorActions, UsageBanner } from "../usage-banner";
+import { CopilotMessages, MessagesTapProvider } from "./copilot-messages";
+import { CopilotKitProps } from "./copilotkit-props";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const enabled = shouldShowDevConsole(props.showDevConsole);
@@ -576,8 +576,8 @@ export const defaultCopilotContextCategories = ["global"];
 
 function entryPointsToFunctionCallHandler(actions: FrontendAction<any>[]): FunctionCallHandler {
   return async ({ name, args }: { name: string; args: Record<string, any> }) => {
-    let actionsByFunctionName: Record<string, FrontendAction<any>> = {};
-    for (let action of actions) {
+    const actionsByFunctionName: Record<string, FrontendAction<any>> = {};
+    for (const action of actions) {
       actionsByFunctionName[action.name] = action;
     }
 
