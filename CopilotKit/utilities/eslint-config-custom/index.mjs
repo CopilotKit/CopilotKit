@@ -49,7 +49,15 @@ export default [
     },
     rules: {
       "@next/next/no-html-link-for-pages": "off",
-      "no-unused-vars": "warn",
+      "no-unused-vars": "off", // Disable basic rule, use TypeScript rule instead
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
       "no-console": "warn",
       "prefer-const": "error",
       "no-var": "error",
