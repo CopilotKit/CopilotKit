@@ -8,6 +8,7 @@ export const PROJECT_NAMES = {
   COAGENTS_QA_TEXT: "coagents-qa-text",
   COAGENTS_ROUTING: "coagents-routing",
   COPILOTKIT_NEXT_OPENAI: "next-openai",
+  LLM_ADAPTERS: "llm-adapters",
 } as const;
 
 export type ProjectName = (typeof PROJECT_NAMES)[keyof typeof PROJECT_NAMES];
