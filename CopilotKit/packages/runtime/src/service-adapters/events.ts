@@ -353,7 +353,8 @@ export class RuntimeEventSource {
             threadId,
           ).catch((error) => {});
 
-          telemetry.capture("oss.runtime.server_action_executed", {});
+          // TODO: fix telemetry capture
+          // telemetry.capture("oss.runtime.server_action_executed", {});
           return concat(of(eventWithState.event!), toolCallEventStream$).pipe(
             catchError((error) => {
               // Convert streaming errors to structured errors and send as action result, but preserve already structured ones

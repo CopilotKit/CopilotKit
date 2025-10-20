@@ -59,6 +59,7 @@ import {
   CopilotKitLowLevelError,
   isStructuredCopilotKitError,
 } from "@copilotkit/shared";
+import { CopilotRuntime } from "../../lib";
 
 const invokeGuardrails = async ({
   baseUrl,
@@ -128,7 +129,9 @@ export class CopilotResolver {
     let logger = ctx.logger.child({ component: "CopilotResolver.availableAgents" });
 
     logger.debug("Processing");
-    const agentsWithEndpoints = await ctx._copilotkit.runtime.discoverAgentsFromEndpoints(ctx);
+    const agentsWithEndpoints = await(
+      ctx._copilotkit.runtime as unknown as CopilotRuntime
+    ).discoverAgentsFromEndpoints(ctx);
 
     logger.debug("Event source created, creating response");
 
@@ -172,7 +175,7 @@ export class CopilotResolver {
       ctx.properties = { ...ctx.properties, ...properties };
     }
 
-    const copilotRuntime = ctx._copilotkit.runtime;
+    const copilotRuntime = ctx._copilotkit.runtime as unknown as CopilotRuntime;
     const serviceAdapter = ctx._copilotkit.serviceAdapter;
 
     let copilotCloudPublicApiKey: string | null = null;

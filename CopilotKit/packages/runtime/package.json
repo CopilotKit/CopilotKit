@@ -19,8 +19,8 @@
   "types": "./dist/index.d.ts",
   "license": "MIT",
   "scripts": {
-    "build": "tsup --onSuccess \"pnpm run generate-graphql-schema\"",
-    "dev": "tsup --watch --onSuccess \"pnpm run generate-graphql-schema\"",
+    "build": "tsup",
+    "dev": "tsup --watch",
     "test": "jest --passWithNoTests",
     "check-types": "tsc --noEmit",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next && rm -rf __snapshots__",

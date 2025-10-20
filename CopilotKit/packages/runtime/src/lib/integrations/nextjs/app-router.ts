@@ -18,8 +18,8 @@ export function copilotRuntimeNextJSAppRouterEndpoint(
       _copilotkit: options.properties._copilotkit,
     });
   }
-
-  telemetry.capture("oss.runtime.instance_created", getRuntimeInstanceTelemetryInfo(options));
+  // TODO: fix telemetry capture
+  // telemetry.capture("oss.runtime.instance_created", getRuntimeInstanceTelemetryInfo(options));
 
   const logger = commonConfig.logging;
   logger.debug("Creating NextJS App Router endpoint");
@@ -28,7 +28,7 @@ export function copilotRuntimeNextJSAppRouterEndpoint(
   options.runtime.handleServiceAdapter(serviceAdapter);
 
   return createCopilotEndpoint({
-    runtime: options.runtime,
-    basePath: options.baseUrl,
+    runtime: options.runtime.runtime,
+    basePath: options.endpoint,
   });
 }

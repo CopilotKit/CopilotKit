@@ -14,7 +14,7 @@ const telemetryClient = new TelemetryClient({
 export function getRuntimeInstanceTelemetryInfo(
   options: CreateCopilotRuntimeServerOptions,
 ): RuntimeInstanceCreatedInfo {
-  const runtime = options.runtime;
+  const runtime = options.runtime as unknown as CopilotRuntime;
   const endpointsInfo = runtime.remoteEndpointDefinitions.reduce(
     (acc, endpoint) => {
       let info = { ...acc };

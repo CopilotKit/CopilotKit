@@ -5,12 +5,13 @@ import { LoadAgentStateResponse } from "../types/load-agent-state-response.type"
 import type { GraphQLContext } from "../../lib/integrations";
 import { LoadAgentStateInput } from "../inputs/load-agent-state.input";
 import { CopilotKitAgentDiscoveryError } from "@copilotkit/shared";
+import { CopilotRuntime } from "../../lib";
 
 @Resolver(() => LoadAgentStateResponse)
 export class StateResolver {
   @Query(() => LoadAgentStateResponse)
   async loadAgentState(@Ctx() ctx: GraphQLContext, @Arg("data") data: LoadAgentStateInput) {
-    const agents = await ctx._copilotkit.runtime.getAllAgents(ctx);
+    const agents = await(ctx._copilotkit.runtime as unknown as CopilotRuntime).getAllAgents(ctx);
     const hasAgent = agents.some((agent) => agent.name === data.agentName);
     if (!hasAgent) {
       throw new CopilotKitAgentDiscoveryError({
@@ -19,7 +20,7 @@ export class StateResolver {
       });
     }
 
-    const state = await ctx._copilotkit.runtime.loadAgentState(ctx, data.threadId, data.agentName);
+    const state = await (ctx._copilotkit.runtime as unknown as CopilotRuntime).loadAgentState(ctx, data.threadId, data.agentName);
 
     return state;
   }
