@@ -14,8 +14,9 @@ const telemetryClient = new TelemetryClient({
 export function getRuntimeInstanceTelemetryInfo(
   options: CreateCopilotRuntimeServerOptions,
 ): RuntimeInstanceCreatedInfo {
-  const runtime = options.runtime as unknown as CopilotRuntime;
-  const endpointsInfo = runtime.params.remoteEndpoints.reduce(
+  const runtime = options.runtime;
+  const remoteEndpoints = runtime.params?.remoteEndpoints ?? [];
+  const endpointsInfo = remoteEndpoints.reduce(
     (acc, endpoint) => {
       let info = { ...acc };
 
@@ -49,8 +50,8 @@ export function getRuntimeInstanceTelemetryInfo(
   const apiKeyProvided = !!publicApiKey && publicApiKey.trim().length > 0;
 
   return {
-    actionsAmount: runtime.params.actions?.length ?? 0,
-    endpointsAmount: runtime.params.remoteEndpoints.length,
+    actionsAmount: runtime.params?.actions?.length ?? 0,
+    endpointsAmount: remoteEndpoints.length,
     endpointTypes: endpointsInfo.endpointTypes,
     agentsAmount: Object.keys(runtime.instance.agents).length,
     hashedLgcKey: endpointsInfo.hashedKey,

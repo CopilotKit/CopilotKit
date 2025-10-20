@@ -377,8 +377,6 @@ export class CopilotRuntime {
     this.params = params;
     this.observability = params?.observability_c;
 
-    console.log(this.runtimeArgs);
-
     this.instance = new CopilotRuntimeVNext(this.runtimeArgs);
   }
 
