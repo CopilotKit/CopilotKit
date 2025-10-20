@@ -207,7 +207,6 @@ export interface UseCopilotChatReturn {
 let globalSuggestionPromise: Promise<void> | null = null;
 
 export function useCopilotChatInternal(options: UseCopilotChatOptions = {}): UseCopilotChatReturn {
-  // New - Return value
   const { copilotkit } = useCopilotKit();
   const { threadId, agentSession } = useCopilotContext();
   const existingConfig = useCopilotChatConfiguration();

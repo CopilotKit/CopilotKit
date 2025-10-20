@@ -1,8 +1,10 @@
-import { createYoga } from "graphql-yoga";
+import { createCopilotEndpoint } from "@copilotkitnext/runtime";
 import { CreateCopilotRuntimeServerOptions, getCommonConfig } from "../shared";
 import telemetry, { getRuntimeInstanceTelemetryInfo } from "../../telemetry-client";
 
-export function copilotRuntimeNodeHttpEndpoint(options: CreateCopilotRuntimeServerOptions) {
+export function copilotRuntimeNodeHttpEndpoint(
+  options: CreateCopilotRuntimeServerOptions,
+): ReturnType<typeof createCopilotEndpoint> {
   const commonConfig = getCommonConfig(options);
 
   telemetry.setGlobalProperties({
@@ -22,10 +24,11 @@ export function copilotRuntimeNodeHttpEndpoint(options: CreateCopilotRuntimeServ
   const logger = commonConfig.logging;
   logger.debug("Creating Node HTTP endpoint");
 
-  const yoga = createYoga({
-    ...commonConfig,
-    graphqlEndpoint: options.endpoint,
-  });
+  const serviceAdapter = options.serviceAdapter;
+  options.runtime.handleServiceAdapter(serviceAdapter);
 
-  return yoga;
+  return createCopilotEndpoint({
+    runtime: options.runtime.instance,
+    basePath: options.baseUrl,
+  });
 }
