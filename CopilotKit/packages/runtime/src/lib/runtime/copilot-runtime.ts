@@ -14,34 +14,18 @@
 
 import {
   Action,
-  actionParametersToJsonSchema,
-  CopilotErrorEvent,
   CopilotErrorHandler,
-  CopilotKitAgentDiscoveryError,
-  CopilotKitApiDiscoveryError,
-  CopilotKitError,
-  CopilotKitErrorCode,
-  CopilotKitLowLevelError,
   CopilotKitMisuseError,
-  CopilotRequestContext,
-  ensureStructuredError,
   MaybePromise,
   NonEmptyRecord,
   Parameter,
-  randomId,
   readBody,
-  ResolvedCopilotKitError,
   getZodParameters,
   PartialBy,
 } from "@copilotkit/shared";
 import { type RunAgentInput } from "@ag-ui/core";
 import { aguiToGQL } from "../../graphql/message-conversion/agui-to-gql";
-import {
-  CopilotServiceAdapter,
-  EmptyAdapter,
-  RemoteChain,
-  RemoteChainParameters,
-} from "../../service-adapters";
+import { CopilotServiceAdapter, RemoteChainParameters } from "../../service-adapters";
 import {
   CopilotRuntime as CopilotRuntimeVNext,
   CopilotRuntimeOptions,
@@ -56,27 +40,18 @@ import { Message } from "../../graphql/types/converted";
 import { ForwardedParametersInput } from "../../graphql/inputs/forwarded-parameters.input";
 
 import {
-  isRemoteAgentAction,
   EndpointType,
-  setupRemoteActions,
   EndpointDefinition,
   CopilotKitEndpoint,
   LangGraphPlatformEndpoint,
-} from "./remote-actions";
+} from "./types";
 
 import { GraphQLContext } from "../integrations/shared";
 import { AgentSessionInput } from "../../graphql/inputs/agent-session.input";
-import { from } from "rxjs";
 import { AgentStateInput } from "../../graphql/inputs/agent-state.input";
-import { ActionInputAvailability } from "../../graphql/types/enums";
-import { createHeaders } from "./remote-action-constructors";
-import { fetchWithRetry } from "./retry-utils";
 import { Agent } from "../../graphql/types/agents-response.type";
 import { ExtensionsInput } from "../../graphql/inputs/extensions.input";
 import { ExtensionsResponse } from "../../graphql/types/extensions-response.type";
-import { LoadAgentStateResponse } from "../../graphql/types/load-agent-state-response.type";
-import { Client as LangGraphClient } from "@langchain/langgraph-sdk";
-import { langchainMessagesToCopilotKit } from "./remote-lg-action";
 import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 import {
   CopilotObservabilityConfig,
@@ -85,7 +60,6 @@ import {
   LLMErrorData,
 } from "../observability";
 import { AbstractAgent } from "@ag-ui/client";
-import { MessageRole } from "../../graphql/types/enums";
 
 // +++ MCP Imports +++
 import {
@@ -96,14 +70,12 @@ import {
   convertMCPToolsToActions,
   generateMcpToolInstructions,
 } from "./mcp-tools-utils";
-import { LangGraphAgent } from "./langgraph/langgraph-agent";
+import { LangGraphAgent } from "./agent-integrations/langgraph.agent";
 // Define the function type alias here or import if defined elsewhere
 type CreateMCPClientFunction = (config: MCPEndpointConfig) => Promise<MCPClient>;
 // --- MCP Imports ---
 
-import { generateHelpfulErrorMessage } from "../streaming";
 import { CopilotContextInput } from "../../graphql/inputs/copilot-context.input";
-import { RemoteAgentAction } from "./agui-action";
 import { BasicAgent, BasicAgentConfiguration } from "@copilotkitnext/agent";
 
 function isPromiseLike<T>(value: unknown): value is PromiseLike<T> {
@@ -389,7 +361,9 @@ export class CopilotRuntime {
   private runtimeArgs: CopilotRuntimeOptions;
   instance: CopilotRuntimeVNext;
 
-  constructor(params?: CopilotRuntimeConstructorParams & PartialBy<CopilotRuntimeOptions, 'agents'>) {
+  constructor(
+    params?: CopilotRuntimeConstructorParams & PartialBy<CopilotRuntimeOptions, "agents">,
+  ) {
     const agents = params?.agents ?? {};
     this.runtimeArgs = {
       agents: { ...this.assignEndpointsToAgents(params?.remoteEndpoints ?? []), ...agents },
@@ -397,66 +371,8 @@ export class CopilotRuntime {
       // TODO: add support for transcriptionService from CopilotRuntimeOptionsVNext once it is ready
       // transcriptionService: params?.transcriptionService,
 
-      beforeRequestMiddleware:
-        params.beforeRequestMiddleware ??
-        (params?.middleware?.onBeforeRequest == null
-          ? undefined
-          : async (...mwParams: BeforeRequestMiddlewareFnParameters) => {
-              const { request, runtime, path } = mwParams[0];
-              const body = (await readBody(request)) as RunAgentInput;
-              const gqlMessages = (aguiToGQL(body.messages) as Message[]).reduce(
-                (acc, msg) => {
-                  if ("role" in msg && msg.role === "user") {
-                    acc.inputMessages.push(msg);
-                  } else {
-                    acc.outputMessages.push(msg);
-                  }
-                  return acc;
-                },
-                { inputMessages: [] as Message[], outputMessages: [] as Message[] },
-              );
-              const { inputMessages, outputMessages } = gqlMessages;
-              params?.middleware?.onBeforeRequest({
-                threadId: body.threadId,
-                runId: body.runId,
-                inputMessages,
-                properties: body.forwardedProps,
-                url: request.url,
-              } satisfies OnBeforeRequestOptions);
-              return request;
-            }),
-      afterRequestMiddleware:
-        params.afterRequestMiddleware ??
-        (params?.middleware?.onAfterRequest == null
-          ? undefined
-          : async (...mwParams: AfterRequestMiddlewareFnParameters) => {
-              // TODO: implement `onAfterRequest`, pending v2 middleware updates
-              // const { response, runtime, path } = mwParams[0];
-              // const body = await readBody(response) as RunAgentInput;
-              // const gqlMessages = (aguiToGQL(body.messages) as Message[]).reduce(
-              //   (acc, msg) => {
-              //     if ("role" in msg && msg.role === "user") {
-              //       acc.inputMessages.push(msg);
-              //     } else {
-              //       acc.outputMessages.push(msg);
-              //     }
-              //     return acc;
-              //   },
-              //   { inputMessages: [] as Message[], outputMessages: [] as Message[] }
-              // );
-              // const { inputMessages, outputMessages } = gqlMessages;
-              // params?.middleware?.onAfterRequest({
-              //   threadId: body.threadId,
-              //   runId: body.runId,
-              //   inputMessages,
-              //   outputMessages,
-              //   properties: body.forwardedProps,
-              //   url: response.url,
-              // } satisfies OnAfterRequestOptions);
-
-              // @ts-expect-error - running `onAfterRequest` with no args, is pending v2 middleware updates
-              params?.middleware?.onAfterRequest();
-            }),
+      beforeRequestMiddleware: this.handleOnBeforeRequest,
+      afterRequestMiddleware: this.handleOnAfterRequest,
     };
     this.params = params;
     this.observability = params?.observability_c;
@@ -464,28 +380,28 @@ export class CopilotRuntime {
     this.instance = new CopilotRuntimeVNext(this.runtimeArgs);
   }
 
-  private assignEndpointsToAgents(endpoints: CopilotRuntimeConstructorParams['remoteEndpoints']) {
+  private assignEndpointsToAgents(endpoints: CopilotRuntimeConstructorParams["remoteEndpoints"]) {
     return endpoints.reduce((acc, endpoint) => {
       if (resolveEndpointType(endpoint) == EndpointType.LangGraphPlatform) {
         let lgAgents = {};
-        const lgEndpoint = endpoint as LangGraphPlatformEndpoint
-        lgEndpoint.agents.forEach(agent => {
-          const graphId = agent.assistantId ?? agent.name
+        const lgEndpoint = endpoint as LangGraphPlatformEndpoint;
+        lgEndpoint.agents.forEach((agent) => {
+          const graphId = agent.assistantId ?? agent.name;
           lgAgents[graphId] = new LangGraphAgent({
             deploymentUrl: lgEndpoint.deploymentUrl,
             langsmithApiKey: lgEndpoint.langsmithApiKey,
-            graphId
-          })
-        })
+            graphId,
+          });
+        });
 
         return {
           ...acc,
-          ...lgAgents
-        }
+          ...lgAgents,
+        };
       }
 
       return acc;
-    }, {})
+    }, {});
   }
 
   async handleServiceAdapter(serviceAdapter: CopilotServiceAdapter) {
@@ -498,7 +414,10 @@ export class CopilotRuntime {
 
     if (this.params.actions?.length) {
       const mcpTools = await this.getToolsFromMCP();
-      agents = this.assignToolsToAgents(agents, [...this.getToolsFromActions(this.params.actions), ...mcpTools]);
+      agents = this.assignToolsToAgents(agents, [
+        ...this.getToolsFromActions(this.params.actions),
+        ...mcpTools,
+      ]);
     }
 
     this.instance.agents = agents;
@@ -525,8 +444,11 @@ export class CopilotRuntime {
     });
   }
 
-  private assignToolsToAgents(agents: MaybePromise<Record<string, AbstractAgent>>, tools: BasicAgentConfiguration["tools"]): MaybePromise<Record<string, AbstractAgent>> {
-    const enrichedAgents = { ...agents }
+  private assignToolsToAgents(
+    agents: MaybePromise<Record<string, AbstractAgent>>,
+    tools: BasicAgentConfiguration["tools"],
+  ): MaybePromise<Record<string, AbstractAgent>> {
+    const enrichedAgents = { ...agents };
     // Add tools to all existing BasicAgents by mutating their internal config
     for (const existingAgent of Object.values(enrichedAgents)) {
       const config = existingAgent.config ?? {};
@@ -537,28 +459,73 @@ export class CopilotRuntime {
     return enrichedAgents;
   }
 
+  private async handleOnBeforeRequest(hookParams: BeforeRequestMiddlewareFnParameters[0]) {
+    // TODO: get public api key and run with expected data
+    // if (this.observability?.enabled && this.params.publicApiKey) {
+    //   this.logObservabilityBeforeRequest()
+    // }
+
+    // TODO: replace hooksParams top argument type with BeforeRequestMiddlewareParameters when exported
+    this.params.beforeRequestMiddleware?.(hookParams);
+
+    if (this.params.middleware?.onBeforeRequest) {
+      const { request, runtime, path } = hookParams;
+      const body = (await readBody(request)) as RunAgentInput;
+      const gqlMessages = (aguiToGQL(body.messages) as Message[]).reduce(
+        (acc, msg) => {
+          if ("role" in msg && msg.role === "user") {
+            acc.inputMessages.push(msg);
+          } else {
+            acc.outputMessages.push(msg);
+          }
+          return acc;
+        },
+        { inputMessages: [] as Message[], outputMessages: [] as Message[] },
+      );
+      const { inputMessages, outputMessages } = gqlMessages;
+      this.params.middleware.onBeforeRequest({
+        threadId: body.threadId,
+        runId: body.runId,
+        inputMessages,
+        properties: body.forwardedProps,
+        url: request.url,
+      } satisfies OnBeforeRequestOptions);
+    }
+  }
+
+  private async handleOnAfterRequest(hookParams: AfterRequestMiddlewareFnParameters[0]) {
+    // TODO: get public api key and run with expected data
+    // if (this.observability?.enabled && publicApiKey) {
+    //   this.logObservabilityAfterRequest()
+    // }
+
+    // TODO: replace hooksParams top argument type with AfterRequestMiddlewareParameters when exported
+    this.params.afterRequestMiddleware?.(hookParams);
+
+    if (this.params.middleware?.onAfterRequest) {
+      // TODO: provide old expected params here when available
+      // @ts-expect-error -- missing arguments.
+      this.params.middleware?.onAfterRequest({});
+    }
+  }
+
   // Observability Methods
 
   /**
    * Log LLM request if observability is enabled
    */
-  private async logObservabilityRequest(
-    requestData: LLMRequestData,
-    publicApiKey?: string,
-  ): Promise<void> {
-    if (this.observability?.enabled && publicApiKey) {
-      try {
-        await this.observability.hooks.handleRequest(requestData);
-      } catch (error) {
-        console.error("Error logging LLM request:", error);
-      }
+  private async logObservabilityBeforeRequest(requestData: LLMRequestData): Promise<void> {
+    try {
+      await this.observability.hooks.handleRequest(requestData);
+    } catch (error) {
+      console.error("Error logging LLM request:", error);
     }
   }
 
   /**
    * Log final LLM response after request completes
    */
-  private logObservabilityPostRequest(
+  private logObservabilityAfterRequest(
     outputMessagesPromise: Promise<Message[]>,
     baseData: {
       threadId: string;
@@ -572,121 +539,34 @@ export class CopilotRuntime {
     requestStartTime: number,
     publicApiKey?: string,
   ): void {
-    if (this.observability?.enabled && publicApiKey) {
-      try {
-        outputMessagesPromise
-          .then((outputMessages) => {
-            const responseData: LLMResponseData = {
-              threadId: baseData.threadId,
-              runId: baseData.runId,
-              model: baseData.model,
-              // Use collected chunks for progressive mode or outputMessages for regular mode
-              output: this.observability.progressive ? streamedChunks : outputMessages,
-              latency: Date.now() - requestStartTime,
-              timestamp: Date.now(),
-              provider: baseData.provider,
-              isFinalResponse: true,
-              agentName: baseData.agentName,
-              nodeName: baseData.nodeName,
-            };
+    try {
+      outputMessagesPromise
+        .then((outputMessages) => {
+          const responseData: LLMResponseData = {
+            threadId: baseData.threadId,
+            runId: baseData.runId,
+            model: baseData.model,
+            // Use collected chunks for progressive mode or outputMessages for regular mode
+            output: this.observability.progressive ? streamedChunks : outputMessages,
+            latency: Date.now() - requestStartTime,
+            timestamp: Date.now(),
+            provider: baseData.provider,
+            isFinalResponse: true,
+            agentName: baseData.agentName,
+            nodeName: baseData.nodeName,
+          };
 
-            try {
-              this.observability.hooks.handleResponse(responseData);
-            } catch (logError) {
-              console.error("Error logging LLM response:", logError);
-            }
-          })
-          .catch((error) => {
-            console.error("Failed to get output messages for logging:", error);
-          });
-      } catch (error) {
-        console.error("Error setting up logging for LLM response:", error);
-      }
-    }
-  }
-
-  /**
-   * Setup progressive logging by wrapping the event stream
-   */
-  private setupProgressiveLogging(
-    eventSource: RuntimeEventSource,
-    streamedChunks: any[],
-    requestStartTime: number,
-    context: {
-      threadId?: string;
-      runId?: string;
-      model?: string;
-      provider?: string;
-      agentName?: string;
-      nodeName?: string;
-    },
-    publicApiKey?: string,
-  ): void {
-    if (this.observability?.enabled && this.observability.progressive && publicApiKey) {
-      // Keep reference to original stream function
-      const originalStream = eventSource.stream.bind(eventSource);
-
-      // Wrap the stream function to intercept events
-      eventSource.stream = async (callback) => {
-        await originalStream(async (eventStream$) => {
-          // Create subscription to capture streaming events
-          eventStream$.subscribe({
-            next: (event) => {
-              // Only log content chunks
-              if (event.type === RuntimeEventTypes.TextMessageContent) {
-                // Store the chunk
-                streamedChunks.push(event.content);
-
-                // Log each chunk separately for progressive mode
-                try {
-                  const progressiveData: LLMResponseData = {
-                    threadId: context.threadId || "",
-                    runId: context.runId,
-                    model: context.model,
-                    output: event.content,
-                    latency: Date.now() - requestStartTime,
-                    timestamp: Date.now(),
-                    provider: context.provider,
-                    isProgressiveChunk: true,
-                    agentName: context.agentName,
-                    nodeName: context.nodeName,
-                  };
-
-                  // Use Promise to handle async logger without awaiting
-                  Promise.resolve()
-                    .then(() => {
-                      this.observability.hooks.handleResponse(progressiveData);
-                    })
-                    .catch((error) => {
-                      console.error("Error in progressive logging:", error);
-                    });
-                } catch (error) {
-                  console.error("Error preparing progressive log data:", error);
-                }
-              }
-            },
-          });
-
-          // Call the original callback with the event stream
-          await callback(eventStream$);
+          try {
+            this.observability.hooks.handleResponse(responseData);
+          } catch (logError) {
+            console.error("Error logging LLM response:", logError);
+          }
+        })
+        .catch((error) => {
+          console.error("Failed to get output messages for logging:", error);
         });
-      };
-    }
-  }
-
-  /**
-   * Log error if observability is enabled
-   */
-  private async logObservabilityError(
-    errorData: LLMErrorData,
-    publicApiKey?: string,
-  ): Promise<void> {
-    if (this.observability?.enabled && publicApiKey) {
-      try {
-        await this.observability.hooks.handleError(errorData);
-      } catch (logError) {
-        console.error("Error logging LLM error:", logError);
-      }
+    } catch (error) {
+      console.error("Error setting up logging for LLM response:", error);
     }
   }
 
@@ -696,16 +576,17 @@ export class CopilotRuntime {
     properties?: Record<string, unknown>;
   }): Promise<BasicAgentConfiguration["tools"]> {
     const runtimeMcpServers = (this.params?.mcpServers ?? []) as MCPEndpointConfig[];
-    const createMCPClient = this.params?.createMCPClient as
-      | CreateMCPClientFunction
-      | undefined;
+    const createMCPClient = this.params?.createMCPClient as CreateMCPClientFunction | undefined;
 
     // If no runtime config and no request overrides, nothing to do
-    const requestMcpServers = ((options?.properties as { mcpServers?: MCPEndpointConfig[] } | undefined)?.mcpServers ??
+    const requestMcpServers = ((
+      options?.properties as { mcpServers?: MCPEndpointConfig[] } | undefined
+    )?.mcpServers ??
       (options?.properties as { mcpEndpoints?: MCPEndpointConfig[] } | undefined)?.mcpEndpoints ??
       []) as MCPEndpointConfig[];
 
-    const hasAnyServers = (runtimeMcpServers?.length ?? 0) > 0 || (requestMcpServers?.length ?? 0) > 0;
+    const hasAnyServers =
+      (runtimeMcpServers?.length ?? 0) > 0 || (requestMcpServers?.length ?? 0) > 0;
     if (!hasAnyServers) {
       return [];
     }
@@ -761,7 +642,10 @@ export class CopilotRuntime {
         this.mcpToolsCache.set(endpointUrl, toolDefs);
         allTools.push(...toolDefs);
       } catch (error) {
-        console.error(`MCP: Failed to fetch tools from endpoint ${endpointUrl}. Skipping. Error:`, error);
+        console.error(
+          `MCP: Failed to fetch tools from endpoint ${endpointUrl}. Skipping. Error:`,
+          error,
+        );
         // Cache empty to prevent repeated attempts within lifecycle
         this.mcpToolsCache.set(endpointUrl, []);
       }
@@ -776,7 +660,6 @@ export class CopilotRuntime {
     return Array.from(dedupedByName.values());
   }
 }
-
 
 // export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 //   public actions: ActionsConfiguration<T>;

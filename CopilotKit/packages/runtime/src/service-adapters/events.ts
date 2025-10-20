@@ -353,7 +353,6 @@ export class RuntimeEventSource {
             threadId,
           ).catch((error) => {});
 
-
           telemetry.capture("oss.runtime.server_action_executed", {});
           return concat(of(eventWithState.event!), toolCallEventStream$).pipe(
             catchError((error) => {
