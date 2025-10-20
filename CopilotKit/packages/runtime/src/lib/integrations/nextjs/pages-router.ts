@@ -29,8 +29,8 @@ export function copilotRuntimeNextJSPagesRouterEndpoint(
       _copilotkit: options.properties._copilotkit,
     });
   }
-  // TODO: fix telemetry capture
-  // telemetry.capture("oss.runtime.instance_created", getRuntimeInstanceTelemetryInfo(options));
+
+  telemetry.capture("oss.runtime.instance_created", getRuntimeInstanceTelemetryInfo(options));
 
   const logger = commonConfig.logging;
   logger.debug("Creating NextJS Pages Router endpoint");
@@ -39,7 +39,7 @@ export function copilotRuntimeNextJSPagesRouterEndpoint(
   options.runtime.handleServiceAdapter(serviceAdapter);
 
   return createCopilotEndpoint({
-    runtime: options.runtime.runtime,
+    runtime: options.runtime.instance,
     basePath: options.baseUrl,
   });
 }

@@ -10,7 +10,6 @@ export function copilotRuntimeNodeExpressEndpoint(options: CreateCopilotRuntimeS
     },
   });
 
-  // TODO: fix telemetry capture
-  // telemetry.capture("oss.runtime.instance_created", getRuntimeInstanceTelemetryInfo(options));
+  telemetry.capture("oss.runtime.instance_created", getRuntimeInstanceTelemetryInfo(options));
   return copilotRuntimeNodeHttpEndpoint(options);
 }

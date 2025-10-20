@@ -15,7 +15,7 @@ export function getRuntimeInstanceTelemetryInfo(
   options: CreateCopilotRuntimeServerOptions,
 ): RuntimeInstanceCreatedInfo {
   const runtime = options.runtime as unknown as CopilotRuntime;
-  const endpointsInfo = runtime.remoteEndpointDefinitions.reduce(
+  const endpointsInfo = runtime.params.remoteEndpoints.reduce(
     (acc, endpoint) => {
       let info = { ...acc };
 
@@ -49,10 +49,10 @@ export function getRuntimeInstanceTelemetryInfo(
   const apiKeyProvided = !!publicApiKey && publicApiKey.trim().length > 0;
 
   return {
-    actionsAmount: runtime.actions.length,
-    endpointsAmount: runtime.remoteEndpointDefinitions.length,
+    actionsAmount: runtime.params.actions?.length ?? 0,
+    endpointsAmount: runtime.params.remoteEndpoints.length,
     endpointTypes: endpointsInfo.endpointTypes,
-    agentsAmount: endpointsInfo.agentsAmount,
+    agentsAmount: Object.keys(runtime.instance.agents).length,
     hashedLgcKey: endpointsInfo.hashedKey,
     "cloud.api_key_provided": apiKeyProvided,
     ...(apiKeyProvided ? { "cloud.public_api_key": publicApiKey } : {}),

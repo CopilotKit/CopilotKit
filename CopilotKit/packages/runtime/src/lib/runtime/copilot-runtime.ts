@@ -52,7 +52,6 @@ import {
 import { MessageInput } from "../../graphql/inputs/message.input";
 import { ActionInput } from "../../graphql/inputs/action.input";
 import { RuntimeEventSource, RuntimeEventTypes } from "../../service-adapters/events";
-import { convertGqlInputToMessages } from "../../service-adapters/conversion";
 import { Message } from "../../graphql/types/converted";
 import { ForwardedParametersInput } from "../../graphql/inputs/forwarded-parameters.input";
 
@@ -382,17 +381,18 @@ interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []>
 /**
  * Central runtime object passed to all request handlers.
  */
-export class CopilotRuntimeNEW {
+export class CopilotRuntime {
   params?: CopilotRuntimeConstructorParams;
   private observability?: CopilotObservabilityConfig;
   // Cache MCP tools per endpoint to avoid re-fetching repeatedly
   private mcpToolsCache: Map<string, BasicAgentConfiguration["tools"]> = new Map();
   private runtimeArgs: CopilotRuntimeOptions;
-  private _runtime: CopilotRuntimeVNext;
+  instance: CopilotRuntimeVNext;
 
   constructor(params?: CopilotRuntimeConstructorParams & PartialBy<CopilotRuntimeOptions, 'agents'>) {
+    const agents = params?.agents ?? {};
     this.runtimeArgs = {
-      agents: params?.agents ?? {},
+      agents: { ...this.assignEndpointsToAgents(params?.remoteEndpoints ?? []), ...agents },
       runner: params?.runner ?? new InMemoryAgentRunnerVNext(),
       // TODO: add support for transcriptionService from CopilotRuntimeOptionsVNext once it is ready
       // transcriptionService: params?.transcriptionService,
@@ -460,28 +460,48 @@ export class CopilotRuntimeNEW {
     };
     this.params = params;
     this.observability = params?.observability_c;
+
+    this.instance = new CopilotRuntimeVNext(this.runtimeArgs);
   }
 
-  get runtime() {
-    if (!this._runtime) {
-      const runtimeArgs = this.runtimeArgs;
-      this._runtime = new CopilotRuntimeVNext(runtimeArgs);
-    }
-    return this._runtime
+  private assignEndpointsToAgents(endpoints: CopilotRuntimeConstructorParams['remoteEndpoints']) {
+    return endpoints.reduce((acc, endpoint) => {
+      if (resolveEndpointType(endpoint) == EndpointType.LangGraphPlatform) {
+        let lgAgents = {};
+        const lgEndpoint = endpoint as LangGraphPlatformEndpoint
+        lgEndpoint.agents.forEach(agent => {
+          const graphId = agent.assistantId ?? agent.name
+          lgAgents[graphId] = new LangGraphAgent({
+            deploymentUrl: lgEndpoint.deploymentUrl,
+            langsmithApiKey: lgEndpoint.langsmithApiKey,
+            graphId
+          })
+        })
+
+        return {
+          ...acc,
+          ...lgAgents
+        }
+      }
+
+      return acc;
+    }, {})
   }
 
   async handleServiceAdapter(serviceAdapter: CopilotServiceAdapter) {
-    this.runtimeArgs.agents = {
+    let agents: MaybePromise<Record<string, AbstractAgent>> = {
       ...(this.runtimeArgs.agents ?? {}),
       default: new BasicAgent({
         model: `${serviceAdapter.provider}/${serviceAdapter.model}`,
       }),
     };
 
-    if (!this.params.actions?.length) return;
+    if (this.params.actions?.length) {
+      const mcpTools = await this.getToolsFromMCP();
+      agents = this.assignToolsToAgents(agents, [...this.getToolsFromActions(this.params.actions), ...mcpTools]);
+    }
 
-    const mcpTools = await this.getToolsFromMCP();
-    this.assignToolsToAgents([...this.getToolsFromActions(this.params.actions), ...mcpTools]);
+    this.instance.agents = agents;
   }
 
   // Receive this.params.action and turn it into the AbstractAgent tools
@@ -505,13 +525,16 @@ export class CopilotRuntimeNEW {
     });
   }
 
-  private assignToolsToAgents(tools: BasicAgentConfiguration["tools"]): void {
+  private assignToolsToAgents(agents: MaybePromise<Record<string, AbstractAgent>>, tools: BasicAgentConfiguration["tools"]): MaybePromise<Record<string, AbstractAgent>> {
+    const enrichedAgents = { ...agents }
     // Add tools to all existing BasicAgents by mutating their internal config
-    for (const existingAgent of Object.values(this.runtimeArgs.agents)) {
+    for (const existingAgent of Object.values(enrichedAgents)) {
       const config = existingAgent.config ?? {};
       const existingTools = config.tools ?? [];
       config.tools = [...existingTools, ...tools];
     }
+
+    return enrichedAgents;
   }
 
   // Observability Methods
@@ -2091,18 +2114,6 @@ export class CopilotRuntimeNEW {
 //     }
 //   }
 // }
-
-export function flattenToolCallsNoDuplicates(toolsByPriority: ActionInput[]): ActionInput[] {
-  let allTools: ActionInput[] = [];
-  const allToolNames: string[] = [];
-  for (const tool of toolsByPriority) {
-    if (!allToolNames.includes(tool.name)) {
-      allTools.push(tool);
-      allToolNames.push(tool.name);
-    }
-  }
-  return allTools;
-}
 
 // The two functions below are "factory functions", meant to create the action objects that adhere to the expected interfaces
 export function copilotKitEndpoint(config: Omit<CopilotKitEndpoint, "type">): CopilotKitEndpoint {
