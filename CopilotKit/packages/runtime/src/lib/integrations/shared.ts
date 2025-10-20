@@ -1,6 +1,5 @@
 import { YogaInitialContext } from "graphql-yoga";
 import { buildSchemaSync } from "type-graphql";
-import { CopilotResolver } from "../../graphql/resolvers/copilot.resolver";
 import { useDeferStream } from "@graphql-yoga/plugin-defer-stream";
 import { CopilotRuntime } from "../runtime/copilot-runtime";
 import { CopilotServiceAdapter } from "../../service-adapters";
@@ -8,7 +7,6 @@ import { CopilotCloudOptions } from "../cloud";
 import { LogLevel, createLogger } from "../../lib/logger";
 import { createYoga } from "graphql-yoga";
 import telemetry from "../telemetry-client";
-import { StateResolver } from "../../graphql/resolvers/state.resolver";
 import * as packageJson from "../../../package.json";
 import { CopilotKitError, CopilotKitErrorCode } from "@copilotkit/shared";
 
@@ -68,7 +66,8 @@ export function buildSchema(
 ) {
   logger.debug("Building GraphQL schema...");
   const schema = buildSchemaSync({
-    resolvers: [CopilotResolver, StateResolver],
+    // @ts-expect-error -- sunsetting GQL
+    resolvers: [],
     emitSchemaFile: options.emitSchemaFile,
   });
   logger.debug("GraphQL schema built successfully");

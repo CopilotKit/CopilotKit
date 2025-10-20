@@ -35,7 +35,7 @@ import {
 
 import { MessageInput } from "../../graphql/inputs/message.input";
 import { ActionInput } from "../../graphql/inputs/action.input";
-import { RuntimeEventSource, RuntimeEventTypes } from "../../service-adapters/events";
+import { RuntimeEventSource } from "../../service-adapters/events";
 import { Message } from "../../graphql/types/converted";
 import { ForwardedParametersInput } from "../../graphql/inputs/forwarded-parameters.input";
 
