@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight, Plus } from "lucide-react";
+import { ChevronRight, Plus, Trash2 } from "lucide-react";
 import {
   useCurrentThreadId,
   useSetCurrentThreadId,
   useThreads,
   useCreateThread,
+  useDeleteThread,
 } from "./CopilotKitWithThreads";
 
 export function SimpleThreadManager() {
@@ -14,6 +15,7 @@ export function SimpleThreadManager() {
   const setCurrentThreadId = useSetCurrentThreadId();
   const threads = useThreads();
   const createThread = useCreateThread();
+  const deleteThread = useDeleteThread();
   const [isExpanded, setIsExpanded] = useState(false);
 
   const handleNewThread = () => {
@@ -23,6 +25,15 @@ export function SimpleThreadManager() {
   const handleSelectThread = (threadId: string) => {
     setCurrentThreadId(threadId);
     setIsExpanded(false);
+  };
+
+  const handleDeleteThread = (threadId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent thread selection when clicking delete
+    if (threads.length <= 1) {
+      alert("Cannot delete the last thread");
+      return;
+    }
+    deleteThread(threadId);
   };
 
   const currentThread = threads.find(t => t.id === currentThreadId);
@@ -86,18 +97,28 @@ export function SimpleThreadManager() {
               <button
                 key={thread.id}
                 onClick={() => handleSelectThread(thread.id)}
-                className="w-full text-left px-3 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors border border-gray-200"
+                className="w-full text-left px-3 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors border border-gray-200 relative group"
               >
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-gray-900 text-sm select-text">
-                    {thread.name}
+                <div className="flex items-start gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-gray-900 text-sm select-text">
+                      {thread.name}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-0.5 select-text">
+                      {formatDate(thread.createdAt)}
+                    </div>
+                    <div className="text-xs text-gray-400 font-mono truncate mt-0.5 select-all">
+                      {thread.id}
+                    </div>
                   </div>
-                  <div className="text-xs text-gray-500 mt-0.5 select-text">
-                    {formatDate(thread.createdAt)}
-                  </div>
-                  <div className="text-xs text-gray-400 font-mono truncate mt-0.5 select-all">
-                    {thread.id}
-                  </div>
+                  <button
+                    onClick={(e) => handleDeleteThread(thread.id, e)}
+                    className="flex-shrink-0 p-1 rounded hover:bg-red-100 text-gray-400 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                    title="Delete thread"
+                    aria-label="Delete thread"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </button>
             ))}

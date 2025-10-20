@@ -2,14 +2,14 @@
 
 [[package]]
 name = "ag-ui-langgraph"
-version = "0.0.14"
+version = "0.0.17"
 description = "Implementation of the AG-UI protocol for LangGraph."
 optional = false
 python-versions = "<3.14,>=3.10"
 groups = ["main"]
 files = [
-    {file = "ag_ui_langgraph-0.0.14-py3-none-any.whl", hash = "sha256:6b66dda5f7f8218ef1f766101baf2e03273aa07ad9bb8f8fd45639d3f5637f33"},
-    {file = "ag_ui_langgraph-0.0.14.tar.gz", hash = "sha256:4f8c090f94ac25eadbac785c2caf695efaad0f6b4dd30b716a596662a4e3b473"},
+    {file = "ag_ui_langgraph-0.0.17-py3-none-any.whl", hash = "sha256:0852e150abd84517de3813878022e805b9d995c67098c19007f3185623b960b2"},
+    {file = "ag_ui_langgraph-0.0.17.tar.gz", hash = "sha256:35aeb488de15c35a1354bc7c8dbe08c8844b03316ba2a848b67317155b44ffa9"},
 ]
 
 [package.dependencies]
@@ -310,28 +310,26 @@ files = [
 
 [[package]]
 name = "copilotkit"
-version = "0.1.65"
+version = "0.1.69"
 description = "CopilotKit python SDK"
 optional = false
-python-versions = ">=3.10,<3.13"
+python-versions = "<3.13,>=3.10"
 groups = ["main"]
-files = []
-develop = true
+files = [
+    {file = "copilotkit-0.1.69-py3-none-any.whl", hash = "sha256:29f359399a1c01b9ce764a64f90063de6290fbdcccecd3cadaf092760bfc510b"},
+    {file = "copilotkit-0.1.69.tar.gz", hash = "sha256:5ab8e1756750818d8ab853670f4b0362de7817b35188b9b70d7dc34c20cf77c9"},
+]
 
 [package.dependencies]
-ag-ui-langgraph = {version = "0.0.14", extras = ["fastapi"]}
-fastapi = "^0.115.0"
+ag-ui-langgraph = {version = "0.0.17", extras = ["fastapi"]}
+fastapi = ">=0.115.0,<0.116.0"
 langchain = ">=0.3.0"
 langgraph = ">=0.3.25,<1.1.0"
-partialjson = "^0.0.8"
-toml = "^0.10.2"
+partialjson = ">=0.0.8,<0.0.9"
+toml = ">=0.10.2,<0.11.0"
 
 [package.extras]
 crewai = ["crewai (==0.118.0)"]
-
-[package.source]
-type = "directory"
-url = "../../../sdk-python"
 
 [[package]]
 name = "distro"
@@ -1938,4 +1936,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.13"
-content-hash = "73ee137f6422315436349c05a041906fd74e314cc1d3d68ba0c9452505f56c85"
+content-hash = "8cfb169d49f792f3cc9ae1f378650d064debf9cbdaab5bddd175ea9377041f27"

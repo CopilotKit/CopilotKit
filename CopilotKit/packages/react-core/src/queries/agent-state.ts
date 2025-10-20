@@ -23,13 +23,22 @@ export function useAgentStateQuery(params: {
       : (agentStateKeys.all as QueryKey),
     enabled,
     queryFn: async () => {
-      const result = await runtimeClient.loadAgentState({
-        threadId: threadId!,
-        agentName: agentName!,
-      });
-      if (result.error) throw result.error;
-      const graphMessages = result.data?.loadAgentState?.messages;
-      return loadMessagesFromJsonRepresentation(JSON.parse(graphMessages ?? "[]"));
+      const { data, error } = await runtimeClient
+        .loadAgentState({
+          threadId: threadId!,
+          agentName: agentName!,
+        })
+        .toPromise();
+
+      if (error) throw error;
+
+      const graphMessages = data?.loadAgentState?.messages ?? "[]";
+      try {
+        return loadMessagesFromJsonRepresentation(JSON.parse(graphMessages));
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        throw new Error(`Failed to parse agent state messages: ${message}`);
+      }
     },
     retry: false,
     staleTime: 0,

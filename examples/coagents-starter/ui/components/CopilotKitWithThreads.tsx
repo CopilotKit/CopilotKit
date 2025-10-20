@@ -74,6 +74,7 @@ export function CopilotKitWithThreads({
   const [currentThreadId, setCurrentThreadId] = useState<string>(threadId || "");
   const [threads, setThreads] = useState<ThreadMetadata[]>([]);
   const addedThreadIds = useRef(new Set<string>());
+  const threadsRef = useRef<ThreadMetadata[]>([]);
 
   // Initialize threadId on client side to avoid hydration mismatch
   useEffect(() => {
@@ -83,13 +84,17 @@ export function CopilotKitWithThreads({
     }
   }, [currentThreadId, threadId]);
 
+  // Keep threadsRef in sync with threads state
+  useEffect(() => {
+    threadsRef.current = threads;
+  }, [threads]);
+
   // Track threads as they're created/switched to
   useEffect(() => {
     if (!currentThreadId || addedThreadIds.current.has(currentThreadId)) {
       return;
     }
 
-    // Mark this thread as added
     addedThreadIds.current.add(currentThreadId);
 
     setThreads(prev => {
@@ -109,19 +114,17 @@ export function CopilotKitWithThreads({
     return newThreadId;
   }, []);
 
-  // Delete a thread
   const deleteThread = useCallback((threadId: string) => {
+    setCurrentThreadId(current => {
+      if (current !== threadId) return current;
+
+      const remaining = threadsRef.current.filter(t => t.id !== threadId);
+      return remaining.length > 0 ? remaining[0].id : current;
+    });
+
     setThreads(prev => prev.filter(t => t.id !== threadId));
     addedThreadIds.current.delete(threadId);
-
-    // If deleting current thread, switch to the first available thread
-    if (threadId === currentThreadId && threads.length > 1) {
-      const remaining = threads.filter(t => t.id !== threadId);
-      if (remaining.length > 0) {
-        setCurrentThreadId(remaining[0].id);
-      }
-    }
-  }, [currentThreadId, threads]);
+  }, []);
 
   const contextValue: ThreadContextType = {
     currentThreadId,

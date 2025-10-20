@@ -3,12 +3,15 @@ import {
   CopilotRuntime,
   copilotRuntimeNextJSAppRouterEndpoint,
   copilotKitEndpoint,
-  OpenAIAdapter,
+  ExperimentalEmptyAdapter,
+  // OpenAIAdapter, // Uncomment for an AI service adapter (OpenAI, Anthropic, Google AI, etc.)
 } from "@copilotkit/runtime";
-import OpenAI from "openai";
+// import OpenAI from "openai"; // Uncomment for OpenAI
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const serviceAdapter = new OpenAIAdapter({ openai } as any);
+// Using ExperimentalEmptyAdapter since the Python agent backend handles all AI.
+// Note: Copilot Suggestions require an AI service adapter. To enable them, use OpenAIAdapter or equivalent:
+// const serviceAdapter = new OpenAIAdapter({ openai: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) });
+const serviceAdapter = new ExperimentalEmptyAdapter();
 
 const baseUrl = process.env.REMOTE_ACTION_URL || "http://localhost:8020/copilotkit";
 

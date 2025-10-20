@@ -23,13 +23,8 @@ export default defineConfig({
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: [
     ["list"],
-    [
-      "./reporters/structured-reporter.ts",
-      {
-        outputFile: "test-results/test-run-comment.md",
-      },
-    ],
     ["json", { outputFile: "test-results/test-results.json" }],
+    ["html", { outputFolder: "test-results/html", open: "never" }],
   ],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
@@ -37,9 +32,10 @@ export default defineConfig({
     // baseURL: 'http://127.0.0.1:3000',
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
-    trace: "on-first-retry",
+    trace: "on",
     video: {
-      mode: "retain-on-failure",
+      mode: "on",
+      size: { width: 1280, height: 720 }
     }
   },
 

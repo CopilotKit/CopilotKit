@@ -16,15 +16,15 @@ The frontend fix (PR #2606) eliminates race conditions when switching between th
 ### 0. Configure Environment Variables (First Time Only)
 
 ```bash
-# Setup backend .env
+# Setup backend .env (REQUIRED - needs OPENAI_API_KEY)
 cd examples/coagents-starter/agent-py
 cp .env.example .env
 # Edit .env and add your OPENAI_API_KEY
 
-# Setup frontend .env
+# Setup frontend .env (OPTIONAL - for configuration like port/backend URL)
 cd ../ui
 cp .env.example .env
-# Edit .env and add your OPENAI_API_KEY
+# No API key needed - the frontend uses ExperimentalEmptyAdapter and proxies to backend
 ```
 
 ### 1. Start the Backend (with PR #2605 changes)
@@ -89,7 +89,40 @@ Navigate to http://localhost:3015
 - ✅ No loading errors or race conditions
 - ✅ Each thread shows only its own messages
 
-### Test 4: Thread Persistence
+### Test 4: Delete Thread
+
+**Steps:**
+1. Create 3 threads with different messages in each
+2. Switch to Thread #1
+3. Expand the thread manager to see other threads
+4. Hover over Thread #2 in the list - a trash icon should appear
+5. Click the trash icon to delete Thread #2
+6. Verify Thread #2 is removed from the list
+
+**Expected Result:**
+- ✅ Thread #2 is deleted from the list
+- ✅ You remain on Thread #1 (current thread unchanged)
+- ✅ Thread #3 still exists in the list
+
+**Steps (Delete Current Thread):**
+1. Switch to Thread #3
+2. Expand thread manager and delete Thread #3 (the current thread)
+3. Verify you're automatically switched to Thread #1
+
+**Expected Result:**
+- ✅ Thread #3 is deleted
+- ✅ Automatically switched to Thread #1
+- ✅ No errors or blank state
+
+**Steps (Cannot Delete Last Thread):**
+1. Delete threads until only 1 remains
+2. Try to delete the last thread
+
+**Expected Result:**
+- ✅ Alert appears: "Cannot delete the last thread"
+- ✅ Thread is not deleted
+
+### Test 5: Thread Persistence
 
 **Steps:**
 1. Create 2 threads with messages
@@ -101,7 +134,7 @@ Navigate to http://localhost:3015
 - ✅ This is expected behavior for SimpleThreadManager
 - ✅ Future RemoteThreadManager will persist to backend
 
-### Test 5: Thread List UI
+### Test 6: Thread List UI
 
 **Steps:**
 1. Create multiple threads
@@ -168,4 +201,5 @@ The fix is working correctly if:
 - ✅ Switching threads shows correct messages immediately
 - ✅ No stale messages appear from other threads
 - ✅ Rapid switching works without errors
+- ✅ Thread deletion works correctly (removes thread, switches if current)
 - ✅ Thread list UI is clean and functional
