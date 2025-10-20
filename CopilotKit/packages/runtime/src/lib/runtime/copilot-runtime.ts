@@ -371,11 +371,13 @@ export class CopilotRuntime {
       // TODO: add support for transcriptionService from CopilotRuntimeOptionsVNext once it is ready
       // transcriptionService: params?.transcriptionService,
 
-      beforeRequestMiddleware: this.handleOnBeforeRequest,
-      afterRequestMiddleware: this.handleOnAfterRequest,
+      beforeRequestMiddleware: this.createOnBeforeRequestHandler(params).bind(this),
+      afterRequestMiddleware: this.createOnAfterRequestHandler(params).bind(this),
     };
     this.params = params;
     this.observability = params?.observability_c;
+
+    console.log(this.runtimeArgs);
 
     this.instance = new CopilotRuntimeVNext(this.runtimeArgs);
   }
@@ -459,54 +461,62 @@ export class CopilotRuntime {
     return enrichedAgents;
   }
 
-  private async handleOnBeforeRequest(hookParams: BeforeRequestMiddlewareFnParameters[0]) {
-    // TODO: get public api key and run with expected data
-    // if (this.observability?.enabled && this.params.publicApiKey) {
-    //   this.logObservabilityBeforeRequest()
-    // }
+  private createOnBeforeRequestHandler(
+    params?: CopilotRuntimeConstructorParams & PartialBy<CopilotRuntimeOptions, "agents">,
+  ) {
+    return async (hookParams: BeforeRequestMiddlewareFnParameters[0]) => {
+      // TODO: get public api key and run with expected data
+      // if (this.observability?.enabled && this.params.publicApiKey) {
+      //   this.logObservabilityBeforeRequest()
+      // }
 
-    // TODO: replace hooksParams top argument type with BeforeRequestMiddlewareParameters when exported
-    this.params.beforeRequestMiddleware?.(hookParams);
+      // TODO: replace hooksParams top argument type with BeforeRequestMiddlewareParameters when exported
+      params?.beforeRequestMiddleware?.(hookParams);
 
-    if (this.params.middleware?.onBeforeRequest) {
-      const { request, runtime, path } = hookParams;
-      const body = (await readBody(request)) as RunAgentInput;
-      const gqlMessages = (aguiToGQL(body.messages) as Message[]).reduce(
-        (acc, msg) => {
-          if ("role" in msg && msg.role === "user") {
-            acc.inputMessages.push(msg);
-          } else {
-            acc.outputMessages.push(msg);
-          }
-          return acc;
-        },
-        { inputMessages: [] as Message[], outputMessages: [] as Message[] },
-      );
-      const { inputMessages, outputMessages } = gqlMessages;
-      this.params.middleware.onBeforeRequest({
-        threadId: body.threadId,
-        runId: body.runId,
-        inputMessages,
-        properties: body.forwardedProps,
-        url: request.url,
-      } satisfies OnBeforeRequestOptions);
-    }
+      if (params?.middleware?.onBeforeRequest) {
+        const { request, runtime, path } = hookParams;
+        const body = (await readBody(request)) as RunAgentInput;
+        const gqlMessages = (aguiToGQL(body.messages) as Message[]).reduce(
+          (acc, msg) => {
+            if ("role" in msg && msg.role === "user") {
+              acc.inputMessages.push(msg);
+            } else {
+              acc.outputMessages.push(msg);
+            }
+            return acc;
+          },
+          { inputMessages: [] as Message[], outputMessages: [] as Message[] },
+        );
+        const { inputMessages, outputMessages } = gqlMessages;
+        params.middleware.onBeforeRequest({
+          threadId: body.threadId,
+          runId: body.runId,
+          inputMessages,
+          properties: body.forwardedProps,
+          url: request.url,
+        } satisfies OnBeforeRequestOptions);
+      }
+    };
   }
 
-  private async handleOnAfterRequest(hookParams: AfterRequestMiddlewareFnParameters[0]) {
-    // TODO: get public api key and run with expected data
-    // if (this.observability?.enabled && publicApiKey) {
-    //   this.logObservabilityAfterRequest()
-    // }
+  private createOnAfterRequestHandler(
+    params?: CopilotRuntimeConstructorParams & PartialBy<CopilotRuntimeOptions, "agents">,
+  ) {
+    return async (hookParams: AfterRequestMiddlewareFnParameters[0]) => {
+      // TODO: get public api key and run with expected data
+      // if (this.observability?.enabled && publicApiKey) {
+      //   this.logObservabilityAfterRequest()
+      // }
 
-    // TODO: replace hooksParams top argument type with AfterRequestMiddlewareParameters when exported
-    this.params.afterRequestMiddleware?.(hookParams);
+      // TODO: replace hooksParams top argument type with AfterRequestMiddlewareParameters when exported
+      params?.afterRequestMiddleware?.(hookParams);
 
-    if (this.params.middleware?.onAfterRequest) {
-      // TODO: provide old expected params here when available
-      // @ts-expect-error -- missing arguments.
-      this.params.middleware?.onAfterRequest({});
-    }
+      if (params?.middleware?.onAfterRequest) {
+        // TODO: provide old expected params here when available
+        // @ts-expect-error -- missing arguments.
+        params.middleware.onAfterRequest({});
+      }
+    };
   }
 
   // Observability Methods
