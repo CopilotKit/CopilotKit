@@ -37,4 +37,5 @@ export interface CopilotServiceAdapter {
   process(
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse>;
+  name?: string;
 }

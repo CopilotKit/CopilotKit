@@ -342,6 +342,8 @@ interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []>
   extends Omit<CopilotRuntimeConstructorParams_BASE<T>, "agents">,
     Omit<CopilotRuntimeOptionsVNext, "agents" | "transcriptionService"> {
   /**
+   * TODO: un-omit `transcriptionService` above once it's supported
+   * 
    * This satisfies...
    *  – the optional constraint in `CopilotRuntimeConstructorParams_BASE`
    *  – the `MaybePromise<NonEmptyRecord<T>>` constraint in `CopilotRuntimeOptionsVNext`
@@ -405,12 +407,23 @@ export class CopilotRuntime {
   }
 
   async handleServiceAdapter(serviceAdapter: CopilotServiceAdapter) {
-    let agents: MaybePromise<Record<string, AbstractAgent>> = {
-      ...(this.runtimeArgs.agents ?? {}),
-      default: new BasicAgent({
+    let agents = (await this.runtimeArgs.agents) ?? {};
+    const isAgentsListEmpty = !Object.keys(agents).length;
+    const hasServiceAdapter = Boolean(serviceAdapter);
+    const illegalServiceAdapterNames = ["EmptyAdapter"];
+    const serviceAdapterCanBeUsedForAgent = !illegalServiceAdapterNames.includes(serviceAdapter.name);
+    
+    if (isAgentsListEmpty && (!hasServiceAdapter || !serviceAdapterCanBeUsedForAgent)) {
+      throw new CopilotKitMisuseError({
+        message: "No default agent provided. Please provide a default agent in the runtime config.",
+      });
+    }
+
+    if (isAgentsListEmpty) {
+      agents.default = new BasicAgent({
         model: `${serviceAdapter.provider}/${serviceAdapter.model}`,
-      }),
-    };
+      });
+    }
 
     if (this.params.actions?.length) {
       const mcpTools = await this.getToolsFromMCP();
@@ -445,12 +458,13 @@ export class CopilotRuntime {
   }
 
   private assignToolsToAgents(
-    agents: MaybePromise<Record<string, AbstractAgent>>,
+    agents: Record<string, AbstractAgent>,
     tools: BasicAgentConfiguration["tools"],
-  ): MaybePromise<Record<string, AbstractAgent>> {
+  ): Record<string, AbstractAgent> {
     const enrichedAgents = { ...agents };
     // Add tools to all existing BasicAgents by mutating their internal config
     for (const existingAgent of Object.values(enrichedAgents)) {
+      // TODO: fix this - `existingAgent.config` does not exist on type 'AbstractAgent'
       const config = existingAgent.config ?? {};
       const existingTools = config.tools ?? [];
       config.tools = [...existingTools, ...tools];

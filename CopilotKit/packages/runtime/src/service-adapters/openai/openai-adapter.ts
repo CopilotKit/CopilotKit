@@ -106,6 +106,9 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
   public get openai(): OpenAI {
     return this._openai;
   }
+  public get name() {
+    return "OpenAIAdapter";
+  }
 
   constructor(params?: OpenAIAdapterParams) {
     this._openai = params?.openai || new OpenAI({});

@@ -62,6 +62,9 @@ export class GroqAdapter implements CopilotServiceAdapter {
   public get groq(): Groq {
     return this._groq;
   }
+  public get name() {
+    return "GroqAdapter";
+  }
 
   constructor(params?: GroqAdapterParams) {
     this._groq = params?.groq || new Groq({});

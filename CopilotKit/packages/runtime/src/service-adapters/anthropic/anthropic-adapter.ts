@@ -79,6 +79,9 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
   public get anthropic(): Anthropic {
     return this._anthropic;
   }
+  public get name() {
+    return "AnthropicAdapter";
+  }
 
   constructor(params?: AnthropicAdapterParams) {
     this._anthropic = params?.anthropic || new Anthropic({});

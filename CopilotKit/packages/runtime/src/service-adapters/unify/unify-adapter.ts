@@ -37,6 +37,10 @@ export class UnifyAdapter implements CopilotServiceAdapter {
   private start: boolean;
   public provider = "unify";
 
+  public get name() {
+    return "UnifyAdapter";
+  }
+
   constructor(options?: UnifyAdapterParams) {
     if (options?.apiKey) {
       this.apiKey = options.apiKey;
