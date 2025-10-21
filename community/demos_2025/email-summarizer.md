@@ -18,7 +18,7 @@ This demo focuses on summarizing long emails into short concise point wise summa
 
 [Live Demo](https://email-summarizer-neon.vercel.app/)
 
->Backend hosted on render, Fronted deployed on Vercel.
+>Backend hosted on render, Frontend deployed on Vercel.
 
 
 
