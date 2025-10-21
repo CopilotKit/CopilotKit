@@ -1,6 +1,7 @@
 import { ActionRenderProps, FrontendAction } from "../types/frontend-action";
 import { Parameter, getZodParameters } from "@copilotkit/shared";
 import { useFrontendTool as useFrontendToolVNext } from "@copilotkitnext/react";
+import { parseJson } from "@copilotkit/shared";
 
 export type UseFrontendToolArgs<T extends Parameter[] | [] = []> = {
   available?: "disabled" | "enabled";
@@ -24,7 +25,10 @@ export function useFrontendTool<const T extends Parameter[] = []>(
     followUp,
     render: (args) => {
       if (typeof render === "string") return render;
-      return render?.(args as unknown as ActionRenderProps<T>);
+      return render?.({
+        ...args,
+        result: args.result ? parseJson(args.result, args.result) : args.result,
+      });
     },
   });
 }
