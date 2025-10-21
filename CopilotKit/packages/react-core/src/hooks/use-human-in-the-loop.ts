@@ -22,6 +22,7 @@ export function useHumanInTheLoop<const T extends Parameter[] | [] = []>(
     name,
     description,
     parameters: zodParameters,
+    // @ts-ignore TODO: intermittent issue with the render method, shows React types errors on some devices
     render: (args) => {
       if (typeof render === "string") return render;
       return render?.(args as unknown as ActionRenderPropsWait<T>);

@@ -35,6 +35,7 @@ export function useRenderToolCall<const T extends Parameter[] | [] = []>(
       name === "*"
         ? defineToolCallRenderer({
             name: "*",
+            // @ts-ignore TODO: intermittent issue with the render method, shows React types errors on some devices
             render: (...args: unknown[]) => {
               return render(args as unknown as ActionRenderPropsWait<T>);
             },
@@ -42,6 +43,7 @@ export function useRenderToolCall<const T extends Parameter[] | [] = []>(
         : defineToolCallRenderer({
             name,
             args: zodParameters,
+            // @ts-ignore TODO: intermittent issue with the render method, shows React types errors on some devices
             render: (args) => {
               return render(args as unknown as ActionRenderPropsWait<T>);
             },
