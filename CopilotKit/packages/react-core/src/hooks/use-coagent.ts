@@ -88,9 +88,12 @@
  * </PropertyReference>
  */
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
-import { Message } from "@copilotkit/shared";
+import { useEffect, useMemo } from "react";
+import { Message, parseJson } from "@copilotkit/shared";
 import { useAgent } from "@copilotkitnext/react";
+import {
+  type AgentSubscriber,
+} from "@ag-ui/client";
 
 interface UseCoagentOptionsBase {
   /**
@@ -203,22 +206,66 @@ export type HintFunction = (params: HintFunctionParams) => Message | undefined;
 export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentReturnType<T> {
   const { agent } = useAgent({ agentId: options.name });
 
-  // Return the state and setState function
-  // @ts-ignore
-  return useMemo(() => {
+  useEffect(() => {
+    if (!agent) return;
+    let predictStateTools: {
+      tool: string;
+      state_key: string;
+      tool_argument: string;
+    }[];
+    const subscriber: AgentSubscriber = {
+      onCustomEvent: ({ event }) => {
+        if (event.name === "PredictState") {
+          predictStateTools = event.value;
+        }
+      },
+      onToolCallArgsEvent: ({ partialToolCallArgs, toolCallName }) => {
+        predictStateTools.forEach((t) => {
+          if (toolCallName === t?.tool) {
+            const emittedState =
+              typeof partialToolCallArgs === "string"
+                ? partialToolCallArgs
+                : parseJson(partialToolCallArgs as unknown as string, partialToolCallArgs);
+            agent.setState({
+              ...agent.state,
+              [t.state_key]: emittedState[t.state_key],
+            });
+          }
+        });
+      },
+    };
+    const { unsubscribe } = agent.subscribe(subscriber);
+    return () => {
+      unsubscribe();
+    };
+  }, [Boolean(agent)]);
+
+  // Return a consistent shape whether or not the agent is available
+  return useMemo<UseCoagentReturnType<T>>(() => {
     if (!agent) {
-      // TODO:
+      const noop = () => {};
+      const noopAsync = async () => {};
+      const initialState =
+        // prefer externally provided state if available
+        ("state" in options && (options as any).state) ??
+        // then initialState if provided
+        ("initialState" in options && (options as any).initialState) ??
+        ({} as T);
       return {
         name: options.name,
-        state: {} as T,
-        running: false,
-        threadId: undefined,
         nodeName: undefined,
+        threadId: undefined,
+        running: false,
+        state: initialState as T,
+        setState: noop,
+        start: noop,
+        stop: noop,
+        run: noopAsync,
       };
     }
 
     return {
-      name: options.name,
+      name: agent?.agentId ?? options.name,
       nodeName: undefined,
       threadId: agent.threadId,
       running: agent.isRunning,
@@ -229,5 +276,5 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
       stop: agent.abortRun,
       run: agent.runAgent,
     };
-  }, [agent]);
+  }, [agent?.state, agent?.threadId, agent?.isRunning, agent?.agentId, options.name]);
 }
