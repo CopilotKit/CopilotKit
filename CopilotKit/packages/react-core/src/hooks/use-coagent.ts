@@ -88,12 +88,10 @@
  * </PropertyReference>
  */
 
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { Message, parseJson } from "@copilotkit/shared";
 import { useAgent } from "@copilotkitnext/react";
-import {
-  type AgentSubscriber,
-} from "@ag-ui/client";
+import { type AgentSubscriber } from "@ag-ui/client";
 
 interface UseCoagentOptionsBase {
   /**
@@ -221,16 +219,16 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
       },
       onToolCallArgsEvent: ({ partialToolCallArgs, toolCallName }) => {
         predictStateTools.forEach((t) => {
-          if (toolCallName === t?.tool) {
-            const emittedState =
-              typeof partialToolCallArgs === "string"
-                ? partialToolCallArgs
-                : parseJson(partialToolCallArgs as unknown as string, partialToolCallArgs);
-            agent.setState({
-              ...agent.state,
-              [t.state_key]: emittedState[t.state_key],
-            });
-          }
+          if (t?.tool !== toolCallName) return;
+
+          const emittedState =
+            typeof partialToolCallArgs === "string"
+              ? parseJson(partialToolCallArgs as unknown as string, partialToolCallArgs)
+              : partialToolCallArgs;
+
+          agent.setState({
+            [t.state_key]: emittedState[t.state_key],
+          });
         });
       },
     };
@@ -239,6 +237,21 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
       unsubscribe();
     };
   }, [Boolean(agent)]);
+
+  const handleStateUpdate = useCallback(
+    (newState: T | ((prevState: T | undefined) => T)) => {
+      if (!agent) return;
+
+      if (typeof newState === "function") {
+        // @ts-ignore
+        agent.setState(newState(agent.state));
+      } else {
+        agent.setState({ ...agent.state, ...newState });
+      }
+      agent.setState(newState);
+    },
+    [agent?.state, agent?.setState],
+  );
 
   // Return a consistent shape whether or not the agent is available
   return useMemo<UseCoagentReturnType<T>>(() => {
@@ -270,11 +283,21 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
       threadId: agent.threadId,
       running: agent.isRunning,
       state: agent.state,
-      setState: agent.setState,
+      setState: handleStateUpdate,
       // TODO: start and run both have same thing. need to figure out
       start: agent.runAgent,
       stop: agent.abortRun,
       run: agent.runAgent,
     };
-  }, [agent?.state, agent?.threadId, agent?.isRunning, agent?.agentId, options.name]);
+  }, [
+    agent?.state,
+    handleStateUpdate,
+    agent?.runAgent,
+    agent?.abortRun,
+    agent?.runAgent,
+    agent?.threadId,
+    agent?.isRunning,
+    agent?.agentId,
+    options.name,
+  ]);
 }
