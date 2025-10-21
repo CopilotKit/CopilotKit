@@ -9,7 +9,7 @@ export function Suggestions({ suggestions, onSuggestionClick }: RenderSuggestion
           key={index}
           title={suggestion.title}
           message={suggestion.message}
-          partial={suggestion.partial}
+          partial={suggestion.isLoading ?? suggestion.partial}
           className={suggestion.className}
           onClick={() => onSuggestionClick(suggestion.message)}
         />

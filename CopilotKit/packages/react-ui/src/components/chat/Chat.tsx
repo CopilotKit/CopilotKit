@@ -79,6 +79,8 @@ import {
   SystemMessageFunction,
   useCopilotContext,
   useCopilotChatInternal,
+  HintFunction,
+  type ChatSuggestions,
 } from "@copilotkit/react-core";
 import {
   CopilotKitError,
@@ -105,19 +107,8 @@ import {
   UserMessageProps,
 } from "./props";
 
-import { HintFunction } from "@copilotkit/react-core";
 import { ImageUploadQueue } from "./ImageUploadQueue";
 import { Suggestions as DefaultRenderSuggestionsList } from "./Suggestions";
-import type { Suggestion } from "@copilotkitnext/core";
-
-/**
- * The type of suggestions to use in the chat.
- *
- * `auto` - Suggestions are generated automatically.
- * `manual` - Suggestions are controlled programmatically.
- * `SuggestionItem[]` - Static suggestions array.
- */
-export type ChatSuggestions = "auto" | "manual" | Suggestion[];
 
 /**
  * Props for CopilotChat component.
@@ -624,8 +615,9 @@ export function CopilotChat({
     stopGeneration,
     reloadMessages,
     suggestions: currentSuggestions,
-  } = useCopilotChatInternal();
-  // suggestions,
+  } = useCopilotChatInternal({
+    suggestions,
+  });
   // makeSystemMessage,
   // disableSystemMessage,
   // onInProgress,

@@ -88,9 +88,10 @@
  * </PropertyReference>
  */
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
-import { Message } from "@copilotkit/shared";
+import { useCallback, useEffect, useMemo } from "react";
+import { Message, parseJson } from "@copilotkit/shared";
 import { useAgent } from "@copilotkitnext/react";
+import { type AgentSubscriber } from "@ag-ui/client";
 
 interface UseCoagentOptionsBase {
   /**
@@ -203,31 +204,100 @@ export type HintFunction = (params: HintFunctionParams) => Message | undefined;
 export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentReturnType<T> {
   const { agent } = useAgent({ agentId: options.name });
 
-  // Return the state and setState function
-  // @ts-ignore
-  return useMemo(() => {
+  useEffect(() => {
+    if (!agent) return;
+    let predictStateTools: {
+      tool: string;
+      state_key: string;
+      tool_argument: string;
+    }[];
+    const subscriber: AgentSubscriber = {
+      onCustomEvent: ({ event }) => {
+        if (event.name === "PredictState") {
+          predictStateTools = event.value;
+        }
+      },
+      onToolCallArgsEvent: ({ partialToolCallArgs, toolCallName }) => {
+        predictStateTools.forEach((t) => {
+          if (t?.tool !== toolCallName) return;
+
+          const emittedState =
+            typeof partialToolCallArgs === "string"
+              ? parseJson(partialToolCallArgs as unknown as string, partialToolCallArgs)
+              : partialToolCallArgs;
+
+          agent.setState({
+            [t.state_key]: emittedState[t.state_key],
+          });
+        });
+      },
+    };
+    const { unsubscribe } = agent.subscribe(subscriber);
+    return () => {
+      unsubscribe();
+    };
+  }, [Boolean(agent)]);
+
+  const handleStateUpdate = useCallback(
+    (newState: T | ((prevState: T | undefined) => T)) => {
+      if (!agent) return;
+
+      if (typeof newState === "function") {
+        // @ts-ignore
+        agent.setState(newState(agent.state));
+      } else {
+        agent.setState({ ...agent.state, ...newState });
+      }
+      agent.setState(newState);
+    },
+    [agent?.state, agent?.setState],
+  );
+
+  // Return a consistent shape whether or not the agent is available
+  return useMemo<UseCoagentReturnType<T>>(() => {
     if (!agent) {
-      // TODO:
+      const noop = () => {};
+      const noopAsync = async () => {};
+      const initialState =
+        // prefer externally provided state if available
+        ("state" in options && (options as any).state) ??
+        // then initialState if provided
+        ("initialState" in options && (options as any).initialState) ??
+        ({} as T);
       return {
         name: options.name,
-        state: {} as T,
-        running: false,
-        threadId: undefined,
         nodeName: undefined,
+        threadId: undefined,
+        running: false,
+        state: initialState as T,
+        setState: noop,
+        start: noop,
+        stop: noop,
+        run: noopAsync,
       };
     }
 
     return {
-      name: options.name,
+      name: agent?.agentId ?? options.name,
       nodeName: undefined,
       threadId: agent.threadId,
       running: agent.isRunning,
       state: agent.state,
-      setState: agent.setState,
+      setState: handleStateUpdate,
       // TODO: start and run both have same thing. need to figure out
       start: agent.runAgent,
       stop: agent.abortRun,
       run: agent.runAgent,
     };
-  }, [agent]);
+  }, [
+    agent?.state,
+    handleStateUpdate,
+    agent?.runAgent,
+    agent?.abortRun,
+    agent?.runAgent,
+    agent?.threadId,
+    agent?.isRunning,
+    agent?.agentId,
+    options.name,
+  ]);
 }

@@ -1,6 +1,7 @@
 import { ActionRenderPropsWait, FrontendAction } from "../types";
 import { Parameter, getZodParameters } from "@copilotkit/shared";
 import { useHumanInTheLoop as useHumanInTheLoopVNext } from "@copilotkitnext/react";
+import { parseJson } from "@copilotkit/shared";
 
 export type UseHumanInTheLoopArgs<T extends Parameter[] | [] = []> = {
   available?: "disabled" | "enabled";
@@ -25,7 +26,10 @@ export function useHumanInTheLoop<const T extends Parameter[] | [] = []>(
     // @ts-ignore TODO: intermittent issue with the render method, shows React types errors on some devices
     render: (args) => {
       if (typeof render === "string") return render;
-      return render?.(args as unknown as ActionRenderPropsWait<T>);
+      return render?.({
+        ...args,
+        result: args.result ? parseJson(args.result, args.result) : args.result,
+      } as unknown as ActionRenderPropsWait<T>);
     },
     followUp,
   });

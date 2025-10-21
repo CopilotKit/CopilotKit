@@ -6,7 +6,7 @@ export {
   type UseCopilotChatOptions_c,
   useCopilotChatHeadless_c,
 } from "./use-copilot-chat-headless_c";
-export { useCopilotChatInternal } from "./use-copilot-chat_internal";
+export { useCopilotChatInternal, type ChatSuggestions } from "./use-copilot-chat_internal";
 export { useCopilotAction } from "./use-copilot-action";
 export { useCoAgentStateRender } from "./use-coagent-state-render";
 export { useMakeCopilotDocumentReadable } from "./use-make-copilot-document-readable";
@@ -24,3 +24,7 @@ export { useHumanInTheLoop } from "./use-human-in-the-loop";
 export { useRenderToolCall } from "./use-render-tool-call";
 export { useDefaultTool } from "./use-default-tool";
 export { useLazyToolRenderer } from "./use-lazy-tool-renderer";
+export {
+  useConfigureChatSuggestions,
+  type UseCopilotChatSuggestionsConfiguration,
+} from "./use-configure-chat-suggestions";

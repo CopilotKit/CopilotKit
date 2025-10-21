@@ -7,6 +7,7 @@ import {
 import { Parameter, getZodParameters } from "@copilotkit/shared";
 import React, { useEffect, useRef } from "react";
 import { defineToolCallRenderer, useCopilotKit } from "@copilotkitnext/react";
+import { parseJson } from "@copilotkit/shared";
 
 export type UseRenderToolCallArgs<T extends Parameter[] | [] = []> = Pick<
   FrontendAction<T>,
@@ -35,9 +36,11 @@ export function useRenderToolCall<const T extends Parameter[] | [] = []>(
       name === "*"
         ? defineToolCallRenderer({
             name: "*",
-            // @ts-ignore TODO: intermittent issue with the render method, shows React types errors on some devices
-            render: (...args: unknown[]) => {
-              return render(args as unknown as ActionRenderPropsWait<T>);
+            render: (args) => {
+              return render({
+                ...args,
+                result: args.result ? parseJson(args.result, args.result) : args.result,
+              });
             },
           })
         : defineToolCallRenderer({
@@ -45,7 +48,10 @@ export function useRenderToolCall<const T extends Parameter[] | [] = []>(
             args: zodParameters,
             // @ts-ignore TODO: intermittent issue with the render method, shows React types errors on some devices
             render: (args) => {
-              return render(args as unknown as ActionRenderPropsWait<T>);
+              return render({
+                ...args,
+                result: args.result ? parseJson(args.result, args.result) : args.result,
+              });
             },
           });
 
