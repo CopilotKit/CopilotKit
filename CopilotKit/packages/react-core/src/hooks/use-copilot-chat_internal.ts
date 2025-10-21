@@ -7,10 +7,25 @@ import type { AgentSubscriber } from "@ag-ui/client";
 import { Message } from "@copilotkit/shared";
 import { gqlToAGUI, Message as DeprecatedGqlMessage } from "@copilotkit/runtime-client-gql";
 import { useLangGraphInterruptRender } from "./use-langgraph-interrupt-render";
-import { useAgent, useCopilotChatConfiguration, useCopilotKit } from "@copilotkitnext/react";
+import {
+  useAgent,
+  useConfigureSuggestions,
+  useCopilotChatConfiguration,
+  useCopilotKit,
+} from "@copilotkitnext/react";
 import { randomUUID } from "@copilotkit/shared";
 import { Suggestion } from "@copilotkitnext/core";
 import { useLazyToolRenderer } from "./use-lazy-tool-renderer";
+import { UseCopilotChatSuggestionsConfiguration } from "./use-configure-chat-suggestions";
+
+/**
+ * The type of suggestions to use in the chat.
+ *
+ * `auto` - Suggestions are generated automatically.
+ * `manual` - Suggestions are controlled programmatically.
+ * `SuggestionItem[]` - Static suggestions array.
+ */
+export type ChatSuggestions = "auto" | "manual" | Omit<Suggestion, "isLoading">[];
 
 export interface UseCopilotChatOptions {
   /**
@@ -39,11 +54,21 @@ export interface UseCopilotChatOptions {
    * Disables inclusion of CopilotKit’s default system message. When true, no system message is sent (this also suppresses any custom message from <code>makeSystemMessage</code>).
    */
   disableSystemMessage?: boolean;
+
+  suggestions?: ChatSuggestions;
 }
 
 export interface MCPServerConfig {
   endpoint: string;
   apiKey?: string;
+}
+
+// Old suggestion item interface, for returning from useCopilotChatInternal
+interface SuggestionItem {
+  title: string;
+  message: string;
+  partial?: boolean;
+  className?: string;
 }
 
 export interface UseCopilotChatReturn {
@@ -206,10 +231,29 @@ export interface UseCopilotChatReturn {
 
 let globalSuggestionPromise: Promise<void> | null = null;
 
-export function useCopilotChatInternal(options: UseCopilotChatOptions = {}): UseCopilotChatReturn {
+export function useCopilotChatInternal({
+  suggestions,
+}: UseCopilotChatOptions = {}): UseCopilotChatReturn {
   const { copilotkit } = useCopilotKit();
   const { threadId, agentSession } = useCopilotContext();
   const existingConfig = useCopilotChatConfiguration();
+  let suggestionsConfig: UseCopilotChatSuggestionsConfiguration;
+  if (suggestions) {
+    if (Array.isArray(suggestions)) {
+      suggestionsConfig = {
+        suggestions,
+        available: "always",
+      };
+    } else if (suggestions === "auto") {
+      suggestionsConfig = {
+        available: suggestions === "auto" ? "always" : "disabled",
+        instructions:
+          "Suggest what the user could say next. Provide clear, highly relevant suggestions. Do not literally suggest function calls.",
+      };
+    }
+  }
+  // @ts-expect-error -- availability is extended with "enabled" for backwards compatibility
+  useConfigureSuggestions(suggestionsConfig ?? { available: "disabled" });
 
   // Apply priority: props > existing config > defaults
   const resolvedAgentId = agentSession?.agentName ?? existingConfig?.agentId ?? "default";
@@ -257,7 +301,7 @@ export function useCopilotChatInternal(options: UseCopilotChatOptions = {}): Use
     [latestDelete],
   );
 
-  const suggestions = copilotkit.getSuggestions(resolvedAgentId);
+  const currentSuggestions = copilotkit.getSuggestions(resolvedAgentId);
 
   const reload = useAsyncCallback(
     async (reloadMessageId: string): Promise<void> => {
@@ -393,11 +437,11 @@ export function useCopilotChatInternal(options: UseCopilotChatOptions = {}): Use
     isLoading: agent?.isRunning ?? false,
     // mcpServers,
     // setMcpServers,
-    suggestions: suggestions.suggestions,
+    suggestions: currentSuggestions.suggestions,
     setSuggestions: (suggestions: Suggestion[]) => copilotkit.addSuggestionsConfig({ suggestions }),
     generateSuggestions: async () => copilotkit.reloadSuggestions(resolvedAgentId),
     resetSuggestions: () => copilotkit.clearSuggestions(resolvedAgentId),
-    isLoadingSuggestions: suggestions.isLoading,
+    isLoadingSuggestions: currentSuggestions.isLoading,
     interrupt,
     agent,
     threadId,
