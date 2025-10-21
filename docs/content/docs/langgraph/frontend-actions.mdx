@@ -3,7 +3,8 @@ title: Frontend Tools
 icon: "lucide/Wrench"
 description: Create frontend tools and use them within your LangGraph agent.
 ---
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
+
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
 
 ## Implementation
 <Callout>
@@ -114,7 +115,7 @@ Check out the [Frontend Tools overview](/frontend-tools) to understand what they
                 async function agentNode(state: YourAgentState, config: RunnableConfig): Promise<YourAgentState> {
                     // Access the tools from the copilotkit property
 
-                    const tools = state.copilotkit?.actions; // [!code highlight]
+                    const tools = convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []); // [!code highlight]
                     const model = ChatOpenAI({ model: 'gpt-4o' }).bindTools(tools);
 
                     // ...

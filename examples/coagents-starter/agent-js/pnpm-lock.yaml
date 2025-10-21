@@ -12,8 +12,8 @@ importers:
   .:
     dependencies:
       '@copilotkit/sdk-js':
-        specifier: ^1.10.2
-        version: 1.10.2(@langchain/anthropic@0.3.26(@langchain/core@0.3.72(openai@5.12.2(zod@3.25.67))))(@langchain/google-genai@0.2.16(@langchain/core@0.3.72(openai@5.12.2(zod@3.25.67))))(openai@5.12.2(zod@3.25.67))(zod-to-json-schema@3.24.5(zod@3.25.67))
+        specifier: ^1.10.4
+        version: 1.10.4(@langchain/community@0.0.53(openai@5.12.2(zod@3.25.67)))(@langchain/core@0.3.72(openai@5.12.2(zod@3.25.67)))(@langchain/langgraph@0.4.5(@langchain/core@0.3.72(openai@5.12.2(zod@3.25.67)))(zod-to-json-schema@3.24.5(zod@3.25.67)))(langchain@0.3.31(@langchain/anthropic@0.3.26(@langchain/core@0.3.72(openai@5.12.2(zod@3.25.67))))(@langchain/core@0.3.72(openai@5.12.2(zod@3.25.67)))(@langchain/google-genai@0.2.16(@langchain/core@0.3.72(openai@5.12.2(zod@3.25.67))))(openai@5.12.2(zod@3.25.67)))(typescript@5.8.3)(zod@3.25.67)
       '@langchain/anthropic':
         specifier: ^0.3.26
         version: 0.3.26(@langchain/core@0.3.72(openai@5.12.2(zod@3.25.67)))
@@ -45,8 +45,8 @@ importers:
 
 packages:
 
-  '@ag-ui/core@0.0.30':
-    resolution: {integrity: sha512-cBukbc2O0qMKi/BKix6Exld5zSqGKR72376KA6NZNQz/xYAiPNhmK40VX77d/hyblhtXT3BlBGrYmda9V4ETlw==}
+  '@ag-ui/core@0.0.37':
+    resolution: {integrity: sha512-7bmjPn1Ol0Zo00F+MrPr0eOwH4AFZbhmq/ZMhCsrMILtVYBiBLcLU9QFBpBL3Zm9MCHha8b79N7JE2FzwcMaVA==}
 
   '@anthropic-ai/sdk@0.56.0':
     resolution: {integrity: sha512-SLCB8M8+VMg1cpCucnA1XWHGWqVSZtIWzmOdDOEu3eTFZMB+A0sGZ1ESO5MHDnqrNTXz3safMrWx9x4rMZSOqA==}
@@ -55,11 +55,18 @@ packages:
   '@cfworker/json-schema@4.1.1':
     resolution: {integrity: sha512-gAmrUZSGtKc3AiBL71iNWxDsyUC5uMaKKGdvzYsBoTW/xi42JQHl7eKV2OYzCUqvc+D2RCcf7EXY2iCyFIk6og==}
 
-  '@copilotkit/sdk-js@1.10.2':
-    resolution: {integrity: sha512-Z52zVOW5ngh7gtOvTMIIV8GqKF44Y9aCoAspHZojFClhfKZxzn5zWp0PUhVOPLG8HMagNUY3KIHCU213Xo2QcA==}
+  '@copilotkit/sdk-js@1.10.4':
+    resolution: {integrity: sha512-A0QK/r4qb4UIOro4FSedvuhW09P5eZb+UDZROmEfk0FK7iWWScWtQf2ovvSNDzRA1b+jpReNuFhb3GSpkSd+mg==}
+    peerDependencies:
+      '@langchain/community': ^0.0.53
+      '@langchain/core': ^0.3.13 || ^0.4.0
+      '@langchain/langgraph': 0.4.5
+      langchain: ^0.3.3
+      typescript: ^5.2.3
+      zod: ^3.23.3 || ^3.24.0 || ^3.25.0
 
-  '@copilotkit/shared@1.10.2':
-    resolution: {integrity: sha512-hUtdoqbFQLq3NFAlNPOGrSjvC5fuwpYFp1zzSN/yPuNXYqxS/QL5RG9pnA/pxq1ax+8Fgb9RFOI0aif+uIF7/A==}
+  '@copilotkit/shared@1.10.4':
+    resolution: {integrity: sha512-vvF3vG03e5OZcUd0x7FdpIPRx60W3vyiK+0maGyEZoU1xUlBJbxaCkAED6gAH3JBZl/BZNWoJKsYDxiQUY2V3A==}
 
   '@google/generative-ai@0.24.0':
     resolution: {integrity: sha512-fnEITCGEB7NdX0BhoYZ/cq/7WPZ1QS5IzJJfC3Tg/OwkvBetMiVJciyaan297OvE4B9Jg1xvo0zIazX/9sGu1Q==}
@@ -886,7 +893,7 @@ packages:
 
 snapshots:
 
-  '@ag-ui/core@0.0.30':
+  '@ag-ui/core@0.0.37':
     dependencies:
       rxjs: 7.8.1
       zod: 3.25.67
@@ -895,135 +902,21 @@ snapshots:
 
   '@cfworker/json-schema@4.1.1': {}
 
-  '@copilotkit/sdk-js@1.10.2(@langchain/anthropic@0.3.26(@langchain/core@0.3.72(openai@5.12.2(zod@3.25.67))))(@langchain/google-genai@0.2.16(@langchain/core@0.3.72(openai@5.12.2(zod@3.25.67))))(openai@5.12.2(zod@3.25.67))(zod-to-json-schema@3.24.5(zod@3.25.67))':
+  '@copilotkit/sdk-js@1.10.4(@langchain/community@0.0.53(openai@5.12.2(zod@3.25.67)))(@langchain/core@0.3.72(openai@5.12.2(zod@3.25.67)))(@langchain/langgraph@0.4.5(@langchain/core@0.3.72(openai@5.12.2(zod@3.25.67)))(zod-to-json-schema@3.24.5(zod@3.25.67)))(langchain@0.3.31(@langchain/anthropic@0.3.26(@langchain/core@0.3.72(openai@5.12.2(zod@3.25.67))))(@langchain/core@0.3.72(openai@5.12.2(zod@3.25.67)))(@langchain/google-genai@0.2.16(@langchain/core@0.3.72(openai@5.12.2(zod@3.25.67))))(openai@5.12.2(zod@3.25.67)))(typescript@5.8.3)(zod@3.25.67)':
     dependencies:
-      '@copilotkit/shared': 1.10.2
+      '@copilotkit/shared': 1.10.4
       '@langchain/community': 0.0.53(openai@5.12.2(zod@3.25.67))
       '@langchain/core': 0.3.72(openai@5.12.2(zod@3.25.67))
       '@langchain/langgraph': 0.4.5(@langchain/core@0.3.72(openai@5.12.2(zod@3.25.67)))(zod-to-json-schema@3.24.5(zod@3.25.67))
       langchain: 0.3.31(@langchain/anthropic@0.3.26(@langchain/core@0.3.72(openai@5.12.2(zod@3.25.67))))(@langchain/core@0.3.72(openai@5.12.2(zod@3.25.67)))(@langchain/google-genai@0.2.16(@langchain/core@0.3.72(openai@5.12.2(zod@3.25.67))))(openai@5.12.2(zod@3.25.67))
+      typescript: 5.8.3
       zod: 3.25.67
     transitivePeerDependencies:
-      - '@aws-crypto/sha256-js'
-      - '@aws-sdk/client-bedrock-agent-runtime'
-      - '@aws-sdk/client-bedrock-runtime'
-      - '@aws-sdk/client-dynamodb'
-      - '@aws-sdk/client-kendra'
-      - '@aws-sdk/client-lambda'
-      - '@aws-sdk/client-sagemaker-runtime'
-      - '@aws-sdk/client-sfn'
-      - '@aws-sdk/credential-provider-node'
-      - '@azure/search-documents'
-      - '@clickhouse/client'
-      - '@cloudflare/ai'
-      - '@datastax/astra-db-ts'
-      - '@elastic/elasticsearch'
-      - '@getmetal/metal-sdk'
-      - '@getzep/zep-js'
-      - '@gomomento/sdk'
-      - '@gomomento/sdk-core'
-      - '@google-ai/generativelanguage'
-      - '@gradientai/nodejs-sdk'
-      - '@huggingface/inference'
-      - '@langchain/anthropic'
-      - '@langchain/aws'
-      - '@langchain/cerebras'
-      - '@langchain/cohere'
-      - '@langchain/deepseek'
-      - '@langchain/google-genai'
-      - '@langchain/google-vertexai'
-      - '@langchain/google-vertexai-web'
-      - '@langchain/groq'
-      - '@langchain/mistralai'
-      - '@langchain/ollama'
-      - '@langchain/xai'
-      - '@mozilla/readability'
-      - '@neondatabase/serverless'
-      - '@opensearch-project/opensearch'
-      - '@opentelemetry/api'
-      - '@opentelemetry/exporter-trace-otlp-proto'
-      - '@opentelemetry/sdk-trace-base'
-      - '@pinecone-database/pinecone'
-      - '@planetscale/database'
-      - '@premai/prem-sdk'
-      - '@qdrant/js-client-rest'
-      - '@raycast/api'
-      - '@rockset/client'
-      - '@smithy/eventstream-codec'
-      - '@smithy/protocol-http'
-      - '@smithy/signature-v4'
-      - '@smithy/util-utf8'
-      - '@supabase/postgrest-js'
-      - '@supabase/supabase-js'
-      - '@tensorflow-models/universal-sentence-encoder'
-      - '@tensorflow/tfjs-converter'
-      - '@tensorflow/tfjs-core'
-      - '@upstash/redis'
-      - '@upstash/vector'
-      - '@vercel/kv'
-      - '@vercel/postgres'
-      - '@writerai/writer-sdk'
-      - '@xata.io/client'
-      - '@xenova/transformers'
-      - '@zilliz/milvus2-sdk-node'
-      - axios
-      - better-sqlite3
-      - cassandra-driver
-      - cborg
-      - cheerio
-      - chromadb
-      - closevector-common
-      - closevector-node
-      - closevector-web
-      - cohere-ai
-      - convex
-      - couchbase
-      - discord.js
-      - dria
-      - duck-duck-scrape
       - encoding
-      - faiss-node
-      - firebase-admin
-      - google-auth-library
-      - googleapis
-      - handlebars
-      - hnswlib-node
-      - html-to-text
-      - interface-datastore
-      - ioredis
-      - it-all
-      - jsdom
-      - jsonwebtoken
-      - llmonitor
-      - lodash
-      - lunary
-      - mongodb
-      - mysql2
-      - neo4j-driver
-      - node-llama-cpp
-      - openai
-      - peggy
-      - pg
-      - pg-copy-streams
-      - pickleparser
-      - portkey-ai
-      - react
-      - react-dom
-      - redis
-      - replicate
-      - typeorm
-      - typesense
-      - usearch
-      - vectordb
-      - voy-search
-      - weaviate-ts-client
-      - web-auth-library
-      - ws
-      - zod-to-json-schema
 
-  '@copilotkit/shared@1.10.2':
+  '@copilotkit/shared@1.10.4':
     dependencies:
-      '@ag-ui/core': 0.0.30
+      '@ag-ui/core': 0.0.37
       '@segment/analytics-node': 2.3.0
       chalk: 4.1.2
       graphql: 16.11.0
