@@ -22,75 +22,18 @@ import { CopilotRuntime } from "@copilotkit/runtime";
 const copilotKit = new CopilotRuntime();
 ```
 
-## Constructor Parameters
-
-<PropertyReference name="agents" type="MaybePromise<NonEmptyRecord<Record<string, AbstractAgent>>>"  > 
-This satisfies...
-   – the optional constraint in `CopilotRuntimeConstructorParams_BASE`
-   – the `MaybePromise<NonEmptyRecord<T>>` constraint in `CopilotRuntimeOptionsVNext`
-   – the `Record<string, AbstractAgent>` constraint in `both
-</PropertyReference>
-
-<PropertyReference name="processRuntimeRequest" type="request: CopilotRuntimeRequest">
+## constructor(params?: CopilotRuntimeConstructorParams & PartialBy&lt;CopilotRuntimeOptions, "agents"&gt;)
 
 
-  <PropertyReference name="request" type="CopilotRuntimeRequest" required>
-  
-  </PropertyReference>
+
+<PropertyReference name="params" type="CopilotRuntimeConstructorParams & PartialBy<CopilotRuntimeOptions, 'agents'>" >
 
 </PropertyReference>
 
-<PropertyReference name="getAllAgents" type="graphqlContext: GraphQLContext">
+<PropertyReference name="handleServiceAdapter" type="serviceAdapter: CopilotServiceAdapter">
 
 
-  <PropertyReference name="graphqlContext" type="GraphQLContext" required>
-  
-  </PropertyReference>
-
-</PropertyReference>
-
-<PropertyReference name="discoverAgentsFromEndpoints" type="graphqlContext: GraphQLContext">
-
-
-  <PropertyReference name="graphqlContext" type="GraphQLContext" required>
-  
-  </PropertyReference>
-
-</PropertyReference>
-
-<PropertyReference name="loadAgentState" type="graphqlContext: GraphQLContext, threadId: string, agentName: string">
-
-
-  <PropertyReference name="graphqlContext" type="GraphQLContext" required>
-  
-  </PropertyReference>
-
-  <PropertyReference name="threadId" type="string" required>
-  
-  </PropertyReference>
-
-  <PropertyReference name="agentName" type="string" required>
-  
-  </PropertyReference>
-
-</PropertyReference>
-
-<PropertyReference name="errorGraphQLError" type="error: { message: string; code: string; type: string }, context: {
-      operation: string;
-      cloudConfigPresent: boolean;
-      guardrailsEnabled: boolean;
-    }">
-Public method to handle GraphQL validation errors
-
-  <PropertyReference name="error" type="{ message: string; code: string; type: string }" required>
-  
-  </PropertyReference>
-
-  <PropertyReference name="context" type="{
-      operation: string;
-      cloudConfigPresent: boolean;
-      guardrailsEnabled: boolean;
-    }" required>
+  <PropertyReference name="serviceAdapter" type="CopilotServiceAdapter" required>
   
   </PropertyReference>
 
