@@ -43,11 +43,12 @@ export function useConfigureChatSuggestions(
   config: UseCopilotChatSuggestionsConfiguration,
   dependencies: any[] = [],
 ) {
+  const available = config.available === "enabled" ? "always" : config.available;
   useConfigureSuggestions(
     {
       ...config,
-      available: config.available === "enabled" ? "always" : config.available,
+      available,
     },
-    { deps: dependencies },
+    { deps: [...dependencies, config, available] },
   );
 }

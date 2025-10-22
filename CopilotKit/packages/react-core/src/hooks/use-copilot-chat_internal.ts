@@ -9,14 +9,17 @@ import { gqlToAGUI, Message as DeprecatedGqlMessage } from "@copilotkit/runtime-
 import { useLangGraphInterruptRender } from "./use-langgraph-interrupt-render";
 import {
   useAgent,
-  useConfigureSuggestions,
   useCopilotChatConfiguration,
   useCopilotKit,
+  useSuggestions,
 } from "@copilotkitnext/react";
 import { randomUUID } from "@copilotkit/shared";
 import { Suggestion } from "@copilotkitnext/core";
 import { useLazyToolRenderer } from "./use-lazy-tool-renderer";
-import { UseCopilotChatSuggestionsConfiguration } from "./use-configure-chat-suggestions";
+import {
+  useConfigureChatSuggestions,
+  UseCopilotChatSuggestionsConfiguration,
+} from "./use-configure-chat-suggestions";
 
 /**
  * The type of suggestions to use in the chat.
@@ -229,7 +232,26 @@ export interface UseCopilotChatReturn {
   threadId?: string;
 }
 
-let globalSuggestionPromise: Promise<void> | null = null;
+function useConfigureSuggestions(suggestions?: UseCopilotChatOptions["suggestions"]) {
+  let suggestionsConfig: UseCopilotChatSuggestionsConfiguration;
+
+  if (Array.isArray(suggestions)) {
+    suggestionsConfig = {
+      suggestions,
+      available: "always",
+    };
+  } else if (suggestions === "auto") {
+    suggestionsConfig = {
+      available: suggestions === "auto" ? "always" : "disabled",
+      instructions:
+        "Suggest what the user could say next. Provide clear, highly relevant suggestions. Do not literally suggest function calls.",
+    };
+  } else {
+    suggestionsConfig = { available: "disabled" } as UseCopilotChatSuggestionsConfiguration;
+  }
+
+  useConfigureChatSuggestions(suggestionsConfig);
+}
 
 export function useCopilotChatInternal({
   suggestions,
@@ -237,23 +259,7 @@ export function useCopilotChatInternal({
   const { copilotkit } = useCopilotKit();
   const { threadId, agentSession } = useCopilotContext();
   const existingConfig = useCopilotChatConfiguration();
-  let suggestionsConfig: UseCopilotChatSuggestionsConfiguration;
-  if (suggestions) {
-    if (Array.isArray(suggestions)) {
-      suggestionsConfig = {
-        suggestions,
-        available: "always",
-      };
-    } else if (suggestions === "auto") {
-      suggestionsConfig = {
-        available: suggestions === "auto" ? "always" : "disabled",
-        instructions:
-          "Suggest what the user could say next. Provide clear, highly relevant suggestions. Do not literally suggest function calls.",
-      };
-    }
-  }
-  // @ts-expect-error -- availability is extended with "enabled" for backwards compatibility
-  useConfigureSuggestions(suggestionsConfig ?? { available: "disabled" });
+  useConfigureSuggestions(suggestions);
 
   // Apply priority: props > existing config > defaults
   const resolvedAgentId = agentSession?.agentName ?? existingConfig?.agentId ?? "default";
@@ -280,9 +286,12 @@ export function useCopilotChatInternal({
 
   const deleteMessage = useCallback(
     (messageId: string) => {
-      agent?.setMessages((agent?.messages ?? []).filter((message) => message.id !== messageId));
+      const filteredMessages = (agent?.messages ?? []).filter(
+        (message) => message.id !== messageId,
+      );
+      agent?.setMessages(filteredMessages);
     },
-    [agent?.setMessages],
+    [agent?.setMessages, agent?.messages],
   );
 
   const latestDelete = useUpdatedRef(deleteMessage);
@@ -293,7 +302,7 @@ export function useCopilotChatInternal({
     [latestDelete],
   );
 
-  const currentSuggestions = copilotkit.getSuggestions(resolvedAgentId);
+  const currentSuggestions = useSuggestions();
 
   const reload = useAsyncCallback(
     async (reloadMessageId: string): Promise<void> => {
