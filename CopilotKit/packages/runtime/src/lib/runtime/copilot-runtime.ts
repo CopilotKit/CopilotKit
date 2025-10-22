@@ -343,7 +343,7 @@ interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []>
     Omit<CopilotRuntimeOptionsVNext, "agents" | "transcriptionService"> {
   /**
    * TODO: un-omit `transcriptionService` above once it's supported
-   * 
+   *
    * This satisfies...
    *  – the optional constraint in `CopilotRuntimeConstructorParams_BASE`
    *  – the `MaybePromise<NonEmptyRecord<T>>` constraint in `CopilotRuntimeOptionsVNext`
@@ -411,8 +411,10 @@ export class CopilotRuntime {
     const isAgentsListEmpty = !Object.keys(agents).length;
     const hasServiceAdapter = Boolean(serviceAdapter);
     const illegalServiceAdapterNames = ["EmptyAdapter"];
-    const serviceAdapterCanBeUsedForAgent = !illegalServiceAdapterNames.includes(serviceAdapter.name);
-    
+    const serviceAdapterCanBeUsedForAgent = !illegalServiceAdapterNames.includes(
+      serviceAdapter.name,
+    );
+
     if (isAgentsListEmpty && (!hasServiceAdapter || !serviceAdapterCanBeUsedForAgent)) {
       throw new CopilotKitMisuseError({
         message: "No default agent provided. Please provide a default agent in the runtime config.",

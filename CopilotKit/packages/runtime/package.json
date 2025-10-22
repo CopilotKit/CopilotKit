@@ -14,16 +14,7 @@
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
-    },
-    "./v2": {
-      "types": "./dist/v2/index.d.ts",
-      "import": "./dist/v2/index.mjs",
-      "require": "./dist/v2/index.js"
-    }
+    ".": "./dist/index.js"
   },
   "types": "./dist/index.d.ts",
   "license": "MIT",
