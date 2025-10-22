@@ -1,6 +1,8 @@
 import { useCopilotContext } from "../context";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
+import { LangGraphInterruptEvent, MetaEventName } from "@copilotkit/runtime-client-gql";
+import { parseJson } from "@copilotkit/shared";
 
 type InterruptProps = {
   event: any;
@@ -25,7 +27,7 @@ export function useLangGraphInterruptRender(
 
   const [currentInterruptEvent, setCurrentInterruptEvent] = useState<{
     threadId: string;
-    value: any;
+    event: LangGraphInterruptEvent;
   }>();
 
   useEffect(() => {
@@ -33,9 +35,14 @@ export function useLangGraphInterruptRender(
     const subscriber: AgentSubscriber = {
       onCustomEvent: ({ event }) => {
         if (event.name === "on_interrupt") {
+          console.log(event);
           setCurrentInterruptEvent({
             threadId,
-            value: event.value,
+            event: {
+              name: MetaEventName.LangGraphInterruptEvent,
+              type: event.type,
+              value: parseJson(event.value, event.value),
+            },
           });
         }
       },
@@ -45,7 +52,7 @@ export function useLangGraphInterruptRender(
     return () => {
       unsubscribe();
     };
-  }, [agent]);
+  }, [agent, threadId]);
 
   const handleResolve = useCallback(
     (response?: string) => {
@@ -60,10 +67,8 @@ export function useLangGraphInterruptRender(
     [agent],
   );
 
-  const responseRef = React.useRef<string>(undefined!);
   const resolveInterrupt = useCallback(
     (response: string) => {
-      responseRef.current = response;
       // Use setTimeout to defer the state update to next tick
       setTimeout(() => {
         setLangGraphInterruptAction(threadId, { event: { response } });
@@ -80,7 +85,7 @@ export function useLangGraphInterruptRender(
     const conditionsMet =
       !agentSession || !enabled
         ? true
-        : enabled({ eventValue: currentInterruptEvent.value, agentMetadata: agentSession });
+        : enabled({ eventValue: currentInterruptEvent.event.value, agentMetadata: agentSession });
 
     if (!conditionsMet) {
       return null;
@@ -89,7 +94,7 @@ export function useLangGraphInterruptRender(
     let result = null;
     if (handler) {
       result = handler({
-        event: currentInterruptEvent.value,
+        event: currentInterruptEvent.event,
         resolve: resolveInterrupt,
       });
     }
@@ -97,10 +102,10 @@ export function useLangGraphInterruptRender(
     if (!render || langGraphInterruptAction.event?.response) return null;
 
     return React.createElement(InterruptRenderer, {
-      event: currentInterruptEvent.value,
+      event: currentInterruptEvent.event,
       result,
       render,
       resolve: resolveInterrupt,
     });
-  }, [langGraphInterruptAction, currentInterruptEvent]);
+  }, [langGraphInterruptAction, currentInterruptEvent, agentSession, resolveInterrupt]);
 }
