@@ -3,7 +3,6 @@ import { useCopilotContext } from "../context/copilot-context";
 import { SystemMessageFunction } from "../types";
 import { AppendMessageOptions } from "./use-chat";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
-import type { AgentSubscriber } from "@ag-ui/client";
 import { Message } from "@copilotkit/shared";
 import { gqlToAGUI, Message as DeprecatedGqlMessage } from "@copilotkit/runtime-client-gql";
 import { useLangGraphInterruptRender } from "./use-langgraph-interrupt-render";
@@ -20,6 +19,7 @@ import {
   useConfigureChatSuggestions,
   UseCopilotChatSuggestionsConfiguration,
 } from "./use-configure-chat-suggestions";
+import { useAgentSubscribers } from "./use-agent-subscribers";
 
 /**
  * The type of suggestions to use in the chat.
@@ -268,6 +268,7 @@ export function useCopilotChatInternal({
     [threadId, existingConfig?.threadId],
   );
   const { agent } = useAgent({ agentId: resolvedAgentId });
+  useAgentSubscribers(agent);
 
   useEffect(() => {
     if (agent) {

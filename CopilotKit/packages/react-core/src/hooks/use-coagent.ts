@@ -204,40 +204,6 @@ export type HintFunction = (params: HintFunctionParams) => Message | undefined;
 export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentReturnType<T> {
   const { agent } = useAgent({ agentId: options.name });
 
-  useEffect(() => {
-    if (!agent) return;
-    let predictStateTools: {
-      tool: string;
-      state_key: string;
-      tool_argument: string;
-    }[];
-    const subscriber: AgentSubscriber = {
-      onCustomEvent: ({ event }) => {
-        if (event.name === "PredictState") {
-          predictStateTools = event.value;
-        }
-      },
-      onToolCallArgsEvent: ({ partialToolCallArgs, toolCallName }) => {
-        predictStateTools.forEach((t) => {
-          if (t?.tool !== toolCallName) return;
-
-          const emittedState =
-            typeof partialToolCallArgs === "string"
-              ? parseJson(partialToolCallArgs as unknown as string, partialToolCallArgs)
-              : partialToolCallArgs;
-
-          agent.setState({
-            [t.state_key]: emittedState[t.state_key],
-          });
-        });
-      },
-    };
-    const { unsubscribe } = agent.subscribe(subscriber);
-    return () => {
-      unsubscribe();
-    };
-  }, [Boolean(agent)]);
-
   const handleStateUpdate = useCallback(
     (newState: T | ((prevState: T | undefined) => T)) => {
       if (!agent) return;

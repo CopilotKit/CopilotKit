@@ -1,4 +1,4 @@
-import { useConfigureSuggestions } from "@copilotkitnext/react";
+import { useConfigureSuggestions, useSuggestions } from "@copilotkitnext/react";
 import { StaticSuggestionsConfig, Suggestion } from "@copilotkitnext/core";
 
 type StaticSuggestionInput = Omit<Suggestion, "isLoading"> & Partial<Pick<Suggestion, "isLoading">>;
@@ -42,13 +42,16 @@ export type UseCopilotChatSuggestionsConfiguration =
 export function useConfigureChatSuggestions(
   config: UseCopilotChatSuggestionsConfiguration,
   dependencies: any[] = [],
-) {
+): ReturnType<typeof useSuggestions> {
   const available = config.available === "enabled" ? "always" : config.available;
+
   useConfigureSuggestions(
     {
       ...config,
       available,
     },
-    { deps: [...dependencies, config, available] },
+    { deps: dependencies },
   );
+
+  return useSuggestions();
 }
