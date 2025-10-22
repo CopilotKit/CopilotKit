@@ -4,6 +4,7 @@ import {
   actionParametersToJsonSchema,
   jsonSchemaToActionParameters,
   JSONSchema,
+  NullableJSONSchema,
 } from "../utils/json-schema";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { Parameter } from "../types";
@@ -379,5 +380,73 @@ describe("jsonSchemaToActionParameters", () => {
     const roundTripParameters = jsonSchemaToActionParameters(jsonSchema);
 
     expect(roundTripParameters).toEqual(originalParameters);
+  });
+
+  it("should handle union types like ['object', 'null']", () => {
+    const jsonSchema = {
+      type: "object",
+      properties: {
+        Places: {
+          type: ["array"],
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              displayName: {
+                type: "object",
+                properties: {
+                  text: { type: "string" },
+                  languageCode: { type: "string" },
+                },
+                required: ["text", "languageCode"],
+              },
+              primaryTypeDisplayName: {
+                type: ["object", "null"], // nullable union type
+                properties: {
+                  text: { type: "string" },
+                  languageCode: { type: "string" },
+                },
+                required: ["text", "languageCode"],
+              },
+            },
+            required: ["id", "displayName", "primaryTypeDisplayName"],
+          },
+        },
+      },
+      required: ["Places"],
+    } satisfies JSONSchema;
+
+    const expectedParameters: Parameter[] = [
+      {
+        name: "Places",
+        description: undefined,
+        type: "object[]",
+        attributes: [
+          { name: "id", description: undefined, type: "string" },
+          {
+            name: "displayName",
+            description: undefined,
+            type: "object",
+            attributes: [
+              { name: "text", description: undefined, type: "string" },
+              { name: "languageCode", description: undefined, type: "string" },
+            ],
+          },
+          {
+            name: "primaryTypeDisplayName",
+            description: undefined,
+            type: "object", // Should be 'object', not 'string'
+            required: false, // Should be optional since it can be null
+            attributes: [
+              { name: "text", description: undefined, type: "string" },
+              { name: "languageCode", description: undefined, type: "string" },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const result = jsonSchemaToActionParameters(jsonSchema);
+    expect(result).toEqual(expectedParameters);
   });
 });
