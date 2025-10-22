@@ -259,24 +259,16 @@ export function useCopilotChatInternal({
   const resolvedAgentId = agentSession?.agentName ?? existingConfig?.agentId ?? "default";
   const resolvedThreadId = useMemo(
     () => threadId ?? existingConfig?.threadId ?? randomUUID(),
-    [threadId, agentSession, existingConfig?.threadId],
+    [threadId, existingConfig?.threadId],
   );
   const { agent } = useAgent({ agentId: resolvedAgentId });
 
   useEffect(() => {
-    const connect = async (agent: any) => {
-      try {
-        await copilotkit.connectAgent({ agent });
-      } catch (error) {
-        throw error;
-      }
-    };
     if (agent) {
       agent.threadId = resolvedThreadId;
-      connect(agent);
     }
     return () => {};
-  }, [resolvedThreadId, agent, copilotkit, resolvedAgentId]);
+  }, [resolvedThreadId, agent]);
 
   // @ts-expect-error -- agui client version mismatch causes this
   const interrupt = useLangGraphInterruptRender(agent);
