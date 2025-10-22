@@ -461,13 +461,23 @@ export class CopilotRuntime {
     agents: Record<string, AbstractAgent>,
     tools: BasicAgentConfiguration["tools"],
   ): Record<string, AbstractAgent> {
-    const enrichedAgents = { ...agents };
-    // Add tools to all existing BasicAgents by mutating their internal config
-    for (const existingAgent of Object.values(enrichedAgents)) {
-      // TODO: fix this - `existingAgent.config` does not exist on type 'AbstractAgent'
-      const config = existingAgent.config ?? {};
-      const existingTools = config.tools ?? [];
-      config.tools = [...existingTools, ...tools];
+    if (!tools?.length) {
+      return agents;
+    }
+
+    const enrichedAgents: Record<string, AbstractAgent> = { ...agents };
+
+    for (const [agentId, agent] of Object.entries(enrichedAgents)) {
+      const existingConfig = (Reflect.get(agent, "config") ?? {}) as BasicAgentConfiguration;
+      const existingTools = existingConfig.tools ?? [];
+
+      const updatedConfig: BasicAgentConfiguration = {
+        ...existingConfig,
+        tools: [...existingTools, ...tools],
+      };
+
+      Reflect.set(agent, "config", updatedConfig);
+      enrichedAgents[agentId] = agent;
     }
 
     return enrichedAgents;
