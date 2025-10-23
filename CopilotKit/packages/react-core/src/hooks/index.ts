@@ -10,7 +10,6 @@ export { useCopilotChatInternal, type ChatSuggestions } from "./use-copilot-chat
 export { useCopilotAction } from "./use-copilot-action";
 export { useCoAgentStateRender } from "./use-coagent-state-render";
 export { useMakeCopilotDocumentReadable } from "./use-make-copilot-document-readable";
-export { type UseChatHelpers } from "./use-chat";
 export { useCopilotReadable } from "./use-copilot-readable";
 export { useCoAgent, type HintFunction } from "./use-coagent";
 export { useCopilotRuntimeClient } from "./use-copilot-runtime-client";

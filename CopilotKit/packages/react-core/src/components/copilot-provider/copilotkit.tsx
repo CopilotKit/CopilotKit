@@ -320,15 +320,6 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     [copilotApiConfig.publicApiKey],
   );
 
-  // const runtimeClient = useCopilotRuntimeClient({
-  //   url: copilotApiConfig.chatApiEndpoint,
-  //   publicApiKey: publicApiKey,
-  //   headers,
-  //   credentials: copilotApiConfig.credentials,
-  //   showDevConsole: shouldShowDevConsole(props.showDevConsole),
-  //   onError: handleErrors,
-  // });
-
   const [chatSuggestionConfiguration, setChatSuggestionConfiguration] = useState<{
     [key: string]: CopilotChatSuggestionConfiguration;
   }>({});
@@ -367,20 +358,6 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     },
     [],
   );
-  const hasLoadedAgents = useRef(false);
-
-  // useEffect(() => {
-  //   if (hasLoadedAgents.current) return;
-  //
-  //   const fetchData = async () => {
-  //     const result = await runtimeClient.availableAgents();
-  //     if (result.data?.availableAgents) {
-  //       setAvailableAgents(result.data.availableAgents.agents);
-  //     }
-  //     hasLoadedAgents.current = true;
-  //   };
-  //   void fetchData();
-  // }, []);
 
   let initialAgentSession: AgentSession | null = null;
   if (props.agent) {

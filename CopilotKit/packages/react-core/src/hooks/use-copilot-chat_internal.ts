@@ -363,7 +363,7 @@ export function useCopilotChatInternal({
       if (!agent) return;
       const followUp = options?.followUp ?? true;
       if (options?.clearSuggestions) {
-        await copilotkit.clearSuggestions(resolvedAgentId);
+        copilotkit.clearSuggestions(resolvedAgentId);
       }
       agent?.addMessage(message);
       if (followUp) {
@@ -374,7 +374,7 @@ export function useCopilotChatInternal({
         }
       }
     },
-    [agent, copilotkit.runAgent],
+    [agent, copilotkit, resolvedAgentId],
   );
 
   const latestAppendFunc = useAsyncCallback(

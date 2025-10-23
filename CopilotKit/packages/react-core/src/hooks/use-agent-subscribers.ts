@@ -1,24 +1,26 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import { parseJson } from "@copilotkit/shared";
 import { useAgent } from "@copilotkitnext/react";
 
 export function useAgentSubscribers(agent?: ReturnType<typeof useAgent>["agent"]) {
-  let predictStateTools: {
-    tool: string;
-    state_key: string;
-    tool_argument: string;
-  }[] = [];
+  const predictStateToolsRef = useRef<
+    {
+      tool: string;
+      state_key: string;
+      tool_argument: string;
+    }[]
+  >([]);
 
   const getSubscriber = useCallback(
     (agent: AbstractAgent): AgentSubscriber => ({
       onCustomEvent: ({ event }) => {
         if (event.name === "PredictState") {
-          predictStateTools = event.value;
+          predictStateToolsRef.current = event.value;
         }
       },
       onToolCallArgsEvent: ({ partialToolCallArgs, toolCallName }) => {
-        predictStateTools.forEach((t) => {
+        predictStateToolsRef.current.forEach((t) => {
           if (t?.tool !== toolCallName) return;
 
           const emittedState =

@@ -209,12 +209,11 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
       if (!agent) return;
 
       if (typeof newState === "function") {
-        // @ts-ignore
-        agent.setState(newState(agent.state));
+        const updater = newState as (prevState: T | undefined) => T;
+        agent.setState(updater(agent.state));
       } else {
         agent.setState({ ...agent.state, ...newState });
       }
-      agent.setState(newState);
     },
     [agent?.state, agent?.setState],
   );

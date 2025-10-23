@@ -52,7 +52,6 @@ export function useConfigureChatSuggestions(
 ): ReturnType<typeof useSuggestions> {
   const { agentSession } = useCopilotContext();
   const { copilotkit } = useCopilotKit();
-  const chatConfig = useCopilotChatConfiguration();
 
   const available = config.available === "enabled" ? "always" : config.available;
 
