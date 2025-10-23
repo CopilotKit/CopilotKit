@@ -426,6 +426,11 @@ export function useCopilotChatInternal({
     });
   }, [agent?.messages, lazyToolRendered, allMessages]);
 
+  const isLoading = useMemo(() => {
+    if (!agent) return true;
+    return agent.isRunning;
+  }, [agent]);
+
   // @ts-ignore
   return {
     messages: resolvedMessages,
@@ -436,7 +441,7 @@ export function useCopilotChatInternal({
     stopGeneration: latestStopFunc,
     reset: latestResetFunc,
     deleteMessage: latestDeleteFunc,
-    isLoading: agent?.isRunning ?? false,
+    isLoading: isLoading,
     // mcpServers,
     // setMcpServers,
     suggestions: currentSuggestions.suggestions,

@@ -11,7 +11,7 @@ const MAX_NEWLINES = 6;
 export const Input = ({
   inProgress,
   onSend,
-  isVisible = false,
+  chatReady = true,
   onStop,
   onUpload,
   hideStopButton = false,
@@ -71,8 +71,12 @@ export const Input = ({
   });
 
   const isInProgress = inProgress || pushToTalkState === "transcribing";
-  const buttonIcon =
-    isInProgress && !hideStopButton ? context.icons.stopIcon : context.icons.sendIcon;
+  const { buttonIcon, buttonAlt } = useMemo(() => {
+    if (!chatReady) return { buttonIcon: context.icons.spinnerIcon, buttonAlt: "Loading" };
+    return isInProgress && !hideStopButton
+      ? { buttonIcon: context.icons.stopIcon, buttonAlt: "Stop" }
+      : { buttonIcon: context.icons.sendIcon, buttonAlt: "Send" };
+  }, [isInProgress, chatReady, hideStopButton, context.icons.stopIcon, context.icons.sendIcon]);
   const showPushToTalk =
     pushToTalkConfigured &&
     (pushToTalkState === "idle" || pushToTalkState === "recording") &&
@@ -144,6 +148,7 @@ export const Input = ({
             data-copilotkit-in-progress={inProgress}
             data-test-id={inProgress ? "copilot-chat-request-in-progress" : "copilot-chat-ready"}
             className="copilotKitInputControlButton"
+            aria-label={buttonAlt}
           >
             {buttonIcon}
           </button>
