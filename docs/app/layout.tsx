@@ -1,20 +1,24 @@
-import "./global.css";
-import { RootProvider } from "fumadocs-ui/provider";
-import { Inter } from "next/font/google";
-import type { ReactNode } from "react";
-import { ProvidersWrapper } from "@/lib/providers/providers-wrapper";
-import { Banners } from "@/components/layout/banners";
-import Script from "next/script";
+import "./global.css"
+import { RootProvider } from "fumadocs-ui/provider"
+import { Plus_Jakarta_Sans } from "next/font/google"
+import type { ReactNode } from "react"
+import { ProvidersWrapper } from "@/lib/providers/providers-wrapper"
+import { Banners } from "@/components/layout/banners"
+import Script from "next/script"
 
-const inter = Inter({
+const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
-});
+})
 
 export default async function Layout({ children }: { children: ReactNode }) {
-  const REB2B_KEY = process.env.NEXT_PUBLIC_REB2B_KEY;
-  const REO_KEY = process.env.NEXT_PUBLIC_REO_KEY;
+  const REB2B_KEY = process.env.NEXT_PUBLIC_REB2B_KEY
+  const REO_KEY = process.env.NEXT_PUBLIC_REO_KEY
   return (
-    <html lang="en" className={inter.className} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={plusJakartaSans.className}
+      suppressHydrationWarning
+    >
       <head>
         <Script
           id="hubspot-script"
@@ -60,5 +64,5 @@ export default async function Layout({ children }: { children: ReactNode }) {
         </ProvidersWrapper>
       </body>
     </html>
-  );
+  )
 }
