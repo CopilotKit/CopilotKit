@@ -58,66 +58,82 @@ const Navbar = () => {
 
   return (
     <div className="h-[64px] lg:h-[80px] p-1 lg:p-2 fixed top-0 left-0 right-0 z-50">
-      <div className="flex justify-between items-center w-full h-full rounded-2xl border backdrop-blur-lg border-white/10 bg-white/5">
-        <div className="flex gap-11 items-center h-full">
-          <Logo className="pl-6" />
-          <ul className="hidden gap-6 items-center h-full lg:flex">
-            {LEFT_LINKS.map((link) => (
-              <li key={link.href} className="relative h-full">
-                <Link
-                  href={link.href}
-                  target={link.target}
-                  className={`h-full ${
-                    activeRoute === link.href ? "opacity-100" : "opacity-50"
-                  }`}
-                >
-                  <span className="flex gap-2 items-center h-full">
-                    <Image
-                      src={`${link.icon}-dark.svg`}
-                      alt={link.label ?? `Navbar link icon for ${link.href}`}
-                      width={20}
-                      height={20}
-                      className="hidden dark:inline-block"
-                    />
-                    <Image
-                      src={`${link.icon}-light.svg`}
-                      alt={link.label ?? `Navbar link icon for ${link.href}`}
-                      width={20}
-                      height={20}
-                      className="dark:hidden"
-                    />
+      <div className="flex justify-between items-center w-full h-full">
+        <div className="flex w-full h-full">
+          <div className="flex gap-11 items-center w-full h-full rounded-l-2xl border border-r-0 backdrop-blur-lg border-white/10 bg-white/5">
+            <Logo className="pl-6" />
+            <ul className="hidden gap-6 items-center h-full lg:flex">
+              {LEFT_LINKS.map((link) => (
+                <li key={link.href} className="relative h-full">
+                  <Link
+                    href={link.href}
+                    target={link.target}
+                    className={`h-full ${
+                      activeRoute === link.href ? "opacity-100" : "opacity-50"
+                    }`}
+                  >
+                    <span className="flex gap-2 items-center h-full">
+                      <Image
+                        src={`${link.icon}-dark.svg`}
+                        alt={link.label ?? `Navbar link icon for ${link.href}`}
+                        width={20}
+                        height={20}
+                        className="hidden dark:inline-block"
+                      />
+                      <Image
+                        src={`${link.icon}-light.svg`}
+                        alt={link.label ?? `Navbar link icon for ${link.href}`}
+                        width={20}
+                        height={20}
+                        className="dark:hidden"
+                      />
 
-                    <span className="text-sm font-medium">{link.label}</span>
+                      <span className="text-sm font-medium">{link.label}</span>
 
-                    {link.showExternalLinkIcon && (
-                      <>
-                        <Image
-                          src="/images/navbar/external-link-dark.svg"
-                          alt="External link icon"
-                          width={20}
-                          height={20}
-                          className="hidden dark:inline-block"
-                        />
-                        <Image
-                          src="/images/navbar/external-link-light.svg"
-                          alt="External link icon"
-                          width={20}
-                          height={20}
-                          className="dark:hidden"
-                        />
-                      </>
-                    )}
-                  </span>
-                </Link>
-                {activeRoute === link.href && (
-                  <div className="absolute bottom-0 left-0 w-full h-[3px] bg-[#7076D5]" />
-                )}
-              </li>
-            ))}
-          </ul>
+                      {link.showExternalLinkIcon && (
+                        <>
+                          <Image
+                            src="/images/navbar/external-link-dark.svg"
+                            alt="External link icon"
+                            width={20}
+                            height={20}
+                            className="hidden dark:inline-block"
+                          />
+                          <Image
+                            src="/images/navbar/external-link-light.svg"
+                            alt="External link icon"
+                            width={20}
+                            height={20}
+                            className="dark:hidden"
+                          />
+                        </>
+                      )}
+                    </span>
+                  </Link>
+                  {activeRoute === link.href && (
+                    <div className="absolute bottom-0 left-0 w-full h-[3px] bg-[#7076D5]" />
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <Image
+            src="/images/navbar/slanted-end-border-dark.svg"
+            alt="Slanted end border"
+            width={28}
+            height={72}
+            className="hidden dark:inline-block"
+          />
+          <Image
+            src="/images/navbar/slanted-end-border-light.svg"
+            alt="Slanted end border"
+            width={28}
+            height={72}
+            className="dark:hidden"
+          />
         </div>
 
-        <div className="flex gap-1 items-center pr-4">
+        <div className="flex gap-1 items-center pr-4 w-max shrink-0">
           {RIGHT_LINKS.map((link) => (
             <Link
               key={link.href}
