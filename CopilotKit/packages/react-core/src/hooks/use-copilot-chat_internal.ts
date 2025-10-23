@@ -1,7 +1,6 @@
 import { useRef, useEffect, useCallback, useMemo } from "react";
 import { useCopilotContext } from "../context/copilot-context";
 import { SystemMessageFunction } from "../types";
-import { AppendMessageOptions } from "./use-chat";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
 import { Message } from "@copilotkit/shared";
 import { gqlToAGUI, Message as DeprecatedGqlMessage } from "@copilotkit/runtime-client-gql";
@@ -29,6 +28,17 @@ import { useAgentSubscribers } from "./use-agent-subscribers";
  * `SuggestionItem[]` - Static suggestions array.
  */
 export type ChatSuggestions = "auto" | "manual" | Omit<Suggestion, "isLoading">[];
+
+export interface AppendMessageOptions {
+  /**
+   * Whether to run the chat completion after appending the message. Defaults to `true`.
+   */
+  followUp?: boolean;
+  /**
+   * Whether to clear the suggestions after appending the message. Defaults to `true`.
+   */
+  clearSuggestions?: boolean;
+}
 
 export interface UseCopilotChatOptions {
   /**
@@ -268,6 +278,7 @@ export function useCopilotChatInternal({
     [threadId, existingConfig?.threadId],
   );
   const { agent } = useAgent({ agentId: resolvedAgentId });
+
   useAgentSubscribers(agent);
 
   useEffect(() => {
@@ -333,17 +344,17 @@ export function useCopilotChatInternal({
         const lastUserMessageBeforeRegenerate = messages
           .slice(0, reloadMessageIndex)
           .reverse()
-          .find(
-            (msg) =>
-              // @ts-expect-error -- message has role
-              msg.role === MessageRole.User,
-          );
-        const indexOfLastUserMessageBeforeRegenerate = messages.findIndex(
-          (msg) => msg.id === lastUserMessageBeforeRegenerate!.id,
-        );
+          .find((msg) => msg.role === "user");
 
-        // Include the user message, remove everything after it
-        historyCutoff = messages.slice(0, indexOfLastUserMessageBeforeRegenerate + 1);
+        if (!lastUserMessageBeforeRegenerate) {
+          historyCutoff = [messages[0]];
+        } else {
+          const indexOfLastUserMessageBeforeRegenerate = messages.findIndex(
+            (msg) => msg.id === lastUserMessageBeforeRegenerate.id,
+          );
+          // Include the user message, remove everything after it
+          historyCutoff = messages.slice(0, indexOfLastUserMessageBeforeRegenerate + 1);
+        }
       } else if (messages.length > 2 && reloadMessageIndex === 0) {
         historyCutoff = [messages[0], messages[1]];
       }
@@ -379,7 +390,7 @@ export function useCopilotChatInternal({
 
   const latestAppendFunc = useAsyncCallback(
     async (message: DeprecatedGqlMessage, options?: AppendMessageOptions) => {
-      latestSendMessageFunc(gqlToAGUI([message])[0], options);
+      return latestSendMessageFunc(gqlToAGUI([message])[0], options);
     },
     [latestSendMessageFunc],
   );
@@ -426,11 +437,6 @@ export function useCopilotChatInternal({
     });
   }, [agent?.messages, lazyToolRendered, allMessages]);
 
-  const isLoading = useMemo(() => {
-    if (!agent) return true;
-    return agent.isRunning;
-  }, [agent]);
-
   // @ts-ignore
   return {
     messages: resolvedMessages,
@@ -441,7 +447,7 @@ export function useCopilotChatInternal({
     stopGeneration: latestStopFunc,
     reset: latestResetFunc,
     deleteMessage: latestDeleteFunc,
-    isLoading: isLoading,
+    isLoading: !Boolean(agent) ? true : Boolean(agent?.isRunning),
     // mcpServers,
     // setMcpServers,
     suggestions: currentSuggestions.suggestions,

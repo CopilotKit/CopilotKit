@@ -126,6 +126,10 @@ export interface CopilotContextParams {
   setAction: (id: string, action: FrontendAction<any>) => void;
   removeAction: (id: string) => void;
 
+  // registered actions for component-based rendering
+  setRegisteredActions: (actionConfig: any) => string;
+  removeRegisteredAction: (actionKey: string) => void;
+
   // coagent actions
   coAgentStateRenders: Record<string, CoAgentStateRender<any>>;
   setCoAgentStateRender: (id: string, stateRender: CoAgentStateRender<any>) => void;
@@ -241,6 +245,9 @@ const emptyCopilotContext: CopilotContextParams = {
   actions: {},
   setAction: () => {},
   removeAction: () => {},
+
+  setRegisteredActions: () => "",
+  removeRegisteredAction: () => {},
 
   coAgentStateRenders: {},
   setCoAgentStateRender: () => {},

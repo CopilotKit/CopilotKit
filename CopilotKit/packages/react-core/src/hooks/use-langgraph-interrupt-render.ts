@@ -35,7 +35,6 @@ export function useLangGraphInterruptRender(
     const subscriber: AgentSubscriber = {
       onCustomEvent: ({ event }) => {
         if (event.name === "on_interrupt") {
-          console.log(event);
           setCurrentInterruptEvent({
             threadId,
             event: {

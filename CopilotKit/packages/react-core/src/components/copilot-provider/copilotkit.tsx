@@ -90,6 +90,11 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     Record<string, CoAgentStateRender<any>>
   >({});
 
+  // State for registered actions from useCopilotAction
+  const [registeredActionConfigs, setRegisteredActionConfigs] = useState<
+    Map<string, { type: string; action: any; component: any }>
+  >(new Map());
+
   const chatComponentsCache = useRef<ChatComponentsCache>({
     actions: {},
     coAgentStateRenders: {},
@@ -473,6 +478,36 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     [setAuthStates],
   );
 
+  const handleSetRegisteredActions = useCallback((actionConfig: any): string => {
+    const key = actionConfig.action.name || randomUUID();
+    setRegisteredActionConfigs((prev) => {
+      const newMap = new Map(prev);
+      newMap.set(key, actionConfig);
+      return newMap;
+    });
+    return key;
+  }, []);
+
+  const handleRemoveRegisteredAction = useCallback((actionKey: string) => {
+    setRegisteredActionConfigs((prev) => {
+      const newMap = new Map(prev);
+      newMap.delete(actionKey);
+      return newMap;
+    });
+  }, []);
+
+  // Component to render all registered actions
+  const RegisteredActionsRenderer = useMemo(() => {
+    return () => (
+      <>
+        {Array.from(registeredActionConfigs.entries()).map(([key, config]) => {
+          const Component = config.component;
+          return <Component key={key} action={config.action} />;
+        })}
+      </>
+    );
+  }, [registeredActionConfigs]);
+
   return (
     <CopilotContext.Provider
       value={{
@@ -481,6 +516,8 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         getFunctionCallHandler,
         setAction,
         removeAction,
+        setRegisteredActions: handleSetRegisteredActions,
+        removeRegisteredAction: handleRemoveRegisteredAction,
         coAgentStateRenders,
         setCoAgentStateRender,
         removeCoAgentStateRender,
@@ -542,6 +579,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
           <CopilotMessages>
             {memoizedChildren}
             {showDevConsole && <ConsoleTrigger />}
+            <RegisteredActionsRenderer />
           </CopilotMessages>
         </MessagesTapProvider>
         {bannerError && showDevConsole && (

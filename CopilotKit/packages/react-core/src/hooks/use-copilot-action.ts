@@ -130,28 +130,55 @@
  *
  * This hooks enables you to dynamically generate UI elements and render them in the copilot chat. For more information, check out the [Generative UI](/guides/generative-ui) page.
  */
+import { useEffect } from "react";
 import { Parameter } from "@copilotkit/shared";
 import { CatchAllFrontendAction, FrontendAction } from "../types/frontend-action";
 import { useFrontendTool, UseFrontendToolArgs } from "./use-frontend-tool";
 import { useRenderToolCall, UseRenderToolCallArgs } from "./use-render-tool-call";
 import { useHumanInTheLoop, UseHumanInTheLoopArgs } from "./use-human-in-the-loop";
+import { useCopilotContext } from "../context";
 
-// We implement useCopilotAction dependency handling so that
-// the developer has the option to not provide any dependencies.
-// In this case, we assume they want to update the handler on each rerender.
-// To avoid getting stuck in an infinite loop, we update the handler directly,
-// skipping React state updates.
-// This is ok in this case, because the handler is not part of any UI that
-// needs to be updated.
-// useCallback, useMemo or other memoization techniques are not suitable here,
-// because they will cause a infinite rerender loop.
-export function useCopilotAction<const T extends Parameter[] | [] = []>(
+// Component wrappers that call hooks - these allow React to properly manage hook state
+// even when action types change between renders
+function RenderToolCallComponent<T extends Parameter[] | [] = []>({
+  action,
+}: {
+  action: UseRenderToolCallArgs<T>;
+}) {
+  useRenderToolCall(action);
+  return null;
+}
+
+function HumanInTheLoopComponent<T extends Parameter[] | [] = []>({
+  action,
+}: {
+  action: UseHumanInTheLoopArgs<T>;
+}) {
+  useHumanInTheLoop(action);
+  return null;
+}
+
+function FrontendToolComponent<T extends Parameter[] | [] = []>({
+  action,
+}: {
+  action: UseFrontendToolArgs<T>;
+}) {
+  useFrontendTool(action);
+  return null;
+}
+
+// Helper to determine which component and action config to use
+function getActionConfig<const T extends Parameter[] | [] = []>(
   action: FrontendAction<T> | CatchAllFrontendAction,
-  dependencies?: any[],
-): void {
+) {
   if (action.name === "*") {
-    return useRenderToolCall(action as UseRenderToolCallArgs<T>);
+    return {
+      type: "render" as const,
+      action: action as UseRenderToolCallArgs<T>,
+      component: RenderToolCallComponent,
+    };
   }
+
   if ("renderAndWaitForResponse" in action || "renderAndWait" in action) {
     let render = action.render;
     if (!render && "renderAndWaitForResponse" in action) {
@@ -162,23 +189,66 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
       // @ts-expect-error -- renderAndWait is deprecated, but we need to support it for backwards compatibility
       render = action.renderAndWait;
     }
-    return useHumanInTheLoop({ ...action, render } as UseHumanInTheLoopArgs<T>);
+    return {
+      type: "hitl" as const,
+      action: { ...action, render } as UseHumanInTheLoopArgs<T>,
+      component: HumanInTheLoopComponent,
+    };
   }
+
   if ("available" in action) {
-    if (action.available === "enabled") {
-      return useFrontendTool(action as UseFrontendToolArgs<T>);
+    if (action.available === "enabled" || action.available === "remote") {
+      return {
+        type: "frontend" as const,
+        action: action as UseFrontendToolArgs<T>,
+        component: FrontendToolComponent,
+      };
     }
-    if (action.available === "remote") {
-      return useFrontendTool(action as UseFrontendToolArgs<T>);
-    }
-    if (action.available === "frontend") {
-      return useRenderToolCall(action as UseRenderToolCallArgs<T>);
-    }
-    if (action.available === "disabled") {
-      return useRenderToolCall(action as UseRenderToolCallArgs<T>);
+    if (action.available === "frontend" || action.available === "disabled") {
+      return {
+        type: "render" as const,
+        action: action as UseRenderToolCallArgs<T>,
+        component: RenderToolCallComponent,
+      };
     }
   }
+
   if ("handler" in action) {
-    return useFrontendTool(action as UseFrontendToolArgs<T>);
+    return {
+      type: "frontend" as const,
+      action: action as UseFrontendToolArgs<T>,
+      component: FrontendToolComponent,
+    };
   }
+
+  throw new Error("Invalid action configuration");
+}
+
+/**
+ * useCopilotAction is a legacy hook maintained for backwards compatibility.
+ *
+ * To avoid violating React's Rules of Hooks (which prohibit conditional hook calls),
+ * we use a registration pattern:
+ * 1. This hook registers the action configuration with the CopilotContext
+ * 2. A renderer component in CopilotKit actually renders the appropriate hook wrapper
+ * 3. React properly manages hook state since components are rendered, not conditionally called
+ *
+ * This allows action types to change between renders without corrupting React's hook state.
+ */
+export function useCopilotAction<const T extends Parameter[] | [] = []>(
+  action: FrontendAction<T> | CatchAllFrontendAction,
+  dependencies?: any[],
+): void {
+  const { setRegisteredActions, removeRegisteredAction } = useCopilotContext();
+
+  // Register the action with context after render to avoid setState-in-render errors
+  useEffect(() => {
+    const actionConfig = getActionConfig(action);
+    const actionKey = setRegisteredActions(actionConfig);
+
+    // Cleanup: Remove the action when component unmounts or dependencies change
+    return () => {
+      removeRegisteredAction(actionKey);
+    };
+  }, [...(dependencies ?? []), JSON.stringify(action)]);
 }

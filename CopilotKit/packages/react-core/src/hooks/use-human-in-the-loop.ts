@@ -26,6 +26,7 @@ export function useHumanInTheLoop<const T extends Parameter[] | [] = []>(
     // @ts-ignore TODO: intermittent issue with the render method, shows React types errors on some devices
     render: (args) => {
       if (typeof render === "string") return render;
+      console.log("render HITL", args);
       return render?.({
         ...args,
         result: args.result ? parseJson(args.result, args.result) : args.result,
