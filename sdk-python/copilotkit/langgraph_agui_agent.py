@@ -15,7 +15,12 @@ from ag_ui.core import (
 )
 from langgraph.graph.state import CompiledStateGraph
 from langchain_core.runnables import RunnableConfig
-from langchain.schema import BaseMessage
+
+try:
+    from langchain.schema import BaseMessage
+except ImportError:
+    # Langchain >= 1.0.0
+    from langchain_core.messages import BaseMessage
 
 
 class CustomEventNames(Enum):
