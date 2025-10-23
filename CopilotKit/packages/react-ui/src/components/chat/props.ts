@@ -320,11 +320,13 @@ export interface InputProps {
   onStop?: () => void;
   onUpload?: () => void;
   hideStopButton?: boolean;
+  chatReady?: boolean;
 }
 
 export interface RenderSuggestionsListProps {
   suggestions: CopilotChatSuggestion[];
   onSuggestionClick: (message: string) => void;
+  isLoading: boolean;
 }
 
 export interface ImageRendererProps {

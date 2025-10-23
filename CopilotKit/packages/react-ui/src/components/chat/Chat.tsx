@@ -615,6 +615,8 @@ export function CopilotChat({
     stopGeneration,
     reloadMessages,
     suggestions: currentSuggestions,
+    isLoadingSuggestions,
+    agent,
   } = useCopilotChatInternal({
     suggestions,
   });
@@ -790,6 +792,7 @@ export function CopilotChat({
           <RenderSuggestionsList
             onSuggestionClick={handleSendMessage}
             suggestions={currentSuggestions}
+            isLoading={isLoadingSuggestions}
           />
         )}
       </Messages>
@@ -809,6 +812,7 @@ export function CopilotChat({
       )}
       <Input
         inProgress={isLoading}
+        chatReady={Boolean(agent)}
         // @ts-ignore
         onSend={handleSendMessage}
         isVisible={isVisible}
