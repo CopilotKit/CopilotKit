@@ -15,7 +15,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, SetStateAction } from "react";
-import { CopilotKitProvider } from "@copilotkitnext/react";
+import { CopilotChatConfigurationProvider, CopilotKitProvider } from "@copilotkitnext/react";
 import {
   CopilotContext,
   CopilotApiConfig,
@@ -555,20 +555,27 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         removeInternalErrorHandler,
       }}
     >
-      <MessagesTapProvider>
-        <CopilotMessages>
-          {memoizedChildren}
-          {showDevConsole && <ConsoleTrigger />}
-        </CopilotMessages>
-      </MessagesTapProvider>
-      {bannerError && showDevConsole && (
-        <UsageBanner
-          severity={bannerError.severity}
-          message={bannerError.message}
-          onClose={() => setBannerError(null)}
-          actions={getErrorActions(bannerError)}
-        />
-      )}
+      <CopilotChatConfigurationProvider
+        agentId={agentSession?.agentName ?? "default"}
+        threadId={internalThreadId}
+        // labels={labels}
+        // isModalDefaultOpen={isModalDefaultOpen}
+      >
+        <MessagesTapProvider>
+          <CopilotMessages>
+            {memoizedChildren}
+            {showDevConsole && <ConsoleTrigger />}
+          </CopilotMessages>
+        </MessagesTapProvider>
+        {bannerError && showDevConsole && (
+          <UsageBanner
+            severity={bannerError.severity}
+            message={bannerError.message}
+            onClose={() => setBannerError(null)}
+            actions={getErrorActions(bannerError)}
+          />
+        )}
+      </CopilotChatConfigurationProvider>
     </CopilotContext.Provider>
   );
 }
