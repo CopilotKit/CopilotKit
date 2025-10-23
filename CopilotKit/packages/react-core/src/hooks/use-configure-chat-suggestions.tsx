@@ -1,5 +1,12 @@
-import { useConfigureSuggestions, useSuggestions } from "@copilotkitnext/react";
+import {
+  useConfigureSuggestions,
+  useCopilotChatConfiguration,
+  useCopilotKit,
+  useSuggestions,
+} from "@copilotkitnext/react";
 import { StaticSuggestionsConfig, Suggestion } from "@copilotkitnext/core";
+import { useCopilotContext } from "../context";
+import { useEffect, useMemo } from "react";
 
 type StaticSuggestionInput = Omit<Suggestion, "isLoading"> & Partial<Pick<Suggestion, "isLoading">>;
 
@@ -43,15 +50,38 @@ export function useConfigureChatSuggestions(
   config: UseCopilotChatSuggestionsConfiguration,
   dependencies: any[] = [],
 ): ReturnType<typeof useSuggestions> {
+  const { agentSession } = useCopilotContext();
+  const { copilotkit } = useCopilotKit();
+  const chatConfig = useCopilotChatConfiguration();
+
   const available = config.available === "enabled" ? "always" : config.available;
 
   useConfigureSuggestions(
     {
       ...config,
       available,
+      consumerAgentId: agentSession?.agentName, // Use chatConfig.agentId here
     },
     { deps: dependencies },
   );
 
-  return useSuggestions();
+  const result = useSuggestions({ agentId: agentSession?.agentName });
+
+  useEffect(() => {
+    const unsubscribe = copilotkit.subscribe({
+      onAgentsChanged: () => {
+        // When agents change, check if our target agent now exists and reload
+        const agent = copilotkit.getAgent(agentSession?.agentName!);
+        if (agent && !agent.isRunning && !result.suggestions.length) {
+          copilotkit.reloadSuggestions(agentSession?.agentName!);
+        }
+      },
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  return result;
 }
