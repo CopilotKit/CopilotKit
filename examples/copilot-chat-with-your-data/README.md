@@ -77,6 +77,13 @@ Transform your data visualization experience with an AI-powered dashboard assist
 
 5. Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
 
+### Query Parameters
+
+The application supports the following optional query parameters:
+
+- `openCopilot=true` - Automatically opens the CopilotKit sidebar when the page loads
+  - Example: `http://localhost:3000?openCopilot=true`
+
 ## 🧩 How It Works
 
 This demo showcases several powerful CopilotKit features:

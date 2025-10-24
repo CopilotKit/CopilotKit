@@ -7,8 +7,12 @@ import { Footer } from "../components/Footer";
 import { CustomAssistantMessage } from "../components/AssistantMessage";
 import { prompt } from "../lib/prompt";
 import { useCopilotReadable } from "@copilotkit/react-core";
+import { useSearchParams } from "next/navigation";
 
 export default function Home() {
+  const searchParams = useSearchParams();
+  const openCopilot = searchParams?.get('openCopilot') === 'true';
+
   useCopilotReadable({
     description: "Current time",
     value: new Date().toLocaleTimeString(),
@@ -22,6 +26,7 @@ export default function Home() {
       </main>
       <Footer />
       <CopilotSidebar
+        defaultOpen={openCopilot}
         instructions={prompt}
         AssistantMessage={CustomAssistantMessage}
         labels={{
