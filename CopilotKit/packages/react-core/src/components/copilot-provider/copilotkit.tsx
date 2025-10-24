@@ -408,12 +408,12 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
 
   const showDevConsole = shouldShowDevConsole(props.showDevConsole);
 
-  const [langGraphInterruptActions, _setLangGraphInterruptAction] = useState<
+  const [interruptActions, _setInterruptActions] = useState<
     Record<string, LangGraphInterruptAction | null>
   >({});
-  const setLangGraphInterruptAction = useCallback(
+  const setInterruptAction = useCallback(
     (threadId: string, action: LangGraphInterruptActionSetterArgs) => {
-      _setLangGraphInterruptAction((prev) => {
+      _setInterruptActions((prev) => {
         if (action == null)
           return {
             ...prev,
@@ -433,7 +433,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     [],
   );
   const removeLangGraphInterruptAction = useCallback((threadId: string): void => {
-    setLangGraphInterruptAction(threadId, null);
+    setInterruptAction(threadId, null);
   }, []);
 
   const memoizedChildren = useMemo(() => children, [children]);
@@ -558,8 +558,8 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         setAuthStates_c: updateAuthStates,
         extensions,
         setExtensions: updateExtensions,
-        langGraphInterruptAction: langGraphInterruptActions[internalThreadId] ?? null,
-        setLangGraphInterruptAction,
+        interruptActions,
+        setInterruptAction,
         removeLangGraphInterruptAction,
         bannerError,
         setBannerError,

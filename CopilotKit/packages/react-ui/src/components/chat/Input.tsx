@@ -3,7 +3,7 @@ import { InputProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import AutoResizingTextarea from "./Textarea";
 import { usePushToTalk } from "../../hooks/use-push-to-talk";
-import { useCopilotContext } from "@copilotkit/react-core";
+import { useCopilotContext, useCopilotChatInternal } from "@copilotkit/react-core";
 import { PoweredByTag } from "./PoweredByTag";
 
 const MAX_NEWLINES = 6;
@@ -82,15 +82,11 @@ export const Input = ({
     (pushToTalkState === "idle" || pushToTalkState === "recording") &&
     !inProgress;
 
-  const canSend = useMemo(() => {
-    const interruptEvent = copilotContext.langGraphInterruptAction?.event;
-    const interruptInProgress =
-      interruptEvent?.name === "LangGraphInterruptEvent" && !interruptEvent?.response;
+  const { interrupt } = useCopilotChatInternal();
 
-    return (
-      !isInProgress && text.trim().length > 0 && pushToTalkState === "idle" && !interruptInProgress
-    );
-  }, [copilotContext.langGraphInterruptAction?.event, isInProgress, text, pushToTalkState]);
+  const canSend = useMemo(() => {
+    return !isInProgress && text.trim().length > 0 && pushToTalkState === "idle" && !interrupt;
+  }, [interrupt, isInProgress, text, pushToTalkState]);
 
   const canStop = useMemo(() => {
     return isInProgress && !hideStopButton;

@@ -221,8 +221,8 @@ export interface CopilotContextParams {
 
   extensions: ExtensionsInput;
   setExtensions: React.Dispatch<React.SetStateAction<ExtensionsInput>>;
-  langGraphInterruptAction: LangGraphInterruptAction | null;
-  setLangGraphInterruptAction: LangGraphInterruptActionSetter;
+  interruptActions: Record<string, LangGraphInterruptAction | null>;
+  setInterruptAction: LangGraphInterruptActionSetter;
   removeLangGraphInterruptAction: (threadId: string) => void;
 
   /**
@@ -308,8 +308,8 @@ const emptyCopilotContext: CopilotContextParams = {
   availableAgents: [],
   extensions: {},
   setExtensions: () => {},
-  langGraphInterruptAction: null,
-  setLangGraphInterruptAction: () => {},
+  interruptActions: {},
+  setInterruptAction: () => {},
   removeLangGraphInterruptAction: () => {},
   onError: () => {},
   bannerError: null,

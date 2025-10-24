@@ -9,33 +9,20 @@ export function useLangGraphInterrupt<TEventValue = any>(
   action: Omit<LangGraphInterruptRender<TEventValue>, "id">,
   dependencies?: any[],
 ) {
-  const {
-    setLangGraphInterruptAction,
-    removeLangGraphInterruptAction,
-    langGraphInterruptAction,
-    threadId,
-  } = useContext(CopilotContext);
+  const { setInterruptAction, removeLangGraphInterruptAction, interruptActions, threadId } =
+    useContext(CopilotContext);
   // const { agent } = useCopilotChatInternal();
   const { addToast } = useToast();
 
   const actionId = dataToUUID(JSON.stringify(action), "lgAction");
-  // We only consider action to be defined once the ID is there
-  const hasAction = useMemo(
-    () => Boolean(langGraphInterruptAction?.id),
-    [langGraphInterruptAction],
-  );
+  const currentAction = interruptActions[threadId];
+
+  const hasAction = useMemo(() => Boolean(currentAction?.id), [currentAction]);
 
   const isCurrentAction = useMemo(
-    () => langGraphInterruptAction?.id && langGraphInterruptAction?.id === actionId,
-    [langGraphInterruptAction],
+    () => currentAction?.id && currentAction?.id === actionId,
+    [currentAction],
   );
-
-  // Run chat completion to submit a response event. Only if it's the current action
-  // useEffect(() => {
-  //   if (hasAction && isCurrentAction && langGraphInterruptAction?.event?.response) {
-  //     runChatCompletion();
-  //   }
-  // }, [langGraphInterruptAction?.event?.response, runChatCompletion, hasAction, isCurrentAction]);
 
   useEffect(() => {
     if (!action) return;
@@ -53,12 +40,12 @@ export function useLangGraphInterrupt<TEventValue = any>(
       return;
     }
 
-    setLangGraphInterruptAction(threadId, { ...action, id: actionId });
+    setInterruptAction(threadId, { ...action, id: actionId });
   }, [
     action,
     hasAction,
     isCurrentAction,
-    setLangGraphInterruptAction,
+    setInterruptAction,
     removeLangGraphInterruptAction,
     threadId,
     ...(dependencies || []),
