@@ -55,18 +55,17 @@ export function useConfigureChatSuggestions(
 
   const available = config.available === "enabled" ? "always" : config.available;
 
-  useConfigureSuggestions(
-    {
-      ...config,
-      available,
-      consumerAgentId: agentSession?.agentName, // Use chatConfig.agentId here
-    },
-    { deps: dependencies },
-  );
+  const finalSuggestionConfig = {
+    ...config,
+    available,
+    consumerAgentId: agentSession?.agentName, // Use chatConfig.agentId here
+  };
+  useConfigureSuggestions(finalSuggestionConfig, { deps: dependencies });
 
   const result = useSuggestions({ agentId: agentSession?.agentName });
 
   useEffect(() => {
+    if (finalSuggestionConfig.available === "disabled") return;
     const unsubscribe = copilotkit.subscribe({
       onAgentsChanged: () => {
         // When agents change, check if our target agent now exists and reload
