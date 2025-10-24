@@ -20,7 +20,7 @@ export { useCopilotAdditionalInstructions } from "./use-copilot-additional-instr
 export type { Tree, TreeNode } from "./use-tree";
 export { useFrontendTool } from "./use-frontend-tool";
 export { useHumanInTheLoop } from "./use-human-in-the-loop";
-export { useBackendToolCall } from "./use-backend-tool-call";
+export { useRenderToolCall } from "./use-render-tool-call";
 export { useDefaultTool } from "./use-default-tool";
 export { useLazyToolRenderer } from "./use-lazy-tool-renderer";
 export {
