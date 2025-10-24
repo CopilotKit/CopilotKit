@@ -134,18 +134,18 @@ import { useEffect } from "react";
 import { Parameter } from "@copilotkit/shared";
 import { CatchAllFrontendAction, FrontendAction } from "../types/frontend-action";
 import { useFrontendTool, UseFrontendToolArgs } from "./use-frontend-tool";
-import { useRenderToolCall, UseRenderToolCallArgs } from "./use-render-tool-call";
+import { useBackendToolCall, UseBackendToolCallArgs } from "./use-backend-tool-call";
 import { useHumanInTheLoop, UseHumanInTheLoopArgs } from "./use-human-in-the-loop";
 import { useCopilotContext } from "../context";
 
 // Component wrappers that call hooks - these allow React to properly manage hook state
 // even when action types change between renders
-function RenderToolCallComponent<T extends Parameter[] | [] = []>({
+function BackendToolCallComponent<T extends Parameter[] | [] = []>({
   action,
 }: {
-  action: UseRenderToolCallArgs<T>;
+  action: UseBackendToolCallArgs<T>;
 }) {
-  useRenderToolCall(action);
+  useBackendToolCall(action);
   return null;
 }
 
@@ -174,8 +174,8 @@ function getActionConfig<const T extends Parameter[] | [] = []>(
   if (action.name === "*") {
     return {
       type: "render" as const,
-      action: action as UseRenderToolCallArgs<T>,
-      component: RenderToolCallComponent,
+      action: action as UseBackendToolCallArgs<T>,
+      component: BackendToolCallComponent,
     };
   }
 
@@ -207,8 +207,8 @@ function getActionConfig<const T extends Parameter[] | [] = []>(
     if (action.available === "frontend" || action.available === "disabled") {
       return {
         type: "render" as const,
-        action: action as UseRenderToolCallArgs<T>,
-        component: RenderToolCallComponent,
+        action: action as UseBackendToolCallArgs<T>,
+        component: BackendToolCallComponent,
       };
     }
   }

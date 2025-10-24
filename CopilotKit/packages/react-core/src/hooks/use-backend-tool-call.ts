@@ -1,15 +1,10 @@
-import {
-  ActionRenderProps,
-  ActionRenderPropsNoArgs,
-  ActionRenderPropsWait,
-  FrontendAction,
-} from "../types";
+import { ActionRenderProps, ActionRenderPropsNoArgs, FrontendAction } from "../types";
 import { Parameter, getZodParameters } from "@copilotkit/shared";
 import React, { useEffect, useRef } from "react";
 import { defineToolCallRenderer, useCopilotKit } from "@copilotkitnext/react";
 import { parseJson } from "@copilotkit/shared";
 
-export type UseRenderToolCallArgs<T extends Parameter[] | [] = []> = Pick<
+export type UseBackendToolCallArgs<T extends Parameter[] | [] = []> = Pick<
   FrontendAction<T>,
   "name" | "description" | "parameters"
 > & {
@@ -19,8 +14,8 @@ export type UseRenderToolCallArgs<T extends Parameter[] | [] = []> = Pick<
     : (props: ActionRenderProps<T>) => React.ReactElement;
 };
 
-export function useRenderToolCall<const T extends Parameter[] | [] = []>(
-  tool: UseRenderToolCallArgs<T>,
+export function useBackendToolCall<const T extends Parameter[] | [] = []>(
+  tool: UseBackendToolCallArgs<T>,
   dependencies?: any[],
 ) {
   const { copilotkit } = useCopilotKit();
