@@ -58,10 +58,9 @@ const SearchDialog = () => {
           className="hidden dark:inline-block"
         />
       </button>
-
       <SearchDialogComponent
         open={open}
-        onOpenChange={setOpen}
+        onOpenChange={() => {}}
         search={search}
         onSearchChange={setSearch}
         isLoading={query.isLoading}

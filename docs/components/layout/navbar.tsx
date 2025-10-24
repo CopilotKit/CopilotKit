@@ -57,12 +57,12 @@ const Navbar = () => {
   const activeRoute = pathname.split("/")[1] || "/"
 
   return (
-    <div className="h-[64px] lg:h-[80px] p-1 lg:p-2 fixed top-0 left-0 right-0 z-50">
+    <nav className="h-[68px] xl:h-[88px] p-1 xl:p-2">
       <div className="flex justify-between items-center w-full h-full">
         <div className="flex w-full h-full">
           <div className="flex gap-11 items-center w-full h-full rounded-l-2xl border border-r-0 backdrop-blur-lg border-white/10 bg-white/5">
             <Logo className="pl-6" />
-            <ul className="hidden gap-6 items-center h-full lg:flex">
+            <ul className="hidden gap-6 items-center h-full xl:flex">
               {LEFT_LINKS.map((link) => (
                 <li key={link.href} className="relative h-full">
                   <Link
@@ -70,7 +70,7 @@ const Navbar = () => {
                     target={link.target}
                     className={`h-full ${
                       activeRoute === link.href ? "opacity-100" : "opacity-50"
-                    }`}
+                    } hover:opacity-100 transition-opacity duration-300`}
                   >
                     <span className="flex gap-2 items-center h-full">
                       <Image
@@ -117,70 +117,88 @@ const Navbar = () => {
               ))}
             </ul>
           </div>
+
           <Image
             src="/images/navbar/slanted-end-border-dark.svg"
             alt="Slanted end border"
-            width={28}
+            width={29}
             height={72}
-            className="hidden dark:inline-block"
+            className="hidden -ml-px dark:inline-block shrink-0 w-[24px] h-[60px] xl:w-[29px] xl:h-[72px] object-cover"
           />
           <Image
             src="/images/navbar/slanted-end-border-light.svg"
             alt="Slanted end border"
-            width={28}
+            width={29}
             height={72}
-            className="dark:hidden"
+            className="-ml-px dark:hidden shrink-0 w-[24px] h-[60px] xl:w-[29px] xl:h-[72px] object-cover"
           />
         </div>
 
-        <div className="flex gap-1 items-center pr-4 w-max shrink-0">
-          {RIGHT_LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              target={link.target}
-              className="flex justify-center items-center w-11 h-full"
-            >
-              <span className="flex gap-2 items-center h-full">
-                <Image
-                  src={`${link.icon}-dark.svg`}
-                  alt={link.label ?? `Navbar link icon for ${link.href}`}
-                  width={20}
-                  height={20}
-                  className="hidden dark:inline-block"
-                />
-                <Image
-                  src={`${link.icon}-light.svg`}
-                  alt={link.label ?? `Navbar link icon for ${link.href}`}
-                  width={20}
-                  height={20}
-                  className="dark:hidden"
-                />
-              </span>
-            </Link>
-          ))}
+        <div className="flex items-center w-max h-full shrink-0">
+          <Image
+            src="/images/navbar/slanted-start-border-dark.svg"
+            alt="Slanted start border"
+            width={29}
+            height={72}
+            className="hidden -mr-px dark:inline-block shrink-0 w-[24px] h-[60px] xl:w-[29px] xl:h-[72px] object-cover"
+          />
+          <Image
+            src="/images/navbar/slanted-start-border-light.svg"
+            alt="Slanted start border"
+            width={29}
+            height={72}
+            className="-mr-px dark:hidden shrink-0 w-[24px] h-[60px] xl:w-[29px] xl:h-[72px] object-cover"
+          />
 
-          <button className="flex justify-center items-center w-11 h-full cursor-pointer">
-            <Image
-              src="/images/navbar/theme-moon.svg"
-              alt="Theme icon"
-              width={20}
-              height={20}
-              className="hidden dark:inline-block"
-            />
-            <Image
-              src="/images/navbar/theme-sun.svg"
-              alt="Theme icon"
-              width={20}
-              height={20}
-              className="dark:hidden"
-            />
-          </button>
+          <div className="flex gap-1 items-center pr-4 w-max h-full rounded-r-2xl border border-l-0 backdrop-blur-lg shrink-0 border-white/10 bg-white/5">
+            {RIGHT_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                target={link.target}
+                className="flex justify-center items-center w-11 h-full"
+              >
+                <span className="flex gap-2 items-center h-full">
+                  <Image
+                    src={`${link.icon}-dark.svg`}
+                    alt={link.label ?? `Navbar link icon for ${link.href}`}
+                    width={20}
+                    height={20}
+                    className="hidden dark:inline-block"
+                  />
+                  <Image
+                    src={`${link.icon}-light.svg`}
+                    alt={link.label ?? `Navbar link icon for ${link.href}`}
+                    width={20}
+                    height={20}
+                    className="dark:hidden"
+                  />
+                </span>
+              </Link>
+            ))}
 
-          <SearchDialog />
+            <button className="flex justify-center items-center w-11 h-full cursor-pointer">
+              <Image
+                src="/images/navbar/theme-moon.svg"
+                alt="Theme icon"
+                width={20}
+                height={20}
+                className="hidden dark:inline-block"
+              />
+              <Image
+                src="/images/navbar/theme-sun.svg"
+                alt="Theme icon"
+                width={20}
+                height={20}
+                className="dark:hidden"
+              />
+            </button>
+
+            <SearchDialog />
+          </div>
         </div>
       </div>
-    </div>
+    </nav>
   )
 }
 
