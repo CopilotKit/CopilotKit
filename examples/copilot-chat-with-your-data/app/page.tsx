@@ -8,11 +8,13 @@ import { CustomAssistantMessage } from "../components/AssistantMessage";
 import { prompt } from "../lib/prompt";
 import { useCopilotReadable } from "@copilotkit/react-core";
 import { useSearchParams } from "next/navigation";
+
 import { Suspense } from "react";
 
 function HomeContent() {
   const searchParams = useSearchParams();
   const openCopilot = searchParams?.get('openCopilot') === 'true';
+
 
   useCopilotReadable({
     description: "Current time",
