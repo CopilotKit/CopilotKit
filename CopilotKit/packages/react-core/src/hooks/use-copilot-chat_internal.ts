@@ -314,7 +314,7 @@ export function useCopilotChatInternal({
     [latestDelete],
   );
 
-  const currentSuggestions = useSuggestions();
+  const currentSuggestions = useSuggestions({ agentId: resolvedAgentId });
 
   const reload = useAsyncCallback(
     async (reloadMessageId: string): Promise<void> => {
