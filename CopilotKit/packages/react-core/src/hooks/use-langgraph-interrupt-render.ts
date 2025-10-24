@@ -22,13 +22,12 @@ const InterruptRenderer: React.FC<InterruptProps> = ({ event, result, render, re
 export function useLangGraphInterruptRender(
   agent: AbstractAgent,
 ): string | React.ReactElement | null {
-  const { langGraphInterruptAction, setLangGraphInterruptAction, agentSession, threadId } =
-    useCopilotContext();
+  const { interruptActions, setInterruptAction, agentSession, threadId } = useCopilotContext();
 
   const [currentInterruptEvent, setCurrentInterruptEvent] = useState<{
     threadId: string;
     event: LangGraphInterruptEvent;
-  }>();
+  } | null>(null);
 
   useEffect(() => {
     if (!agent) return;
@@ -62,24 +61,22 @@ export function useLangGraphInterruptRender(
           },
         },
       });
+      setCurrentInterruptEvent(null);
     },
     [agent],
   );
 
   const resolveInterrupt = useCallback(
     (response: string) => {
-      // Use setTimeout to defer the state update to next tick
-      setTimeout(() => {
-        setLangGraphInterruptAction(threadId, { event: { response } });
-      }, 0);
       handleResolve(response);
     },
-    [setLangGraphInterruptAction, threadId, handleResolve],
+    [threadId, handleResolve],
   );
 
   return useMemo(() => {
-    if (!langGraphInterruptAction || !currentInterruptEvent) return null;
-    const { render, handler, enabled } = langGraphInterruptAction;
+    const currentAction = interruptActions[threadId];
+    if (!currentAction || !currentInterruptEvent) return null;
+    const { render, handler, enabled } = currentAction;
 
     const conditionsMet =
       !agentSession || !enabled
@@ -98,7 +95,7 @@ export function useLangGraphInterruptRender(
       });
     }
 
-    if (!render || langGraphInterruptAction.event?.response) return null;
+    if (!render || currentAction.event?.response) return null;
 
     return React.createElement(InterruptRenderer, {
       event: currentInterruptEvent.event,
@@ -106,5 +103,5 @@ export function useLangGraphInterruptRender(
       render,
       resolve: resolveInterrupt,
     });
-  }, [langGraphInterruptAction, currentInterruptEvent, agentSession, resolveInterrupt]);
+  }, [interruptActions, currentInterruptEvent, agentSession, resolveInterrupt]);
 }
