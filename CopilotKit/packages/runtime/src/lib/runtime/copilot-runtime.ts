@@ -361,7 +361,7 @@ export class CopilotRuntime {
   // Cache MCP tools per endpoint to avoid re-fetching repeatedly
   private mcpToolsCache: Map<string, BasicAgentConfiguration["tools"]> = new Map();
   private runtimeArgs: CopilotRuntimeOptions;
-  instance: CopilotRuntimeVNext;
+  private _instance: CopilotRuntimeVNext;
 
   constructor(
     params?: CopilotRuntimeConstructorParams & PartialBy<CopilotRuntimeOptions, "agents">,
@@ -378,8 +378,14 @@ export class CopilotRuntime {
     };
     this.params = params;
     this.observability = params?.observability_c;
+  }
 
-    this.instance = new CopilotRuntimeVNext(this.runtimeArgs);
+  get instance() {
+    if (!this._instance) {
+      this._instance = new CopilotRuntimeVNext(this.runtimeArgs);
+    }
+
+    return this._instance;
   }
 
   private assignEndpointsToAgents(endpoints: CopilotRuntimeConstructorParams["remoteEndpoints"]) {
@@ -406,36 +412,41 @@ export class CopilotRuntime {
     }, {});
   }
 
-  async handleServiceAdapter(serviceAdapter: CopilotServiceAdapter) {
-    let agents = (await this.runtimeArgs.agents) ?? {};
-    const isAgentsListEmpty = !Object.keys(agents).length;
-    const hasServiceAdapter = Boolean(serviceAdapter);
-    const illegalServiceAdapterNames = ["EmptyAdapter"];
-    const serviceAdapterCanBeUsedForAgent = !illegalServiceAdapterNames.includes(
-      serviceAdapter.name,
+  handleServiceAdapter(serviceAdapter: CopilotServiceAdapter) {
+    this.runtimeArgs.agents = Promise.resolve(this.runtimeArgs.agents ?? {}).then(
+      async (agents) => {
+        let agentsList = agents;
+        const isAgentsListEmpty = !Object.keys(agents).length;
+        const hasServiceAdapter = Boolean(serviceAdapter);
+        const illegalServiceAdapterNames = ["EmptyAdapter"];
+        const serviceAdapterCanBeUsedForAgent = !illegalServiceAdapterNames.includes(
+          serviceAdapter.name,
+        );
+
+        if (isAgentsListEmpty && (!hasServiceAdapter || !serviceAdapterCanBeUsedForAgent)) {
+          throw new CopilotKitMisuseError({
+            message:
+              "No default agent provided. Please provide a default agent in the runtime config.",
+          });
+        }
+
+        if (isAgentsListEmpty) {
+          agentsList.default = new BasicAgent({
+            model: `${serviceAdapter.provider}/${serviceAdapter.model}`,
+          });
+        }
+
+        if (this.params.actions?.length) {
+          const mcpTools = await this.getToolsFromMCP();
+          agentsList = this.assignToolsToAgents(agents, [
+            ...this.getToolsFromActions(this.params.actions),
+            ...mcpTools,
+          ]);
+        }
+
+        return agentsList;
+      },
     );
-
-    if (isAgentsListEmpty && (!hasServiceAdapter || !serviceAdapterCanBeUsedForAgent)) {
-      throw new CopilotKitMisuseError({
-        message: "No default agent provided. Please provide a default agent in the runtime config.",
-      });
-    }
-
-    if (isAgentsListEmpty) {
-      agents.default = new BasicAgent({
-        model: `${serviceAdapter.provider}/${serviceAdapter.model}`,
-      });
-    }
-
-    if (this.params.actions?.length) {
-      const mcpTools = await this.getToolsFromMCP();
-      agents = this.assignToolsToAgents(agents, [
-        ...this.getToolsFromActions(this.params.actions),
-        ...mcpTools,
-      ]);
-    }
-
-    this.instance.agents = agents;
   }
 
   // Receive this.params.action and turn it into the AbstractAgent tools
