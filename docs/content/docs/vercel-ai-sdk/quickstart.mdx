@@ -1,0 +1,297 @@
+---
+title: Quickstart
+description: Build your first AI application with CopilotKit and Vercel AI SDK in 10 minutes.
+icon: "lucide/Play"
+hideTOC: true
+---
+
+import {
+  TailoredContent,
+  TailoredContentOption,
+} from "@/components/react/tailored-content.tsx";
+import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
+import { CoAgentsDiagram } from "@/components/react/coagents/coagents-diagram.tsx";
+import { FaPython, FaJs, FaCloud } from "react-icons/fa";
+import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
+import CopilotKitCloudCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import FindYourCopilotRuntime from "@/snippets/find-your-copilot-runtime.mdx";
+import CloudCopilotKitProvider from "@/snippets/coagents/cloud-configure-copilotkit-provider.mdx";
+import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/coagents/self-host-configure-copilotkit-provider.mdx";
+import SelfHostingCopilotRuntimeStarter from "@/snippets/self-hosting-copilot-runtime-starter.mdx";
+import SelfHostingRemoteEndpoints from "@/snippets/self-hosting-remote-endpoints.mdx";
+import {
+  UserIcon,
+  PaintbrushIcon,
+  WrenchIcon,
+  RepeatIcon,
+  ServerIcon,
+} from "lucide-react";
+import CopilotUI from "@/snippets/copilot-ui.mdx";
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
+
+## Prerequisites
+
+Before you begin, you'll need the following:
+
+- An OpenAI API key
+- Node.js 20+
+- Your favorite package manager
+
+## Getting started
+
+<Steps>
+    <TailoredContent
+        className="step"
+        id="agent"
+        header={
+            <div>
+                <p className="text-xl font-semibold">Choose your starting point</p>
+                <p className="text-base">
+                    You can either start fresh with our starter template or integrate CopilotKit into your existing Vercel AI SDK application.
+                </p>
+            </div>
+        }
+    >
+        <TailoredContentOption
+            id="starter"
+            title="Start from scratch"
+            description="Get started quickly with our ready-to-go starter application."
+        >
+            <Step>
+                ### Run our CLI
+
+                First, we'll use our CLI to create a new project for us.
+
+                ```bash
+                npx copilotkit@latest create -f vercel-ai-sdk
+                ```
+            </Step>
+            <Step>
+                ### Install dependencies
+
+                ```package-install
+                ```
+            </Step>
+            <Step>
+                ### Configure your environment
+
+                Create a `.env` file and add your OpenAI API key:
+
+                ```plaintext title=".env"
+                OPENAI_API_KEY=your_openai_api_key
+                ```
+
+                <Callout type="info" title="What about other models?">
+                  The starter template is configured to use OpenAI's GPT-4o by default, but you can modify it to use any language model supported by Vercel AI SDK.
+                </Callout>
+            </Step>
+            <Step>
+                ### Start the development server
+
+                <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+                    <Tab value="npm">
+                        ```bash
+                        npm run dev
+                        ```
+                    </Tab>
+                    <Tab value="pnpm">
+                        ```bash
+                        pnpm dev
+                        ```
+                    </Tab>
+                    <Tab value="yarn">
+                        ```bash
+                        yarn dev
+                        ```
+                    </Tab>
+                    <Tab value="bun">
+                        ```bash
+                        bun dev
+                        ```
+                    </Tab>
+                </Tabs>
+
+                This will start the development server with hot reloading.
+            </Step>
+        </TailoredContentOption>
+        <TailoredContentOption
+            id="bring-your-own"
+            title="Use an existing app"
+            description="I already have a Vercel AI SDK application and want to add CopilotKit."
+        >
+            <Step>
+                ### Frontend Setup
+                CopilotKit works with any React-based frontend. We'll use Next.js for this example.
+
+                ```bash
+                npx create-next-app@latest my-copilot-app
+                cd my-copilot-app
+                ```
+            </Step>
+            <Step>
+                ### Install CopilotKit packages
+
+                ```package-install
+                @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime ai
+                ```
+            </Step>
+            <Step>
+                ### Setup Copilot Runtime
+
+                CopilotKit requires a Copilot Runtime endpoint to safely communicate with your AI models. This can be served
+                anywhere that Node.js can run, but for this example we'll just use Next.js.
+
+                ```ts title="api/copilotkit/route.ts"
+                import {
+                  CopilotRuntime,
+                  OpenAIAdapter,
+                  copilotRuntimeNextJSAppRouterEndpoint,
+                } from "@copilotkit/runtime";
+                import { NextRequest } from "next/server";
+
+                // 1. Service adapter for AI model integration
+                const serviceAdapter = new OpenAIAdapter();
+                
+                // 2. Create the CopilotRuntime instance with Vercel AI SDK integration
+                const runtime = new CopilotRuntime({
+                  actions: [
+                    {
+                      name: "getWeather",
+                      description: "Get the current weather for a location",
+                      parameters: [
+                        {
+                          name: "location",
+                          type: "string",
+                          description: "The city and state, e.g. San Francisco, CA",
+                          required: true,
+                        },
+                      ],
+                      handler: async ({ location }) => {
+                        // Your tool implementation
+                        return `The weather in ${location} is sunny and 72°F`;
+                      },
+                    },
+                  ],
+                });
+
+                // 3. Build a Next.js API route that handles the CopilotKit runtime requests.
+                export const POST = async (req: NextRequest) => {
+                  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+                    runtime,
+                    serviceAdapter,
+                    endpoint: "/api/copilotkit",
+                  });
+                
+                  return handleRequest(req);
+                };
+                ```
+            </Step>
+            <Step>
+                ### Configure CopilotKit Provider
+
+                Next, wrap your application with the CopilotKit provider so that CopilotKit can take control across your application.
+
+                ```tsx title="app/layout.tsx"
+                import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
+                import "@copilotkit/react-ui/styles.css";
+
+                // ...
+
+                export default function RootLayout({ children }: {children: React.ReactNode}) {
+                  return (
+                    <html lang="en">
+                      <body>
+                        {/* [!code highlight:6] */}
+                        <CopilotKit 
+                          runtimeUrl="/api/copilotkit"
+                        >
+                          {children}
+                        </CopilotKit>
+                      </body>
+                    </html>
+                  );
+                }
+
+                ```
+            </Step>
+            <Step>
+              ### Add the chat interface
+
+              Add the CopilotSidebar component to your page:
+
+              ```tsx title="app/page.tsx"
+              import { CopilotSidebar } from "@copilotkit/react-ui"; // [!code highlight]
+
+              export default function Page() {
+                return (
+                  <main>
+                    <h1>Your App</h1>
+                    <CopilotSidebar /> // [!code highlight]
+                  </main>
+                );
+              }
+              ```
+            </Step>
+        </TailoredContentOption>
+    </TailoredContent>
+    <Step>
+        ### 🎉 Start chatting!
+
+        Your AI application is now ready to use! Try asking it some questions:
+
+        ```
+        What tools do you have access to?
+        ```
+
+        ```
+        What's the weather like in San Francisco?
+        ```
+
+        ```
+        Show me some cool things you can do!
+        ```
+
+        <Accordions className="mb-4">
+            <Accordion title="Troubleshooting">
+                - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
+                - Make sure your OpenAI API key is correctly set in the `.env` file
+                - Check that your Next.js development server is running on port 3000
+            </Accordion>
+        </Accordions>
+    </Step>
+</Steps>
+
+## What's next?
+
+Now that you have your basic AI application setup, explore these advanced features:
+
+<Cards>
+  <Card
+    title="Implement Streaming"
+    description="Add real-time message streaming for better user experience."
+    href="/vercel-ai-sdk/streaming"
+    icon={<RepeatIcon />}
+  />
+  <Card
+    title="Add Tool Calls"
+    description="Give your AI the ability to execute functions and tools."
+    href="/vercel-ai-sdk/tool-calls"
+    icon={<WrenchIcon />}
+  />
+  <Card
+    title="Setup Multi-step Workflows"
+    description="Build complex workflows with state management and parallel execution."
+    href="/vercel-ai-sdk/workflows"
+    icon={<ServerIcon />}
+  />
+</Cards>

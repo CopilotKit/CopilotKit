@@ -1,0 +1,35 @@
+---
+title: Vercel AI SDK
+description: A framework for building AI-powered applications with React that can be used with CopilotKit.
+icon: custom/vercel-ai-sdk
+---
+
+Vercel AI SDK is a framework for building AI-powered applications with React that can be used with CopilotKit. Vercel AI SDK provides developers
+with powerful tools to build sophisticated AI applications with streaming, tool calling, and multi-model support.
+
+## CoAgents and Vercel AI SDK
+
+How do CoAgents extend Vercel AI SDK?
+
+
+- **Multi-model**: CoAgents allow for multiple AI models to be used in a single application. CopilotKit acts as the "ground-truth"
+  when transitioning between models. Read more about how multi-model workflows work [here](/vercel-ai-sdk/multi-model-flows)
+  and how messages are managed [here](/vercel-ai-sdk/concepts/message-management).
+- **Streaming**: CoAgents use streaming to provide real-time responses. This is useful for building applications that need to
+  generate natural language responses in real-time.
+- **Human in the loop**: CoAgents enabled human review and approval of generated responses. Read more about how this works
+  [here](/vercel-ai-sdk/human-in-the-loop).
+- **Tool calling**: Tool calling is a fundamental building block for agentic workflows. They allow for greater control over what
+  the agent can do and can be used to interact with external systems. CoAgents allow you to easily render in-progress
+  tool calls in the UI so your users know what's happening. Read more about streaming tool calls [here](/vercel-ai-sdk/frontend-actions).
+
+## Building with TypeScript
+
+You can build Vercel AI SDK applications using TypeScript. Check out the [Vercel AI SDK docs](https://sdk.vercel.ai/) for more information.
+
+## Vercel AI SDK Features
+
+Vercel AI SDK provides a comprehensive set of features for building AI applications. Read more about it on the
+[Vercel AI SDK website](https://sdk.vercel.ai/).
+
+If you want to take the next step to deploy your Vercel AI SDK application as an CoAgent, check out our [quickstart guide](/vercel-ai-sdk/quickstart).

@@ -1,0 +1,174 @@
+---
+title: Reading agent state
+icon: "lucide/ArrowLeft"
+description: Read the realtime agent state in your native application.
+---
+import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
+
+<Frame>
+  <ImageZoom src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/read-agent-state.png" alt="read agent state" width={1000} height={1000} className="my-0"/>
+</Frame>
+
+<Callout type="info">
+  Pictured above is the [vercel ai sdk starter](https://github.com/copilotkit/copilotkit/tree/main/examples/vercel-ai-sdk/starter) with
+  the [implementation](#implementation) section applied!
+</Callout>
+
+## What is this?
+
+You can easily use the realtime agent state not only in the chat UI, but also in the native application UX.
+
+<Callout type="info" title="Important">
+  This guide assumes you are using Vercel AI SDK with CopilotKit runtime, like so.
+
+  ```ts
+  const runtime = new CopilotRuntime({
+    chat: async ({ messages, tools }) => {
+      const result = await streamText({
+        model: openai("gpt-4o"),
+        messages,
+        tools,
+      });
+      return result.toDataStreamResponse();
+    },
+  });
+  ```
+
+  This feature works with Vercel AI SDK's streaming and tool calling capabilities.
+</Callout>
+
+## When should I use this?
+
+You can use this when you want to provide the user with feedback about what your working memory. As your agent's 
+state update you can reflect these updates natively in your application.
+
+## Implementation
+
+<Steps>
+  <Step>
+    ### Run and Connect Your Agent to CopilotKit
+
+    You'll need to run your agent and connect it to CopilotKit before proceeding.
+
+    #### I already have an agent
+
+    You can follow the instructions in the [quickstart](/vercel-ai-sdk/quickstart) guide.
+    
+    #### I want to start from scratch
+
+    Run the following command to create a brand new project with a pre-configured agent:
+
+    ```bash
+    npx copilotkit@latest create -f vercel-ai-sdk
+    ```
+  </Step>
+  <Step>
+    ### Define the Agent State
+    Vercel AI SDK works with CopilotKit to provide shared state between your agent and your application.
+    You can use `useCopilotReadable` to make your application state readable by the agent.
+
+    ```tsx title="app/page.tsx"
+    import { useCopilotReadable } from "@copilotkit/react-core";
+    import { useState } from "react";
+
+    export function Page() {
+      // [!code highlight:6]
+      const [language, setLanguage] = useState<"english" | "spanish">("english");
+      
+      // Make language state readable by the agent
+      useCopilotReadable({
+        description: "The user's preferred language",
+        value: language,
+      });
+
+      return (
+        <div>
+          <h1>Current Language: {language}</h1>
+          <button onClick={() => setLanguage(lang => lang === "english" ? "spanish" : "english")}>
+            Toggle Language
+          </button>
+          {/* Your app content */}
+        </div>
+      );
+    }
+    ```
+  </Step>
+  <Step>
+    ### Use the Agent State in Your Runtime
+    With your state defined, you can now use it in your Vercel AI SDK runtime to provide context-aware responses.
+
+    ```tsx title="api/copilotkit/route.ts"
+    import { CopilotRuntime } from "@copilotkit/runtime";
+    import { streamText } from "ai";
+    import { openai } from "@ai-sdk/openai";
+
+    const runtime = new CopilotRuntime({
+      chat: async ({ messages, tools, context }) => {
+        // Get the language preference from context
+        const languageContext = context?.find(ctx => 
+          ctx.description === 'The user\'s preferred language'
+        );
+        
+        const preferredLanguage = languageContext?.value || 'english';
+        
+        const result = await streamText({
+          model: openai("gpt-4o"),
+          messages: [
+            {
+              role: "system",
+              content: `Always communicate in ${preferredLanguage}. Do not communicate in any other language.`
+            },
+            ...messages
+          ],
+          tools,
+        });
+        
+        return result.toDataStreamResponse();
+      },
+    });
+
+    export const POST = async (req: Request) => {
+      return runtime.response(req);
+    };
+    ```
+    <Callout type="info">
+      The context from `useCopilotReadable` is automatically available in your chat handler and can be used to provide personalized responses.
+    </Callout>
+  </Step>
+  <Step>
+    ### Give it a try!
+    As the application state updates, your agent will automatically receive the updated context! In this case, when you toggle the language,
+    the agent will respond in the selected language.
+  </Step>
+</Steps>
+
+## Rendering agent state in the chat
+
+You can also render the working memory in the chat UI. This is useful for informing the user about the working memory in a 
+more in-context way. To do this, you can use the [useCoAgentStateRender](/reference/hooks/useCoAgentStateRender) hook.
+
+```tsx title="ui/app/page.tsx"
+import { useCoAgentStateRender } from "@copilotkit/react-core"; // [!code highlight]
+
+// Define the agent state type, should match the actual state of your agent
+type AgentState = {
+  language: "english" | "spanish";
+}
+
+function YourMainContent() {
+  // ...
+  // [!code highlight:7]
+  useCoAgentStateRender({
+    name: "your-vercel-ai-sdk-agent-name",
+    render: ({ state }) => {
+      if (!state.language) return null;
+      return <div>Language: {state.language}</div>;
+    },
+  });
+  // ...
+}
+```
+
+<Callout type="info">
+  The `state` in `useCoAgentStateRender` is reactive and will automatically update when the working memory changes.
+</Callout>
