@@ -62,19 +62,25 @@ export function V150Banner() {
   
   return (
     <>
-      <Banner className="w-full text-white bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-800 dark:to-purple-800 py-3" variant="rainbow" id="v150-banner">
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full px-4">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5" />
-            <p className="text-sm sm:text-base font-medium">
-              CopilotKit v1.50 is coming soon, with brand new interfaces, streamlined internals, and no breaking changes.
+      <Banner className="w-full text-white bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-800 dark:to-purple-800 py-2 md:py-3" variant="rainbow" id="v150-banner">
+        <div className="flex flex-row items-center justify-center gap-1.5 md:gap-3 w-full px-1 md:px-4">
+          <div className="flex items-center gap-1.5 md:gap-2 flex-shrink min-w-0 text-white/80">
+            <Sparkles className="w-5 h-5 hidden md:block flex-shrink-0" />
+            {/* Short text for mobile (below 768px) */}
+            <p className="text-xs md:text-base font-normal md:hidden">
+              CopilotKit 1.50 is coming soon!
+            </p>
+            {/* Full text for desktop (768px and above) */}
+            <p className="text-sm sm:text-base font-normal hidden md:block">
+              CopilotKit v1.50 is coming soon, with brand new interfaces, streamlined internals, and no breaking changes!
             </p>
           </div>
           <button 
             onClick={() => setIsModalOpen(true)}
-            className="px-4 py-1.5 bg-white text-indigo-600 hover:bg-gray-100 rounded-md text-sm font-semibold transition-colors whitespace-nowrap"
+            className="px-2 py-0.5 md:px-6 md:py-1 bg-white/50 text-white hover:bg-gray-100 rounded-lg text-xs md:text-base font-normal transition-colors whitespace-nowrap flex-shrink-0 shadow-md"
           >
-            Sign up for early access
+            <span className="md:hidden">Sign up</span>
+            <span className="hidden md:inline">Sign up for early access</span>
           </button>
         </div>
       </Banner>
