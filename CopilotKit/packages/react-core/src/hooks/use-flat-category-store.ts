@@ -1,5 +1,5 @@
-import { useCallback, useReducer } from "react";
 import { randomId } from "@copilotkit/shared";
+import { useCallback, useReducer } from "react";
 
 export type FlatCategoryStoreId = string;
 
@@ -94,7 +94,7 @@ function flatCategoryStoreReducer<T>(
 function setsHaveIntersection<T>(setA: Set<T>, setB: Set<T>): boolean {
   const [smallerSet, largerSet] = setA.size <= setB.size ? [setA, setB] : [setB, setA];
 
-  for (let item of smallerSet) {
+  for (const item of smallerSet) {
     if (largerSet.has(item)) {
       return true;
     }

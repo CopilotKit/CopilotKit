@@ -509,7 +509,6 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       agentSession,
       agentStates,
       publicApiKey,
-      context,
     } = request;
     graphqlContext.request.signal.addEventListener(
       "abort",
@@ -848,7 +847,7 @@ please use an LLM adapter instead.`,
             if (data && "detail" in data && (data.detail as string).toLowerCase() === "not found") {
               throw new CopilotKitAgentDiscoveryError({ availableAgents: this.availableAgents });
             }
-          } catch (e) {
+          } catch (_e) {
             throw new CopilotKitMisuseError({
               message: `
               Failed to find or contact remote endpoint at url ${endpoint.deploymentUrl}.
@@ -894,7 +893,7 @@ please use an LLM adapter instead.`,
           const data: InfoResponse = await response.json();
           const endpointAgents = (data?.agents ?? []).map((agent) => ({
             name: agent.name,
-            description: agent.description ?? "" ?? "",
+            description: agent.description ?? "",
             id: randomId(), // Required by Agent type
             endpoint,
           }));
@@ -1064,7 +1063,6 @@ please use an LLM adapter instead.`,
       metaEvents,
       publicApiKey,
       forwardedParameters,
-      context,
     } = request;
     const { agentName, nodeName } = agentSession;
 
@@ -1535,7 +1533,7 @@ please use an LLM adapter instead.`,
 
   private convertStreamingErrorToStructured(error: any): CopilotKitError {
     // Determine a more helpful error message based on context
-    let helpfulMessage = generateHelpfulErrorMessage(error, "agent streaming connection");
+    const helpfulMessage = generateHelpfulErrorMessage(error, "agent streaming connection");
 
     // For network-related errors, use CopilotKitLowLevelError to preserve the original error
     if (
@@ -1639,7 +1637,7 @@ please use an LLM adapter instead.`,
 }
 
 export function flattenToolCallsNoDuplicates(toolsByPriority: ActionInput[]): ActionInput[] {
-  let allTools: ActionInput[] = [];
+  const allTools: ActionInput[] = [];
   const allToolNames: string[] = [];
   for (const tool of toolsByPriority) {
     if (!allToolNames.includes(tool.name)) {

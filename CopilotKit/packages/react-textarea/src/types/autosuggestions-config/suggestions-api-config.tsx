@@ -16,7 +16,7 @@ export const defaultSuggestionsMakeSystemPrompt: MakeSystemPrompt = (
   return `You are a versatile writing assistant.
   
 The user is writing some text.
-The purpose is: \"${textareaPurpose}\"
+The purpose is: "${textareaPurpose}"
 
 Your job is to guess what the user will write next AS BEST YOU CAN.
 Only guess a SHORT distance ahead. Usually 1 sentence, or at most 1 paragraph.

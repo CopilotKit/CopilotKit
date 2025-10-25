@@ -1,6 +1,6 @@
-import { useCopilotAction } from "./use-copilot-action";
-import { FrontendAction, FrontendActionAvailability } from "../types";
 import { Parameter } from "@copilotkit/shared";
+import { FrontendAction } from "../types";
+import { useCopilotAction } from "./use-copilot-action";
 
 type UseToolCallArgs<T extends Parameter[] | [] = []> = {
   available?: "disabled" | "enabled";

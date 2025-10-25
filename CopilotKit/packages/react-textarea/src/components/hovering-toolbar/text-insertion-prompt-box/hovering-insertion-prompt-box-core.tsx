@@ -1,17 +1,17 @@
+import { DocumentPointer, useCopilotContext } from "@copilotkit/react-core";
+import { useCallback, useEffect, useRef, useState } from "react";
 import useAutosizeTextArea from "../../../hooks/misc/use-autosize-textarea";
 import {
   EditingEditorState,
   Generator_InsertionOrEditingSuggestion,
 } from "../../../types/base/autosuggestions-bare-function";
 import { SourceSearchBox } from "../../source-search-box/source-search-box";
-import { DocumentPointer, useCopilotContext } from "@copilotkit/react-core";
 import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
-import { useCallback, useEffect, useRef, useState } from "react";
 
 import { streamPromiseFlatten } from "../../../lib/stream-promise-flatten";
-import { IncludedFilesPreview } from "./included-files-preview";
 import { useHoveringEditorContext } from "../hovering-editor-provider";
+import { IncludedFilesPreview } from "./included-files-preview";
 
 export type SuggestionState = {
   editorState: EditingEditorState;
@@ -121,7 +121,7 @@ export const HoveringInsertionPromptBoxCore = ({
 
     // editor state includes the text being edited, and the text before/after the selection
     // if the current edit suggestion is not empty, then use *it* as the "selected text" - instead of the editor state's selected text
-    let modificationState = state.editorState;
+    const modificationState = state.editorState;
     if (editSuggestion !== "") {
       modificationState.selectedText = editSuggestion;
     }
@@ -158,7 +158,7 @@ export const HoveringInsertionPromptBoxCore = ({
       ? "e.g. 'summarize the client's top 3 pain-points from @CallTranscript'"
       : "e.g. 'make it more formal', 'be more specific', ...";
 
-  const { setIsDisplayed } = useHoveringEditorContext();
+  const { setIsDisplayed: _setIsDisplayed } = useHoveringEditorContext();
 
   const AdjustmentPromptComponent = (
     <>

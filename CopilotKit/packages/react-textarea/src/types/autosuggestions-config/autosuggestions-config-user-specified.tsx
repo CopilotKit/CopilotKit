@@ -3,10 +3,10 @@ import { InsertionsApiConfig } from "./insertions-api-config";
 import { SuggestionsApiConfig } from "./suggestions-api-config";
 
 // Mostly mirrors a partial SuggestionsApiConfig, but with some fields MANDATORY.
-export interface SuggestionsApiConfigUserSpecified extends Partial<SuggestionsApiConfig> {}
+export type SuggestionsApiConfigUserSpecified = Partial<SuggestionsApiConfig>;
 
 // Mostly mirrors a partial InsertionsApiConfig, but with some fields MANDATORY.
-export interface InsertionsApiConfigUserSpecified extends Partial<InsertionsApiConfig> {}
+export type InsertionsApiConfigUserSpecified = Partial<InsertionsApiConfig>;
 
 // Mostly mirrors a partial AutosuggestionsConfig, but with some fields MANDATORY.
 export interface AutosuggestionsConfigUserSpecified

@@ -34,7 +34,7 @@ export class StatusChecker {
         this.lastResponse = response;
         onUpdate?.(response);
         return response;
-      } catch (error) {
+      } catch (_error) {
         // Silently fail
         return null;
       }
