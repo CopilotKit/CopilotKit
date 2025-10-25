@@ -1,23 +1,44 @@
-import { useRef, useEffect, useCallback, useState, useMemo } from "react";
-import { AgentSession, useCopilotContext, CopilotContextParams } from "../context/copilot-context";
-import { useCopilotMessagesContext, CopilotMessagesContextParams } from "../context";
+import { useRef, useEffect, useCallback, useMemo } from "react";
+import { useCopilotContext } from "../context/copilot-context";
 import { SystemMessageFunction } from "../types";
-import { useChat, AppendMessageOptions } from "./use-chat";
-import { defaultCopilotContextCategories } from "../components";
-import { CoAgentStateRenderHandlerArguments } from "@copilotkit/shared";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
-import { reloadSuggestions as generateSuggestions } from "../utils";
-import type { SuggestionItem } from "../utils";
-
 import { Message } from "@copilotkit/shared";
-import {
-  Role as gqlRole,
-  TextMessage,
-  aguiToGQL,
-  gqlToAGUI,
-  Message as DeprecatedGqlMessage,
-} from "@copilotkit/runtime-client-gql";
+import { gqlToAGUI, Message as DeprecatedGqlMessage } from "@copilotkit/runtime-client-gql";
 import { useLangGraphInterruptRender } from "./use-langgraph-interrupt-render";
+import {
+  useAgent,
+  useCopilotChatConfiguration,
+  useCopilotKit,
+  useSuggestions,
+} from "@copilotkitnext/react";
+import { randomUUID } from "@copilotkit/shared";
+import { Suggestion } from "@copilotkitnext/core";
+import { useLazyToolRenderer } from "./use-lazy-tool-renderer";
+import {
+  useConfigureChatSuggestions,
+  UseCopilotChatSuggestionsConfiguration,
+} from "./use-configure-chat-suggestions";
+import { useAgentSubscribers } from "./use-agent-subscribers";
+
+/**
+ * The type of suggestions to use in the chat.
+ *
+ * `auto` - Suggestions are generated automatically.
+ * `manual` - Suggestions are controlled programmatically.
+ * `SuggestionItem[]` - Static suggestions array.
+ */
+export type ChatSuggestions = "auto" | "manual" | Omit<Suggestion, "isLoading">[];
+
+export interface AppendMessageOptions {
+  /**
+   * Whether to run the chat completion after appending the message. Defaults to `true`.
+   */
+  followUp?: boolean;
+  /**
+   * Whether to clear the suggestions after appending the message. Defaults to `true`.
+   */
+  clearSuggestions?: boolean;
+}
 
 export interface UseCopilotChatOptions {
   /**
@@ -46,11 +67,21 @@ export interface UseCopilotChatOptions {
    * Disables inclusion of CopilotKit’s default system message. When true, no system message is sent (this also suppresses any custom message from <code>makeSystemMessage</code>).
    */
   disableSystemMessage?: boolean;
+
+  suggestions?: ChatSuggestions;
 }
 
 export interface MCPServerConfig {
   endpoint: string;
   apiKey?: string;
+}
+
+// Old suggestion item interface, for returning from useCopilotChatInternal
+interface SuggestionItem {
+  title: string;
+  message: string;
+  partial?: boolean;
+  className?: string;
 }
 
 export interface UseCopilotChatReturn {
@@ -174,13 +205,13 @@ export interface UseCopilotChatReturn {
    * Current suggestions array
    * Use this to read the current suggestions or in conjunction with setSuggestions for manual control
    */
-  suggestions: SuggestionItem[];
+  suggestions: Suggestion[];
 
   /**
    * Manually set suggestions
    * Useful for manual mode or custom suggestion workflows
    */
-  setSuggestions: (suggestions: SuggestionItem[]) => void;
+  setSuggestions: (suggestions: Suggestion[]) => void;
 
   /**
    * Trigger AI-powered suggestion generation
@@ -205,214 +236,174 @@ export interface UseCopilotChatReturn {
 
   /** Interrupt content for human-in-the-loop workflows */
   interrupt: string | React.ReactElement | null;
+
+  agent?: ReturnType<typeof useAgent>["agent"];
+
+  threadId?: string;
 }
 
-let globalSuggestionPromise: Promise<void> | null = null;
+function useConfigureSuggestions(suggestions?: UseCopilotChatOptions["suggestions"]) {
+  let suggestionsConfig: UseCopilotChatSuggestionsConfiguration;
 
-export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotChatReturn {
-  const makeSystemMessage = options.makeSystemMessage ?? defaultSystemMessage;
-  const {
-    getContextString,
-    getFunctionCallHandler,
-    copilotApiConfig,
-    isLoading,
-    setIsLoading,
-    chatInstructions,
-    actions,
-    coagentStatesRef,
-    setCoagentStatesWithRef,
-    coAgentStateRenders,
-    agentSession,
-    setAgentSession,
-    forwardedParameters,
-    agentLock,
-    threadId,
-    setThreadId,
-    runId,
-    setRunId,
-    chatAbortControllerRef,
-    extensions,
-    setExtensions,
-    langGraphInterruptAction,
-    setLangGraphInterruptAction,
-    chatSuggestionConfiguration,
-
-    runtimeClient,
-  } = useCopilotContext();
-  const { messages, setMessages, suggestions, setSuggestions } = useCopilotMessagesContext();
-
-  // Simple state for MCP servers (keep for interface compatibility)
-  const [mcpServers, setLocalMcpServers] = useState<MCPServerConfig[]>([]);
-
-  // Basic suggestion state for programmatic control
-  const suggestionsAbortControllerRef = useRef<AbortController | null>(null);
-  const isLoadingSuggestionsRef = useRef<boolean>(false);
-
-  const abortSuggestions = useCallback(
-    (clear: boolean = true) => {
-      suggestionsAbortControllerRef.current?.abort("suggestions aborted by user");
-      suggestionsAbortControllerRef.current = null;
-      if (clear) {
-        setSuggestions([]);
-      }
-    },
-    [setSuggestions],
-  );
-
-  // Memoize context with stable dependencies only
-  const stableContext = useMemo(() => {
-    return {
-      actions,
-      copilotApiConfig,
-      chatSuggestionConfiguration,
-      messages,
-      setMessages,
-      getContextString,
-      runtimeClient,
+  if (Array.isArray(suggestions)) {
+    suggestionsConfig = {
+      suggestions,
+      available: "always",
     };
-  }, [
-    JSON.stringify(Object.keys(actions)),
-    copilotApiConfig.chatApiEndpoint,
-    messages.length,
-    Object.keys(chatSuggestionConfiguration).length,
-  ]);
+  } else if (suggestions === "auto") {
+    suggestionsConfig = {
+      available: suggestions === "auto" ? "always" : "disabled",
+      instructions:
+        "Suggest what the user could say next. Provide clear, highly relevant suggestions. Do not literally suggest function calls.",
+    };
+  } else {
+    suggestionsConfig = { available: "disabled" } as UseCopilotChatSuggestionsConfiguration;
+  }
 
-  // Programmatic suggestion generation function
-  const generateSuggestionsFunc = useCallback(async () => {
-    // If a global suggestion is running, ignore this call
-    if (globalSuggestionPromise) {
-      return globalSuggestionPromise;
-    }
+  useConfigureChatSuggestions(suggestionsConfig);
+}
 
-    globalSuggestionPromise = (async () => {
-      try {
-        abortSuggestions();
-        isLoadingSuggestionsRef.current = true;
-        suggestionsAbortControllerRef.current = new AbortController();
+export function useCopilotChatInternal({
+  suggestions,
+}: UseCopilotChatOptions = {}): UseCopilotChatReturn {
+  const { copilotkit } = useCopilotKit();
+  const { threadId, agentSession } = useCopilotContext();
+  const existingConfig = useCopilotChatConfiguration();
+  useConfigureSuggestions(suggestions);
 
-        setSuggestions([]);
-
-        await generateSuggestions(
-          stableContext as CopilotContextParams & CopilotMessagesContextParams,
-          chatSuggestionConfiguration,
-          setSuggestions,
-          suggestionsAbortControllerRef,
-        );
-      } catch (error) {
-        // Re-throw to allow caller to handle the error
-        throw error;
-      } finally {
-        isLoadingSuggestionsRef.current = false;
-        globalSuggestionPromise = null;
-      }
-    })();
-
-    return globalSuggestionPromise;
-  }, [stableContext, chatSuggestionConfiguration, setSuggestions, abortSuggestions]);
-
-  const resetSuggestions = useCallback(() => {
-    setSuggestions([]);
-  }, [setSuggestions]);
-
-  // MCP servers logic
-  useEffect(() => {
-    if (mcpServers.length > 0) {
-      const serversCopy = [...mcpServers];
-      copilotApiConfig.mcpServers = serversCopy;
-      if (!copilotApiConfig.properties) {
-        copilotApiConfig.properties = {};
-      }
-      copilotApiConfig.properties.mcpServers = serversCopy;
-    }
-  }, [mcpServers, copilotApiConfig]);
-
-  const setMcpServers = useCallback((servers: MCPServerConfig[]) => {
-    setLocalMcpServers(servers);
-  }, []);
-
-  // Move these function declarations above the useChat call
-  const onCoAgentStateRender = useAsyncCallback(
-    async (args: CoAgentStateRenderHandlerArguments) => {
-      const { name, nodeName, state } = args;
-      let action = Object.values(coAgentStateRenders).find(
-        (action) => action.name === name && action.nodeName === nodeName,
-      );
-      if (!action) {
-        action = Object.values(coAgentStateRenders).find(
-          (action) => action.name === name && !action.nodeName,
-        );
-      }
-      if (action) {
-        await action.handler?.({ state, nodeName });
-      }
-    },
-    [coAgentStateRenders],
+  // Apply priority: props > existing config > defaults
+  const resolvedAgentId = agentSession?.agentName ?? existingConfig?.agentId ?? "default";
+  const resolvedThreadId = useMemo(
+    () => threadId ?? existingConfig?.threadId ?? randomUUID(),
+    [threadId, existingConfig?.threadId],
   );
+  const { agent } = useAgent({ agentId: resolvedAgentId });
 
-  const makeSystemMessageCallback = useCallback(() => {
-    const systemMessageMaker = makeSystemMessage || defaultSystemMessage;
-    // this always gets the latest context string
-    const contextString = getContextString([], defaultCopilotContextCategories); // TODO: make the context categories configurable
+  useAgentSubscribers(agent);
 
-    return new TextMessage({
-      content: systemMessageMaker(contextString, chatInstructions),
-      role: gqlRole.System,
-    });
-  }, [getContextString, makeSystemMessage, chatInstructions]);
+  useEffect(() => {
+    if (agent) {
+      agent.threadId = resolvedThreadId;
+    }
+    return () => {};
+  }, [resolvedThreadId, agent]);
+
+  // @ts-expect-error -- agui client version mismatch causes this
+  const interrupt = useLangGraphInterruptRender(agent);
+
+  const reset = () => {
+    agent?.setMessages([]);
+    agent?.setState(null);
+  };
 
   const deleteMessage = useCallback(
     (messageId: string) => {
-      setMessages((prev) => prev.filter((message) => message.id !== messageId));
+      const filteredMessages = (agent?.messages ?? []).filter(
+        (message) => message.id !== messageId,
+      );
+      agent?.setMessages(filteredMessages);
     },
-    [setMessages],
+    [agent?.setMessages, agent?.messages],
   );
 
-  // Get chat helpers with updated config
-  const { append, reload, stop, runChatCompletion } = useChat({
-    ...options,
-    actions: Object.values(actions),
-    copilotConfig: copilotApiConfig,
-    initialMessages: aguiToGQL(options.initialMessages || []),
-    onFunctionCall: getFunctionCallHandler(),
-    onCoAgentStateRender,
-    messages,
-    setMessages,
-    makeSystemMessageCallback,
-    isLoading,
-    setIsLoading,
-    coagentStatesRef,
-    setCoagentStatesWithRef,
-    agentSession,
-    setAgentSession,
-    forwardedParameters,
-    threadId,
-    setThreadId,
-    runId,
-    setRunId,
-    chatAbortControllerRef,
-    agentLock,
-    extensions,
-    setExtensions,
-    langGraphInterruptAction,
-    setLangGraphInterruptAction,
-    disableSystemMessage: options.disableSystemMessage,
-  });
-
-  const latestAppend = useUpdatedRef(append);
-  const latestAppendFunc = useAsyncCallback(
-    async (message: DeprecatedGqlMessage, options?: AppendMessageOptions) => {
-      abortSuggestions(options?.clearSuggestions);
-      return await latestAppend.current(message, options);
+  const latestDelete = useUpdatedRef(deleteMessage);
+  const latestDeleteFunc = useCallback(
+    (messageId: string) => {
+      return latestDelete.current(messageId);
     },
-    [latestAppend],
+    [latestDelete],
+  );
+
+  const currentSuggestions = useSuggestions({ agentId: resolvedAgentId });
+
+  const reload = useAsyncCallback(
+    async (reloadMessageId: string): Promise<void> => {
+      const messages = agent?.messages ?? [];
+      // TODO: get isLoading
+      const isLoading = false;
+      if (isLoading || messages.length === 0) {
+        return;
+      }
+
+      const reloadMessageIndex = messages.findIndex((msg) => msg.id === reloadMessageId);
+      if (reloadMessageIndex === -1) {
+        console.warn(`Message with id ${reloadMessageId} not found`);
+        return;
+      }
+
+      const reloadMessageRole = messages[reloadMessageIndex].role;
+      if (reloadMessageRole !== "assistant") {
+        console.warn(`Regenerate cannot be performed on ${reloadMessageRole} role`);
+        return;
+      }
+      let historyCutoff: Message[] = [messages[0]];
+
+      if (messages.length > 2 && reloadMessageIndex !== 0) {
+        // message to regenerate from is now first.
+        // Work backwards to find the first the closest user message
+        const lastUserMessageBeforeRegenerate = messages
+          .slice(0, reloadMessageIndex)
+          .reverse()
+          .find((msg) => msg.role === "user");
+
+        if (!lastUserMessageBeforeRegenerate) {
+          historyCutoff = [messages[0]];
+        } else {
+          const indexOfLastUserMessageBeforeRegenerate = messages.findIndex(
+            (msg) => msg.id === lastUserMessageBeforeRegenerate.id,
+          );
+          // Include the user message, remove everything after it
+          historyCutoff = messages.slice(0, indexOfLastUserMessageBeforeRegenerate + 1);
+        }
+      } else if (messages.length > 2 && reloadMessageIndex === 0) {
+        historyCutoff = [messages[0], messages[1]];
+      }
+
+      agent?.setMessages(historyCutoff);
+
+      if (agent) {
+        copilotkit.runAgent({ agent });
+      }
+      return;
+    },
+    [agent?.setMessages, copilotkit?.runAgent],
   );
 
   const latestSendMessageFunc = useAsyncCallback(
     async (message: Message, options?: AppendMessageOptions) => {
-      abortSuggestions(options?.clearSuggestions);
-      return await latestAppend.current(aguiToGQL([message])[0] as DeprecatedGqlMessage, options);
+      if (!agent) return;
+      const followUp = options?.followUp ?? true;
+      if (options?.clearSuggestions) {
+        copilotkit.clearSuggestions(resolvedAgentId);
+      }
+      agent?.addMessage(message);
+      if (followUp) {
+        try {
+          await copilotkit.runAgent({ agent });
+        } catch (error) {
+          console.error("CopilotChat: runAgent failed", error);
+        }
+      }
     },
-    [latestAppend],
+    [agent, copilotkit, resolvedAgentId],
+  );
+
+  const latestAppendFunc = useAsyncCallback(
+    async (message: DeprecatedGqlMessage, options?: AppendMessageOptions) => {
+      return latestSendMessageFunc(gqlToAGUI([message])[0], options);
+    },
+    [latestSendMessageFunc],
+  );
+
+  const latestSetMessages = useUpdatedRef(agent?.setMessages);
+  const latestSetMessagesFunc = useCallback(
+    (messages: Message[] | DeprecatedGqlMessage[]) => {
+      if (messages.every((message) => message instanceof DeprecatedGqlMessage)) {
+        return latestSetMessages.current?.(gqlToAGUI(messages));
+      }
+      return latestSetMessages.current?.(messages);
+    },
+    [latestSetMessages, agent],
   );
 
   const latestReload = useUpdatedRef(reload);
@@ -423,69 +414,32 @@ export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotC
     [latestReload],
   );
 
-  const latestStop = useUpdatedRef(stop);
+  const latestStop = useUpdatedRef(agent?.abortRun);
   const latestStopFunc = useCallback(() => {
-    return latestStop.current();
+    return latestStop.current?.();
   }, [latestStop]);
-
-  const latestDelete = useUpdatedRef(deleteMessage);
-  const latestDeleteFunc = useCallback(
-    (messageId: string) => {
-      return latestDelete.current(messageId);
-    },
-    [latestDelete],
-  );
-
-  const latestSetMessages = useUpdatedRef(setMessages);
-  const latestSetMessagesFunc = useCallback(
-    (messages: Message[] | DeprecatedGqlMessage[]) => {
-      if (messages.every((message) => message instanceof DeprecatedGqlMessage)) {
-        return latestSetMessages.current(messages as DeprecatedGqlMessage[]);
-      }
-      return latestSetMessages.current(aguiToGQL(messages));
-    },
-    [latestSetMessages],
-  );
-
-  const latestRunChatCompletion = useUpdatedRef(runChatCompletion);
-  const latestRunChatCompletionFunc = useAsyncCallback(async () => {
-    return await latestRunChatCompletion.current!();
-  }, [latestRunChatCompletion]);
-
-  const reset = useCallback(() => {
-    latestStopFunc();
-    setMessages([]);
-    setRunId(null);
-    setCoagentStatesWithRef({});
-    let initialAgentSession: AgentSession | null = null;
-    if (agentLock) {
-      initialAgentSession = {
-        agentName: agentLock,
-      };
-    }
-    setAgentSession(initialAgentSession);
-    // Reset suggestions when chat is reset
-    resetSuggestions();
-  }, [
-    latestStopFunc,
-    setMessages,
-    setThreadId,
-    setCoagentStatesWithRef,
-    setAgentSession,
-    agentLock,
-    resetSuggestions,
-  ]);
 
   const latestReset = useUpdatedRef(reset);
   const latestResetFunc = useCallback(() => {
     return latestReset.current();
   }, [latestReset]);
 
-  const interrupt = useLangGraphInterruptRender();
+  const lazyToolRendered = useLazyToolRenderer();
+  const allMessages = agent?.messages ?? [];
+  const resolvedMessages = useMemo(() => {
+    return allMessages.map((message) => {
+      if (message.role !== "assistant") {
+        return message;
+      }
 
+      const genUI = lazyToolRendered(message, allMessages);
+      return genUI ? { ...message, generativeUI: genUI } : message;
+    });
+  }, [agent?.messages, lazyToolRendered, allMessages]);
+
+  // @ts-ignore
   return {
-    visibleMessages: messages,
-    messages: gqlToAGUI(messages, actions, coAgentStateRenders),
+    messages: resolvedMessages,
     sendMessage: latestSendMessageFunc,
     appendMessage: latestAppendFunc,
     setMessages: latestSetMessagesFunc,
@@ -493,16 +447,17 @@ export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotC
     stopGeneration: latestStopFunc,
     reset: latestResetFunc,
     deleteMessage: latestDeleteFunc,
-    runChatCompletion: latestRunChatCompletionFunc,
-    isLoading,
-    mcpServers,
-    setMcpServers,
-    suggestions,
-    setSuggestions,
-    generateSuggestions: generateSuggestionsFunc,
-    resetSuggestions,
-    isLoadingSuggestions: isLoadingSuggestionsRef.current,
+    isLoading: !Boolean(agent) ? true : Boolean(agent?.isRunning),
+    // mcpServers,
+    // setMcpServers,
+    suggestions: currentSuggestions.suggestions,
+    setSuggestions: (suggestions: Suggestion[]) => copilotkit.addSuggestionsConfig({ suggestions }),
+    generateSuggestions: async () => copilotkit.reloadSuggestions(resolvedAgentId),
+    resetSuggestions: () => copilotkit.clearSuggestions(resolvedAgentId),
+    isLoadingSuggestions: currentSuggestions.isLoading,
     interrupt,
+    agent,
+    threadId,
   };
 }
 

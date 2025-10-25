@@ -29,7 +29,12 @@ interface GoogleGenerativeAIAdapterOptions {
   apiKey?: string;
 }
 
+const DEFAULT_MODEL = "gemini-1.5-pro";
+
 export class GoogleGenerativeAIAdapter extends LangChainAdapter {
+  public provider = "google";
+  public model: string = DEFAULT_MODEL;
+
   constructor(options?: GoogleGenerativeAIAdapterOptions) {
     super({
       chainFn: async ({ messages, tools, threadId }) => {
@@ -49,9 +54,10 @@ export class GoogleGenerativeAIAdapter extends LangChainAdapter {
           );
         });
 
+        this.model = options?.model ?? "gemini-1.5-pro";
         const model = new ChatGoogle({
           apiKey: options?.apiKey ?? process.env.GOOGLE_API_KEY,
-          modelName: options?.model ?? "gemini-1.5-pro",
+          modelName: this.model,
           apiVersion: "v1beta",
         }).bindTools(tools);
 

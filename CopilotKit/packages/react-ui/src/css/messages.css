@@ -169,7 +169,6 @@
   border-radius: 50%;
   border-top-color: var(--copilot-kit-primary-color);
   animation: copilotKitSpinAnimation 1s linear infinite;
-  margin-left: 8px;
 }
 
 @keyframes copilotKitActivityDotAnimation {

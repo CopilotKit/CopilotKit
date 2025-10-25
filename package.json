@@ -15,10 +15,10 @@
     "husky": "^9.1.4"
   },
   "dependencies": {
-    "@copilotkit/react-core": "1.8.11",
-    "@copilotkit/react-textarea": "1.8.11",
-    "@copilotkit/react-ui": "1.8.11",
-    "@copilotkit/runtime": "1.8.11",
+    "@copilotkit/react-core": "1.10.6",
+    "@copilotkit/react-textarea": "1.10.6",
+    "@copilotkit/react-ui": "1.10.6",
+    "@copilotkit/runtime": "1.10.6",
     "nvm": "^0.0.4"
   }
 }

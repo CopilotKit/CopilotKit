@@ -33,7 +33,8 @@ export function useMakeStandardAutosuggestionFunction(
   contextCategories: string[],
   apiConfig: SuggestionsApiConfig,
 ): AutosuggestionsBareFunction {
-  const { getContextString, copilotApiConfig, runtimeClient } = useCopilotContext();
+  const runtimeClient = { generateCopilotResponse: (...args: any[]) => {} };
+  const { getContextString, copilotApiConfig } = useCopilotContext();
   const { chatApiEndpoint: url, publicApiKey, credentials, properties } = copilotApiConfig;
   const headers = {
     ...copilotApiConfig.headers,
@@ -70,27 +71,28 @@ export function useMakeStandardAutosuggestionFunction(
           }),
         ].filter(Boolean);
 
-        const response = await runtimeClient
-          .generateCopilotResponse({
-            data: {
-              frontend: {
-                actions: [],
-                url: window.location.href,
-              },
-              messages: convertMessagesToGqlInput(filterAgentStateMessages(messages)),
-              metadata: {
-                requestType: CopilotRequestType.TextareaCompletion,
-              },
-              forwardedParameters: {
-                maxTokens,
-                stop,
-                temperature,
-              },
-            },
-            properties,
-            signal: abortSignal,
-          })
-          .toPromise();
+        // const response = await runtimeClient
+        //   .generateCopilotResponse({
+        //     data: {
+        //       frontend: {
+        //         actions: [],
+        //         url: window.location.href,
+        //       },
+        //       messages: convertMessagesToGqlInput(filterAgentStateMessages(messages)),
+        //       metadata: {
+        //         requestType: CopilotRequestType.TextareaCompletion,
+        //       },
+        //       forwardedParameters: {
+        //         maxTokens,
+        //         stop,
+        //         temperature,
+        //       },
+        //     },
+        //     properties,
+        //     signal: abortSignal,
+        //   })
+        //   .toPromise();
+        const response: any = {};
 
         let result = "";
         for (const message of convertGqlOutputToMessages(

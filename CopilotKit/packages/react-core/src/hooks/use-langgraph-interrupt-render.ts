@@ -1,6 +1,8 @@
 import { useCopilotContext } from "../context";
-import React, { useCallback } from "react";
-import { executeConditions } from "@copilotkit/shared";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
+import { LangGraphInterruptEvent, MetaEventName } from "@copilotkit/runtime-client-gql";
+import { parseJson } from "@copilotkit/shared";
 
 type InterruptProps = {
   event: any;
@@ -17,52 +19,89 @@ const InterruptRenderer: React.FC<InterruptProps> = ({ event, result, render, re
   return render({ event, result, resolve });
 };
 
-export function useLangGraphInterruptRender(): string | React.ReactElement | null {
-  const { langGraphInterruptAction, setLangGraphInterruptAction, agentSession, threadId } =
-    useCopilotContext();
+export function useLangGraphInterruptRender(
+  agent: AbstractAgent,
+): string | React.ReactElement | null {
+  const { interruptActions, setInterruptAction, agentSession, threadId } = useCopilotContext();
 
-  const responseRef = React.useRef<string>();
-  const resolveInterrupt = useCallback(
-    (response: string) => {
-      responseRef.current = response;
-      // Use setTimeout to defer the state update to next tick
-      setTimeout(() => {
-        setLangGraphInterruptAction(threadId, { event: { response } });
-      }, 0);
+  const [currentInterruptEvent, setCurrentInterruptEvent] = useState<{
+    threadId: string;
+    event: LangGraphInterruptEvent;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!agent) return;
+    const subscriber: AgentSubscriber = {
+      onCustomEvent: ({ event }) => {
+        if (event.name === "on_interrupt") {
+          setCurrentInterruptEvent({
+            threadId,
+            event: {
+              name: MetaEventName.LangGraphInterruptEvent,
+              type: event.type,
+              value: parseJson(event.value, event.value),
+            },
+          });
+        }
+      },
+    };
+
+    const { unsubscribe } = agent.subscribe(subscriber);
+    return () => {
+      unsubscribe();
+    };
+  }, [agent, threadId]);
+
+  const handleResolve = useCallback(
+    (response?: string) => {
+      agent?.runAgent({
+        forwardedProps: {
+          command: {
+            resume: response,
+          },
+        },
+      });
+      setCurrentInterruptEvent(null);
     },
-    [setLangGraphInterruptAction, threadId],
+    [agent],
   );
 
-  if (
-    !langGraphInterruptAction ||
-    !langGraphInterruptAction.event ||
-    !langGraphInterruptAction.render
-  )
-    return null;
+  const resolveInterrupt = useCallback(
+    (response: string) => {
+      handleResolve(response);
+    },
+    [threadId, handleResolve],
+  );
 
-  const { render, handler, event, enabled } = langGraphInterruptAction;
+  return useMemo(() => {
+    const currentAction = interruptActions[threadId];
+    if (!currentAction || !currentInterruptEvent) return null;
+    const { render, handler, enabled } = currentAction;
 
-  const conditionsMet =
-    !agentSession || !enabled
-      ? true
-      : enabled({ eventValue: event.value, agentMetadata: agentSession });
+    const conditionsMet =
+      !agentSession || !enabled
+        ? true
+        : enabled({ eventValue: currentInterruptEvent.event.value, agentMetadata: agentSession });
 
-  if (!conditionsMet) {
-    return null;
-  }
+    if (!conditionsMet) {
+      return null;
+    }
 
-  let result = null;
-  if (handler) {
-    result = handler({
-      event,
+    let result = null;
+    if (handler) {
+      result = handler({
+        event: currentInterruptEvent.event,
+        resolve: resolveInterrupt,
+      });
+    }
+
+    if (!render || currentAction.event?.response) return null;
+
+    return React.createElement(InterruptRenderer, {
+      event: currentInterruptEvent.event,
+      result,
+      render,
       resolve: resolveInterrupt,
     });
-  }
-
-  return React.createElement(InterruptRenderer, {
-    event,
-    result,
-    render,
-    resolve: resolveInterrupt,
-  });
+  }, [interruptActions, currentInterruptEvent, agentSession, resolveInterrupt]);
 }

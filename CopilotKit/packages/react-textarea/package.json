@@ -41,8 +41,8 @@
   "devDependencies": {
     "@types/jest": "^29.5.4",
     "@types/lodash.merge": "^4.6.7",
-    "@types/react": "^18.2.5",
-    "@types/react-dom": "^18.2.4",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.0.2",
     "@types/react-syntax-highlighter": "^15.5.7",
     "eslint": "^8.56.0",
     "eslint-config-custom": "workspace:*",

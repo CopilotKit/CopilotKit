@@ -66,6 +66,9 @@ export class LangChainAdapter implements CopilotServiceAdapter {
   /**
    * To use LangChain as a backend, provide a handler function to the adapter with your custom LangChain logic.
    */
+  public get name() {
+    return "LangChainAdapter";
+  }
   constructor(private options: LangChainAdapterOptions) {}
 
   async process(
