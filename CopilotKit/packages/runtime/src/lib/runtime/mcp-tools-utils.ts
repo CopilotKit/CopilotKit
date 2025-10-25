@@ -19,6 +19,10 @@ export interface MCPTool {
 
 /**
  * Defines the contract for *any* MCP client implementation the user might provide.
+ * 
+ * Note: Custom MCP clients should handle both session-based and non-session-based servers.
+ * Some MCP servers (like FastMCP) don't use sessions and return 200 responses without session IDs.
+ * Your implementation should gracefully handle missing session IDs.
  */
 export interface MCPClient {
   /** A method that returns a map of tool names to MCPTool objects available from the connected MCP server. */
