@@ -15,6 +15,10 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
     isCurrentMessage,
     feedback,
     markdownTagRenderers,
+    canRegenerate = true,
+    canCopy = true,
+    index,
+    disableFirstMessageControls,
   } = props;
   const [copied, setCopied] = useState(false);
 
@@ -58,30 +62,34 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
         <div className="copilotKitMessage copilotKitAssistantMessage">
           {content && <Markdown content={content} components={markdownTagRenderers} />}
 
-          {content && !isLoading && (
+          {!disableFirstMessageControls && content && !isLoading && (
             <div
               className={`copilotKitMessageControls ${isCurrentMessage ? "currentMessage" : ""}`}
             >
-              <button
-                className="copilotKitMessageControlButton"
-                onClick={handleRegenerate}
-                aria-label={labels.regenerateResponse}
-                title={labels.regenerateResponse}
-              >
-                {icons.regenerateIcon}
-              </button>
-              <button
-                className="copilotKitMessageControlButton"
-                onClick={handleCopy}
-                aria-label={labels.copyToClipboard}
-                title={labels.copyToClipboard}
-              >
-                {copied ? (
-                  <span style={{ fontSize: "10px", fontWeight: "bold" }}>✓</span>
-                ) : (
-                  icons.copyIcon
-                )}
-              </button>
+              {canRegenerate && (
+                <button
+                  className="copilotKitMessageControlButton"
+                  onClick={handleRegenerate}
+                  aria-label={labels.regenerateResponse}
+                  title={labels.regenerateResponse}
+                >
+                  {icons.regenerateIcon}
+                </button>
+              )}
+              {canCopy && (
+                <button
+                  className="copilotKitMessageControlButton"
+                  onClick={handleCopy}
+                  aria-label={labels.copyToClipboard}
+                  title={labels.copyToClipboard}
+                >
+                  {copied ? (
+                    <span style={{ fontSize: "10px", fontWeight: "bold" }}>✓</span>
+                  ) : (
+                    icons.copyIcon
+                  )}
+                </button>
+              )}
               {onThumbsUp && (
                 <button
                   className={`copilotKitMessageControlButton ${
