@@ -25,12 +25,9 @@ export function SignUpModal({ isOpen, onClose }: SignUpModalProps) {
     });
     
     try {
-      console.log('Submitting:', {
-        email: formData.get('email'),
-        firstName: formData.get('firstName'),
-        lastName: formData.get('lastName'),
-        googleFormData: googleFormData.toString()
-      });
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Submitting form data');
+      }
       
       await fetch(
         'https://docs.google.com/forms/d/e/1FAIpQLSeEXhJ4cXv8CMU3qrUBG9AcvuBzvamkjS7IarcN5RxVhcPNPg/formResponse',
