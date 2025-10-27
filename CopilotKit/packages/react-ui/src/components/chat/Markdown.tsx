@@ -54,7 +54,7 @@ const defaultComponents: Components = {
 
     return (
       <CodeBlock
-        key={Math.random()}
+        key={`${String(children).slice(0, 50)}-${match?.[1] || ""}`}
         language={(match && match[1]) || ""}
         value={String(children).replace(/\n$/, "")}
         {...props}
