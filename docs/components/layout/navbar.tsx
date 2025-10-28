@@ -4,7 +4,7 @@ import Image from "next/image"
 import Link from "fumadocs-core/link"
 import { usePathname } from "next/navigation"
 import { Logo } from "@/app/logo"
-import SearchDialog from "@/components/ui/search-dialog"
+import SearchDialogButton from "@/components/ui/search-button"
 
 interface NavbarLinks {
   href: string
@@ -194,7 +194,7 @@ const Navbar = () => {
               />
             </button>
 
-            <SearchDialog />
+            <SearchDialogButton />
           </div>
         </div>
       </div>
