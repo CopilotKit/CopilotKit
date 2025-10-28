@@ -26,17 +26,21 @@ export interface LangGraphInterruptRender<TEventValue = any> {
    * Method that returns a boolean, indicating if the interrupt action should run
    * Useful when using multiple interrupts
    */
-  enabled?: (args: { eventValue: TEventValue; agentMetadata: AgentSession }) => boolean;
+  enabled?: (args: { eventValue: TEventValue; agentMetadata: AgentSession | null }) => boolean;
 }
 
 export type LangGraphInterruptAction = LangGraphInterruptRender & {
   event?: LangGraphInterruptEvent;
 };
 
-export type LangGraphInterruptActionSetterArgs =
-  | (Partial<LangGraphInterruptRender> & { event?: Partial<LangGraphInterruptEvent> })
-  | null;
+export type LangGraphInterruptActionSetterArgs = Partial<LangGraphInterruptRender> | null;
 export type LangGraphInterruptActionSetter = (
   threadId: string,
   action: LangGraphInterruptActionSetterArgs,
 ) => void;
+
+export interface QueuedInterruptEvent {
+  eventId: string; // Generated unique ID for tracking
+  threadId: string;
+  event: LangGraphInterruptEvent;
+}

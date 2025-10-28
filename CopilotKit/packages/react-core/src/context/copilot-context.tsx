@@ -22,8 +22,9 @@ import {
 } from "@copilotkit/runtime-client-gql";
 import { Agent } from "@copilotkit/runtime-client-gql";
 import {
-  LangGraphInterruptAction,
+  LangGraphInterruptRender,
   LangGraphInterruptActionSetter,
+  QueuedInterruptEvent,
 } from "../types/interrupt-action";
 
 /**
@@ -221,9 +222,12 @@ export interface CopilotContextParams {
 
   extensions: ExtensionsInput;
   setExtensions: React.Dispatch<React.SetStateAction<ExtensionsInput>>;
-  interruptActions: Record<string, LangGraphInterruptAction | null>;
+  interruptActions: Record<string, LangGraphInterruptRender>;
   setInterruptAction: LangGraphInterruptActionSetter;
-  removeLangGraphInterruptAction: (threadId: string) => void;
+  removeInterruptAction: (actionId: string) => void;
+  interruptEventQueue: Record<string, QueuedInterruptEvent[]>;
+  addInterruptEvent: (queuedEvent: QueuedInterruptEvent) => void;
+  removeInterruptEvent: (threadId: string, eventId: string) => void;
 
   /**
    * Optional trace handler for comprehensive debugging and observability.
@@ -310,7 +314,10 @@ const emptyCopilotContext: CopilotContextParams = {
   setExtensions: () => {},
   interruptActions: {},
   setInterruptAction: () => {},
-  removeLangGraphInterruptAction: () => {},
+  removeInterruptAction: () => {},
+  interruptEventQueue: {},
+  addInterruptEvent: () => {},
+  removeInterruptEvent: () => {},
   onError: () => {},
   bannerError: null,
   setBannerError: () => {},

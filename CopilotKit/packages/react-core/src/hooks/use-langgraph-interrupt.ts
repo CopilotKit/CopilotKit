@@ -9,45 +9,29 @@ export function useLangGraphInterrupt<TEventValue = any>(
   action: Omit<LangGraphInterruptRender<TEventValue>, "id">,
   dependencies?: any[],
 ) {
-  const { setInterruptAction, removeLangGraphInterruptAction, interruptActions, threadId } =
+  const { setInterruptAction, removeInterruptAction, interruptActions, threadId } =
     useContext(CopilotContext);
-  // const { agent } = useCopilotChatInternal();
   const { addToast } = useToast();
 
   const actionId = dataToUUID(JSON.stringify(action), "lgAction");
-  const currentAction = interruptActions[threadId];
-
-  const hasAction = useMemo(() => Boolean(currentAction?.id), [currentAction]);
-
-  const isCurrentAction = useMemo(
-    () => currentAction?.id && currentAction?.id === actionId,
-    [currentAction],
-  );
 
   useEffect(() => {
     if (!action) return;
-    // An action was already set, with no conditions and it's not the action we're using right now.
-    // Show a warning, as this action will not be executed
-    if (hasAction && !isCurrentAction && !action.enabled) {
-      addToast({
-        type: "warning",
-        message: "An action is already registered for the interrupt event",
-      });
-      return;
-    }
 
-    if (hasAction && isCurrentAction) {
-      return;
-    }
+    // if (!action.enabled) {
+    // TODO: if there are any other actions registered, we need to warn the user that a current action without "enabled" might render for everything
+    //   addToast({
+    //     type: "warning",
+    //     message: "An action is already registered for the interrupt event",
+    //   });
+    //   return;
+    // }
 
     setInterruptAction(threadId, { ...action, id: actionId });
-  }, [
-    action,
-    hasAction,
-    isCurrentAction,
-    setInterruptAction,
-    removeLangGraphInterruptAction,
-    threadId,
-    ...(dependencies || []),
-  ]);
+
+    // Cleanup: remove action on unmount
+    return () => {
+      removeInterruptAction(actionId);
+    };
+  }, [setInterruptAction, removeInterruptAction, threadId, actionId, ...(dependencies || [])]);
 }
