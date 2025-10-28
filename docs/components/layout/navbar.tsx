@@ -56,11 +56,16 @@ const Navbar = () => {
   const pathname = usePathname()
   const activeRoute = pathname.split("/")[1] || "/"
 
+  const handleToggleTheme = () => {
+    document.documentElement.classList.toggle("dark")
+    localStorage.theme = localStorage.theme === "dark" ? "light" : "dark"
+  }
+
   return (
     <nav className="h-[68px] xl:h-[88px] p-1 xl:p-2">
       <div className="flex justify-between items-center w-full h-full">
         <div className="flex w-full h-full">
-          <div className="flex gap-11 items-center w-full h-full rounded-l-2xl border border-r-0 backdrop-blur-lg border-white/10 bg-white/5">
+          <div className="flex gap-11 items-center w-full h-full rounded-l-2xl border border-r-0 backdrop-blur-lg border-border bg-navbar-background">
             <Logo className="pl-6" />
             <ul className="hidden gap-6 items-center h-full xl:flex">
               {LEFT_LINKS.map((link) => (
@@ -150,7 +155,7 @@ const Navbar = () => {
             className="-mr-px dark:hidden shrink-0 w-[24px] h-[60px] xl:w-[29px] xl:h-[72px] object-cover"
           />
 
-          <div className="flex gap-1 items-center pr-4 w-max h-full rounded-r-2xl border border-l-0 backdrop-blur-lg shrink-0 border-white/10 bg-white/5">
+          <div className="flex gap-1 items-center pr-4 w-max h-full rounded-r-2xl border border-l-0 backdrop-blur-lg shrink-0 border-border bg-navbar-background">
             {RIGHT_LINKS.map((link) => (
               <Link
                 key={link.href}
@@ -177,7 +182,10 @@ const Navbar = () => {
               </Link>
             ))}
 
-            <button className="flex justify-center items-center w-11 h-full cursor-pointer">
+            <button
+              className="flex justify-center items-center w-11 h-full cursor-pointer"
+              onClick={handleToggleTheme}
+            >
               <Image
                 src="/images/navbar/theme-moon.svg"
                 alt="Theme icon"

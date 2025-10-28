@@ -118,46 +118,50 @@ export default async function Page({
         style: "clerk",
       }}
     >
-      <div className={hideHeader ? "" : "min-h-screen"}>
-        {!hideHeader && (
-          <>
-            <div className="flex gap-3 items-center">
-              <DocsTitle className="flex items-center mb-2">
-                {page.data.title}
-                {cloudOnly && (
-                  <Badge
-                    variant="secondary"
-                    className="ml-3 mt-1 inline-flex items-center gap-1.5 py-1.5 px-3 bg-indigo-600/90 text-white hover:bg-indigo-600 border-0 rounded-md transition-colors"
-                  >
-                    <CloudIcon className="w-3 h-3" />
-                    <span className="text-xs">Cloud Only</span>
-                  </Badge>
-                )}
-                {isPremium && (
-                  <a href={premiumOverviewHref} className="ml-3">
-                    <Badge
-                      variant="secondary"
-                      className="inline-flex items-center gap-2 py-2 px-3.5 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200 hover:bg-indigo-200 border-0 rounded-md transition-colors"
-                    >
-                      <img
-                        src="https://cdn.copilotkit.ai/docs/copilotkit/icons/copilotkit-color.svg"
-                        alt="CopilotKit"
-                        className="w-4 h-4"
-                      />
-                      <span className="text-sm font-semibold tracking-tight">
-                        Premium
-                      </span>
-                    </Badge>
-                  </a>
-                )}
-              </DocsTitle>
-            </div>
-            <DocsDescription>{page.data.description}</DocsDescription>
-          </>
-        )}
-        <DocsBody>
-          <MDX components={mdxComponents} />
-        </DocsBody>
+      <div className="rounded-r-2xl bg-white/5">
+        <div className="px-8 py-6 xl:py-12 xl:px-16 bg-linear-to-r from-white/[3%] to-white/0 rounded-2xl custom-scrollbar overflow-y-scroll">
+          <div className={hideHeader ? "":"min-h-screen"}>
+            {!hideHeader && (
+              <>
+                <div className="flex gap-3 items-center">
+                  <DocsTitle className="flex items-center mb-2">
+                    {page.data.title}
+                    {cloudOnly && (
+                      <Badge
+                        variant="secondary"
+                        className="ml-3 mt-1 inline-flex items-center gap-1.5 py-1.5 px-3 bg-indigo-600/90 text-white hover:bg-indigo-600 border-0 rounded-md transition-colors"
+                      >
+                        <CloudIcon className="w-3 h-3" />
+                        <span className="text-xs">Cloud Only</span>
+                      </Badge>
+                    )}
+                    {isPremium && (
+                      <a href={premiumOverviewHref} className="ml-3">
+                        <Badge
+                          variant="secondary"
+                          className="inline-flex items-center gap-2 py-2 px-3.5 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200 hover:bg-indigo-200 border-0 rounded-md transition-colors"
+                        >
+                          <img
+                            src="https://cdn.copilotkit.ai/docs/copilotkit/icons/copilotkit-color.svg"
+                            alt="CopilotKit"
+                            className="w-4 h-4"
+                          />
+                          <span className="text-sm font-semibold tracking-tight">
+                            Premium
+                          </span>
+                        </Badge>
+                      </a>
+                    )}
+                  </DocsTitle>
+                </div>
+                <DocsDescription>{page.data.description}</DocsDescription>
+              </>
+            )}
+            <DocsBody>
+              <MDX components={mdxComponents} />
+            </DocsBody>
+          </div>
+        </div>
       </div>
     </DocsPage>
   )

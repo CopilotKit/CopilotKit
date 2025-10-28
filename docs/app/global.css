@@ -40,6 +40,7 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-navbar-background: var(--navbar-background);
 }
 
 @media (width >= 1550px) {
@@ -51,7 +52,7 @@
 
 :root {
   --radius: 0.65rem;
-  --background: oklch(1 0 0);
+  --background: oklch(0.9038 0.0149 286.1);
   --foreground: oklch(0.141 0.005 285.823);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.141 0.005 285.823);
@@ -66,7 +67,7 @@
   --accent: oklch(0.967 0.001 286.375);
   --accent-foreground: oklch(0.21 0.006 285.885);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.92 0.004 286.32);
+  --border: oklch(1 0 0);
   --input: oklch(0.92 0.004 286.32);
   --ring: oklch(0.55 0.25 285);
   --chart-1: oklch(0.646 0.222 41.116);
@@ -82,6 +83,8 @@
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0.92 0.004 286.32);
   --sidebar-ring: oklch(0.55 0.25 285);
+  --scrollbar-color: oklch(0.1081 0.0147 220.92 / 30.2%);
+  --navbar-background: oklch(1 0 0 / 50%); 
 }
 
 .dark {
@@ -116,6 +119,8 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.65 0.15 285);
+  --scrollbar-color: oklch(1 0 0 / 30.2%);
+  --navbar-background: oklch(1 0 0 / 5%); 
 }
 
 /* Custom styles for CopilotKit */
@@ -148,6 +153,11 @@
 
   .copilotKitMarkdown {
     font-size: 0.875rem !important; /* 14px */
+  }
+
+  .custom-scrollbar {
+    scrollbar-color: var(--scrollbar-color) transparent;
+    scrollbar-width: 4px;
   }
 }
 
@@ -196,7 +206,7 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
 
 #nd-page {
   max-height: calc(100vh - 64px);
-  overflow-y: scroll !important;
+  overflow-y: hidden;
   margin: 0 !important;
   margin-right: 4px !important;
   width: 100% !important;
@@ -213,4 +223,5 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
 
 #nd-page article {
   margin: 0 !important;
+  padding: 0 !important;
 }
