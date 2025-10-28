@@ -5,6 +5,7 @@ import type { ReactNode } from "react"
 import { ProvidersWrapper } from "@/lib/providers/providers-wrapper"
 import { Banners } from "@/components/layout/banners"
 import Script from "next/script"
+import SearchDialog from "@/components/ui/search-dialog"
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -58,7 +59,7 @@ export default async function Layout({ children }: { children: ReactNode }) {
       <body>
         <ProvidersWrapper>
           <Banners />
-          <RootProvider theme={{ enabled: true, defaultTheme: "dark" }}>
+          <RootProvider theme={{ enabled: true, defaultTheme: "dark" }} search={{ SearchDialog: SearchDialog }}>
             {children}
           </RootProvider>
         </ProvidersWrapper>
