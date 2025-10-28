@@ -50,8 +50,9 @@ import { shouldShowDevConsole } from "../../utils";
 import { CopilotErrorBoundary } from "../error-boundary/error-boundary";
 import { Agent, ExtensionsInput } from "@copilotkit/runtime-client-gql";
 import {
-  LangGraphInterruptAction,
+  LangGraphInterruptRender,
   LangGraphInterruptActionSetterArgs,
+  QueuedInterruptEvent,
 } from "../../types/interrupt-action";
 import { ConsoleTrigger } from "../dev-console/console-trigger";
 
@@ -409,31 +410,52 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   const showDevConsole = shouldShowDevConsole(props.showDevConsole);
 
   const [interruptActions, _setInterruptActions] = useState<
-    Record<string, LangGraphInterruptAction | null>
+    Record<string, LangGraphInterruptRender>
   >({});
   const setInterruptAction = useCallback(
     (threadId: string, action: LangGraphInterruptActionSetterArgs) => {
       _setInterruptActions((prev) => {
-        if (action == null)
-          return {
-            ...prev,
-            [threadId]: null,
-          };
-        let event = prev[threadId]?.event;
-        if (action.event) {
-          // @ts-ignore
-          event = { ...(prev[threadId]?.event || {}), ...action.event };
+        if (action == null || !action.id) {
+          // Cannot set action without id
+          return prev;
         }
         return {
           ...prev,
-          [threadId]: { ...(prev[threadId] ?? {}), ...action, event } as LangGraphInterruptAction,
+          [action.id]: { ...(prev[action.id] ?? {}), ...action } as LangGraphInterruptRender,
         };
       });
     },
     [],
   );
-  const removeLangGraphInterruptAction = useCallback((threadId: string): void => {
-    setInterruptAction(threadId, null);
+  const removeInterruptAction = useCallback((actionId: string): void => {
+    _setInterruptActions((prev) => {
+      const { [actionId]: _, ...rest } = prev;
+      return rest;
+    });
+  }, []);
+
+  const [interruptEventQueue, setInterruptEventQueue] = useState<
+    Record<string, QueuedInterruptEvent[]>
+  >({});
+
+  const addInterruptEvent = useCallback((queuedEvent: QueuedInterruptEvent) => {
+    setInterruptEventQueue((prev) => {
+      const threadQueue = prev[queuedEvent.threadId] || [];
+      return {
+        ...prev,
+        [queuedEvent.threadId]: [...threadQueue, queuedEvent],
+      };
+    });
+  }, []);
+
+  const removeInterruptEvent = useCallback((threadId: string, eventId: string) => {
+    setInterruptEventQueue((prev) => {
+      const threadQueue = prev[threadId] || [];
+      return {
+        ...prev,
+        [threadId]: threadQueue.filter((event) => event.eventId !== eventId),
+      };
+    });
   }, []);
 
   const memoizedChildren = useMemo(() => children, [children]);
@@ -560,7 +582,10 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         setExtensions: updateExtensions,
         interruptActions,
         setInterruptAction,
-        removeLangGraphInterruptAction,
+        removeInterruptAction,
+        interruptEventQueue,
+        addInterruptEvent,
+        removeInterruptEvent,
         bannerError,
         setBannerError,
         onError: handleErrors,

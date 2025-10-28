@@ -1,8 +1,8 @@
 import { useCopilotContext } from "../context";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo } from "react";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
-import { LangGraphInterruptEvent, MetaEventName } from "@copilotkit/runtime-client-gql";
-import { parseJson } from "@copilotkit/shared";
+import { MetaEventName } from "@copilotkit/runtime-client-gql";
+import { dataToUUID, parseJson } from "@copilotkit/shared";
 
 type InterruptProps = {
   event: any;
@@ -22,25 +22,30 @@ const InterruptRenderer: React.FC<InterruptProps> = ({ event, result, render, re
 export function useLangGraphInterruptRender(
   agent: AbstractAgent,
 ): string | React.ReactElement | null {
-  const { interruptActions, setInterruptAction, agentSession, threadId } = useCopilotContext();
-
-  const [currentInterruptEvent, setCurrentInterruptEvent] = useState<{
-    threadId: string;
-    event: LangGraphInterruptEvent;
-  } | null>(null);
+  const {
+    interruptActions,
+    agentSession,
+    threadId,
+    interruptEventQueue,
+    addInterruptEvent,
+    removeInterruptEvent,
+  } = useCopilotContext();
 
   useEffect(() => {
     if (!agent) return;
     const subscriber: AgentSubscriber = {
       onCustomEvent: ({ event }) => {
         if (event.name === "on_interrupt") {
-          setCurrentInterruptEvent({
+          const eventData = {
+            name: MetaEventName.LangGraphInterruptEvent,
+            type: event.type,
+            value: parseJson(event.value, event.value),
+          };
+          const eventId = dataToUUID(JSON.stringify(eventData), "interruptEvents");
+          addInterruptEvent({
+            eventId,
             threadId,
-            event: {
-              name: MetaEventName.LangGraphInterruptEvent,
-              type: event.type,
-              value: parseJson(event.value, event.value),
-            },
+            event: eventData,
           });
         }
       },
@@ -50,10 +55,11 @@ export function useLangGraphInterruptRender(
     return () => {
       unsubscribe();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent, threadId]);
 
   const handleResolve = useCallback(
-    (response?: string) => {
+    (eventId: string, response?: string) => {
       agent?.runAgent({
         forwardedProps: {
           command: {
@@ -61,47 +67,53 @@ export function useLangGraphInterruptRender(
           },
         },
       });
-      setCurrentInterruptEvent(null);
+      removeInterruptEvent(threadId, eventId);
     },
-    [agent],
-  );
-
-  const resolveInterrupt = useCallback(
-    (response: string) => {
-      handleResolve(response);
-    },
-    [threadId, handleResolve],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [agent, threadId],
   );
 
   return useMemo(() => {
-    const currentAction = interruptActions[threadId];
-    if (!currentAction || !currentInterruptEvent) return null;
-    const { render, handler, enabled } = currentAction;
+    // Get the queue for this thread and find the first unresponded event
+    const eventQueue = interruptEventQueue[threadId] || [];
+    const currentQueuedEvent = eventQueue.find((qe) => !qe.event.response);
 
-    const conditionsMet =
-      !agentSession || !enabled
-        ? true
-        : enabled({ eventValue: currentInterruptEvent.event.value, agentMetadata: agentSession });
+    if (!currentQueuedEvent) return null;
 
-    if (!conditionsMet) {
-      return null;
-    }
+    // Find the first matching action from all registered actions
+    const allActions = Object.values(interruptActions);
+    const matchingAction = allActions.find((action) => {
+      if (!action.enabled) return true; // No filter = match all
+      return action.enabled({
+        eventValue: currentQueuedEvent.event.value,
+        agentMetadata: agentSession,
+      });
+    });
+
+    if (!matchingAction) return null;
+
+    const { render, handler } = matchingAction;
+
+    const resolveInterrupt = (response: string) => {
+      handleResolve(currentQueuedEvent.eventId, response);
+    };
 
     let result = null;
     if (handler) {
       result = handler({
-        event: currentInterruptEvent.event,
+        event: currentQueuedEvent.event,
         resolve: resolveInterrupt,
       });
     }
 
-    if (!render || currentAction.event?.response) return null;
+    if (!render) return null;
 
+    console.log("returning interrupt");
     return React.createElement(InterruptRenderer, {
-      event: currentInterruptEvent.event,
+      event: currentQueuedEvent.event,
       result,
       render,
       resolve: resolveInterrupt,
     });
-  }, [interruptActions, currentInterruptEvent, agentSession, resolveInterrupt]);
+  }, [interruptActions, interruptEventQueue, threadId, agentSession, handleResolve]);
 }
