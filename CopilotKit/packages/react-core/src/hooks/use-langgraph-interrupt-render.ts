@@ -108,7 +108,6 @@ export function useLangGraphInterruptRender(
 
     if (!render) return null;
 
-    console.log("returning interrupt");
     return React.createElement(InterruptRenderer, {
       event: currentQueuedEvent.event,
       result,

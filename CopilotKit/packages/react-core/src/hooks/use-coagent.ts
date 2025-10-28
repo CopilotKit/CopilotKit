@@ -88,7 +88,7 @@
  * </PropertyReference>
  */
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Message, parseJson } from "@copilotkit/shared";
 import { useAgent } from "@copilotkitnext/react";
 import { type AgentSubscriber } from "@ag-ui/client";
@@ -203,6 +203,7 @@ export type HintFunction = (params: HintFunctionParams) => Message | undefined;
  */
 export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentReturnType<T> {
   const { agent } = useAgent({ agentId: options.name });
+  const [nodeName, setNodeName] = useState<string | undefined>(undefined);
 
   const handleStateUpdate = useCallback(
     (newState: T | ((prevState: T | undefined) => T)) => {
@@ -218,6 +219,28 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     [agent?.state, agent?.setState],
   );
 
+  useEffect(() => {
+    if (!agent) return;
+    const subscriber: AgentSubscriber = {
+      onStepStartedEvent: ({ event }) => {
+        if (event.stepName !== nodeName) {
+          setNodeName(event.stepName);
+        }
+      },
+      onStepFinishedEvent: ({ event }) => {
+        if (event.stepName === nodeName) {
+          setNodeName(undefined);
+        }
+      },
+    };
+
+    const { unsubscribe } = agent.subscribe(subscriber);
+    return () => {
+      unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agent?.agentId, nodeName]);
+
   // Return a consistent shape whether or not the agent is available
   return useMemo<UseCoagentReturnType<T>>(() => {
     if (!agent) {
@@ -231,7 +254,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
         ({} as T);
       return {
         name: options.name,
-        nodeName: undefined,
+        nodeName,
         threadId: undefined,
         running: false,
         state: initialState as T,
@@ -244,7 +267,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
 
     return {
       name: agent?.agentId ?? options.name,
-      nodeName: undefined,
+      nodeName,
       threadId: agent.threadId,
       running: agent.isRunning,
       state: agent.state,
@@ -256,13 +279,14 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     };
   }, [
     agent?.state,
-    handleStateUpdate,
     agent?.runAgent,
     agent?.abortRun,
     agent?.runAgent,
     agent?.threadId,
     agent?.isRunning,
     agent?.agentId,
+    nodeName,
+    handleStateUpdate,
     options.name,
   ]);
 }
