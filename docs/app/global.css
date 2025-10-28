@@ -40,7 +40,7 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  --color-navbar-background: var(--navbar-background);
+  --color-glass-background: var(--glass-background);
 }
 
 @media (width >= 1550px) {
@@ -53,7 +53,7 @@
 :root {
   --radius: 0.65rem;
   --background: oklch(0.9038 0.0149 286.1);
-  --foreground: oklch(0.141 0.005 285.823);
+  --foreground: oklch(0.1081 0.0147 220.92);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.141 0.005 285.823);
   --popover: oklch(1 0 0);
@@ -84,7 +84,7 @@
   --sidebar-border: oklch(0.92 0.004 286.32);
   --sidebar-ring: oklch(0.55 0.25 285);
   --scrollbar-color: oklch(0.1081 0.0147 220.92 / 30.2%);
-  --navbar-background: oklch(1 0 0 / 50%); 
+  --glass-background: oklch(1 0 0 / 50%); 
 }
 
 .dark {
@@ -120,7 +120,7 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.65 0.15 285);
   --scrollbar-color: oklch(1 0 0 / 30.2%);
-  --navbar-background: oklch(1 0 0 / 5%); 
+  --glass-background: oklch(1 0 0 / 5%); 
 }
 
 /* Custom styles for CopilotKit */

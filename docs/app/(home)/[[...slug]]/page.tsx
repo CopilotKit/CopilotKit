@@ -118,8 +118,8 @@ export default async function Page({
         style: "clerk",
       }}
     >
-      <div className="rounded-r-2xl bg-white/5">
-        <div className="px-8 py-6 xl:py-12 xl:px-16 bg-linear-to-r from-white/[3%] to-white/0 rounded-2xl custom-scrollbar overflow-y-scroll">
+      <div className="bg-glass-background">
+        <div className="px-8 py-6 xl:py-12 xl:px-16 bg-linear-to-r from-foreground/[4%] to-foreground/0 dark:from-white/[3%] dark:to-white/0 rounded-2xl custom-scrollbar overflow-y-scroll">
           <div className={hideHeader ? "":"min-h-screen"}>
             {!hideHeader && (
               <>

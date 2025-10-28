@@ -65,7 +65,7 @@ const Navbar = () => {
     <nav className="h-[68px] xl:h-[88px] p-1 xl:p-2">
       <div className="flex justify-between items-center w-full h-full">
         <div className="flex w-full h-full">
-          <div className="flex gap-11 items-center w-full h-full rounded-l-2xl border border-r-0 backdrop-blur-lg border-border bg-navbar-background">
+          <div className="flex gap-11 items-center w-full h-full rounded-l-2xl border border-r-0 backdrop-blur-lg border-border bg-glass-background">
             <Logo className="pl-6" />
             <ul className="hidden gap-6 items-center h-full xl:flex">
               {LEFT_LINKS.map((link) => (
@@ -155,7 +155,7 @@ const Navbar = () => {
             className="-mr-px dark:hidden shrink-0 w-[24px] h-[60px] xl:w-[29px] xl:h-[72px] object-cover"
           />
 
-          <div className="flex gap-1 items-center pr-4 w-max h-full rounded-r-2xl border border-l-0 backdrop-blur-lg shrink-0 border-border bg-navbar-background">
+          <div className="flex gap-1 items-center pr-4 w-max h-full rounded-r-2xl border border-l-0 backdrop-blur-lg shrink-0 border-border bg-glass-background">
             {RIGHT_LINKS.map((link) => (
               <Link
                 key={link.href}
