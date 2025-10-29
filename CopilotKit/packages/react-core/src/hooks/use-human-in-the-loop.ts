@@ -1,7 +1,14 @@
-import { ActionRenderPropsWait, FrontendAction } from "../types";
-import { Parameter, getZodParameters } from "@copilotkit/shared";
+import { ActionRenderProps, ActionRenderPropsWait, FrontendAction } from "../types";
+import {
+  CopilotKitError,
+  CopilotKitErrorCode,
+  MappedParameterTypes,
+  Parameter,
+  getZodParameters,
+  parseJson,
+} from "@copilotkit/shared";
 import { useHumanInTheLoop as useHumanInTheLoopVNext } from "@copilotkitnext/react";
-import { parseJson } from "@copilotkit/shared";
+import { ToolCallStatus } from "@copilotkitnext/core";
 
 export type UseHumanInTheLoopArgs<T extends Parameter[] | [] = []> = {
   available?: "disabled" | "enabled";
@@ -14,24 +21,52 @@ export function useHumanInTheLoop<const T extends Parameter[] | [] = []>(
   dependencies?: any[],
 ) {
   const { render, ...toolRest } = tool;
-
   const { name, description, parameters, followUp } = toolRest;
-
   const zodParameters = getZodParameters(parameters);
 
   useHumanInTheLoopVNext({
     name,
     description,
+    followUp,
     parameters: zodParameters,
-    // @ts-ignore TODO: intermittent issue with the render method, shows React types errors on some devices
     render: (args) => {
       if (typeof render === "string") return render;
-      console.log("render HITL", args);
-      return render?.({
-        ...args,
-        result: args.result ? parseJson(args.result, args.result) : args.result,
-      } as unknown as ActionRenderPropsWait<T>);
+
+      const renderProps: ActionRenderPropsWait<T> = (() => {
+        const mappedArgs = args.args as unknown as MappedParameterTypes<T>;
+
+        switch (args.status) {
+          case ToolCallStatus.InProgress:
+            return {
+              args: mappedArgs,
+              respond: args.respond,
+              status: args.status,
+              handler: undefined,
+            };
+          case ToolCallStatus.Executing:
+            return {
+              args: mappedArgs,
+              respond: args.respond,
+              status: args.status,
+              handler: () => {},
+            };
+          case ToolCallStatus.Complete:
+            return {
+              args: mappedArgs,
+              respond: args.respond,
+              status: args.status,
+              result: args.result ? parseJson(args.result, args.result) : args.result,
+              handler: undefined,
+            };
+          default:
+            throw new CopilotKitError({
+              code: CopilotKitErrorCode.UNKNOWN,
+              message: `Invalid tool call status: ${(args as unknown as { status: string }).status}`,
+            });
+        }
+      })();
+
+      return render?.(renderProps);
     },
-    followUp,
   });
 }
