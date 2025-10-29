@@ -9,7 +9,7 @@ const SearchDialogButton = () => {
   return (
     <button
       onClick={() => setOpenSearch(true)}
-      className="flex gap-2 items-center px-3 h-11 rounded-lg border cursor-pointer bg-glass-background dark:border-border border-[#01050726]"
+      className="-ml-2 md:ml-0 flex gap-2 items-center px-3 h-11 rounded-lg md:border cursor-pointer bg-transparent md:bg-glass-background dark:border-border border-[#01050726]"
     >
       <Image
         src="/images/navbar/loupe-light.svg"
@@ -26,7 +26,7 @@ const SearchDialogButton = () => {
         className="hidden dark:inline-block"
       />
 
-      <span className="text-sm font-medium text-foreground/50 dark:text-white/50">
+      <span className="hidden text-sm font-medium text-foreground/50 dark:text-white/50 md:block">
         Search...
       </span>
 

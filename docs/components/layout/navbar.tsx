@@ -139,7 +139,7 @@ const Navbar = () => {
           />
         </div>
 
-        <div className="flex items-center w-max h-full shrink-0">
+        <div className="flex items-center w-max h-full shrink-0 -ml-[7px]">
           <Image
             src="/images/navbar/slanted-start-border-dark.svg"
             alt="Slanted start border"
@@ -155,13 +155,13 @@ const Navbar = () => {
             className="-mr-px dark:hidden shrink-0 w-[24px] h-[60px] xl:w-[29px] xl:h-[72px] object-cover"
           />
 
-          <div className="flex gap-1 items-center pr-4 w-max h-full rounded-r-2xl border border-l-0 backdrop-blur-lg shrink-0 border-border bg-glass-background">
+          <div className="flex gap-1 items-center pr-2 w-max h-full rounded-r-2xl border border-l-0 backdrop-blur-lg md:pr-4 shrink-0 border-border bg-glass-background">
             {RIGHT_LINKS.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 target={link.target}
-                className="flex justify-center items-center w-11 h-full"
+                className="hidden justify-center items-center w-11 h-full md:flex"
               >
                 <span className="flex gap-2 items-center h-full">
                   <Image
@@ -183,7 +183,7 @@ const Navbar = () => {
             ))}
 
             <button
-              className="flex justify-center items-center w-11 h-full cursor-pointer"
+              className="hidden justify-center items-center w-11 h-full cursor-pointer md:flex"
               onClick={handleToggleTheme}
             >
               <Image
@@ -203,6 +203,23 @@ const Navbar = () => {
             </button>
 
             <SearchDialogButton />
+
+            <button className="flex justify-center items-center w-11 h-full cursor-pointer md:hidden">
+              <Image
+                src="/images/navbar/burger-menu-dark.svg"
+                alt="Burger menu icon"
+                width={20}
+                height={20}
+                className="hidden dark:inline-block md:hidden"
+              />
+              <Image
+                src="/images/navbar/burger-menu-light.svg"
+                alt="Burger menu icon"
+                width={20}
+                height={20}
+                className="dark:hidden md:hidden"
+              />
+            </button>
           </div>
         </div>
       </div>

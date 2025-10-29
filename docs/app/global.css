@@ -200,15 +200,18 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
   flex-direction: row;
   justify-content: space-between;
   align-items: start;
-  margin: 0 !important;
+  margin: 0 4px !important;
   padding: 0 !important;
+
+  @media (min-width: 1280px) {
+    margin: 0 8px !important;
+  }
 }
 
 #nd-page {
   max-height: calc(100vh - 64px);
   overflow-y: hidden;
   margin: 0 !important;
-  margin-right: 4px !important;
   width: 100% !important;
   max-width: none !important;
   border: 1px solid var(--border) !important;
@@ -217,7 +220,6 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
 
   @media (min-width: 1280px) {
     max-height: calc(100vh - 80px - 8px);
-    margin-right: 8px !important;
   }
 }
 
