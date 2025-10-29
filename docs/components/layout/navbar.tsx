@@ -6,11 +6,19 @@ import { usePathname } from "next/navigation"
 // Components
 import { Logo } from "@/app/logo"
 import SearchDialogButton from "@/components/ui/search-button"
-import Icon from "@/components/ui/icon"
+// Icons
+import RocketIcon from "@/components/ui/icons/rocket"
+import PuzzleIcon from "@/components/ui/icons/puzzle"
+import ConsoleIcon from "@/components/ui/icons/console"
+import CloudIcon from "@/components/ui/icons/cloud"
+import GithubIcon from "@/components/ui/icons/github"
+import DiscordIcon from "@/components/ui/icons/discord"
+import ExternalLinkIcon from "@/components/ui/icons/external-link"
+import BurgerMenuIcon from "@/components/ui/icons/burger-menu"
 
 interface NavbarLinks {
   href: string
-  icon: string
+  icon: React.ReactNode
   label?: string
   target?: "_blank" | "_self" | "_parent" | "_top"
   showExternalLinkIcon?: boolean
@@ -18,22 +26,22 @@ interface NavbarLinks {
 
 const LEFT_LINKS: NavbarLinks[] = [
   {
-    icon: "/images/navbar/overview",
+    icon: <RocketIcon />,
     label: "Overview",
     href: "/",
   },
   {
-    icon: "/images/navbar/integrations",
+    icon: <PuzzleIcon />,
     label: "Integrations",
     href: "/integrations",
   },
   {
-    icon: "/images/navbar/api-reference",
+    icon: <ConsoleIcon />,
     label: "API Reference",
     href: "/reference",
   },
   {
-    icon: "/images/navbar/copilot-cloud",
+    icon: <CloudIcon />,
     label: "Copilot Cloud",
     href: "https://cloud.copilotkit.ai",
     target: "_blank",
@@ -43,12 +51,12 @@ const LEFT_LINKS: NavbarLinks[] = [
 
 const RIGHT_LINKS: NavbarLinks[] = [
   {
-    icon: "/images/navbar/github",
+    icon: <GithubIcon />,
     href: "https://github.com/copilotkit/copilotkit",
     target: "_blank",
   },
   {
-    icon: "/images/navbar/discord",
+    icon: <DiscordIcon />,
     href: "https://discord.gg/6dffbvGU3D",
     target: "_blank",
   },
@@ -80,41 +88,11 @@ const Navbar = () => {
                     } hover:opacity-100 transition-opacity duration-300`}
                   >
                     <span className="flex gap-2 items-center h-full">
-                      <Image
-                        src={`${link.icon}-dark.svg`}
-                        alt={link.label ?? `Navbar link icon for ${link.href}`}
-                        width={20}
-                        height={20}
-                        className="hidden dark:inline-block"
-                      />
-                      <Image
-                        src={`${link.icon}-light.svg`}
-                        alt={link.label ?? `Navbar link icon for ${link.href}`}
-                        width={20}
-                        height={20}
-                        className="dark:hidden"
-                      />
+                      {link.icon}
 
                       <span className="text-sm font-medium">{link.label}</span>
 
-                      {link.showExternalLinkIcon && (
-                        <>
-                          <Image
-                            src="/images/navbar/external-link-dark.svg"
-                            alt="External link icon"
-                            width={20}
-                            height={20}
-                            className="hidden dark:inline-block"
-                          />
-                          <Image
-                            src="/images/navbar/external-link-light.svg"
-                            alt="External link icon"
-                            width={20}
-                            height={20}
-                            className="dark:hidden"
-                          />
-                        </>
-                      )}
+                      {link.showExternalLinkIcon && <ExternalLinkIcon />}
                     </span>
                   </Link>
                   {activeRoute === link.href && (
@@ -165,28 +143,7 @@ const Navbar = () => {
                 target={link.target}
                 className="hidden justify-center items-center w-11 h-full md:flex"
               >
-                <span className="flex gap-2 items-center h-full">
-                  <Icon
-                    src={`${link.icon}-dark.svg`}
-                    width={20}
-                    height={20}
-                    className="text-blue-500 dark:text-red-300"
-                  />
-                  <Image
-                    src={`${link.icon}-dark.svg`}
-                    alt={link.label ?? `Navbar link icon for ${link.href}`}
-                    width={20}
-                    height={20}
-                    className="hidden dark:inline-block"
-                  />
-                  <Image
-                    src={`${link.icon}-light.svg`}
-                    alt={link.label ?? `Navbar link icon for ${link.href}`}
-                    width={20}
-                    height={20}
-                    className="dark:hidden"
-                  />
-                </span>
+                <span className="flex items-center h-full">{link.icon}</span>
               </Link>
             ))}
 
@@ -213,20 +170,7 @@ const Navbar = () => {
             <SearchDialogButton />
 
             <button className="flex justify-center items-center w-11 h-full cursor-pointer md:hidden">
-              <Image
-                src="/images/navbar/burger-menu-dark.svg"
-                alt="Burger menu icon"
-                width={20}
-                height={20}
-                className="hidden dark:inline-block md:hidden"
-              />
-              <Image
-                src="/images/navbar/burger-menu-light.svg"
-                alt="Burger menu icon"
-                width={20}
-                height={20}
-                className="dark:hidden md:hidden"
-              />
+              <BurgerMenuIcon />
             </button>
           </div>
         </div>
