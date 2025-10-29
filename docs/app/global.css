@@ -40,6 +40,8 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-glass-background: var(--glass-background);
+  --color-icon: var(--icon);
 }
 
 @media (width >= 1550px) {
@@ -51,8 +53,8 @@
 
 :root {
   --radius: 0.65rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.141 0.005 285.823);
+  --background: oklch(0.9038 0.0149 286.1);
+  --foreground: oklch(0.1081 0.0147 220.92);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.141 0.005 285.823);
   --popover: oklch(1 0 0);
@@ -66,7 +68,7 @@
   --accent: oklch(0.967 0.001 286.375);
   --accent-foreground: oklch(0.21 0.006 285.885);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.92 0.004 286.32);
+  --border: oklch(1 0 0);
   --input: oklch(0.92 0.004 286.32);
   --ring: oklch(0.55 0.25 285);
   --chart-1: oklch(0.646 0.222 41.116);
@@ -82,10 +84,13 @@
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0.92 0.004 286.32);
   --sidebar-ring: oklch(0.55 0.25 285);
+  --scrollbar-color: oklch(0.1081 0.0147 220.92 / 30.2%);
+  --glass-background: oklch(1 0 0 / 50%); 
+  --icon: oklch(0.1081 0.0147 220.92);
 }
 
 .dark {
-  --background: oklch(0.141 0.005 285.823);
+  --background: oklch(0.1081 0.0147 220.92);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.21 0.006 285.885);
   --card-foreground: oklch(0.985 0 0);
@@ -116,6 +121,9 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.65 0.15 285);
+  --scrollbar-color: oklch(1 0 0 / 30.2%);
+  --glass-background: oklch(1 0 0 / 5%); 
+  --icon: oklch(1 0 0);
 }
 
 /* Custom styles for CopilotKit */
@@ -149,6 +157,11 @@
   .copilotKitMarkdown {
     font-size: 0.875rem !important; /* 14px */
   }
+
+  .custom-scrollbar {
+    scrollbar-color: var(--scrollbar-color) transparent;
+    scrollbar-width: 4px;
+  }
 }
 
 @layer base {
@@ -180,3 +193,40 @@
 figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-auto.max-h-\[600px\].fd-scroll-container {
   background-color: var(--background) !important;
 } 
+
+#nd-home-layout {
+  padding-top: 0 !important;
+}
+
+#nd-docs-layout {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: start;
+  margin: 0 4px !important;
+  padding: 0 !important;
+
+  @media (min-width: 1280px) {
+    margin: 0 8px !important;
+  }
+}
+
+#nd-page {
+  max-height: calc(100vh - 64px);
+  overflow-y: hidden;
+  margin: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  border: 1px solid var(--border) !important;
+  border-left: none !important;
+  border-radius: 0 var(--radius) var(--radius) 0 !important;
+
+  @media (min-width: 1280px) {
+    max-height: calc(100vh - 80px - 8px);
+  }
+}
+
+#nd-page article {
+  margin: 0 !important;
+  padding: 0 !important;
+}
