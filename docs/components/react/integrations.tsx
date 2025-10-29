@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { ADKIcon, MastraIcon, LlamaIndexIcon, AG2Icon, AgnoIcon, PydanticAIIcon } from "@/lib/icons/custom-icons";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
 import { SiLangchain } from "react-icons/si";
+import { FaMicrosoft } from "react-icons/fa";
 import { Brain } from "lucide-react";
 import { RocketIcon } from "lucide-react";
 
@@ -35,11 +36,11 @@ const integrations: Integration[] = [
     href: "/coagents",
   },
   {
-    title: "Pydantic AI",
-    description: "Pydantic AI is a framework for building and deploying AI agents.",
-    logo: <PydanticAIIcon className="w-8 h-8 text-bold" />,
-    bgGradient: "bg-[#ED2762] text-white",
-    href: "/pydantic-ai",
+    title: "Microsoft Agent Framework",
+    description: "Microsoft Agent Framework is a framework for building and deploying AI agents.",
+    logo: <FaMicrosoft className="w-8 h-8" />,
+    bgGradient: "bg-gradient-to-b from-blue-700 to-blue-400 text-blue-100",
+    href: "/microsoft-agent-framework",
   },
   {
     title: "Mastra",
@@ -47,6 +48,13 @@ const integrations: Integration[] = [
     logo: <MastraIcon className="w-8 h-8" />,
     bgGradient: "bg-gradient-to-b from-black to-zinc-800 text-white",
     href: "/mastra",
+  },
+  {
+    title: "Pydantic AI",
+    description: "Pydantic AI is a framework for building and deploying AI agents.",
+    logo: <PydanticAIIcon className="w-8 h-8 text-bold" />,
+    bgGradient: "bg-[#ED2762] text-white",
+    href: "/pydantic-ai",
   },
   {
     title: "Google ADK",
