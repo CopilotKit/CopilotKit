@@ -55,6 +55,8 @@ import {
   QueuedInterruptEvent,
 } from "../../types/interrupt-action";
 import { ConsoleTrigger } from "../dev-console/console-trigger";
+import { CoAgentStateRendersProvider } from "../../context/coagent-state-renders-context";
+import { CoAgentStateRenderBridge } from "../../hooks/use-coagent-state-render-bridge";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const enabled = shouldShowDevConsole(props.showDevConsole);
@@ -65,9 +67,14 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   return (
     <ToastProvider enabled={enabled}>
       <CopilotErrorBoundary publicApiKey={publicApiKey} showUsageBanner={enabled}>
-        <CopilotKitProvider runtimeUrl={props.runtimeUrl}>
-          <CopilotKitInternal {...props}>{children}</CopilotKitInternal>
-        </CopilotKitProvider>
+        <CoAgentStateRendersProvider>
+          <CopilotKitProvider
+            runtimeUrl={props.runtimeUrl}
+            renderCustomMessages={[{ render: CoAgentStateRenderBridge }]}
+          >
+            <CopilotKitInternal {...props}>{children}</CopilotKitInternal>
+          </CopilotKitProvider>
+        </CoAgentStateRendersProvider>
       </CopilotErrorBoundary>
     </ToastProvider>
   );
@@ -87,9 +94,6 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   const chatApiEndpoint = props.runtimeUrl || COPILOT_CLOUD_CHAT_URL;
 
   const [actions, setActions] = useState<Record<string, FrontendAction<any>>>({});
-  const [coAgentStateRenders, setCoAgentStateRenders] = useState<
-    Record<string, CoAgentStateRender<any>>
-  >({});
 
   // State for registered actions from useCopilotAction
   const [registeredActionConfigs, setRegisteredActionConfigs] = useState<
@@ -126,23 +130,6 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
 
   const removeAction = useCallback((id: string) => {
     setActions((prevPoints) => {
-      const newPoints = { ...prevPoints };
-      delete newPoints[id];
-      return newPoints;
-    });
-  }, []);
-
-  const setCoAgentStateRender = useCallback((id: string, stateRender: CoAgentStateRender<any>) => {
-    setCoAgentStateRenders((prevPoints) => {
-      return {
-        ...prevPoints,
-        [id]: stateRender,
-      };
-    });
-  }, []);
-
-  const removeCoAgentStateRender = useCallback((id: string) => {
-    setCoAgentStateRenders((prevPoints) => {
       const newPoints = { ...prevPoints };
       delete newPoints[id];
       return newPoints;
@@ -540,9 +527,6 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         removeAction,
         setRegisteredActions: handleSetRegisteredActions,
         removeRegisteredAction: handleRemoveRegisteredAction,
-        coAgentStateRenders,
-        setCoAgentStateRender,
-        removeCoAgentStateRender,
         getContextString,
         addContext,
         removeContext,

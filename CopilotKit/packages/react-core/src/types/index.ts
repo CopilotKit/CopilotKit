@@ -14,3 +14,4 @@ export type {
 
 export type { CopilotChatSuggestionConfiguration } from "./chat-suggestion-configuration";
 export * from "./crew";
+export * from "./interrupt-action";

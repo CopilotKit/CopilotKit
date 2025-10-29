@@ -9,6 +9,7 @@ import {
   useAgent,
   useCopilotChatConfiguration,
   useCopilotKit,
+  useRenderCustomMessages,
   useSuggestions,
 } from "@copilotkitnext/react";
 import { randomUUID } from "@copilotkit/shared";
@@ -425,6 +426,7 @@ export function useCopilotChatInternal({
   }, [latestReset]);
 
   const lazyToolRendered = useLazyToolRenderer();
+  const renderCustomMessage = useRenderCustomMessages();
   const allMessages = agent?.messages ?? [];
   const resolvedMessages = useMemo(() => {
     return allMessages.map((message) => {
@@ -432,7 +434,14 @@ export function useCopilotChatInternal({
         return message;
       }
 
-      const genUI = lazyToolRendered(message, allMessages);
+      let genUI = lazyToolRendered(message, allMessages);
+      if (renderCustomMessage) {
+        genUI = () =>
+          renderCustomMessage({
+            message,
+            position: "before",
+          });
+      }
       return genUI ? { ...message, generativeUI: genUI } : message;
     });
   }, [agent?.messages, lazyToolRendered, allMessages]);
