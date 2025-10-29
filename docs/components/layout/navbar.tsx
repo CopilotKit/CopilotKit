@@ -3,8 +3,10 @@
 import Image from "next/image"
 import Link from "fumadocs-core/link"
 import { usePathname } from "next/navigation"
+// Components
 import { Logo } from "@/app/logo"
 import SearchDialogButton from "@/components/ui/search-button"
+import Icon from "@/components/ui/icon"
 
 interface NavbarLinks {
   href: string
@@ -164,6 +166,12 @@ const Navbar = () => {
                 className="hidden justify-center items-center w-11 h-full md:flex"
               >
                 <span className="flex gap-2 items-center h-full">
+                  <Icon
+                    src={`${link.icon}-dark.svg`}
+                    width={20}
+                    height={20}
+                    className="text-blue-500 dark:text-red-300"
+                  />
                   <Image
                     src={`${link.icon}-dark.svg`}
                     alt={link.label ?? `Navbar link icon for ${link.href}`}
