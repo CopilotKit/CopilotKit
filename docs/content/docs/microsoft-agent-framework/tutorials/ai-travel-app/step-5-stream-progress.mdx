@@ -1,0 +1,220 @@
+---
+title: "Step 5: Stream Progress"
+---
+
+Now that we have integrated the LangGraph agent into the application, we can start utilizing features that will enhance the
+user agentic experience even further. For example, what if we could stream the progress of a search to the user?
+
+In this step, we'll be doing just that. To do so we'll be using the `copilotkit_emit_state` CopilotKit SDK function in the
+`search_node` of our LangGraph agent.
+
+## Install the CopilotKit SDK
+
+CopilotKit comes ready with an SDK for building both Python and Typescript agents. In this case, the agent is written in Python
+(manged with `poetry`), so we'll be installing the Python SDK.
+
+<Callout>
+Don't have poetry installed? [Install it here](https://python-poetry.org/docs/#installation).
+</Callout>
+
+```shell title="agent/"
+poetry add copilotkit
+# or including support for crewai
+poetry add copilotkit[crewai]
+```
+
+Now we're ready to use the CopilotKit SDK in our agent! Since we're editing the `search_node` in agent, we'll be
+editing the `search.py` file.
+
+## Manually emitting the agent's state
+
+With CoAgents, the LangGraph agent's state is only emitted when node change occurs (i.e, an edge is traversed). This means
+that in-progress work is not emitted to the user by default. However, we can manually emit the state using the `copilotkit_emit_state`
+function that we mentioned earlier.
+
+<Steps>
+<Step>
+### Add the custom CopilotKit config to the `search_node`
+First, we're going to add a custom copilotkit config to the `search_node` to describe what intermediate state
+we'll be emitting.
+
+```python title="agent/travel/search.py" {3-5}
+# ...
+from copilotkit.langgraph import copilotkit_emit_state, copilotkit_customize_config # [!code ++]
+
+async def search_node(state: AgentState, config: RunnableConfig):
+    """
+    The search node is responsible for searching the for places.
+    """
+    ai_message = cast(AIMessage, state["messages"][-1])
+
+    # [!code ++:9]
+    config = copilotkit_customize_config(
+        config,
+        emit_intermediate_state=[{
+            "state_key": "search_progress",
+            "tool": "search_for_places",
+            "tool_argument": "search_progress",
+        }],
+    )
+
+    # ...
+```
+</Step>
+<Step>
+### Emit the intermediate state
+Now we can call `copilotkit_emit_state` to emit the intermediate state wherever we want. In this case, we'll be emitting it
+progress at the beginning of our search and as we receive results.
+
+<Callout>
+One piece of this that has already been setup for you is the `search_progress` state key. In order to emit progress, we add
+an object to our state that we'll manually update with the results and progress of our search. Then we'll be calling `copilotkit_emit_state`
+to manually emit that state.
+</Callout>
+
+```python title="agent/travel/search.py"
+# ...
+async def search_node(state: AgentState, config: RunnableConfig):
+    """
+    The search node is responsible for searching the for places.
+    """
+    ai_message = cast(AIMessage, state["messages"][-1])
+
+    config = copilotkit_customize_config(
+        config,
+        emit_intermediate_state=[{
+            "state_key": "search_progress",
+            "tool": "search_for_places",
+            "tool_argument": "search_progress",
+        }],
+    )
+
+    # ^ Previous code
+
+    state["search_progress"] = state.get("search_progress", [])
+    queries = ai_message.tool_calls[0]["args"]["queries"]
+
+    for query in queries:
+        state["search_progress"].append({
+            "query": query,
+            "results": [],
+            "done": False
+        })
+
+    await copilotkit_emit_state(config, state) # [!code ++]
+
+    # ...
+```
+
+Now the state of our search will be emitted through the `search_progress` state key to CopilotKit! However, we still need to update this
+state as we receive results from our search.
+
+```python title="agent/travel/search.py"
+# ...
+async def search_node(state: AgentState, config: RunnableConfig):
+    """
+    The search node is responsible for searching the for places.
+    """
+    ai_message = cast(AIMessage, state["messages"][-1])
+  
+    config = copilotkit_customize_config(
+        config,
+        emit_intermediate_state=[{
+            "state_key": "search_progress",
+            "tool": "search_for_places",
+            "tool_argument": "search_progress",
+        }],
+    )
+  
+    state["search_progress"] = state.get("search_progress", [])
+    queries = ai_message.tool_calls[0]["args"]["queries"]
+  
+    for query in queries:
+        state["search_progress"].append({
+            "query": query,
+            "results": [],
+            "done": False
+        })
+  
+    await copilotkit_emit_state(config, state) 
+
+    # ^ Previous code
+
+    places = []
+    for i, query in enumerate(queries):
+        response = gmaps.places(query)
+        for result in response.get("results", []):
+            place = {
+                "id": result.get("place_id", f"{result.get('name', '')}-{i}"),
+                "name": result.get("name", ""),
+                "address": result.get("formatted_address", ""),
+                "latitude": result.get("geometry", {}).get("location", {}).get("lat", 0),
+                "longitude": result.get("geometry", {}).get("location", {}).get("lng", 0),
+                "rating": result.get("rating", 0),
+            }
+            places.append(place)
+        state["search_progress"][i]["done"] = True
+        await copilotkit_emit_state(config, state) # [!code ++]
+
+    state["search_progress"] = []
+    await copilotkit_emit_state(config, state) # [!code ++]
+
+    # ...
+
+```
+</Step>
+</Steps>
+
+## Recieving and rendering the manaully emitted state
+
+Now that we are manually emitting the state of our search, we can recieve and render that state in the UI. To do this, 
+we'll be using the [useCoAgentStateRender](/reference/hooks/useCoAgentStateRender) function in our `use-trips.tsx` hook.
+
+
+All we need to do is tell CopilotKit to conditionally render the `search_progress` state key through the `useCoAgentStateRender` hook.
+
+```tsx title="ui/lib/hooks/use-trips.tsx"
+// ...
+import { useCoAgent } from "@copilotkit/react-core"; // [!code --] 
+import { useCoAgent, useCoAgentStateRender } from "@copilotkit/react-core"; // [!code ++]
+import { SearchProgress } from "@/components/SearchProgress"; // [!code ++]
+
+export const TripsProvider = ({ children }: { children: ReactNode }) => {
+  // ...
+  
+  const { state, setState } = useCoAgent<AgentState>({
+    name: "travel",
+    initialState: {
+      trips: defaultTrips,
+      selected_trip_id: defaultTrips[0].id,
+    },
+  });
+
+  // [!code ++:10]
+  useCoAgentStateRender<AgentState>({
+    name: "travel",
+    render: ({ state }) => {
+      if (state.search_progress) {
+        return <SearchProgress progress={state.search_progress} />
+      }
+      return null;
+    },
+  });
+
+  // ...
+}
+
+```
+
+The `<SearchProgress />` component is a custom component that was created for you ahead of time. If you'd like to
+learn more about it feel free to check it out in `ui/components/SearchProgress.tsx`!
+
+<Callout>
+One other thing done for you ahead of time is that the `search_progress` key is already present in the `AgentState` type. You
+can look at that type in `ui/lib/types.ts`.
+</Callout>
+
+Give it a try! Ask the agent to search for places and we'll see the progress of each search as it comes in. 
+
+The final step is to add human in the loop to the application to allow the user to approve or reject mutative actions the 
+agent wants to perform.

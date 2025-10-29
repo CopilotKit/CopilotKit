@@ -1,0 +1,34 @@
+{
+  "title": "Microsoft Agent Framework",
+  "root": true,
+  "pages": [
+    "---Getting Started---",
+    "index",
+    "quickstart",
+    "vibe-coding-mcp",
+    "---Guides---",
+    "agentic-chat-ui",
+    "custom-look-and-feel",
+    "frontend-actions",
+    "generative-ui",
+    "human-in-the-loop",
+    "shared-state",
+    
+    "agent-app-context",
+    "auth",
+    "persistence",
+    "advanced",
+    "---Premium Features---",
+    "...premium",
+    "---Tutorials & Videos---",
+    "...tutorials",
+    "...videos",
+    "---Learn---",
+    "...concepts",
+    "---Troubleshooting---",
+    "...coagent-troubleshooting",
+    "...troubleshooting",
+    "---Other---",
+    "...(other)"
+  ]
+}
