@@ -41,6 +41,7 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-glass-background: var(--glass-background);
+  --color-icon: var(--icon);
 }
 
 @media (width >= 1550px) {
@@ -85,6 +86,7 @@
   --sidebar-ring: oklch(0.55 0.25 285);
   --scrollbar-color: oklch(0.1081 0.0147 220.92 / 30.2%);
   --glass-background: oklch(1 0 0 / 50%); 
+  --icon: oklch(0.1081 0.0147 220.92);
 }
 
 .dark {
@@ -121,6 +123,7 @@
   --sidebar-ring: oklch(0.65 0.15 285);
   --scrollbar-color: oklch(1 0 0 / 30.2%);
   --glass-background: oklch(1 0 0 / 5%); 
+  --icon: oklch(1 0 0);
 }
 
 /* Custom styles for CopilotKit */
