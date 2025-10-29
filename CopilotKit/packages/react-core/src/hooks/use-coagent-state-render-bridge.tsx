@@ -1,9 +1,74 @@
 import { ReactCustomMessageRendererPosition, useAgent } from "@copilotkitnext/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import type { AgentSubscriber } from "@ag-ui/client";
 import { useCoAgentStateRenders } from "../context";
 import { parseJson } from "@copilotkit/shared";
 
+/**
+ * Bridge hook that connects agent state renders to chat messages.
+ *
+ * ## Purpose
+ * This hook finds matching state render configurations (registered via useCoAgentStateRender)
+ * and returns UI to render in chat.
+ * It ensures each state render appears exactly once per run, bound to a specific message.
+ *
+ * ## Message-Binding System
+ *
+ * ### The Problem
+ * Multiple bridge component instances render simultaneously (one per message). Without coordination,
+ * they would all try to render the same state render, causing duplicates.
+ *
+ * ### The Solution: Message Claiming
+ * Each state render is "claimed" by exactly one message ID per run:
+ *
+ * 1. **First render**: Bridge checks if state render is already claimed for this run
+ * 2. **If unclaimed**: Claims it synchronously (via ref) for this message ID
+ * 3. **If claimed**: Only renders if the message ID matches the claim
+ * 4. **Result**: Only one bridge instance (the claiming message) renders each state render
+ *
+ * ### Pending RunId Migration
+ *
+ * **Challenge**: `runId` is initially undefined when messages first render, then appears later.
+ *
+ * **Solution**: Use "pending" as a temporary runId:
+ *
+ * 1. **No runId yet**: Use `"pending"` as the effectiveRunId
+ * 2. **Claim under "pending"**: First message claims the state render under runId="pending"
+ * 3. **RunId appears**: When real runId arrives, migrate all "pending" claims to the real runId
+ * 4. **Migration**: `migrateRunId("pending", actualRunId)` atomically transfers all claims
+ * 5. **After migration**: All subsequent messages see the real runId with existing claims
+ *
+ * ### Synchronous Claiming (Ref-based)
+ *
+ * Claims are stored in a ref (not React state) for synchronous checking:
+ * - Multiple bridges render in the same tick
+ * - State updates are async - would allow duplicates before update completes
+ * - Ref provides immediate, synchronous claim checking
+ * - State is synced after render for debugging visibility only
+ *
+ * ## Flow Example
+ *
+ * ```
+ * Time 1: Message A renders, runId=undefined
+ *   → effectiveRunId = "pending"
+ *   → Claims state render under "pending" for message A
+ *   → Renders UI
+ *
+ * Time 2: Message B renders, runId=undefined
+ *   → effectiveRunId = "pending"
+ *   → Checks claim: Already claimed by message A
+ *   → Returns null (doesn't render)
+ *
+ * Time 3: Real runId appears (e.g., "run-123")
+ *   → Migration effect triggers
+ *   → Migrates "pending" → "run-123"
+ *   → Message A continues rendering under "run-123"
+ *
+ * Time 4: New run starts with runId="run-456"
+ *   → No claims exist for "run-456"
+ *   → First message claims and renders
+ * ```
+ */
 export function useCoagentStateRenderBridge(
   agentId: string,
   props: {
@@ -17,10 +82,29 @@ export function useCoagentStateRenderBridge(
     stateSnapshot: any;
   },
 ) {
-  const { messageIndexInRun, stateSnapshot } = props;
-  const { coAgentStateRenders } = useCoAgentStateRenders();
+  const { stateSnapshot, messageIndexInRun, message } = props;
+  const {
+    coAgentStateRenders,
+    claimRenderForMessage,
+    syncBindingsToState,
+    migrateRunId,
+    clearBindingsForRun,
+  } = useCoAgentStateRenders();
   const { agent } = useAgent({ agentId });
   const [nodeName, setNodeName] = useState<string | undefined>(undefined);
+
+  const runId = props.runId ?? message.runId;
+  const effectiveRunId = runId || "pending";
+  const prevRunIdRef = useRef<string | undefined>("pending");
+
+  // Migrate from "pending" to real runId when it appears
+  useEffect(() => {
+    const prev = prevRunIdRef.current;
+    if (prev === "pending" && runId && runId !== "pending") {
+      migrateRunId("pending", runId);
+    }
+    prevRunIdRef.current = effectiveRunId;
+  }, [effectiveRunId, runId, migrateRunId]);
 
   useEffect(() => {
     if (!agent) return;
@@ -56,10 +140,21 @@ export function useCoagentStateRenderBridge(
     });
   }, [coAgentStateRenders, nodeName, agentId]);
 
-  return useMemo(() => {
-    const [, stateRender] = foundRender ?? [];
+  // Sync bindings to state after render completes
+  useEffect(() => {
+    if (foundRender) {
+      syncBindingsToState();
+    }
+  }, [foundRender, syncBindingsToState]);
 
-    if (!stateRender || messageIndexInRun !== 0) return null;
+  return useMemo(() => {
+    const [stateRenderId, stateRender] = foundRender ?? [];
+
+    if (!stateRender || !stateRenderId || messageIndexInRun !== 0) return null;
+
+    // Synchronously check/claim - returns true if this message can render
+    const canRender = claimRenderForMessage(effectiveRunId, stateRenderId, message.id);
+    if (!canRender) return null;
 
     if (stateRender.handler) {
       stateRender.handler({
@@ -72,13 +167,23 @@ export function useCoagentStateRenderBridge(
       const status = agent?.isRunning ? "inProgress" : "complete";
 
       if (typeof stateRender.render === "string") return stateRender.render;
+
       return stateRender.render({
         status,
         state: stateSnapshot ? parseJson(stateSnapshot, stateSnapshot) : (agent?.state ?? {}),
         nodeName: nodeName ?? "",
       });
     }
-  }, [foundRender, stateSnapshot, agent?.state, agent?.isRunning, nodeName]);
+  }, [
+    foundRender,
+    stateSnapshot,
+    agent?.state,
+    agent?.isRunning,
+    nodeName,
+    effectiveRunId,
+    message.id,
+    claimRenderForMessage,
+  ]);
 }
 
 export function CoAgentStateRenderBridge(props: {
