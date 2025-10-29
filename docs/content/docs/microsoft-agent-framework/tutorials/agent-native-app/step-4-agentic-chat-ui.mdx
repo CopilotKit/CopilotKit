@@ -1,0 +1,84 @@
+---
+title: "Step 4: Agentic Chat UI"
+---
+import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
+
+At this point, we have a LangGraph agent running in LangGraph Studio and have a simple copilot. Now, let's 
+combine the two together to make an copilot agent (CoAgent)!
+
+<Steps>
+<Step>
+## Connect the agent to CopilotKit
+We need to make CopilotKit aware of our running LangGraph agent. To do this, we will setup a remote 
+endpoint to connect to our locally running agent.
+
+Since we're using Copilot Cloud, this is as simple as running the following command for local development.
+
+```bash
+npx copilotkit@latest dev --port 8000
+```
+```sh
+✔ Select a project Local (ID: <project_id>)
+✅ LangGraph Platform endpoint detected
+⠹ Creating tunnel...
+
+Tunnel Information:
+
+• Tunnel URL:            https://<tunnel_id>.tunnels.devcopilotkit.com
+• Endpoint Type:         LangGraph Platform
+• Project:               projects/<project_id>
+
+Press Ctrl+C to stop the tunnel
+
+✔ 🚀 Local tunnel is live and linked to Copilot Cloud!
+```
+
+This allows Copilot Cloud to know where to send requests to when the agent is called.
+
+</Step>
+<Step>
+## Specify the agent to use
+
+Now we need to let the CopilotKit provider know which agent to use, we can do this by specifying the `agent` prop.
+<Accordions>
+<Accordion title="Multi-Agent Routing">
+By default, CopilotKit will intelligently route requests to the appropriate agent based on context. This allows 
+you to have multiple agents and actions and not have to worry about manually routing requests.
+
+In our case however, we only have a single agent and its ideal to lock all requests to that agent. We can do this
+by updating the props of our `CopilotKit` provider.
+
+<Callout>
+Want to learn more about multi-agent routing? Checkout out the [multi-agent concept guide](/coagents/multi-agent-flows).
+</Callout>
+
+</Accordion>
+</Accordions>
+
+Our agent name is `agent` which is specified in the `langgraph.json` file.
+
+```tsx title="frontend/src/app/layout.tsx"
+// ...
+<CopilotKit
+  // ...
+  agent="agent" // [!code ++]
+>
+  {...}
+</CopilotKit>
+```
+</Step>
+</Steps>
+
+## Recap
+And we're done! Here's what we did:
+
+- We connected the agent to CopilotKit.
+- We specified the agent to use.
+
+Now when you head back to the app, you'll notice that we're talking to our LangGraph agent!
+
+<Frame>
+  <ImageZoom src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tutorials/research-ana/fe-step-4-finish.png" alt="step-4-finish" height={1000} width={1000} />
+</Frame>
+
+Next, let's process and sync the state between our application and the agent.

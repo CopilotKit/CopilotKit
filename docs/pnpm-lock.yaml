@@ -86,6 +86,9 @@ importers:
       next:
         specifier: ^15.4.1
         version: 15.4.1(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      next-themes:
+        specifier: ^0.4.6
+        version: 0.4.6(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       npm-to-yarn:
         specifier: ^3.0.0
         version: 3.0.1

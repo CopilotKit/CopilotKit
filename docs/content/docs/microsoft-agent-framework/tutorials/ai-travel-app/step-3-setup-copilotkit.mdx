@@ -1,0 +1,241 @@
+---
+title: "Step 3: Setup CopilotKit"
+---
+import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
+import { TailoredContent, TailoredContentOption } from "@/components/react/tailored-content.tsx";
+import { GoServer } from "react-icons/go";
+import { FaCloud } from "react-icons/fa";
+
+Now that we have the application and agent running, we're ready to connect both via CopilotKit. For this tutorial, we will install the following dependencies:
+
+- `@copilotkit/react-core`: The core library for CopilotKit, which contains the CopilotKit provider and useful hooks.
+- `@copilotkit/react-ui`: The UI library for CopilotKit, which contains the CopilotKit UI components such as the sidebar, chat popup, textarea and more.
+
+## Install Dependencies
+
+Navigate back to the `ui` directory and install the CopilotKit dependencies:
+
+```shell
+pnpm add @copilotkit/react-core @copilotkit/react-ui
+```
+
+## Setup CopilotKit
+
+There are two ways of setting up CopilotKit, either by using Copilot Cloud or by self-hosting. Self-hosting will give you more control
+over CopilotKit's runtime (our interface to the LLM) but will also require you to manage the extra complexity of running a server. Copilot Cloud
+on the other hand is a fully managed service that you can get started with in just a few clicks.
+
+For this tutorial, you can select either option.
+
+<TailoredContent id="hosting">
+<TailoredContentOption
+  id="copilot-cloud"
+  title="Copilot Cloud (Recommended)"
+  icon={<FaCloud />}
+  description="I want get started as fast as possible by using Copilot Cloud."
+>
+We're using CopiloKit cloud as a hosted version of the CopilotKit runtime. The runtime serves as an interface between the application and the LLM
+(agentic or not). Copilot Cloud will manage all of the complexity for us but in return we need to provide a valid API key.
+<Steps>
+<Step>
+### Create an account on Copilot Cloud
+
+First, you'll need to create an account for Copilot Cloud [here](https://cloud.copilotkit.ai/sign-in). You can
+use whatever authentication method you'd like.
+
+</Step>
+<Step>
+### Get a Copilot Cloud API Key
+
+Once logged in, you'll see some steps guiding you to getting our Copilot Cloud public API key. For this, you'll need an OpenAI API key since it's the only
+provider currently supported (more providers coming soon!). 
+
+Set your OpenAI API key, click the green checkmark and you'll see your API key created right below the input.
+
+<Frame>
+<img src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tutorials/ai-travel-app/cpkCloudSetup.png" alt="CopilotCloud API Key" />
+</Frame>
+
+</Step>
+<Step>
+### Setting up the environment variables
+
+First, create a `.env` file in the `ui` directory.
+
+```shell
+touch ui/.env
+```
+
+Then, add your Copilot Cloud API key to the file like so:
+
+```txt title="ui/.env"
+NEXT_PUBLIC_CPK_PUBLIC_API_KEY=...
+```
+
+</Step>
+<Step>
+### Configure the CopilotKit Provider
+
+Now we're ready to configure the CopilotKit provider in our application.
+
+```tsx title="ui/app/page.tsx" showLineNumbers
+"use client";
+
+import { CopilotKit } from "@copilotkit/react-core"; // [!code ++]
+
+export default function Home() {
+  // [!code ++:5]
+  return (
+    <CopilotKit
+      publicApiKey={process.env.NEXT_PUBLIC_CPK_PUBLIC_API_KEY}
+    >
+      <TooltipProvider>
+        <TripsProvider>
+          <main className="h-screen w-screen">
+            <MapCanvas />
+          </main>
+        </TripsProvider>
+      </TooltipProvider>
+    </CopilotKit> // [!code ++]
+  );
+}
+```
+<Step>
+
+### CopilotKit Chat Popup
+
+We provide several plug-and-play components for you to interact with your copilot. Some of these are `<CopilotPopup/>`, `<CopilotSidebar/>`, and `<CopilotChat/>`. You can of course use CopilotKit in headless mode and provide your own fully custom UI via [`useCopilotChat`](/reference/hooks/useCopilotChat).
+
+In this tutorial, we'll use the `<CopilotSidebar/>` component to display the chat sidebar.
+
+```tsx title="ui/app/page.tsx" showLineNumbers {6-7,15}
+"use client";
+
+import { TasksList } from "@/components/TasksList";
+import { TasksProvider } from "@/lib/hooks/use-tasks";
+import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotSidebar } from "@copilotkit/react-ui"; // [!code ++]
+import "@copilotkit/react-ui/styles.css"; // [!code ++]
+
+export default function Home() {
+  return (
+    <CopilotKit
+      publicApiKey={process.env.NEXT_PUBLIC_CPK_PUBLIC_API_KEY}
+    >
+      /* [!code ++:9] */
+      <CopilotSidebar
+        defaultOpen={true}
+        clickOutsideToClose={false}
+        labels={{
+          title: "Travel Planner",
+          initial: "Hi! 👋 I'm here to plan your trips. I can help you manage your trips, add places to them, or just generally work with you to plan a new one.",
+        }}
+      />
+      <TooltipProvider>
+        <TripsProvider>
+          <main className="h-screen w-screen">
+            <MapCanvas />
+          </main>
+        </TripsProvider>
+      </TooltipProvider>
+    </CopilotKit>
+  );
+}
+```
+
+And we're done! Here's what we did:
+
+- We setup our Copilot cloud account and got an API key.
+- We configured the CopilotKit provider in our application to use our API key.
+- We added the CopilotSidebar to our application.
+</Step>
+
+</Step>
+</Steps>
+</TailoredContentOption>
+<TailoredContentOption 
+  id="self-hosted"
+  title="Self-hosted"
+  icon={<GoServer />}
+  description="I want to learn how to self-host CopilotKit and will own the extra complexity."
+>
+<Steps>
+<Step>
+### Set up Copilot Runtime Endpoint
+<SelfHostingCopilotRuntimeCreateEndpoint components={props.components} />
+</Step>
+<Step>
+
+### Configure the CopilotKit Provider
+```tsx title="app/page.tsx" showLineNumbers
+"use client";
+
+import { TasksList } from "@/components/TasksList";
+import { TasksProvider } from "@/lib/hooks/use-tasks";
+import { CopilotKit } from "@copilotkit/react-core"; // [!code ++]
+
+export default function Home() {
+  return (
+    <CopilotKit runtimeUrl="/api/copilotkit"> // [!code ++]
+      <TasksProvider>
+        <TasksList />
+      </TasksProvider>
+    </CopilotKit> // [!code ++]
+  );
+}
+```
+</Step>
+</Steps>
+
+### CopilotKit Chat Popup
+
+We provide several plug-and-play components for you to interact with your copilot. Some of these are `<CopilotPopup/>`, `<CopilotSidebar/>`, and `<CopilotChat/>`. You can of course use CopilotKit in headless mode and provide your own fully custom UI via [`useCopilotChat`](/reference/hooks/useCopilotChat).
+
+In this tutorial, we'll use the `<CopilotSidebar/>` component to display the chat sidebar.
+
+```tsx title="ui/app/page.tsx" showLineNumbers {6-7,15}
+"use client";
+
+import { TasksList } from "@/components/TasksList";
+import { TasksProvider } from "@/lib/hooks/use-tasks";
+import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotSidebar } from "@copilotkit/react-ui"; // [!code ++]
+import "@copilotkit/react-ui/styles.css"; // [!code ++]
+
+export default function Home() {
+  return (
+    <CopilotKit
+      publicApiKey={process.env.NEXT_PUBLIC_CPK_PUBLIC_API_KEY}
+    >
+      /* [!code ++:9] */
+      <CopilotSidebar
+        defaultOpen={true}
+        clickOutsideToClose={false}
+        labels={{
+          title: "Travel Planner",
+          initial: "Hi! 👋 I'm here to plan your trips. I can help you manage your trips, add places to them, or just generally work with you to plan a new one.",
+        }}
+      />
+      <TooltipProvider>
+        <TripsProvider>
+          <main className="h-screen w-screen">
+            <MapCanvas />
+          </main>
+        </TripsProvider>
+      </TooltipProvider>
+    </CopilotKit>
+  );
+}
+```
+
+Here's what we did:
+
+- We imported the `<CopilotSidebar />` component from `@copilotkit/react-ui`.
+- We wrapped the page with the `<CopilotKit>` provider.
+- We imported the built-in styles from `@copilotkit/react-ui`.
+</TailoredContentOption>
+</TailoredContent>
+
+Now, head back to the app and you'll find a chat sidebar on the left side of the page. At this point, you can start interacting with your copilot! 🎉 
+
+This is very exciting! In the next step we'll be making this copilot agentic through the use of LangGraph.

@@ -1,0 +1,19 @@
+---
+title: Shared State
+description: Create a two-way connection between your UI and LangGraph agent state.
+icon: "lucide/Repeat"
+---
+
+<Frame>
+    <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-state-diagram.png" alt="Agentic Copilot State Diagram" />
+</Frame>
+
+The foundation of this system is built on LangGraph's stateful architecture. Unlike traditional LangChains, LangGraphs maintain their
+internal state throughout execution, which you can access via the `useCoAgentState` hook.
+
+## When should I use this?
+State streaming is perfect when you want to faciliate collaboration between your agent and the user. Any state that your LangGraph agent
+persists will be automatically shared by the UI. Similarly, any state that the user updates in the UI will be automatically reflected
+
+This allows for a consistent experience where both the agent and the user are on the same page.
+
