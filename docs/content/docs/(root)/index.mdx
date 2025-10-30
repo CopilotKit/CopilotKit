@@ -1,6 +1,6 @@
 ---
 title: Introduction to CopilotKit
-description: "The Agentic Application Framework:  Open source framework and hosted service for AI-assisted applications."
+description: "The Agentic Application Framework:  Open source framework and hosted service for building AI-powered agentic applications."
 icon: "lucide/Sparkles"
 hideTOC: true
 ---
@@ -13,7 +13,7 @@ import { TbSparkles } from "react-icons/tb";
 import { SiLangchain } from "react-icons/si";
 import { AG2Icon } from "@/lib/icons/custom-icons";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
-import { FileSpreadsheet, Banknote, Plane, BookOpen, Telescope, Play } from "lucide-react";
+import { FileSpreadsheet, Banknote, Plane, BookOpen, Telescope, Play, ExternalLink } from "lucide-react";
 import { Accordions } from 'fumadocs-ui/components/accordion';
 import { Accordion } from 'fumadocs-ui/components/accordion';
 import { LinkToCopilotCloud } from "@/components/react/link-to-copilot-cloud";
@@ -76,49 +76,99 @@ npx copilotkit@latest init
   
 </div>
 
-## Key Features
+<div className="mb-16 text-center">
+  <h2 className="text-4xl font-bold mb-4 text-foreground">Key CopilotKit Features</h2>
+  <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
+    Everything you need to build interactive, agent-powered applications
+  </p>
+  <div className="w-24 h-1 bg-gradient-to-r from-primary to-primary mx-auto mt-6 rounded-full"></div>
+</div>
 
-<div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-8">
-  <div className="border border-border rounded-lg p-6">
-    <video src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4" autoPlay loop muted playsInline className="rounded-lg mb-4 w-full" />
-    <h3 className="text-xl font-bold mb-3">Generative UI</h3>
-    <p className="text-muted-foreground mb-4">
-      Render state, progress, outputs, and tool calls with custom UI components in real-time. Bridges the gap between AI agents and user interfaces.
-    </p>
-    <div className="flex gap-2">
-      <a href="/direct-to-llm/guides/generative-ui" className="text-sm text-primary hover:underline">Documentation →</a>
-      <a href="https://feature-viewer.copilotkit.ai/langgraph/feature/tool_based_generative_ui" className="text-sm text-primary hover:underline">Demo →</a>
+<div className="space-y-24">
+  <div className="border-b border-border pb-24">
+    <div className="grid lg:grid-cols-5 gap-12 items-start">
+      <div className="lg:col-span-2">
+        <div className="mb-4">
+          <h3 className="text-2xl font-bold mb-2 text-foreground">Generative UI</h3>
+          <div className="w-12 h-0.5 bg-gradient-to-r from-primary to-primary rounded-full"></div>
+        </div>
+        <p className="text-muted-foreground leading-relaxed mb-6">
+          Render state, progress, outputs, and tool calls with custom UI components in real-time. Bridges the gap between AI agents and user interfaces.
+        </p>
+        <div className="space-y-3">
+          <a href="/direct-to-llm/guides/generative-ui" className="block text-primary hover:text-primary font-medium no-underline">
+            Learn more →
+          </a>
+          <a href="https://feature-viewer.copilotkit.ai/langgraph/feature/tool_based_generative_ui" className="block text-muted-foreground hover:text-foreground text-sm flex items-center gap-2 no-underline">
+            <ExternalLink className="h-4 w-4" />
+            Live demo
+          </a>
+        </div>
+      </div>
+      <div className="lg:col-span-3">
+        <video src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4" className="w-full rounded-lg border shadow-lg" controls autoPlay muted loop playsInline />
+      </div>
     </div>
   </div>
-  
-  <div className="border border-border rounded-lg p-6">
-    <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4" autoPlay loop muted playsInline className="rounded-lg mb-4 w-full" />
-    <h3 className="text-xl font-bold mb-3">Human in the Loop</h3>
-    <p className="text-muted-foreground mb-4">
-      Empower users to guide agents at key checkpoints. Combine the best of AI and human judgment for more reliable and controllable agent behavior.
-    </p>
-    <div className="flex gap-2">
-      <a href="/direct-to-llm/guides/generative-ui?gen-ui-type=renderAndWaitForResponse+%28HITL%29" className="text-sm text-primary hover:underline">Documentation →</a>
-      <a href="https://examples-coagents-ai-travel-app.vercel.app/" className="text-sm text-primary hover:underline">Demo →</a>
+
+  <div className="border-b border-border pb-24">
+    <div className="grid lg:grid-cols-5 gap-12 items-start">
+      <div className="lg:col-span-2">
+        <div className="mb-4">
+          <h3 className="text-2xl font-bold mb-2 text-foreground">Human in the Loop</h3>
+          <div className="w-12 h-0.5 bg-gradient-to-r from-primary to-primary rounded-full"></div>
+        </div>
+        <p className="text-muted-foreground leading-relaxed mb-6">
+          Empower users to guide agents at key checkpoints. Combine the best of AI and human judgment for more reliable and controllable agent behavior.
+        </p>
+        <div className="space-y-3">
+          <a href="/direct-to-llm/guides/generative-ui?gen-ui-type=renderAndWaitForResponse+%28HITL%29" className="block text-primary hover:text-primary font-medium no-underline">
+            Learn more →
+          </a>
+          <a href="https://examples-coagents-ai-travel-app.vercel.app/" className="block text-muted-foreground hover:text-foreground text-sm flex items-center gap-2 no-underline">
+            <ExternalLink className="h-4 w-4" />
+            Live demo
+          </a>
+        </div>
+      </div>
+      <div className="lg:col-span-3">
+        <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4" className="w-full rounded-lg border shadow-lg" controls autoPlay muted loop playsInline />
+      </div>
     </div>
   </div>
-  
-  <div className="border border-border rounded-lg p-6">
-    <video src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4" autoPlay loop muted playsInline className="rounded-lg mb-4 w-full" />
-    <h3 className="text-xl font-bold mb-3">Shared State</h3>
-    <p className="text-muted-foreground mb-4">
-      Keep your agent and your app in sync. Your agent can see everything in your app, and your app can react to your agent in real-time.
-    </p>
-    <div className="flex gap-2">
-      <a href="/coagents/shared-state" className="text-sm text-primary hover:underline">Documentation →</a>
-      <a href="https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state" className="text-sm text-primary hover:underline">Demo →</a>
+
+  <div>
+    <div className="grid lg:grid-cols-5 gap-12 items-start">
+      <div className="lg:col-span-2">
+        <div className="mb-4">
+          <h3 className="text-2xl font-bold mb-2 text-foreground">Shared State</h3>
+          <div className="w-12 h-0.5 bg-gradient-to-r from-primary to-primary rounded-full"></div>
+        </div>
+        <p className="text-muted-foreground leading-relaxed mb-6">
+          Keep your agent and your app in sync. Your agent can see everything in your app, and your app can react to your agent in real-time.
+        </p>
+        <div className="space-y-3">
+          <a href="/coagents/shared-state" className="block text-primary hover:text-primary font-medium no-underline">
+            Learn more →
+          </a>
+          <a href="https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state" className="block text-muted-foreground hover:text-foreground text-sm flex items-center gap-2 no-underline">
+            <ExternalLink className="h-4 w-4" />
+            Live demo
+          </a>
+        </div>
+      </div>
+      <div className="lg:col-span-3">
+        <video src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4" className="w-full rounded-lg border shadow-lg" controls autoPlay muted loop playsInline />
+      </div>
     </div>
   </div>
 </div>
 
-## Live Demos
-
 import { LiveDemoViewer } from "@/components/react/live-demo-viewer";
+
+<div className="text-center mb-8">
+  <h2 className="text-4xl font-bold mb-4 text-foreground">Live Demos</h2>
+</div>
 
 <LiveDemoViewer
   demos={[

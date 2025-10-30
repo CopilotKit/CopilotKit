@@ -21,7 +21,7 @@ export function LiveDemoViewer({ demos }: LiveDemoViewerProps) {
     <section className="mb-12">
       <div className="mb-8 text-center">
         <p className="text-lg text-muted-foreground max-w-3xl mx-auto mb-8">
-          Explore different types of agent-powered applications built with CopilotKit and LLMs.
+          Explore different types of agentic applications built with CopilotKit and AI agents
         </p>
         
         {/* Demo Toggle Buttons */}
