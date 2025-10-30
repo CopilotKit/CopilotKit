@@ -131,11 +131,6 @@ export interface CopilotContextParams {
   setRegisteredActions: (actionConfig: any) => string;
   removeRegisteredAction: (actionKey: string) => void;
 
-  // coagent actions
-  coAgentStateRenders: Record<string, CoAgentStateRender<any>>;
-  setCoAgentStateRender: (id: string, stateRender: CoAgentStateRender<any>) => void;
-  removeCoAgentStateRender: (id: string) => void;
-
   chatComponentsCache: React.RefObject<ChatComponentsCache>;
 
   getFunctionCallHandler: (
@@ -252,10 +247,6 @@ const emptyCopilotContext: CopilotContextParams = {
 
   setRegisteredActions: () => "",
   removeRegisteredAction: () => {},
-
-  coAgentStateRenders: {},
-  setCoAgentStateRender: () => {},
-  removeCoAgentStateRender: () => {},
 
   chatComponentsCache: { current: { actions: {}, coAgentStateRenders: {} } },
   getContextString: (documents: DocumentPointer[], categories: string[]) =>
