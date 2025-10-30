@@ -65,13 +65,15 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   // Use API key if provided, otherwise use the license key
   const publicApiKey = props.publicApiKey || props.publicLicenseKey;
 
+  const renderArr = useMemo(() => [{ render: CoAgentStateRenderBridge }], []);
+
   return (
     <ToastProvider enabled={enabled}>
       <CopilotErrorBoundary publicApiKey={publicApiKey} showUsageBanner={enabled}>
         <ThreadsProvider>
           <CopilotKitProvider
             runtimeUrl={props.runtimeUrl}
-            renderCustomMessages={[{ render: CoAgentStateRenderBridge }]}
+            renderCustomMessages={renderArr}
           >
             <CopilotKitInternal {...props}>{children}</CopilotKitInternal>
           </CopilotKitProvider>
