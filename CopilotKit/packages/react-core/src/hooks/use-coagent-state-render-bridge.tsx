@@ -1,5 +1,5 @@
 import { ReactCustomMessageRendererPosition, useAgent } from "@copilotkitnext/react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AgentSubscriber } from "@ag-ui/client";
 import { useCoAgentStateRenders } from "../context";
 import { parseJson } from "@copilotkit/shared";
@@ -116,13 +116,19 @@ export function useCoagentStateRenderBridge(
     return null;
   }
 
-  const foundRender = useMemo(() => {
-    return Object.entries(coAgentStateRenders).find(([_, stateRender]) => {
-      const matchingAgentName = stateRender.name === agentId;
-      const matchingNodeName = stateRender.nodeName === nodeName;
-      return matchingAgentName && (nodeName ? matchingNodeName : true);
-    });
-  }, [coAgentStateRenders, nodeName, agentId]);
+  const getStateRender = useCallback(
+    (messageId: string) => {
+      return Object.entries(coAgentStateRenders).find(([stateRenderId, stateRender]) => {
+        if (claimsRef.current[messageId]) {
+          return stateRenderId === claimsRef.current[messageId].stateRenderId;
+        }
+        const matchingAgentName = stateRender.name === agentId;
+        const matchingNodeName = stateRender.nodeName === nodeName;
+        return matchingAgentName && (nodeName ? matchingNodeName : true);
+      });
+    },
+    [coAgentStateRenders, nodeName, agentId],
+  );
 
   // Message ID-based claim system - A state render can only be claimed by one message ID
   const handleRenderRequest = ({
@@ -146,7 +152,7 @@ export function useCoagentStateRenderBridge(
   };
 
   return useMemo(() => {
-    const [stateRenderId, stateRender] = foundRender ?? [];
+    const [stateRenderId, stateRender] = getStateRender(message.id) ?? [];
 
     if (!stateRender || !stateRenderId) return null;
 
@@ -185,7 +191,7 @@ export function useCoagentStateRenderBridge(
       });
     }
   }, [
-    foundRender,
+    getStateRender,
     stateSnapshot,
     agent?.state,
     agent?.isRunning,
