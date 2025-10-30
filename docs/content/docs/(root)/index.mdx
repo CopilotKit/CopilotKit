@@ -76,7 +76,65 @@ npx copilotkit@latest init
   
 </div>
 
+## Key Features
 
+<div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-8">
+  <div className="border border-border rounded-lg p-6">
+    <video src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4" autoPlay loop muted playsInline className="rounded-lg mb-4 w-full" />
+    <h3 className="text-xl font-bold mb-3">Generative UI</h3>
+    <p className="text-muted-foreground mb-4">
+      Render state, progress, outputs, and tool calls with custom UI components in real-time. Bridges the gap between AI agents and user interfaces.
+    </p>
+    <div className="flex gap-2">
+      <a href="/direct-to-llm/guides/generative-ui" className="text-sm text-primary hover:underline">Documentation →</a>
+      <a href="https://feature-viewer.copilotkit.ai/langgraph/feature/tool_based_generative_ui" className="text-sm text-primary hover:underline">Demo →</a>
+    </div>
+  </div>
+  
+  <div className="border border-border rounded-lg p-6">
+    <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4" autoPlay loop muted playsInline className="rounded-lg mb-4 w-full" />
+    <h3 className="text-xl font-bold mb-3">Human in the Loop</h3>
+    <p className="text-muted-foreground mb-4">
+      Empower users to guide agents at key checkpoints. Combine the best of AI and human judgment for more reliable and controllable agent behavior.
+    </p>
+    <div className="flex gap-2">
+      <a href="/direct-to-llm/guides/generative-ui?gen-ui-type=renderAndWaitForResponse+%28HITL%29" className="text-sm text-primary hover:underline">Documentation →</a>
+      <a href="https://examples-coagents-ai-travel-app.vercel.app/" className="text-sm text-primary hover:underline">Demo →</a>
+    </div>
+  </div>
+  
+  <div className="border border-border rounded-lg p-6">
+    <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/copilot-action-example.gif" alt="Frontend Tools Example" className="rounded-lg mb-4 w-full" />
+    <h3 className="text-xl font-bold mb-3">Frontend Tools</h3>
+    <p className="text-muted-foreground mb-4">
+      Let LLMs guide your users through your application, make updates across the application, and more.
+    </p>
+    <div className="flex gap-2">
+      <a href="/direct-to-llm/guides/frontend-actions" className="text-sm text-primary hover:underline">Documentation →</a>
+      <a href="https://feature-viewer.copilotkit.ai/direct-to-llm/feature/mcp" className="text-sm text-primary hover:underline">Demo →</a>
+    </div>
+  </div>
+</div>
 
- 
+## Live Demos
+
+import { LiveDemoViewer } from "@/components/react/live-demo-viewer";
+
+<LiveDemoViewer
+  demos={[
+    {
+      type: "saas",
+      title: "SaaS Copilot",
+      description: "A traditional SaaS application enhanced with AI agents. These copilots integrate seamlessly into existing workflows, providing intelligent assistance for specific business processes. Perfect for customer service, sales automation, project management, and domain-specific tasks where users need guided, step-by-step AI assistance.",
+      iframeUrl: "https://examples-coagents-ai-travel-app.vercel.app?copilotOpen=true"
+    },
+    {
+      type: "canvas",
+      title: "Canvas Copilot",
+      description: "An infinite canvas interface where users collaborate with AI agents in a spatial, visual environment. These copilots excel at research, brainstorming, content creation, and complex problem-solving where information needs to be organized, connected, and explored in a non-linear, creative way.",
+      iframeUrl: "https://examples-coagents-research-canvas-ui.vercel.app/"
+    },
+  ]}
+/>
+
 
