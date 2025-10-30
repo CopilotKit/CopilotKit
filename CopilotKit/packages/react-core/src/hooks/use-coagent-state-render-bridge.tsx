@@ -148,11 +148,21 @@ export function useCoagentStateRenderBridge(
     // If we don't know this runId
     if (!claimsRef.current[runId]) {
       // Does any other runId claimed this state render?
-      const claimedStateRenderId = Object.entries(claimsRef.current).find(([_, claim]) => {
+      const claimedStateRender = Object.values(claimsRef.current).find((claim) => {
         return claim.stateRenderId === stateRenderId;
-      })?.[0];
-      // if so, this runId is not allowed to render it
-      if (claimedStateRenderId) return false;
+      });
+      // if a claimer is found
+      if (claimedStateRender) {
+        // If for some reason, the same message id exist in the newer runId, we also create a claim for the new runId
+        if (claimedStateRender.messageId === messageId) {
+          claimsRef.current[runId] = claimedStateRender;
+          return true;
+        }
+
+        // Otherwise, we don't allow to render
+        return false;
+      }
+
       // If not, we claim this state render for the current runId
       claimsRef.current = {
         ...claimsRef.current,
@@ -192,6 +202,7 @@ export function useCoagentStateRenderBridge(
 
       if (typeof stateRender.render === "string") return stateRender.render;
 
+      // console.log('rendering2')
       return stateRender.render({
         status,
         state: stateSnapshot ? parseJson(stateSnapshot, stateSnapshot) : (agent?.state ?? {}),
