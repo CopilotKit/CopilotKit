@@ -20,6 +20,9 @@ export function RenderMessage({
     onThumbsDown,
     messageFeedback,
     markdownTagRenderers,
+    canRegenerateAssistantMessage,
+    canCopyAssistantMessage,
+    disableFirstAssistantMessageControls = true,
   } = props;
 
   switch (message.role) {
@@ -50,6 +53,9 @@ export function RenderMessage({
           onThumbsDown={onThumbsDown}
           feedback={messageFeedback?.[message.id] || null}
           markdownTagRenderers={markdownTagRenderers}
+          canRegenerate={canRegenerateAssistantMessage}
+          canCopy={canCopyAssistantMessage}
+          disableFirstMessageControls={disableFirstAssistantMessageControls && index === 0}
           ImageRenderer={ImageRenderer}
         />
       );
