@@ -2,7 +2,26 @@ import { ReactCustomMessageRendererPosition, useAgent } from "@copilotkitnext/re
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AgentSubscriber } from "@ag-ui/client";
 import { useCoAgentStateRenders } from "../context";
-import { parseJson } from "@copilotkit/shared";
+import { dataToUUID, parseJson } from "@copilotkit/shared";
+
+function getStateWithoutConstantKeys(state: any) {
+  const { messages, tools, copilotkit, ...stateWithoutConstantKeys } = state;
+  return stateWithoutConstantKeys;
+}
+
+// Function that compares states, without the constant keys
+function areStatesEquals(a: any, b: any) {
+  if ((a && !b) || (!a && b)) return false;
+  const { messages, tools, copilotkit, ...aWithoutConstantKeys } = a;
+  const {
+    messages: bMessages,
+    tools: bTools,
+    copilotkit: bCopilotkit,
+    ...bWithoutConstantKeys
+  } = b;
+
+  return JSON.stringify(aWithoutConstantKeys) === JSON.stringify(bWithoutConstantKeys);
+}
 
 /**
  * Bridge hook that connects agent state renders to chat messages.
@@ -134,20 +153,56 @@ export function useCoagentStateRenderBridge(
   const handleRenderRequest = ({
     stateRenderId,
     messageId,
+    runId,
+    stateSnapshot: renderSnapshot,
   }: {
     stateRenderId: string;
     messageId: string;
+    runId?: string;
+    stateSnapshot?: any;
   }): boolean => {
     // Check if this message has already claimed this state render
     if (claimsRef.current[messageId]) {
-      return claimsRef.current[messageId].stateRenderId === stateRenderId;
+      const canRender = claimsRef.current[messageId].stateRenderId === stateRenderId;
+
+      // Update runId if it doesn't exist
+      if (
+        canRender &&
+        runId &&
+        (!claimsRef.current[messageId].runId || claimsRef.current[messageId].runId === "pending")
+      ) {
+        claimsRef.current[messageId].runId = runId;
+      }
+
+      return canRender;
     }
 
     // Do not allow render if any other message has claimed this state render
-    if (Object.values(claimsRef.current).some((c) => c.stateRenderId === stateRenderId))
+    const renderClaimedByOtherMessage = Object.values(claimsRef.current).find(
+      (c) =>
+        c.stateRenderId === stateRenderId &&
+        dataToUUID(JSON.stringify(getStateWithoutConstantKeys(c.stateSnapshot))) ===
+          dataToUUID(JSON.stringify(getStateWithoutConstantKeys(renderSnapshot))),
+    );
+    if (renderClaimedByOtherMessage) {
+      // If:
+      //   - state render already claimed
+      //   - snapshot exists in the claiming object and is different from current,
+      if (
+        renderSnapshot &&
+        renderClaimedByOtherMessage.stateSnapshot &&
+        !areStatesEquals(renderClaimedByOtherMessage.stateSnapshot, renderSnapshot)
+      ) {
+        claimsRef.current[messageId] = { stateRenderId, runId };
+        return true;
+      }
       return false;
+    }
 
-    claimsRef.current[messageId] = { stateRenderId };
+    // In this case, we're trying to render a renderer that should already been claimed. It's an edge case, do not allow.
+    if (runId !== "pending") return false;
+
+    claimsRef.current[messageId] = { stateRenderId, runId };
     return true;
   };
 
@@ -156,12 +211,28 @@ export function useCoagentStateRenderBridge(
 
     if (!stateRender || !stateRenderId) return null;
 
+    // Is there any state we can use?
+    const snapshot = stateSnapshot ? parseJson(stateSnapshot, stateSnapshot) : agent?.state;
+
     // Synchronously check/claim - returns true if this message can render
     const canRender = handleRenderRequest({
       stateRenderId,
       messageId: message.id,
+      runId: effectiveRunId,
+      stateSnapshot: snapshot,
     });
     if (!canRender) return null;
+
+    // If we found state, and given that now there's a claim for the current message, let's save it in the claim
+    if (snapshot && !claimsRef.current[message.id].locked) {
+      if (stateSnapshot) {
+        claimsRef.current[message.id].stateSnapshot = snapshot;
+        claimsRef.current[message.id].locked = true;
+      } else {
+        claimsRef.current[message.id].stateSnapshot = snapshot;
+      }
+    }
+
     if (stateRender.handler) {
       stateRender.handler({
         state: stateSnapshot ? parseJson(stateSnapshot, stateSnapshot) : (agent?.state ?? {}),
@@ -170,15 +241,6 @@ export function useCoagentStateRenderBridge(
     }
 
     if (stateRender.render) {
-      // Is there any state we can use?
-      const snapshot = stateSnapshot ? parseJson(stateSnapshot, stateSnapshot) : agent?.state;
-      // If we have, let's save it in the claim
-      if (
-        snapshot &&
-        JSON.stringify(claimsRef.current[message.id].stateSnapshot) !== JSON.stringify(snapshot)
-      ) {
-        claimsRef.current[message.id].stateSnapshot = snapshot;
-      }
       const status = agent?.isRunning ? "inProgress" : "complete";
 
       if (typeof stateRender.render === "string") return stateRender.render;
@@ -186,7 +248,7 @@ export function useCoagentStateRenderBridge(
       return stateRender.render({
         status,
         // Always use state from claim, to make sure the state does not seem "wiped" for a fraction of a second
-        state: claimsRef.current[message.id].stateSnapshot,
+        state: claimsRef.current[message.id].stateSnapshot ?? {},
         nodeName: nodeName ?? "",
       });
     }

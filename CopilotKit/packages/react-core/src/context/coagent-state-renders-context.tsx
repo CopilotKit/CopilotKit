@@ -12,6 +12,8 @@ import { CoAgentStateRender } from "../types/coagent-action";
 interface StateRenderClaim {
   stateRenderId: string;
   stateSnapshot?: any;
+  runId?: string;
+  locked?: boolean;
 }
 
 type ClaimsRef = Record<string, StateRenderClaim>;
