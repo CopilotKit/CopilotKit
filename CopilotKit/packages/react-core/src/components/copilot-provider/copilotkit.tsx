@@ -373,7 +373,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     }
   }, [props.agent]);
 
-  const { threadId, setThreadId: setInternalThreadId } = useThreads()
+  const { threadId, setThreadId: setInternalThreadId } = useThreads();
 
   const setThreadId = useCallback(
     (value: SetStateAction<string>) => {
@@ -587,21 +587,21 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         }}
       >
         <CoAgentStateRendersProvider>
-        <MessagesTapProvider>
-          <CopilotMessages>
-            {memoizedChildren}
-            {showDevConsole && <ConsoleTrigger />}
-            <RegisteredActionsRenderer />
-          </CopilotMessages>
-        </MessagesTapProvider>
-        {bannerError && showDevConsole && (
-          <UsageBanner
-            severity={bannerError.severity}
-            message={bannerError.message}
-            onClose={() => setBannerError(null)}
-            actions={getErrorActions(bannerError)}
-          />
-        )}
+          <MessagesTapProvider>
+            <CopilotMessages>
+              {memoizedChildren}
+              {showDevConsole && <ConsoleTrigger />}
+              <RegisteredActionsRenderer />
+            </CopilotMessages>
+          </MessagesTapProvider>
+          {bannerError && showDevConsole && (
+            <UsageBanner
+              severity={bannerError.severity}
+              message={bannerError.message}
+              onClose={() => setBannerError(null)}
+              actions={getErrorActions(bannerError)}
+            />
+          )}
         </CoAgentStateRendersProvider>
       </CopilotContext.Provider>
     </CopilotChatConfigurationProvider>

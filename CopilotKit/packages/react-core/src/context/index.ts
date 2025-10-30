@@ -5,11 +5,7 @@ export {
   CoAgentStateRendersProvider,
   useCoAgentStateRenders,
 } from "./coagent-state-renders-context";
-export {
-  ThreadsContext,
-  ThreadsProvider,
-  useThreads,
-} from "./threads-context";
+export { ThreadsContext, ThreadsProvider, useThreads } from "./threads-context";
 export type {
   CopilotContextParams,
   CoagentInChatRenderFunction,

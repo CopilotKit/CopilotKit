@@ -1,5 +1,5 @@
 import { ReactCustomMessageRendererPosition, useAgent } from "@copilotkitnext/react";
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { AgentSubscriber } from "@ag-ui/client";
 import { useCoAgentStateRenders } from "../context";
 import { parseJson } from "@copilotkit/shared";
@@ -83,28 +83,12 @@ export function useCoagentStateRenderBridge(
   },
 ) {
   const { stateSnapshot, messageIndexInRun, message } = props;
-  const {
-    coAgentStateRenders,
-    claimRenderForMessage,
-    syncBindingsToState,
-    migrateRunId,
-    clearBindingsForRun,
-  } = useCoAgentStateRenders();
+  const { coAgentStateRenders, claimsRef } = useCoAgentStateRenders();
   const { agent } = useAgent({ agentId });
   const [nodeName, setNodeName] = useState<string | undefined>(undefined);
 
   const runId = props.runId ?? message.runId;
   const effectiveRunId = runId || "pending";
-  const prevRunIdRef = useRef<string | undefined>("pending");
-
-  // Migrate from "pending" to real runId when it appears
-  useEffect(() => {
-    const prev = prevRunIdRef.current;
-    if (prev === "pending" && runId && runId !== "pending") {
-      migrateRunId("pending", runId);
-    }
-    prevRunIdRef.current = effectiveRunId;
-  }, [effectiveRunId, runId, migrateRunId]);
 
   useEffect(() => {
     if (!agent) return;
@@ -140,12 +124,48 @@ export function useCoagentStateRenderBridge(
     });
   }, [coAgentStateRenders, nodeName, agentId]);
 
-  // Sync bindings to state after render completes
-  useEffect(() => {
-    if (foundRender) {
-      syncBindingsToState();
+  const handleRenderRequest = ({
+    runId,
+    stateRenderId,
+    messageId,
+  }: {
+    runId: string;
+    stateRenderId: string;
+    messageId: string;
+  }): boolean => {
+    // If we know this runId, we check if the current state render action is the right one for it.
+    if (claimsRef.current[runId]) {
+      return (
+        claimsRef.current[runId].stateRenderId === stateRenderId &&
+        claimsRef.current[runId].messageId === messageId
+      );
     }
-  }, [foundRender, syncBindingsToState]);
+    if (claimsRef.current["pending"] && runId !== "pending") {
+      claimsRef.current[runId] = claimsRef.current["pending"];
+      delete claimsRef.current["pending"];
+      return handleRenderRequest({ runId, stateRenderId, messageId });
+    }
+    // If we don't know this runId
+    if (!claimsRef.current[runId]) {
+      // Does any other runId claimed this state render?
+      const claimedStateRenderId = Object.entries(claimsRef.current).find(([_, claim]) => {
+        return claim.stateRenderId === stateRenderId;
+      })?.[0];
+      // if so, this runId is not allowed to render it
+      if (claimedStateRenderId) return false;
+      // If not, we claim this state render for the current runId
+      claimsRef.current = {
+        ...claimsRef.current,
+        [runId]: {
+          stateRenderId,
+          messageId,
+        },
+      };
+      return true;
+    }
+
+    return true;
+  };
 
   return useMemo(() => {
     const [stateRenderId, stateRender] = foundRender ?? [];
@@ -153,7 +173,11 @@ export function useCoagentStateRenderBridge(
     if (!stateRender || !stateRenderId || messageIndexInRun !== 0) return null;
 
     // Synchronously check/claim - returns true if this message can render
-    const canRender = claimRenderForMessage(effectiveRunId, stateRenderId, message.id);
+    const canRender = handleRenderRequest({
+      runId: effectiveRunId,
+      stateRenderId,
+      messageId: message.id,
+    });
     if (!canRender) return null;
 
     if (stateRender.handler) {
@@ -182,7 +206,6 @@ export function useCoagentStateRenderBridge(
     nodeName,
     effectiveRunId,
     message.id,
-    claimRenderForMessage,
   ]);
 }
 
