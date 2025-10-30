@@ -13,7 +13,7 @@ export interface CoAgentStateRendersContextValue {
   coAgentStateRenders: Record<string, CoAgentStateRender<any>>;
   setCoAgentStateRender: (id: string, stateRender: CoAgentStateRender<any>) => void;
   removeCoAgentStateRender: (id: string) => void;
-  claimsRef: RefObject<Record<string, Record<string, any>>>;
+  claimsRef: RefObject<Record<string, string>>;
 }
 
 const CoAgentStateRendersContext = createContext<CoAgentStateRendersContextValue | undefined>(
@@ -40,7 +40,7 @@ export function CoAgentStateRendersProvider({ children }: { children: ReactNode 
     });
   }, []);
 
-  const claimsRef = useRef<Record<string, Record<string, string>>>({});
+  const claimsRef = useRef<Record<string, string>>({});
 
   return (
     <CoAgentStateRendersContext.Provider

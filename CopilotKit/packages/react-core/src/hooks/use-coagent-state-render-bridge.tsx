@@ -124,56 +124,23 @@ export function useCoagentStateRenderBridge(
     });
   }, [coAgentStateRenders, nodeName, agentId]);
 
+  // Message ID-based claim system - A state render can only be claimed by one message ID
   const handleRenderRequest = ({
-    runId,
     stateRenderId,
     messageId,
   }: {
-    runId: string;
     stateRenderId: string;
     messageId: string;
   }): boolean => {
-    // If we know this runId, we check if the current state render action is the right one for it.
-    if (claimsRef.current[runId]) {
-      return (
-        claimsRef.current[runId].stateRenderId === stateRenderId &&
-        claimsRef.current[runId].messageId === messageId
-      );
-    }
-    if (claimsRef.current["pending"] && runId !== "pending") {
-      claimsRef.current[runId] = claimsRef.current["pending"];
-      delete claimsRef.current["pending"];
-      return handleRenderRequest({ runId, stateRenderId, messageId });
-    }
-    // If we don't know this runId
-    if (!claimsRef.current[runId]) {
-      // Does any other runId claimed this state render?
-      const claimedStateRender = Object.values(claimsRef.current).find((claim) => {
-        return claim.stateRenderId === stateRenderId;
-      });
-      // if a claimer is found
-      if (claimedStateRender) {
-        // If for some reason, the same message id exist in the newer runId, we also create a claim for the new runId
-        if (claimedStateRender.messageId === messageId) {
-          claimsRef.current[runId] = claimedStateRender;
-          return true;
-        }
-
-        // Otherwise, we don't allow to render
-        return false;
-      }
-
-      // If not, we claim this state render for the current runId
-      claimsRef.current = {
-        ...claimsRef.current,
-        [runId]: {
-          stateRenderId,
-          messageId,
-        },
-      };
-      return true;
+    // Check if this message has already claimed this state render
+    if (claimsRef.current[messageId]) {
+      return claimsRef.current[messageId] === stateRenderId;
     }
 
+    // Do not allow render if any other message has claimed this state render
+    if (Object.values(claimsRef.current).includes(stateRenderId)) return false;
+
+    claimsRef.current[messageId] = stateRenderId;
     return true;
   };
 
@@ -184,12 +151,10 @@ export function useCoagentStateRenderBridge(
 
     // Synchronously check/claim - returns true if this message can render
     const canRender = handleRenderRequest({
-      runId: effectiveRunId,
       stateRenderId,
       messageId: message.id,
     });
     if (!canRender) return null;
-
     if (stateRender.handler) {
       stateRender.handler({
         state: stateSnapshot ? parseJson(stateSnapshot, stateSnapshot) : (agent?.state ?? {}),
@@ -201,8 +166,6 @@ export function useCoagentStateRenderBridge(
       const status = agent?.isRunning ? "inProgress" : "complete";
 
       if (typeof stateRender.render === "string") return stateRender.render;
-
-      // console.log('rendering2')
       return stateRender.render({
         status,
         state: stateSnapshot ? parseJson(stateSnapshot, stateSnapshot) : (agent?.state ?? {}),
