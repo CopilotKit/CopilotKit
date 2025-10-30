@@ -29,63 +29,81 @@ function areStatesEquals(a: any, b: any) {
  * ## Purpose
  * This hook finds matching state render configurations (registered via useCoAgentStateRender)
  * and returns UI to render in chat.
- * It ensures each state render appears exactly once per run, bound to a specific message.
+ * It ensures each state render appears bound to a specific message, preventing duplicates while
+ * allowing re-binding when the underlying state changes significantly.
  *
- * ## Message-Binding System
+ * ## Message-ID-Based Claiming System
  *
  * ### The Problem
  * Multiple bridge component instances render simultaneously (one per message). Without coordination,
  * they would all try to render the same state render, causing duplicates.
  *
- * ### The Solution: Message Claiming
- * Each state render is "claimed" by exactly one message ID per run:
+ * ### The Solution: Message-ID Claims with State Comparison
+ * Each state render is "claimed" by exactly one **message ID** (not runId):
  *
- * 1. **First render**: Bridge checks if state render is already claimed for this run
- * 2. **If unclaimed**: Claims it synchronously (via ref) for this message ID
- * 3. **If claimed**: Only renders if the message ID matches the claim
- * 4. **Result**: Only one bridge instance (the claiming message) renders each state render
+ * **Claim Structure**: `claimsRef.current[messageId] = { stateRenderId, runId, stateSnapshot, locked }`
  *
- * ### Pending RunId Migration
+ * **Primary binding is by messageId because**:
+ * - runId is not always available immediately (starts as "pending")
+ * - messageId is the stable identifier throughout the message lifecycle
+ * - Claims persist across component remounts via context ref
  *
- * **Challenge**: `runId` is initially undefined when messages first render, then appears later.
+ * ### Claiming Logic Flow
  *
- * **Solution**: Use "pending" as a temporary runId:
+ * 1. **Message already has a claim**:
+ *    - Check if the claim matches the current stateRenderId
+ *    - If yes → render (this message owns this render)
+ *    - Update runId if it was "pending" and now available
  *
- * 1. **No runId yet**: Use `"pending"` as the effectiveRunId
- * 2. **Claim under "pending"**: First message claims the state render under runId="pending"
- * 3. **RunId appears**: When real runId arrives, migrate all "pending" claims to the real runId
- * 4. **Migration**: `migrateRunId("pending", actualRunId)` atomically transfers all claims
- * 5. **After migration**: All subsequent messages see the real runId with existing claims
+ * 2. **State render claimed by another message**:
+ *    - Compare state snapshots (ignoring constant keys: messages, tools, copilotkit)
+ *    - If states are identical → block rendering (duplicate)
+ *    - **If states are different → allow claiming** (new data, new message)
+ *    - This handles cases where the same render type shows different states in different messages
+ *
+ * 3. **Unclaimed state render**:
+ *    - Only allow claiming if runId is "pending" (initial render)
+ *    - If runId is real but no claim exists → block (edge case protection)
+ *    - Create new claim: `claimsRef.current[messageId] = { stateRenderId, runId }`
+ *
+ * ### State Snapshot Locking
+ *
+ * Once a state snapshot is captured and locked for a message:
+ * - The UI always renders with the locked snapshot (not live agent.state)
+ * - Prevents UI from appearing "wiped" during state transitions
+ * - Locked when: stateSnapshot prop is available (from message persistence)
+ * - Unlocked state: can still update from live agent.state
  *
  * ### Synchronous Claiming (Ref-based)
  *
- * Claims are stored in a ref (not React state) for synchronous checking:
+ * Claims are stored in a context-level ref (not React state):
  * - Multiple bridges render in the same tick
  * - State updates are async - would allow duplicates before update completes
  * - Ref provides immediate, synchronous claim checking
- * - State is synced after render for debugging visibility only
+ * - Survives component remounts (stored in context, not component)
  *
  * ## Flow Example
  *
  * ```
- * Time 1: Message A renders, runId=undefined
+ * Time 1: Message A renders, runId=undefined, state={progress: 50%}
  *   → effectiveRunId = "pending"
- *   → Claims state render under "pending" for message A
- *   → Renders UI
+ *   → Claims: claimsRef["msgA"] = { stateRenderId: "tasks", runId: "pending", stateSnapshot: {progress: 50%} }
+ *   → Renders UI with 50% progress
  *
- * Time 2: Message B renders, runId=undefined
- *   → effectiveRunId = "pending"
- *   → Checks claim: Already claimed by message A
- *   → Returns null (doesn't render)
+ * Time 2: Message B renders, runId=undefined, same state
+ *   → Checks: "tasks" already claimed by msgA with same state
+ *   → Returns null (blocked - duplicate)
  *
  * Time 3: Real runId appears (e.g., "run-123")
- *   → Migration effect triggers
- *   → Migrates "pending" → "run-123"
- *   → Message A continues rendering under "run-123"
+ *   → Updates claim: claimsRef["msgA"].runId = "run-123"
+ *   → Message A continues rendering
  *
- * Time 4: New run starts with runId="run-456"
- *   → No claims exist for "run-456"
- *   → First message claims and renders
+ * Time 4: Agent processes more, state={progress: 100%}
+ *   → Message A: locked to 50% (stateSnapshot locked)
+ *   → Message C renders with state={progress: 100%}
+ *   → Checks: "tasks" claimed by msgA but state is DIFFERENT (50% vs 100%)
+ *   → Allows new claim: claimsRef["msgC"] = { stateRenderId: "tasks", runId: "run-123", stateSnapshot: {progress: 100%} }
+ *   → Both messages render independently with their own snapshots
  * ```
  */
 export function useCoagentStateRenderBridge(
