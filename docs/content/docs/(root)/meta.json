@@ -22,6 +22,7 @@
     "ag-ui-protocol",
     "connect-mcp-servers",
     "a2a-protocol",
+    "generative-ui-specs",
     "---Learning---",
     "...../direct-to-llm/tutorials",
     "...../langgraph/tutorials",
