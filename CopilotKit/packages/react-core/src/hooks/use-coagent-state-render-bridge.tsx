@@ -134,20 +134,21 @@ export function useCoagentStateRenderBridge(
   }): boolean => {
     // Check if this message has already claimed this state render
     if (claimsRef.current[messageId]) {
-      return claimsRef.current[messageId] === stateRenderId;
+      return claimsRef.current[messageId].stateRenderId === stateRenderId;
     }
 
     // Do not allow render if any other message has claimed this state render
-    if (Object.values(claimsRef.current).includes(stateRenderId)) return false;
+    if (Object.values(claimsRef.current).some((c) => c.stateRenderId === stateRenderId))
+      return false;
 
-    claimsRef.current[messageId] = stateRenderId;
+    claimsRef.current[messageId] = { stateRenderId };
     return true;
   };
 
   return useMemo(() => {
     const [stateRenderId, stateRender] = foundRender ?? [];
 
-    if (!stateRender || !stateRenderId || messageIndexInRun !== 0) return null;
+    if (!stateRender || !stateRenderId) return null;
 
     // Synchronously check/claim - returns true if this message can render
     const canRender = handleRenderRequest({
@@ -163,12 +164,23 @@ export function useCoagentStateRenderBridge(
     }
 
     if (stateRender.render) {
+      // Is there any state we can use?
+      const snapshot = stateSnapshot ? parseJson(stateSnapshot, stateSnapshot) : agent?.state;
+      // If we have, let's save it in the claim
+      if (
+        snapshot &&
+        JSON.stringify(claimsRef.current[message.id].stateSnapshot) !== JSON.stringify(snapshot)
+      ) {
+        claimsRef.current[message.id].stateSnapshot = snapshot;
+      }
       const status = agent?.isRunning ? "inProgress" : "complete";
 
       if (typeof stateRender.render === "string") return stateRender.render;
+
       return stateRender.render({
         status,
-        state: stateSnapshot ? parseJson(stateSnapshot, stateSnapshot) : (agent?.state ?? {}),
+        // Always use state from claim, to make sure the state does not seem "wiped" for a fraction of a second
+        state: claimsRef.current[message.id].stateSnapshot,
         nodeName: nodeName ?? "",
       });
     }

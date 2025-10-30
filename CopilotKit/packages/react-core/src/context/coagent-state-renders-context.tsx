@@ -9,11 +9,18 @@ import React, {
 } from "react";
 import { CoAgentStateRender } from "../types/coagent-action";
 
+interface StateRenderClaim {
+  stateRenderId: string;
+  stateSnapshot?: any;
+}
+
+type ClaimsRef = Record<string, StateRenderClaim>;
+
 export interface CoAgentStateRendersContextValue {
   coAgentStateRenders: Record<string, CoAgentStateRender<any>>;
   setCoAgentStateRender: (id: string, stateRender: CoAgentStateRender<any>) => void;
   removeCoAgentStateRender: (id: string) => void;
-  claimsRef: RefObject<Record<string, string>>;
+  claimsRef: RefObject<ClaimsRef>;
 }
 
 const CoAgentStateRendersContext = createContext<CoAgentStateRendersContextValue | undefined>(
@@ -40,7 +47,7 @@ export function CoAgentStateRendersProvider({ children }: { children: ReactNode 
     });
   }, []);
 
-  const claimsRef = useRef<Record<string, string>>({});
+  const claimsRef = useRef<ClaimsRef>({});
 
   return (
     <CoAgentStateRendersContext.Provider
