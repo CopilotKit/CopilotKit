@@ -65,9 +65,10 @@ type MessageConstructorOptions = Partial<Message>;
 type TextMessageConstructorOptions = MessageConstructorOptions & TextMessageInput;
 
 export class TextMessage extends Message implements TextMessageConstructorOptions {
-  role: TextMessageInput["role"];
   content: TextMessageInput["content"];
   parentMessageId: TextMessageInput["parentMessageId"];
+  role: TextMessageInput["role"];
+  type = "TextMessage" as const;
 
   constructor(props: TextMessageConstructorOptions) {
     super(props);

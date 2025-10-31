@@ -46,6 +46,7 @@ import { CopilotContext } from "../context/copilot-context";
 import { randomId, CopilotKitAgentDiscoveryError } from "@copilotkit/shared";
 import { CoAgentStateRender } from "../types/coagent-action";
 import { useToast } from "../components/toast/toast-provider";
+import { useCoAgentStateRenders } from "../context/coagent-state-renders-context";
 
 /**
  * This hook is used to render agent state with custom UI components or text. This is particularly
@@ -62,13 +63,9 @@ export function useCoAgentStateRender<T = any>(
   action: CoAgentStateRender<T>,
   dependencies?: any[],
 ): void {
-  const {
-    setCoAgentStateRender,
-    removeCoAgentStateRender,
-    coAgentStateRenders,
-    chatComponentsCache,
-    availableAgents,
-  } = useContext(CopilotContext);
+  const { chatComponentsCache, availableAgents } = useContext(CopilotContext);
+  const { setCoAgentStateRender, removeCoAgentStateRender, coAgentStateRenders } =
+    useCoAgentStateRenders();
   const idRef = useRef<string>(randomId());
   const { setBannerError, addToast } = useToast();
 

@@ -44,12 +44,17 @@ export interface BedrockAdapterParams {
   };
 }
 
+const DEFAULT_MODEL = "amazon.nova-lite-v1:0";
+
 export class BedrockAdapter extends LangChainAdapter {
+  public provider = "bedrock";
+  public model: string = DEFAULT_MODEL;
   constructor(options?: BedrockAdapterParams) {
     super({
       chainFn: async ({ messages, tools, threadId }) => {
+        this.model = options?.model ?? "amazon.nova-lite-v1:0";
         const model = new ChatBedrockConverse({
-          model: options?.model ?? "amazon.nova-lite-v1:0",
+          model: this.model,
           region: options?.region ?? "us-east-1",
           credentials: options?.credentials
             ? {

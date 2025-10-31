@@ -32,7 +32,10 @@ export interface CopilotRuntimeChatCompletionResponse {
 }
 
 export interface CopilotServiceAdapter {
+  provider?: string;
+  model?: string;
   process(
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse>;
+  name?: string;
 }

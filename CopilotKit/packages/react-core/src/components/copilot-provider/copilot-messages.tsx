@@ -29,7 +29,7 @@ import {
   CopilotKitError,
   CopilotKitErrorCode,
 } from "@copilotkit/shared";
-import { SuggestionItem } from "../../utils/suggestions";
+import { Suggestion } from "@copilotkitnext/core";
 
 // Helper to determine if error should show as banner based on visibility and legacy patterns
 function shouldShowAsBanner(gqlError: GraphQLError): boolean {
@@ -118,14 +118,13 @@ export function MessagesTapProvider({ children }: { children: React.ReactNode })
 
 export function CopilotMessages({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<Message[]>([]);
-  const lastLoadedThreadId = useRef<string>();
-  const lastLoadedAgentName = useRef<string>();
-  const lastLoadedMessages = useRef<string>();
+  const lastLoadedThreadId = useRef<string>(undefined!);
+  const lastLoadedAgentName = useRef<string>(undefined!);
+  const lastLoadedMessages = useRef<string>(undefined!);
 
   const { updateTapMessages } = useMessagesTap();
 
-  const { threadId, agentSession, runtimeClient, showDevConsole, onError, copilotApiConfig } =
-    useCopilotContext();
+  const { threadId, agentSession, showDevConsole, onError, copilotApiConfig } = useCopilotContext();
   const { setBannerError } = useToast();
 
   // Helper function to trace UI errors (similar to useCopilotRuntimeClient)
@@ -253,53 +252,53 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
     [setBannerError, showDevConsole, traceUIError],
   );
 
-  useEffect(() => {
-    if (!threadId || threadId === lastLoadedThreadId.current) return;
-    if (
-      threadId === lastLoadedThreadId.current &&
-      agentSession?.agentName === lastLoadedAgentName.current
-    ) {
-      return;
-    }
-
-    const fetchMessages = async () => {
-      if (!agentSession?.agentName) return;
-
-      const result = await runtimeClient.loadAgentState({
-        threadId,
-        agentName: agentSession?.agentName,
-      });
-
-      // Check for GraphQL errors and manually trigger error handling
-      if (result.error) {
-        // Update refs to prevent infinite retries of the same failed request
-        lastLoadedThreadId.current = threadId;
-        lastLoadedAgentName.current = agentSession?.agentName;
-        handleGraphQLErrors(result.error);
-        return; // Don't try to process the data if there's an error
-      }
-
-      const newMessages = result.data?.loadAgentState?.messages;
-      if (newMessages === lastLoadedMessages.current) return;
-
-      if (result.data?.loadAgentState) {
-        lastLoadedMessages.current = newMessages;
-        lastLoadedThreadId.current = threadId;
-        lastLoadedAgentName.current = agentSession?.agentName;
-
-        const messages = loadMessagesFromJsonRepresentation(JSON.parse(newMessages || "[]"));
-        setMessages(messages);
-      }
-    };
-    void fetchMessages();
-  }, [threadId, agentSession?.agentName]);
+  // useEffect(() => {
+  //   if (!threadId || threadId === lastLoadedThreadId.current) return;
+  //   if (
+  //     threadId === lastLoadedThreadId.current &&
+  //     agentSession?.agentName === lastLoadedAgentName.current
+  //   ) {
+  //     return;
+  //   }
+  //
+  //   const fetchMessages = async () => {
+  //     if (!agentSession?.agentName) return;
+  //
+  //     const result = await runtimeClient.loadAgentState({
+  //       threadId,
+  //       agentName: agentSession?.agentName,
+  //     });
+  //
+  //     // Check for GraphQL errors and manually trigger error handling
+  //     if (result.error) {
+  //       // Update refs to prevent infinite retries of the same failed request
+  //       lastLoadedThreadId.current = threadId;
+  //       lastLoadedAgentName.current = agentSession?.agentName;
+  //       handleGraphQLErrors(result.error);
+  //       return; // Don't try to process the data if there's an error
+  //     }
+  //
+  //     const newMessages = result.data?.loadAgentState?.messages;
+  //     if (newMessages === lastLoadedMessages.current) return;
+  //
+  //     if (result.data?.loadAgentState) {
+  //       lastLoadedMessages.current = newMessages;
+  //       lastLoadedThreadId.current = threadId;
+  //       lastLoadedAgentName.current = agentSession?.agentName;
+  //
+  //       const messages = loadMessagesFromJsonRepresentation(JSON.parse(newMessages || "[]"));
+  //       setMessages(messages);
+  //     }
+  //   };
+  //   void fetchMessages();
+  // }, [threadId, agentSession?.agentName]);
 
   useEffect(() => {
     updateTapMessages(messages);
   }, [messages, updateTapMessages]);
 
   const memoizedChildren = useMemo(() => children, [children]);
-  const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
 
   return (
     <CopilotMessagesContext.Provider

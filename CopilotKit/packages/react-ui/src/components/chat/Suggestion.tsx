@@ -1,4 +1,4 @@
-import { useCopilotChatInternal as useCopilotChat } from "@copilotkit/react-core";
+import { useCopilotChatInternal } from "@copilotkit/react-core";
 import { SmallSpinnerIcon } from "./Icons";
 
 interface SuggestionsProps {
@@ -11,7 +11,7 @@ interface SuggestionsProps {
 
 export function Suggestion({ title, onClick, partial, className }: SuggestionsProps) {
   if (!title) return null;
-  const { isLoading } = useCopilotChat();
+  const { isLoading } = useCopilotChatInternal();
 
   return (
     <button
