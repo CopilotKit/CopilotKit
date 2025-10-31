@@ -25,7 +25,7 @@ import { UserIcon, PaintbrushIcon, WrenchIcon, RepeatIcon, ServerIcon, SquareTer
 
 Before you begin, you'll need the following:
 
-- **.NET 9.0 SDK**
+- [**.NET 9.0 SDK**]](https://dotnet.microsoft.com/en-us/download/dotnet/9.0)
 - **Azure OpenAI endpoint and deployment** (or compatible chat client)
 - **Node.js 20+** for the frontend and CopilotKit CLI
 
@@ -64,11 +64,8 @@ Before you begin, you'll need the following:
                 </Accordions>
 
                 ```bash
-                npx copilotkit@latest init -m "Microsoft Agent Framework" # placeholder
+                npx copilotkit@latest init -m microsoft-agent-framework
                 ```
-                <Callout type="info">
-                  The CLI path for Microsoft Agent Framework is a placeholder and under active development. Use the "Code along" flow below for now.
-                </Callout>
             </Step>
             <Step>
                 ### 🎉 Talk to your agent!
@@ -112,56 +109,87 @@ Before you begin, you'll need the following:
                 ```
             </Step>
             
-            <Step>
-                ### Create and run a .NET AG-UI server
+            <TailoredContent
+                className="step"
+                id="agent"
+                header={
+                    <div>
+                        <p className="text-xl font-semibold">Do you already have a Microsoft Agent Framework agent?</p>
+                        <p className="text-base">
+                            You can either start from scratch or connect to an existing agent endpoint.
+                        </p>
+                    </div>
+                }
+            >
+                <TailoredContentOption
+                    id="create"
+                    title="Start from scratch"
+                    description="I don't have an agent yet, but want to get started quickly."
+                >
+                    <Step>
+                        #### Create a Next.js app (optional)
+                        ```bash
+                        npx create-next-app@latest
+                        ```
+                    </Step>
+                    <Step>
+                        #### Install dependencies
+                        ```package-install
+                        npm install @copilotkit/react-ui @copilotkit/react-core
+                        ```
+                    </Step>
+                    <Step>
+                        #### Create and run the .NET agent (port 8000)
+                        ```bash
+                        dotnet new web -n Agent
+                        cd Agent
+                        dotnet add package Microsoft.Agents.AI.AGUI
+                        dotnet add package Microsoft.Agents.AI.Hosting.AGUI.AspNetCore
+                        dotnet add package Microsoft.Extensions.AI.OpenAI
+                        dotnet add package OpenAI
+                        ```
 
-                #### Create the project and add packages
-                ```bash
-                dotnet new web -n AGUIServer
-                cd AGUIServer
-                dotnet add package Microsoft.Agents.AI.Hosting.AGUI.AspNetCore
-                dotnet add package Microsoft.Agents.AI.OpenAI
-                dotnet add package Azure.AI.OpenAI
-                dotnet add package Azure.Identity
-                ```
+                        ```csharp title="Program.cs (excerpt)"
+                        using Microsoft.Agents.AI;
+                        using Microsoft.Agents.AI.AGUI;
+                        using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+                        using Microsoft.Extensions.AI;
+                        using OpenAI;
 
-                #### Minimal server setup
-                ```csharp title="Program.cs"
-                using Azure.AI.OpenAI;
-                using Azure.Identity;
-                using Microsoft.Agents.AI;
-                using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+                        var builder = WebApplication.CreateBuilder(args);
+                        var app = builder.Build();
 
-                var builder = WebApplication.CreateBuilder(args);
-                builder.Services.AddHttpClient().AddLogging();
-                var app = builder.Build();
+                        app.MapAGUIAgent("/", (input, ctx) => {
+                          var githubToken = builder.Configuration["GitHubToken"]!; // dotnet user-secrets set GitHubToken "<token>"
+                          var openAI = new OpenAIClient(new System.ClientModel.ApiKeyCredential(githubToken), new OpenAIClientOptions { Endpoint = new Uri("https://models.inference.ai.azure.com")});
+                          var chat = openAI.GetChatClient("gpt-4o-mini").AsIChatClient();
+                          var agent = new ChatClientAgent(chat, name: "ProverbsAgent", description: "A helpful assistant.");
+                          return new ChatClientAGUIAgent(agent);
+                        });
 
-                string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
-                string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
+                        app.Run("http://localhost:8000");
+                        ```
 
-                app.MapAGUIAgent("/", (messages, tools, context, forwardedProps) =>
-                {
-                    return new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
-                        .GetChatClient(deployment)
-                        .CreateAIAgent(name: "AGUIAssistant");
-                });
-
-                await app.RunAsync();
-                ```
-
-                #### Configure and run
-                ```bash
-                # macOS/Linux
-                export AZURE_OPENAI_ENDPOINT="https://your-resource.openai.azure.com/"
-                export AZURE_OPENAI_DEPLOYMENT_NAME="gpt-4o-mini"
-
-                # Windows (PowerShell)
-                $env:AZURE_OPENAI_ENDPOINT="https://your-resource.openai.azure.com/"
-                $env:AZURE_OPENAI_DEPLOYMENT_NAME="gpt-4o-mini"
-
-                dotnet run --urls "http://localhost:5100"
-                ```
-            </Step>
+                        ```bash
+                        # Set GitHub token as user secret and run
+                        dotnet user-secrets set GitHubToken "$(gh auth token)"
+                        dotnet run
+                        ```
+                    </Step>
+                </TailoredContentOption>
+                <TailoredContentOption
+                    id="existing-agent"
+                    title="Use an existing agent"
+                    description="I already have a Microsoft Agent Framework agent and want to use it with CopilotKit."
+                >
+                    <Step>
+                        #### Install dependencies
+                        ```package-install
+                        npm install @copilotkit/react-ui @copilotkit/react-core
+                        ```
+                    </Step>
+                </TailoredContentOption>
+            </TailoredContent>
 
             <TailoredContent
                 className="step"
@@ -190,9 +218,9 @@ Before you begin, you'll need the following:
                         ```bash
                         npx copilotkit@latest login
                         ```
-                        Start a tunnel to your local AG-UI server (port 5100):
+                        Start a tunnel to your local AG-UI server (port 8000):
                         ```bash
-                        npx copilotkit@latest dev --port 5100
+                        npx copilotkit@latest dev --port 8000
                         ```
 
                         #### Configure the remote endpoint in Copilot Cloud
@@ -201,7 +229,7 @@ Before you begin, you'll need the following:
 
                         <Accordions className="mb-4">
                             <Accordion title="Having trouble?">
-                                - Ensure your AG-UI server is reachable on the specified port (default 5100)
+                                - Ensure your AG-UI server is reachable on the specified port (default 8000)
                                 - On Windows, verify these entries exist in your hosts file:
                                 ```bash
                                 127.0.0.1 localhost
@@ -297,7 +325,7 @@ Before you begin, you'll need the following:
 
                 <Accordions className="mb-4">
                     <Accordion title="Having trouble?">
-                        - Ensure your AG-UI server is running and reachable (default: http://localhost:5100)
+                        - Ensure your AG-UI server is running and reachable (default: http://localhost:8000)
                         - If using Copilot Cloud tunnel, confirm the tunnel URL matches the remote endpoint configuration
                         - Verify any required Authorization headers are being forwarded from `<CopilotKit>` properties
                         - Try `0.0.0.0` or `127.0.0.1` instead of `localhost` if you see connection issues
