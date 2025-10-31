@@ -30,65 +30,27 @@ state update you can reflect these updates natively in your application.
     ### Run and Connect Your Agent to CopilotKit
 
     You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
-    you can follow the instructions in the [Getting Started](/getting-started) guide.
+    you can follow the instructions in the [Quickstart](/microsoft-agent-framework/quickstart) guide.
 
-    If you don't already have an agent, you can use the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter) as a starting point
+    If you don't already have an agent, you can use the Microsoft Agent Framework starter as a starting point,
     as this guide uses it as a starting point.
   </Step>
   <Step>
     ### Define the Agent State
-    LangGraph is stateful. As you transition between nodes, that state is updated and passed to the next node. For this example,
-    let's assume that our agent state looks something like this.
+    Decide which parts of agent state you want to reflect in the UI.
 
-    <Tabs groupId="language" items={["Python", "TypeScript"]}>
-      <Tab value="Python">
-        ```python title="agent-py/sample_agent/agent.py"
-        from copilotkit import CopilotKitState
-        from typing import Literal
+    ```csharp title="agent/Program.cs (excerpt)"
+    public class AgentStateSnapshot
+    {
+        public string Language { get; set; } = "spanish";
+    }
+    ```
 
-        class AgentState(CopilotKitState):
-            language: Literal["english", "spanish"] = "spanish"
-
-        def chat_node(state: AgentState, config: RunnableConfig):
-          # If language is not defined, set a value.
-          # this is because a default value in a state class is not read on runtime
-          language = state.get("language", "spanish")
-
-          # ... add the rest of the node implementation and use the language variable
-
-          return {
-            # ... add the rest of state to return
-            # return the language to make it available for the next nodes & frontend to read
-            "language": language
-          }
-        ```
-      </Tab>
-      <Tab value="TypeScript">
-        ```ts title="agent-js/src/agent.ts"
-        import { Annotation } from "@langchain/langgraph";
-        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
-
-        export const AgentStateAnnotation = Annotation.Root({
-            language: Annotation<"english" | "spanish">,
-            ...CopilotKitStateAnnotation.spec,
-        });
-        export type AgentState = typeof AgentStateAnnotation.State;
-
-        async function chat_node(state: AgentState, config: RunnableConfig) {
-          // If language is not defined, use a default value.
-          const language = state.language ?? 'spanish'
-
-          // ... add the rest of the node implementation and use the language variable
-
-          return {
-            // ... add the rest of state to return
-            // return the language to make it available for the next nodes & frontend to read
-            language
-          }
-        }
-        ```
-      </Tab>
-    </Tabs>
+    ```ts title="ui/app/page.tsx"
+    type AgentState = {
+      language: "english" | "spanish";
+    }
+    ```
   </Step>
   <Step>
     ### Use the `useCoAgent` Hook

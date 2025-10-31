@@ -25,40 +25,28 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     ### Run and Connect Your Agent to CopilotKit
 
     You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
-    you can follow the instructions in the [Getting Started](/getting-started) guide.
+    you can follow the instructions in the [Quickstart](/microsoft-agent-framework/quickstart) guide.
 
-    If you don't already have an agent, you can use the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter) as a starting point
+    If you don't already have an agent, you can use the Microsoft Agent Framework starter as a starting point,
     as this guide uses it as a starting point.
 
   </Step>
   <Step>
     ### Define the Agent State
-    LangGraph is stateful. As you transition between nodes, that state is updated and passed to the next node. For this example,
-    let's assume that our agent state looks something like this.
+    Decide which parts of agent state you want to reflect in the UI and allow updating from the UI.
 
-    <Tabs groupId="language" items={["Python", "TypeScript"]}>
-      <Tab value="Python">
-        ```python title="agent-py/sample_agent/agent.py"
-        from copilotkit import CopilotKitState
-        from typing import Literal
+    ```csharp title="agent/Program.cs (excerpt)"
+    public class AgentStateSnapshot
+    {
+        public string Language { get; set; } = "english";
+    }
+    ```
 
-        class AgentState(CopilotKitState):
-            language: Literal["english", "spanish"] = "english"
-        ```
-      </Tab>
-      <Tab value="TypeScript">
-        ```ts title="agent-js/src/agent.ts"
-        import { Annotation } from "@langchain/langgraph";
-        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
-
-        export const AgentStateAnnotation = Annotation.Root({
-            language: Annotation<"english" | "spanish">,
-            ...CopilotKitStateAnnotation.spec,
-        });
-        export type AgentState = typeof AgentStateAnnotation.State;
-        ```
-      </Tab>
-    </Tabs>
+    ```ts title="ui/app/page.tsx"
+    type AgentState = {
+      language: "english" | "spanish";
+    }
+    ```
   </Step>
   <Step>
     ### Call `setState` function from the `useCoAgent` hook
@@ -150,10 +138,5 @@ function YourMainContent() {
 }
 ```
 
-### Intermediately Stream and Render Agent State
-By default, the LangGraph agent state will only update *between* LangGraph node transitions --
-which means state updates will be discontinuous and delayed.
-
-You likely want to render the agent state as it updates **continuously.**
-
-See **[predictive state updates](/coagents/shared-state/predictive-state-updates).**
+### Notes on state updates
+Depending on your agent implementation, you may choose to surface progress via tool responses or messages rather than frequent state snapshots. See [Generative UI](/microsoft-agent-framework/generative-ui) for recommended patterns.

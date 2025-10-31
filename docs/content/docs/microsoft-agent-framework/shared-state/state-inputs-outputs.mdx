@@ -1,7 +1,7 @@
 ---
 title: Agent state inputs and outputs
 icon: "lucide/ArrowRightLeft"
-description: Decide which state properties are received and returned to the frontend
+description: Decide which state properties are sent to and received from the frontend
 ---
 
 ## What is this?
@@ -9,7 +9,7 @@ description: Decide which state properties are received and returned to the fron
 Not all state properties are relevant for frontend-backend sharing.
 This guide shows how to ensure only the right portion of state is communicated back and forth.
 
-This guide is based on [LangGraph's Input/Output Schema feature](https://langchain-ai.github.io/langgraph/how-tos/input_output_schema/)
+This guide helps you design a UI-facing state contract for your agent when using CopilotKit with Microsoft Agent Framework.
 
 ## When should I use this?
 
@@ -21,173 +21,90 @@ In addition, some state properties contain a lot of information. Syncing them ba
 <Steps>
   <Step>
       ### Examine our old state
-      LangGraph is stateful. As you transition between nodes, that state is updated and passed to the next node. For this example,
-      let's assume that the state our agent should be using, can be described like this:
-      <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
-        <Tab value="Python">
-        ```python title="agent-py/sample_agent/agent.py"
-        from copilotkit import CopilotKitState
-        from typing import Literal
+      For this example, let's assume our agent maintains a few state properties. We'll keep the UI-facing contract minimal while allowing internal data on the server:
 
-        class AgentState(CopilotKitState):
-            question: str
-            answer: str
-            resources: List[str]
-        ```
-        </Tab>
-        <Tab value="TypeScript">
-        ```typescript title="agent-js/sample_agent/agent.ts"
-        import { Annotation } from "@langchain/langgraph";
-        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+      ```csharp title="agent/Program.cs (excerpt)"
+      // Full server-side snapshot (internal + UI-facing)
+      public class OverallStateSnapshot
+      {
+          public string? Question { get; set; }
+          public string? Answer { get; set; }
+          public List<string> Resources { get; set; } = new(); // internal only
+      }
+      ```
 
-        const AgentState = Annotation.Root({
-          ...CopilotKitStateAnnotation.spec,
-          question: Annotation<string>,
-          answer: Annotation<string>,
-          resources: Annotation<string[]>,
-        })
-        ```
-        </Tab>
-    </Tabs>
+      On the UI, we only need to read the question we set and the answer returned by the agent:
+      ```typescript title="ui/app/page.tsx"
+      type AgentState = {
+        question?: string;
+        answer?: string;
+      }
+      ```
   </Step>
   <Step>
     ### Divide state to Input and Output
-    Our example case lists several state properties, which with its own purpose:
+    Our example case lists several state properties, each with its own purpose:
       - The question is being asked by the user, expecting the llm to answer
       - The answer is what the LLM returns
       - The resources list will be used by the LLM to answer the question, and should not be communicated to the user, or set by them.
 
-      <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
-          <Tab value="Python">
-          ```python title="agent-py/sample_agent/agent.py"
-          from copilotkit import CopilotKitState
-          from typing import Literal
+      On the server, keep input/output vs internal data clear in your own snapshot types:
 
-          # Divide the state to 3 parts
+      ```csharp title="agent/Program.cs (excerpt)"
+      // Inputs you are willing to accept from the frontend
+      public class InputStateSnapshot
+      {
+          public string? Question { get; set; }
+      }
 
-          # Input schema for inputs you are willing to accept from the frontend
-          class InputState(CopilotKitState):
-            question: str
+      // Outputs you are willing to pass back to the frontend
+      public class OutputStateSnapshot
+      {
+          public string? Answer { get; set; }
+      }
 
-          # Output schema for output you are willing to pass to the frontend
-          class OutputState(CopilotKitState):
-            answer: str
+      // Overall state held on the server (UI-facing + internal)
+      public class OverallStateSnapshot : OutputStateSnapshot
+      {
+          public List<string> Resources { get; set; } = new(); // internal only
+      }
 
-          # The full schema, including the inputs, outputs and internal state ("resources" in our case)
-          class OverallState(InputState, OutputState):
-            resources: List[str]
+      // Example AG-UI mapping (simplified)
+      app.MapAGUIAgent("/", (input, http) =>
+      {
+          // input.Properties can include UI-provided values (e.g., question)
+          var question = input.Properties?.GetValueOrDefault("question")?.ToString();
 
-          async def answer_node(state: OverallState, config: RunnableConfig):
-            """
-            Standard chat node, meant to answer general questions.
-            """
+          var state = new OverallStateSnapshot
+          {
+              Answer = !string.IsNullOrWhiteSpace(question) ? $"Answer to: {question}" : null,
+              Resources = new List<string> { "docA", "docB" } // internal
+          };
 
-            model = ChatOpenAI()
+          // Create and return your agent; ensure it surfaces only the output fields as needed
+          var githubToken = http.RequestServices.GetRequiredService<IConfiguration>["GitHubToken"]!;
+          var openAI = new OpenAI.OpenAIClient(
+              new System.ClientModel.ApiKeyCredential(githubToken),
+              new OpenAI.OpenAIClientOptions { Endpoint = new Uri("https://models.inference.ai.azure.com")});
+          var chat = openAI.GetChatClient("gpt-4o-mini").AsIChatClient();
+          var agent = new Microsoft.Agents.AI.ChatClientAgent(chat, name: "SampleAgent", description: "A helpful assistant.");
+          return new Microsoft.Agents.AI.AGUI.ChatClientAGUIAgent(agent);
+      });
+      ```
 
-            # add the input question in the system prompt so it's passed to the LLM
-            system_message = SystemMessage(
-              content=f"You are a helpful assistant. Answer the question: {state.get('question')}"
-            )
+      On the UI, read only the agreed contract:
 
-            response = await model.ainvoke([
-              system_message,
-              *state["messages"],
-            ], config)
+      ```tsx
+      import { useCoAgent } from "@copilotkit/react-core";
 
-            # ...add the rest of the agent implementation
+      const { state } = useCoAgent<AgentState>({
+        name: "sample_agent",
+        initialState: { question: "How's the weather in SF?" },
+      });
 
-            # extract the answer, which will be assigned to the state soon
-            answer = response.content
-
-            return {
-               "messages": response,
-                # include the answer in the returned state
-               "answer": answer
-            }
-
-
-          # finally, before compiling the graph, we define the 3 state components
-          builder = StateGraph(OverallState, input=InputState, output=OutputState)
-
-          # add all the different nodes and edges and compile the graph
-          builder.add_node("answer_node", answer_node)
-          builder.add_edge(START, "answer_node")
-          builder.add_edge("answer_node", END)
-          graph = builder.compile()
-          ```
-          </Tab>
-          <Tab value="TypeScript">
-            <Callout type="warn">
-              While we work on adding Zod schema support for LangGraph TypeScript, a workaround is required to ignore a typescript error when defining "full state".
-
-              You can see this at the very end of the TypeScript implementation snippet.
-            </Callout>
-            ```typescript title="agent-js/sample_agent/agent.ts"
-              import { Annotation } from "@langchain/langgraph";
-              import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
-
-              // Divide the state to 3 parts
-
-              // An input schema for inputs you are willing to accept from the frontend
-              const InputAnnotation = Annotation.Root({
-                ...CopilotKitStateAnnotation.spec,
-                question: Annotation<string>,
-              });
-
-              // Output schema for output you are willing to pass to the frontend
-              const OutputAnnotation = Annotation.Root({
-                ...CopilotKitStateAnnotation.spec,
-                answer: Annotation<string>,
-              });
-
-              // The full schema, including the inputs, outputs and internal state ("resources" in our case)
-              export const AgentStateAnnotation = Annotation.Root({
-                ...CopilotKitStateAnnotation.spec,
-                ...OutputAnnotation.spec,
-                ...InputAnnotation.spec,
-                resources: Annotation<string[]>,
-              });
-
-              // Define a typed state that supports the entire
-              export type AgentState = typeof AgentStateAnnotation.State;
-
-              async function answerNode(state: AgentState, config: RunnableConfig) {
-                const model = new ChatOpenAI()
-
-                const systemMessage = new SystemMessage({
-                  content: `You are a helpful assistant. Answer the question: ${state.question}.`,
-                });
-
-                const response = await modelWithTools.invoke(
-                  [systemMessage, ...state.messages],
-                  config
-                );
-
-                // ...add the rest of the agent implementation
-                // extract the answer, which will be assigned to the state soon
-                const answer = response.content
-
-                return {
-                  messages: response,
-                  // include the answer in the returned state
-                  answer,
-                }
-              }
-
-              // finally, before compiling the graph, we define the 3 state components
-              const workflow = new StateGraph({
-                input: InputAnnotation,
-                output: OutputAnnotation,
-                // @ts-expect-error -- LangGraph does not expect a "full schema with internal properties".
-                stateSchema: AgentStateAnnotation,
-              })
-                .addNode("answer_node", answerNode) // add all the different nodes and edges and compile the graph
-                .addEdge(START, "answer_node")
-                .addEdge("answer_node", END)
-              export const graph = workflow.compile()
-            ```
-          </Tab>
-      </Tabs>
+      console.log(state);
+      // Expect the UI to set "question" and the agent to return "answer"
+      ```
   </Step>
   <Step>
     ### Give it a try!
