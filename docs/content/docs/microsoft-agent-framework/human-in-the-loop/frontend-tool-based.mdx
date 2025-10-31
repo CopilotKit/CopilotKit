@@ -5,7 +5,7 @@ description: Create frontend tools and use them within your LangGraph agent.
 ---
 import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 import { IframeSwitcher } from "@/components/content"
-import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx"
+// Removed LangGraph-specific run-and-connect snippet
 import { Tabs, Tab } from "fumadocs-ui/components/tabs"
 
 <IframeSwitcher
@@ -36,10 +36,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
 ## Implementation
 
 <Steps>
-    <Step>
-      ### Run and connect your agent
-      <RunAndConnect components={props.components}  />
-    </Step>
+    
 
     <Step>
         ### Create a frontend human-in-the-loop tool

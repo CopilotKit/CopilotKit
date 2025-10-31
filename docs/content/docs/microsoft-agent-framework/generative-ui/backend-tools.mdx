@@ -6,7 +6,7 @@ description: Render your agent's tool calls with custom UI components.
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import { IframeSwitcher } from "@/components/content"
 import { Tabs, Tab } from "fumadocs-ui/components/tabs"
-import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx"
+// Removed LangGraph-specific run-and-connect snippet
 
 <IframeSwitcher
   id="frontend-tools-example"
@@ -34,10 +34,6 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 ## Implementation
 
 <Steps>
-  <Step>
-    ### Run and connect your agent
-    <RunAndConnect components={props.components}  />
-  </Step>
 <Step>
 ### Give your agent a tool to call
 

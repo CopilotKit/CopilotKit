@@ -1,11 +1,11 @@
 ---
 title: Frontend Tools
 icon: "lucide/Wrench"
-description: Create frontend tools and use them within your LangGraph agent.
+description: Create frontend tools and use them within your Microsoft Agent Framework agent.
 ---
 import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 import { IframeSwitcher } from "@/components/content"
-import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx"
+// Removed LangGraph-specific snippet; see Quickstart for connecting to your agent
 import { Tabs, Tab } from "fumadocs-ui/components/tabs"
 
 <IframeSwitcher
@@ -18,10 +18,10 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs"
 />
 
 ## What is this?
-Frontend tools enable you to define client-side functions that your LangGraph agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
+Frontend tools enable you to define client-side functions that your agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
 the logic runs on the client side, giving you direct access to the frontend environment.
 
-This can be utilized for to let [your agent control the UI](/langgraph/frontend-actions), [generative UI](/langgraph/generative-ui/frontend-tools), or for Human-in-the-loop interactions.
+This can be utilized to let your agent control the UI, power generative UI, or for Human-in-the-loop interactions.
 
 In this guide, we cover the use of frontend tools for generative UI.
 
@@ -36,10 +36,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
 ## Implementation
 
 <Steps>
-    <Step>
-      ### Run and connect your agent
-      <RunAndConnect components={props.components}  />
-    </Step>
+    
 
     <Step>
         ### Create a frontend tool
@@ -85,77 +82,44 @@ Use frontend tools when you need your agent to interact with client-side primiti
         ```
     </Step>
     <Step>
-        ###  Modify your agent
-        Now, we'll need to modify the agent to access these frontend actions. Open up for your agent's folder and continue from there!
+        ###  Modify your server
+        Ensure your AG-UI server receives the frontend tools and passes them to your agent logic as needed.
     </Step>
     <Step>
         ### Install the CopilotKit SDK
         <InstallSDKSnippet components={props.components}/>
     </Step>
     <Step>
-        ### Inheriting from CopilotKitState
+        ### Receiving frontend tools on the server
 
-        To access the frontend tools provided by CopilotKit, you can inherit from CopilotKitState in your agent's state definition:
+        When CopilotKit calls your AG-UI server, the `tools` parameter includes any frontend tools registered with `useFrontendTool`. You can pass these to your agent as supported by your chat client.
 
-        <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
-            <Tab value="Python">
-                ```python title="agent-py/sample_agent/agent.py"
-                from copilotkit import CopilotKitState # [!code highlight]
+        ```csharp title="Program.cs"
+        using Microsoft.Agents.AI;
+        using Microsoft.Agents.AI.AGUI;
+        using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+        using Microsoft.Extensions.AI;
+        using OpenAI;
 
-                class YourAgentState(CopilotKitState): # [!code highlight]
-                    your_additional_properties: str
-                ```
-            </Tab>
-            <Tab value="TypeScript">
-                ```typescript title="agent-js/src/agent.ts"
-                import { Annotation } from "@langchain/langgraph";
-                import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+        var builder = WebApplication.CreateBuilder(args);
+        var app = builder.Build();
 
-                export const YourAgentStateAnnotation = Annotation.Root({
-                    yourAdditionalProperty: Annotation<string>,
-                    ...CopilotKitStateAnnotation.spec, // [!code highlight]
-                });
-                export type YourAgentState = typeof YourAgentStateAnnotation.State;
-                ```
-            </Tab>
-        </Tabs>
+        app.MapAGUIAgent("/", (input, ctx) => {
+          // input.Tools contains the frontend tool definitions
+          var githubToken = builder.Configuration["GitHubToken"]!;
+          var openAI = new OpenAIClient(new System.ClientModel.ApiKeyCredential(githubToken), new OpenAIClientOptions { Endpoint = new Uri("https://models.inference.ai.azure.com")});
+          var chat = openAI.GetChatClient("gpt-4o-mini").AsIChatClient();
+          var agent = new ChatClientAgent(chat, name: "SampleAgent", description: "A helpful assistant.");
+          return new ChatClientAGUIAgent(agent);
+        });
 
-        By doing this, your agent's state will include the `copilotkit` property, which contains the frontend tools that can be accessed and invoked.
+        app.Run("http://localhost:8000");
+        ```
     </Step>
     <Step>
-        ### Accessing Frontend Tools
+        ### Accessing frontend tools
 
-        Once your agent's state includes the `copilotkit` property, you can access the frontend tools and utilize them within your agent's logic.
-
-        Here's how you can call a frontend tool from your agent:
-
-        <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
-            <Tab value="Python">
-                ```python title="agent-py/sample_agent/agent.py"
-                async def agent_node(state: YourAgentState, config: RunnableConfig):
-                    # Access the tools from the copilotkit property
-
-                    tools = state.get("copilotkit", {}).get("actions", []) # [!code highlight]
-                    model = ChatOpenAI(model="gpt-4o").bind_tools(tools)
-
-                    # ...
-                ```
-            </Tab>
-            <Tab value="TypeScript">
-                ```typescript title="agent-js/src/agent.ts"
-                async function agentNode(state: YourAgentState, config: RunnableConfig): Promise<YourAgentState> {
-                    // Access the tools from the copilotkit property
-
-                    const tools = state.copilotkit?.actions; // [!code highlight]
-                    const model = ChatOpenAI({ model: 'gpt-4o' }).bindTools(tools);
-
-                    // ...
-                }
-                ```
-            </Tab>
-        </Tabs>
-
-        These tools are automatically populated by CopilotKit and are compatible with LangChain's tool call definitions, making it straightforward to integrate them into your agent's workflow.
+        Tools registered on the frontend will arrive in the `tools` collection for each request. Depending on your chat client, you can bind and invoke them accordingly.
     </Step>
     <Step>
         ### Give it a try!

@@ -8,10 +8,10 @@ import {
   TailoredContent,
   TailoredContentOption,
 } from "@/components/react/tailored-content.tsx";
-import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx"
+// Removed coagents-specific run-and-connect snippet
 import { MessageCircle, PanelsTopLeft } from "lucide-react";
 import { IframeSwitcher } from "@/components/content"
-import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx"
+// Removed LangGraph-specific run-and-connect snippet
 import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 <IframeSwitcher
@@ -45,9 +45,7 @@ interaction, however [CopilotKit's SDKs provide helpers to alleviate this](#make
 ## Implementation
 
 <Steps>
-<Step>
-  <RunAndConnect components={props.components}/>
-</Step>
+ 
 <Step>
   ### Install the CopilotKit SDK
   <InstallSDKSnippet components={props.components}/>
