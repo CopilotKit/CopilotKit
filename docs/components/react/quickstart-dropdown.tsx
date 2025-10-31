@@ -9,6 +9,7 @@ export function QuickstartDropdown() {
   const options = [
     { label: "Direct to LLM", url: "/direct-to-llm/guides/quickstart",  },
     { label: "LangGraph", url: "/langgraph/quickstart" },
+    { label: "Microsoft Agent Framework", url: "/microsoft-agent-framework/quickstart" },
     { label: "Mastra", url: "/mastra/quickstart" },
     { label: "LlamaIndex", url: "/llamaindex/quickstart" },
     { label: "Agno", url: "/agno/quickstart" },

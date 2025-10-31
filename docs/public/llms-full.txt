@@ -442,7 +442,7 @@ npx copilotkit@latest dev --port 8000
 The [`<CopilotKit>`](https://docs.copilotkit.ai/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
 it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
 
-Since we're using Copilot CLoud, we need to grab our public API key from the [Copilot Cloud dashboard](https://cloud.copilotkit.ai/).
+Since we're using Copilot Cloud, we need to grab our public API key from the [Copilot Cloud dashboard](https://cloud.copilotkit.ai/).
 
 layout.tsx
 
@@ -3532,7 +3532,7 @@ npx copilotkit@latest dev --port 8000
 The [`<CopilotKit>`](https://docs.copilotkit.ai/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
 it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
 
-Since we're using Copilot CLoud, we need to grab our public API key from the [Copilot Cloud dashboard](https://cloud.copilotkit.ai/).
+Since we're using Copilot Cloud, we need to grab our public API key from the [Copilot Cloud dashboard](https://cloud.copilotkit.ai/).
 
 layout.tsx
 

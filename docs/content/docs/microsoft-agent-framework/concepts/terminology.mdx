@@ -1,0 +1,22 @@
+---
+title: Terminology
+icon: lucide/Book
+---
+
+Here are the key terms and concepts used throughout CoAgents:
+
+| Term | Definition |
+|------|------------|
+| Agentic Copilot | An AI agent designed to collaborate with users in Agent-Native applications, rather than operate autonomously. |
+| CoAgent | Terminology referring to CopilotKit's suite of tools for building agentic applications. Typically interchangeable with agentic copilot. |
+| Agent State | The current data and context maintained by a LangGraph agent during its execution, including both internal state and data that can be synchronized with the frontend UI. |
+| Agentic Generative UI | UI components that are dynamically generated and updated based on the agent's current state, providing users with visibility into what the agent is doing and building trust through transparency. |
+| Ground Truth | In CoAgents, CopilotKit serves as the "ground truth" for the full chat session, maintaining the persistent chat history and ensuring conversational continuity across different agents. |
+| Human-in-the-Loop (HITL) | A workflow pattern where human input or validation is required during agent execution, enabling quality control and oversight at critical decision points. |
+| Intermediate State | The updates to agent state that occur during node execution, rather than only at node transitions, enabling real-time feedback about the agent's progress. |
+| [LangGraph](https://langchain-ai.github.io/langgraph/) | The agent framework integrated with CopilotKit that provides the orchestration layer for CoAgents, enabling sophisticated multi-step reasoning and state management. |
+| Agent Lock Mode | A mode where CopilotKit is configured to work exclusively with a specific agent, ensuring all requests stay within a single workflow graph for precise control. |
+| Router Mode | A mode where CopilotKit dynamically routes requests between different agents and tools based on context and user input, enabling flexible multi-agent workflows. |
+| State Streaming | The real-time synchronization of agent state between the backend and frontend, enabling immediate updates to the UI as the agent performs tasks. |
+
+These terms are referenced throughout the documentation and are essential for understanding how CoAgents work and how to implement them effectively in your applications.

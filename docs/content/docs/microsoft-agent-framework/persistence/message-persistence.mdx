@@ -1,0 +1,46 @@
+---
+title: "Message Persistence"
+icon: "lucide/Database"
+---
+
+<Callout>
+  To learn about how to load previous messages and agent states, check out the [Loading Message History](/coagents/persistence/loading-message-history) and [Loading Agent State](/coagents/persistence/loading-agent-state) pages.
+</Callout>
+
+To persist LangGraph messages to a database, you can use either `AsyncPostgresSaver` or `AsyncSqliteSaver`. Set up the asynchronous memory by configuring the graph within a lifespan function, as follows:
+
+```python
+from fastapi import FastAPI
+from contextlib import asynccontextmanager
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from copilotkit import LangGraphAGUIAgent
+from ag_ui_langgraph import add_langgraph_fastapi_endpoint
+
+graph = None
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    async with AsyncPostgresSaver.from_conn_string(
+        "postgresql://postgres:postgres@127.0.0.1:5432/postgres"
+    ) as checkpointer:
+        # NOTE: you need to call .setup() the first time you're using your checkpointer
+        await checkpointer.setup()
+        # Create an async graph
+        graph = workflow.compile(checkpointer=checkpointer)
+        yield
+        # Create SDK with the graph
+
+app = FastAPI(lifespan=lifespan)
+
+add_langgraph_fastapi_endpoint(
+    app=app,
+    agent=LangGraphAGUIAgent(
+        name="research_agent",
+        description="Research agent.",
+        graph=graph,
+    ),
+    path="/agents/research_agent"
+)
+
+```
+
+To learn more about persistence in LangGraph, check out the [LangGraph documentation](https://langchain-ai.github.io/langgraph/how-tos/#persistence).

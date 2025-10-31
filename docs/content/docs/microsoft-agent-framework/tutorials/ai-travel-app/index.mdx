@@ -1,0 +1,56 @@
+---
+title: Overview
+icon: "lucide/Plane"
+---
+import { YouTubeVideo } from "@/components/react/youtube-video";
+import { FaGithub } from "react-icons/fa";
+import { PiMonitor } from "react-icons/pi";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+
+# AI Travel Agentic Copilot Tutorial
+
+<div>
+  <div>**Time to complete:** 20 minutes</div>
+  <div>**Difficulty:** Medium</div>
+</div>
+
+<br />
+
+<YouTubeVideo videoId="9v3kXiOY3vg" defaultPlaybackRate={1.25} />
+
+## What you'll learn
+
+In this tutorial, you will take a simple travel application and supercharge it with an agentic copilot. You will learn:
+
+- 💡 What an agentic copilot is and how it can be used to enhance your application
+- 💡 How to use `useCoAgent` to allow for shared state between your UI and agent execution
+- 💡 How to use `useCoAgentStateRender` to implement human-in-the-loop workflows
+- 💡 How to render intermediate states of your agent's execution
+
+<Frame>
+  <video controls autoPlay muted loop 
+    src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tutorials/ai-travel-app/demo.mp4"
+    alt="Travel app demo" 
+    className="w-full h-full [h-800px] shadow-xl">
+  </video>
+</Frame>
+
+<div className="flex flex-row gap-2">
+  <Button size="lg" asChild className="flex gap-2 items-center">
+    <Link href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-travel?ref=travel-tutorial" className="no-underline" target="_blank">
+      <FaGithub className="w-6 h-6 mr-2" />
+      <span>View on GitHub</span>
+    </Link>
+  </Button>
+
+  <Button size="lg" asChild className="flex gap-2 items-center">
+    <Link href="https://examples-coagents-ai-travel-app.vercel.app/" className="no-underline" target="_blank">
+      <PiMonitor className="w-6 h-6 mr-2" />
+      <span>View live app</span>
+    </Link>
+  </Button>
+</div>
+
+
+In the next step, we'll checkout the repo, install dependencies, and start the project locally.

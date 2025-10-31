@@ -1,0 +1,382 @@
+---
+title: "Error Debugging & Observability"
+description: "Learn how to debug errors in CopilotKit with dev console and set up error observability for monitoring services."
+icon: "lucide/TriangleAlert"
+---
+
+CopilotKit provides comprehensive error handling capabilities to help you debug issues and monitor your application's behavior. Whether you're developing locally or running in production, CopilotKit offers tools to capture, understand, and resolve errors effectively.
+
+## Quick Start
+
+<Steps>
+
+<Step>
+### Local Development with Dev Console
+
+For local development, enable the dev console to see errors directly in your UI:
+
+```tsx
+import { CopilotKit } from "@copilotkit/react-core";
+
+export default function App() {
+  return (
+    <CopilotKit
+      runtimeUrl="<your-runtime-url>"
+      showDevConsole={true} // [!code highlight]
+    >
+      {/* Your app */}
+    </CopilotKit>
+  );
+}
+```
+
+<Callout type="tip">
+  The dev console shows error banner directly in your UI, making it easy to spot
+  issues during development. **No API key required** for this feature.
+</Callout>
+
+</Step>
+
+<Step>
+### Production Error Observability
+
+For production applications, use error observability hooks to send errors to monitoring services (requires `publicApiKey`):
+
+```tsx
+import { CopilotKit } from "@copilotkit/react-core";
+
+export default function App() {
+  return (
+    <CopilotKit
+      runtimeUrl="<your-runtime-url>"
+      publicApiKey="ck_pub_your_key" // [!code highlight]
+      onError={(errorEvent) => {
+        // [!code highlight]
+        // Send to your monitoring service
+        console.error("CopilotKit Error:", errorEvent);
+
+        // Example: Send to analytics
+        analytics.track("copilotkit_error", {
+          type: errorEvent.type,
+          source: errorEvent.context.source,
+          timestamp: errorEvent.timestamp,
+        });
+      }} // [!code highlight]
+      showDevConsole={false} // Hide dev console in production
+    >
+      {/* Your app */}
+    </CopilotKit>
+  );
+}
+```
+
+<Callout type="info">
+  **Need a publicApiKey?** Go to
+  [https://cloud.copilotkit.ai](https://cloud.copilotkit.ai) and get one for
+  free!
+</Callout>
+
+</Step>
+
+</Steps>
+
+## Error Handling Options
+
+### Dev Console (`showDevConsole`)
+
+The dev console provides immediate visual feedback during development:
+
+```tsx
+<CopilotKit runtimeUrl="<your-runtime-url>" showDevConsole={true}>
+  {/* Your app */}
+</CopilotKit>
+```
+
+**Features:**
+
+- ✅ **No API key required** - works with any setup
+- ✅ **Visual error banner** - errors appear as banner in your UI
+- ✅ **Real-time feedback** - see errors immediately as they occur
+- ✅ **Development-focused** - detailed error information for debugging
+
+**Best for:**
+
+- Local development
+- Testing and debugging
+- Understanding error flows
+
+<Callout type="warn">
+  Set `showDevConsole={false}` in production to avoid showing error details to
+  end users.
+</Callout>
+
+### Error Observability (`onError`)
+
+The error observability hooks provide programmatic access to detailed error information for monitoring and analytics:
+
+```tsx
+import { CopilotErrorEvent } from "@copilotkit/shared";
+
+<CopilotKit
+  publicApiKey="ck_pub_your_key"
+  onError={(errorEvent: CopilotErrorEvent) => {
+    // Send error data to monitoring services
+    switch (errorEvent.type) {
+      case "error":
+        logToService("Critical error", errorEvent);
+        break;
+      case "request":
+        logToService("Request started", errorEvent);
+        break;
+      case "response":
+        logToService("Response received", errorEvent);
+        break;
+      case "agent_state":
+        logToService("Agent state change", errorEvent);
+        break;
+    }
+  }}
+>
+  {/* Your app */}
+</CopilotKit>;
+```
+
+**Features:**
+
+- ✅ **Rich error context** - detailed information about what went wrong
+- ✅ **Request/response tracking** - monitor the full conversation flow
+- ✅ **Agent state monitoring** - track agent interactions and state changes
+- ✅ **Production-ready** - structured data perfect for monitoring services
+
+**Requirements:**
+
+- Requires `publicApiKey` from [Copilot Cloud](https://cloud.copilotkit.ai)
+- Part of CopilotKit's enterprise observability offering
+
+<Callout type="info">
+  **Note:** Basic error handling works without Cloud. The `onError` hook is
+  specifically for **error observability** - sending error data to monitoring
+  services like Sentry, DataDog, etc.
+</Callout>
+
+## Error Event Structure
+
+The `onError` handler receives detailed error events with rich context:
+
+```typescript
+interface CopilotErrorEvent {
+  type:
+    | "error"
+    | "request"
+    | "response"
+    | "agent_state"
+    | "action"
+    | "message"
+    | "performance";
+  timestamp: number;
+  context: {
+    source: "ui" | "runtime" | "agent";
+    request?: {
+      operation: string;
+      method?: string;
+      url?: string;
+      startTime: number;
+    };
+    response?: {
+      endTime: number;
+      latency: number;
+    };
+    agent?: {
+      name: string;
+      nodeName?: string;
+    };
+    messages?: {
+      input: any[];
+      messageCount: number;
+    };
+    technical?: {
+      environment: string;
+      stackTrace?: string;
+    };
+  };
+  error?: any; // Present for error events
+}
+```
+
+## Common Error Observability Patterns
+
+### Basic Error Logging
+
+```tsx
+<CopilotKit
+  publicApiKey="ck_pub_your_key"
+  onError={(errorEvent) => {
+    console.error("[CopilotKit Error]", {
+      type: errorEvent.type,
+      timestamp: new Date(errorEvent.timestamp).toISOString(),
+      context: errorEvent.context,
+      error: errorEvent.error,
+    });
+  }}
+>
+  {/* Your app */}
+</CopilotKit>
+```
+
+### Integration with Monitoring Services
+
+```tsx
+// Example with Sentry
+import * as Sentry from "@sentry/react";
+
+<CopilotKit
+  publicApiKey="ck_pub_your_key"
+  onError={(errorEvent) => {
+    if (errorEvent.type === "error") {
+      Sentry.captureException(errorEvent.error, {
+        tags: {
+          source: errorEvent.context.source,
+          operation: errorEvent.context.request?.operation,
+        },
+        extra: {
+          context: errorEvent.context,
+          timestamp: errorEvent.timestamp,
+        },
+      });
+    }
+  }}
+>
+  {/* Your app */}
+</CopilotKit>;
+```
+
+### Custom Error Analytics
+
+```tsx
+<CopilotKit
+  publicApiKey="ck_pub_your_key"
+  onError={(errorEvent) => {
+    // Track different error types
+    analytics.track("copilotkit_event", {
+      event_type: errorEvent.type,
+      source: errorEvent.context.source,
+      agent_name: errorEvent.context.agent?.name,
+      latency: errorEvent.context.response?.latency,
+      error_message: errorEvent.error?.message,
+      timestamp: errorEvent.timestamp,
+    });
+  }}
+>
+  {/* Your app */}
+</CopilotKit>
+```
+
+## Development vs Production Setup
+
+### Development Environment
+
+```tsx
+<CopilotKit
+  runtimeUrl="http://localhost:3000/api/copilotkit"
+  showDevConsole={true} // Show visual errors
+  onError={(errorEvent) => {
+    // Simple console logging for development
+    console.log("CopilotKit Event:", errorEvent);
+  }}
+>
+  {/* Your app */}
+</CopilotKit>
+```
+
+### Production Environment
+
+```tsx
+<CopilotKit
+  runtimeUrl="https://your-app.com/api/copilotkit"
+  publicApiKey={process.env.NEXT_PUBLIC_COPILOTKIT_API_KEY}
+  showDevConsole={false} // Hide from users
+  onError={(errorEvent) => {
+    // Production error observability
+    if (errorEvent.type === "error") {
+      // Log critical errors
+      logger.error("CopilotKit Error", {
+        error: errorEvent.error,
+        context: errorEvent.context,
+        timestamp: errorEvent.timestamp,
+      });
+
+      // Send to monitoring service
+      monitoring.captureError(errorEvent.error, {
+        extra: errorEvent.context,
+      });
+    }
+  }}
+>
+  {/* Your app */}
+</CopilotKit>
+```
+
+## Getting Started with Copilot Cloud
+
+To use error observability hooks, you'll need a Copilot Cloud account:
+
+1. **Sign up for free** at [https://cloud.copilotkit.ai](https://cloud.copilotkit.ai)
+2. **Get your public API key** from the dashboard
+3. **Add it to your environment variables**:
+   ```bash
+   NEXT_PUBLIC_COPILOTKIT_API_KEY=ck_pub_your_key_here
+   ```
+4. **Use it in your CopilotKit provider**:
+   ```tsx
+   <CopilotKit publicApiKey={process.env.NEXT_PUBLIC_COPILOTKIT_API_KEY}>
+     {/* Your app */}
+   </CopilotKit>
+   ```
+
+<Callout type="info">
+  Copilot Cloud is free to get started and provides production-ready
+  infrastructure for your AI copilots, including comprehensive error
+  observability and monitoring capabilities.
+</Callout>
+
+## Best Practices
+
+### ✅ Do
+
+- **Use `showDevConsole={true}` during development** for immediate feedback
+- **Set `showDevConsole={false}` in production** to hide errors from users
+- **Implement proper error observability** with the `onError` hook for monitoring
+- **Monitor error patterns** to identify and fix issues proactively
+- **Use structured logging** to make error analysis easier
+
+### ❌ Don't
+
+- **Don't expose detailed errors to end users** in production
+- **Don't ignore error events** - they provide valuable debugging information
+- **Don't log sensitive data** in error observability hooks
+- **Don't block the UI** with error handling logic
+
+## Troubleshooting
+
+### Error Observability Not Working
+
+If your `onError` hook isn't being called:
+
+1. **Check your publicApiKey** - error observability requires a valid API key
+2. **Verify the key format** - should start with `ck_pub_`
+3. **Ensure the key is set** - check your environment variables
+4. **Test with dev console** - use `showDevConsole={true}` to see if errors are occurring
+
+### Dev Console Not Showing
+
+If the dev console isn't displaying errors:
+
+1. **Check showDevConsole setting** - ensure it's set to `true`
+2. **Look for console errors** - check browser dev tools for JavaScript errors
+3. **Verify error occurrence** - make sure errors are actually happening
+
+## Next Steps
+
+- Learn about [Copilot Cloud features](https://cloud.copilotkit.ai)
+- Explore the [CopilotKit reference documentation](/reference/components/CopilotKit)
+- Check out [troubleshooting guides](/troubleshooting/common-issues) for common issues
