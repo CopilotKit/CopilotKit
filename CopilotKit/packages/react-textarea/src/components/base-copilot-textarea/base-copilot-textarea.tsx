@@ -18,6 +18,7 @@ import { BaseCopilotTextareaProps } from "../../types/base/base-copilot-textarea
 import "./base-copilot-textarea.css";
 import { HoveringToolbar } from "../hovering-toolbar/hovering-toolbar";
 import { makeRenderElementFunction } from "./render-element";
+import { makeRenderLeafFunction } from "./render-leaf";
 import { makeRenderPlaceholderFunction } from "./render-placeholder";
 import { useAddBrandingCss } from "./use-add-branding-css";
 import {
@@ -188,6 +189,10 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
       return makeRenderElementFunction(suggestionStyleAugmented);
     }, [suggestionStyleAugmented]);
 
+    const renderLeafMemoized = useMemo(() => {
+      return makeRenderLeafFunction();
+    }, []);
+
     const renderPlaceholderMemoized = useMemo(() => {
       // For some reason slateJS specifies a top value of 0, which makes for strange styling. We override this here.
       const placeholderStyleSlatejsOverrides: React.CSSProperties = {
@@ -271,6 +276,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
         />
         <Editable
           renderElement={renderElementMemoized}
+          renderLeaf={renderLeafMemoized}
           renderPlaceholder={renderPlaceholderMemoized}
           onKeyDown={(event) => {
             setIsUserInputActive(true);
