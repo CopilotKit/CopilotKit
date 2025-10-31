@@ -5,6 +5,17 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeRaw from "rehype-raw";
 
+// Simple hash function to generate stable keys for code blocks
+function hashCode(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return Math.abs(hash);
+}
+
 const defaultComponents: Components = {
   a({ children, ...props }) {
     return (
@@ -52,11 +63,16 @@ const defaultComponents: Components = {
       );
     }
 
+    const codeValue = String(children).replace(/\n$/, "");
+    const language = (match && match[1]) || "";
+    // Generate a stable key from the language and content to prevent flickering
+    const stableKey = `${language}-${hashCode(codeValue)}`;
+
     return (
       <CodeBlock
-        key={Math.random()}
-        language={(match && match[1]) || ""}
-        value={String(children).replace(/\n$/, "")}
+        key={stableKey}
+        language={language}
+        value={codeValue}
         {...props}
       />
     );
