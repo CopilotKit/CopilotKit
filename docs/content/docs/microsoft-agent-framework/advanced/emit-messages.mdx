@@ -3,7 +3,7 @@ title: "Manually emitting messages"
 icon: "lucide/Radio"
 ---
 import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
-import RunAndConnectSnippet from "@/snippets/coagents/run-and-connect-agent.mdx"
+// Removed coagents-specific run-and-connect snippet
 
 While most agent interactions happen automatically through shared state updates as the agent runs, you can also **manually send messages from within your agent code** to provide immediate feedback to users.
 
@@ -27,10 +27,7 @@ Manually emitted messages are great for **when you don't want to wait for the no
 ## Implementation
 
 <Steps>
-    <Step>
-        ### Run and Connect Your Agent to CopilotKit
-        <RunAndConnectSnippet />
-    </Step>
+    
     <Step>
         ### Install the CopilotKit SDK
         <InstallSDKSnippet components={props.components}/>
