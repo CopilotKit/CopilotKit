@@ -25,9 +25,9 @@ import { UserIcon, PaintbrushIcon, WrenchIcon, RepeatIcon, ServerIcon, SquareTer
 
 Before you begin, you'll need the following:
 
-- **.NET 8.0+ SDK**
+- **.NET 9.0 SDK**
 - **Azure OpenAI endpoint and deployment** (or compatible chat client)
-- **Node.js 18+** for the frontend and CopilotKit CLI
+- **Node.js 20+** for the frontend and CopilotKit CLI
 
 ## Getting started
 
@@ -111,25 +111,7 @@ Before you begin, you'll need the following:
                 npm install @copilotkit/react-ui @copilotkit/react-core
                 ```
             </Step>
-            <TailoredContent
-                className="step"
-                id="agent"
-                header={
-                    <div>
-                        <p className="text-xl font-semibold">Do you already have an AG-UI server?</p>
-                        <p className="text-base">
-                            You will need an AG-UI server to get started with CopilotKit!
-                        </p>
-                    </div>
-                }
-            >
-                <TailoredContentOption
-                    id="bring-your-own"
-                    title="Bring your own AG-UI server"
-                    description="I already have an AG-UI server and want to use it with CopilotKit."
-                />
-                
-            </TailoredContent>
+            
             <Step>
                 ### Create and run a .NET AG-UI server
 
