@@ -9,6 +9,8 @@ import { TailoredContent, TailoredContentOption } from "@/components/react/tailo
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import { FaCloud } from "react-icons/fa";
 import ConnectCopilotUI from "@/snippets/copilot-ui.mdx";
+import CloudCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
+import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/self-hosting-copilot-runtime-configure-copilotkit-provider.mdx";
 import { UserIcon, PaintbrushIcon, WrenchIcon, RepeatIcon, ServerIcon, SquareTerminal, SquareChartGantt } from "lucide-react";
 
 <video
@@ -164,7 +166,7 @@ Before you begin, you'll need the following:
                           var githubToken = builder.Configuration["GitHubToken"]!; // dotnet user-secrets set GitHubToken "<token>"
                           var openAI = new OpenAIClient(new System.ClientModel.ApiKeyCredential(githubToken), new OpenAIClientOptions { Endpoint = new Uri("https://models.inference.ai.azure.com")});
                           var chat = openAI.GetChatClient("gpt-4o-mini").AsIChatClient();
-                          var agent = new ChatClientAgent(chat, name: "ProverbsAgent", description: "A helpful assistant.");
+                          var agent = new ChatClientAgent(chat, name: "SampleAgent", description: "A helpful assistant.");
                           return new ChatClientAGUIAgent(agent);
                         });
 
@@ -241,22 +243,12 @@ Before you begin, you'll need the following:
                     </Step>
                     <Step>
                         ### Setup your CopilotKit provider
-                        Wrap your application with the [`<CopilotKit>`](/reference/components/CopilotKit) provider and configure it to use Copilot Cloud.
+                        The [`<CopilotKit>`](/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
+                        it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
 
-                        ```tsx title="app/layout.tsx"
-                        import { CopilotKit } from "@copilotkit/react-core";
+                        Since we're using Copilot Cloud, we need to grab our public API key from the [Copilot Cloud dashboard](https://cloud.copilotkit.ai).
 
-                        export default function RootLayout({ children }: { children: React.ReactNode }) {
-                          return (
-                            <CopilotKit
-                              publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_PUBLIC_API_KEY}
-                              properties={{ authorization: userToken }}
-                            >
-                              {children}
-                            </CopilotKit>
-                          );
-                        }
-                        ```
+                        <CloudCopilotKitProvider components={props.components} />
                     </Step>
                 </TailoredContentOption>
                 <TailoredContentOption
@@ -279,22 +271,13 @@ Before you begin, you'll need the following:
                     </Step>
                     <Step>
                         ### Configure the CopilotKit Provider
-                        Wrap your application with the [`<CopilotKit>`](/reference/components/CopilotKit) provider and point it to your Copilot Runtime URL.
+                        The [`<CopilotKit>`](/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
+                        it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
 
-                        ```tsx title="app/layout.tsx"
-                        import { CopilotKit } from "@copilotkit/react-core";
-
-                        export default function RootLayout({ children }: { children: React.ReactNode }) {
-                          return (
-                            <CopilotKit
-                              runtimeUrl={process.env.NEXT_PUBLIC_COPILOT_RUNTIME_URL}
-                              properties={{ authorization: userToken }}
-                            >
-                              {children}
-                            </CopilotKit>
-                          );
-                        }
-                        ```
+                        <SelfHostingCopilotRuntimeConfigureCopilotKitProvider components={props.components} />
+                        <Callout type="info">
+                            Looking for a way to run multiple agents? Check out our [Multi-Agent](/coagents/multi-agent-flows) guide.
+                        </Callout>
                     </Step>
                 </TailoredContentOption>
             </TailoredContent>
