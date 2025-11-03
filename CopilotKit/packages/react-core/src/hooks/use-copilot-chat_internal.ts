@@ -435,7 +435,10 @@ export function useCopilotChatInternal({
       }
 
       let genUI = lazyToolRendered(message, allMessages);
-      if (renderCustomMessage) {
+      const renderedGenUi = genUI?.();
+      if (renderedGenUi) {
+        genUI = () => renderedGenUi;
+      } else if (renderCustomMessage) {
         genUI = () =>
           renderCustomMessage({
             message,
