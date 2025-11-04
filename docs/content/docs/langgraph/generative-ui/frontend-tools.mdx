@@ -4,9 +4,9 @@ icon: "lucide/Wrench"
 description: Create frontend tools and use them within your LangGraph agent.
 ---
 import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
-import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx"
-import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx"
+import { Tabs, Tab } from "fumadocs-ui/components/tabs"
 
 <IframeSwitcher
   id="frontend-tools-example"
@@ -23,7 +23,7 @@ the logic runs on the client side, giving you direct access to the frontend envi
 
 This can be utilized for to let [your agent control the UI](/langgraph/frontend-actions), [generative UI](/langgraph/generative-ui/frontend-tools), or for Human-in-the-loop interactions.
 
-In this guide, we cover the use of frontend tools driving and interacting with the UI.
+In this guide, we cover the use of frontend tools for generative UI.
 
 ## When should I use this?
 Use frontend tools when you need your agent to interact with client-side primitives such as:
@@ -37,8 +37,8 @@ Use frontend tools when you need your agent to interact with client-side primiti
 
 <Steps>
     <Step>
-        ### Run and connect your agent
-       <RunAndConnect components={props.components} />
+      ### Run and connect your agent
+      <RunAndConnect components={props.components}  />
     </Step>
 
     <Step>
@@ -53,7 +53,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
         export function Page() {
           // ...
 
-          // [!code highlight:15]
+          // [!code highlight:25]
           useFrontendTool({
             name: "sayHello",
             description: "Say hello to the user",
@@ -65,8 +65,18 @@ Use frontend tools when you need your agent to interact with client-side primiti
                 required: true,
               },
             ],
-            handler: async ({ name }) => {
-              alert(`Hello, ${name}!`);
+            handler({ name }) {
+              // Handler returns the result of the tool call
+              return { currentURLPath: window.location.href, userName: name };
+            },
+            render: ({ args }) => {
+              // Renders UI based on the data of the tool call
+              return (
+                <div>
+                  <h1>Hello, {args.name}!</h1>
+                  <h1>You're currently on {window.location.href}</h1>
+                </div>
+              );
             },
           });
 
@@ -150,7 +160,5 @@ Use frontend tools when you need your agent to interact with client-side primiti
     <Step>
         ### Give it a try!
         You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
-
-        <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
     </Step>
 </Steps>

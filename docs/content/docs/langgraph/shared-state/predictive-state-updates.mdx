@@ -11,10 +11,19 @@ import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-ente
 import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 import { FaWrench } from "react-icons/fa";
 import { FaArrowUp } from "react-icons/fa";
+import { IframeSwitcher } from "@/components/content"
 
-<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/intermediate-state-render.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
-<Callout>
-  This video shows the result of `npx copilotkit@latest init` with the [implementation](#implementation) section applied to it!
+<IframeSwitcher
+  id="predictive-state-updates-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/predictive_state_updates?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/predictive_state_updates?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+<Callout type="info">
+  This example demonstrates predictive state updates in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/langgraph/feature/predictive_state_updates).
 </Callout>
 
 ## What is this?
@@ -317,5 +326,10 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
         ### Give it a try!
         Now you'll notice that the state predictions are emitted as the agent makes progress, giving you insight into its work before the final state is determined.
         You can apply this pattern to any long-running task in your agent.
+        
+        <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/intermediate-state-render.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+        <Callout>
+          This video shows the result of `npx copilotkit@latest init` with the [implementation](#implementation) section applied to it!
+        </Callout>
     </Step>
 </Steps>

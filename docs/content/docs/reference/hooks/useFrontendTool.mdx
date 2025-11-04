@@ -3,29 +3,17 @@ title: "useFrontendTool"
 description: "The useFrontendTool hook allows the Copilot to execute tools in the frontend."
 ---
 
-<br />
-<img src="https://cdn.copilotkit.ai/docs/copilotkit/images/use-copilot-action/useCopilotAction.gif" width="500" />
+`useFrontendTool` allows you to define executable actions that the AI can call with a handler function.
+This is the primary way to give your AI agent the ability to perform actions in your application—whether
+that's updating state, making API calls, or triggering side effects.
 
-`useFrontendTool` is a React hook that you can use in your application to provide
-tools that can be called by the AI. Essentially, it allows the Copilot to
-execute these tools contextually during a chat, based on the user's interactions
-and needs.
+The hook requires three main pieces:
+1. A name and description so the AI knows when to call it
+2. A parameters definition describing what inputs the tool accepts
+3. A handler function that executes when the AI calls the tool
 
-Here's how it works:
-
-Use `useFrontendTool` to set up tools that the Copilot can call. To provide
-more context to the Copilot, you can provide it with a `description` (for example to explain
-what the tool does, under which conditions it can be called, etc.).
-
-Then you define the parameters of the tool using Zod schemas, which provide
-runtime validation and TypeScript type inference.
-
-Finally, you provide a `handler` function that receives the parameters and returns a result.
-CopilotKit takes care of automatically inferring the parameter types, so you get type safety
-and autocompletion for free.
-
-To render a custom UI for the tool, you can provide a `render()` function. This function
-lets you render a custom component or return a string to display.
+Optionally, you can provide a `render` function to display custom UI showing the tool's execution
+status and results in the chat interface.
 
 ## Usage
 
@@ -33,14 +21,18 @@ lets you render a custom component or return a string to display.
 
 ```tsx
 import { useFrontendTool } from "@copilotkit/react-core";
-import { z } from "zod";
 
 useFrontendTool({
   name: "sayHello",
   description: "Say hello to someone.",
-  parameters: z.object({
-    name: z.string().describe("name of the person to greet"),
-  }),
+  parameters: [
+    {
+      name: "name",
+      type: "string",
+      description: "name of the person to greet",
+      required: true,
+    },
+  ],
   handler: async ({ name }) => {
     alert(`Hello, ${name}!`);
   },
@@ -51,15 +43,24 @@ useFrontendTool({
 
 ```tsx
 import { useFrontendTool } from "@copilotkit/react-core";
-import { z } from "zod";
 
 useFrontendTool({
-  name: "showWeatherCard", 
+  name: "showWeatherCard",
   description: "Display weather information for a location",
-  parameters: z.object({
-    location: z.string().describe("The location to show weather for"),
-    temperature: z.number().describe("Temperature in celsius"),
-  }),
+  parameters: [
+    {
+      name: "location",
+      type: "string",
+      description: "The location to show weather for",
+      required: true,
+    },
+    {
+      name: "temperature",
+      type: "number",
+      description: "Temperature in celsius",
+      required: true,
+    },
+  ],
   handler: async ({ location, temperature }) => {
     // Fetch and return weather data
     return { location, temperature, conditions: "Sunny" };
@@ -70,7 +71,7 @@ useFrontendTool({
     }
     if (status === "complete" && result) {
       return (
-        <WeatherCard 
+        <WeatherCard
           location={result.location}
           temperature={result.temperature}
           conditions={result.conditions}
@@ -86,74 +87,11 @@ useFrontendTool({
 
 This hook enables you to dynamically generate UI elements and render them in the copilot chat. For more information, check out the [Generative UI](/guides/generative-ui) page.
 
-## Parameters
-
-<PropertyReference name="tool" type="ReactFrontendTool<T>" required>
-  The tool configuration object.
-
-    <PropertyReference name="name" type="string" required>
-      The name of the tool.
-    </PropertyReference>
-
-    <PropertyReference name="handler" type="(args: T) => Promise<any>">
-      The handler function that executes the tool logic.
-    </PropertyReference>
-
-    <PropertyReference name="description" type="string">
-      A description of the tool. This is used to instruct the Copilot on how to
-      use the tool.
-    </PropertyReference>
-
-    <PropertyReference name="followUp" type="boolean" default="true">
-        Whether to report the result of the tool call to the LLM which will then provide a follow-up response. Pass `false` to disable.
-    </PropertyReference>
-
-    <PropertyReference name="parameters" type="z.ZodType<T>">
-      The Zod schema defining the parameters of the tool. This provides runtime validation
-      and TypeScript type inference.
-    </PropertyReference>
-
-    <PropertyReference name="render" type="React.ComponentType<RenderProps>">
-      A React component that renders custom UI for the tool. The component receives props with:
-      
-      <div className="ml-8">
-        <PropertyReference name="status" type="'inProgress' | 'executing' | 'complete'">
-          - `"inProgress"`: arguments are dynamically streamed to the function, allowing you to adjust your UI in real-time.
-          - `"executing"`: The tool handler is executing.
-          - `"complete"`: The tool handler has completed execution.
-        </PropertyReference>
-
-        <PropertyReference name="args" type="Partial<T> | T">
-          The arguments passed to the tool in real time. When the status is `"inProgress"`, they are
-          possibly incomplete.
-        </PropertyReference>
-
-        <PropertyReference name="result" type="any">
-          The result returned by the tool. It is only available when the status is `"complete"`.
-        </PropertyReference>
-
-        <PropertyReference name="name" type="string">
-          The name of the tool being executed.
-        </PropertyReference>
-
-        <PropertyReference name="description" type="string">
-          The description of the tool being executed.
-        </PropertyReference>
-      </div>
-    </PropertyReference>
-</PropertyReference>
-
-<PropertyReference name="dependencies" type="any[]">
-  An optional array of dependencies.
-</PropertyReference>
-
 ## Migration from useCopilotAction
 
 If you're migrating from `useCopilotAction`, here are the key differences:
 
-1. **Parameters use Zod schemas** instead of the parameter array format
-2. **Type inference is automatic** from the Zod schema
-3. **The render component props** include `name` and `description`
+1. The render component props include `name` and `description`
 
 ### Migration Example
 
@@ -177,11 +115,69 @@ useCopilotAction({
 // After with useFrontendTool
 useFrontendTool({
   name: "addTodo",
-  parameters: z.object({
-    text: z.string().describe("The todo text"),
-  }),
+  parameters: [
+    {
+      name: "text",
+      type: "string",
+      description: "The todo text",
+      required: true,
+    },
+  ],
   handler: ({ text }) => {
     addTodo(text);
   },
 });
 ```
+
+## Parameters
+
+<PropertyReference name="name" type="string" required >
+The name of the tool.
+</PropertyReference>
+
+<PropertyReference name="description" type="string"  >
+A description of the tool. This is used to instruct the Copilot on how to use the tool.
+</PropertyReference>
+
+<PropertyReference name="parameters" type="T"  >
+Array of parameter definitions for the tool. Each parameter object should have:
+- `name` (string): The parameter name
+- `type` (string): The parameter type (e.g., "string", "number", "boolean", "string[]", "object")
+- `description` (string): A description of what the parameter is for
+- `required` (boolean): Whether the parameter is required
+- `properties` (array, optional): For object types, define nested properties using the same schema
+
+Simple example: `[{ name: "query", type: "string", description: "The search query", required: true }]`
+
+Nested example:
+```typescript
+[
+  {
+    name: "user",
+    type: "object",
+    description: "User information",
+    required: true,
+    properties: [
+      { name: "name", type: "string", description: "User's name", required: true },
+      { name: "age", type: "number", description: "User's age", required: false }
+    ]
+  }
+]
+```
+</PropertyReference>
+
+<PropertyReference name="handler" type="FrontendAction<T>['handler']"  >
+The handler function that executes the tool logic.
+</PropertyReference>
+
+<PropertyReference name="followUp" type="boolean"  >
+Whether to report the result of the tool call to the LLM which will then provide a follow-up response. Pass `false` to disable.
+</PropertyReference>
+
+<PropertyReference name="render" type="FrontendAction<T>['render']"  >
+A React component that renders custom UI for the tool.
+</PropertyReference>
+
+<PropertyReference name="available" type="'disabled' | 'enabled'"  >
+Whether the tool is available. Set to "disabled" to prevent the tool from being called.
+</PropertyReference>
