@@ -632,11 +632,11 @@ importers:
         specifier: workspace:*
         version: link:../shared
       '@copilotkitnext/agent':
-        specifier: ^0.0.17
-        version: 0.0.17
+        specifier: 0.0.20
+        version: 0.0.20
       '@copilotkitnext/runtime':
-        specifier: ^0.0.17
-        version: 0.0.17(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))
+        specifier: 0.0.20
+        version: 0.0.20(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))
       '@graphql-yoga/plugin-defer-stream':
         specifier: ^3.3.1
         version: 3.6.1(graphql-yoga@5.6.1(graphql@16.9.0))(graphql@16.9.0)
@@ -1754,8 +1754,8 @@ packages:
   '@chevrotain/utils@11.0.3':
     resolution: {integrity: sha512-YslZMgtJUyuMbZ+aKvfF3x1f5liK4mWNxghFRv7jqRR9C3R3fAOGTTKvxXDa2Y1s9zSbcpuO0cAxDYsc9SrXoQ==}
 
-  '@copilotkitnext/agent@0.0.17':
-    resolution: {integrity: sha512-PH7nAP0NLt6oF13Pzsi9PUC759q4f27nslFPGRne0rPmCO1zOjRZ/0IVxR3QFjfEgjewctuvm2y4ME7ClguHVg==}
+  '@copilotkitnext/agent@0.0.20':
+    resolution: {integrity: sha512-OUMrhmak0mwcrk3+msBkL1xQ3U3eL4/y+DTQ2Y0EGTok67dOeaigmZJPvCysGjsXMJRQuJ54c3mNw3MmMZ4a3w==}
     engines: {node: '>=18'}
 
   '@copilotkitnext/core@0.0.20':
@@ -1769,15 +1769,11 @@ packages:
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
 
-  '@copilotkitnext/runtime@0.0.17':
-    resolution: {integrity: sha512-1pqU+ZW1A898CUIx7+0hCQvuKEXUG4kuUGnN2wIvVTu2shAKOz3GwwNOZM3DLiC8k1ou3TPyjheNYDAGhmnQuA==}
+  '@copilotkitnext/runtime@0.0.20':
+    resolution: {integrity: sha512-s5l8dr0ID5j2EU1EyLa3MQLwFPzTcMYe1AdAFA4m2B8eu1X0WQWSkVY7pIs0D3PJysQ7RvPvcrmn5V3h5ACEcg==}
     engines: {node: '>=18'}
     peerDependencies:
       openai: ^5.9.0
-
-  '@copilotkitnext/shared@0.0.17':
-    resolution: {integrity: sha512-6uAquOvcNvxJhdu+j6PbiaY4yUnYJ9DzSS0Xr+ISjsSZU14UFo2oynlAim3r9UKxX/bcAI5/Jk52aDkClEtLnQ==}
-    engines: {node: '>=18'}
 
   '@copilotkitnext/shared@0.0.20':
     resolution: {integrity: sha512-YNLIrEPq4m6fA8afCE0tbKorNNM8iCjy+j2PKVSNDFjqUKhuReqmgck1vQWTPISz5iXGwbb/OW9WHU4z8fTqfg==}
@@ -12961,7 +12957,7 @@ snapshots:
 
   '@chevrotain/utils@11.0.3': {}
 
-  '@copilotkitnext/agent@0.0.17':
+  '@copilotkitnext/agent@0.0.20':
     dependencies:
       '@ag-ui/client': 0.0.40-alpha.6
       '@ai-sdk/anthropic': 2.0.33(zod@3.25.76)
@@ -13010,20 +13006,15 @@ snapshots:
       - '@types/react-dom'
       - supports-color
 
-  '@copilotkitnext/runtime@0.0.17(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))':
+  '@copilotkitnext/runtime@0.0.20(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))':
     dependencies:
       '@ag-ui/client': 0.0.40-alpha.6
       '@ag-ui/core': 0.0.40-alpha.6
       '@ag-ui/encoder': 0.0.40-alpha.6
-      '@copilotkitnext/shared': 0.0.17
+      '@copilotkitnext/shared': 0.0.20
       hono: 4.9.12
       openai: 4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)
       rxjs: 7.8.1
-
-  '@copilotkitnext/shared@0.0.17':
-    dependencies:
-      partial-json: 0.1.7
-      uuid: 11.1.0
 
   '@copilotkitnext/shared@0.0.20':
     dependencies:
@@ -19638,7 +19629,7 @@ snapshots:
       isstream: 0.1.2
       jsonwebtoken: 9.0.2
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.7.9(debug@4.4.1))
+      retry-axios: 2.6.0(axios@1.7.9)
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -22847,7 +22838,7 @@ snapshots:
       onetime: 5.1.2
       signal-exit: 3.0.7
 
-  retry-axios@2.6.0(axios@1.7.9(debug@4.4.1)):
+  retry-axios@2.6.0(axios@1.7.9):
     dependencies:
       axios: 1.7.9(debug@4.4.1)
 
