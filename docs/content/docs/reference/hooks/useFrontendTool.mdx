@@ -3,34 +3,25 @@ title: "useFrontendTool"
 description: "The useFrontendTool hook allows the Copilot to execute tools in the frontend."
 ---
 
-<br />
-<img src="https://cdn.copilotkit.ai/docs/copilotkit/images/use-copilot-action/useCopilotAction.gif" width="500" />
+`useFrontendTool` allows you to define executable actions that the AI can call with a handler function.
+This is the primary way to give your AI agent the ability to perform actions in your application—whether
+that's updating state, making API calls, or triggering side effects.
 
-`useFrontendTool` is a React hook that you can use in your application to provide
-tools that can be called by the AI. Essentially, it allows the Copilot to
-execute these tools contextually during a chat, based on the user's interactions
-and needs.
- 
-Here's how it works:
- 
-Use `useFrontendTool` to set up tools that the Copilot can call. To provide
-more context to the Copilot, you can provide it with a `description` (for example to explain
-what the tool does, under which conditions it can be called, etc.).
- 
-Then you define the parameters of the tool using an array of parameter definitions.
- 
-Finally, you provide a `handler` function that receives the parameters and returns a result.
- 
-To render a custom UI for the tool, you can provide a `render()` function. This function
-lets you render a custom component or return a string to display.
- 
+The hook requires three main pieces:
+1. A name and description so the AI knows when to call it
+2. A parameters definition describing what inputs the tool accepts
+3. A handler function that executes when the AI calls the tool
+
+Optionally, you can provide a `render` function to display custom UI showing the tool's execution
+status and results in the chat interface.
+
 ## Usage
- 
+
 ### Simple Usage
- 
+
 ```tsx
 import { useFrontendTool } from "@copilotkit/react-core";
- 
+
 useFrontendTool({
   name: "sayHello",
   description: "Say hello to someone.",
@@ -47,12 +38,12 @@ useFrontendTool({
   },
 });
 ```
- 
+
 ### With Custom UI Rendering
- 
+
 ```tsx
 import { useFrontendTool } from "@copilotkit/react-core";
- 
+
 useFrontendTool({
   name: "showWeatherCard",
   description: "Display weather information for a location",
@@ -91,19 +82,19 @@ useFrontendTool({
   },
 });
 ```
- 
+
 ## Generative UI
- 
+
 This hook enables you to dynamically generate UI elements and render them in the copilot chat. For more information, check out the [Generative UI](/guides/generative-ui) page.
- 
+
 ## Migration from useCopilotAction
- 
+
 If you're migrating from `useCopilotAction`, here are the key differences:
- 
+
 1. The render component props include `name` and `description`
- 
+
 ### Migration Example
- 
+
 ```tsx
 // Before with useCopilotAction
 useCopilotAction({
@@ -120,7 +111,7 @@ useCopilotAction({
     addTodo(text);
   },
 });
- 
+
 // After with useFrontendTool
 useFrontendTool({
   name: "addTodo",
@@ -140,31 +131,53 @@ useFrontendTool({
 
 ## Parameters
 
-<PropertyReference name="name" type="string" required > 
+<PropertyReference name="name" type="string" required >
 The name of the tool.
 </PropertyReference>
 
-<PropertyReference name="description" type="string"  > 
+<PropertyReference name="description" type="string"  >
 A description of the tool. This is used to instruct the Copilot on how to use the tool.
 </PropertyReference>
 
-<PropertyReference name="parameters" type="T"  > 
-Array of parameter definitions for the tool. Each parameter should specify name, type, description, and whether it's required.
+<PropertyReference name="parameters" type="T"  >
+Array of parameter definitions for the tool. Each parameter object should have:
+- `name` (string): The parameter name
+- `type` (string): The parameter type (e.g., "string", "number", "boolean", "string[]", "object")
+- `description` (string): A description of what the parameter is for
+- `required` (boolean): Whether the parameter is required
+- `properties` (array, optional): For object types, define nested properties using the same schema
+
+Simple example: `[{ name: "query", type: "string", description: "The search query", required: true }]`
+
+Nested example:
+```typescript
+[
+  {
+    name: "user",
+    type: "object",
+    description: "User information",
+    required: true,
+    properties: [
+      { name: "name", type: "string", description: "User's name", required: true },
+      { name: "age", type: "number", description: "User's age", required: false }
+    ]
+  }
+]
+```
 </PropertyReference>
 
-<PropertyReference name="handler" type="FrontendAction<T>['handler']"  > 
+<PropertyReference name="handler" type="FrontendAction<T>['handler']"  >
 The handler function that executes the tool logic.
 </PropertyReference>
 
-<PropertyReference name="followUp" type="boolean"  > 
+<PropertyReference name="followUp" type="boolean"  >
 Whether to report the result of the tool call to the LLM which will then provide a follow-up response. Pass `false` to disable.
 </PropertyReference>
 
-<PropertyReference name="render" type="FrontendAction<T>['render']"  > 
+<PropertyReference name="render" type="FrontendAction<T>['render']"  >
 A React component that renders custom UI for the tool.
 </PropertyReference>
 
-<PropertyReference name="available" type="'disabled' | 'enabled'"  > 
+<PropertyReference name="available" type="'disabled' | 'enabled'"  >
 Whether the tool is available. Set to "disabled" to prevent the tool from being called.
 </PropertyReference>
-

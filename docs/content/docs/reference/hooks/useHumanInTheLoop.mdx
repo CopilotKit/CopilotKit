@@ -3,25 +3,21 @@ title: "useHumanInTheLoop"
 description: "The useHumanInTheLoop hook enables human approval and interaction workflows."
 ---
 
-<br />
-<img src="https://cdn.copilotkit.ai/docs/copilotkit/images/human-in-the-loop/hitl-example.gif" width="500" />
+`useHumanInTheLoop` pauses AI execution to request human input or approval. When the AI calls this
+tool, it stops and waits for the user to respond through your custom UI before continuing. This is
+essential for sensitive operations, confirmations, or collecting information that only the user can provide.
 
-`useHumanInTheLoop` is a React hook that enables you to create interactive workflows
-where the AI can request human input or approval before proceeding. This is particularly
-useful for sensitive operations, confirmation dialogs, or gathering additional information
-from the user.
- 
-The key difference from `useFrontendTool` is that this hook provides a `respond` function
-in the render props, which allows the component to send a response back to the AI,
-creating a true interactive loop.
- 
+Unlike `useFrontendTool`, there's no handler function—instead, your render function receives a `respond`
+callback that sends the user's input back to the AI. The AI execution remains paused until `respond` is called,
+making this a true blocking interaction.
+
 ## Usage
- 
+
 ### Simple Confirmation Example
- 
+
 ```tsx
 import { useHumanInTheLoop } from "@copilotkit/react-core";
- 
+
 useHumanInTheLoop({
   name: "confirmDeletion",
   description: "Ask user to confirm before deleting items",
@@ -39,7 +35,7 @@ useHumanInTheLoop({
       required: true,
     },
   ],
-  render: ({ args, status, respond }) => {
+  render: ({ args, status, respond, result }) => {
     if (status === "executing" && respond) {
       return (
         <div className="p-4 border rounded">
@@ -61,7 +57,7 @@ useHumanInTheLoop({
         </div>
       );
     }
- 
+
     if (status === "complete" && result) {
       return (
         <div className="p-2 text-sm text-gray-600">
@@ -69,18 +65,18 @@ useHumanInTheLoop({
         </div>
       );
     }
- 
+
     return null;
   },
 });
 ```
- 
+
 ### Complex Input Collection Example
- 
+
 ```tsx
 import { useHumanInTheLoop } from "@copilotkit/react-core";
 import { useState } from "react";
- 
+
 useHumanInTheLoop({
   name: "collectUserPreferences",
   description: "Collect detailed preferences from the user",
@@ -104,7 +100,7 @@ useHumanInTheLoop({
       notifications: true,
       language: "en",
     });
- 
+
     if (status === "executing" && respond) {
       return (
         <div className="p-4 border rounded">
@@ -123,24 +119,24 @@ useHumanInTheLoop({
         </div>
       );
     }
- 
+
     return null;
   },
 });
 ```
- 
+
 ## Best Practices
- 
+
 1. Always check for the `respond` function before rendering interactive elements
 2. Handle all status states to provide good user feedback
 3. Validate user input before calling `respond`
 4. Provide clear instructions in your UI about what input is expected
 5. Consider timeout scenarios for time-sensitive operations
- 
+
 ## Migration from useCopilotAction
- 
+
 If you're migrating from `useCopilotAction` with `renderAndWaitForResponse`:
- 
+
 ```tsx
 // Before with useCopilotAction
 useCopilotAction({
@@ -159,7 +155,7 @@ useCopilotAction({
     );
   },
 });
- 
+
 // After with useHumanInTheLoop
 useHumanInTheLoop({
   name: "confirmAction",
@@ -186,30 +182,52 @@ useHumanInTheLoop({
   },
 });
 ```
- 
+
 The main differences are:
 1. The property is called `render` instead of `renderAndWaitForResponse`
 2. You need to check for the `respond` function's existence
 
 ## Parameters
 
-<PropertyReference name="name" type="string" required > 
+<PropertyReference name="name" type="string" required >
 The name of the tool.
 </PropertyReference>
 
-<PropertyReference name="description" type="string"  > 
+<PropertyReference name="description" type="string"  >
 A description of the tool. This is used to instruct the Copilot on when to request human input.
 </PropertyReference>
 
-<PropertyReference name="parameters" type="T"  > 
-Array of parameter definitions that will be passed to the render function. Each parameter should specify name, type, description, and whether it's required.
+<PropertyReference name="parameters" type="T"  >
+Array of parameter definitions that will be passed to the render function. Each parameter object should have:
+- `name` (string): The parameter name
+- `type` (string): The parameter type (e.g., "string", "number", "boolean", "string[]", "object")
+- `description` (string): A description of what the parameter is for
+- `required` (boolean): Whether the parameter is required
+- `properties` (array, optional): For object types, define nested properties using the same schema
+
+Simple example: `[{ name: "itemName", type: "string", description: "Name of the item", required: true }]`
+
+Nested example:
+```typescript
+[
+  {
+    name: "approval",
+    type: "object",
+    description: "Approval request details",
+    required: true,
+    properties: [
+      { name: "action", type: "string", description: "Action requiring approval", required: true },
+      { name: "reason", type: "string", description: "Reason for the action", required: false }
+    ]
+  }
+]
+```
 </PropertyReference>
 
-<PropertyReference name="render" type="FrontendAction<T>['renderAndWaitForResponse']" required > 
+<PropertyReference name="render" type="FrontendAction<T>['renderAndWaitForResponse']" required >
 A React component that renders the interactive UI for human input. The component receives props including `args`, `status`, and `respond` function.
 </PropertyReference>
 
-<PropertyReference name="available" type="'disabled' | 'enabled'"  > 
+<PropertyReference name="available" type="'disabled' | 'enabled'"  >
 Whether the tool is available. Set to "disabled" to prevent the tool from being called.
 </PropertyReference>
-
