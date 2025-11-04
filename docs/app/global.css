@@ -40,6 +40,7 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-separator: var(--sidebar-separator);
   --color-glass-background: var(--glass-background);
   --color-icon: var(--icon);
 }
@@ -84,6 +85,7 @@
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0.92 0.004 286.32);
   --sidebar-ring: oklch(0.55 0.25 285);
+  --sidebar-separator: oklch(0.4582 0.0064 286.14);
   --scrollbar-color: oklch(0.1081 0.0147 220.92 / 30.2%);
   --glass-background: oklch(1 0 0 / 50%); 
   --icon: oklch(0.1081 0.0147 220.92);
@@ -121,6 +123,7 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.65 0.15 285);
+  --sidebar-separator: oklch(0.6119 0.0089 286.13);
   --scrollbar-color: oklch(1 0 0 / 30.2%);
   --glass-background: oklch(1 0 0 / 5%); 
   --icon: oklch(1 0 0);
@@ -160,7 +163,7 @@
 
   .custom-scrollbar {
     scrollbar-color: var(--scrollbar-color) transparent;
-    scrollbar-width: 4px;
+    scrollbar-width: thin;
   }
 }
 
