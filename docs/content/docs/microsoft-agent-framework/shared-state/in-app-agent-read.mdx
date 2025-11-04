@@ -4,6 +4,7 @@ icon: "lucide/ArrowLeft"
 description: Read the realtime agent state in your native application.
 ---
 import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
+import RunAndConnectSnippet from "@/snippets/coagents/run-and-connect-agent.mdx"
 
 <Frame>
   <ImageZoom src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/read-agent-state.png" alt="read agent state" width={1000} height={1000} className="my-0"/>
@@ -27,13 +28,8 @@ state update you can reflect these updates natively in your application.
 
 <Steps>
   <Step>
-    ### Run and Connect Your Agent to CopilotKit
-
-    You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
-    you can follow the instructions in the [Quickstart](/microsoft-agent-framework/quickstart) guide.
-
-    If you don't already have an agent, you can use the Microsoft Agent Framework starter as a starting point,
-    as this guide uses it as a starting point.
+    ### Run and connect your agent
+    <RunAndConnect components={props.components} />
   </Step>
   <Step>
     ### Define the Agent State
