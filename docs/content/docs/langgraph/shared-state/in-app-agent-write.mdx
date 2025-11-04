@@ -4,10 +4,19 @@ icon: "lucide/ArrowRight"
 description: Write to agent's state from your application.
 ---
 import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx"
+import { IframeSwitcher } from "@/components/content"
 
-<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/write-agent-state.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
-<Callout>
-  This video shows the result of `npx copilotkit@latest init` with the [implementation](#implementation) section applied to it!
+<IframeSwitcher
+  id="shared-state-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+<Callout type="info">
+  This example demonstrates writing to shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state).
 </Callout>
 
 ## What is this?
@@ -99,6 +108,11 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     ### Give it a try!
     You can now use the `setState` function to update the agent state and `state` to read it. Try toggling the language button
     and talking to your agent. You'll see the language change to match the agent's state.
+
+    <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/write-agent-state.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+    <Callout>
+      This video shows the result of `npx copilotkit@latest init` with the [implementation](#implementation) section applied to it!
+    </Callout>
   </Step>
 </Steps>
 
