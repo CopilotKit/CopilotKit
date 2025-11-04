@@ -6,12 +6,12 @@ description: Render the state of your agent with custom UI components.
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import { IframeSwitcher } from "@/components/content"
 import { Tabs, Tab } from "fumadocs-ui/components/tabs"
-// Removed LangGraph-specific run-and-connect snippet
+// Removed agent framework-specific run-and-connect snippet
 
 <IframeSwitcher
   id="agent-state-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_generative_ui?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_generative_ui?view=code&sidebar=false&codeLayout=tabs"
+  exampleUrl="https://feature-viewer.copilotkit.ai/agent framework/feature/agentic_generative_ui?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/agent framework/feature/agentic_generative_ui?view=code&sidebar=false&codeLayout=tabs"
   exampleLabel="Demo"
   codeLabel="Code"
   height="700px"
@@ -19,7 +19,7 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs"
 
 ## What is this?
 
-All LangGraph agents are stateful. This means that as your agent progresses through nodes, a state object is passed between them perserving
+All agent framework agents are stateful. This means that as your agent progresses through nodes, a state object is passed between them perserving
 the overall state of a session. CopilotKit allows you to render this state in your application with custom UI components, which we call **Agentic Generative UI**.
 
 ## When should I use this?
@@ -33,7 +33,7 @@ is a situation where a user and an agent are working together to solve a problem
   
   <Step>
     ### Define your agent state
-    LangGraph agents are [stateful](https://langchain-ai.github.io/langgraph/concepts/low_level/). As you progress through nodes, a state object is passed between them. CopilotKit
+    agent framework agents are [stateful](https://agent-ai.github.io/agent framework/concepts/low_level/). As you progress through nodes, a state object is passed between them. CopilotKit
     allows you to easily render this state in your application.
 
     For the sake of this guide, let's say our state looks like this in our agent.
@@ -51,8 +51,8 @@ is a situation where a user and an agent are working together to solve a problem
         </Tab>
         <Tab value="TypeScript">
           ```typescript title="agent-js/src/agent.ts"
-          import { Annotation } from "@langchain/langgraph";
-          import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+          import { Annotation } from "@agent/agent framework";
+          import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/agent framework";
 
           // This is the state of the agent, we inherit from CopilotKitState to bind in
           // useful helpers when interacting with the agent via CopilotKit.
@@ -74,11 +74,11 @@ is a situation where a user and an agent are working together to solve a problem
         ```python title="agent-py/sample_agent/agent.py"
         import asyncio
         from typing import TypedDict
-        from langchain_core.runnables import RunnableConfig
-        from langchain_openai import ChatOpenAI
-        from langchain_core.messages import SystemMessage
+        from agent_core.runnables import RunnableConfig
+        from agent_openai import ChatOpenAI
+        from agent_core.messages import SystemMessage
         from copilotkit import CopilotKitState
-        from copilotkit.langgraph import copilotkit_emit_state # [!code highlight]
+        from copilotkit.agent framework import copilotkit_emit_state # [!code highlight]
 
         class Searches(TypedDict):
             query: str
@@ -117,11 +117,11 @@ is a situation where a user and an agent are working together to solve a problem
       </Tab>
       <Tab value="TypeScript">
         ```typescript title="agent-js/src/agent.ts"
-        import { RunnableConfig } from "@langchain/core/runnables";
-        import { ChatOpenAI } from "@langchain/openai";
-        import { Annotation } from "@langchain/langgraph";
-        import { SystemMessage } from "@langchain/core/messages";
-        import { copilotkitEmitState, CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+        import { RunnableConfig } from "@agent/core/runnables";
+        import { ChatOpenAI } from "@agent/openai";
+        import { Annotation } from "@agent/agent framework";
+        import { SystemMessage } from "@agent/core/messages";
+        import { copilotkitEmitState, CopilotKitStateAnnotation } from "@copilotkit/sdk-js/agent framework";
 
         type Search = {
           query: string;
@@ -165,13 +165,13 @@ is a situation where a user and an agent are working together to solve a problem
   </Step>
   <Step>
     ### Render state of the agent in the chat
-    Now we can utilize `useCoAgentStateRender` to render the state of our agent **in the chat**.
+    Now we can utilize `useagentStateRender` to render the state of our agent **in the chat**.
 
     ```tsx title="app/page.tsx"
-    import { useCoAgentStateRender } from "@copilotkit/react-core";
+    import { useagentStateRender } from "@copilotkit/react-core";
 
     // For type safety, redefine the state of the agent. If you're using
-    // using LangGraph JS you can import the type here and share it.
+    // using agent framework JS you can import the type here and share it.
     type AgentState = {
       searches: {
         query: string;
@@ -184,7 +184,7 @@ is a situation where a user and an agent are working together to solve a problem
 
       // [!code highlight:13]
       // styles omitted for brevity
-      useCoAgentStateRender<AgentState>({
+      useagentStateRender<AgentState>({
         name: "sample_agent", // the name the agent is served as
         render: ({ state }) => (
           <div>
@@ -209,10 +209,10 @@ is a situation where a user and an agent are working together to solve a problem
     other than the chat.
 
     ```tsx title="app/page.tsx"
-    import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
+    import { useagent } from "@copilotkit/react-core"; // [!code highlight]
     // ...
 
-    // Define the state of the agent, should match the state of the agent in your LangGraph.
+    // Define the state of the agent, should match the state of the agent in your agent framework.
     type AgentState = {
       searches: {
         query: string;
@@ -224,7 +224,7 @@ is a situation where a user and an agent are working together to solve a problem
       // ...
 
       // [!code highlight:3]
-      const { state } = useCoAgent<AgentState>({
+      const { state } = useagent<AgentState>({
         name: "sample_agent", // the name the agent is served as
       })
 

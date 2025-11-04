@@ -5,10 +5,10 @@ description: "Using agent execution parameters when communicating with an agent.
 ---
 
 ## What is this?
-LangGraph agents are able to take execution parameters, such as auth tokens and similar properties.
+agent framework agents are able to take execution parameters, such as auth tokens and similar properties.
 You can add these using this feature.
 
-If you wish to read further, you can refer to [the configuration guide by LangGraph](https://langchain-ai.github.io/langgraph/how-tos/configuration/)
+If you wish to read further, you can refer to [the configuration guide by agent framework](https://agent-ai.github.io/agent framework/how-tos/configuration/)
 
 ## When should I use this?
 
@@ -16,7 +16,7 @@ This is useful when you want to send execution-time configuration information (s
 
 ## Implementation
 
-By default, LangGraph agents are invoked with a `config` argument. This config has a `configurable` property which can be accessed and filled with your data.
+By default, agent framework agents are invoked with a `config` argument. This config has a `configurable` property which can be accessed and filled with your data.
 
 <Steps>
 <Step>
@@ -24,12 +24,12 @@ By default, LangGraph agents are invoked with a `config` argument. This config h
 First, pass the configuration properties as you would like to receive them in the agent
 
 ```tsx title="app/page.tsx"
-import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
+import { useagent } from "@copilotkit/react-core"; // [!code highlight]
 
 function YourMainContent() {
   // ...
 
-  useCoAgent<AgentState>({
+  useagent<AgentState>({
     name: "sample_agent",
     // [!code highlight:6]
     config: {
@@ -76,7 +76,7 @@ Now you can simply pull the values from the provided config argument in any agen
     If you'd like, you can define a schema to indicate which configurables you wish to receive.
     Any item passed to "configurables" which is not included in the schema, will be filtered out.
 
-    You can read more about this (here)[https://langchain-ai.github.io/langgraph/how-tos/configuration/#define-graph]
+    You can read more about this (here)[https://agent-ai.github.io/agent framework/how-tos/configuration/#define-graph]
     <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
         <Tab value="Python">
             ```python
@@ -94,7 +94,7 @@ Now you can simply pull the values from the provided config argument in any agen
         </Tab>
         <Tab value="TypeScript">
             ```typescript
-            import { Annotation } from "@langchain/langgraph";
+            import { Annotation } from "@agent/agent framework";
 
             // define which properties will be allowed in the configuration
             export const ConfigSchemaAnnotation = Annotation.Root({

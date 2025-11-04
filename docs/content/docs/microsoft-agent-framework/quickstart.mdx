@@ -14,7 +14,7 @@ import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/sel
 import { UserIcon, PaintbrushIcon, WrenchIcon, RepeatIcon, ServerIcon, SquareTerminal, SquareChartGantt } from "lucide-react";
 
 <video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/microsoft-agent-framework/chat-example.mp4"
   className="rounded-lg shadow-xl"
   loop
   playsInline
@@ -162,7 +162,7 @@ Before you begin, you'll need the following:
                         var builder = WebApplication.CreateBuilder(args);
                         var app = builder.Build();
 
-                        app.MapAGUIAgent("/", (input, ctx) => {
+                        app.MapAGUIAgent("/", (messages, frontendTools, context, state, forwardedProps) => {
                           var githubToken = builder.Configuration["GitHubToken"]!; // dotnet user-secrets set GitHubToken "<token>"
                           var openAI = new OpenAIClient(new System.ClientModel.ApiKeyCredential(githubToken), new OpenAIClientOptions { Endpoint = new Uri("https://models.inference.ai.azure.com")});
                           var chat = openAI.GetChatClient("gpt-4o-mini").AsIChatClient();
@@ -276,7 +276,7 @@ Before you begin, you'll need the following:
 
                         <SelfHostingCopilotRuntimeConfigureCopilotKitProvider components={props.components} />
                         <Callout type="info">
-                            Looking for a way to run multiple agents? Check out our [Multi-Agent](/coagents/multi-agent-flows) guide.
+                            Looking for a way to run multiple agents? Check out our [Multi-Agent](/microsoft-agent-framework/advanced/multi-agent-flows) guide.
                         </Callout>
                     </Step>
                 </TailoredContentOption>
@@ -305,7 +305,7 @@ Before you begin, you'll need the following:
                 What do you think about React?
                 ```
 
-                <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+                <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/microsoft-agent-framework/chat-example.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
 
                 <Accordions className="mb-4">
                     <Accordion title="Having trouble?">

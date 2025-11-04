@@ -95,9 +95,9 @@ In addition, some state properties contain a lot of information. Syncing them ba
       On the UI, read only the agreed contract:
 
       ```tsx
-      import { useCoAgent } from "@copilotkit/react-core";
+      import { useagent } from "@copilotkit/react-core";
 
-      const { state } = useCoAgent<AgentState>({
+      const { state } = useagent<AgentState>({
         name: "sample_agent",
         initialState: { question: "How's the weather in SF?" },
       });
@@ -114,14 +114,14 @@ In addition, some state properties contain a lot of information. Syncing them ba
     - The UI has no access to resources.
 
     ```tsx
-    import { useCoAgent } from "@copilotkit/react-core";
+    import { useagent } from "@copilotkit/react-core";
 
     type AgentState = {
       question: string;
       answer: string;
     }
 
-    const { state } = useCoAgent<AgentState>({
+    const { state } = useagent<AgentState>({
       name: "sample_agent",
       initialState: {
         question: "How's is the weather in SF?",

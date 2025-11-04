@@ -1,27 +1,27 @@
 ---
 title: Frontend Tool Based
 icon: "lucide/Wrench"
-description: Create frontend tools and use them within your LangGraph agent.
+description: Create frontend tools and use them within your agent framework agent.
 ---
 import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 import { IframeSwitcher } from "@/components/content"
-// Removed LangGraph-specific run-and-connect snippet
+// Removed agent framework-specific run-and-connect snippet
 import { Tabs, Tab } from "fumadocs-ui/components/tabs"
 
 <IframeSwitcher
   id="frontend-tools-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
+  exampleUrl="https://feature-viewer.copilotkit.ai/agent framework/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/agent framework/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
   exampleLabel="Demo"
   codeLabel="Code"
   height="700px"
 />
 
 ## What is this?
-Frontend tools enable you to define client-side functions that your LangGraph agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
+Frontend tools enable you to define client-side functions that your agent framework agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
 the logic runs on the client side, giving you direct access to the frontend environment.
 
-This can be utilized for to let [your agent control the UI](/langgraph/frontend-actions), [generative UI](/langgraph/generative-ui/frontend-tools), or for Human-in-the-loop interactions.
+This can be utilized for to let [your agent control the UI](/agent framework/frontend-actions), [generative UI](/agent framework/generative-ui/frontend-tools), or for Human-in-the-loop interactions.
 
 In this guide, we cover the use of frontend tools for Human-in-the-loop.
 
@@ -106,8 +106,8 @@ Use frontend tools when you need your agent to interact with client-side primiti
             </Tab>
             <Tab value="TypeScript">
                 ```typescript title="agent-js/src/agent.ts"
-                import { Annotation } from "@langchain/langgraph";
-                import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+                import { Annotation } from "@agent/agent framework";
+                import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/agent framework"; // [!code highlight]
 
                 export const YourAgentStateAnnotation = Annotation.Root({
                     yourAdditionalProperty: Annotation<string>,
@@ -153,7 +153,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
             </Tab>
         </Tabs>
 
-        These tools are automatically populated by CopilotKit and are compatible with LangChain's tool call definitions, making it straightforward to integrate them into your agent's workflow.
+        These tools are automatically populated by CopilotKit and are compatible with agent's tool call definitions, making it straightforward to integrate them into your agent's workflow.
     </Step>
     <Step>
         ### Give it a try!

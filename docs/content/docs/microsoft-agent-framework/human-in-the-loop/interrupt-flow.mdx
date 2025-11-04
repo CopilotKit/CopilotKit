@@ -8,28 +8,28 @@ import {
   TailoredContent,
   TailoredContentOption,
 } from "@/components/react/tailored-content.tsx";
-// Removed coagents-specific run-and-connect snippet
+// Removed agents-specific run-and-connect snippet
 import { MessageCircle, PanelsTopLeft } from "lucide-react";
 import { IframeSwitcher } from "@/components/content"
-// Removed LangGraph-specific run-and-connect snippet
+// Removed agent framework-specific run-and-connect snippet
 import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 <IframeSwitcher
   id="human-in-the-loop-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
+  exampleUrl="https://feature-viewer.copilotkit.ai/agent framework/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/agent framework/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
   exampleLabel="Demo"
   codeLabel="Code"
   height="700px"
 />
 
 <Callout type="info">
-  This example demonstrates interrupt-based human-in-the-loop (HITL) in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop).
+  This example demonstrates interrupt-based human-in-the-loop (HITL) in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/agent framework/feature/human_in_the_loop).
 </Callout>
 
 ## What is this?
 
-[LangGraph's interrupt flow](https://langchain-ai.github.io/langgraph/concepts/human_in_the_loop/) provides an intuitive way to implement Human-in-the-loop workflows.
+[agent framework's interrupt flow](https://agent-ai.github.io/agent framework/concepts/human_in_the_loop/) provides an intuitive way to implement Human-in-the-loop workflows.
 
 This guide will show you how to both use `interrupt` and how to integrate it with CopilotKit.
 
@@ -70,8 +70,8 @@ We're going to have the agent ask us to name it, so we'll need a state property 
     <Tab value="TypeScript">
         ```typescript title="agent-js/src/agent.ts"
         // ...
-        import { Annotation } from "@langchain/langgraph";
-        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+        import { Annotation } from "@agent/agent framework";
+        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/agent framework";
         // ...
 
         // This is the state of the agent.
@@ -87,11 +87,11 @@ We're going to have the agent ask us to name it, so we'll need a state property 
 
 </Step>
 <Step>
-    ### Call `interrupt` in your LangGraph agent
-    Now we can call `interrupt` in our LangGraph agent.
+    ### Call `interrupt` in your agent framework agent
+    Now we can call `interrupt` in our agent framework agent.
 
     <Callout type="info">
-        Your agent will not be aware of the `interrupt` interaction by default in LangGraph.
+        Your agent will not be aware of the `interrupt` interaction by default in agent framework.
 
         If you want this behavior, see the [section on it below](#make-your-agent-aware-of-interruptions).
     </Callout>
@@ -99,9 +99,9 @@ We're going to have the agent ask us to name it, so we'll need a state property 
     <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
         <Tab value="Python">
             ```python title="agent/sample_agent/agent.py"
-            from langgraph.types import interrupt # [!code highlight]
-            from langchain_core.messages import SystemMessage
-            from langchain_openai import ChatOpenAI
+            from agent framework.types import interrupt # [!code highlight]
+            from agent_core.messages import SystemMessage
+            from agent_openai import ChatOpenAI
             from copilotkit import CopilotKitState
 
             # add the agent state definition from the previous step
@@ -131,9 +131,9 @@ We're going to have the agent ask us to name it, so we'll need a state property 
         </Tab>
         <Tab value="TypeScript">
             ```typescript title="agent-js/src/agent.ts"
-            import { interrupt } from "@langchain/langgraph"; // [!code highlight]
-            import { SystemMessage } from "@langchain/core/messages";
-            import { ChatOpenAI } from "@langchain/openai";
+            import { interrupt } from "@agent/agent framework"; // [!code highlight]
+            import { SystemMessage } from "@agent/core/messages";
+            import { ChatOpenAI } from "@agent/openai";
 
             // add the agent state definition from the previous step
             export const AgentStateAnnotation = Annotation.Root({
@@ -168,20 +168,20 @@ We're going to have the agent ask us to name it, so we'll need a state property 
 </Step>
 <Step>
     ### Handle the interrupt in your frontend
-    At this point, your LangGraph agent's `interrupt` will be called. However, we currently have no handling for rendering or
+    At this point, your agent framework agent's `interrupt` will be called. However, we currently have no handling for rendering or
     responding to the interrupt in the frontend.
 
-    To do this, we'll use the `useLangGraphInterrupt` hook, give it a component to render, and then call `resolve` with the user's response.
+    To do this, we'll use the `useagent frameworkInterrupt` hook, give it a component to render, and then call `resolve` with the user's response.
 
     ```tsx title="app/page.tsx"
-    import { useLangGraphInterrupt } from "@copilotkit/react-core"; // [!code highlight]
+    import { useagent frameworkInterrupt } from "@copilotkit/react-core"; // [!code highlight]
     // ...
 
     const YourMainContent = () => {
     // ...
     // [!code highlight:15]
     // styles omitted for brevity
-    useLangGraphInterrupt({
+    useagent frameworkInterrupt({
         render: ({ event, resolve }) => (
             <div>
                 <p>{event.value}</p>
@@ -205,7 +205,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
 <Step>
 ### Give it a try!
 Try talking to your agent, you'll see that it now pauses execution and waits for you to respond!
-<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/interrupt-flow.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/microsoft-agent-framework/interrupt-flow.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
 </Step>
 </Steps>
 
@@ -213,7 +213,7 @@ Try talking to your agent, you'll see that it now pauses execution and waits for
 
 ### Condition UI executions
 
-When rendering multiple `interrupt` events in the agent, there could be conflicts between multiple `useLangGraphInterrupt` hooks calls in the UI.
+When rendering multiple `interrupt` events in the agent, there could be conflicts between multiple `useagent frameworkInterrupt` hooks calls in the UI.
 For this reason, the hook can take an `enabled` argument which will apply it conditionally:
 
 <Steps>
@@ -223,9 +223,9 @@ For this reason, the hook can take an `enabled` argument which will apply it con
         <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
             <Tab value="Python">
                 ```python title="agent/sample_agent/agent.py"
-                from langgraph.types import interrupt # [!code highlight]
-                from langchain_core.messages import SystemMessage
-                from langchain_openai import ChatOpenAI
+                from agent framework.types import interrupt # [!code highlight]
+                from agent_core.messages import SystemMessage
+                from agent_openai import ChatOpenAI
 
                 # ... your full state definition
 
@@ -255,9 +255,9 @@ For this reason, the hook can take an `enabled` argument which will apply it con
             </Tab>
             <Tab value="TypeScript">
                 ```typescript title="agent-js/src/agent.ts"
-                import { interrupt } from "@langchain/langgraph"; // [!code highlight]
-                import { SystemMessage } from "@langchain/core/messages";
-                import { ChatOpenAI } from "@langchain/openai";
+                import { interrupt } from "@agent/agent framework"; // [!code highlight]
+                import { SystemMessage } from "@agent/core/messages";
+                import { ChatOpenAI } from "@agent/openai";
 
                 // ... your full state definition
 
@@ -290,10 +290,10 @@ For this reason, the hook can take an `enabled` argument which will apply it con
     <Step>
         ### Add multiple frontend handlers
         With the differentiator in mind, we will add a handler that takes care of any "ask" and any "approve" types.
-        With two `useLangGraphInterrupt` hooks in our page, we can leverage the `enabled` property to enable each in the right time:
+        With two `useagent frameworkInterrupt` hooks in our page, we can leverage the `enabled` property to enable each in the right time:
 
         ```tsx title="app/page.tsx"
-        import { useLangGraphInterrupt } from "@copilotkit/react-core"; // [!code highlight]
+        import { useagent frameworkInterrupt } from "@copilotkit/react-core"; // [!code highlight]
         // ...
 
         const ApproveComponent = ({ content, onAnswer }: { content: string; onAnswer: (approved: boolean) => void }) => (
@@ -322,14 +322,14 @@ For this reason, the hook can take an `enabled` argument which will apply it con
         const YourMainContent = () => {
             // ...
             // [!code highlight:13]
-            useLangGraphInterrupt({
+            useagent frameworkInterrupt({
                 enabled: ({ eventValue }) => eventValue.type === 'ask',
                 render: ({ event, resolve }) => (
                     <AskComponent question={event.value.content} onAnswer={answer => resolve(answer)} />
                 )
             });
 
-            useLangGraphInterrupt({
+            useagent frameworkInterrupt({
                 enabled: ({ eventValue }) => eventValue.type === 'approval',
                 render: ({ event, resolve }) => (
                     <ApproveComponent content={event.value.content} onAnswer={answer => resolve(answer)} />
@@ -356,7 +356,7 @@ interface AuthorizationInterruptEvent {
     accessDepartment: Department,
 }
 
-import { useLangGraphInterrupt } from "@copilotkit/react-core";
+import { useagent frameworkInterrupt } from "@copilotkit/react-core";
 
 const YourMainContent = () => {
     const [userEmail, setUserEmail] = useState({ email: 'example@user.com' })
@@ -367,7 +367,7 @@ const YourMainContent = () => {
     // ...
     // styles omitted for brevity
     // [!code highlight:28]
-    useLangGraphInterrupt({
+    useagent frameworkInterrupt({
         handler: async ({ result, event, resolve }) => {
             const { department } = await getUserByEmail(userEmail)
             if (event.value.accessDepartment === department || department === 'admin') {

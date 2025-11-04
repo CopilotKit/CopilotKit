@@ -1,8 +1,5 @@
 {
-    "title": "coagents",
+    "title": "Tutorials",
     "root": true,
-    "pages": [
-      "agent-native-app",
-      "ai-travel-app"
-    ]
+    "pages": []
   }

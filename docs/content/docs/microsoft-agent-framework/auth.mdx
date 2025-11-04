@@ -44,47 +44,70 @@ Pass your authentication token via the `properties` prop:
 The `authorization` property is forwarded to your AG-UI server. If your server expects a Bearer token, include the `Bearer ` prefix when validating.
 ## ASP.NET Core AG-UI server
 
-Validate the incoming token and scope requests in your AG-UI server. Below is a minimal example that reads the forwarded `authorization` value and performs custom validation before creating the agent.
+Validate the incoming token and scope requests in your AG-UI server using ASP.NET Core's built-in JWT bearer authentication. Below is an example that configures JWT bearer authentication following [Microsoft's recommended approach](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/configure-jwt-bearer-authentication).
 
 ```csharp title="Program.cs"
-using Azure.AI.OpenAI;
-using Azure.Identity;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.AI;
+using OpenAI;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddHttpClient().AddLogging();
+
+// Configure JWT Bearer authentication
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.Authority = builder.Configuration["JwtAuthority"]; // e.g., "https://login.microsoftonline.com/{tenant-id}/v2.0"
+        options.Audience = builder.Configuration["JwtAudience"]; // Your API audience/client ID
+        options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true
+        };
+    });
+
+builder.Services.AddAuthorization();
+
 var app = builder.Build();
 
-string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
-string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
+app.UseAuthentication();
+app.UseAuthorization();
 
-app.MapAGUIAgent("/", (messages, tools, context, forwardedProps) =>
+string githubToken = builder.Configuration["GitHubToken"]!;
+
+// Apply [Authorize] to the AG-UI endpoint
+app.MapAGUIAgent("/", [Authorize] (messages, frontendTools, context, state, forwardedProps) =>
 {
-    var authHeader = forwardedProps?.GetValueOrDefault("authorization");
-    if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-    {
-        throw new UnauthorizedAccessException("Unauthorized");
-    }
-
-    var token = authHeader["Bearer ".Length..];
-    var user = ValidateYourToken(token); // implement your validation here
-
-    // Create and return the agent; use `user` to scope any downstream resources
-    return new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
-        .GetChatClient(deployment)
-        .CreateAIAgent(name: "AGUIAssistant");
+    // Access the authenticated user's identity
+    // var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    
+    var openAI = new OpenAIClient(
+        new System.ClientModel.ApiKeyCredential(githubToken),
+        new OpenAIClientOptions { Endpoint = new Uri("https://models.inference.ai.azure.com") }
+    );
+    var chat = openAI.GetChatClient("gpt-4o-mini").AsIChatClient();
+    var agent = new ChatClientAgent(chat, name: "AGUIAssistant", description: "A helpful assistant.");
+    return new ChatClientAGUIAgent(agent);
 });
 
 await app.RunAsync();
+```
 
-static UserInfo ValidateYourToken(string token)
+### Configuration
+
+Add the JWT settings to your `appsettings.json` or environment variables:
+
+```json title="appsettings.json"
 {
-    // TODO: Replace with Microsoft Entra ID / JWT validation
-    return new UserInfo("user-id");
+  "JwtAuthority": "https://login.microsoftonline.com/{your-tenant-id}/v2.0",
+  "JwtAudience": "api://{your-client-id}"
 }
-
-record UserInfo(string Id);
 ```
 
 ## Security notes

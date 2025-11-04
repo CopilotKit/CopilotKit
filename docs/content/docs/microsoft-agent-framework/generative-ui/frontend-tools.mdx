@@ -5,13 +5,13 @@ description: Create frontend tools and use them within your Microsoft Agent Fram
 ---
 import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 import { IframeSwitcher } from "@/components/content"
-// Removed LangGraph-specific snippet; see Quickstart for connecting to your agent
+// Removed agent framework-specific snippet; see Quickstart for connecting to your agent
 import { Tabs, Tab } from "fumadocs-ui/components/tabs"
 
 <IframeSwitcher
   id="frontend-tools-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs"
+  exampleUrl="https://feature-viewer.copilotkit.ai/agent framework/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/agent framework/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs"
   exampleLabel="Demo"
   codeLabel="Code"
   height="700px"
@@ -104,8 +104,8 @@ Use frontend tools when you need your agent to interact with client-side primiti
         var builder = WebApplication.CreateBuilder(args);
         var app = builder.Build();
 
-        app.MapAGUIAgent("/", (input, ctx) => {
-          // input.Tools contains the frontend tool definitions
+        app.MapAGUIAgent("/", (messages, frontendTools, context, state, forwardedProps) => {
+          // frontendTools contains the frontend tool definitions
           var githubToken = builder.Configuration["GitHubToken"]!;
           var openAI = new OpenAIClient(new System.ClientModel.ApiKeyCredential(githubToken), new OpenAIClientOptions { Endpoint = new Uri("https://models.inference.ai.azure.com")});
           var chat = openAI.GetChatClient("gpt-4o-mini").AsIChatClient();

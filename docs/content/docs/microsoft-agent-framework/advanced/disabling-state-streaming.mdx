@@ -22,7 +22,7 @@ You can disable all message streaming and tool call streaming by passing `emit_m
 <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
     <Tab value="Python">
         ```python
-        from copilotkit.langgraph import copilotkit_customize_config
+        from copilotkit.agent framework import copilotkit_customize_config
 
         async def frontend_actions_node(state: AgentState, config: RunnableConfig):
 
@@ -47,7 +47,7 @@ You can disable all message streaming and tool call streaming by passing `emit_m
         ```
 
     <Callout type="warn" title="BEWARE!">
-        In LangGraph Python, the `config` variable in the surrounding namespace is **implicitly** passed into LangChain LLM calls, even when not explicitly provided.
+        In agent framework Python, the `config` variable in the surrounding namespace is **implicitly** passed into agent LLM calls, even when not explicitly provided.
 
         This is why we create a new variable `modifiedConfig` rather than modifying `config` directly. If we modified `config` itself, it would change the default configuration for all subsequent LLM calls in that namespace.
 
@@ -55,14 +55,14 @@ You can disable all message streaming and tool call streaming by passing `emit_m
         # if we override the config variable name with a new value
         config = copilotkit_customize_config(config, ...)
 
-        # it will affect every subsequent LangChain LLM call in the same namespace, even when `config` is not explicitly provided
+        # it will affect every subsequent agent LLM call in the same namespace, even when `config` is not explicitly provided
         response = await model2.ainvoke(*state["messages"]) # implicitly uses the modified config!
         ```
     </Callout>
     </Tab>
     <Tab value="TypeScript">
         ```typescript
-        import { copilotkitCustomizeConfig } from '@copilotkit/sdk-js/langgraph';
+        import { copilotkitCustomizeConfig } from '@copilotkit/sdk-js/agent framework';
 
         async function frontendActionsNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
             // 1) Configure CopilotKit not to emit messages

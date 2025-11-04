@@ -6,19 +6,19 @@ icon: lucide/Share2
 import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 
 <Callout type="error">
-    The usage of node based interrupt is [now discouraged](https://langchain-ai.github.io/langgraph/concepts/v0-human-in-the-loop/) by both LangGraph and CopilotKit.
-    As of LangGraph 0.2.57, the recommended way to set breakpoints is using [the interrupt function](https://docs.copilotkit.ai/coagents/human-in-the-loop/interrupt-flow) as it simplifies human-in-the-loop patterns.
+    The usage of node based interrupt is [now discouraged](https://agent-ai.github.io/agent framework/concepts/v0-human-in-the-loop/) by both agent framework and CopilotKit.
+    As of agent framework 0.2.57, the recommended way to set breakpoints is using [the interrupt function](https://docs.copilotkit.ai/microsoft-agent-framework/human-in-the-loop/interrupt-flow) as it simplifies human-in-the-loop patterns.
 </Callout>
 
-<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/node-hitl.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/microsoft-agent-framework/node-hitl.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
 
 <Callout type="info">
-  Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter) with
+  Pictured above is the [agent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/agents-starter) with
   the implementation below applied!
 </Callout>
 
 ## What is this?
-[Node based flows](https://langchain-ai.github.io/langgraph/concepts/v0-human-in-the-loop/#dynamic-breakpoints) are predicated on LangGraph concept
+[Node based flows](https://agent-ai.github.io/agent framework/concepts/v0-human-in-the-loop/#dynamic-breakpoints) are predicated on agent framework concept
 of `breakpoints` which will interrupt a node before or after its execution to allow for user input.
 
 CopilotKit allows you to add custom UI to take user input and then pass it back to the agent upon completion.
@@ -91,8 +91,8 @@ is interrupted and then resumes execution from where it left off, unaware of the
     </Step>
 
     <Step>
-    ### Setup the LangGraph Agent
-    Now we'll setup the LangGraph agent. Node-based flows are hard to understand without a complete example, so below
+    ### Setup the agent framework Agent
+    Now we'll setup the agent framework agent. Node-based flows are hard to understand without a complete example, so below
     is the complete implementation of the agent with explanations.
 
     Some main things to note:
@@ -105,12 +105,12 @@ is interrupted and then resumes execution from where it left off, unaware of the
       <Tab value="Python">
         ```python title="agent/sample_agent/agent.py"
         from typing_extensions import Literal
-        from langchain_openai import ChatOpenAI
-        from langchain_core.messages import SystemMessage, AIMessage
-        from langchain_core.runnables import RunnableConfig
-        from langgraph.graph import StateGraph, END
-        from langgraph.checkpoint.memory import MemorySaver
-        from langgraph.types import Command
+        from agent_openai import ChatOpenAI
+        from agent_core.messages import SystemMessage, AIMessage
+        from agent_core.runnables import RunnableConfig
+        from agent framework.graph import StateGraph, END
+        from agent framework.checkpoint.memory import MemorySaver
+        from agent framework.types import Command
         from copilotkit import CopilotKitState
 
         # 1. Define our agent's state and inherit from CopilotKitState, this brings in the CopilotKit tools
@@ -185,17 +185,17 @@ is interrupted and then resumes execution from where it left off, unaware of the
       <Tab value="TypeScript">
         ```tsx title="agent/sample_agent/agent.ts"
         import { z } from "zod";
-        import { RunnableConfig } from "@langchain/core/runnables";
-        import { tool } from "@langchain/core/tools";
-        import { ToolNode } from "@langchain/langgraph/prebuilt";
-        import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from "@langchain/core/messages";
-        import { Command, END, MemorySaver, START, StateGraph } from "@langchain/langgraph";
-        import { Annotation } from "@langchain/langgraph";
-        import { ChatOpenAI } from "@langchain/openai";
+        import { RunnableConfig } from "@agent/core/runnables";
+        import { tool } from "@agent/core/tools";
+        import { ToolNode } from "@agent/agent framework/prebuilt";
+        import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from "@agent/core/messages";
+        import { Command, END, MemorySaver, START, StateGraph } from "@agent/agent framework";
+        import { Annotation } from "@agent/agent framework";
+        import { ChatOpenAI } from "@agent/openai";
 
         // // 1. Import necessary helpers for CopilotKit tools
-        import { convertActionsToDynamicStructuredTools } from "@copilotkit/sdk-js/langgraph";
-        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+        import { convertActionsToDynamicStructuredTools } from "@copilotkit/sdk-js/agent framework";
+        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/agent framework";
 
         // 2. Define graph state, inherit from CopilotKitState to bring in CopilotKit tools
         //    and messages.

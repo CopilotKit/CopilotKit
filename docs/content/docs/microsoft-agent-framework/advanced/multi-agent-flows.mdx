@@ -6,7 +6,7 @@ icon: "lucide/Users"
 import { Callout } from "fumadocs-ui/components/callout";
 
 <Frame>
-    <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/multi-agent-flows.png" alt="Multi-Agent Flows" />
+    <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/microsoft-agent-framework/multi-agent-flows.png" alt="Multi-Agent Flows" />
 </Frame>
 
 ## What are Multi-Agent Flows?
@@ -28,7 +28,7 @@ CopilotKit can be used in either of two distinct modes: **Router Mode**, or **Ag
 will use Router Mode, leveraging your defined LLM to route requests between agents.
 
 ### Router Mode (default)
-Router Mode is enabled by default when using CoAgents. To use it, specify a runtime URL prop in the `CopilotKit` provider component and omit the `agent` prop, like so:
+Router Mode is enabled by default when using agents. To use it, specify a runtime URL prop in the `CopilotKit` provider component and omit the `agent` prop, like so:
 ```tsx
 <CopilotKit runtimeUrl="<copilot-runtime-url>">
   {/* Your application components */}
@@ -40,7 +40,7 @@ In router mode, CopilotKit acts as a central hub, dynamically selecting and _rou
 In this mode, CopilotKit will intelligently route requests to the most appropriate agent or action based on the context and user input.
 
 Be advised that when using this mode, you'll have to "exit the workflow" explicitly in your agent code.
-You can find more information about it in the ["Exiting the agent loop" section](https://docs.copilotkit.ai/coagents/advanced/exit-agent).
+You can find more information about it in the ["Exiting the agent loop" section](https://docs.copilotkit.ai/microsoft-agent-framework/advanced/exit-agent).
 
 <Callout type="warn">
     Router mode requires that you set up an LLM adapter. See how in ["Set up a copilot runtime"](https://docs.copilotkit.ai/direct-to-llm/guides/quickstart?copilot-hosting=self-hosted#set-up-a-copilot-runtime-endpoint) section of the docs.
