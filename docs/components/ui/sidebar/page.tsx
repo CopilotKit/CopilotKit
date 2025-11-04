@@ -10,7 +10,7 @@ interface PageProps {
 const Page = ({ node }: PageProps) => {
   return (
     <li className="flex justify-start items-center px-3 h-10 text-sm shrink-0">
-      <Link href={node.$id}>{node.name}</Link>
+      <Link href={node.url}>{node.name}</Link>
     </li>
   )
 }
