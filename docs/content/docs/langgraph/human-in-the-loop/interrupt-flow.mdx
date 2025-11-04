@@ -151,7 +151,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
 
                 // Tell the agent its name
                 const systemMessage = new SystemMessage({
-                    content: `You are a helpful assistant named ${state.agentName}...`,
+                    content: `You are a helpful assistant named ${agentName}...`,
                 });
 
                 const response = await new ChatOpenAI({ model: "gpt-4o" }).invoke(

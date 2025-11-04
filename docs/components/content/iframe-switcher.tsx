@@ -10,7 +10,6 @@ import { Monitor, Code } from "lucide-react";
 interface IframeSwitcherProps {
   exampleUrl: string;
   codeUrl: string;
-  id: string;
   height?: string;
   exampleLabel?: string;
   codeLabel?: string;
@@ -19,7 +18,6 @@ interface IframeSwitcherProps {
 export function IframeSwitcher({
   exampleUrl,
   codeUrl,
-  id,
   height = "600px",
   exampleLabel = "Example",
   codeLabel = "Code",
