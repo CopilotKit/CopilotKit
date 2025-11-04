@@ -1,0 +1,27 @@
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+
+You'll need to run your agent and connect it to CopilotKit before proceeding.
+
+If you don't already have CopilotKit and your agent connected, choose one of the following options:
+
+<Accordions>
+  <Accordion title="I already have an agent">
+    You can follow the instructions in the [quickstart](/langgraph/quickstart) guide.
+  </Accordion>
+  <Accordion title="I want to start from scratch">
+    Run the following command to create a brand new project with a pre-configured agent:
+
+    <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+      <Tab value="Python">
+        ```bash
+        npx copilotkit@latest create -f langgraph-py
+        ```
+      </Tab>
+      <Tab value="TypeScript">
+       ```bash
+       npx copilotkit@latest create -f langgraph-js
+       ```
+     </Tab>
+    </Tabs>
+  </Accordion>
+</Accordions>

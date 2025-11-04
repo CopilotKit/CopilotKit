@@ -1,17 +1,17 @@
 ---
-title: Frontend Tools
+title: Frontend Tool Based
 icon: "lucide/Wrench"
 description: Create frontend tools and use them within your LangGraph agent.
 ---
 import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
-import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx"
-import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx"
+import { Tabs, Tab } from "fumadocs-ui/components/tabs"
 
 <IframeSwitcher
   id="frontend-tools-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
   exampleLabel="Demo"
   codeLabel="Code"
   height="700px"
@@ -23,7 +23,7 @@ the logic runs on the client side, giving you direct access to the frontend envi
 
 This can be utilized for to let [your agent control the UI](/langgraph/frontend-actions), [generative UI](/langgraph/generative-ui/frontend-tools), or for Human-in-the-loop interactions.
 
-In this guide, we cover the use of frontend tools driving and interacting with the UI.
+In this guide, we cover the use of frontend tools for Human-in-the-loop.
 
 ## When should I use this?
 Use frontend tools when you need your agent to interact with client-side primitives such as:
@@ -37,36 +37,47 @@ Use frontend tools when you need your agent to interact with client-side primiti
 
 <Steps>
     <Step>
-        ### Run and connect your agent
-       <RunAndConnect components={props.components} />
+      ### Run and connect your agent
+      <RunAndConnect components={props.components} />
     </Step>
 
     <Step>
-        ### Create a frontend tool
+        ### Create a frontend human-in-the-loop tool
 
-        First, you'll need to create a frontend tool using the [useFrontendTool](/reference/hooks/useFrontendTool) hook. Here's a simple one to get you started
-        that says hello to the user.
+        Frontend tools can be leveraged in a variety of ways. One of those ways is to have a human-in-the-loop flow where the response
+        of the tool is gated by a user's decision.
+
+        In this example we will simulate a "approval" flow for executing a command. First, use the `useHumanInTheLoop` hook to create a tool that
+        prompts the user for approval.
 
         ```tsx title="page.tsx"
-        import { useFrontendTool } from "@copilotkit/react-core" // [!code highlight]
+        import { useHumanInTheLoop } from "@copilotkit/react-core" // [!code highlight]
 
         export function Page() {
           // ...
 
-          // [!code highlight:15]
-          useFrontendTool({
-            name: "sayHello",
-            description: "Say hello to the user",
+          useHumanInTheLoop({
+            name: "humanApprovedCommand",
+            description: "Ask human for approval to run a command.",
             parameters: [
               {
-                name: "name",
+                name: "command",
                 type: "string",
-                description: "The name of the user to say hello to",
+                description: "The command to run",
                 required: true,
               },
             ],
-            handler: async ({ name }) => {
-              alert(`Hello, ${name}!`);
+            render: ({ args, respond }) => {
+              if (!respond) return <></>;
+              return (
+                <div>
+                  <pre>{args.command}</pre>
+                  // [!code highlight:4]
+                  // Respond will resume execution and be the value will become the tool result.
+                  <button onClick={() => respond(`Command is APPROVED`)}>Approve</button>
+                  <button onClick={() => respond(`Command is DENIED`)}>Deny</button>
+                </div>
+              );
             },
           });
 
@@ -76,7 +87,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
     </Step>
     <Step>
         ###  Modify your agent
-        Now, we'll need to modify the agent to access these frontend actions. Open up your agent's folder and continue from there!
+        Now, we'll need to modify the agent to access these frontend actions. Open up for your agent's folder and continue from there!
     </Step>
     <Step>
         ### Install the CopilotKit SDK
@@ -150,7 +161,5 @@ Use frontend tools when you need your agent to interact with client-side primiti
     <Step>
         ### Give it a try!
         You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
-
-        <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
     </Step>
 </Steps>

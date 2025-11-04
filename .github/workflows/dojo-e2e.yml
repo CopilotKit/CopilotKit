@@ -3,8 +3,14 @@ name: e2e/dojo
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
   pull_request:
     branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
 
 jobs:
   e2e:
@@ -12,57 +18,57 @@ jobs:
     runs-on: depot-ubuntu-latest-8
 
     steps:
-    - name: Checkout CPK
-      uses: actions/checkout@v4
-      with:
-        path: CopilotKit
+      - name: Checkout CPK
+        uses: actions/checkout@v4
+        with:
+          path: CopilotKit
 
-    - name: Checkout AGUI
-      uses: actions/checkout@v4
-      with:
-        repository: ag-ui-protocol/ag-ui
-        path: ag-ui
-        ref: main
+      - name: Checkout AGUI
+        uses: actions/checkout@v4
+        with:
+          repository: ag-ui-protocol/ag-ui
+          path: ag-ui
+          ref: main
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '22'
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
 
-    - name: Install pnpm
-      uses: pnpm/action-setup@v4
-      with:
-        version: 10.13.1
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.13.1
 
-    - name: Install Poetry
-      uses: snok/install-poetry@v1
-      with:
-        version: latest
-        virtualenvs-create: true
-        virtualenvs-in-project: true
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-create: true
+          virtualenvs-in-project: true
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
 
-    - name: Setup pnpm cache
-      uses: actions/cache@v4
-      with:
-        path: ~/.local/share/pnpm/store
-        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-pnpm-store-
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
-    - name: Install cpk dependencies
-      working-directory: CopilotKit/CopilotKit
-      run: pnpm install --frozen-lockfile
+      - name: Install cpk dependencies
+        working-directory: CopilotKit/CopilotKit
+        run: pnpm install --frozen-lockfile
 
-    - name: Build cpk
-      working-directory: CopilotKit/CopilotKit
-      run: |
-        unset TURBO_API
-        unset TURBO_TOKEN
-        unset TURBO_TEAM
-        pnpm build
+      - name: Build cpk
+        working-directory: CopilotKit/CopilotKit
+        run: |
+          unset TURBO_API
+          unset TURBO_TOKEN
+          unset TURBO_TEAM
+          pnpm build
 
     - name: Install ag-ui dependencies
       working-directory: ag-ui

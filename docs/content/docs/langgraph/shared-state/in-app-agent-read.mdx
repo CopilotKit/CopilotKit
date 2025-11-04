@@ -4,14 +4,20 @@ icon: "lucide/ArrowLeft"
 description: Read the realtime agent state in your native application.
 ---
 import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
+import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx"
+import { IframeSwitcher } from "@/components/content"
 
-<Frame>
-  <ImageZoom src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/read-agent-state.png" alt="read agent state" width={1000} height={1000} className="my-0"/>
-</Frame>
+<IframeSwitcher
+  id="shared-state-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
 
 <Callout type="info">
-  Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter) with
-  the [implementation](#implementation) section applied!
+  This example demonstrates reading from shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state).
 </Callout>
 
 ## What is this?
@@ -27,13 +33,8 @@ state update you can reflect these updates natively in your application.
 
 <Steps>
   <Step>
-    ### Run and Connect Your Agent to CopilotKit
-
-    You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
-    you can follow the instructions in the [Getting Started](/getting-started) guide.
-
-    If you don't already have an agent, you can use the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter) as a starting point
-    as this guide uses it as a starting point.
+    ### Run and connect your agent
+    <RunAndConnect components={props.components} />
   </Step>
   <Step>
     ### Define the Agent State
@@ -129,6 +130,15 @@ state update you can reflect these updates natively in your application.
     ### Give it a try!
     As the agent state updates, your `state` variable will automatically update with it! In this case, you'll see the
     language set to "spanish" as that's the initial state we set.
+
+    <Frame>
+      <ImageZoom src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/read-agent-state.png" alt="read agent state" width={1000} height={1000} className="my-0"/>
+    </Frame>
+
+    <Callout type="info">
+      Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter) with
+      the [implementation](#implementation) section applied!
+    </Callout>
   </Step>
 </Steps>
 
