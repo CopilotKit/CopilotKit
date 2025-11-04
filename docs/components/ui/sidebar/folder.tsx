@@ -6,7 +6,7 @@ import Page from "./page"
 import ChevronDownIcon from "../icons/chevron"
 import { cn } from "@/lib/utils"
 
-type Node = DocsLayoutProps["tree"]["children"][number]
+type Node = DocsLayoutProps["tree"]["children"][number] & { url: string }
 
 interface FolderProps {
   node: Node

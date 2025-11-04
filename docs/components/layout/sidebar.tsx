@@ -3,7 +3,7 @@ import Separator from "../ui/sidebar/separator"
 import Page from "../ui/sidebar/page"
 import Folder from "../ui/sidebar/folder"
 
-type Node = DocsLayoutProps["tree"]["children"][number]
+type Node = DocsLayoutProps["tree"]["children"][number] & { url: string }
 
 const NODE_COMPONENTS = {
   separator: Separator,
@@ -23,7 +23,7 @@ const Sidebar = ({ pageTree }: { pageTree: DocsLayoutProps["tree"] }) => {
         <li className="w-full h-6" />
         {pages.map((page) => {
           const Component = NODE_COMPONENTS[page.type]
-          return <Component key={crypto.randomUUID()} node={page} />
+          return <Component key={crypto.randomUUID()} node={page as Node} />
         })}
       </ul>
     </aside>

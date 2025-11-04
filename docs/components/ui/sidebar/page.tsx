@@ -1,7 +1,7 @@
 import Link from "fumadocs-core/link"
 import { DocsLayoutProps } from "fumadocs-ui/layouts/docs"
 
-type Node = DocsLayoutProps["tree"]["children"][number]
+type Node = DocsLayoutProps["tree"]["children"][number] & { url: string }
 
 interface PageProps {
   node: Node
