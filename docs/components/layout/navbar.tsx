@@ -1,11 +1,14 @@
 "use client"
 
+import { useState } from "react"
 import Image from "next/image"
 import Link from "fumadocs-core/link"
 import { usePathname } from "next/navigation"
+import { DocsLayoutProps } from "fumadocs-ui/layouts/docs"
 // Components
 import { Logo } from "@/app/logo"
 import SearchDialogButton from "@/components/ui/search-button"
+import MobileSidebar from "@/components/layout/mobile-sidebar"
 // Icons
 import RocketIcon from "@/components/ui/icons/rocket"
 import PuzzleIcon from "@/components/ui/icons/puzzle"
@@ -16,12 +19,16 @@ import DiscordIcon from "@/components/ui/icons/discord"
 import ExternalLinkIcon from "@/components/ui/icons/external-link"
 import BurgerMenuIcon from "@/components/ui/icons/burger-menu"
 
-interface NavbarLinks {
+export interface NavbarLinks {
   href: string
   icon: React.ReactNode
   label?: string
   target?: "_blank" | "_self" | "_parent" | "_top"
   showExternalLinkIcon?: boolean
+}
+
+interface NavbarProps {
+  pageTree: DocsLayoutProps["tree"]
 }
 
 const LEFT_LINKS: NavbarLinks[] = [
@@ -62,7 +69,8 @@ const RIGHT_LINKS: NavbarLinks[] = [
   },
 ]
 
-const Navbar = () => {
+const Navbar = ({ pageTree }: NavbarProps) => {
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const pathname = usePathname()
   const activeRoute = pathname.split("/")[1] || "/"
 
@@ -72,7 +80,15 @@ const Navbar = () => {
   }
 
   return (
-    <nav className="h-[68px] xl:h-[88px] p-1 xl:p-2">
+    <nav className="h-[68px] xl:h-[88px] p-1 xl:p-2 relative">
+      {isMobileSidebarOpen && (
+        <MobileSidebar
+          pageTree={pageTree}
+          setIsOpen={setIsMobileSidebarOpen}
+          handleToggleTheme={handleToggleTheme}
+        />
+      )}
+
       <div className="flex justify-between items-center w-full h-full">
         <div className="flex w-full h-full">
           <div className="flex gap-11 items-center w-full h-full rounded-l-2xl border border-r-0 backdrop-blur-lg border-border bg-glass-background">
@@ -169,7 +185,10 @@ const Navbar = () => {
 
             <SearchDialogButton />
 
-            <button className="flex justify-center items-center w-11 h-full cursor-pointer md:hidden">
+            <button
+              className="flex justify-center items-center w-11 h-full cursor-pointer md:hidden"
+              onClick={() => setIsMobileSidebarOpen(true)}
+            >
               <BurgerMenuIcon />
             </button>
           </div>
