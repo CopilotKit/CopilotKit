@@ -50,10 +50,10 @@ import { SquareTerminal, SquareChartGantt } from "lucide-react";
 
 Before you begin, you'll need the following:
 
-- A LangSmith API key
 - An OpenAI API key
 - Node.js 20+
 - Your favorite package manager
+- (Optional) A LangSmith API key - only required if using an existing LangGraph agent
 
 ## Getting started
 
@@ -78,11 +78,20 @@ Before you begin, you'll need the following:
             <Step>
                 ### Run our CLI
 
-                First, we'll use our CLI to create a new project for us.
+                First, we'll use our CLI to create a new project for us. Choose between Python or JavaScript:
 
-                ```bash
-                npx copilotkit@latest create -f langgraph
-                ```
+                <Tabs groupId="language" items={['Python', 'JavaScript']}>
+                    <Tab value="Python">
+                        ```bash
+                        npx copilotkit@latest create -f langgraph-py
+                        ```
+                    </Tab>
+                    <Tab value="JavaScript">
+                        ```bash
+                        npx copilotkit@latest create -f langgraph-js
+                        ```
+                    </Tab>
+                </Tabs>
             </Step>
             <Step>
                 ### Install dependencies
@@ -93,11 +102,10 @@ Before you begin, you'll need the following:
             <Step>
                 ### Configure your environment
 
-                Create a `.env` file in your agent directory and add your API keys:
+                Create a `.env` file in your agent directory and add your OpenAI API key:
 
                 ```plaintext title=".env"
                 OPENAI_API_KEY=your_openai_api_key
-                LANGSMITH_API_KEY=your_langsmith_api_key
                 ```
 
                 <Callout type="info" title="What about other models?">
@@ -236,10 +244,12 @@ Before you begin, you'll need the following:
                 - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
                 - Make sure your agent folder contains a `langgraph.json` file
                 - In the `langgraph.json` file, reference the path to a `.env` file
-                - Check that your LangSmith and OpenAI API keys are correctly set in the `.env` file
+                - Check that your OpenAI API key is correctly set in the `.env` file
+                - If using an existing agent, ensure your LangSmith API key is also configured
                 - Make sure you're in the same folder as your `langgraph.json` file when running the `langgraph dev` command
             </Accordion>
-        </Accordions>
+        </Accordions></text>
+
     </Step>
 </Steps>
 
