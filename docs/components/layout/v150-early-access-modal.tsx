@@ -3,12 +3,12 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
 
-interface SignUpModalProps {
+interface V150EarlyAccessModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export function SignUpModal({ isOpen, onClose }: SignUpModalProps) {
+export function V150EarlyAccessModal({ isOpen, onClose }: V150EarlyAccessModalProps) {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -68,7 +68,7 @@ export function SignUpModal({ isOpen, onClose }: SignUpModalProps) {
           <div className="flex justify-between items-start mb-4">
             <div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                CopilotKit v1.50 Early Access
+                Get Early Access to v1.50
               </h2>
               <p className="text-gray-600 dark:text-gray-400 text-sm">
                 Submit your name and email below to be one of the first to experience v1.50.
@@ -105,10 +105,10 @@ export function SignUpModal({ isOpen, onClose }: SignUpModalProps) {
           {submitted ? (
             <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-6 text-center">
               <h3 className="text-xl font-bold text-green-800 dark:text-green-300 mb-2">
-                Thanks for signing up! 🎉
+                Thanks for registering! 🎉
               </h3>
               <p className="text-green-700 dark:text-green-400">
-                You'll be one of the first to experience CopilotKit v1.50.
+                You'll be one of the first to get early access to CopilotKit v1.50.
               </p>
             </div>
           ) : (
