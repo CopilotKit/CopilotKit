@@ -6,12 +6,42 @@ import {
 import { CopilotKitVersion } from "./types";
 export { shouldShowDevConsole } from "@copilotkit/react-core";
 
+// Helper to safely access localStorage
+function safeLocalStorageGet(key: string): string | null {
+  try {
+    if (
+      typeof window !== "undefined" &&
+      window.localStorage &&
+      typeof window.localStorage.getItem === "function"
+    ) {
+      return window.localStorage.getItem(key);
+    }
+  } catch {
+    // Silently fail in environments without localStorage access
+  }
+  return null;
+}
+
+function safeLocalStorageSet(key: string, value: string): void {
+  try {
+    if (
+      typeof window !== "undefined" &&
+      window.localStorage &&
+      typeof window.localStorage.setItem === "function"
+    ) {
+      window.localStorage.setItem(key, value);
+    }
+  } catch {
+    // Silently fail in environments without localStorage access
+  }
+}
+
 export async function getPublishedCopilotKitVersion(
   current: string,
   forceCheck: boolean = false,
 ): Promise<CopilotKitVersion> {
   const LOCAL_STORAGE_KEY = "__copilotkit_version_check__";
-  const serializedVersion = localStorage.getItem(LOCAL_STORAGE_KEY);
+  const serializedVersion = safeLocalStorageGet(LOCAL_STORAGE_KEY);
   if (serializedVersion && !forceCheck) {
     try {
       const parsedVersion: CopilotKitVersion = JSON.parse(serializedVersion);
@@ -55,7 +85,7 @@ export async function getPublishedCopilotKitVersion(
       advisory: data.packages[0].advisory || null,
     };
 
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(version));
+    safeLocalStorageSet(LOCAL_STORAGE_KEY, JSON.stringify(version));
     return version;
   } catch (error) {
     console.error("Failed to check for updates", error);
