@@ -3,12 +3,12 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
 
-interface SignUpModalProps {
+interface V150EarlyAccessModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export function SignUpModal({ isOpen, onClose }: SignUpModalProps) {
+export function V150EarlyAccessModal({ isOpen, onClose }: V150EarlyAccessModalProps) {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -68,7 +68,7 @@ export function SignUpModal({ isOpen, onClose }: SignUpModalProps) {
           <div className="flex justify-between items-start mb-4">
             <div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                CopilotKit v1.50 Early Access
+                Get Early Access to v1.50
               </h2>
               <p className="text-gray-600 dark:text-gray-400 text-sm">
                 Submit your name and email below to be one of the first to experience v1.50.
@@ -83,14 +83,32 @@ export function SignUpModal({ isOpen, onClose }: SignUpModalProps) {
             </button>
           </div>
 
+          {/* Video Preview */}
+          <div className="mb-6 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
+            <video 
+              className="w-full"
+              controls
+              autoPlay
+              muted
+              loop
+              playsInline
+            >
+              <source 
+                src="https://screen-studio-shareable-links.67aa83ffa7fb557cd114a7156fca4e73.r2.cloudflarestorage.com/uI230JNX-video.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=363e5c20253db1195c87384f6dfb4c99%2F20251104%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20251104T234536Z&X-Amz-Expires=7200&X-Amz-Signature=6c14085a1dcd05652c293ef903dc95df8ad77468a7fa406682c05d652bf1cf6b&X-Amz-SignedHeaders=host&x-id=GetObject" 
+                type="video/mp4" 
+              />
+              Your browser does not support the video tag.
+            </video>
+          </div>
+
           {/* Success State */}
           {submitted ? (
             <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-6 text-center">
               <h3 className="text-xl font-bold text-green-800 dark:text-green-300 mb-2">
-                Thanks for signing up! 🎉
+                Thanks for registering! 🎉
               </h3>
               <p className="text-green-700 dark:text-green-400">
-                You'll be one of the first to experience CopilotKit v1.50.
+                You'll be one of the first to get early access to CopilotKit v1.50.
               </p>
             </div>
           ) : (
