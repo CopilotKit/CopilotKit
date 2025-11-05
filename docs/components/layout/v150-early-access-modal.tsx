@@ -94,7 +94,7 @@ export function V150EarlyAccessModal({ isOpen, onClose }: V150EarlyAccessModalPr
               playsInline
             >
               <source 
-                src="https://screen-studio-shareable-links.67aa83ffa7fb557cd114a7156fca4e73.r2.cloudflarestorage.com/uI230JNX-video.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=363e5c20253db1195c87384f6dfb4c99%2F20251104%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20251104T234536Z&X-Amz-Expires=7200&X-Amz-Signature=6c14085a1dcd05652c293ef903dc95df8ad77468a7fa406682c05d652bf1cf6b&X-Amz-SignedHeaders=host&x-id=GetObject" 
+                src="https://copilotkit-public-assets.s3.us-east-1.amazonaws.com/corp-site/videos/cpk-150-v2.mp4" 
                 type="video/mp4" 
               />
               Your browser does not support the video tag.
