@@ -7,7 +7,7 @@ import { PiGraph } from "react-icons/pi";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
 import { Sparkles } from "lucide-react";
 import { useState } from "react";
-import { SignUpModal } from "./signup-modal";
+import { V150EarlyAccessModal } from "./v150-early-access-modal";
 
 export function Banners() {
   return (
@@ -79,13 +79,13 @@ export function V150Banner() {
             onClick={() => setIsModalOpen(true)}
             className="px-2 py-0.5 md:px-6 md:py-1 bg-white/50 text-white hover:bg-gray-100 rounded-lg text-xs md:text-base font-normal transition-colors whitespace-nowrap flex-shrink-0 shadow-md"
           >
-            <span className="md:hidden">Sign up</span>
-            <span className="hidden md:inline">Sign up for early access</span>
+            <span className="md:hidden">Get Access</span>
+            <span className="hidden md:inline">Get Early Access</span>
           </button>
         </div>
       </Banner>
       
-      <SignUpModal 
+      <V150EarlyAccessModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
       />
