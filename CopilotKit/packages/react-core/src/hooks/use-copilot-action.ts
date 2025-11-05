@@ -130,42 +130,13 @@
  *
  * This hooks enables you to dynamically generate UI elements and render them in the copilot chat. For more information, check out the [Generative UI](/guides/generative-ui) page.
  */
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Parameter } from "@copilotkit/shared";
 import { CatchAllFrontendAction, FrontendAction } from "../types/frontend-action";
 import { useFrontendTool, UseFrontendToolArgs } from "./use-frontend-tool";
 import { useRenderToolCall, UseRenderToolCallArgs } from "./use-render-tool-call";
 import { useHumanInTheLoop, UseHumanInTheLoopArgs } from "./use-human-in-the-loop";
 import { useCopilotContext } from "../context";
-
-// Component wrappers that call hooks - these allow React to properly manage hook state
-// even when action types change between renders
-function RenderToolCallComponent<T extends Parameter[] | [] = []>({
-  action,
-}: {
-  action: UseRenderToolCallArgs<T>;
-}) {
-  useRenderToolCall(action);
-  return null;
-}
-
-function HumanInTheLoopComponent<T extends Parameter[] | [] = []>({
-  action,
-}: {
-  action: UseHumanInTheLoopArgs<T>;
-}) {
-  useHumanInTheLoop(action);
-  return null;
-}
-
-function FrontendToolComponent<T extends Parameter[] | [] = []>({
-  action,
-}: {
-  action: UseFrontendToolArgs<T>;
-}) {
-  useFrontendTool(action);
-  return null;
-}
 
 // Helper to determine which component and action config to use
 function getActionConfig<const T extends Parameter[] | [] = []>(
@@ -175,7 +146,6 @@ function getActionConfig<const T extends Parameter[] | [] = []>(
     return {
       type: "render" as const,
       action: action as UseRenderToolCallArgs<T>,
-      component: RenderToolCallComponent,
     };
   }
 
@@ -189,10 +159,10 @@ function getActionConfig<const T extends Parameter[] | [] = []>(
       // @ts-expect-error -- renderAndWait is deprecated, but we need to support it for backwards compatibility
       render = action.renderAndWait;
     }
+
     return {
       type: "hitl" as const,
       action: { ...action, render } as UseHumanInTheLoopArgs<T>,
-      component: HumanInTheLoopComponent,
     };
   }
 
@@ -201,14 +171,12 @@ function getActionConfig<const T extends Parameter[] | [] = []>(
       return {
         type: "frontend" as const,
         action: action as UseFrontendToolArgs<T>,
-        component: FrontendToolComponent,
       };
     }
     if (action.available === "frontend" || action.available === "disabled") {
       return {
         type: "render" as const,
         action: action as UseRenderToolCallArgs<T>,
-        component: RenderToolCallComponent,
       };
     }
   }
@@ -217,7 +185,6 @@ function getActionConfig<const T extends Parameter[] | [] = []>(
     return {
       type: "frontend" as const,
       action: action as UseFrontendToolArgs<T>,
-      component: FrontendToolComponent,
     };
   }
 
@@ -239,16 +206,31 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
   action: FrontendAction<T> | CatchAllFrontendAction,
   dependencies?: any[],
 ): void {
-  const { setRegisteredActions, removeRegisteredAction } = useCopilotContext();
+  const [initialActionConfig] = useState(getActionConfig(action));
+  const currentActionConfig = getActionConfig(action);
 
-  // Register the action with context after render to avoid setState-in-render errors
-  useEffect(() => {
-    const actionConfig = getActionConfig(action);
-    const actionKey = setRegisteredActions(actionConfig);
+  /**
+   * Calling hooks conditionally violates React's Rules of Hooks. This rule exists because
+   * React maintains the call stack for hooks like useEffect or useState, and conditionally
+   * calling a hook would result in inconsistent call stacks between renders.
+   *
+   * Unfortunately, useCopilotAction _has_ to conditionally call a hook based on the
+   * supplied parameters. In order to avoid breaking React's call stack tracking, while
+   * breaking the Rule of Hooks, we use a ref to store the initial action configuration
+   * and throw an error if the _configuration_ changes such that we would call a different hook.
+   */
+  if (initialActionConfig.type !== currentActionConfig.type) {
+    throw new Error("Action configuration changed between renders");
+  }
 
-    // Cleanup: Remove the action when component unmounts or dependencies change
-    return () => {
-      removeRegisteredAction(actionKey);
-    };
-  }, [...(dependencies ?? []), JSON.stringify(action)]);
+  switch (currentActionConfig.type) {
+    case "render":
+      return useRenderToolCall(currentActionConfig.action, dependencies);
+    case "hitl":
+      return useHumanInTheLoop(currentActionConfig.action, dependencies);
+    case "frontend":
+      return useFrontendTool(currentActionConfig.action, dependencies);
+    default:
+      throw new Error("Invalid action configuration");
+  }
 }
