@@ -3653,11 +3653,11 @@ On this pageCoAgents and LangGraph
 
 # LangGraph
 
-An agentic framework for building LLM applications that can be used with Copilotkit.
+An agentic framework for building LLM applications that can be used with CopilotKit.
 
 ![CoAgents High Level Overview](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-highlevel-overview.png)
 
-LangGraph is an agentic framework for building LLM applications that can be used with Copilotkit. It is built on top of LangChain's
+LangGraph is an agentic framework for building LLM applications that can be used with CopilotKit. It is built on top of LangChain's
 [LangGraph](https://langchain-ai.github.io/langgraph/) library and extends it with additional functionality for building agentic
 applications.
 
@@ -3672,7 +3672,7 @@ There are some key terms here so let's break them down and understand how they r
 - **Stateful**: CoAgents have bi-directional state sharing with the agent and UI. This allows for the agent to remember
 information from previous messages and the UI to update the agent with new information. Read more about how state sharing works
 [here](https://docs.copilotkit.ai/coagents/shared-state).
-- **Multi-actor**: CoAgents allow for multiple agents to interact with each other. Copilotkit acts as the "ground-truth"
+- **Multi-actor**: CoAgents allow for multiple agents to interact with each other. CopilotKit acts as the "ground-truth"
 when transitioning between agents. Read more about how multi-actor workflows work [here](https://docs.copilotkit.ai/coagents/multi-agent-flows)
 and how messages are managed [here](https://docs.copilotkit.ai/coagents/concepts/message-management).
 - **LLMs**: CoAgents use large language models to generate responses. This is useful for building applications that need to
@@ -3697,7 +3697,7 @@ For a quick refresher on each, check out the [Python](https://langchain-ai.githu
 ## [LangGraph Platform](https://docs.copilotkit.ai/coagents/concepts/langgraph\#langgraph-platform)
 
 LangGraph Platform is a platform for building and deploying LangGraph applications. It is built on top of the LangGraph library and
-allows you to build, manage, and deploy graphs that Copilotkit can interface with. For more information checkout the official
+allows you to build, manage, and deploy graphs that CopilotKit can interface with. For more information checkout the official
 [LangGraph Platform](https://langchain-ai.github.io/langgraph/concepts/langgraph_platform) documentation.
 
 If you want to take the next step to deploy your LangGraph application as an CoAgent, check out our [quickstart guide](https://docs.copilotkit.ai/coagents/quickstart/langgraph).
@@ -4520,7 +4520,7 @@ Help me understand what agentic copilots are, where LangGraph fits in, and how t
 
 I'm already using LangGraph
 
-Help me understand what agentic copilots are, what Copilotkit does to integrate with LangGraph, and how to get started.
+Help me understand what agentic copilots are, what CopilotKit does to integrate with LangGraph, and how to get started.
 
 ![CoAgents Shared State](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/coagents/SharedStateCoAgents.gif)
 
@@ -6063,7 +6063,7 @@ Chat with an Agent](https://docs.copilotkit.ai/crewai-flows/agentic-chat-ui)
 
 ![](https://static.scarf.sh/a.png?x-pxid=ffc9f65d-0186-4575-b065-61d62ea9d7d3)
 
-## Copilotkit Configuration Guide
+## CopilotKit Configuration Guide
 CrewAI CrewAI support is here! Checkout the [Crew](https://docs.copilotkit.ai/crewai-crews) and [Flow](https://docs.copilotkit.ai/crewai-flows) documentation.
 
 Search docs
@@ -6076,16 +6076,16 @@ On this pageMessage Streaming
 
 CoAgents support streaming your messages and tool calls to the frontend.
 
-If you'd like to change how LangGraph agents behave as CoAgents you can utilize our Copilotkit SDK which provides a collection
-of functions and utilities for interacting with the agent's state or behavior. One example of this is the Copilotkit config
+If you'd like to change how LangGraph agents behave as CoAgents you can utilize our CopilotKit SDK which provides a collection
+of functions and utilities for interacting with the agent's state or behavior. One example of this is the CopilotKit config
 which is a wrapper of the LangGraph `config` object. This allows you to extend the configuration of your LangGraph nodes to
-change how LangGraph and Copilotkit interact with each other. This allows you to change how messages and tool calls are emitted and
+change how LangGraph and CopilotKit interact with each other. This allows you to change how messages and tool calls are emitted and
 streamed to the frontend.
 
 ## [Message Streaming](https://docs.copilotkit.ai/coagents/concepts/copilotkit-config\#message-streaming)
 
 If you did not change anything in your LangGraph node, message streaming will be on by default. This allows for a message to be
-streamed to Copilotkit as it is being generated, allowing for a more responsive experience. However, you can disable this if you
+streamed to CopilotKit as it is being generated, allowing for a more responsive experience. However, you can disable this if you
 want to have the message only be sent after the agent has finished generating it.
 
 ```
@@ -6098,8 +6098,8 @@ config = copilotkit_customize_config(
 
 ## [Emitting Tool Calls](https://docs.copilotkit.ai/coagents/concepts/copilotkit-config\#emitting-tool-calls)
 
-Emission of tool calls are off by default. This means that tool calls will not be sent to Copilotkit for processing and rendering.
-However, within a node you can extend the LangGraph `config` object to emit tool calls to Copilotkit. This is useful in situations
+Emission of tool calls are off by default. This means that tool calls will not be sent to CopilotKit for processing and rendering.
+However, within a node you can extend the LangGraph `config` object to emit tool calls to CopilotKit. This is useful in situations
 where you may to emit what a potential tool call will look like prior to being executed.
 
 ```
@@ -7212,7 +7212,7 @@ HITL combines the efficiency of AI with human judgment, creating a system that's
 
 ## [How can I use this?](https://docs.copilotkit.ai/coagents/human-in-the-loop\#how-can-i-use-this)
 
-Copilotkit provides two main approaches for HITL LangGraph workflows - interrupt and node-based.
+CopilotKit provides two main approaches for HITL LangGraph workflows - interrupt and node-based.
 
 Unsure which approach to use? We recommend starting with the [Interrupt](https://docs.copilotkit.ai/coagents/human-in-the-loop/interrupt-flow) flow.
 
