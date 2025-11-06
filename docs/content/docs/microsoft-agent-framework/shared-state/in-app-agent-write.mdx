@@ -15,8 +15,7 @@ This guide shows you how to write to your agent's state from your application.
 
 ## When should I use this?
 
-You can use this when you want to provide the user with feedback about what your agent is doing, specifically
-when your agent is calling tools. CopilotKit allows you to fully customize how these tools are rendered in the chat.
+You can use this when you need to update agent state from your application — for example, changing user preferences, toggling settings, or providing user input that affects agent behavior.
 
 ## Implementation
 
@@ -43,12 +42,12 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     ```
   </Step>
   <Step>
-    ### Call `setState` function from the `useagent` hook
-    `useagent` returns a `setState` function that you can use to update the agent state. Calling this
+    ### Call `setState` function from the `useCoAgent` hook
+    `useCoAgent` returns a `setState` function that you can use to update the agent state. Calling this
     will update the agent state and trigger a rerender of anything that depends on the agent state.
 
     ```tsx title="ui/app/page.tsx"
-    import { useagent } from "@copilotkit/react-core"; // [!code highlight]
+    import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
 
     // Define the agent state type, should match the actual state of your agent
     type AgentState = {
@@ -57,7 +56,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 
     // Example usage in a pseudo React component
     function YourMainContent() {
-      const { state, setState } = useagent<AgentState>({ // [!code highlight]
+      const { state, setState } = useCoAgent<AgentState>({ // [!code highlight]
         name: "sample_agent",
         initialState: { language: "spanish" }  // optionally provide an initial state
       });
@@ -94,19 +93,19 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 ### Re-run the agent with a hint about what's changed
 
 The new agent state will be used next time the agent runs.
-If you want to re-run it manually, use the `run` argument on the `useagent` hook.
+If you want to re-run it manually, use the `run` argument on the `useCoAgent` hook.
 
 The agent will be re-run, and it will get not only the latest updated state, but also a **hint** that can depend on the data delta between the previous and the current state.
 
 ```tsx title="ui/app/page.tsx"
-import { useagent } from "@copilotkit/react-core";
+import { useCoAgent } from "@copilotkit/react-core";
 import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";  // [!code highlight]
 
 // ...
 
 function YourMainContent() {
   // [!code word:run:1]
-  const { state, setState, run } = useagent<AgentState>({
+  const { state, setState, run } = useCoAgent<AgentState>({
     name: "sample_agent",
     initialState: { language: "spanish" }  // optionally provide an initial state
   });

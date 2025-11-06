@@ -122,10 +122,10 @@ is a situation where a user and an agent are working together to solve a problem
   </Step>
   <Step>
     ### Render state of the agent in the chat
-    Now we can utilize `useagentStateRender` to render the state of our agent **in the chat**.
+    Now we can utilize `useCoAgentStateRender` to render the state of our agent **in the chat**.
 
     ```tsx title="app/page.tsx"
-    import { useagentStateRender } from "@copilotkit/react-core";
+    import { useCoAgentStateRender } from "@copilotkit/react-core";
 
     // For type safety, define the state type matching your agent's state snapshot
     type AgentState = {
@@ -140,7 +140,7 @@ is a situation where a user and an agent are working together to solve a problem
 
       // [!code highlight:13]
       // styles omitted for brevity
-      useagentStateRender<AgentState>({
+      useCoAgentStateRender<AgentState>({
         name: "sample_agent", // the name the agent is served as
         render: ({ state }) => (
           <div>
@@ -165,7 +165,7 @@ is a situation where a user and an agent are working together to solve a problem
     other than the chat.
 
     ```tsx title="app/page.tsx"
-    import { useagent } from "@copilotkit/react-core"; // [!code highlight]
+    import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
     // ...
 
     // Define the state type matching your agent's state snapshot
@@ -180,7 +180,7 @@ is a situation where a user and an agent are working together to solve a problem
       // ...
 
       // [!code highlight:3]
-      const { state } = useagent<AgentState>({
+      const { state } = useCoAgent<AgentState>({
         name: "sample_agent", // the name the agent is served as
       })
 

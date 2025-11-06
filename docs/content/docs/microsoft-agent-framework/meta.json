@@ -13,7 +13,6 @@
     "generative-ui",
     "human-in-the-loop",
     "shared-state",
-    
     "agent-app-context",
     "auth",
     "persistence",

@@ -7138,7 +7138,7 @@ const Page = () => {
   )
 }
 
-const YourApp = () => {
+const YourApp = ({ setThreadId }) => {
   return (
     <Button onClick={() => setThreadId("679e8da5-ee9b-41b1-941b-80e0cc73a008")}>
       Change Thread
@@ -7222,7 +7222,7 @@ Utilize LangGraph's interrupt function to pause the agent and wait for user inpu
 
 [Node-based\\
 \\
-Utilize nodes and tools to create LLM driven Human-in-the-Loop workflows.](https://docs.copilotkit.ai/coagents/human-in-the-loop/node-flow)
+Utilize nodes and tools to create LLM-driven Human-in-the-Loop workflows.](https://docs.copilotkit.ai/coagents/human-in-the-loop/node-flow)
 
 [Previous\\
 \\
@@ -8268,7 +8268,7 @@ type AgentState = {
 const { state } = useCoAgent<AgentState>({
   name: "sample_agent",
   initialState: {
-    question: "How's is the weather in SF?",
+    question: "How's the weather in SF?",
   }
 });
 

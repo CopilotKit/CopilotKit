@@ -48,12 +48,12 @@ state update you can reflect these updates natively in your application.
     ```
   </Step>
   <Step>
-    ### Use the `useagent` Hook
-    With your agent connected and running all that is left is to call the [useagent](/reference/hooks/useagent) hook, pass the agent's name, and
+    ### Use the `useCoAgent` Hook
+    With your agent connected and running all that is left is to call the [useCoAgent](/reference/hooks/useCoAgent) hook, pass the agent's name, and
     optionally provide an initial state.
 
     ```tsx title="ui/app/page.tsx"
-    import { useagent } from "@copilotkit/react-core"; // [!code highlight]
+    import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
 
     // Define the agent state type, should match the actual state of your agent
     type AgentState = {
@@ -62,7 +62,7 @@ state update you can reflect these updates natively in your application.
 
     function YourMainContent() {
       // [!code highlight:4]
-      const { state } = useagent<AgentState>({
+      const { state } = useCoAgent<AgentState>({
         name: "sample_agent",
         initialState: { language: "spanish" }  // optionally provide an initial state
       });
@@ -79,7 +79,7 @@ state update you can reflect these updates natively in your application.
     }
     ```
     <Callout type="info">
-      The `state` in `useagent` is reactive and will automatically update when the agent's state changes.
+      The `state` in `useCoAgent` is reactive and will automatically update when the agent's state changes.
     </Callout>
   </Step>
   <Step>
@@ -92,10 +92,10 @@ state update you can reflect these updates natively in your application.
 ## Rendering agent state in the chat
 
 You can also render the agent's state in the chat UI. This is useful for informing the user about the agent's state in a 
-more in-context way. To do this, you can use the [useagentStateRender](/reference/hooks/useagentStateRender) hook.
+more in-context way. To do this, you can use the [useCoAgentStateRender](/reference/hooks/useCoAgentStateRender) hook.
 
 ```tsx title="ui/app/page.tsx"
-import { useagentStateRender } from "@copilotkit/react-core"; // [!code highlight]
+import { useCoAgentStateRender } from "@copilotkit/react-core"; // [!code highlight]
 
 // Define the agent state type, should match the actual state of your agent
 type AgentState = {
@@ -105,7 +105,7 @@ type AgentState = {
 function YourMainContent() {
   // ...
   // [!code highlight:7]
-  useagentStateRender({
+  useCoAgentStateRender({
     name: "sample_agent",
     render: ({ state }) => {
       if (!state.language) return null;
@@ -117,7 +117,7 @@ function YourMainContent() {
 ```
 
 <Callout type="info">
-  The `state` in `useagentStateRender` is reactive and will automatically update when the agent's state changes.
+  The `state` in `useCoAgentStateRender` is reactive and will automatically update when the agent's state changes.
 </Callout>
 
 ## Advanced: Emitting Intermediate State
