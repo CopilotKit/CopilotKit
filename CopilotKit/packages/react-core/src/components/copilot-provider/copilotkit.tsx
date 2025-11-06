@@ -74,6 +74,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
           <CopilotKitProvider
             runtimeUrl={props.runtimeUrl}
             renderCustomMessages={renderArr}
+            useSingleEndpoint
           >
             <CopilotKitInternal {...props}>{children}</CopilotKitInternal>
           </CopilotKitProvider>

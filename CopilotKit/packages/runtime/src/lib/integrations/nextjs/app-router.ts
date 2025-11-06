@@ -1,10 +1,9 @@
-import { createCopilotEndpoint } from "@copilotkitnext/runtime";
+import { createCopilotEndpointSingleRoute } from "@copilotkitnext/runtime";
 import { CreateCopilotRuntimeServerOptions, getCommonConfig } from "../shared";
 import telemetry, { getRuntimeInstanceTelemetryInfo } from "../../telemetry-client";
+import { handle } from "hono/vercel";
 
-export function copilotRuntimeNextJSAppRouterEndpoint(
-  options: CreateCopilotRuntimeServerOptions,
-): ReturnType<typeof createCopilotEndpoint> {
+export function copilotRuntimeNextJSAppRouterEndpoint(options: CreateCopilotRuntimeServerOptions) {
   const commonConfig = getCommonConfig(options);
 
   telemetry.setGlobalProperties({
@@ -27,8 +26,9 @@ export function copilotRuntimeNextJSAppRouterEndpoint(
   const serviceAdapter = options.serviceAdapter;
   options.runtime.handleServiceAdapter(serviceAdapter);
 
-  return createCopilotEndpoint({
+  const copilotRoute = createCopilotEndpointSingleRoute({
     runtime: options.runtime.instance,
-    basePath: options.endpoint,
+    basePath: options.baseUrl,
   });
+  return { handleRequest: handle(copilotRoute) };
 }

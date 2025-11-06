@@ -1,6 +1,8 @@
-import { createCopilotEndpoint } from "@copilotkitnext/runtime";
+import { createCopilotEndpointSingleRoute } from "@copilotkitnext/runtime";
 import { CreateCopilotRuntimeServerOptions, getCommonConfig } from "../shared";
 import telemetry, { getRuntimeInstanceTelemetryInfo } from "../../telemetry-client";
+import { handle } from "hono/vercel";
+import { copilotRuntimeNodeHttpEndpoint } from "../node-http";
 
 export const config = {
   api: {
@@ -15,7 +17,7 @@ export type {} from "@whatwg-node/server";
 
 export function copilotRuntimeNextJSPagesRouterEndpoint(
   options: CreateCopilotRuntimeServerOptions,
-): ReturnType<typeof createCopilotEndpoint> {
+) {
   const commonConfig = getCommonConfig(options);
 
   telemetry.setGlobalProperties({
@@ -35,11 +37,5 @@ export function copilotRuntimeNextJSPagesRouterEndpoint(
   const logger = commonConfig.logging;
   logger.debug("Creating NextJS Pages Router endpoint");
 
-  const serviceAdapter = options.serviceAdapter;
-  options.runtime.handleServiceAdapter(serviceAdapter);
-
-  return createCopilotEndpoint({
-    runtime: options.runtime.instance,
-    basePath: options.baseUrl,
-  });
+  return copilotRuntimeNodeHttpEndpoint(options);
 }
