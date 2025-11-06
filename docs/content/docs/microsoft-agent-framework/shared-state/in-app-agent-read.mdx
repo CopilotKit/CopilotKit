@@ -120,10 +120,6 @@ function YourMainContent() {
   The `state` in `useagentStateRender` is reactive and will automatically update when the agent's state changes.
 </Callout>
 
-## Intermediately Stream and Render Agent State
-By default, the agent framework agent state will only update *between* agent framework node transitions --
-which means state updates will be discontinuous and delayed.
+## Advanced: Emitting Intermediate State
 
-You likely want to render the agent state as it updates **continuously.**
-
-See **[emit intermediate state](/microsoft-agent-framework/shared-state/predictive-state-updates).**
+By default, agent state updates arrive at natural checkpoints during agent execution. For more granular, real-time updates during long-running operations, you can emit state snapshots from within your agent logic. Consult the [Microsoft Agent Framework documentation](https://learn.microsoft.com/en-us/agent-framework/user-guide/overview) for patterns on streaming custom state events during execution.
