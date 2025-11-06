@@ -1,10 +1,9 @@
-import { createCopilotEndpoint } from "@copilotkitnext/runtime";
 import { CreateCopilotRuntimeServerOptions, getCommonConfig } from "../shared";
 import telemetry, { getRuntimeInstanceTelemetryInfo } from "../../telemetry-client";
+// @ts-expect-error - createCopilotEndpointSingleRouteExpress is exported. Type issues in imported package.
+import { createCopilotEndpointSingleRouteExpress } from "@copilotkitnext/runtime/express";
 
-export function copilotRuntimeNodeHttpEndpoint(
-  options: CreateCopilotRuntimeServerOptions,
-): ReturnType<typeof createCopilotEndpoint> {
+export function copilotRuntimeNodeHttpEndpoint(options: CreateCopilotRuntimeServerOptions) {
   const commonConfig = getCommonConfig(options);
 
   telemetry.setGlobalProperties({
@@ -27,8 +26,8 @@ export function copilotRuntimeNodeHttpEndpoint(
   const serviceAdapter = options.serviceAdapter;
   options.runtime.handleServiceAdapter(serviceAdapter);
 
-  return createCopilotEndpoint({
+  return createCopilotEndpointSingleRouteExpress({
     runtime: options.runtime.instance,
-    basePath: options.baseUrl,
+    basePath: options.baseUrl ?? options.endpoint,
   });
 }
