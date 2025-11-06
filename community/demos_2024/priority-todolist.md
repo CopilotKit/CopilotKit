@@ -3,7 +3,7 @@ In this project, I developed a TO-DO List with Prioritization using React for th
 ### Method 1 - Using Form
 - User can add Task using form with its detail description, date & time and also needs to add priority of task.
 - User also show task completed as well as delete the task.
-### Method 2 - Using Copilotkit
+### Method 2 - Using CopilotKit
 - User need to write task name,task details, due date and time as well as priority of task.
 
 ## 2. Name of Issue/Topic

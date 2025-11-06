@@ -18,7 +18,7 @@ Please show your support and give a ⭐ to the [CopilotKit repository](https://g
 1. **Project Setup and Guidelines**: Check out the [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed setup instructions and contribution guidelines.  
 2. **Choose a Topic**: Browse our [Issues section](https://github.com/CopilotKit/CopilotKit/issues) tagged with `hacktoberfest`. CopilotKit allows multi-assignment!  
 3. **Submit Your Demo**: Build and submit your project following the steps in the `CONTRIBUTING.md`.  
-4. **Share Your Project**: Post your project on Twitter/X tagging `@Copilotkit` and adding the hashtag `#CopilotKitHacktoberfest` at the bottom of the post. The projects with the **most likes** will be crowned winners!  
+4. **Share Your Project**: Post your project on Twitter/X tagging `@CopilotKit` and adding the hashtag `#CopilotKitHacktoberfest` at the bottom of the post. The projects with the **most likes** will be crowned winners!  
 
 ---
 
