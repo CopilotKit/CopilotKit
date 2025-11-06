@@ -28,7 +28,7 @@ export function copilotRuntimeNextJSAppRouterEndpoint(options: CreateCopilotRunt
 
   const copilotRoute = createCopilotEndpointSingleRoute({
     runtime: options.runtime.instance,
-    basePath: options.baseUrl,
+    basePath: options.baseUrl ?? options.endpoint,
   });
   return { handleRequest: handle(copilotRoute) };
 }

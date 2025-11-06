@@ -28,6 +28,6 @@ export function copilotRuntimeNodeHttpEndpoint(options: CreateCopilotRuntimeServ
 
   return createCopilotEndpointSingleRouteExpress({
     runtime: options.runtime.instance,
-    basePath: options.baseUrl,
+    basePath: options.baseUrl ?? options.endpoint,
   });
 }
