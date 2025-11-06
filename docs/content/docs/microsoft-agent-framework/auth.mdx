@@ -82,9 +82,10 @@ app.UseAuthorization();
 string githubToken = builder.Configuration["GitHubToken"]!;
 
 // Apply [Authorize] to the AG-UI endpoint
-app.MapAGUIAgent("/", [Authorize] (messages, frontendTools, context, state, forwardedProps) =>
+app.MapAGUIAgent("/", [Authorize] (messages, tools, context, forwardedProps) =>
 {
     // Access the authenticated user's identity
+    // Note: You can access HttpContext via a parameter if needed for user claims
     // var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     
     var openAI = new OpenAIClient(

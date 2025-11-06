@@ -1,76 +1,54 @@
 ---
 title: "Exiting the agent loop"
 icon: "lucide/DoorOpen"
+description: "Understanding how Microsoft Agent Framework agents complete execution"
 ---
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 
-After your agent has finished a workflow, you'll usually want to explicitly end that loop by calling the CopilotKit exit method in your agent code.
+## What is this?
 
-Exiting the agent has different effects depending on mode:
+Microsoft Agent Framework agents execute in a request-response model via AG-UI. Each agent invocation processes messages and returns a response, then completes. There's no persistent "agent loop" to exit - each run is independent.
 
-- **Router Mode**: Exiting the agent hands responsibility for handling input back to the router, which can initiate chat, call actions, other agents, etc. The router can return to this agent later (starting a new loop) to satisfy a user request.
+## How Agent Execution Works
 
-- **Agent Lock Mode**: Exiting the agent restarts the workflow loop for the current agent.
+```csharp
+app.MapAGUIAgent("/", (messages, tools, context, forwardedProps) =>
+{
+    // Agent is created per-request
+    var client = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential());
+    var agent = client.GetChatClient(deployment)
+        .CreateAIAgent(name: "Assistant");
+    
+    // Agent processes messages and completes automatically
+    return agent;
+});
+```
 
-In this example from [our email-sending app](https://github.com/copilotkit/copilotkit/tree/main/examples/agents-qa), the `send_email` node explicitly exits, then manually sends a response back to the user as a `ToolMessage`:
+**Execution flow:**
+1. Frontend sends messages to AG-UI endpoint
+2. Agent is created and processes the request
+3. Response is streamed back via SSE
+4. Agent run completes automatically
+5. Next user message creates a new agent run
 
-<Steps>
-    <Step>
-        ### Install the CopilotKit SDK
-        <InstallSDKSnippet components={props.components}/>
-    </Step>
+<Callout type="info">
+  Unlike LangGraph's stateful graph loops, MAF agents follow a simpler request-response pattern. Each run is self-contained and completes when the response is generated.
+</Callout>
 
-    <Step>
-        ### Exit the agent loop
-        This will exit the agent session as soon as the current agent framework run is finished, either by a breakpoint or by reaching the `END` node.
+## Multi-Turn Conversations
 
-        <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
-            <Tab value="Python">
-                ```python
-                from copilotkit.agent framework import (copilotkit_exit)
-                # ...
-                async def send_email_node(state: EmailAgentState, config: RunnableConfig):
-                    """Send an email."""
+For multi-turn conversations, use `AgentThread` to maintain context across requests:
 
-                    await copilotkit_exit(config) # [!code highlight]
+```csharp
+// Thread persistence is handled by CopilotKit's threadId
+// Each new request includes the full conversation history
+// The agent processes it and adds its response to the thread
+```
 
-                    # get the last message and cast to ToolMessage
-                    last_message = cast(ToolMessage, state["messages"][-1])
-                    if last_message.content == "CANCEL":
-                        return {
-                            "messages": [AIMessage(content="❌ Cancelled sending email.")],
-                        }
-                    else:
-                        return {
-                            "messages": [AIMessage(content="✅ Sent email.")],
-                        }
-                ```
-            </Tab>
-            <Tab value="TypeScript">
-                ```typescript
-                import { copilotkitExit } from "@copilotkit/sdk-js/agent framework";
+See [Persistence - Threads](/microsoft-agent-framework/persistence/loading-message-history) for managing conversation continuity.
 
-                // ...
+## Agent Mode Behavior
 
-                async function sendEmailNode(state: EmailAgentState, config: RunnableConfig): Promise<{ messages: any[] }> {
-                    // Send an email.
+- **Router Mode**: After completing a response, the router can invoke other agents or actions based on user input
+- **Agent Lock Mode**: All requests are directed to the same agent
 
-                    await copilotkitExit(config); // [!code highlight]
-
-                    // get the last message and cast to ToolMessage
-                    const lastMessage = state.messages[state.messages.length - 1] as ToolMessage;
-                    if (lastMessage.content === "CANCEL") {
-                        return {
-                            messages: [new AIMessage(content="❌ Cancelled sending email.")],
-                        }
-                    } else {
-                        return {
-                            messages: [new AIMessage(content="✅ Sent email.")],
-                        }
-                    }
-                }
-                ```
-            </Tab>
-        </Tabs>
-    </Step>
-</Steps>
+These modes are configured in CopilotKit, not in your agent code. The agent simply processes messages and completes.

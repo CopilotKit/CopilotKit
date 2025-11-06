@@ -5,10 +5,8 @@ description: "Using agent execution parameters when communicating with an agent.
 ---
 
 ## What is this?
-agent framework agents are able to take execution parameters, such as auth tokens and similar properties.
-You can add these using this feature.
 
-If you wish to read further, you can refer to [the configuration guide by agent framework](https://agent-ai.github.io/agent framework/how-tos/configuration/)
+Microsoft Agent Framework agents can receive runtime configuration and parameters through CopilotKit's `properties` prop, which are forwarded to your AG-UI server via the `forwardedProps` parameter.
 
 ## When should I use this?
 
@@ -16,97 +14,109 @@ This is useful when you want to send execution-time configuration information (s
 
 ## Implementation
 
-By default, agent framework agents are invoked with a `config` argument. This config has a `configurable` property which can be accessed and filled with your data.
-
 <Steps>
 <Step>
-### Pass configuration from the frontend
-First, pass the configuration properties as you would like to receive them in the agent
+### Pass properties from the frontend
+
+Pass configuration via CopilotKit's `properties` prop:
 
 ```tsx title="app/page.tsx"
-import { useagent } from "@copilotkit/react-core"; // [!code highlight]
+import { CopilotKit } from "@copilotkit/react-core";
 
-function YourMainContent() {
-  // ...
+function YourApp() {
+  const userToken = getUserToken(); // Your auth logic
+  const userId = getUserId(); // Your user logic
 
-  useagent<AgentState>({
-    name: "sample_agent",
-    // [!code highlight:6]
-    config: {
-      configurable: {
-        authToken: 'example-token'
-      },
-      recursion_limit: 50,
-    }
-  })
-
-  // ...
-
-  return (... your component UI markdown)
+  return (
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      properties={{
+        // [!code highlight:4]
+        authToken: userToken,
+        userId: userId,
+        userPreferences: { theme: 'dark', language: 'en' }
+      }}
+    >
+      <YourMainContent />
+    </CopilotKit>
+  );
 }
+```
+
+<Callout type="info">
+  Properties passed to `<CopilotKit>` are forwarded to your AG-UI server via the `forwardedProps` parameter.
+</Callout>
+</Step>
+<Step>
+### Access properties in your AG-UI server
+
+Retrieve the forwarded properties in your AG-UI handler:
+
+```csharp title="Program.cs"
+using Azure.AI.OpenAI;
+using Azure.Identity;
+using Microsoft.Agents.AI;
+using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+
+var builder = WebApplication.CreateBuilder(args);
+var app = builder.Build();
+
+string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
+string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
+
+app.MapAGUIAgent("/", (messages, tools, context, forwardedProps) =>
+{
+    // [!code highlight:6]
+    // Extract configuration from forwardedProps
+    var authToken = forwardedProps?.GetValueOrDefault("authToken")?.ToString();
+    var userId = forwardedProps?.GetValueOrDefault("userId")?.ToString();
+    var preferences = forwardedProps?.GetValueOrDefault("userPreferences");
+    
+    // Validate auth token if needed
+    // if (string.IsNullOrEmpty(authToken)) throw new UnauthorizedAccessException();
+    
+    // Customize agent based on configuration
+    var instructions = $"You are a helpful assistant for user {userId}. Adapt responses based on user preferences.";
+    
+    var client = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential());
+    var agent = client.GetChatClient(deployment)
+        .CreateAIAgent(
+            name: "PersonalizedAgent",
+            instructions: instructions
+        );
+    
+    return agent;
+});
+
+await app.RunAsync();
 ```
 </Step>
 <Step>
-### Use configurables in agent
-Now you can simply pull the values from the provided config argument in any agent node
+### Use configuration in agent tools
 
-<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
-    <Tab value="Python">
-        ```python
-        async def agent_node(state: AgentState, config: RunnableConfig):
-            
-            auth_token = config['configurable'].get('authToken', None)
+You can also use the configuration to customize tool behavior. Store configuration in a service and inject it into your tools:
 
-            return state
-        ```
-    </Tab>
-    <Tab value="TypeScript">
-        ```typescript
-        async function agentNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
-            const authToken = config.configurable?.authToken ?? null;
+```csharp
+// Register configuration as a singleton
+builder.Services.AddSingleton(new AgentConfiguration 
+{ 
+    UserId = "default" 
+});
 
-            return state;
-        }
-        ```
-    </Tab>
-</Tabs>
-</Step>
-<Step>
-    ### Optional: Define configurables schema
-    If you'd like, you can define a schema to indicate which configurables you wish to receive.
-    Any item passed to "configurables" which is not included in the schema, will be filtered out.
-
-    You can read more about this (here)[https://agent-ai.github.io/agent framework/how-tos/configuration/#define-graph]
-    <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
-        <Tab value="Python">
-            ```python
-            from typing import TypedDict
-
-            # define which properties will be allowed in the configuration
-            class ConfigSchema(TypedDict):
-              authToken: str
-
-            # ...add all necessary graph nodes
-
-            # when defining the state graph, apply the config schema
-            workflow = StateGraph(AgentState, config_schema=ConfigSchema)
-            ```
-        </Tab>
-        <Tab value="TypeScript">
-            ```typescript
-            import { Annotation } from "@agent/agent framework";
-
-            // define which properties will be allowed in the configuration
-            export const ConfigSchemaAnnotation = Annotation.Root({
-              authToken: Annotation<string>
-            })
-
-            // ...add all necessary graph nodes
-
-            // when defining the state graph, apply the config schema
-            const workflow = new StateGraph(AgentStateAnnotation, ConfigSchemaAnnotation)
-            ```
-        </Tab>
-    </Tabs>
+app.MapAGUIAgent("/", (messages, tools, context, forwardedProps) =>
+{
+    // Update configuration based on forwarded props
+    var userId = forwardedProps?.GetValueOrDefault("userId")?.ToString();
+    
+    // Your tools can access this via dependency injection
+    // and customize behavior per user
+    
+    var client = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential());
+    var agent = client.GetChatClient(deployment)
+        .CreateAIAgent(name: "ConfigurableAgent");
+    
+    return agent;
+});
+```
 </Step>
 </Steps>

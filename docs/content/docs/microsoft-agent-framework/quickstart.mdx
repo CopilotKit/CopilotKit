@@ -162,7 +162,7 @@ Before you begin, you'll need the following:
                         var builder = WebApplication.CreateBuilder(args);
                         var app = builder.Build();
 
-                        app.MapAGUIAgent("/", (messages, frontendTools, context, state, forwardedProps) => {
+                        app.MapAGUIAgent("/", (messages, tools, context, forwardedProps) => {
                           var githubToken = builder.Configuration["GitHubToken"]!; // dotnet user-secrets set GitHubToken "<token>"
                           var openAI = new OpenAIClient(new System.ClientModel.ApiKeyCredential(githubToken), new OpenAIClientOptions { Endpoint = new Uri("https://models.inference.ai.azure.com")});
                           var chat = openAI.GetChatClient("gpt-4o-mini").AsIChatClient();

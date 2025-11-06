@@ -7,40 +7,112 @@ icon: "lucide/Database"
   To learn about how to load previous messages and agent states, check out the [Loading Message History](/microsoft-agent-framework/persistence/loading-message-history) and [Loading Agent State](/microsoft-agent-framework/persistence/loading-agent-state) pages.
 </Callout>
 
-To persist agent framework messages to a database, you can use either `AsyncPostgresSaver` or `AsyncSqliteSaver`. Set up the asynchronous memory by configuring the graph within a lifespan function, as follows:
+## Overview
 
-```python
-from fastapi import FastAPI
-from contextlib import asynccontextmanager
-from agent framework.checkpoint.postgres.aio import AsyncPostgresSaver
-from copilotkit import agent frameworkAGUIAgent
-from ag_ui_agent framework import add_agent framework_fastapi_endpoint
+Microsoft Agent Framework provides flexible message persistence through the `AgentThread` abstraction and custom `ChatMessageStore` implementations. Message persistence varies by the underlying service:
 
-graph = None
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    async with AsyncPostgresSaver.from_conn_string(
-        "postgresql://postgres:postgres@127.0.0.1:5432/postgres"
-    ) as checkpointer:
-        # NOTE: you need to call .setup() the first time you're using your checkpointer
-        await checkpointer.setup()
-        # Create an async graph
-        graph = workflow.compile(checkpointer=checkpointer)
-        yield
-        # Create SDK with the graph
+- **Service-managed**: Foundry Agents, OpenAI Assistants - messages stored by the service
+- **In-memory**: Chat Completion models - messages managed by the agent
+- **Custom storage**: Implement `ChatMessageStore` for your own database
 
-app = FastAPI(lifespan=lifespan)
+## Using Custom Message Storage
 
-add_agent framework_fastapi_endpoint(
-    app=app,
-    agent=agent frameworkAGUIAgent(
-        name="research_agent",
-        description="Research agent.",
-        graph=graph,
-    ),
-    path="/agents/research_agent"
-)
+To persist messages to your own database (PostgreSQL, MongoDB, etc.), implement a custom `ChatMessageStore`:
 
+```csharp
+using System.Text.Json;
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+
+public class DatabaseChatMessageStore : ChatMessageStore
+{
+    private readonly string _connectionString;
+    private string? _threadKey;
+
+    public DatabaseChatMessageStore(string connectionString)
+    {
+        _connectionString = connectionString;
+        _threadKey = Guid.NewGuid().ToString(); // Generate unique key for this thread
+    }
+
+    // Deserialize from saved state
+    public DatabaseChatMessageStore(JsonElement serializedState, JsonSerializerOptions? options = null)
+    {
+        _connectionString = serializedState.GetProperty("connectionString").GetString()!;
+        _threadKey = serializedState.GetProperty("threadKey").GetString();
+    }
+
+    // Save messages to your database
+    protected override async Task AddMessagesAsync(IEnumerable<ChatMessage> messages, CancellationToken cancellationToken = default)
+    {
+        // Store messages in your database using _threadKey and _connectionString
+        // Example: await _database.InsertMessagesAsync(_threadKey, messages);
+    }
+
+    // Retrieve messages from your database
+    protected override async Task<IList<ChatMessage>> GetMessagesAsync(CancellationToken cancellationToken = default)
+    {
+        // Retrieve messages from your database
+        // Example: return await _database.GetMessagesAsync(_threadKey);
+        return new List<ChatMessage>();
+    }
+
+    // Serialize state for thread persistence
+    protected override Task<JsonElement> SerializeStateAsync(JsonSerializerOptions? jsonSerializerOptions = null, CancellationToken cancellationToken = default)
+    {
+        var state = new
+        {
+            connectionString = _connectionString,
+            threadKey = _threadKey
+        };
+        return Task.FromResult(JsonSerializer.SerializeToElement(state, jsonSerializerOptions));
+    }
+}
 ```
 
-To learn more about persistence in agent framework, check out the [agent framework documentation](https://agent-ai.github.io/agent framework/how-tos/#persistence).
+## Using the Custom Store with AG-UI
+
+Attach the custom message store to your agent via a factory:
+
+```csharp
+using Azure.AI.OpenAI;
+using Azure.Identity;
+using Microsoft.Agents.AI;
+using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+
+var builder = WebApplication.CreateBuilder(args);
+var app = builder.Build();
+
+string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
+string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
+string dbConnectionString = builder.Configuration["DatabaseConnectionString"]!;
+
+app.MapAGUIAgent("/", (messages, tools, context, forwardedProps) =>
+{
+    var client = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential());
+    
+    // Create agent with custom message store factory
+    var agent = client.GetChatClient(deployment)
+        .CreateAIAgent(new ChatClientAgentOptions
+        {
+            Name = "PersistentAgent",
+            Instructions = "You are a helpful assistant.",
+            ChatMessageStoreFactory = ctx => new DatabaseChatMessageStore(dbConnectionString)
+        });
+    
+    return agent;
+});
+
+await app.RunAsync();
+```
+
+<Callout type="info">
+  The `ChatMessageStoreFactory` is called when creating each thread, allowing you to inject custom persistence logic. The `ctx` parameter provides serialized state and JSON options for deserialization.
+</Callout>
+
+## Learn More
+
+For detailed information about message persistence in Microsoft Agent Framework:
+- [Storing Chat History in 3rd Party Storage](https://learn.microsoft.com/en-us/agent-framework/tutorials/agents/third-party-chat-history-storage)
+- [Persisting and Resuming Agent Conversations](https://learn.microsoft.com/en-us/agent-framework/tutorials/agents/persisted-conversation)
+- [Multi-Turn Conversations and Threading](https://learn.microsoft.com/en-us/agent-framework/user-guide/agents/multi-turn-conversation)

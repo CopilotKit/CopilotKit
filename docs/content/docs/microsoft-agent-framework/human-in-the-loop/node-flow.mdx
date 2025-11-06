@@ -1,303 +1,87 @@
 ---
 title: Node-based
-description: Learn how to implement Human-in-the-Loop (HITL) using a node-based flow.
+description: Learn about Human-in-the-Loop (HITL) in Microsoft Agent Framework workflows.
 icon: lucide/Share2
 ---
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
-
-<Callout type="error">
-    The usage of node based interrupt is [now discouraged](https://agent-ai.github.io/agent framework/concepts/v0-human-in-the-loop/) by both agent framework and CopilotKit.
-    As of agent framework 0.2.57, the recommended way to set breakpoints is using [the interrupt function](https://docs.copilotkit.ai/microsoft-agent-framework/human-in-the-loop/interrupt-flow) as it simplifies human-in-the-loop patterns.
-</Callout>
-
-<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/microsoft-agent-framework/node-hitl.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
 
 <Callout type="info">
-  Pictured above is the [agent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/agents-starter) with
-  the implementation below applied!
+    **Microsoft Agent Framework uses different HITL patterns than LangGraph.** For most use cases with CopilotKit, we recommend using [approval-required functions](/microsoft-agent-framework/human-in-the-loop/interrupt-flow) or [frontend tools](/microsoft-agent-framework/human-in-the-loop/frontend-tool-based).
 </Callout>
 
 ## What is this?
-[Node based flows](https://agent-ai.github.io/agent framework/concepts/v0-human-in-the-loop/#dynamic-breakpoints) are predicated on agent framework concept
-of `breakpoints` which will interrupt a node before or after its execution to allow for user input.
 
-CopilotKit allows you to add custom UI to take user input and then pass it back to the agent upon completion.
+Microsoft Agent Framework provides **Workflow RequestPorts** for complex human-in-the-loop scenarios in multi-agent workflows. These are designed for advanced scenarios where you need structured request-response patterns between agents and external systems.
 
-## Why should I use this?
+## When should I use this?
 
-Human-in-the-loop is a powerful way to implement complex workflows that are production ready. By having a human in the loop,
-you can ensure that the agent is always making the right decisions and ultimately is being steered in the right direction.
+For most web applications with CopilotKit, you should use:
+- **[Approval-Required Functions](/microsoft-agent-framework/human-in-the-loop/interrupt-flow)** - Simple approval workflows
+- **[Frontend Tools](/microsoft-agent-framework/human-in-the-loop/frontend-tool-based)** - Web-native, flexible HITL with custom UI
 
-Node-based flows are a great way to implement HITL for more complex workflows where you want to ensure the agent is aware
-of everything that has happened during a HITL interaction. This is contrasted with interrupt-based flows, where the agent
-is interrupted and then resumes execution from where it left off, unaware of the context of the interaction by default.
+Workflow RequestPorts are for advanced scenarios involving:
+- Complex multi-agent orchestrations
+- Structured request-response cycles
+- Workflow-based systems requiring precise control
 
-## Implementation
+<Callout type="info">
+  Workflow RequestPorts are part of Microsoft Agent Framework's [Workflow system](https://learn.microsoft.com/en-us/agent-framework/user-guide/workflows/overview), which is separate from simple agent HITL patterns.
+</Callout>
 
-<Steps>
-    
-    <Step>
-      ### Install the CopilotKit SDK
-      <InstallSDKSnippet components={props.components}/>
-    </Step>
+## Workflow RequestPorts Overview
 
-    <Step>
-        ### Add a `useHumanInTheLoop` to your Frontend
-        First, we'll create a component that renders the agent's essay draft and waits for user approval.
+Workflow RequestPorts enable structured human-in-the-loop interactions within Microsoft Agent Framework workflows. They work by:
 
-        ```tsx title="ui/app/page.tsx"
-        import { useHumanInTheLoop } from "@copilotkit/react-core"
-        import { Markdown } from "@copilotkit/react-ui"
+1. Creating a `RequestPort` that emits `RequestInfoEvent` when input is needed
+2. External code (your application) handles the request
+3. Sending an `ExternalResponse` back to the workflow to continue execution
 
-        function YourMainContent() {
-          // ...
+### Example Pattern
 
-          useHumanInTheLoop({ 
-            name: "writeEssay",
-            description: "Writes an essay and takes the draft as an argument.",
-            parameters: [
-              { name: "draft", type: "string", description: "The draft of the essay", required: true },
-            ],
-            // [!code highlight:25]
-            render: ({ args, respond, status }) => {
-              return (
-                <div>
-                  <Markdown content={args.draft || 'Preparing your draft...'} />
-                  
-                  <div className={`flex gap-4 pt-4 ${status !== "executing" ? "hidden" : ""}`}>
-                    <button 
-                      onClick={() => respond?.("CANCEL")}
-                      disabled={status !== "executing"}
-                      className="border p-2 rounded-xl w-full"
-                    >
-                      Try Again
-                    </button>
-                    <button
-                      onClick={() => respond?.("SEND")}
-                      disabled={status !== "executing"} 
-                      className="bg-blue-500 text-white p-2 rounded-xl w-full"
-                    >
-                      Approve Draft
-                    </button>
-                  </div>
-                </div>
-              );
-            },
-          });
+Here's a simplified conceptual example of how RequestPorts work in MAF workflows:
 
-          // ...
-        }
-        ```
-    </Step>
+```csharp
+// Create a RequestPort for handling human input
+RequestPort numberRequestPort = RequestPort.Create<NumberSignal, int>("GuessNumber");
 
-    <Step>
-    ### Setup the agent framework Agent
-    Now we'll setup the agent framework agent. Node-based flows are hard to understand without a complete example, so below
-    is the complete implementation of the agent with explanations.
+// In your workflow execution
+await foreach (WorkflowEvent evt in handle.WatchStreamAsync())
+{
+    if (evt is RequestInfoEvent requestEvt)
+    {
+        // Handle the request (get user input)
+        int userInput = GetUserInput(requestEvt.Request);
+        
+        // Send response back to workflow
+        ExternalResponse response = requestEvt.Request.CreateResponse(userInput);
+        await handle.SendResponseAsync(response);
+    }
+}
+```
 
-    Some main things to note:
-    - The agent's state inherits from `CopilotKitState` to bring in the CopilotKit tools.
-    - CopilotKit's tools are binded to the model as tools.
-    - If the `writeEssay` action is found in the model's response, the agent will transition to the `user_feedback_node`.
-    - The agent is interrupted before the `user_feedback_node` to allow for user input.
+<Callout type="warning">
+  **Workflow RequestPorts are advanced features** designed for complex multi-agent orchestrations. For typical CopilotKit applications with AG-UI, use the simpler patterns documented in [Approval-Required Functions](/microsoft-agent-framework/human-in-the-loop/interrupt-flow) or [Frontend Tools](/microsoft-agent-framework/human-in-the-loop/frontend-tool-based).
+</Callout>
 
-    <Tabs groupId="language" items={["Python", "TypeScript"]}>
-      <Tab value="Python">
-        ```python title="agent/sample_agent/agent.py"
-        from typing_extensions import Literal
-        from agent_openai import ChatOpenAI
-        from agent_core.messages import SystemMessage, AIMessage
-        from agent_core.runnables import RunnableConfig
-        from agent framework.graph import StateGraph, END
-        from agent framework.checkpoint.memory import MemorySaver
-        from agent framework.types import Command
-        from copilotkit import CopilotKitState
+## Learn More
 
-        # 1. Define our agent's state and inherit from CopilotKitState, this brings in the CopilotKit tools
-        class AgentState(CopilotKitState): # [!code highlight]
-            # 1.1 Define any other state variables
-            pass
+For detailed information about Workflow RequestPorts and complex workflow patterns:
+- [Microsoft Agent Framework Workflows Documentation](https://learn.microsoft.com/en-us/agent-framework/user-guide/workflows/overview)
+- [Handle Requests and Responses in Workflows](https://learn.microsoft.com/en-us/agent-framework/tutorials/workflows/requests-and-responses)
+- [MAF Workflow Samples](https://github.com/microsoft/agent-framework/tree/main/dotnet/samples/GettingStarted/Workflows)
 
-        # 2. Define the chat node, this will be where the agent will talk to user and
-        #    decide if it needs to call the writeEssay tool
-        async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Literal["user_feedback_node", "__end__"]]:
-            # 2.1 Define the model and bind CopilotKit's tools as tools
-            model = ChatOpenAI(model="gpt-4o")
-            model_with_tools = model.bind_tools([*state.get("copilotkit", {}).get("actions", [])]) # [!code highlight]
+## Recommended Approaches
 
-            # 2.2 Define the system message
-            system_message = SystemMessage(
-                content="You write essays. Use your tools to write an essay, don't just write it in plain text."
-            )
+For CopilotKit + AG-UI applications, we recommend:
 
-            # 2.3 Run the model to generate a response
-            response = await model_with_tools.ainvoke([
-                system_message,
-                *state["messages"],
-            ], config)
-
-            # [!code highlight:5]
-            # 2.4 Check for the writeEssay tool call and, if found, go  to the
-            #     user_feedback_node to handle the user's response
-            if isinstance(response, AIMessage) and response.tool_calls:
-                if response.tool_calls[0].get("name") == "writeEssay":
-                    return Command(goto="interrupt_node", update={"messages": response})
-
-            # 2.5 If no tool call is found, end the agent
-            return Command(goto=END, update={"messages": response})
-
-        # 3. Define an empty interrupt node to act as buffer as we use the interrupt_after property
-        def interrupt_node(state: AgentState, config: RunnableConfig):
-          pass
-
-        # 4. Define the user_feedback_node, this node will be interrupted before execution
-        #    where CopilotKit's renderAndWaitForResponse provide the user's response.
-        def user_feedback_node(state: AgentState, config: RunnableConfig) -> Command[Literal["chat_node"]]:
-            # [!code highlight:3]
-            # 3.1 Get the last message from the state, this will be 
-            #     what is returned by respond() in the frontend
-            last_message = state["messages"][-1]
-
-            # 3.2 If the user declined the essay, ask them how they'd like to improve it
-            if last_message.content != "SEND":
-                return Command(goto="chat_node", update={
-                    "messages": [SystemMessage(content="The user declined they essay, please ask them how they'd like to improve it")]
-                })
-
-            # 3.3 If the user approved the essay, ask them if they'd like anything else
-            return Command(goto="chat_node", update={
-                "messages": [SystemMessage(content="The user approved the essay, ask them if they'd like anything else")]
-            })
-
-        # 5. Configure the workflow
-        workflow = StateGraph(AgentState)
-        workflow.add_node("chat_node", chat_node)
-        workflow.add_node("interrupt_node", interrupt_node)
-        workflow.add_node("user_feedback_node", user_feedback_node)
-        workflow.add_edge("interrupt_node", "user_feedback_node")
-        workflow.set_entry_point("chat_node")
-
-        # [!code highlight:2]
-        # 6. Compile the workflow and set the interrupt_after property
-        graph = workflow.compile(MemorySaver(), interrupt_after=["interrupt_node"])
-        ```
-      </Tab>
-      <Tab value="TypeScript">
-        ```tsx title="agent/sample_agent/agent.ts"
-        import { z } from "zod";
-        import { RunnableConfig } from "@agent/core/runnables";
-        import { tool } from "@agent/core/tools";
-        import { ToolNode } from "@agent/agent framework/prebuilt";
-        import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from "@agent/core/messages";
-        import { Command, END, MemorySaver, START, StateGraph } from "@agent/agent framework";
-        import { Annotation } from "@agent/agent framework";
-        import { ChatOpenAI } from "@agent/openai";
-
-        // // 1. Import necessary helpers for CopilotKit tools
-        import { convertActionsToDynamicStructuredTools } from "@copilotkit/sdk-js/agent framework";
-        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/agent framework";
-
-        // 2. Define graph state, inherit from CopilotKitState to bring in CopilotKit tools
-        //    and messages.
-        export const AgentStateAnnotation = Annotation.Root({
-            ...CopilotKitStateAnnotation.spec,
-        });
-        export type AgentState = typeof AgentStateAnnotation.State;
-
-        // 3. Define the chat node, this will be the main entry point that a user interacts with
-        async function chatNode(state: AgentState, config: RunnableConfig) {
-          // 3.1 Define the model, lower temperature for deterministic responses
-          const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
-
-          // 3.2 Bind the tools to the model, include CopilotKit tools. This allows
-          //     the model to call tools that are defined in CopilotKit by the frontend.
-          const modelWithTools = model.bindTools!(
-            [ ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions || [])],
-          );
-
-          // 3.3 Define the system message, which will be used to guide the model.
-          const systemMessage = new SystemMessage({
-            content: `You are a helpful assistant.`,
-          });
-
-          // 3.4 Invoke the model with the system message and the messages in the state
-          const response = await modelWithTools.invoke(
-            [systemMessage, ...state.messages],
-            config
-          );
-
-          // 3.5 Check if the response contains a tool call
-          if (response.tool_calls?.length) {
-            const toolCall = response.tool_calls[0];
-
-            // 3.5.1 If the tool call is "writeEssay", we need to get feedback from the user
-            //       by going to the getFeedback node which will be interrupted after
-            //       execution, giving CopilotKit a chance to get feedback from the user.
-            //       
-            //       The "writeEssay" tool is a CopilotKit tool and is binded in step 3.2.
-            if (toolCall.name === "writeEssay") {
-              return new Command({
-                goto: "getFeedback",
-                update: {
-                  messages: [response],
-                }
-              });
-            }
-          }
-
-          // 3.6 If there was no tool call, we can just update message state and end the graph
-          return new Command({
-            goto: END,
-            update: {
-              messages: [response],
-            }
-          });
-        }
-
-        // 4. Target node for interruption, this node will be executed and after
-        //    execution the graph be interrupted, waiting for CopilotKit to get feedback
-        //    from the user.
-        const getFeedback = async (state: AgentState) => {
-          return state;
-        }
-
-        // 5. Node for handling the feedback awaited in the getFeedback node.
-        const handleFeedback = async (state: AgentState) => {
-          // 5.1 Get the last message from the state
-          const userResponse = state.messages[state.messages.length - 1].content
-
-          // 5.2 Process a informative message for the AI based on the user response
-          const informativeMessage = userResponse === "SEND" ? 
-            "The user accepted the essay, please ask them how you can help now." : 
-            "The user declined the essay, please ask them how to improve it.";
-
-          // 5.3 Return the new state with the informative message as a system message
-          //     so it doesn't appear in the chat history.
-          return {
-            messages: [new SystemMessage(informativeMessage)],
-          }
-        }
-
-        // 6. Define the graph and compile the graph
-        export const graph = new StateGraph(AgentStateAnnotation)
-          .addNode("chatNode", chatNode, { ends: ["getFeedback"] })
-          .addNode("getFeedback", getFeedback)
-          .addNode("handleFeedback", handleFeedback)
-          .addEdge("__start__", "chatNode")
-          .addEdge("getFeedback", "handleFeedback")
-          .addEdge("handleFeedback", "chatNode")
-          .compile({
-            checkpointer: new MemorySaver(),
-            interruptAfter: ["getFeedback"],
-          });
-
-        ```
-      </Tab>
-    </Tabs>
-    </Step>
-    <Step>
-        ### Give it a try!
-        Try asking your agent to write an essay about the benefits of AI. You'll see that it will generate an essay,
-        stream the progress and eventually ask you to review it.
-    </Step>
-</Steps>
+<Cards>
+  <Card
+    title="Approval-Required Functions"
+    description="Simple server-side approval for sensitive operations"
+    href="/microsoft-agent-framework/human-in-the-loop/interrupt-flow"
+  />
+  <Card
+    title="Frontend Tools"
+    description="Web-native HITL with flexible custom UI"
+    href="/microsoft-agent-framework/human-in-the-loop/frontend-tool-based"
+  />
+</Cards>

@@ -5,86 +5,71 @@ description: "Granularly control what is streamed to the frontend."
 ---
 
 ## What is this?
-By default, CopilotKit will stream both your state and tool calls to the frontend.
-You can disable this by using CopilotKit's custom `RunnableConfig`.
+
+By default, Microsoft Agent Framework via AG-UI streams messages, tool calls, and state updates to the frontend automatically. For scenarios where you need to control what data is exposed to the frontend, you can manage this through your agent's state snapshot design and tool implementations.
 
 ## When should I use this?
 
-Occasionally, you'll want to disable streaming temporarily — for example, the LLM may be
-doing something the current user should not see, like emitting tool calls or questions
-pertaining to other employees in an HR system.
+Use selective data exposure when:
+- The agent processes sensitive information that shouldn't be visible to users
+- You want to hide internal tool calls or reasoning steps
+- You need to filter state properties before sending to frontend
 
 ## Implementation
 
-### Disable all streaming
-You can disable all message streaming and tool call streaming by passing `emit_messages=False` and `emit_tool_calls=False` to the CopilotKit config.
+### Control State Exposure
 
-<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
-    <Tab value="Python">
-        ```python
-        from copilotkit.agent framework import copilotkit_customize_config
+Design your state snapshot classes to include only the data you want to expose to the frontend:
 
-        async def frontend_actions_node(state: AgentState, config: RunnableConfig):
+```csharp title="Program.cs"
+using System.Text.Json.Serialization;
 
-            # 1) Configure CopilotKit not to emit messages
-            modifiedConfig = copilotkit_customize_config(
-                config,
-                emit_messages=False, # if you want to disable message streaming # [!code highlight]
-                emit_tool_calls=False # if you want to disable tool call streaming # [!code highlight]
-            )
+// Public state - safe to send to frontend
+public class PublicStateSnapshot
+{
+    [JsonPropertyName("userVisibleData")]
+    public string UserVisibleData { get; set; } = string.Empty;
+}
 
-            # 2) Provide the actions to the LLM
-            model = ChatOpenAI(model="gpt-4o").bind_tools([
-              *state["copilotkit"]["actions"],
-              # ... any tools you want to make available to the model
-            ])
+// Internal state - keep on server only
+public class InternalState
+{
+    public string SensitiveData { get; set; } = string.Empty;
+    public List<string> InternalMetrics { get; set; } = new();
+}
 
-            # 3) Call the model with CopilotKit's modified config  # [!code highlight]
-            response = await model.ainvoke(state["messages"], modifiedConfig) # [!code highlight]
+// Tools return only public state
+[Description("Perform a task and return public results.")]
+static PublicStateSnapshot PerformTask([Description("Task input")] string input)
+{
+    // Process with internal state
+    var internalData = ProcessSensitiveOperation(input);
+    
+    // Return only public data
+    return new PublicStateSnapshot
+    {
+        UserVisibleData = "Task completed successfully"
+    };
+}
+```
 
-            # don't return the new response to hide it from the user
-            return state
-        ```
+### Control Tool Visibility
 
-    <Callout type="warn" title="BEWARE!">
-        In agent framework Python, the `config` variable in the surrounding namespace is **implicitly** passed into agent LLM calls, even when not explicitly provided.
+To prevent specific tool calls from being rendered on the frontend, simply don't register a corresponding `useCopilotAction` hook for that tool. Only tools with matching frontend action hooks will render custom UI.
 
-        This is why we create a new variable `modifiedConfig` rather than modifying `config` directly. If we modified `config` itself, it would change the default configuration for all subsequent LLM calls in that namespace.
+```csharp
+// Backend tool that won't render in UI (no matching useCopilotAction)
+[Description("Internal processing tool.")]
+static string InternalProcess([Description("Data to process")] string data)
+    => ProcessInternally(data);
 
-        ```python
-        # if we override the config variable name with a new value
-        config = copilotkit_customize_config(config, ...)
+// Backend tool that WILL render (if you add useCopilotAction with matching name)
+[Description("User-visible operation.")]
+static string PublicOperation([Description("User input")] string input)
+    => PerformPublicOperation(input);
+```
 
-        # it will affect every subsequent agent LLM call in the same namespace, even when `config` is not explicitly provided
-        response = await model2.ainvoke(*state["messages"]) # implicitly uses the modified config!
-        ```
-    </Callout>
-    </Tab>
-    <Tab value="TypeScript">
-        ```typescript
-        import { copilotkitCustomizeConfig } from '@copilotkit/sdk-js/agent framework';
-
-        async function frontendActionsNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
-            // 1) Configure CopilotKit not to emit messages
-            const modifiedConfig = copilotkitCustomizeConfig(config, {
-                emitMessages: false, // if you want to disable message streaming
-                emitToolCalls: false, // if you want to disable tool call streaming
-            });
-
-            // 2) Provide the actions to the LLM
-            const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
-            const modelWithTools = model.bindTools!([
-                ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions || []),
-                ...tools,
-            ]);
-
-            // 3) Call the model with CopilotKit's modified config
-            const response = await modelWithTools.invoke(state.messages, modifiedConfig);
-
-            // don't return the new response to hide it from the user
-            return state;
-        }
-        ```
-    </Tab>
-</Tabs>
+<Callout type="info">
+  Streaming control in MAF is primarily managed through what data you choose to return and expose, rather than configuration flags.
+</Callout>
 

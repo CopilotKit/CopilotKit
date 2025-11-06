@@ -5,13 +5,11 @@ description: Render the state of your agent with custom UI components.
 ---
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import { IframeSwitcher } from "@/components/content"
-import { Tabs, Tab } from "fumadocs-ui/components/tabs"
-// Removed agent framework-specific run-and-connect snippet
 
 <IframeSwitcher
   id="agent-state-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/agent framework/feature/agentic_generative_ui?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/agent framework/feature/agentic_generative_ui?view=code&sidebar=false&codeLayout=tabs"
+  exampleUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework/feature/agentic_generative_ui?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework/feature/agentic_generative_ui?view=code&sidebar=false&codeLayout=tabs"
   exampleLabel="Demo"
   codeLabel="Code"
   height="700px"
@@ -19,8 +17,7 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs"
 
 ## What is this?
 
-All agent framework agents are stateful. This means that as your agent progresses through nodes, a state object is passed between them perserving
-the overall state of a session. CopilotKit allows you to render this state in your application with custom UI components, which we call **Agentic Generative UI**.
+Microsoft Agent Framework agents can maintain state throughout their execution. CopilotKit allows you to render this state in your application with custom UI components, which we call **Agentic Generative UI**. State updates can be streamed to the frontend as your agent processes requests.
 
 ## When should I use this?
 
@@ -33,135 +30,95 @@ is a situation where a user and an agent are working together to solve a problem
   
   <Step>
     ### Define your agent state
-    agent framework agents are [stateful](https://agent-ai.github.io/agent framework/concepts/low_level/). As you progress through nodes, a state object is passed between them. CopilotKit
-    allows you to easily render this state in your application.
 
-    For the sake of this guide, let's say our state looks like this in our agent.
+    Define a state snapshot class that represents the data you want to stream to the frontend. This class should be JSON-serializable and contain only UI-relevant properties.
 
-    <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
-        <Tab value="Python">
-          ```python title="agent-py/sample_agent/agent.py"
-          from copilotkit import CopilotKitState # extends MessagesState
+    ```csharp title="Program.cs"
+    using System.Text.Json.Serialization;
 
-          # This is the state of the agent, we inherit from CopilotKitState to bind in
-          # useful helpers when interacting with the agent via CopilotKit.
-          class AgentState(CopilotKitState):
-              searches: list[dict]
-          ```
-        </Tab>
-        <Tab value="TypeScript">
-          ```typescript title="agent-js/src/agent.ts"
-          import { Annotation } from "@agent/agent framework";
-          import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/agent framework";
+    public class SearchInfo
+    {
+        [JsonPropertyName("query")]
+        public string Query { get; set; } = string.Empty;
+        
+        [JsonPropertyName("done")]
+        public bool Done { get; set; }
+    }
 
-          // This is the state of the agent, we inherit from CopilotKitState to bind in
-          // useful helpers when interacting with the agent via CopilotKit.
-          export const AgentStateAnnotation = Annotation.Root({
-            searches: Annotation<object[]>,
-            ...CopilotKitStateAnnotation.spec,
-          });
-          export type AgentState = typeof AgentStateAnnotation.State;
-          ```
-        </Tab>
-    </Tabs>
+    public class AgentStateSnapshot
+    {
+        [JsonPropertyName("searches")]
+        public List<SearchInfo> Searches { get; set; } = new();
+    }
+    ```
+
+    On the frontend, define the matching TypeScript type:
+
+    ```tsx title="app/page.tsx"
+    type SearchInfo = {
+      query: string;
+      done: boolean;
+    };
+
+    type AgentState = {
+      searches: SearchInfo[];
+    };
+    ```
   </Step>
   <Step>
-    ### Simulate state updates
-    Next, let's write some logic into our agent that will simulate state updates occurring.
+    ### Return state from your agent tools
 
-    <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
-      <Tab value="Python">
-        ```python title="agent-py/sample_agent/agent.py"
-        import asyncio
-        from typing import TypedDict
-        from agent_core.runnables import RunnableConfig
-        from agent_openai import ChatOpenAI
-        from agent_core.messages import SystemMessage
-        from copilotkit import CopilotKitState
-        from copilotkit.agent framework import copilotkit_emit_state # [!code highlight]
+    In Microsoft Agent Framework, state updates are typically returned from tools. When a tool returns a state snapshot object, it's automatically streamed to the frontend.
 
-        class Searches(TypedDict):
-            query: str
-            done: bool
+    Here's an example using a tool that simulates progressive updates:
 
-        class AgentState(CopilotKitState):
-            searches: list[Searches] = []
+    ```csharp title="Program.cs"
+    using System.ComponentModel;
+    using Azure.AI.OpenAI;
+    using Azure.Identity;
+    using Microsoft.Agents.AI;
+    using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+    using Microsoft.Extensions.AI;
 
-        async def chat_node(state: AgentState, config: RunnableConfig):
-            state["searches"] = [
-                {"query": "Initial research", "done": False},
-                {"query": "Retrieving sources", "done": False},
-                {"query": "Forming an answer", "done": False},
-            ]
+    var builder = WebApplication.CreateBuilder(args);
+    var app = builder.Build();
 
-            # [!code highlight:3]
-            # We can call copilotkit_emit_state to emit updated state
-            # before a node finishes
-            await copilotkit_emit_state(config, state)
+    string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
+    string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
 
-            # Simulate state updates
-            for search in state["searches"]:
-                await asyncio.sleep(1)
-                search["done"] = True
+    [Description("Perform a research task and track progress.")]
+    static AgentStateSnapshot PerformResearch([Description("The research query")] string query)
+    {
+        // In a real implementation, you'd perform actual research here
+        // and potentially emit intermediate updates via streaming mechanisms
+        return new AgentStateSnapshot
+        {
+            Searches = new List<SearchInfo>
+            {
+                new() { Query = "Initial research", Done = true },
+                new() { Query = "Retrieving sources", Done = true },
+                new() { Query = "Forming an answer", Done = false }
+            }
+        };
+    }
 
-                # [!code highlight:2]
-                # We can also emit updates in a loop to simulate progress
-                await copilotkit_emit_state(config, state)
+    app.MapAGUIAgent("/", (messages, tools, context, forwardedProps) =>
+    {
+        var client = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential());
+        var agent = client.GetChatClient(deployment)
+            .CreateAIAgent(
+                name: "ResearchAssistant",
+                tools: [AIFunctionFactory.Create(PerformResearch)]);
+        
+        return agent;
+    });
 
-            # Run the model to generate a response
-            response = await ChatOpenAI(model="gpt-4o").ainvoke([
-                SystemMessage(content="You are a helpful assistant."),
-                *state["messages"],
-            ], config)
-        ```
-      </Tab>
-      <Tab value="TypeScript">
-        ```typescript title="agent-js/src/agent.ts"
-        import { RunnableConfig } from "@agent/core/runnables";
-        import { ChatOpenAI } from "@agent/openai";
-        import { Annotation } from "@agent/agent framework";
-        import { SystemMessage } from "@agent/core/messages";
-        import { copilotkitEmitState, CopilotKitStateAnnotation } from "@copilotkit/sdk-js/agent framework";
+    await app.RunAsync();
+    ```
 
-        type Search = {
-          query: string;
-          done: boolean;
-        }
-
-        export const AgentStateAnnotation = Annotation.Root({
-          searches: Annotation<Search[]>,
-          ...CopilotKitStateAnnotation.spec,
-        });
-
-        async function chat_node(state: AgentState, config: RunnableConfig) {
-          state.searches = [
-            { query: "Initial research", done: false },
-            { query: "Retrieving sources", done: false },
-            { query: "Forming an answer", done: false },
-          ];
-
-          // [!code highlight:3]
-          // We can call copilotkit_emit_state to emit updated state
-          // before a node finishes
-          await copilotkitEmitState(config, state);
-
-          // Simulate state updates
-          for (const search of state.searches) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            search.done = true;
-
-            // [!code highlight:2]
-            // We can also emit updates in a loop to simulate progress
-            await copilotkitEmitState(config, state);
-          }
-
-          const response = await new ChatOpenAI({ model: "gpt-4o" }).invoke([
-            new SystemMessage({ content: "You are a helpful assistant."}),
-            ...state.messages,
-          ], config);
-        ```
-      </Tab>
-    </Tabs>
+    <Callout type="info">
+      State snapshot objects returned from tools are automatically serialized and streamed to the frontend via the AG-UI protocol.
+    </Callout>
   </Step>
   <Step>
     ### Render state of the agent in the chat
@@ -170,8 +127,7 @@ is a situation where a user and an agent are working together to solve a problem
     ```tsx title="app/page.tsx"
     import { useagentStateRender } from "@copilotkit/react-core";
 
-    // For type safety, redefine the state of the agent. If you're using
-    // using agent framework JS you can import the type here and share it.
+    // For type safety, define the state type matching your agent's state snapshot
     type AgentState = {
       searches: {
         query: string;
@@ -212,7 +168,7 @@ is a situation where a user and an agent are working together to solve a problem
     import { useagent } from "@copilotkit/react-core"; // [!code highlight]
     // ...
 
-    // Define the state of the agent, should match the state of the agent in your agent framework.
+    // Define the state type matching your agent's state snapshot
     type AgentState = {
       searches: {
         query: string;

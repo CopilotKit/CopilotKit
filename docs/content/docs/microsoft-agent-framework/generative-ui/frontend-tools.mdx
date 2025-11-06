@@ -104,8 +104,8 @@ Use frontend tools when you need your agent to interact with client-side primiti
         var builder = WebApplication.CreateBuilder(args);
         var app = builder.Build();
 
-        app.MapAGUIAgent("/", (messages, frontendTools, context, state, forwardedProps) => {
-          // frontendTools contains the frontend tool definitions
+        app.MapAGUIAgent("/", (messages, tools, context, forwardedProps) => {
+          // tools contains the frontend tool definitions
           var githubToken = builder.Configuration["GitHubToken"]!;
           var openAI = new OpenAIClient(new System.ClientModel.ApiKeyCredential(githubToken), new OpenAIClientOptions { Endpoint = new Uri("https://models.inference.ai.azure.com")});
           var chat = openAI.GetChatClient("gpt-4o-mini").AsIChatClient();

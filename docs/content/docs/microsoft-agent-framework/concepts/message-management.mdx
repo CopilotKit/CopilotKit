@@ -15,20 +15,16 @@ the agent internals.
 
 ### Can I modify the message history?
 
-You can modify the message history from agent framework by using the `RemoveMessage` class. For example to remove all messages from the chat history: 
+In Microsoft Agent Framework, message history is managed through the `AgentThread`. Messages are automatically appended to the thread during agent execution. To implement custom message management:
 
-```python
-from agent_core.messages import RemoveMessage
+- Use a custom `ChatMessageStore` to control message storage and retrieval
+- Implement message filtering or summarization in `GetMessagesAsync()` 
+- Manage thread state externally for fine-grained control
 
-def a_node(state: AgentState, config):
-    # ...
-    return {"messages":  [RemoveMessage(id=m.id) for m in state['messages']]}
-```
+See [Message Persistence](/microsoft-agent-framework/persistence/message-persistence) for implementing custom message storage patterns.
 
-See the [agent framework documentation](https://agent-ai.github.io/agent framework/how-tos/memory/delete-messages/) for more information.
-
-<Callout>
-Editing the message history is not currently supported on the front-end, but will be soon.
+<Callout type="info">
+  Message editing from the frontend is not currently supported but may be added in future releases.
 </Callout>
 
 ### Can I persist chat history?
@@ -48,35 +44,33 @@ Modern LLM interactions produce two distinct types of messages:
 A well known example of this pattern is OpenAI's o1 model, which has sophisticated reasoning capabilities and thoughts. Its internal
 thought processes are presented distinctly from 'communication messages' which are clearly visible to the end-user.
 
-agent framework agents can operate similarly. An LLM call's output can be considered either a communication message, or an internal message.
+Microsoft Agent Framework agents operate similarly. Messages can be communication-focused or represent internal reasoning.
 
-### Emitting Messages for long running tasks
+### Streaming Messages During Execution
 
-Sometimes you'll have a task that is running for a long time, and you want the user to be aware of what's happening. By default, agent framework does not support this, because messages are only emitted on node transitions. However, CopilotKit allows you to accomplish this by using the `copilotkit_emit_message` function.
+For long-running tasks, you may want to provide user feedback. Microsoft Agent Framework supports streaming responses through the AG-UI protocol. Messages are automatically streamed to the frontend as your agent processes them.
 
-```python
-async def ask_name_node(state: GreetAgentState, config: RunnableConfig):
-    """
-    Ask the user for their name.
-    """
+```csharp
+// Messages are automatically streamed via AG-UI SSE (Server-Sent Events)
+// as the agent generates responses. No special emission code needed.
 
-    content = "Hey, what is your name? 🙂"
- 
-    await copilotkit_emit_message(config, content)
+var agent = client.GetChatClient(deployment)
+    .CreateAIAgent(
+        name: "StreamingAgent",
+        instructions: "You are a helpful assistant. Provide detailed explanations."
+    );
 
-    # something long running here...
- 
-    return {
-        "messages": AIMessage(content=content),
-    }
+// Streaming happens automatically through the AG-UI protocol
 ```
 
-Want some more help managing messages in your agent application? Check out our guide on [emitting messages](/microsoft-agent-framework/advanced/emit-messages).
+For more advanced message streaming scenarios, see our guide on [emitting messages](/microsoft-agent-framework/advanced/emit-messages).
 
 ## Message Flow
-Messages flow between CopilotKit and agent framework in a specific way:
 
-- All messages from agent framework are forwarded to CopilotKit
-- On a fresh agent invocation, the full CopilotKit chat history is provided to the agent framework agent as its pre-existing chat history.
+Messages flow between CopilotKit and Microsoft Agent Framework in a specific way:
 
-When a agent completes its execution, its relevant messages become part of CopilotKit's persistent chat history. This allows for all future agent invocations to get context from the full chat history.
+- All messages from the agent are streamed to CopilotKit via the AG-UI protocol
+- On each agent invocation, the full CopilotKit chat history is provided to the agent via the `messages` parameter
+- When an agent completes execution, its messages become part of CopilotKit's persistent chat history
+
+This ensures conversational continuity - each agent invocation has access to the complete conversation context.

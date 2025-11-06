@@ -4,7 +4,6 @@ icon: "lucide/Wrench"
 description: Render your agent's tool calls with custom UI components.
 ---
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
-// Removed agents-specific run-and-connect snippet
 
 <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/microsoft-agent-framework/tool-based-gen-ui.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
 <Callout>
@@ -27,68 +26,44 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 <Step>
 ### Give your agent a tool to call
 
-<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
-    <Tab value="Python">
-        ```python title="agent/sample_agent/agent.py"
-        from agent_openai import ChatOpenAI
-        from agent.tools import tool
-        # ...
+Define a tool function using the `[Description]` attribute. Microsoft Agent Framework will automatically convert this into a tool the LLM can call.
 
-        # [!code highlight:6]
-        @tool
-        def get_weather(location: str):
-            """
-            Get the weather for a given location.
-            """
-            return f"The weather for {location} is 70 degrees."
+```csharp title="Program.cs"
+using System.ComponentModel;
+using Azure.AI.OpenAI;
+using Azure.Identity;
+using Microsoft.Agents.AI;
+using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+using Microsoft.Extensions.AI;
 
-        # ...
+var builder = WebApplication.CreateBuilder(args);
+var app = builder.Build();
 
-        async def chat_node(state: AgentState, config: RunnableConfig):
-            model = ChatOpenAI(model="gpt-4o")
-            model_with_tools = model.bind_tools([get_weather]) # [!code highlight]
+string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
+string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
 
-            response = await model_with_tools.ainvoke([
-                SystemMessage(content=f"You are a helpful assistant.")
-                *state["messages"],
-            ], config)
+// [!code highlight:4]
+// Define the weather tool function
+[Description("Get the weather for a given location.")]
+static string GetWeather([Description("The location to get weather for")] string location)
+    => $"The weather for {location} is 70 degrees.";
 
-            # ...
-        ```
-    </Tab>
-    <Tab value="TypeScript">
-        ```typescript title="agent-js/src/agent.ts"
-        import { ChatOpenAI } from "@agent/openai";
-        import { tool } from "@agent/core/tools";
+app.MapAGUIAgent("/", (messages, tools, context, forwardedProps) =>
+{
+    var client = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential());
+    
+    // [!code highlight:4]
+    // Create agent with the weather tool
+    var agent = client.GetChatClient(deployment)
+        .CreateAIAgent(
+            name: "AGUIAssistant",
+            tools: [AIFunctionFactory.Create(GetWeather)]);
+    
+    return agent;
+});
 
-        // [!code highlight:12]
-        const get_weather = tool(
-          (args) => {
-            return `The weather for ${args.location} is 70 degrees.`;
-          },
-          {
-            name: "get_weather",
-            description: "Get the weather for a given location.",
-            schema: z.object({
-              location: z.string().describe("The location to get weather for"),
-            }),
-          }
-        );
-
-        async function chat_node(state: AgentState, config: RunnableConfig) {
-          const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
-          const modelWithTools = model.bindTools([get_weather]); // [!code highlight]
-
-          const response = await modelWithTools.invoke([
-            new SystemMessage("You are a helpful assistant."),
-            ...state.messages,
-          ], config);
-
-          // ...
-        }
-        ```
-    </Tab>
-</Tabs>
+await app.RunAsync();
+```
 </Step>
 <Step>
 ### Render the tool call in your frontend
