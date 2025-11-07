@@ -511,7 +511,7 @@ function SubdocsMenuItemDropdown({
           <SelectValue
             placeholder={
               <div className="flex items-center">
-                <div className={cn("rounded-sm mr-2 p-1 pr-0 text-primary opacity-100")}>
+                <div className={cn("rounded-sm mr-2 p-1 pr-0 text-primary opacity-100", selectedOption?.props?.className)}>
                   {selectedOption?.icon || (
                     <PlugIcon
                       className="w-4 h-4"
@@ -529,7 +529,10 @@ function SubdocsMenuItemDropdown({
             <SelectItem
               key={`${option.url}-${index}`}
               value={option.url ?? DEFAULT_URL}
-              className="pl-1 py-0.5 my-0 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer opacity-60 hover:opacity-100 hover:bg-secondary/10"
+              className={cn(
+                "pl-1 py-0.5 my-0 border-0 h-auto flex gap-3 items-center w-full shadow-none rounded-xl cursor-pointer opacity-60 hover:opacity-100 hover:bg-secondary/10",
+                option.props?.className
+              )}
             >
               <div className="flex items-center">
                 <div className={cn("rounded-sm p-1 mr-2 text-primary")}>
