@@ -185,8 +185,6 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
     return !integration.title.toLowerCase().includes("microsoft");
   });
 
-  console.log('filteredIntegrations', filteredIntegrations);
-
   // Filter out Direct to LLM if suppressed
   if (suppressDirectToLLM) {
     filteredIntegrations = filteredIntegrations.filter(integration => integration.title !== "Direct to LLM");
