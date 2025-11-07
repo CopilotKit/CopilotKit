@@ -57,14 +57,14 @@ public class DatabaseChatMessageStore : ChatMessageStore
     }
 
     // Serialize state for thread persistence
-    protected override Task<JsonElement> SerializeStateAsync(JsonSerializerOptions? jsonSerializerOptions = null, CancellationToken cancellationToken = default)
+    protected override JsonElement Serialize(JsonSerializerOptions? jsonSerializerOptions = null)
     {
         var state = new
         {
             connectionString = _connectionString,
             threadKey = _threadKey
         };
-        return Task.FromResult(JsonSerializer.SerializeToElement(state, jsonSerializerOptions));
+        return JsonSerializer.SerializeToElement(state, jsonSerializerOptions);
     }
 }
 ```
