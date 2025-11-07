@@ -64,9 +64,11 @@ var app = builder.Build();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// GitHub Models API key for Azure OpenAI (via models.inference.ai.azure.com)
 string githubToken = builder.Configuration["GitHubToken"]!;
 
-// Create the agent
+// Create the agent with OpenAI client
+// The agent is needed to handle AG-UI requests after authentication
 var openAI = new OpenAIClient(
     new System.ClientModel.ApiKeyCredential(githubToken),
     new OpenAIClientOptions { Endpoint = new Uri("https://models.inference.ai.azure.com") }
@@ -74,7 +76,7 @@ var openAI = new OpenAIClient(
 var agent = openAI.GetChatClient("gpt-4o-mini")
     .CreateAIAgent(name: "AGUIAssistant", instructions: "You are a helpful assistant.");
 
-// Map the AG-UI endpoint with authorization
+// Map the AG-UI endpoint with authorization required
 app.MapAGUI("/", agent).RequireAuthorization();
 
 await app.RunAsync();
@@ -87,8 +89,32 @@ Add the JWT settings to your `appsettings.json` or environment variables:
 ```json title="appsettings.json"
 {
   "JwtAuthority": "https://login.microsoftonline.com/{your-tenant-id}/v2.0",
-  "JwtAudience": "api://{your-client-id}"
+  "JwtAudience": "api://{your-client-id}",
+  "GitHubToken": "your-github-token-here"
 }
+```
+
+### CORS Configuration (if needed)
+
+If your frontend and AG-UI server are on different origins, add CORS configuration:
+
+```csharp title="Program.cs"
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.WithOrigins("http://localhost:3000") // Your frontend URL
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
+// ... authentication setup ...
+
+app.UseCors();
+app.UseAuthentication();
+app.UseAuthorization();
 ```
 
 ## Security notes
@@ -113,8 +139,9 @@ For identity and access management guidance, see [Authentication for agents (pre
 
 **Token not reaching server**:
 
-- Ensure you're passing `Authorization` in the `<CopilotKit>` `headers`
+- Ensure you're passing `authorization` in the `<CopilotKit>` `properties` prop
 - Confirm your proxy/tunnel forwards headers
+- Check CORS configuration if frontend and backend are on different origins (see [CORS Configuration](#cors-configuration-if-needed))
 
 **Invalid token format**:
 
@@ -126,7 +153,15 @@ For identity and access management guidance, see [Authentication for agents (pre
 
 **Authentication works locally but not in production**:
 
-- Verify environment-specific configuration (headers, proxies, CORS)
+- Verify environment-specific configuration (headers, proxies)
+- Ensure CORS is properly configured for your production domains
+- Check that Authorization headers are being forwarded through any proxies or load balancers
+
+**CORS errors**:
+
+- Add CORS configuration if frontend and backend are on different origins (see [CORS Configuration](#cors-configuration-if-needed))
+- Ensure `AllowCredentials()` is set if using cookie-based auth
+- Verify your frontend origin is listed in `WithOrigins()`
 
 ## Next steps
 
