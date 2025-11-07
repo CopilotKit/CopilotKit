@@ -28,26 +28,28 @@ sequenceDiagram
 
 ## Frontend setup
 
-Pass your authentication token via the `properties` prop:
+Pass your authentication token via the `headers` prop:
 
 ```tsx
 <CopilotKit
   runtimeUrl="/api/copilotkit"
-  properties={{
-    authorization: userToken, // Forwarded as Bearer token
+  headers={{
+    Authorization: `Bearer ${userToken}`,
   }}
 >
   <YourApp />
 </CopilotKit>
 ```
 
-The `authorization` property is forwarded to your AG-UI server. If your server expects a Bearer token, include the `Bearer ` prefix when validating.
+The `Authorization` header is forwarded to your AG-UI server and can be validated in your ASP.NET Core middleware.
 ## ASP.NET Core AG-UI server
 
 Validate the incoming token and scope requests in your AG-UI server using ASP.NET Core's built-in JWT bearer authentication. Below is an example that configures JWT bearer authentication following [Microsoft's recommended approach](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/configure-jwt-bearer-authentication).
 
 ```csharp title="Program.cs"
+using AGUI;
 using Microsoft.Agents.AI;
+using Microsoft.Agents.AI.AGUI;
 using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -82,10 +84,9 @@ app.UseAuthorization();
 string githubToken = builder.Configuration["GitHubToken"]!;
 
 // Apply [Authorize] to the AG-UI endpoint
-app.MapAGUIAgent("/", [Authorize] (messages, tools, context, forwardedProps) =>
+app.MapAGUIAgent("/", [Authorize] (RunAgentInput agentInput, HttpContext httpContext) =>
 {
     // Access the authenticated user's identity
-    // Note: You can access HttpContext via a parameter if needed for user claims
     // var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     
     var openAI = new OpenAIClient(

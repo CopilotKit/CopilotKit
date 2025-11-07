@@ -41,16 +41,16 @@ This enables you to render custom UI for tool executions using `useCopilotAction
 For passing runtime configuration (auth tokens, user context, etc.) to your agent, use the `forwardedProps` parameter in your AG-UI handler:
 
 ```csharp
-app.MapAGUIAgent("/", (messages, tools, context, forwardedProps) =>
+app.MapAGUIAgent("/", (RunAgentInput agentInput, HttpContext httpContext) =>
 {
-    // Access configuration from forwardedProps
-    // These are properties passed from CopilotKit's properties prop
+    // Access configuration from httpContext.Request.Headers
+    // These are headers passed from CopilotKit's headers prop
     
     var client = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential());
-    var agent = client.GetChatClient(deployment)
-        .CreateAIAgent(name: "ConfigurableAgent");
+    var chatClient = client.GetChatClient(deployment).AsIChatClient();
+    var agent = new ChatClientAgent(chatClient, name: "ConfigurableAgent");
     
-    return agent;
+    return new ChatClientAGUIAgent(agent);
 });
 ```
 

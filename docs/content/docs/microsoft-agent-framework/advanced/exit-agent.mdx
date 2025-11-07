@@ -11,15 +11,15 @@ Microsoft Agent Framework agents execute in a request-response model via AG-UI. 
 ## How Agent Execution Works
 
 ```csharp
-app.MapAGUIAgent("/", (messages, tools, context, forwardedProps) =>
+app.MapAGUIAgent("/", (RunAgentInput agentInput, HttpContext httpContext) =>
 {
     // Agent is created per-request
     var client = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential());
-    var agent = client.GetChatClient(deployment)
-        .CreateAIAgent(name: "Assistant");
+    var chatClient = client.GetChatClient(deployment).AsIChatClient();
+    var agent = new ChatClientAgent(chatClient, name: "Assistant");
     
     // Agent processes messages and completes automatically
-    return agent;
+    return new ChatClientAGUIAgent(agent);
 });
 ```
 

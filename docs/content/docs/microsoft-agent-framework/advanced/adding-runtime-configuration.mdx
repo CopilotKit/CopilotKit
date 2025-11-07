@@ -16,9 +16,9 @@ This is useful when you want to send execution-time configuration information (s
 
 <Steps>
 <Step>
-### Pass properties from the frontend
+### Pass headers from the frontend
 
-Pass configuration via CopilotKit's `properties` prop:
+Pass configuration via CopilotKit's `headers` prop:
 
 ```tsx title="app/page.tsx"
 import { CopilotKit } from "@copilotkit/react-core";
@@ -30,11 +30,11 @@ function YourApp() {
   return (
     <CopilotKit
       runtimeUrl="/api/copilotkit"
-      properties={{
+      headers={{
         // [!code highlight:4]
-        authToken: userToken,
-        userId: userId,
-        userPreferences: { theme: 'dark', language: 'en' }
+        Authorization: `Bearer ${userToken}`,
+        "X-User-Id": userId,
+        "X-User-Preferences": JSON.stringify({ theme: 'dark', language: 'en' })
       }}
     >
       <YourMainContent />
@@ -44,18 +44,20 @@ function YourApp() {
 ```
 
 <Callout type="info">
-  Properties passed to `<CopilotKit>` are forwarded to your AG-UI server via the `forwardedProps` parameter.
+  Headers passed to `<CopilotKit>` are forwarded to your Copilot Runtime and then to your AG-UI server, where you can access them via `HttpContext.Request.Headers`.
 </Callout>
 </Step>
 <Step>
-### Access properties in your AG-UI server
+### Access headers in your AG-UI server
 
-Retrieve the forwarded properties in your AG-UI handler:
+Retrieve the forwarded headers in your AG-UI handler via `HttpContext`:
 
 ```csharp title="Program.cs"
+using AGUI;
 using Azure.AI.OpenAI;
 using Azure.Identity;
 using Microsoft.Agents.AI;
+using Microsoft.Agents.AI.AGUI;
 using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -64,13 +66,13 @@ var app = builder.Build();
 string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
 string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
 
-app.MapAGUIAgent("/", (messages, tools, context, forwardedProps) =>
+app.MapAGUIAgent("/", (RunAgentInput agentInput, HttpContext context) =>
 {
     // [!code highlight:6]
-    // Extract configuration from forwardedProps
-    var authToken = forwardedProps?.GetValueOrDefault("authToken")?.ToString();
-    var userId = forwardedProps?.GetValueOrDefault("userId")?.ToString();
-    var preferences = forwardedProps?.GetValueOrDefault("userPreferences");
+    // Extract configuration from request headers
+    var authToken = context.Request.Headers["Authorization"].FirstOrDefault();
+    var userId = context.Request.Headers["X-User-Id"].FirstOrDefault();
+    var preferences = context.Request.Headers["X-User-Preferences"].FirstOrDefault();
     
     // Validate auth token if needed
     // if (string.IsNullOrEmpty(authToken)) throw new UnauthorizedAccessException();
@@ -79,13 +81,14 @@ app.MapAGUIAgent("/", (messages, tools, context, forwardedProps) =>
     var instructions = $"You are a helpful assistant for user {userId}. Adapt responses based on user preferences.";
     
     var client = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential());
-    var agent = client.GetChatClient(deployment)
-        .CreateAIAgent(
-            name: "PersonalizedAgent",
-            instructions: instructions
-        );
+    var chatClient = client.GetChatClient(deployment).AsIChatClient();
+    var agent = new ChatClientAgent(
+        chatClient,
+        name: "PersonalizedAgent",
+        description: instructions
+    );
     
-    return agent;
+    return new ChatClientAGUIAgent(agent);
 });
 
 await app.RunAsync();
@@ -94,28 +97,29 @@ await app.RunAsync();
 <Step>
 ### Use configuration in agent tools
 
-You can also use the configuration to customize tool behavior. Store configuration in a service and inject it into your tools:
+You can also extract headers and store configuration in a service for use in your tools:
 
 ```csharp
-// Register configuration as a singleton
-builder.Services.AddSingleton(new AgentConfiguration 
-{ 
-    UserId = "default" 
-});
+// Register configuration service
+builder.Services.AddScoped<UserConfiguration>();
 
-app.MapAGUIAgent("/", (messages, tools, context, forwardedProps) =>
+app.MapAGUIAgent("/", (RunAgentInput agentInput, HttpContext context) =>
 {
-    // Update configuration based on forwarded props
-    var userId = forwardedProps?.GetValueOrDefault("userId")?.ToString();
+    // Extract user context from headers
+    var userId = context.Request.Headers["X-User-Id"].FirstOrDefault();
     
-    // Your tools can access this via dependency injection
+    // Store in scoped service for tool access
+    var userConfig = context.RequestServices.GetRequiredService<UserConfiguration>();
+    userConfig.UserId = userId ?? "default";
+    
+    // Your tools can access UserConfiguration via dependency injection
     // and customize behavior per user
     
     var client = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential());
-    var agent = client.GetChatClient(deployment)
-        .CreateAIAgent(name: "ConfigurableAgent");
+    var chatClient = client.GetChatClient(deployment).AsIChatClient();
+    var agent = new ChatClientAgent(chatClient, name: "ConfigurableAgent");
     
-    return agent;
+    return new ChatClientAGUIAgent(agent);
 });
 ```
 </Step>

@@ -46,9 +46,11 @@ Create a function that requires user approval before execution. Wrap it with `Ap
 
 ```csharp title="Program.cs"
 using System.ComponentModel;
+using AGUI;
 using Azure.AI.OpenAI;
 using Azure.Identity;
 using Microsoft.Agents.AI;
+using Microsoft.Agents.AI.AGUI;
 using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
 using Microsoft.Extensions.AI;
 
@@ -64,22 +66,23 @@ string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
 static string DeleteFile([Description("The file path to delete")] string filePath)
     => $"File {filePath} has been deleted.";
 
-app.MapAGUIAgent("/", (messages, tools, context, forwardedProps) =>
+app.MapAGUIAgent("/", (RunAgentInput agentInput, HttpContext httpContext) =>
 {
     var client = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential());
     
-    // [!code highlight:6]
+    // [!code highlight:7]
     // Wrap the function in ApprovalRequiredAIFunction to require user approval
     var deleteFileFunction = AIFunctionFactory.Create(DeleteFile);
     var approvalRequiredFunction = new ApprovalRequiredAIFunction(deleteFileFunction);
     
-    var agent = client.GetChatClient(deployment)
-        .CreateAIAgent(
-            name: "FileManager",
-            instructions: "You are a helpful file management assistant.",
-            tools: [approvalRequiredFunction]);
+    var chatClient = client.GetChatClient(deployment).AsIChatClient();
+    var agent = new ChatClientAgent(
+        chatClient,
+        name: "FileManager",
+        instructions: "You are a helpful file management assistant.",
+        tools: [approvalRequiredFunction]);
     
-    return agent;
+    return new ChatClientAGUIAgent(agent);
 });
 
 await app.RunAsync();
@@ -172,20 +175,21 @@ static string SendEmail([Description("Email address")] string to, [Description("
 static string MakePurchase([Description("Item name")] string item, [Description("Price")] decimal amount)
     => $"Purchased {item} for ${amount}";
 
-app.MapAGUIAgent("/", (messages, tools, context, forwardedProps) =>
+app.MapAGUIAgent("/", (RunAgentInput agentInput, HttpContext httpContext) =>
 {
     var client = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential());
     
     // Wrap each function that requires approval
-    var agent = client.GetChatClient(deployment)
-        .CreateAIAgent(
-            name: "Assistant",
-            tools: [
-                new ApprovalRequiredAIFunction(AIFunctionFactory.Create(SendEmail)),
-                new ApprovalRequiredAIFunction(AIFunctionFactory.Create(MakePurchase))
-            ]);
+    var chatClient = client.GetChatClient(deployment).AsIChatClient();
+    var agent = new ChatClientAgent(
+        chatClient,
+        name: "Assistant",
+        tools: [
+            new ApprovalRequiredAIFunction(AIFunctionFactory.Create(SendEmail)),
+            new ApprovalRequiredAIFunction(AIFunctionFactory.Create(MakePurchase))
+        ]);
     
-    return agent;
+    return new ChatClientAGUIAgent(agent);
 });
 ```
 

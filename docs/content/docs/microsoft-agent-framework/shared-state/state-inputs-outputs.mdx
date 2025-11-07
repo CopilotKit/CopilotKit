@@ -70,10 +70,10 @@ In addition, some state properties contain a lot of information. Syncing them ba
       }
 
       // Example AG-UI mapping (simplified)
-      app.MapAGUIAgent("/", (input, http) =>
+      app.MapAGUIAgent("/", (RunAgentInput agentInput, HttpContext httpContext) =>
       {
-          // input.Properties can include UI-provided values (e.g., question)
-          var question = input.Properties?.GetValueOrDefault("question")?.ToString();
+          // agentInput.State can include UI-provided values (e.g., question)
+          var question = agentInput.State?.GetProperty("question").GetString();
 
           var state = new OverallStateSnapshot
           {
@@ -82,7 +82,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
           };
 
           // Create and return your agent; ensure it surfaces only the output fields as needed
-          var githubToken = http.RequestServices.GetRequiredService<IConfiguration>["GitHubToken"]!;
+          var githubToken = httpContext.RequestServices.GetRequiredService<IConfiguration>["GitHubToken"]!;
           var openAI = new OpenAI.OpenAIClient(
               new System.ClientModel.ApiKeyCredential(githubToken),
               new OpenAI.OpenAIClientOptions { Endpoint = new Uri("https://models.inference.ai.azure.com")});

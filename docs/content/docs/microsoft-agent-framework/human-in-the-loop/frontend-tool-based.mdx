@@ -86,9 +86,11 @@ Use frontend tools when you need your agent to interact with client-side primiti
         Frontend tools registered with `useHumanInTheLoop` are forwarded to your AG-UI server in the `tools` parameter. You can bind them to your agent to make them callable.
 
         ```csharp title="Program.cs"
+        using AGUI;
         using Azure.AI.OpenAI;
         using Azure.Identity;
         using Microsoft.Agents.AI;
+        using Microsoft.Agents.AI.AGUI;
         using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
         using Microsoft.Extensions.AI;
 
@@ -98,17 +100,17 @@ Use frontend tools when you need your agent to interact with client-side primiti
         string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
         string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
 
-        app.MapAGUIAgent("/", (messages, tools, context, forwardedProps) =>
+        app.MapAGUIAgent("/", (RunAgentInput agentInput, HttpContext httpContext) =>
         {
-            // tools parameter contains frontend tools from CopilotKit
+            // agentInput.Tools contains frontend tools from CopilotKit
             // including the "humanApprovedCommand" tool defined with useHumanInTheLoop
             
             var client = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential());
-            var agent = client.GetChatClient(deployment)
-                .CreateAIAgent(name: "AGUIAssistant");
+            var chatClient = client.GetChatClient(deployment).AsIChatClient();
+            var agent = new ChatClientAgent(chatClient, name: "AGUIAssistant");
             
             // Frontend tools are available to the agent through the AG-UI protocol
-            return agent;
+            return new ChatClientAGUIAgent(agent);
         });
 
         await app.RunAsync();

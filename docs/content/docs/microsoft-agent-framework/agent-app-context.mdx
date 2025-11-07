@@ -53,6 +53,7 @@ This context can then be shared with your AG-UI server and agent logic.
         The `context` you register on the frontend is forwarded to your AG-UI server handler. You can extract items by description and pass them to your agent logic.
 
         ```csharp title="Program.cs"
+        using AGUI;
         using Azure.AI.OpenAI;
         using Azure.Identity;
         using Microsoft.Agents.AI;
@@ -64,17 +65,18 @@ This context can then be shared with your AG-UI server and agent logic.
         string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
         string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
 
-        app.MapAGUIAgent("/", (messages, tools, context, forwardedProps) =>
+        app.MapAGUIAgent("/", (RunAgentInput agentInput, HttpContext httpContext) =>
         {
             // Extract colleagues from CopilotKit context by description
-            var colleagues = context
+            var colleagues = agentInput.ContextItems
                 .FirstOrDefault(item => string.Equals(item.Description, "The current user's colleagues", StringComparison.OrdinalIgnoreCase))
                 ?.Value;
 
             var client = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential());
-            var agent = client.GetChatClient(deployment).CreateAIAgent(name: "AGUIAssistant");
+            var chatClient = client.GetChatClient(deployment).AsIChatClient();
+            var agent = new ChatClientAgent(chatClient, name: "AGUIAssistant");
             // Use `colleagues` to enrich your prompt or downstream logic
-            return agent;
+            return new ChatClientAGUIAgent(agent);
         });
 
         await app.RunAsync();

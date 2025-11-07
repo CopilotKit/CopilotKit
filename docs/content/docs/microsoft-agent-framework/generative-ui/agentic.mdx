@@ -74,9 +74,11 @@ is a situation where a user and an agent are working together to solve a problem
 
     ```csharp title="Program.cs"
     using System.ComponentModel;
+    using AGUI;
     using Azure.AI.OpenAI;
     using Azure.Identity;
     using Microsoft.Agents.AI;
+    using Microsoft.Agents.AI.AGUI;
     using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
     using Microsoft.Extensions.AI;
 
@@ -102,15 +104,16 @@ is a situation where a user and an agent are working together to solve a problem
         };
     }
 
-    app.MapAGUIAgent("/", (messages, tools, context, forwardedProps) =>
+    app.MapAGUIAgent("/", (RunAgentInput agentInput, HttpContext httpContext) =>
     {
         var client = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential());
-        var agent = client.GetChatClient(deployment)
-            .CreateAIAgent(
-                name: "ResearchAssistant",
-                tools: [AIFunctionFactory.Create(PerformResearch)]);
+        var chatClient = client.GetChatClient(deployment).AsIChatClient();
+        var agent = new ChatClientAgent(
+            chatClient,
+            name: "ResearchAssistant",
+            tools: [AIFunctionFactory.Create(PerformResearch)]);
         
-        return agent;
+        return new ChatClientAGUIAgent(agent);
     });
 
     await app.RunAsync();
