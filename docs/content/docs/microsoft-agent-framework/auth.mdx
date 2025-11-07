@@ -8,7 +8,7 @@ description: "Secure your Microsoft Agent Framework agents with user authenticat
 
 CopilotKit supports forwarding user authentication to your Microsoft Agent Framework AG-UI server. The typical pattern is:
 
-- **Frontend**: Pass an auth token via `<CopilotKit properties={{ authorization: token }}>`.
+- **Frontend**: Pass an auth token via `<CopilotKit headers={{ Authorization: token }}>`.
 - **Backend (ASP.NET Core)**: Validate the token (for example, using Microsoft Entra ID) and scope the request accordingly.
 
 ## How It Works
@@ -42,6 +42,7 @@ Pass your authentication token via the `headers` prop:
 ```
 
 The `Authorization` header is forwarded to your AG-UI server and can be validated in your ASP.NET Core middleware.
+
 ## ASP.NET Core AG-UI server
 
 Validate the incoming token and scope requests in your AG-UI server using ASP.NET Core's built-in JWT bearer authentication. Below is an example that configures JWT bearer authentication following [Microsoft's recommended approach](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/configure-jwt-bearer-authentication).
@@ -134,7 +135,7 @@ For identity and access management guidance, see [Authentication for agents (pre
 
 **Token not reaching server**:
 
-- Ensure you're passing `authorization` in the `<CopilotKit>` `properties`
+- Ensure you're passing `Authorization` in the `<CopilotKit>` `headers`
 - Confirm your proxy/tunnel forwards headers
 
 **Invalid token format**:
