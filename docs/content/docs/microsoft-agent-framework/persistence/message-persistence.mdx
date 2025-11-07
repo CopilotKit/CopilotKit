@@ -21,10 +21,7 @@ To persist messages to your own database (PostgreSQL, MongoDB, etc.), implement 
 
 ```csharp
 using System.Text.Json;
-using AGUI;
 using Microsoft.Agents.AI;
-using Microsoft.Agents.AI.AGUI;
-using Microsoft.Extensions.AI;
 
 public class DatabaseChatMessageStore : ChatMessageStore
 {
@@ -78,41 +75,34 @@ Attach the custom message store to your agent via a factory:
 
 ```csharp
 using System.Text.Json;
-using AGUI;
 using Azure.AI.OpenAI;
 using Azure.Identity;
 using Microsoft.Agents.AI;
-using Microsoft.Agents.AI.AGUI;
 using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddAGUI();
 var app = builder.Build();
 
 string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
 string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
 string dbConnectionString = builder.Configuration["DatabaseConnectionString"]!;
 
-app.MapAGUIAgent("/", (RunAgentInput agentInput, HttpContext httpContext) =>
-{
-    var client = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential());
-    
-    // Create agent with custom message store factory
-    var chatClient = client.GetChatClient(deployment).AsIChatClient();
-    var agent = new ChatClientAgent(
-        chatClient,
-        new ChatClientAgentOptions
-        {
-            Name = "PersistentAgent",
-            Instructions = "You are a helpful assistant.",
-            ChatMessageStoreFactory = ctx =>
-                ctx.SerializedState.ValueKind != JsonValueKind.Undefined
-                    ? new DatabaseChatMessageStore(ctx.SerializedState, ctx.JsonSerializerOptions)
-                    : new DatabaseChatMessageStore(dbConnectionString)
-        });
-    
-    return new ChatClientAGUIAgent(agent);
-});
+// Create agent with custom message store factory
+var agent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
+    .GetChatClient(deployment)
+    .CreateAIAgent(new ChatClientAgentOptions
+    {
+        Name = "PersistentAgent",
+        Instructions = "You are a helpful assistant.",
+        ChatMessageStoreFactory = ctx =>
+            ctx.SerializedState.ValueKind != JsonValueKind.Undefined
+                ? new DatabaseChatMessageStore(ctx.SerializedState, ctx.JsonSerializerOptions)
+                : new DatabaseChatMessageStore(dbConnectionString)
+    });
 
+// Map the AG-UI endpoint
+app.MapAGUI("/", agent);
 await app.RunAsync();
 ```
 

@@ -48,48 +48,40 @@ In addition, some state properties contain a lot of information. Syncing them ba
       - The answer is what the LLM returns
       - The resources list will be used by the LLM to answer the question, and should not be communicated to the user, or set by them.
 
-      On the server, keep input/output vs internal data clear in your own snapshot types:
+      On the server, design your state snapshots to expose only UI-relevant data:
 
       ```csharp title="agent/Program.cs (excerpt)"
-      // Inputs you are willing to accept from the frontend
-      public class InputStateSnapshot
-      {
-          public string? Question { get; set; }
-      }
+      using Azure.AI.OpenAI;
+      using Azure.Identity;
+      using Microsoft.Agents.AI;
+      using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
 
-      // Outputs you are willing to pass back to the frontend
+      // UI-facing output state  
       public class OutputStateSnapshot
       {
           public string? Answer { get; set; }
       }
 
-      // Overall state held on the server (UI-facing + internal)
-      public class OverallStateSnapshot : OutputStateSnapshot
+      // Internal state (not sent to frontend)
+      public class InternalState
       {
-          public List<string> Resources { get; set; } = new(); // internal only
+          public List<string> Resources { get; set; } = new();
       }
 
-      // Example AG-UI mapping (simplified)
-      app.MapAGUIAgent("/", (RunAgentInput agentInput, HttpContext httpContext) =>
-      {
-          // agentInput.State can include UI-provided values (e.g., question)
-          var question = agentInput.State?.GetProperty("question").GetString();
+      var builder = WebApplication.CreateBuilder(args);
+      builder.Services.AddAGUI();
+      var app = builder.Build();
 
-          var state = new OverallStateSnapshot
-          {
-              Answer = !string.IsNullOrWhiteSpace(question) ? $"Answer to: {question}" : null,
-              Resources = new List<string> { "docA", "docB" } // internal
-          };
+      string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
+      string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
 
-          // Create and return your agent; ensure it surfaces only the output fields as needed
-          var githubToken = httpContext.RequestServices.GetRequiredService<IConfiguration>["GitHubToken"]!;
-          var openAI = new OpenAI.OpenAIClient(
-              new System.ClientModel.ApiKeyCredential(githubToken),
-              new OpenAI.OpenAIClientOptions { Endpoint = new Uri("https://models.inference.ai.azure.com")});
-          var chat = openAI.GetChatClient("gpt-4o-mini").AsIChatClient();
-          var agent = new Microsoft.Agents.AI.ChatClientAgent(chat, name: "SampleAgent", description: "A helpful assistant.");
-          return new Microsoft.Agents.AI.AGUI.ChatClientAGUIAgent(agent);
-      });
+      // Create agent - state snapshots returned from tools determine what's sent to frontend
+      var agent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
+          .GetChatClient(deployment)
+          .CreateAIAgent(name: "SampleAgent");
+
+      app.MapAGUI("/", agent);
+      await app.RunAsync();
       ```
 
       On the UI, read only the agreed contract:

@@ -83,43 +83,35 @@ Use frontend tools when you need your agent to interact with client-side primiti
         <InstallSDKSnippet components={props.components}/>
     </Step>
     <Step>
-        ### Receiving frontend tools on the server
+        ### Create your AG-UI server
 
-        When CopilotKit calls your AG-UI server, the `tools` parameter includes any frontend tools registered with `useFrontendTool`. You can pass these to your agent implementation as supported by your chat client.
+        Set up your AG-UI server to serve your agent. Frontend tools registered with `useFrontendTool` are automatically made available to your agent through the AG-UI protocol.
 
         ```csharp title="Program.cs"
-        using AGUI;
         using Azure.AI.OpenAI;
         using Azure.Identity;
         using Microsoft.Agents.AI;
         using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
 
         var builder = WebApplication.CreateBuilder(args);
+        builder.Services.AddAGUI();
         var app = builder.Build();
 
         string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
         string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
 
-        app.MapAGUIAgent("/", (RunAgentInput agentInput, HttpContext httpContext) =>
-        {
-            // agentInput.Tools contains the frontend tool definitions from CopilotKit.
-            // Bind these to your chat client or agent implementation if supported.
-            var client = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential());
-            var chatClient = client.GetChatClient(deployment).AsIChatClient();
-            var agent = new ChatClientAgent(chatClient, name: "AGUIAssistant");
-            return new ChatClientAGUIAgent(agent);
-        });
+        // Create the agent
+        var agent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
+            .GetChatClient(deployment)
+            .CreateAIAgent(name: "AGUIAssistant", instructions: "You are a helpful assistant.");
 
+        // Map the AG-UI endpoint
+        app.MapAGUI("/", agent);
         await app.RunAsync();
         ```
-    </Step>
-    <Step>
-        ### Accessing frontend tools
-
-        Tools registered on the frontend will arrive as part of the `tools` parameter in your AG-UI handler. Depending on your chat client, you can bind and invoke them accordingly.
 
         <Callout type="info">
-          Tool binding varies by chat client. See Microsoft Agent Framework documentation for supported tool patterns.
+          Frontend tools registered with `useFrontendTool` are automatically forwarded to your agent by the AG-UI protocol. The agent can invoke them just like backend tools, but execution happens on the frontend.
         </Callout>
     </Step>
     <Step>

@@ -47,15 +47,13 @@ Create a function that requires user approval before execution. Wrap it with `Ap
 
 ```csharp title="Program.cs"
 using System.ComponentModel;
-using AGUI;
 using Azure.AI.OpenAI;
 using Azure.Identity;
 using Microsoft.Agents.AI;
-using Microsoft.Agents.AI.AGUI;
 using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
-using Microsoft.Extensions.AI;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddAGUI();
 var app = builder.Build();
 
 string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
@@ -67,25 +65,21 @@ string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
 static string DeleteFile([Description("The file path to delete")] string filePath)
     => $"File {filePath} has been deleted.";
 
-app.MapAGUIAgent("/", (RunAgentInput agentInput, HttpContext httpContext) =>
-{
-    var client = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential());
-    
-    // [!code highlight:7]
-    // Wrap the function in ApprovalRequiredAIFunction to require user approval
-    var deleteFileFunction = AIFunctionFactory.Create(DeleteFile);
-    var approvalRequiredFunction = new ApprovalRequiredAIFunction(deleteFileFunction);
-    
-    var chatClient = client.GetChatClient(deployment).AsIChatClient();
-    var agent = new ChatClientAgent(
-        chatClient,
+// [!code highlight:10]
+// Wrap the function in ApprovalRequiredAIFunction to require user approval
+var deleteFileFunction = AIFunctionFactory.Create(DeleteFile);
+var approvalRequiredFunction = new ApprovalRequiredAIFunction(deleteFileFunction);
+
+// Create the agent with approval-required tools
+var agent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
+    .GetChatClient(deployment)
+    .CreateAIAgent(
         name: "FileManager",
         instructions: "You are a helpful file management assistant.",
         tools: [approvalRequiredFunction]);
-    
-    return new ChatClientAGUIAgent(agent);
-});
 
+// Map the AG-UI endpoint
+app.MapAGUI("/", agent);
 await app.RunAsync();
 ```
 
@@ -174,22 +168,17 @@ static string SendEmail([Description("Email address")] string to, [Description("
 static string MakePurchase([Description("Item name")] string item, [Description("Price")] decimal amount)
     => $"Purchased {item} for ${amount}";
 
-app.MapAGUIAgent("/", (RunAgentInput agentInput, HttpContext httpContext) =>
-{
-    var client = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential());
-    
-    // Wrap each function that requires approval
-    var chatClient = client.GetChatClient(deployment).AsIChatClient();
-    var agent = new ChatClientAgent(
-        chatClient,
+// Create agent with multiple approval-required functions
+var agent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
+    .GetChatClient(deployment)
+    .CreateAIAgent(
         name: "Assistant",
         tools: [
             new ApprovalRequiredAIFunction(AIFunctionFactory.Create(SendEmail)),
             new ApprovalRequiredAIFunction(AIFunctionFactory.Create(MakePurchase))
         ]);
-    
-    return new ChatClientAGUIAgent(agent);
-});
+
+app.MapAGUI("/", agent);
 ```
 
 On the frontend, create separate `useCopilotAction` hooks for each tool with custom approval UIs.

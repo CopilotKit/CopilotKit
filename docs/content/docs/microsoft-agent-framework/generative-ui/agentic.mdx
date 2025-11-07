@@ -75,15 +75,13 @@ is a situation where a user and an agent are working together to solve a problem
 
     ```csharp title="Program.cs"
     using System.ComponentModel;
-    using AGUI;
     using Azure.AI.OpenAI;
     using Azure.Identity;
     using Microsoft.Agents.AI;
-    using Microsoft.Agents.AI.AGUI;
     using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
-    using Microsoft.Extensions.AI;
 
     var builder = WebApplication.CreateBuilder(args);
+    builder.Services.AddAGUI();
     var app = builder.Build();
 
     string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
@@ -105,18 +103,15 @@ is a situation where a user and an agent are working together to solve a problem
         };
     }
 
-    app.MapAGUIAgent("/", (RunAgentInput agentInput, HttpContext httpContext) =>
-    {
-        var client = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential());
-        var chatClient = client.GetChatClient(deployment).AsIChatClient();
-        var agent = new ChatClientAgent(
-            chatClient,
+    // Create the agent with the research tool
+    var agent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
+        .GetChatClient(deployment)
+        .CreateAIAgent(
             name: "ResearchAssistant",
             tools: [AIFunctionFactory.Create(PerformResearch)]);
-        
-        return new ChatClientAGUIAgent(agent);
-    });
 
+    // Map the AG-UI endpoint
+    app.MapAGUI("/", agent);
     await app.RunAsync();
     ```
 

@@ -96,32 +96,31 @@ Use frontend tools when you need your agent to interact with client-side primiti
         When CopilotKit calls your AG-UI server, the `tools` parameter includes any frontend tools registered with `useFrontendTool`. You can pass these to your agent as supported by your chat client.
 
         ```csharp title="Program.cs"
-        using AGUI;
         using Microsoft.Agents.AI;
-        using Microsoft.Agents.AI.AGUI;
         using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
-        using Microsoft.Extensions.AI;
         using OpenAI;
 
         var builder = WebApplication.CreateBuilder(args);
+        builder.Services.AddAGUI();
         var app = builder.Build();
 
-        app.MapAGUIAgent("/", (RunAgentInput agentInput, HttpContext httpContext) => {
-          // agentInput.Tools contains the frontend tool definitions
-          var githubToken = builder.Configuration["GitHubToken"]!;
-          var openAI = new OpenAIClient(new System.ClientModel.ApiKeyCredential(githubToken), new OpenAIClientOptions { Endpoint = new Uri("https://models.inference.ai.azure.com")});
-          var chat = openAI.GetChatClient("gpt-4o-mini").AsIChatClient();
-          var agent = new ChatClientAgent(chat, name: "SampleAgent", description: "A helpful assistant.");
-          return new ChatClientAGUIAgent(agent);
-        });
+        var githubToken = builder.Configuration["GitHubToken"]!;
+        var openAI = new OpenAIClient(
+            new System.ClientModel.ApiKeyCredential(githubToken), 
+            new OpenAIClientOptions { Endpoint = new Uri("https://models.inference.ai.azure.com") });
+        
+        // Create the agent - frontend tools are automatically available
+        var agent = openAI.GetChatClient("gpt-4o-mini")
+            .CreateAIAgent(name: "SampleAgent", instructions: "You are a helpful assistant.");
 
+        // Map the AG-UI endpoint
+        app.MapAGUI("/", agent);
         app.Run("http://localhost:8000");
         ```
-    </Step>
-    <Step>
-        ### Accessing frontend tools
 
-        Tools registered on the frontend will arrive in the `tools` collection for each request. Depending on your chat client, you can bind and invoke them accordingly.
+        <Callout type="info">
+          Frontend tools registered with `useFrontendTool` are automatically forwarded to your agent through the AG-UI protocol. The agent can invoke them, and execution happens on the frontend.
+        </Callout>
     </Step>
     <Step>
         ### Give it a try!

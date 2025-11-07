@@ -40,15 +40,13 @@ Define a tool function using the `[Description]` attribute. Microsoft Agent Fram
 
 ```csharp title="Program.cs"
 using System.ComponentModel;
-using AGUI;
 using Azure.AI.OpenAI;
 using Azure.Identity;
 using Microsoft.Agents.AI;
-using Microsoft.Agents.AI.AGUI;
 using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
-using Microsoft.Extensions.AI;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddAGUI();
 var app = builder.Build();
 
 string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
@@ -60,20 +58,16 @@ string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
 static string GetWeather([Description("The location to get weather for")] string location)
     => $"The weather for {location} is 70 degrees.";
 
-app.MapAGUIAgent("/", (RunAgentInput agentInput, HttpContext httpContext) =>
-{
-    var client = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential());
-    
-    // [!code highlight:5]
-    // Create agent with the weather tool
-    var chatClient = client.GetChatClient(deployment).AsIChatClient();
-    var agent = new ChatClientAgent(
-        chatClient,
+// [!code highlight:6]
+// Create the agent with tools
+var agent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
+    .GetChatClient(deployment)
+    .CreateAIAgent(
         name: "AGUIAssistant",
         tools: [AIFunctionFactory.Create(GetWeather)]);
-    
-    return new ChatClientAGUIAgent(agent);
-});
+
+// Map the AG-UI endpoint
+app.MapAGUI("/", agent);
 
 await app.RunAsync();
 ```

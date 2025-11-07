@@ -153,24 +153,23 @@ Before you begin, you'll need the following:
                         ```
 
                         ```csharp title="Program.cs (excerpt)"
-                        using AGUI;
                         using Microsoft.Agents.AI;
-                        using Microsoft.Agents.AI.AGUI;
                         using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
-                        using Microsoft.Extensions.AI;
                         using OpenAI;
 
                         var builder = WebApplication.CreateBuilder(args);
+                        builder.Services.AddAGUI();
                         var app = builder.Build();
 
-                        app.MapAGUIAgent("/", (RunAgentInput agentInput, HttpContext httpContext) => {
-                          var githubToken = builder.Configuration["GitHubToken"]!; // dotnet user-secrets set GitHubToken "<token>"
-                          var openAI = new OpenAIClient(new System.ClientModel.ApiKeyCredential(githubToken), new OpenAIClientOptions { Endpoint = new Uri("https://models.inference.ai.azure.com")});
-                          var chat = openAI.GetChatClient("gpt-4o-mini").AsIChatClient();
-                          var agent = new ChatClientAgent(chat, name: "SampleAgent", description: "A helpful assistant.");
-                          return new ChatClientAGUIAgent(agent);
-                        });
+                        var githubToken = builder.Configuration["GitHubToken"]!; // dotnet user-secrets set GitHubToken "<token>"
+                        var openAI = new OpenAIClient(
+                            new System.ClientModel.ApiKeyCredential(githubToken), 
+                            new OpenAIClientOptions { Endpoint = new Uri("https://models.inference.ai.azure.com") });
+                        
+                        var agent = openAI.GetChatClient("gpt-4o-mini")
+                            .CreateAIAgent(name: "SampleAgent", instructions: "You are a helpful assistant.");
 
+                        app.MapAGUI("/", agent);
                         app.Run("http://localhost:8000");
                         ```
 

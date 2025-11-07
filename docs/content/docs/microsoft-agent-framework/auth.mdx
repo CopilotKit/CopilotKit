@@ -33,13 +33,10 @@ The `Authorization` header is forwarded to your AG-UI server and can be validate
 Validate the incoming token and scope requests in your AG-UI server using ASP.NET Core's built-in JWT bearer authentication. Below is an example that configures JWT bearer authentication following [Microsoft's recommended approach](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/configure-jwt-bearer-authentication).
 
 ```csharp title="Program.cs"
-using AGUI;
 using Microsoft.Agents.AI;
-using Microsoft.Agents.AI.AGUI;
 using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.Extensions.AI;
 using OpenAI;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -69,20 +66,16 @@ app.UseAuthorization();
 
 string githubToken = builder.Configuration["GitHubToken"]!;
 
-// Apply [Authorize] to the AG-UI endpoint
-app.MapAGUIAgent("/", [Authorize] (RunAgentInput agentInput, HttpContext httpContext) =>
-{
-    // Access the authenticated user's identity
-    // var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-    
-    var openAI = new OpenAIClient(
-        new System.ClientModel.ApiKeyCredential(githubToken),
-        new OpenAIClientOptions { Endpoint = new Uri("https://models.inference.ai.azure.com") }
-    );
-    var chat = openAI.GetChatClient("gpt-4o-mini").AsIChatClient();
-    var agent = new ChatClientAgent(chat, name: "AGUIAssistant", description: "A helpful assistant.");
-    return new ChatClientAGUIAgent(agent);
-});
+// Create the agent
+var openAI = new OpenAIClient(
+    new System.ClientModel.ApiKeyCredential(githubToken),
+    new OpenAIClientOptions { Endpoint = new Uri("https://models.inference.ai.azure.com") }
+);
+var agent = openAI.GetChatClient("gpt-4o-mini")
+    .CreateAIAgent(name: "AGUIAssistant", instructions: "You are a helpful assistant.");
+
+// Map the AG-UI endpoint with authorization
+app.MapAGUI("/", agent).RequireAuthorization();
 
 await app.RunAsync();
 ```
