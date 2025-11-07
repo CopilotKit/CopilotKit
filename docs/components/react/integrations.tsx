@@ -178,6 +178,14 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
   };
 
   let filteredIntegrations = integrations;
+  
+  // Hide Microsoft Agent Framework from the integrations grid
+  // TODO: Remove this once Microsoft Agent Framework support is announced  
+  filteredIntegrations = filteredIntegrations.filter((integration) => {
+    return !integration.title.toLowerCase().includes("microsoft");
+  });
+
+  console.log('filteredIntegrations', filteredIntegrations);
 
   // Filter out Direct to LLM if suppressed
   if (suppressDirectToLLM) {
