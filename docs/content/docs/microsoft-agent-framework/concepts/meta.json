@@ -1,9 +1,0 @@
-{
-  "title": "Concepts",
-  "icon": "lucide/Book",
-  "pages": [
-      "copilotkit-config",
-      "message-management",
-      "terminology"
-  ]
-}
