@@ -81,6 +81,10 @@ This context can then be shared with your AG-UI server and agent logic.
         <Callout type="info">
           Context registered with `useCopilotReadable` is automatically forwarded by the AG-UI protocol. Your agent receives this context and can use it to provide personalized responses. The LLM will have access to the context in its prompt.
         </Callout>
+
+        <Callout type="tip">
+          **Configuration & Error Handling**: This example uses environment variables for configuration. Set `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_DEPLOYMENT_NAME` via `appsettings.json`, user-secrets, or environment variables. For production deployments, add appropriate error handling and consider using the [Quickstart](/microsoft-agent-framework/quickstart) or [Authentication](/microsoft-agent-framework/auth) guides for complete setup patterns.
+        </Callout>
     </Step>
     <Step>
         ### Give it a try!
