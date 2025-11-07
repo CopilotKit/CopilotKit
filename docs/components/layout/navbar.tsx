@@ -19,7 +19,7 @@ import DiscordIcon from "@/components/ui/icons/discord"
 import ExternalLinkIcon from "@/components/ui/icons/external-link"
 import BurgerMenuIcon from "@/components/ui/icons/burger-menu"
 
-export interface NavbarLinks {
+export interface NavbarLink {
   href: string
   icon: React.ReactNode
   label?: string
@@ -31,7 +31,7 @@ interface NavbarProps {
   pageTree: DocsLayoutProps["tree"]
 }
 
-const LEFT_LINKS: NavbarLinks[] = [
+export const LEFT_LINKS: NavbarLink[] = [
   {
     icon: <RocketIcon />,
     label: "Overview",
@@ -56,7 +56,7 @@ const LEFT_LINKS: NavbarLinks[] = [
   },
 ]
 
-const RIGHT_LINKS: NavbarLinks[] = [
+const RIGHT_LINKS: NavbarLink[] = [
   {
     icon: <GithubIcon />,
     href: "https://github.com/copilotkit/copilotkit",
