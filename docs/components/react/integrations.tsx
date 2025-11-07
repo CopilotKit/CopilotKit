@@ -36,7 +36,7 @@ const integrations: Integration[] = [
     href: "/coagents",
   },
   {
-    title: "Microsoft Agent Framework",
+    title: "Microsoft",
     description: "Microsoft Agent Framework is a framework for building and deploying AI agents.",
     logo: <FaMicrosoft className="w-8 h-8" />,
     bgGradient: "bg-gradient-to-b from-blue-700 to-blue-400 text-blue-100",
