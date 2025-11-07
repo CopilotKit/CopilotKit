@@ -123,6 +123,9 @@ export default function Layout({ children }: { children: ReactNode }) {
                       bgGradient:
                         "bg-gradient-to-b from-blue-700 to-blue-400 text-blue-100",
                       selectedStyle: "ring-blue-500/70 ring-2 rounded-sm",
+                      props: {
+                        className: "hidden!",
+                      },
                     },
                     {
                       title: "Mastra",
