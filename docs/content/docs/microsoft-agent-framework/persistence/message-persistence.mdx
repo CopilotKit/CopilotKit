@@ -77,6 +77,7 @@ public class DatabaseChatMessageStore : ChatMessageStore
 Attach the custom message store to your agent via a factory:
 
 ```csharp
+using System.Text.Json;
 using AGUI;
 using Azure.AI.OpenAI;
 using Azure.Identity;
@@ -103,7 +104,10 @@ app.MapAGUIAgent("/", (RunAgentInput agentInput, HttpContext httpContext) =>
         {
             Name = "PersistentAgent",
             Instructions = "You are a helpful assistant.",
-            ChatMessageStoreFactory = ctx => new DatabaseChatMessageStore(dbConnectionString)
+            ChatMessageStoreFactory = ctx =>
+                ctx.SerializedState.ValueKind != JsonValueKind.Undefined
+                    ? new DatabaseChatMessageStore(ctx.SerializedState, ctx.JsonSerializerOptions)
+                    : new DatabaseChatMessageStore(dbConnectionString)
         });
     
     return new ChatClientAGUIAgent(agent);
