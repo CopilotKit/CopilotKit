@@ -5,6 +5,7 @@ description: Create frontend tools and use them within your Microsoft Agent Fram
 ---
 import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx"
 
 <IframeSwitcher
   id="frontend-actions-example"
@@ -36,8 +37,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
 <Steps>
     <Step>
         ### Run and connect your agent
-
-        Install CopilotKit in your frontend and follow the [Quickstart](/microsoft-agent-framework/quickstart) to connect to your AG-UI server.
+        <RunAndConnect components={props.components} />
     </Step>
 
     <Step>
