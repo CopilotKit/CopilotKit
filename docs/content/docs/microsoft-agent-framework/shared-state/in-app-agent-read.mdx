@@ -5,15 +5,22 @@ description: Read the realtime agent state in your native application.
 ---
 import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
 import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx"
+import { IframeSwitcher } from "@/components/content"
 
-<Frame>
-  <ImageZoom src="https://cdn.copilotkit.ai/docs/copilotkit/images/microsoft-agent-framework/read-agent-state.png" alt="read agent state" width={1000} height={1000} className="my-0"/>
-</Frame>
+{/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the feature viewer */}
+<IframeSwitcher
+  id="shared-state-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
 
-<Callout type="info">
-  Pictured above is the [agent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/agents-starter) with
-  the [implementation](#implementation) section applied!
-</Callout>
+{/* TODO: Re-enable this link once Microsoft Agent Framework is officially added to the feature viewer */}
+{/* <Callout type="info">
+  This example demonstrates reading from shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state).
+</Callout> */}
 
 ## What is this?
 
@@ -87,6 +94,15 @@ state updates, you can reflect these updates natively in your application.
     ### Give it a try!
     As the agent state updates, your `state` variable will automatically update with it! In this case, you'll see the
     language set to "spanish" as that's the initial state we set.
+
+    <Frame>
+      <ImageZoom src="https://cdn.copilotkit.ai/docs/copilotkit/images/microsoft-agent-framework/read-agent-state.png" alt="read agent state" width={1000} height={1000} className="my-0"/>
+    </Frame>
+
+    <Callout type="info">
+      Pictured above is the [agent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/agents-starter) with
+      the implementation section applied!
+    </Callout>
   </Step>
 </Steps>
 

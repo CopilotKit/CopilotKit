@@ -6,10 +6,11 @@ description: Learn how to implement Human-in-the-Loop (HITL) using Microsoft Age
 import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 import { IframeSwitcher } from "@/components/content"
 
+{/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the feature viewer */}
 <IframeSwitcher
   id="human-in-the-loop-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
   exampleLabel="Demo"
   codeLabel="Code"
   height="700px"
@@ -156,8 +157,6 @@ Can you delete the file /tmp/test.txt?
 ```
 
 The agent will request the function call, and your custom approval UI will appear, allowing the user to approve or reject the operation.
-
-<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/interrupt-flow.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
 </Step>
 </Steps>
 
@@ -198,3 +197,7 @@ On the frontend, create separate `useCopilotAction` hooks for each tool with cus
 ## Alternative: Frontend Tool-Based HITL
 
 For more flexible, web-native human-in-the-loop patterns, consider using [frontend tools](/microsoft-agent-framework/human-in-the-loop/frontend-tool-based) with `useHumanInTheLoop`. This approach provides finer control over the approval UI and user experience.
+
+## Give it a try!
+
+<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/interrupt-flow.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />

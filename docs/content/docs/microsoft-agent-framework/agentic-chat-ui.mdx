@@ -9,11 +9,17 @@ import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/sel
 import CopilotCloudConfigureCopilotKitProvider from "@/snippets/cloud/cloud-copilotkit-provider.mdx";
 import ComponentExamples from "@/snippets/component-examples.mdx";
 import { UserIcon, PaintbrushIcon, WrenchIcon, RepeatIcon } from "lucide-react";
+import { IframeSwitcher } from "@/components/content"
 
-<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/agentic-chat-ui.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
-<Callout>
-    This video shows the result of `npx copilotkit@latest init` with the [implementation](#implementation) section applied to it!
-</Callout>
+{/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the feature viewer */}
+<IframeSwitcher
+  id="agentic-chat-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
 
 ## What is this?
 
@@ -28,3 +34,10 @@ CopilotKit provides a variety of different batteries-included components to choo
 from simple chat UIs to completely custom applications.
 
 <ComponentExamples components={props.components} />
+
+## Give it a try!
+
+<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/agentic-chat-ui.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<Callout>
+    This video shows the result of `npx copilotkit@latest init` with the implementation section applied to it!
+</Callout>
