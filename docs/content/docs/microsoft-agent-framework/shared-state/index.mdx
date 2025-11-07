@@ -1,0 +1,14 @@
+---
+title: Shared State
+description: Create a two-way connection between your UI and your agent state.
+icon: "lucide/Repeat"
+---
+
+Agents can expose UI-facing state that your application can read and update during a session.
+Design your state shape carefully to include only what the UI needs; keep internal or sensitive data on the server.
+
+## When should I use this?
+Shared state is useful when you want to facilitate collaboration between your agent and the user. UI updates can reflect changes returned by the agent, and user inputs can be sent back to the agent on the next run.
+
+This allows for a consistent experience where both the agent and the user are on the same page.
+
