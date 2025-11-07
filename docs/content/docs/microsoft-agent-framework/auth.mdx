@@ -11,21 +11,6 @@ CopilotKit supports forwarding user authentication to your Microsoft Agent Frame
 - **Frontend**: Pass an auth token via `<CopilotKit headers={{ Authorization: token }}>`.
 - **Backend (ASP.NET Core)**: Validate the token (for example, using Microsoft Entra ID) and scope the request accordingly.
 
-## How It Works
-
-```mermaid
-sequenceDiagram
-    participant Frontend
-    participant CopilotKit
-    participant AGUIServer
-    participant Agent
-
-    Frontend->>CopilotKit: authorization: "user-token"
-    CopilotKit->>AGUIServer: Forward auth token
-    AGUIServer->>Agent: user info available to your logic
-    Agent->>Agent: Access authenticated user context
-```
-
 ## Frontend setup
 
 Pass your authentication token via the `headers` prop:
