@@ -6,6 +6,7 @@ import { SubdocsMenu } from "@/components/react/subdocs-menu";
 import { TerminalIcon, RocketIcon, CloudIcon } from "lucide-react";
 import { SiCrewai, SiDiscord } from "@icons-pack/react-simple-icons";
 import { SiLangchain } from "react-icons/si";
+import { FaMicrosoft } from "react-icons/fa";
 import {
   AG2Icon,
   MastraIcon,
@@ -103,6 +104,28 @@ export default function Layout({ children }: { children: ReactNode }) {
                       bgGradient:
                         "bg-gradient-to-b from-purple-700 to-purple-400 text-purple-100",
                       selectedStyle: "ring-purple-500/70 ring-2 rounded-sm",
+                    },
+                    {
+                      title: "Microsoft Agent Framework",
+                      description:
+                        "Documentation for CoAgents with Microsoft Agent Framework",
+                      url: "/microsoft-agent-framework",
+                      icon: (
+                        <FaMicrosoft
+                          className="w-4 h-4"
+                          style={{
+                            fontSize: "16px",
+                            width: "16px",
+                            height: "16px",
+                          }}
+                        />
+                      ),
+                      bgGradient:
+                        "bg-gradient-to-b from-blue-700 to-blue-400 text-blue-100",
+                      selectedStyle: "ring-blue-500/70 ring-2 rounded-sm",
+                      props: {
+                        className: "hidden!",
+                      },
                     },
                     {
                       title: "Mastra",
