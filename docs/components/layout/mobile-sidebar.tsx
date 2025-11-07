@@ -95,7 +95,7 @@ const MobileSidebar = ({
 
         <Dropdown />
 
-        <ul className="flex overflow-y-auto flex-col mt-6 max-h-full custom-scrollbar [first-child]:mt-0">
+        <ul className="flex overflow-y-auto flex-col mt-6 max-h-full custom-scrollbar [&>*:first-child]:mt-0">
           {pages.map((page) => {
             const Component = NODE_COMPONENTS[page.type]
             return <Component key={crypto.randomUUID()} node={page as Node} />

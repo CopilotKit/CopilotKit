@@ -72,7 +72,9 @@ const RIGHT_LINKS: NavbarLink[] = [
 const Navbar = ({ pageTree }: NavbarProps) => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const pathname = usePathname()
-  const activeRoute = pathname.split("/")[1] || "/"
+  const activeRoute = pathname === "/" ? "/" : `/${pathname.split("/")[1]}`
+
+  console.log({ pathname, activeRoute })
 
   const handleToggleTheme = () => {
     document.documentElement.classList.toggle("dark")

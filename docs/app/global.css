@@ -233,3 +233,7 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
   margin: 0 !important;
   padding: 0 !important;
 }
+
+#nd-tocnav {
+  display: none !important;
+}
