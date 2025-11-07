@@ -48,7 +48,8 @@
       "@ag-ui/core": "0.0.40-alpha.6",
       "@ag-ui/encoder": "0.0.40-alpha.6",
       "@types/react": "^19.1.0",
-      "@types/react-dom": "^19.0.2"
+      "@types/react-dom": "^19.0.2",
+      "ai": "5.0.59"
     },
     "publicHoistPattern": [
       "@ag-ui/*"

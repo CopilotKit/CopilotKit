@@ -5,7 +5,15 @@ export default defineConfig((options: Options) => ({
   format: ["esm", "cjs"],
   dts: true,
   minify: false,
-  external: ["react", "@copilotkitnext/core", "@copilotkitnext/react"],
+  external: [
+    // React peer dependencies - must be shared with consuming app
+    "react",
+    "react-dom",
+
+    // vnext packages - must be shared with consuming app
+    "@copilotkitnext/core",
+    "@copilotkitnext/react",
+  ],
   sourcemap: true,
   ...options,
 }));
