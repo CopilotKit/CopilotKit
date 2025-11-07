@@ -550,6 +550,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     const streamedChunks: any[] = [];
 
     try {
+      console.log("Processing request:", request);
       if (
         Object.keys(this.agents).length &&
         agentSession?.agentName &&
@@ -738,6 +739,7 @@ please use an LLM adapter instead.`,
         };
       }
 
+      console.log("Request processed. result: ", result);
       return {
         threadId: nonEmptyThreadId,
         runId: result.runId,
@@ -754,6 +756,7 @@ please use an LLM adapter instead.`,
         extensions: result.extensions,
       };
     } catch (error) {
+      console.log("Error in processRuntimeRequest", error);
       // Log error if logging is enabled
       if (this.observability?.enabled && publicApiKey) {
         try {
