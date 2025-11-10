@@ -1,31 +1,31 @@
-name: Quality
+name: static
 
 on:
   push:
     branches: [main]
     paths-ignore:
-      - 'docs/**'
-      - 'README.md'
-      - 'examples/**'
-      - '.github/workflows/demos_preview.yml'
-      - '.github/workflows/release.yml'
-      - 'CopilotKit/packages/**/package.json'
-      - 'CopilotKit/packages/**/CHANGELOG.md'
-      - 'CopilotKit/.changeset/**'
+      - "docs/**"
+      - "README.md"
+      - "examples/**"
+      - ".github/workflows/demos_preview.yml"
+      - ".github/workflows/release.yml"
+      - "CopilotKit/packages/**/package.json"
+      - "CopilotKit/packages/**/CHANGELOG.md"
+      - "CopilotKit/.changeset/**"
   pull_request:
-    branches: [main]    
+    branches: [main]
     paths-ignore:
-      - 'docs/**'
-      - 'README.md'
-      - 'examples/**'
+      - "docs/**"
+      - "README.md"
+      - "examples/**"
 
 jobs:
   prettier:
-    name: 'Prettier'
+    name: "prettier"
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: 'CopilotKit'
+        working-directory: "CopilotKit"
 
     steps:
       - name: Checkout
@@ -40,9 +40,9 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 20.x
-          cache: 'pnpm'
-          cache-dependency-path: '**/pnpm-lock.yaml'
-      
+          cache: "pnpm"
+          cache-dependency-path: "**/pnpm-lock.yaml"
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -50,7 +50,7 @@ jobs:
         run: npx turbo run check-prettier
 
   eslint:
-    name: 'ESLint'
+    name: "ESLint"
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -68,9 +68,9 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 20.x
-          cache: 'pnpm'
-          cache-dependency-path: '**/pnpm-lock.yaml'
-        
+          cache: "pnpm"
+          cache-dependency-path: "**/pnpm-lock.yaml"
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 

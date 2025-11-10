@@ -1,12 +1,12 @@
-name: Destroy Preview Environments
+name: e2e
 
 on:
   pull_request:
-    types: [ closed ]
+    types: [closed]
   workflow_dispatch:
     inputs:
       pr_number:
-        description: 'Pull Request Number'
+        description: "Pull Request Number"
         required: true
 
 concurrency:
@@ -17,7 +17,7 @@ jobs:
   preview_envs_destroy:
     if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'preview') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    name: Destroy Preview Environments
+    name: preview / destroy
     permissions:
       deployments: write
       pull-requests: write
@@ -42,7 +42,7 @@ jobs:
           aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile default
           aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile default
           aws configure set region us-east-1
-      
+
       - uses: pnpm/action-setup@v4
         with:
           version: 9
