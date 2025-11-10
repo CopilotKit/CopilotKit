@@ -1,4 +1,4 @@
-name: End to End Tests
+name: e2e
 
 on:
   workflow_call:
@@ -17,8 +17,7 @@ on:
         required: true
 
 jobs:
-  e2e_tests:
-    name: E2E Tests
+  core:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:

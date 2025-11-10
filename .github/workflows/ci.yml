@@ -1,30 +1,29 @@
-name: CI
+name: unit
 
 on:
   push:
     branches: [main]
     paths-ignore:
-      - 'docs/**'
-      - 'README.md'
-      - 'examples/**'
-      - '.github/workflows/demos_preview.yml'
-      - '.github/workflows/release.yml'
-      - 'CopilotKit/packages/**/package.json'
-      - 'CopilotKit/packages/**/CHANGELOG.md'
-      - 'CopilotKit/.changeset/**'
+      - "docs/**"
+      - "README.md"
+      - "examples/**"
+      - ".github/workflows/demos_preview.yml"
+      - ".github/workflows/release.yml"
+      - "CopilotKit/packages/**/package.json"
+      - "CopilotKit/packages/**/CHANGELOG.md"
+      - "CopilotKit/.changeset/**"
   pull_request:
     branches: [main]
     paths-ignore:
-      - 'docs/**'
-      - 'README.md'
-      - 'examples/**'
+      - "docs/**"
+      - "README.md"
+      - "examples/**"
 jobs:
-  test:
-    name: 'Test'
+  core:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: 'CopilotKit'
+        working-directory: "CopilotKit"
     strategy:
       matrix:
         node-version: [20.x, 18.x]
@@ -36,7 +35,7 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: "9.5"
-    
+
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v2
         with:

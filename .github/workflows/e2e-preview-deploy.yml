@@ -1,4 +1,4 @@
-name: Preview Environments
+name: e2e
 
 on:
   pull_request:
@@ -16,7 +16,7 @@ jobs:
   build_images:
     if: ${{ !contains(github.event.pull_request.labels.*.name, 'automated-version-pr') }}
     runs-on: ubuntu-latest
-    name: Build Images
+    name: preview / build-images
     strategy:
       matrix:
         app:
@@ -314,8 +314,8 @@ jobs:
 
   test:
     if: github.event_name == 'pull_request'
-    name: End to End Tests
-    uses: ./.github/workflows/e2e.yml
+    name: e2e
+    uses: ./.github/workflows/e2e-core.yml
     needs: deploy
     with:
       ref: "${{ github.event.pull_request.head.ref }}"
