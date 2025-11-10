@@ -66,7 +66,7 @@ This context can then be shared with your AG-UI server and agent logic.
         string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
 
         // Create the agent
-        // Context from useCopilotReadable is automatically included in the request
+        //// TODO: Needs to be updated with actual sample that access the context
         var agent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
             .GetChatClient(deployment)
             .CreateAIAgent(
