@@ -67,18 +67,24 @@ is a situation where a user and an agent are working together to solve a problem
     ```
   </Step>
   <Step>
-    ### Return state from your agent tools
+    ### Stream state from your agent
 
-    In Microsoft Agent Framework, state updates are typically returned from tools. When a tool returns a state snapshot object, it's automatically streamed to the frontend.
+    To stream state updates to the frontend, wrap your agent with a `DelegatingAIAgent` that intercepts the streaming response and emits state snapshots as `DataContent`.
 
-    Here's an example using a tool that simulates progressive updates:
+    Here's an example of a state-streaming agent wrapper:
 
     ```csharp title="Program.cs"
-    using System.ComponentModel;
+    using System.Runtime.CompilerServices;
+    using System.Text.Json;
     using Azure.AI.OpenAI;
     using Azure.Identity;
     using Microsoft.Agents.AI;
     using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+    using Microsoft.AspNetCore.Builder;
+    using Microsoft.AspNetCore.Http.Json;
+    using Microsoft.Extensions.AI;
+    using Microsoft.Extensions.DependencyInjection;
+    using Microsoft.Extensions.Options;
 
     var builder = WebApplication.CreateBuilder(args);
     builder.Services.AddAGUI();
@@ -87,36 +93,108 @@ is a situation where a user and an agent are working together to solve a problem
     string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
     string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
 
-    [Description("Perform a research task and track progress.")]
-    static AgentStateSnapshot PerformResearch([Description("The research query")] string query)
-    {
-        // In a real implementation, you'd perform actual research here
-        // and potentially emit intermediate updates via streaming mechanisms
-        return new AgentStateSnapshot
-        {
-            Searches = new List<SearchInfo>
-            {
-                new() { Query = "Initial research", Done = true },
-                new() { Query = "Retrieving sources", Done = true },
-                new() { Query = "Forming an answer", Done = false }
-            }
-        };
-    }
+    // Get JSON serializer options
+    var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
 
-    // Create the agent with the research tool
-    var agent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
+    // Create the base agent
+    AIAgent baseAgent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
         .GetChatClient(deployment)
         .CreateAIAgent(
             name: "ResearchAssistant",
-            tools: [AIFunctionFactory.Create(PerformResearch)]);
+            instructions: "You are a research assistant that tracks your progress.");
+
+    // Wrap with state-streaming agent
+    AIAgent agent = new StateStreamingAgent(baseAgent, jsonOptions.Value.SerializerOptions);
 
     // Map the AG-UI endpoint
     app.MapAGUI("/", agent);
     await app.RunAsync();
+
+    // Agent wrapper that streams state updates
+    internal sealed class StateStreamingAgent : DelegatingAIAgent
+    {
+        private readonly JsonSerializerOptions _jsonSerializerOptions;
+
+        public StateStreamingAgent(AIAgent innerAgent, JsonSerializerOptions jsonSerializerOptions)
+            : base(innerAgent)
+        {
+            this._jsonSerializerOptions = jsonSerializerOptions;
+        }
+
+        public override async IAsyncEnumerable<AgentRunResponseUpdate> RunStreamingAsync(
+            IEnumerable<ChatMessage> messages,
+            AgentThread? thread = null,
+            AgentRunOptions? options = null,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            // Get current state from options if provided
+            JsonElement currentState = default;
+            if (options is ChatClientAgentRunOptions { ChatOptions.AdditionalProperties: { } properties } &&
+                properties.TryGetValue("ag_ui_state", out object? stateObj) && stateObj is JsonElement state)
+            {
+                currentState = state;
+            }
+
+            // Create options with JSON schema for structured state output
+            ChatClientAgentRunOptions stateOptions = new ChatClientAgentRunOptions
+            {
+                ChatOptions = new ChatOptions
+                {
+                    ResponseFormat = ChatResponseFormat.ForJsonSchema<AgentStateSnapshot>(
+                        schemaName: "AgentStateSnapshot",
+                        schemaDescription: "Research progress state")
+                }
+            };
+
+            // Add system message with current state
+            var stateMessage = new ChatMessage(ChatRole.System,
+                $"Current state: {(currentState.ValueKind != JsonValueKind.Undefined ? currentState.GetRawText() : "{}")}");
+            var messagesWithState = messages.Append(stateMessage);
+
+            // Collect all updates
+            var allUpdates = new List<AgentRunResponseUpdate>();
+            await foreach (var update in this.InnerAgent.RunStreamingAsync(messagesWithState, thread, stateOptions, cancellationToken))
+            {
+                allUpdates.Add(update);
+                // Stream non-text updates immediately
+                if (update.Contents.Any(c => c is not TextContent))
+                {
+                    yield return update;
+                }
+            }
+
+            // Deserialize state snapshot from response
+            var response = allUpdates.ToAgentRunResponse();
+            if (response.TryDeserialize(this._jsonSerializerOptions, out JsonElement stateSnapshot))
+            {
+                byte[] stateBytes = JsonSerializer.SerializeToUtf8Bytes(
+                    stateSnapshot,
+                    this._jsonSerializerOptions.GetTypeInfo(typeof(JsonElement)));
+                    
+                // Emit state snapshot as DataContent
+                yield return new AgentRunResponseUpdate
+                {
+                    Contents = [new DataContent(stateBytes, "application/json")]
+                };
+            }
+
+            // Stream text summary
+            var summaryMessage = new ChatMessage(ChatRole.System, "Provide a brief summary of your progress.");
+            await foreach (var update in this.InnerAgent.RunStreamingAsync(
+                messages.Concat(response.Messages).Append(summaryMessage), thread, options, cancellationToken))
+            {
+                yield return update;
+            }
+        }
+    }
     ```
 
     <Callout type="info">
-      State snapshot objects returned from tools are automatically serialized and streamed to the frontend via the AG-UI protocol.
+      The `DelegatingAIAgent` wrapper intercepts streaming responses, uses JSON schema response format to generate structured state, and emits it as `DataContent` which the AG-UI protocol forwards to the frontend.
+    </Callout>
+
+    <Callout type="tip">
+      For a complete, production-ready implementation of state streaming, see the [SharedStateAgent sample](https://github.com/microsoft/agent-framework/blob/main/dotnet/samples/AGUIClientServer/AGUIDojoServer/SharedStateAgent.cs) in the Agent Framework repository.
     </Callout>
   </Step>
   <Step>

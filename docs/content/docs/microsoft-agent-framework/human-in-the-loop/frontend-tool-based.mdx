@@ -84,7 +84,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
     <Step>
         ### Receiving frontend tools in your AG-UI server
 
-        Frontend tools registered with `useHumanInTheLoop` are forwarded to your AG-UI server in the `tools` parameter. You can bind them to your agent to make them callable.
+        Frontend tools registered with `useHumanInTheLoop` are forwarded to your AG-UI server and passed to the underlying agent via the AgentRunOptions on the server.  They are automatically available by default to the underlying chat client.
 
         ```csharp title="Program.cs"
         using Azure.AI.OpenAI;
