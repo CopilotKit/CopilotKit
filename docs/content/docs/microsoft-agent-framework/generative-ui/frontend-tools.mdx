@@ -93,7 +93,9 @@ Use frontend tools when you need your agent to interact with client-side primiti
     <Step>
         ### Receiving frontend tools on the server
 
-        When CopilotKit calls your AG-UI server, the `tools` parameter includes any frontend tools registered with `useFrontendTool`. You can pass these to your agent as supported by your chat client.
+        When CopilotKit calls your AG-UI server, frontend tools registered with `useHumanInTheLoop` are forwarded to your AG-UI server
+        and passed to the underlying agent via the AgentRunOptions on the server. They are automatically available by default to the
+        underlying chat client.
 
         ```csharp title="Program.cs"
         using Microsoft.Agents.AI;
