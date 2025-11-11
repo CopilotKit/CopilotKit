@@ -141,7 +141,7 @@
   margin: 0 !important;
 }
 
-/* Apply only to .pweredBy and only when dark mode is active */
+/* Apply only to .poweredBy and only when dark mode is active */
 html.dark .poweredBy,
 body.dark .poweredBy,
 [data-theme="dark"] .poweredBy,
