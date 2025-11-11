@@ -4,7 +4,7 @@
 
 This project showcases how to use CopilotKit direct-to-LLM integration to connect a React frontend with any external agent that supports AGUI (Pydantic AI in this case) through a middleware layer.
 
-There is a mini meal planner agent configured in this repo as a part of this example
+This example includes a mini meal planner agent configured as a demonstration of the integration.
 
 ---
 
@@ -26,11 +26,15 @@ There is a mini meal planner agent configured in this repo as a part of this exa
 - **Framework**: Pydantic AI with FastAPI
 - **LLM Provider**: Google Gemini via Pydantic AI
 
-**Development & Deployment:**
-
-- **Containerization**: Docker & Docker Compose
-
 ---
+
+### How It Works
+
+- The React frontend uses CopilotKit UI components to provide a chat interface
+- User messages are sent to the middleware that exposes a graphql server
+- The middleware forwards requests to the Pydantic AI agent using the AG-UI protocol
+- The agent processes requests
+- Responses flow back through the middleware to the frontend
 
 ### 🌐 **App Link**
 
