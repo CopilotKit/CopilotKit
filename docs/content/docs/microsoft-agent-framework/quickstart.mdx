@@ -142,9 +142,10 @@ Before you begin, you'll need the following:
                 ```bash
                 dotnet new web -n AGUIServer
                 cd AGUIServer
-                dotnet add package Microsoft.Agents.AI.Hosting.AGUI.AspNetCore
-                dotnet add package Microsoft.Extensions.AI.OpenAI
-                dotnet add package OpenAI
+                dotnet add package Microsoft.Agents.AI.Hosting.AGUI.AspNetCore --version 1.0.0-preview.251110.1
+                dotnet add package Microsoft.Extensions.AI.OpenAI --version 9.10.2-preview.1.25552.1
+                dotnet add package OpenAI --version 2.6.0
+                dotnet user-secrets init
                 ```
 
                 Build a minimal agent and serve it via AGUI:
@@ -153,6 +154,7 @@ Before you begin, you'll need the following:
                 using Microsoft.Agents.AI;
                 # [!code highlight:1]
                 using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+                using Microsoft.Extensions.AI;
                 using OpenAI;
 
                 var builder = WebApplication.CreateBuilder(args);
@@ -168,10 +170,11 @@ Before you begin, you'll need the following:
                         Endpoint = new Uri("https://models.inference.ai.azure.com")
                     });
 
-                var agent = openAI.GetChatClient("gpt-4o-mini")
-                    .CreateAIAgent(
-                        name: "MyAgent",
-                        instructions: "You are a helpful assistant.");
+                var chatClient = openAI.GetChatClient("gpt-4o-mini").AsIChatClient();
+                var agent = new ChatClientAgent(
+                    chatClient,
+                    name: "MyAgent",
+                    description: "You are a helpful assistant.");
 
                 # [!code highlight:1]
                 app.MapAGUI("/", agent);
@@ -190,6 +193,8 @@ Before you begin, you'll need the following:
             <Step>
                 ### Frontend Setup
                 CopilotKit works with any React-based frontend. We'll use Next.js for this example.
+
+                In a new terminal window, run the following commands:
 
                 ```bash
                 npx create-next-app@latest my-copilot-app
