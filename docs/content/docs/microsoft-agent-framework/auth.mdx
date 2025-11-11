@@ -6,12 +6,12 @@ description: "Secure your Microsoft Agent Framework agents with user authenticat
 
 ## Overview
 
-CopilotKit supports forwarding user authentication to your Microsoft Agent Framework AG-UI server. The typical pattern is:
+Forward user authentication from your frontend to your AG-UI server:
 
-- **Frontend**: Pass an auth token via `<CopilotKit headers={{ Authorization: token }}>`.
-- **Backend (ASP.NET Core)**: Validate the token (for example, using Microsoft Entra ID) and scope the request accordingly.
+- **Frontend**: Pass tokens via `<CopilotKit headers={{ Authorization: token }}>`
+- **Backend**: Validate tokens using ASP.NET Core authentication middleware
 
-## Frontend setup
+## Frontend Setup
 
 Pass your authentication token via the `headers` prop:
 
@@ -26,28 +26,24 @@ Pass your authentication token via the `headers` prop:
 </CopilotKit>
 ```
 
-The `Authorization` header is forwarded to your AG-UI server and can be validated in your ASP.NET Core middleware.
+## Backend Setup
 
-## ASP.NET Core AG-UI server
-
-Validate the incoming token and scope requests in your AG-UI server using ASP.NET Core's built-in JWT bearer authentication. Below is an example that configures JWT bearer authentication following [Microsoft's recommended approach](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/configure-jwt-bearer-authentication).
+Configure JWT bearer authentication in your AG-UI server:
 
 ```csharp title="Program.cs"
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authorization;
 using OpenAI;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddHttpClient().AddLogging();
 
-// Configure JWT Bearer authentication
+// Configure JWT authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        options.Authority = builder.Configuration["JwtAuthority"]; // e.g., "https://login.microsoftonline.com/{tenant-id}/v2.0"
-        options.Audience = builder.Configuration["JwtAudience"]; // Your API audience/client ID
+        options.Authority = builder.Configuration["JwtAuthority"];
+        options.Audience = builder.Configuration["JwtAudience"];
         options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -64,11 +60,8 @@ var app = builder.Build();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// GitHub Models API key for Azure OpenAI (via models.inference.ai.azure.com)
+// Create and map your agent
 string githubToken = builder.Configuration["GitHubToken"]!;
-
-// Create the agent with OpenAI client
-// The agent is needed to handle AG-UI requests after authentication
 var openAI = new OpenAIClient(
     new System.ClientModel.ApiKeyCredential(githubToken),
     new OpenAIClientOptions { Endpoint = new Uri("https://models.inference.ai.azure.com") }
@@ -76,7 +69,6 @@ var openAI = new OpenAIClient(
 var agent = openAI.GetChatClient("gpt-4o-mini")
     .CreateAIAgent(name: "AGUIAssistant", instructions: "You are a helpful assistant.");
 
-// Map the AG-UI endpoint with authorization required
 app.MapAGUI("/", agent).RequireAuthorization();
 
 await app.RunAsync();
@@ -84,7 +76,7 @@ await app.RunAsync();
 
 ### Configuration
 
-Add the JWT settings to your `appsettings.json` or environment variables:
+Add JWT settings to your `appsettings.json`:
 
 ```json title="appsettings.json"
 {
@@ -94,77 +86,42 @@ Add the JWT settings to your `appsettings.json` or environment variables:
 }
 ```
 
-### CORS Configuration (if needed)
+### CORS (if needed)
 
-If your frontend and AG-UI server are on different origins, add CORS configuration:
+If your frontend and backend are on different origins:
 
 ```csharp title="Program.cs"
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins("http://localhost:3000") // Your frontend URL
+        policy.WithOrigins("http://localhost:3000")
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
     });
 });
 
-// ... authentication setup ...
+// ...
 
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 ```
 
-## Security notes
+## Security Best Practices
 
-### Server-side
-
-- **Manual validation**: Implement token validation (for example, Microsoft Entra ID/JWT)
-- **User scoping**: Scope data access and actions to the authenticated user
-- **Header handling**: Expect `Authorization: Bearer <token>` and validate securely
-
-### General Best Practices
-
-- **Permission Checks**: Implement role-based access control in your agents
-- **Token Security**: Use secure token generation and validation
-- **User Scoping**: Always scope data access to authenticated users
-
-For identity and access management guidance, see [Authentication for agents (preview)](https://learn.microsoft.com/en-us/power-platform/admin/security/identity-access-management#authentication-for-agents-preview) and the Microsoft Agent Framework docs.
+- Validate tokens on every request
+- Scope data access to authenticated users
+- Implement role-based access control in your agents
+- Use HTTPS in production
 
 ## Troubleshooting
 
-### Common Issues
+**Token not reaching server**: Verify the `Authorization` header is set in `<CopilotKit>` and forwarded through any proxies.
 
-**Token not reaching server**:
+**Invalid token**: Ensure the token includes the `Bearer ` prefix.
 
-- Ensure you're passing `Authorization` in the `<CopilotKit>` `headers` prop
-- Confirm your proxy/tunnel forwards headers
-- Check CORS configuration if frontend and backend are on different origins (see [CORS Configuration](#cors-configuration-if-needed))
+**CORS errors**: Configure CORS if frontend and backend are on different origins (see [CORS section](#cors-if-needed)).
 
-**Invalid token format**:
-
-- Include the `Bearer ` prefix and validate the JWT or access token
-
-**User info not available**:
-
-- Verify your validation logic extracts and propagates user identity appropriately
-
-**Authentication works locally but not in production**:
-
-- Verify environment-specific configuration (headers, proxies)
-- Ensure CORS is properly configured for your production domains
-- Check that Authorization headers are being forwarded through any proxies or load balancers
-
-**CORS errors**:
-
-- Add CORS configuration if frontend and backend are on different origins (see [CORS Configuration](#cors-configuration-if-needed))
-- Ensure `AllowCredentials()` is set if using cookie-based auth
-- Verify your frontend origin is listed in `WithOrigins()`
-
-## Next steps
-
-- [Quickstart →](/microsoft-agent-framework/quickstart)
-- [Shared state →](/microsoft-agent-framework/shared-state)
-- [Human-in-the-loop →](/microsoft-agent-framework/human-in-the-loop)
+For more details, see [Microsoft's JWT authentication guide](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/configure-jwt-bearer-authentication).

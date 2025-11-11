@@ -3,15 +3,14 @@ title: Frontend Tools
 icon: "lucide/Wrench"
 description: Create frontend tools and use them within your Microsoft Agent Framework agent.
 ---
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 import { IframeSwitcher } from "@/components/content"
-import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx"
+import RunAndConnect from "@/snippets/integrations/microsoft-agent-framework/run-and-connect.mdx"
 
 {/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the feature viewer */}
 <IframeSwitcher
   id="frontend-actions-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs"
+  exampleUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs"
   exampleLabel="Demo"
   codeLabel="Code"
   height="700px"
@@ -77,10 +76,6 @@ Use frontend tools when you need your agent to interact with client-side primiti
     <Step>
         ### Modify your server
         Now, we'll ensure your AG-UI server can receive and pass these frontend actions to your agent logic.
-    </Step>
-    <Step>
-        ### Install the CopilotKit SDK
-        <InstallSDKSnippet components={props.components}/>
     </Step>
     <Step>
         ### Create your AG-UI server
