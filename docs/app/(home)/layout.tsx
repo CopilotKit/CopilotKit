@@ -106,28 +106,6 @@ export default function Layout({ children }: { children: ReactNode }) {
                       selectedStyle: "ring-purple-500/70 ring-2 rounded-sm",
                     },
                     {
-                      title: "Microsoft Agent Framework",
-                      description:
-                        "Documentation for CoAgents with Microsoft Agent Framework",
-                      url: "/microsoft-agent-framework",
-                      icon: (
-                        <FaMicrosoft
-                          className="w-4 h-4"
-                          style={{
-                            fontSize: "16px",
-                            width: "16px",
-                            height: "16px",
-                          }}
-                        />
-                      ),
-                      bgGradient:
-                        "bg-gradient-to-b from-blue-700 to-blue-400 text-blue-100",
-                      selectedStyle: "ring-blue-500/70 ring-2 rounded-sm",
-                      props: {
-                        className: "hidden!",
-                      },
-                    },
-                    {
                       title: "Mastra",
                       description: "Documentation for CoAgents with Mastra",
                       url: "/mastra",
@@ -153,7 +131,27 @@ export default function Layout({ children }: { children: ReactNode }) {
                       icon: <ADKIcon className="w-4 h-4 text-bold" />,
                       bgGradient: "bg-black text-white",
                       selectedStyle: "ring-gray-500 ring-2 rounded-sm",
-                    },                    {
+                    },
+                    {
+                      title: "Microsoft Agent Framework",
+                      description:
+                        "Documentation for CoAgents with Microsoft Agent Framework",
+                      url: "/microsoft-agent-framework",
+                      icon: (
+                        <FaMicrosoft
+                          className="w-4 h-4"
+                          style={{
+                            fontSize: "16px",
+                            width: "16px",
+                            height: "16px",
+                          }}
+                        />
+                      ),
+                      bgGradient:
+                        "bg-gradient-to-b from-blue-700 to-blue-400 text-blue-100",
+                      selectedStyle: "ring-blue-500/70 ring-2 rounded-sm",
+                    },
+                    {
                       title: "Agno",
                       description: "Documentation for CoAgents with Agno",
                       url: "/agno",

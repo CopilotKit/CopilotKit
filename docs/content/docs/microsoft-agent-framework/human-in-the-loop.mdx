@@ -1,16 +1,16 @@
 ---
-title: Frontend Tool Based
-icon: "lucide/Wrench"
+title: Human-in-the-loop
+icon: "lucide/User"
 description: Create frontend tools and use them within your agent framework agent.
 ---
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/microsoft-agent-framework/run-and-connect.mdx"
 
 {/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the feature viewer */}
 <IframeSwitcher
   id="frontend-tools-based-hitl-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
+  exampleUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
   exampleLabel="Demo"
   codeLabel="Code"
   height="700px"
@@ -35,7 +35,10 @@ Use frontend tools when you need your agent to interact with client-side primiti
 ## Implementation
 
 <Steps>
-    
+    <Step>
+        ### Run and connect your agent
+        <RunAndConnect components={props.components} />
+    </Step>
 
     <Step>
         ### Create a frontend human-in-the-loop tool

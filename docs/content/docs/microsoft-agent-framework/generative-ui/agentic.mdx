@@ -9,8 +9,8 @@ import { IframeSwitcher } from "@/components/content"
 {/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the feature viewer */}
 <IframeSwitcher
   id="agent-state-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_generative_ui?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_generative_ui?view=code&sidebar=false&codeLayout=tabs"
+  exampleUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/agentic_generative_ui?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/agentic_generative_ui?view=code&sidebar=false&codeLayout=tabs"
   exampleLabel="Demo"
   codeLabel="Code"
   height="700px"
@@ -28,7 +28,7 @@ is a situation where a user and an agent are working together to solve a problem
 ## Implementation
 
 <Steps>
-  
+
   <Step>
     ### Define your agent state
 
@@ -41,7 +41,7 @@ is a situation where a user and an agent are working together to solve a problem
     {
         [JsonPropertyName("query")]
         public string Query { get; set; } = string.Empty;
-        
+
         [JsonPropertyName("done")]
         public bool Done { get; set; }
     }
@@ -170,7 +170,7 @@ is a situation where a user and an agent are working together to solve a problem
                 byte[] stateBytes = JsonSerializer.SerializeToUtf8Bytes(
                     stateSnapshot,
                     this._jsonSerializerOptions.GetTypeInfo(typeof(JsonElement)));
-                    
+
                 // Emit state snapshot as DataContent
                 yield return new AgentRunResponseUpdate
                 {

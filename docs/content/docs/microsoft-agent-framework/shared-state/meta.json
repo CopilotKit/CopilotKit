@@ -1,7 +1,4 @@
 {
-    "pages": [
-        "in-app-agent-read",
-        "in-app-agent-write",
-        "state-inputs-outputs"
-    ]
+  "icon": "lucide/Repeat",
+  "pages": ["in-app-agent-read", "in-app-agent-write"]
 }

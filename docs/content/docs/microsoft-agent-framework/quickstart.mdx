@@ -6,12 +6,9 @@ hideTOC: true
 ---
 
 import { TailoredContent, TailoredContentOption } from "@/components/react/tailored-content.tsx";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
-import { FaCloud } from "react-icons/fa";
-import ConnectCopilotUI from "@/snippets/copilot-ui.mdx";
-import CloudCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
-import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/self-hosting-copilot-runtime-configure-copilotkit-provider.mdx";
-import { UserIcon, PaintbrushIcon, WrenchIcon, RepeatIcon, ServerIcon, SquareTerminal, SquareChartGantt } from "lucide-react";
+import { UserIcon, PaintbrushIcon, WrenchIcon, RepeatIcon } from "lucide-react";
 
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
@@ -27,308 +24,364 @@ import { UserIcon, PaintbrushIcon, WrenchIcon, RepeatIcon, ServerIcon, SquareTer
 
 Before you begin, you'll need the following:
 
-- [**.NET 9.0 SDK**](https://dotnet.microsoft.com/en-us/download/dotnet/9.0)
-- [**Node.js 20+**](https://nodejs.org/en/download)
-- [**GitHub Personal Access Token**](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-personal-access-token-classic) (for GitHub Models API)
-- Optional: [**Azure OpenAI endpoint and deployment**](https://learn.microsoft.com/en-us/azure/ai-foundry/how-to/deploy-models-openai) (if using Azure OpenAI instead of GitHub Models)
+- A GitHub Personal Access Token (for GitHub Models API - free AI access)
+- .NET 9.0 SDK or later
+- Node.js 20+
+- Your favorite package manager (npm, pnpm, yarn, or bun)
 
 ## Getting started
 
 <Steps>
     <TailoredContent
         className="step"
-        id="path"
+        id="agent"
         header={
             <div>
-                <p className="text-xl font-semibold">How do you want to get started?</p>
+                <p className="text-xl font-semibold">Choose your starting point</p>
                 <p className="text-base">
-                    Bootstrap with the new <span className="text-indigo-500 dark:text-indigo-400">CopilotKit CLI (Beta)</span> or code along with us to get started.
+                    You can either start fresh with our starter template or integrate CopilotKit into your existing Microsoft Agent Framework agent.
                 </p>
             </div>
         }
     >
         <TailoredContentOption
-            id="cli"
-            title="Use the CopilotKit CLI (NextJS only)"
-            description="I have a Next.js application and want to get started quickly."
-            icon={<SquareTerminal />}
+            id="starter"
+            title="Start from scratch"
+            description="Get started quickly with our ready-to-go starter application."
         >
             <Step>
-                ### Run the CLI
-                Just run this following command in your Next.js application to get started!
+                ### Run our CLI
 
-                <Accordions>
-                    <Accordion title="Don't have a Next.js application?">
-                        No problem! Just use `create-next-app` to make one quickly.
-                        ```bash
-                        npx create-next-app@latest
-                        ```
-                    </Accordion>
-                </Accordions>
+                First, we'll use our CLI to create a new project for us.
 
                 ```bash
-                npx copilotkit@latest init -m microsoft-agent-framework
+                npx copilotkit@latest create -f microsoft-agent-framework-dotnet
                 ```
             </Step>
             <Step>
-                ### 🎉 Talk to your agent!
+                ### Install dependencies
 
-                Congrats! You've successfully integrated a Microsoft Agent Framework agent chatbot to your application. Depending on the
-                template you chose, you may see some different UI elements. To start, try asking a few questions to your agent.
+                The starter includes a `postinstall` script that automatically installs both your npm and .NET dependencies.
 
-                ```
-                Can you tell me a joke?
+                ```package-install
                 ```
 
-                ```
-                Can you help me understand AI?
+                <Callout type="info" title="Manual .NET setup">
+                  If you have issues with automatic .NET package installation, you can manually restore them:
+                  ```bash
+                  npm run install:agent
+                  ```
+                </Callout>
+            </Step>
+            <Step>
+                ### Configure your environment
+
+                The starter template uses GitHub Models API for free access to AI models. Set up your GitHub token:
+
+                First, get your GitHub token (requires [GitHub CLI](https://github.com/cli/cli)):
+                ```bash
+                gh auth token
                 ```
 
+                Then navigate to the agent directory and set it as a user secret:
+                ```bash
+                cd agent
+                dotnet user-secrets set GitHubToken "$(gh auth token)"
+                cd ..
                 ```
-                What do you think about React?
-                ```
-                
-                {/* TODO: Add correct instructions on how to troubleshoot Copilot Cloud connection */}
-                {/* <Accordions className="mb-4">
-                    <Accordion title="Having trouble?">
-                        - Ensure your AG-UI server is running and reachable
-                        - If using Copilot Cloud tunnel, verify the tunnel URL is active
-                        - Confirm any required Authorization headers are set from `<CopilotKit>` properties
-                        - Try `0.0.0.0` or `127.0.0.1` instead of `localhost`
-                    </Accordion>
-                </Accordions> */}
+
+                <Callout type="info" title="Want to use a different model provider?">
+                  The starter template is configured to use GitHub Models (free), but you can modify it to use:
+                  - OpenAI directly
+                  - Azure OpenAI
+                  - Any other model supported by Microsoft Agent Framework
+
+                  Check the `agent/Program.cs` file to customize the model configuration.
+                </Callout>
+            </Step>
+            <Step>
+                ### Start the development server
+
+                <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+                    <Tab value="npm">
+                        ```bash
+                        npm run dev
+                        ```
+                    </Tab>
+                    <Tab value="pnpm">
+                        ```bash
+                        pnpm dev
+                        ```
+                    </Tab>
+                    <Tab value="yarn">
+                        ```bash
+                        yarn dev
+                        ```
+                    </Tab>
+                    <Tab value="bun">
+                        ```bash
+                        bun dev
+                        ```
+                    </Tab>
+                </Tabs>
+
+                This will start both the Next.js UI (port 3000) and C# agent server (port 8000) concurrently.
             </Step>
         </TailoredContentOption>
         <TailoredContentOption
-            id="code-along"
-            title="Code along"
-            description="I want to deeply understand what's happening under the hood or don't have a Next.js application."
-            icon={<SquareChartGantt />}
+            id="bring-your-own"
+            title="Use an existing agent"
+            description="I already have a Microsoft Agent Framework agent and want to add CopilotKit."
         >
             <Step>
-                ### Install CopilotKit
-                First, install the latest packages for CopilotKit into your frontend.
+                ### Start your Microsoft Agent Framework agent
+
+                Make sure your .NET agent is running and exposing an AGUI endpoint. Here's a minimal example:
+
+                First, setup a new .NET project:
+                ```bash
+                dotnet new web -n AGUIServer
+                cd AGUIServer
+                dotnet add package Microsoft.Agents.AI.Hosting.AGUI.AspNetCore
+                dotnet add package Microsoft.Extensions.AI.OpenAI
+                dotnet add package OpenAI
+                ```
+
+                Build a minimal agent and serve it via AGUI:
+
+                ```csharp title="Program.cs"
+                using Microsoft.Agents.AI;
+                # [!code highlight:1]
+                using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+                using OpenAI;
+
+                var builder = WebApplication.CreateBuilder(args);
+                # [!code highlight:1]
+                builder.Services.AddAGUI();
+                var app = builder.Build();
+
+                // Get your GitHub token for GitHub Models (free)
+                var githubToken = builder.Configuration["GitHubToken"]!;
+                var openAI = new OpenAIClient(
+                    new System.ClientModel.ApiKeyCredential(githubToken),
+                    new OpenAIClientOptions {
+                        Endpoint = new Uri("https://models.inference.ai.azure.com")
+                    });
+
+                var agent = openAI.GetChatClient("gpt-4o-mini")
+                    .CreateAIAgent(
+                        name: "MyAgent",
+                        instructions: "You are a helpful assistant.");
+
+                # [!code highlight:1]
+                app.MapAGUI("/", agent);
+                app.Run("http://localhost:8000");
+                ```
+
+                Then just setup the environment and run your agent:
+
+                ```bash
+                # Set your GitHub token and run
+                dotnet user-secrets set GitHubToken "$(gh auth token)"
+                dotnet run
+                ```
+
+            </Step>
+            <Step>
+                ### Frontend Setup
+                CopilotKit works with any React-based frontend. We'll use Next.js for this example.
+
+                ```bash
+                npx create-next-app@latest my-copilot-app
+                cd my-copilot-app
+                ```
+            </Step>
+            <Step>
+                ### Install CopilotKit packages
+
                 ```package-install
-                npm install @copilotkit/react-ui @copilotkit/react-core
+                @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client
                 ```
-            </Step>
-            
-            <TailoredContent
-                className="step"
-                id="agent"
-                header={
-                    <div>
-                        <p className="text-xl font-semibold">Do you already have a Microsoft Agent Framework agent?</p>
-                        <p className="text-base">
-                            You can either start from scratch or connect to an existing agent endpoint.
-                        </p>
-                    </div>
-                }
-            >
-                <TailoredContentOption
-                    id="create"
-                    title="Start from scratch"
-                    description="I don't have an agent yet, but want to get started quickly."
-                >
-                    <Step>
-                        #### Create a Next.js app (optional)
-                        ```bash
-                        npx create-next-app@latest
-                        ```
-                    </Step>
-                    <Step>
-                        #### Install dependencies
-                        ```package-install
-                        npm install @copilotkit/react-ui @copilotkit/react-core
-                        ```
-                    </Step>
-                    <Step>
-                        #### Create and run the .NET agent (port 8000)
-                        ```bash
-                        dotnet new web -n AGUIServer
-                        cd AGUIServer
-                        dotnet add package Microsoft.Agents.AI.Hosting.AGUI.AspNetCore
-                        dotnet add package Microsoft.Extensions.AI.OpenAI
-                        dotnet add package OpenAI
-                        ```
-
-                        ```csharp title="Program.cs (excerpt)"
-                        using Microsoft.Agents.AI;
-                        using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
-                        using OpenAI;
-
-                        var builder = WebApplication.CreateBuilder(args);
-                        builder.Services.AddAGUI();
-                        var app = builder.Build();
-
-                        var githubToken = builder.Configuration["GitHubToken"]!; // dotnet user-secrets set GitHubToken "<token>"
-                        var openAI = new OpenAIClient(
-                            new System.ClientModel.ApiKeyCredential(githubToken), 
-                            new OpenAIClientOptions { Endpoint = new Uri("https://models.inference.ai.azure.com") });
-                        
-                        var agent = openAI.GetChatClient("gpt-4o-mini")
-                            .CreateAIAgent(name: "SampleAgent", instructions: "You are a helpful assistant.");
-
-                        app.MapAGUI("/", agent);
-                        app.Run("http://localhost:8000");
-                        ```
-
-                        ```bash
-                        # Set GitHub token as user secret and run
-                        dotnet user-secrets set GitHubToken "$(gh auth token)"
-                        dotnet run
-                        ```
-                    </Step>
-                </TailoredContentOption>
-                <TailoredContentOption
-                    id="existing-agent"
-                    title="Use an existing agent"
-                    description="I already have a Microsoft Agent Framework agent and want to use it with CopilotKit."
-                >
-                    <Step>
-                        #### Install dependencies
-                        ```package-install
-                        npm install @copilotkit/react-ui @copilotkit/react-core
-                        ```
-                    </Step>
-                </TailoredContentOption>
-            </TailoredContent>
-            
-            {/* TODO: Add correct instructions on how to troubleshoot Copilot Cloud connection */}
-            {/* <TailoredContent
-                className="step"
-                id="copilot-hosting"
-                header={
-                    <div>
-                        <p className="text-xl font-semibold">Choose your connection method</p>
-                        <p className="text-base">
-                            Now you need to connect your Microsoft Agent Framework AG-UI server to CopilotKit.
-                        </p>
-                    </div>
-                }
-            >
-                <TailoredContentOption
-                    id="copilot-cloud"
-                    title="Copilot Cloud (Recommended)"
-                    description="I want to host my Copilot on Copilot Cloud"
-                    icon={<FaCloud />}
-                >
-                    <Step>
-                        ### Add a remote endpoint for your AG-UI server
-                        Using Copilot Cloud, create a remote endpoint that connects to your locally running or deployed AG-UI server.
-
-                        #### Tunnel your local server
-                        First, log in to [Copilot Cloud](https://cloud.copilotkit.ai), then authenticate the CLI:
-                        ```bash
-                        npx copilotkit@latest login
-                        ```
-                        Start a tunnel to your local AG-UI server (port 8000):
-                        ```bash
-                        npx copilotkit@latest dev --port 8000
-                        ```
-
-                        #### Configure the remote endpoint in Copilot Cloud
-                        - Endpoint URL: your AG-UI server URL (or the tunnel URL)
-                        - Optional: Authorization header if your server requires it
-
-                        <Accordions className="mb-4">
-                            <Accordion title="Having trouble?">
-                                - Ensure your AG-UI server is reachable on the specified port (default 8000)
-                                - On Windows, verify these entries exist in your hosts file:
-                                ```bash
-                                127.0.0.1 localhost
-                                ::1       localhost
-                                ```
-                            </Accordion>
-                        </Accordions>
-                    </Step>
-                    <Step>
-                        ### Setup your CopilotKit provider
-                        The [`<CopilotKit>`](/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
-                        it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
-
-                        Since we're using Copilot Cloud, we need to grab our public API key from the [Copilot Cloud dashboard](https://cloud.copilotkit.ai).
-
-                        <CloudCopilotKitProvider components={props.components} />
-                    </Step>
-                </TailoredContentOption>
-                <TailoredContentOption
-                    id="self-hosted"
-                    title="Self-Hosted Copilot Runtime"
-                    description="I want to self-host the Copilot Runtime"
-                    icon={<ServerIcon />}
-                >
-                    <Step>
-                        ### Install Copilot Runtime
-                        Copilot Runtime is a production-ready proxy for your agents. In your frontend, install it:
-
-                        ```package-install
-                        @copilotkit/runtime class-validator
-                        ```
-                    </Step>
-                    <Step>
-                        ### Configure your Copilot Runtime endpoint
-                        Configure Copilot Runtime to connect to your AG-UI server. Refer to the Copilot Runtime docs for endpoint configuration.
-                    </Step>
-                    <Step>
-                        ### Configure the CopilotKit Provider
-                        The [`<CopilotKit>`](/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
-                        it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
-
-                        <SelfHostingCopilotRuntimeConfigureCopilotKitProvider components={props.components} />
-                        <Callout type="info">
-                            Looking for a way to run multiple agents? Check out our [Multi-Agent](/microsoft-agent-framework/advanced/multi-agent-flows) guide.
-                        </Callout>
-                    </Step>
-                </TailoredContentOption>
-            </TailoredContent> */}
-            <Step>
-                ## Choose a Copilot UI
-
-                You are almost there! Now it's time to setup your Copilot UI.
-
-                <ConnectCopilotUI components={props.components} />
             </Step>
             <Step>
-                ### 🎉 Talk to your agent!
+                ### Setup Copilot Runtime
 
-                Congrats! You've successfully integrated a Microsoft Agent Framework agent chatbot to your application. To start, try asking a few questions to your agent.
+                CopilotKit requires a Copilot Runtime endpoint to safely communicate with your agent. This can be served
+                anywhere that Node.js can run, but for this example we'll use Next.js.
 
-                ```
-                Can you tell me a joke?
-                ```
+                Create a new API route at `app/api/copilotkit/route.ts`:
 
-                ```
-                Can you help me understand AI?
-                ```
+                ```tsx title="app/api/copilotkit/route.ts"
+                import {
+                  CopilotRuntime,
+                  ExperimentalEmptyAdapter,
+                  copilotRuntimeNextJSAppRouterEndpoint,
+                } from "@copilotkit/runtime";
+                import { HttpAgent } from "@ag-ui/client";
+                import { NextRequest } from "next/server";
 
-                ```
-                What do you think about React?
-                ```
+                // 1. You can use any service adapter here for multi-agent support. We use
+                //    the empty adapter since we're only using one agent.
+                const serviceAdapter = new ExperimentalEmptyAdapter();
 
-                <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+                // 2. Create the CopilotRuntime instance and utilize the Microsoft Agent Framework
+                //    AG-UI integration to setup the connection.
+                // [!code highlight:5]
+                const runtime = new CopilotRuntime({
+                  agents: {
+                    my_agent: new HttpAgent({ url: "http://localhost:8000/" }),
+                  },
+                });
 
-                {/* TODO: Add correct instructions on how to troubleshoot Copilot Cloud connection */}
-                {/* <Accordions className="mb-4">
-                    <Accordion title="Having trouble?">
-                        - Ensure your AG-UI server is running and reachable (default: http://localhost:8000)
-                        - If using Copilot Cloud tunnel, confirm the tunnel URL matches the remote endpoint configuration
-                        - Verify any required Authorization headers are being forwarded from `<CopilotKit>` properties
-                        - Try `0.0.0.0` or `127.0.0.1` instead of `localhost` if you see connection issues
-                    </Accordion>
-                </Accordions> */}
+                // 3. Build a Next.js API route that handles the CopilotKit runtime requests.
+                export const POST = async (req: NextRequest) => {
+                  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+                    runtime,
+                    serviceAdapter,
+                    endpoint: "/api/copilotkit",
+                  });
+
+                  return handleRequest(req);
+                };
+                ```
             </Step>
-            </TailoredContentOption>
-        </TailoredContent>
+            <Step>
+                ### Configure CopilotKit Provider
 
+                Next, wrap your application with the CopilotKit provider so that CopilotKit can take control across your application
+                via the Microsoft Agent Framework agent.
+
+                ```tsx title="app/layout.tsx"
+                import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
+                import "@copilotkit/react-ui/styles.css";
+
+                export default function RootLayout({ children }: {children: React.ReactNode}) {
+                  return (
+                    <html lang="en">
+                      <body>
+                        {/* [!code highlight:3] */}
+                        <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
+                          {children}
+                        </CopilotKit>
+                      </body>
+                    </html>
+                  );
+                }
+                ```
+            </Step>
+            <Step>
+              ### Add the chat interface
+
+              Add the CopilotSidebar component to your page:
+
+              ```tsx title="app/page.tsx"
+              "use client";
+
+              // [!code highlight:1]
+              import { CopilotSidebar } from "@copilotkit/react-ui";
+
+              export default function Page() {
+                return (
+                  <main>
+                    {/* [!code highlight:6] */}
+                    <CopilotSidebar
+                      labels={{
+                        title: "Your Assistant",
+                        initial: "Hi! How can I help you today?",
+                      }}
+                    />
+                    <h1>Your App</h1>
+                  </main>
+                );
+              }
+              ```
+            </Step>
+            <Step>
+              ### Run and start your Next.js app
+              To run the Next.js app we just created, use the following command:
+
+              <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+                  <Tab value="npm">
+                      ```bash
+                      npm run dev
+                      ```
+                  </Tab>
+                  <Tab value="pnpm">
+                      ```bash
+                      pnpm dev
+                      ```
+                  </Tab>
+                  <Tab value="yarn">
+                      ```bash
+                      yarn dev
+                      ```
+                  </Tab>
+                  <Tab value="bun">
+                      ```bash
+                      bun dev
+                      ```
+                  </Tab>
+              </Tabs>
+            </Step>
+        </TailoredContentOption>
+    </TailoredContent>
+    <Step>
+        ### 🎉 Start chatting!
+
+        Your AI agent is now ready to use! Try asking it some questions:
+
+        ```
+        Can you tell me a joke?
+        ```
+
+        ```
+        Can you help me understand AI?
+        ```
+
+        ```
+        What do you think about .NET?
+        ```
+
+        <Accordions className="mb-4">
+            <Accordion title="Troubleshooting">
+                **Agent Connection Issues**
+                - If you see "I'm having trouble connecting to my tools", make sure:
+                  - The C# agent is running on port 8000
+                  - Your GitHub token is set correctly via user secrets
+                  - Both servers started successfully (check terminal output)
+
+                **GitHub Token Issues**
+                - If the agent fails with "GitHubToken not found":
+                  ```bash
+                  cd agent
+                  dotnet user-secrets set GitHubToken "$(gh auth token)"
+                  ```
+
+                **.NET SDK Issues**
+                - Verify .NET SDK is installed:
+                  ```bash
+                  dotnet --version  # Should be 9.0.x or higher
+                  ```
+                - Restore packages manually if needed:
+                  ```bash
+                  cd agent
+                  dotnet restore
+                  dotnet run
+                  ```
+
+                **Port Conflicts**
+                - If port 8000 is already in use, you can change it in:
+                  - `agent/Properties/launchSettings.json` - Update `applicationUrl`
+                  - `src/app/api/copilotkit/route.ts` - Update the remote endpoint URL
+            </Accordion>
+        </Accordions>
+
+    </Step>
 </Steps>
-
----
 
 ## What's next?
 
-You've now got a Microsoft Agent Framework agent running in CopilotKit! Now you can start exploring the various ways that CopilotKit
-can help you build power agent native applications.
+Now that you have your basic agent setup, explore these advanced features:
 
 <Cards>
   <Card
