@@ -37,8 +37,8 @@
     "unlink:global": "pnpm unlink --global"
   },
   "peerDependencies": {
-    "@copilotkitnext/core": "0.0.22-alpha.3",
-    "@copilotkitnext/react": "0.0.22-alpha.3",
+    "@copilotkitnext/core": "0.0.22-alpha.4",
+    "@copilotkitnext/react": "0.0.22-alpha.4",
     "react": "^18 || ^19 || ^19.0.0-rc",
     "react-dom": "^18 || ^19 || ^19.0.0-rc",
     "zod": ">=3.0.0"
