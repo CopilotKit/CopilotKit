@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { SignUpModal } from '@/components/layout/signup-modal';
+import { V150EarlyAccessModal } from '@/components/layout/v150-early-access-modal';
 
 export function SignUpSection() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -19,7 +19,7 @@ export function SignUpSection() {
         {' '}to upcoming releases.
       </p>
       
-      <SignUpModal 
+      <V150EarlyAccessModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
       />
