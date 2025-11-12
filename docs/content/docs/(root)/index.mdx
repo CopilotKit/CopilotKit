@@ -4,6 +4,7 @@ description: "The Agentic Application Framework:  Open source framework and host
 icon: "lucide/Sparkles"
 hideTOC: true
 ---
+import Image from "next/image"
 import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
 import { ExamplesCarousel } from "@/components/react/examples-carousel";
 import { CTACards } from "@/components/react/cta-cards";
@@ -30,6 +31,7 @@ import { CopilotKitHero } from "@/components/branding/CopilotKitHero";
     It connects your app's logic, state, UI, and context to agentic backends to power interactive experiences across embedded UIs and headless interfaces. Build, deploy, and monitor AI features that feel intuitive and deeply integrated.
   </div>
     <video src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4" autoPlay controls loop muted playsInline className="rounded-xl shadow-lg mx-auto mt-auto" />
+
   <div>
     ### Use Any Agentic Backend, Framework and Protocol
 
@@ -39,14 +41,30 @@ import { CopilotKitHero } from "@/components/branding/CopilotKitHero";
     
     By decoupling from specific frameworks, models, or agent protocols, CopilotKit lets you evolve your AI stack without redesigning your app's UX.
   </div>
-  <img src="/images/stack.png" alt="CopilotKit Stack" className="w-full max-w-md mx-auto 2xl:mt-auto" />
+  <div className="w-full max-w-2xl mx-auto 2xl:mt-auto -mt-20">
+    <Image 
+      src="/images/agentic-backend-agentic-application-light.png" 
+      alt="Agentic Backend to Agentic Application" 
+      width={4096} 
+      height={2304}
+      className="block dark:hidden"
+    />
+    <Image 
+      src="/images/agentic-backend-agentic-application-dark.png" 
+      alt="Agentic Backend to Agentic Application" 
+      width={4096} 
+      height={2304}
+      className="hidden dark:block"
+    />
+  </div>
+
 </div>
 ## Get Started Now
 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-10 gap-6 mb-12">
   <div className="lg:col-span-3 border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
     <div>
       <h3 className="text-xl font-bold mb-3 text-foreground">Quickstart</h3>
-      <p className="text-sm text-muted-foreground mb-8">Start with an LLM<br /> or Agent Framework</p>
+      <div className="text-sm text-muted-foreground mb-8">Start with an LLM<br /> or Agent Framework</div>
     </div>
     <div className="h-12 flex items-center justify-center">
       <QuickstartDropdown />
@@ -55,7 +73,7 @@ import { CopilotKitHero } from "@/components/branding/CopilotKitHero";
   <div className="lg:col-span-4 border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
     <div>
       <h3 className="text-xl font-bold mb-3 text-foreground">CLI</h3>
-      <p className="text-sm text-muted-foreground mb-4">Bootstrap your NextJS<br />application with CopilotKit</p>
+      <div className="text-sm text-muted-foreground mb-4">Bootstrap your NextJS<br />application with CopilotKit</div>
     </div>
     <div className="h-12 flex items-center justify-center">
       
@@ -67,7 +85,7 @@ npx copilotkit@latest init
   <div className="lg:col-span-3 border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
     <div>
       <h3 className="text-xl font-bold mb-3 text-foreground">Cloud</h3>
-      <p className="text-sm text-muted-foreground mb-4">Start the easiest way<br /> with our hosted service</p>
+      <div className="text-sm text-muted-foreground mb-4">Start the easiest way<br /> with our hosted service</div>
     </div>
     <div className="h-12 flex items-center justify-center">
       <LinkToCopilotCloud asButton={true} />
@@ -92,9 +110,9 @@ npx copilotkit@latest init
           <h3 className="text-2xl font-bold mb-2 text-foreground">Generative UI</h3>
           <div className="w-12 h-0.5 bg-gradient-to-r from-primary to-primary rounded-full"></div>
         </div>
-        <p className="text-muted-foreground leading-relaxed mb-6">
+        <div className="text-muted-foreground leading-relaxed mb-6">
           Render state, progress, outputs, and tool calls with custom UI components in real-time. Bridges the gap between AI agents and user interfaces.
-        </p>
+        </div>
         <div className="space-y-3">
           <a href="/generative-ui" className="block text-primary hover:text-primary font-medium no-underline">
             Learn more →
@@ -118,9 +136,9 @@ npx copilotkit@latest init
           <h3 className="text-2xl font-bold mb-2 text-foreground">Human in the Loop</h3>
           <div className="w-12 h-0.5 bg-gradient-to-r from-primary to-primary rounded-full"></div>
         </div>
-        <p className="text-muted-foreground leading-relaxed mb-6">
+        <div className="text-muted-foreground leading-relaxed mb-6">
           Empower users to guide agents at key checkpoints. Combine the best of AI and human judgment for more reliable and controllable agent behavior.
-        </p>
+        </div>
         <div className="space-y-3">
           <a href="/human-in-the-loop" className="block text-primary hover:text-primary font-medium no-underline">
             Learn more →
@@ -144,9 +162,9 @@ npx copilotkit@latest init
           <h3 className="text-2xl font-bold mb-2 text-foreground">Shared State</h3>
           <div className="w-12 h-0.5 bg-gradient-to-r from-primary to-primary rounded-full"></div>
         </div>
-        <p className="text-muted-foreground leading-relaxed mb-6">
+        <div className="text-muted-foreground leading-relaxed mb-6">
           Keep your agent and your app in sync. Your agent can see everything in your app, and your app can react to your agent in real-time.
-        </p>
+        </div>
         <div className="space-y-3">
           <a href="/shared-state" className="block text-primary hover:text-primary font-medium no-underline">
             Learn more →
