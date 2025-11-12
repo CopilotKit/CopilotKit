@@ -1,0 +1,119 @@
+---
+title: Frontend Tools
+icon: "lucide/Wrench"
+description: Create frontend tools and use them within your Microsoft Agent Framework agent.
+---
+import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/microsoft-agent-framework/run-and-connect.mdx"
+
+{/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the feature viewer */}
+<IframeSwitcher
+  id="frontend-actions-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+## What is this?
+Frontend tools enable you to define client-side functions that your agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
+the logic runs on the client side, giving you direct access to the frontend environment.
+
+This can be utilized to let your agent control the UI, power generative UI, or support Human-in-the-loop interactions.
+
+In this guide, we cover the use of frontend tools driving and interacting with the UI.
+
+## When should I use this?
+Use frontend tools when you need your agent to interact with client-side primitives such as:
+- Reading or modifying React component state
+- Accessing browser APIs like localStorage, sessionStorage, or cookies
+- Triggering UI updates or animations
+- Interacting with third-party frontend libraries
+- Performing actions that require the user's immediate browser context
+
+## Implementation
+
+<Steps>
+    <Step>
+        ### Run and connect your agent
+        <RunAndConnect components={props.components} />
+    </Step>
+
+    <Step>
+        ### Create a frontend tool
+
+        First, you'll need to create a frontend tool using the [useFrontendTool](/reference/hooks/useFrontendTool) hook. Here's a simple one to get you started
+        that says hello to the user.
+
+        ```tsx title="page.tsx"
+        import { useFrontendTool } from "@copilotkit/react-core" // [!code highlight]
+
+        export function Page() {
+          // ...
+
+          // [!code highlight:15]
+          useFrontendTool({
+            name: "sayHello",
+            description: "Say hello to the user",
+            parameters: [
+              {
+                name: "name",
+                type: "string",
+                description: "The name of the user to say hello to",
+                required: true,
+              },
+            ],
+            handler: async ({ name }) => {
+              alert(`Hello, ${name}!`);
+            },
+          });
+
+          // ...
+        }
+        ```
+    </Step>
+    <Step>
+        ### Modify your server
+        Now, we'll ensure your AG-UI server can receive and pass these frontend actions to your agent logic.
+    </Step>
+    <Step>
+        ### Create your AG-UI server
+
+        Set up your AG-UI server to serve your agent. Frontend tools registered with `useFrontendTool` are automatically
+        made available to your agent through the AG-UI protocol.
+
+        ```csharp title="Program.cs"
+        using Azure.AI.OpenAI;
+        using Azure.Identity;
+        using Microsoft.Agents.AI;
+        using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+
+        var builder = WebApplication.CreateBuilder(args);
+        builder.Services.AddAGUI();
+        var app = builder.Build();
+
+        string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
+        string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
+
+        // Create the agent
+        var agent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
+            .GetChatClient(deployment)
+            .CreateAIAgent(name: "AGUIAssistant", instructions: "You are a helpful assistant.");
+
+        // Map the AG-UI endpoint
+        app.MapAGUI("/", agent);
+        await app.RunAsync();
+        ```
+
+        <Callout type="info">
+          Frontend tools registered with `useFrontendTool` are automatically forwarded to your agent by the AG-UI protocol. The agent can invoke them just like backend tools, but execution happens on the frontend.
+        </Callout>
+    </Step>
+    <Step>
+        ### Give it a try!
+        You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
+
+        <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+    </Step>
+</Steps>

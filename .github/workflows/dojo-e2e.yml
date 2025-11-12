@@ -1,134 +1,220 @@
-name: e2e/dojo
+name: e2e
 
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
   pull_request:
     branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
 
 jobs:
-  e2e:
-    name: E2E Tests
-    runs-on: depot-ubuntu-latest-8
+  dojo:
+    name: dojo / ${{ matrix.suite }}
+    runs-on: depot-ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: a2a-middleware
+            test_path: tests/a2aMiddlewareTests
+            services: ["dojo", "a2a-middleware"]
+            wait_on: http://localhost:9999,tcp:localhost:8011,tcp:localhost:8012,tcp:localhost:8013,tcp:localhost:8014
+          - suite: adk-middleware
+            test_path: tests/adkMiddlewareTests
+            services: ["dojo", "adk-middleware"]
+            wait_on: http://localhost:9999,tcp:localhost:8010
+          - suite: agno
+            test_path: tests/agnoTests
+            services: ["dojo", "agno"]
+            wait_on: http://localhost:9999,tcp:localhost:8002
+          - suite: crew-ai
+            test_path: tests/crewAITests
+            services: ["dojo", "crew-ai"]
+            wait_on: http://localhost:9999,tcp:localhost:8003
+          - suite: langgraph-python
+            test_path: tests/langgraphPythonTests
+            services: ["dojo", "langgraph-platform-python"]
+            wait_on: http://localhost:9999,tcp:localhost:8005
+          - suite: langgraph-typescript
+            test_path: tests/langgraphTypescriptTests
+            services: ["dojo", "langgraph-platform-typescript"]
+            wait_on: http://localhost:9999,tcp:localhost:8006
+          - suite: langgraph-fastapi
+            test_path: tests/langgraphFastAPITests
+            services: ["dojo", "langgraph-fastapi"]
+            wait_on: http://localhost:9999,tcp:localhost:8004
+          - suite: llama-index
+            test_path: tests/llamaIndexTests
+            services: ["dojo", "llama-index"]
+            wait_on: http://localhost:9999,tcp:localhost:8007
+          - suite: mastra
+            test_path: tests/mastraTests
+            services: ["dojo", "mastra"]
+            wait_on: http://localhost:9999,tcp:localhost:8008
+          - suite: mastra-agent-local
+            test_path: tests/mastraAgentLocalTests
+            services: ["dojo"]
+            wait_on: http://localhost:9999
+          - suite: middleware-starter
+            test_path: tests/middlewareStarterTests
+            services: ["dojo"]
+            wait_on: http://localhost:9999
+          - suite: pydantic-ai
+            test_path: tests/pydanticAITests
+            services: ["dojo", "pydantic-ai"]
+            wait_on: http://localhost:9999,tcp:localhost:8009
+          - suite: server-starter
+            test_path: tests/serverStarterTests
+            services: ["dojo", "server-starter"]
+            wait_on: http://localhost:9999,tcp:localhost:8000
+          - suite: server-starter-all
+            test_path: tests/serverStarterAllFeaturesTests
+            services: ["dojo", "server-starter-all"]
+            wait_on: http://localhost:9999,tcp:localhost:8001
 
     steps:
-    - name: Checkout CPK
-      uses: actions/checkout@v4
-      with:
-        path: CopilotKit
+      - name: Checkout CPK
+        uses: actions/checkout@v4
+        with:
+          path: CopilotKit
 
-    - name: Checkout AGUI
-      uses: actions/checkout@v4
-      with:
-        repository: ag-ui-protocol/ag-ui
-        path: ag-ui
-        ref: main
+      - name: Checkout AGUI
+        uses: actions/checkout@v4
+        with:
+          repository: ag-ui-protocol/ag-ui
+          path: ag-ui
+          ref: main
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '22'
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
 
-    - name: Install pnpm
-      uses: pnpm/action-setup@v4
-      with:
-        version: 10.13.1
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.13.1
 
-    - name: Install Poetry
-      uses: snok/install-poetry@v1
-      with:
-        version: latest
-        virtualenvs-create: true
-        virtualenvs-in-project: true
+      # Now that pnpm is available, cache its store to speed installs
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v6
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
-    - name: Setup pnpm cache
-      uses: actions/cache@v4
-      with:
-        path: ~/.local/share/pnpm/store
-        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-pnpm-store-
+      # Cache Python tool caches and virtualenvs; restore only to avoid long saves
+      - name: Cache Python dependencies (restore-only)
+        id: cache-python
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/pypoetry
+            ~/.cache/uv
+            **/.venv
+          key: ${{ runner.os }}-pydeps-${{ hashFiles('**/poetry.lock', '**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pydeps-
 
-    - name: Install cpk dependencies
-      working-directory: CopilotKit/CopilotKit
-      run: pnpm install --frozen-lockfile
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-create: true
+          virtualenvs-in-project: true
 
-    - name: Build cpk
-      working-directory: CopilotKit/CopilotKit
-      run: |
-        unset TURBO_API
-        unset TURBO_TOKEN
-        unset TURBO_TEAM
-        pnpm build
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
 
-    - name: Install ag-ui dependencies
-      working-directory: ag-ui
-      run: pnpm install --frozen-lockfile
+      - name: Install cpk dependencies
+        working-directory: CopilotKit/CopilotKit
+        run: pnpm install --frozen-lockfile
 
-    - name: Link cpk into ag-ui
-      working-directory: CopilotKit
-      run: node ../ag-ui/apps/dojo/scripts/link-cpk.js .
-
-    - name: Prepare dojo for e2e
-      working-directory: ag-ui/apps/dojo
-      run: |
-        unset TURBO_API
-        unset TURBO_TOKEN
-        unset TURBO_TEAM
-        node ./scripts/prep-dojo-everything.js
-
-    - name: Install e2e dependencies
-      working-directory: ag-ui/apps/dojo/e2e
-      run: |
-        pnpm install
-
-    - name: write langgraph env files
-      working-directory: ag-ui/integrations/langgraph
-      env:
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
-      run: |
-        echo "OPENAI_API_KEY=${OPENAI_API_KEY}" > python/examples/.env
-        echo "LANGSMITH_API_KEY=${LANGSMITH_API_KEY}" >> python/examples/.env
-        echo "OPENAI_API_KEY=${OPENAI_API_KEY}" > typescript/examples/.env
-        echo "LANGSMITH_API_KEY=${LANGSMITH_API_KEY}" >> typescript/examples/.env
-
-    - name: Run dojo+agents and tests
-      uses: JarvusInnovations/background-action@v1
-      env:
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
-        GOOGLE_API_KEY: ${{ secrets.GOOGLE_GEMINI_API_KEY }}
-      with:
+      - name: Build cpk
+        working-directory: CopilotKit/CopilotKit
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+          TURBO_CONCURRENCY: 2
         run: |
-          node ./scripts/run-dojo-everything.js
+          unset TURBO_API
+          unset TURBO_TOKEN
+          unset TURBO_TEAM
+          pnpm build
+
+      - name: Install ag-ui dependencies
+        working-directory: ag-ui
+        run: pnpm install --frozen-lockfile
+
+      - name: Link cpk into ag-ui
+        working-directory: CopilotKit
+        run: node ../ag-ui/apps/dojo/scripts/link-cpk.js .
+
+      - name: Prepare dojo for e2e
         working-directory: ag-ui/apps/dojo
-        wait-on: |
-          http://localhost:9999
-          tcp:localhost:8000
-          tcp:localhost:8001
-          tcp:localhost:8002
-          tcp:localhost:8003
-          tcp:localhost:8004
-          tcp:localhost:8005
-          tcp:localhost:8006
-          tcp:localhost:8007
-          tcp:localhost:8008
-          tcp:localhost:8009
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+        if: ${{ join(matrix.services, ',') != '' }}
+        run: node ./scripts/prep-dojo-everything.js --only ${{ join(matrix.services, ',') }}
 
-    - name: Run tests
-      working-directory: ag-ui/apps/dojo/e2e
-      env:
-        BASE_URL: http://localhost:9999
-      run: pnpm test
+      - name: Install e2e dependencies
+        working-directory: ag-ui/apps/dojo/e2e
+        run: |
+          pnpm install
 
-    - name: Upload traces
-      if: always() # Uploads artifacts even if tests fail
-      uses: actions/upload-artifact@v4
-      with:
-        name: playwright-traces
-        path: ag-ui/apps/dojo/e2e/test-results/
-        retention-days: 7
+      - name: write langgraph env files
+        working-directory: ag-ui/integrations/langgraph
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+        if: ${{ contains(join(matrix.services, ','), 'langgraph-fastapi') || contains(join(matrix.services, ','), 'langgraph-platform-python') || contains(join(matrix.services, ','), 'langgraph-platform-typescript') }}
+        run: |
+          echo "OPENAI_API_KEY=${OPENAI_API_KEY}" > python/examples/.env
+          echo "LANGSMITH_API_KEY=${LANGSMITH_API_KEY}" >> python/examples/.env
+          echo "OPENAI_API_KEY=${OPENAI_API_KEY}" > typescript/examples/.env
+          echo "LANGSMITH_API_KEY=${LANGSMITH_API_KEY}" >> typescript/examples/.env
+
+      - name: Run dojo+agents
+        uses: JarvusInnovations/background-action@v1
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_GEMINI_API_KEY }}
+        if: ${{ join(matrix.services, ',') != '' && contains(join(matrix.services, ','), 'dojo') }}
+        with:
+          run: |
+            node ../scripts/run-dojo-everything.js --only ${{ join(matrix.services, ',') }}
+          working-directory: ag-ui/apps/dojo/e2e
+          wait-on: ${{ matrix.wait_on }}
+          wait-for: 300000
+
+      - name: Run tests – ${{ matrix.suite }}
+        working-directory: ag-ui/apps/dojo/e2e
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+          BASE_URL: http://localhost:9999
+          PLAYWRIGHT_SUITE: ${{ matrix.suite }}
+        run: |
+          pnpm test -- ${{ matrix.test_path }}
+
+      - name: Upload traces – ${{ matrix.suite }}
+        if: always() # Uploads artifacts even if tests fail
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.suite }}-playwright-traces
+          path: |
+            ag-ui/apps/dojo/e2e/test-results/${{ matrix.suite }}/**/*
+            ag-ui/apps/dojo/e2e/playwright-report/**/*
+          retention-days: 7

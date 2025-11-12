@@ -3,17 +3,13 @@ title: "useHumanInTheLoop"
 description: "The useHumanInTheLoop hook enables human approval and interaction workflows."
 ---
 
-<br />
-<img src="https://cdn.copilotkit.ai/docs/copilotkit/images/human-in-the-loop/hitl-example.gif" width="500" />
+`useHumanInTheLoop` pauses AI execution to request human input or approval. When the AI calls this
+tool, it stops and waits for the user to respond through your custom UI before continuing. This is
+essential for sensitive operations, confirmations, or collecting information that only the user can provide.
 
-`useHumanInTheLoop` is a React hook that enables you to create interactive workflows
-where the AI can request human input or approval before proceeding. This is particularly
-useful for sensitive operations, confirmation dialogs, or gathering additional information
-from the user.
-
-The key difference from `useFrontendTool` is that this hook provides a `respond` function
-in the render props, which allows the component to send a response back to the AI,
-creating a true interactive loop.
+Unlike `useFrontendTool`, there's no handler function—instead, your render function receives a `respond`
+callback that sends the user's input back to the AI. The AI execution remains paused until `respond` is called,
+making this a true blocking interaction.
 
 ## Usage
 
@@ -21,28 +17,37 @@ creating a true interactive loop.
 
 ```tsx
 import { useHumanInTheLoop } from "@copilotkit/react-core";
-import { z } from "zod";
 
 useHumanInTheLoop({
   name: "confirmDeletion",
   description: "Ask user to confirm before deleting items",
-  parameters: z.object({
-    itemName: z.string().describe("Name of the item to delete"),
-    itemCount: z.number().describe("Number of items to delete"),
-  }),
-  render: ({ args, status, respond }) => {
+  parameters: [
+    {
+      name: "itemName",
+      type: "string",
+      description: "Name of the item to delete",
+      required: true,
+    },
+    {
+      name: "itemCount",
+      type: "number",
+      description: "Number of items to delete",
+      required: true,
+    },
+  ],
+  render: ({ args, status, respond, result }) => {
     if (status === "executing" && respond) {
       return (
         <div className="p-4 border rounded">
           <p>Are you sure you want to delete {args.itemCount} {args.itemName}(s)?</p>
           <div className="flex gap-2 mt-4">
-            <button 
+            <button
               onClick={() => respond({ confirmed: true })}
               className="bg-red-500 text-white px-4 py-2 rounded"
             >
               Delete
             </button>
-            <button 
+            <button
               onClick={() => respond({ confirmed: false })}
               className="bg-gray-300 px-4 py-2 rounded"
             >
@@ -52,7 +57,7 @@ useHumanInTheLoop({
         </div>
       );
     }
-    
+
     if (status === "complete" && result) {
       return (
         <div className="p-2 text-sm text-gray-600">
@@ -60,7 +65,7 @@ useHumanInTheLoop({
         </div>
       );
     }
-    
+
     return null;
   },
 });
@@ -70,16 +75,25 @@ useHumanInTheLoop({
 
 ```tsx
 import { useHumanInTheLoop } from "@copilotkit/react-core";
-import { z } from "zod";
 import { useState } from "react";
 
 useHumanInTheLoop({
   name: "collectUserPreferences",
   description: "Collect detailed preferences from the user",
-  parameters: z.object({
-    context: z.string().describe("Context for why preferences are needed"),
-    requiredFields: z.array(z.string()).describe("Fields to collect"),
-  }),
+  parameters: [
+    {
+      name: "context",
+      type: "string",
+      description: "Context for why preferences are needed",
+      required: true,
+    },
+    {
+      name: "requiredFields",
+      type: "string[]",
+      description: "Fields to collect",
+      required: true,
+    },
+  ],
   render: ({ args, status, respond }) => {
     const [preferences, setPreferences] = useState({
       theme: "light",
@@ -95,36 +109,7 @@ useHumanInTheLoop({
             e.preventDefault();
             respond(preferences);
           }}>
-            {args.requiredFields.includes("theme") && (
-              <div className="mb-4">
-                <label className="block mb-2">Theme:</label>
-                <select 
-                  value={preferences.theme}
-                  onChange={(e) => setPreferences({...preferences, theme: e.target.value})}
-                  className="w-full p-2 border rounded"
-                >
-                  <option value="light">Light</option>
-                  <option value="dark">Dark</option>
-                  <option value="auto">Auto</option>
-                </select>
-              </div>
-            )}
-            
-            {args.requiredFields.includes("notifications") && (
-              <div className="mb-4">
-                <label className="flex items-center">
-                  <input 
-                    type="checkbox"
-                    checked={preferences.notifications}
-                    onChange={(e) => setPreferences({...preferences, notifications: e.target.checked})}
-                    className="mr-2"
-                  />
-                  Enable notifications
-                </label>
-              </div>
-            )}
-            
-            <button 
+            <button
               type="submit"
               className="bg-blue-500 text-white px-4 py-2 rounded"
             >
@@ -134,75 +119,19 @@ useHumanInTheLoop({
         </div>
       );
     }
-    
+
     return null;
   },
 });
 ```
 
-## Parameters
-
-<PropertyReference name="tool" type="ReactHumanInTheLoop<T>" required>
-  The human-in-the-loop tool configuration object.
-
-    <PropertyReference name="name" type="string" required>
-      The name of the tool.
-    </PropertyReference>
-
-    <PropertyReference name="description" type="string">
-      A description of the tool. This is used to instruct the Copilot on when to
-      request human input.
-    </PropertyReference>
-
-    <PropertyReference name="parameters" type="z.ZodType<T>">
-      The Zod schema defining the parameters that will be passed to the render function.
-    </PropertyReference>
-
-    <PropertyReference name="render" type="React.ComponentType<RenderProps>" required>
-      A React component that renders the interactive UI. The component receives props with:
-      
-      <div className="ml-8">
-        <PropertyReference name="status" type="'inProgress' | 'executing' | 'complete'">
-          - `"inProgress"`: arguments are being streamed, UI can show loading state.
-          - `"executing"`: Ready for user interaction, `respond` function is available.
-          - `"complete"`: Interaction complete, can show result.
-        </PropertyReference>
-
-        <PropertyReference name="args" type="Partial<T> | T">
-          The arguments passed from the AI. When status is `"inProgress"`, they may be incomplete.
-        </PropertyReference>
-
-        <PropertyReference name="respond" type="(result: unknown) => Promise<void>">
-          Function to send the user's response back to the AI. Only available when status is `"executing"`.
-          Call this with the user's input to continue the workflow.
-        </PropertyReference>
-
-        <PropertyReference name="result" type="unknown">
-          The response that was sent back. Only available when status is `"complete"`.
-        </PropertyReference>
-
-        <PropertyReference name="name" type="string">
-          The name of the tool being executed.
-        </PropertyReference>
-
-        <PropertyReference name="description" type="string">
-          The description of the tool being executed.
-        </PropertyReference>
-      </div>
-    </PropertyReference>
-</PropertyReference>
-
-<PropertyReference name="dependencies" type="any[]">
-  An optional array of dependencies.
-</PropertyReference>
-
 ## Best Practices
 
-1. **Always check for the `respond` function** before rendering interactive elements
-2. **Handle all status states** to provide good user feedback
-3. **Validate user input** before calling `respond`
-4. **Provide clear instructions** in your UI about what input is expected
-5. **Consider timeout scenarios** for time-sensitive operations
+1. Always check for the `respond` function before rendering interactive elements
+2. Handle all status states to provide good user feedback
+3. Validate user input before calling `respond`
+4. Provide clear instructions in your UI about what input is expected
+5. Consider timeout scenarios for time-sensitive operations
 
 ## Migration from useCopilotAction
 
@@ -217,7 +146,7 @@ useCopilotAction({
   ],
   renderAndWaitForResponse: ({ args, respond, status }) => {
     return (
-      <ConfirmDialog 
+      <ConfirmDialog
         message={args.message}
         onConfirm={() => respond(true)}
         onCancel={() => respond(false)}
@@ -230,13 +159,18 @@ useCopilotAction({
 // After with useHumanInTheLoop
 useHumanInTheLoop({
   name: "confirmAction",
-  parameters: z.object({
-    message: z.string(),
-  }),
+  parameters: [
+    {
+      name: "message",
+      type: "string",
+      description: "The message to display",
+      required: true,
+    },
+  ],
   render: ({ args, respond, status }) => {
     if (status === "executing" && respond) {
       return (
-        <ConfirmDialog 
+        <ConfirmDialog
           message={args.message}
           onConfirm={() => respond(true)}
           onCancel={() => respond(false)}
@@ -250,6 +184,50 @@ useHumanInTheLoop({
 ```
 
 The main differences are:
-1. Parameters use Zod schemas
-2. The property is called `render` instead of `renderAndWaitForResponse`
-3. You need to check for the `respond` function's existence
+1. The property is called `render` instead of `renderAndWaitForResponse`
+2. You need to check for the `respond` function's existence
+
+## Parameters
+
+<PropertyReference name="name" type="string" required >
+The name of the tool.
+</PropertyReference>
+
+<PropertyReference name="description" type="string"  >
+A description of the tool. This is used to instruct the Copilot on when to request human input.
+</PropertyReference>
+
+<PropertyReference name="parameters" type="T"  >
+Array of parameter definitions that will be passed to the render function. Each parameter object should have:
+- `name` (string): The parameter name
+- `type` (string): The parameter type (e.g., "string", "number", "boolean", "string[]", "object")
+- `description` (string): A description of what the parameter is for
+- `required` (boolean): Whether the parameter is required
+- `properties` (array, optional): For object types, define nested properties using the same schema
+
+Simple example: `[{ name: "itemName", type: "string", description: "Name of the item", required: true }]`
+
+Nested example:
+```typescript
+[
+  {
+    name: "approval",
+    type: "object",
+    description: "Approval request details",
+    required: true,
+    properties: [
+      { name: "action", type: "string", description: "Action requiring approval", required: true },
+      { name: "reason", type: "string", description: "Reason for the action", required: false }
+    ]
+  }
+]
+```
+</PropertyReference>
+
+<PropertyReference name="render" type="FrontendAction<T>['renderAndWaitForResponse']" required >
+A React component that renders the interactive UI for human input. The component receives props including `args`, `status`, and `respond` function.
+</PropertyReference>
+
+<PropertyReference name="available" type="'disabled' | 'enabled'"  >
+Whether the tool is available. Set to "disabled" to prevent the tool from being called.
+</PropertyReference>

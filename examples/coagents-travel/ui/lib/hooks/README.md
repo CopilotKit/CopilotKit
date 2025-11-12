@@ -1,6 +1,6 @@
 # use-trips.tsx
 
-This hook is where most of the magic happens for Copilotkit (if you're looking for the rest, check out [app/page.tsx](../../app/page.tsx) and [api/copilotkit/route.ts](../../app/api/copilotkit/route.ts)). It handles interacting with the CoAgent's state and provides helper functions for the UI to interact with and update the CoAgent's state. It also provides intermediate streaming for human-in-the-loop components as well as progress tracking.
+This hook is where most of the magic happens for CopilotKit (if you're looking for the rest, check out [app/page.tsx](../../app/page.tsx) and [api/copilotkit/route.ts](../../app/api/copilotkit/route.ts)). It handles interacting with the CoAgent's state and provides helper functions for the UI to interact with and update the CoAgent's state. It also provides intermediate streaming for human-in-the-loop components as well as progress tracking.
 
 ## Key Concepts
 
@@ -43,7 +43,7 @@ This hook is used to add front-end functions as tool calls to an agent or LLM. T
 For our needs, we can keep it simple and think of it as a way to force the LLM for user approval before performing some action. This is accomplished two ways.
 
 1. Setting a "breakpoint" in the agent code via the `interrupt_after` option when compiling an agent.
-2. Emitting tool calls via the Copilotkit SDK.
+2. Emitting tool calls via the CopilotKit SDK.
 3. Sending approval/rejection response back to the agent via our `useCopilotAction` hook.
 
 This is gone into in more detail in our documentation on implementing [human in the loop](https://docs.copilotkit.ai/coagents/human-in-the-loop/node-flow).

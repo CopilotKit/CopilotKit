@@ -1,0 +1,127 @@
+---
+title: "Authentication"
+icon: "lucide/Shield"
+description: "Secure your Microsoft Agent Framework agents with user authentication"
+---
+
+## Overview
+
+Forward user authentication from your frontend to your AG-UI server:
+
+- **Frontend**: Pass tokens via `<CopilotKit headers={{ Authorization: token }}>`
+- **Backend**: Validate tokens using ASP.NET Core authentication middleware
+
+## Frontend Setup
+
+Pass your authentication token via the `headers` prop:
+
+```tsx
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  headers={{
+    Authorization: `Bearer ${userToken}`,
+  }}
+>
+  <YourApp />
+</CopilotKit>
+```
+
+## Backend Setup
+
+Configure JWT bearer authentication in your AG-UI server:
+
+```csharp title="Program.cs"
+using Microsoft.Agents.AI;
+using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using OpenAI;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Configure JWT authentication
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.Authority = builder.Configuration["JwtAuthority"];
+        options.Audience = builder.Configuration["JwtAudience"];
+        options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true
+        };
+    });
+
+builder.Services.AddAuthorization();
+
+var app = builder.Build();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+// Create and map your agent
+string githubToken = builder.Configuration["GitHubToken"]!;
+var openAI = new OpenAIClient(
+    new System.ClientModel.ApiKeyCredential(githubToken),
+    new OpenAIClientOptions { Endpoint = new Uri("https://models.inference.ai.azure.com") }
+);
+var agent = openAI.GetChatClient("gpt-4o-mini")
+    .CreateAIAgent(name: "AGUIAssistant", instructions: "You are a helpful assistant.");
+
+app.MapAGUI("/", agent).RequireAuthorization();
+
+await app.RunAsync();
+```
+
+### Configuration
+
+Add JWT settings to your `appsettings.json`:
+
+```json title="appsettings.json"
+{
+  "JwtAuthority": "https://login.microsoftonline.com/{your-tenant-id}/v2.0",
+  "JwtAudience": "api://{your-client-id}",
+  "GitHubToken": "your-github-token-here"
+}
+```
+
+### CORS (if needed)
+
+If your frontend and backend are on different origins:
+
+```csharp title="Program.cs"
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.WithOrigins("http://localhost:3000")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
+// ...
+
+app.UseCors();
+app.UseAuthentication();
+app.UseAuthorization();
+```
+
+## Security Best Practices
+
+- Validate tokens on every request
+- Scope data access to authenticated users
+- Implement role-based access control in your agents
+- Use HTTPS in production
+
+## Troubleshooting
+
+**Token not reaching server**: Verify the `Authorization` header is set in `<CopilotKit>` and forwarded through any proxies.
+
+**Invalid token**: Ensure the token includes the `Bearer ` prefix.
+
+**CORS errors**: Configure CORS if frontend and backend are on different origins (see [CORS section](#cors-if-needed)).
+
+For more details, see [Microsoft's JWT authentication guide](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/configure-jwt-bearer-authentication).
