@@ -344,11 +344,11 @@ importers:
         specifier: workspace:*
         version: link:../shared
       '@copilotkitnext/core':
-        specifier: 0.0.22-alpha.7
-        version: 0.0.22-alpha.7
+        specifier: 0.0.22-alpha.8
+        version: 0.0.22-alpha.8
       '@copilotkitnext/react':
-        specifier: 0.0.22-alpha.7
-        version: 0.0.22-alpha.7(@lit-labs/react@2.1.3(@types/react@19.2.2))(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.1.0(react@19.2.0))(react@19.2.0)
+        specifier: 0.0.22-alpha.8
+        version: 0.0.22-alpha.8(@lit-labs/react@2.1.3(@types/react@19.2.2))(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.1.0(react@19.2.0))(react@19.2.0)
       '@scarf/scarf':
         specifier: ^1.3.0
         version: 1.3.0
@@ -544,8 +544,8 @@ importers:
         specifier: workspace:*
         version: link:../shared
       '@copilotkitnext/core':
-        specifier: 0.0.22-alpha.7
-        version: 0.0.22-alpha.7
+        specifier: 0.0.22-alpha.8
+        version: 0.0.22-alpha.8
       '@headlessui/react':
         specifier: ^2.2.9
         version: 2.2.9(react-dom@19.1.0(react@18.3.1))(react@18.3.1)
@@ -632,11 +632,11 @@ importers:
         specifier: workspace:*
         version: link:../shared
       '@copilotkitnext/agent':
-        specifier: 0.0.22-alpha.7
-        version: 0.0.22-alpha.7
+        specifier: 0.0.22-alpha.8
+        version: 0.0.22-alpha.8
       '@copilotkitnext/runtime':
-        specifier: 0.0.22-alpha.7
-        version: 0.0.22-alpha.7(express@4.19.2)(hono@4.10.4)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))
+        specifier: 0.0.22-alpha.8
+        version: 0.0.22-alpha.8(express@4.19.2)(hono@4.10.4)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))
       '@graphql-yoga/plugin-defer-stream':
         specifier: ^3.3.1
         version: 3.6.1(graphql-yoga@5.6.1(graphql@16.9.0))(graphql@16.9.0)
@@ -1769,36 +1769,39 @@ packages:
   '@chevrotain/utils@11.0.3':
     resolution: {integrity: sha512-YslZMgtJUyuMbZ+aKvfF3x1f5liK4mWNxghFRv7jqRR9C3R3fAOGTTKvxXDa2Y1s9zSbcpuO0cAxDYsc9SrXoQ==}
 
-  '@copilotkitnext/agent@0.0.22-alpha.7':
-    resolution: {integrity: sha512-e016NJHfBsBweK6Y+cU1aln1yldLxaKSqM7EgEhW1NG7STPu4zf8u3PQJRv3RtpBuIu4nCcIM/g+KACSPkKylg==}
+  '@copilotkitnext/agent@0.0.22-alpha.8':
+    resolution: {integrity: sha512-l2oAjwxo747cKTzyBtbYYnVsPx7v1EYojPXwJYbC4DLPJ7sJTZNigBwDXqQSdasw53bAuTEy+dtFGE+tca9WtQ==}
     engines: {node: '>=18'}
 
-  '@copilotkitnext/core@0.0.22-alpha.7':
-    resolution: {integrity: sha512-Dlc+4JL4/Xt1rcqhBjHIuBdEMYglkROVbUljqAWYqBBFYgbbLqMUyvattkrlX+H13UQudMga6wF5UTDlfy0/nQ==}
+  '@copilotkitnext/core@0.0.22-alpha.8':
+    resolution: {integrity: sha512-vlXylQTm+xYK3Tob0xhOoIyzY2CtLbdsH9yBMLPG7YQ+VfgtdDIUjTW/7QOgfT3KDRCbW0RczaaQmFHBgPbDxQ==}
     engines: {node: '>=18'}
 
-  '@copilotkitnext/react@0.0.22-alpha.7':
-    resolution: {integrity: sha512-frafhvtCBYtmNAma7ZL+9Kg0KD76ejg+DpskB6+pWzRI1O/8vFEHQfse9v5o0H9kDc6swYc/cpKdY3c4v2K6bg==}
+  '@copilotkitnext/react@0.0.22-alpha.8':
+    resolution: {integrity: sha512-VajuIBS3RoL1E/u2vLrchsg8EgA2bkm/pdESxdupqguZe2+g+UC96yReUYs5tz9Bwkb1GD2TNWc/ObzD8ZFkbA==}
     engines: {node: '>=18'}
     peerDependencies:
       '@lit-labs/react': ^2.0.0
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
 
-  '@copilotkitnext/runtime@0.0.22-alpha.7':
-    resolution: {integrity: sha512-ocgKJKPlclgnRJtfqni5iYW35t6dAul6R5iJAkDZ5VPXuPQnXawiOpexvd7nGXByl/6D8tqsFVVck8kiI9sG9w==}
+  '@copilotkitnext/runtime@0.0.22-alpha.8':
+    resolution: {integrity: sha512-e9Z7DyU+Ai04LwIUPqoRvajFTINzv0lxQ/Kw4Sa59wf55dIVCSCyCXtOliq+T5nWrK2tcWPyht8fOLzlkhtWQA==}
     engines: {node: '>=18'}
     peerDependencies:
       express: ^4.21.2
       hono: ^4.6.13
       openai: ^5.9.0
+    peerDependenciesMeta:
+      express:
+        optional: true
 
-  '@copilotkitnext/shared@0.0.22-alpha.7':
-    resolution: {integrity: sha512-5YXpjiAm5cwixnVqYZuQFHrAr6OVO2OOR1Gf0ZA3stWh+gQzzieiFKgHlMTngdJ2Rbn6QYWh92vkHXU3/dOivQ==}
+  '@copilotkitnext/shared@0.0.22-alpha.8':
+    resolution: {integrity: sha512-0Jq6CfS8ZQPxzDauERWs2kjdva2YntJghPk1itU/Nu4N7Zk7iGnHKZanh6SlwdIXThZbAVEb6f9CmdBn6C5HwQ==}
     engines: {node: '>=18'}
 
-  '@copilotkitnext/web-inspector@0.0.22-alpha.7':
-    resolution: {integrity: sha512-rOIU1sjFnIM+sCm3hdPfYZylsPmFAtriTQtdgsQnrRc2y6GcWYBNOi7XfP+93CzobjX3Rtf7ygi29pP8V6cz+g==}
+  '@copilotkitnext/web-inspector@0.0.22-alpha.8':
+    resolution: {integrity: sha512-r5pU7hdOSURTKO162XZId15Zb7iHQYKVjL74vYIh+uNerKVImtyWZwhjIydcwXtIYZBKllYkqeM5umc0boxGVQ==}
     engines: {node: '>=18'}
 
   '@cspotcode/source-map-support@0.8.1':
@@ -12983,7 +12986,7 @@ snapshots:
 
   '@chevrotain/utils@11.0.3': {}
 
-  '@copilotkitnext/agent@0.0.22-alpha.7':
+  '@copilotkitnext/agent@0.0.22-alpha.8':
     dependencies:
       '@ag-ui/client': 0.0.40-alpha.6
       '@ai-sdk/anthropic': 2.0.33(zod@3.25.76)
@@ -12997,21 +13000,21 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@copilotkitnext/core@0.0.22-alpha.7':
+  '@copilotkitnext/core@0.0.22-alpha.8':
     dependencies:
       '@ag-ui/client': 0.0.40-alpha.6
-      '@copilotkitnext/shared': 0.0.22-alpha.7
+      '@copilotkitnext/shared': 0.0.22-alpha.8
       rxjs: 7.8.1
       zod: 3.25.76
       zod-to-json-schema: 3.24.6(zod@3.25.76)
 
-  '@copilotkitnext/react@0.0.22-alpha.7(@lit-labs/react@2.1.3(@types/react@19.2.2))(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.1.0(react@19.2.0))(react@19.2.0)':
+  '@copilotkitnext/react@0.0.22-alpha.8(@lit-labs/react@2.1.3(@types/react@19.2.2))(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.1.0(react@19.2.0))(react@19.2.0)':
     dependencies:
       '@ag-ui/client': 0.0.40-alpha.6
       '@ag-ui/core': 0.0.40-alpha.6
-      '@copilotkitnext/core': 0.0.22-alpha.7
-      '@copilotkitnext/shared': 0.0.22-alpha.7
-      '@copilotkitnext/web-inspector': 0.0.22-alpha.7
+      '@copilotkitnext/core': 0.0.22-alpha.8
+      '@copilotkitnext/shared': 0.0.22-alpha.8
+      '@copilotkitnext/web-inspector': 0.0.22-alpha.8
       '@lit-labs/react': 2.1.3(@types/react@19.2.2)
       '@radix-ui/react-dropdown-menu': 2.1.16(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.1.0(react@19.2.0))(react@19.2.0)
       '@radix-ui/react-slot': 1.2.3(@types/react@19.2.2)(react@19.2.0)
@@ -13033,28 +13036,29 @@ snapshots:
       - '@types/react-dom'
       - supports-color
 
-  '@copilotkitnext/runtime@0.0.22-alpha.7(express@4.19.2)(hono@4.10.4)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))':
+  '@copilotkitnext/runtime@0.0.22-alpha.8(express@4.19.2)(hono@4.10.4)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))':
     dependencies:
       '@ag-ui/client': 0.0.40-alpha.6
       '@ag-ui/core': 0.0.40-alpha.6
       '@ag-ui/encoder': 0.0.40-alpha.6
-      '@copilotkitnext/shared': 0.0.22-alpha.7
+      '@copilotkitnext/shared': 0.0.22-alpha.8
       cors: 2.8.5
-      express: 4.19.2
       hono: 4.10.4
       openai: 4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)
       rxjs: 7.8.1
+    optionalDependencies:
+      express: 4.19.2
 
-  '@copilotkitnext/shared@0.0.22-alpha.7':
+  '@copilotkitnext/shared@0.0.22-alpha.8':
     dependencies:
       '@ag-ui/client': 0.0.40-alpha.6
       partial-json: 0.1.7
       uuid: 11.1.0
 
-  '@copilotkitnext/web-inspector@0.0.22-alpha.7':
+  '@copilotkitnext/web-inspector@0.0.22-alpha.8':
     dependencies:
       '@ag-ui/client': 0.0.40-alpha.6
-      '@copilotkitnext/core': 0.0.22-alpha.7
+      '@copilotkitnext/core': 0.0.22-alpha.8
       lit: 3.3.1
       lucide: 0.525.0
 
@@ -19652,7 +19656,7 @@ snapshots:
       isstream: 0.1.2
       jsonwebtoken: 9.0.2
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.7.9(debug@4.4.1))
+      retry-axios: 2.6.0(axios@1.7.9)
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -22861,7 +22865,7 @@ snapshots:
       onetime: 5.1.2
       signal-exit: 3.0.7
 
-  retry-axios@2.6.0(axios@1.7.9(debug@4.4.1)):
+  retry-axios@2.6.0(axios@1.7.9):
     dependencies:
       axios: 1.7.9(debug@4.4.1)
 

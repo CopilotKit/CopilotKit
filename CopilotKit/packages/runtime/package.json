@@ -59,8 +59,8 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.57.0",
     "@copilotkit/shared": "workspace:*",
-    "@copilotkitnext/agent": "0.0.22-alpha.7",
-    "@copilotkitnext/runtime": "0.0.22-alpha.7",
+    "@copilotkitnext/agent": "0.0.22-alpha.8",
+    "@copilotkitnext/runtime": "0.0.22-alpha.8",
     "@graphql-yoga/plugin-defer-stream": "^3.3.1",
     "@langchain/aws": "^0.1.9",
     "@langchain/community": "^0.3.29",
