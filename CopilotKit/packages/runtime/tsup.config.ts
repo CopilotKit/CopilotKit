@@ -6,7 +6,7 @@ export default defineConfig((options: Options) => ({
   format: ["esm", "cjs"],
   dts: true,
   minify: false,
-  external: [],
+  external: ["@copilotkitnext/core", "@copilotkitnext/runtime", "@copilotkitnext/agent"],
   sourcemap: true,
   exclude: [
     "**/*.test.ts", // Exclude TypeScript test files
