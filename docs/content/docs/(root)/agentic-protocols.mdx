@@ -57,10 +57,6 @@ import Image from "next/image"
   </tbody>
 </table>
 
-<div style={{marginTop: "2rem", textAlign: "center"}}>
-  <img src="/images/agent-interaction-protocols.png" alt="Agentic Protocols Diagram" style={{width: "600px", maxWidth: "100%"}} />
-</div>
-
 ## **Mixing and Matching Protocols**
 
 CopilotKit lets developers connect to any of these protocols **directly or in combination.**
@@ -69,4 +65,19 @@ CopilotKit can connect through any of the Interaction Protocols to your agentic 
 Or, since AG-UI also includes **handshakes** with both **MCP** and **A2A**, CopilotKit can connect to MCP or A2A supporting agents through AG-UI.
 
 This means that if your host agent connects to subagents using **MCP** or **A2A**, their UI properties can be propagated all the way through to the user-facing application — while preserving **full security, policy, and observability controls.**
+
+<Image 
+  src="/images/mcp-and-a2a-through-agui-light.png" 
+  alt="MCP and A2A through AG-UI" 
+  width={4096} 
+  height={2304}
+  className="block dark:hidden mt-8 w-2/3 mx-auto"
+/>
+<Image 
+  src="/images/mcp-and-a2a-through-agui-dark.png" 
+  alt="MCP and A2A through AG-UI" 
+  width={4096} 
+  height={2304}
+  className="hidden dark:block mt-8 w-2/3 mx-auto"
+/>
 
