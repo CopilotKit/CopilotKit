@@ -1,0 +1,93 @@
+---
+title: "Generative UI Spec Support"
+icon: "lucide/Sparkles"
+description: "CopilotKit now supports all major Generative UI specifications"
+---
+
+# Universal Generative UI Spec Support
+
+CopilotKit now provides **universal support for all major Generative UI specifications**, enabling agents to generate dynamic user interfaces using any of the leading industry standards.
+
+## Supported Specifications
+
+CopilotKit's AG-UI protocol natively supports all three major generative UI specs:
+
+### **A2UI** - Google's Declarative Spec
+Google's declarative, LLM-friendly Generative UI specification that uses JSONL format for streaming and platform-agnostic rendering.
+
+- ✅ JSONL-based streaming support
+- ✅ Declarative component definitions
+- ✅ Platform-agnostic rendering
+- ✅ Optimized for LLM generation
+
+[Learn more about A2UI →](/generative-ui-specs/a2ui)
+
+### **Open-JSON-UI** - OpenAI's Standard
+OpenAI's open standardization of their internal declarative Generative UI schema, providing structured, type-safe component definitions.
+
+- ✅ JSON-based component model
+- ✅ Strong type safety
+- ✅ OpenAI ecosystem integration
+- ✅ Standardized structure
+
+[Learn more about Open-JSON-UI →](/generative-ui-specs/open-json-ui)
+
+### **MCP-UI** - Microsoft + Shopify's Iframe-Based Spec
+A fully open, iframe-based Generative UI standard extending the Model Context Protocol (MCP) for rich, interactive experiences.
+
+- ✅ Full HTML/CSS/JavaScript support
+- ✅ Iframe-based sandboxing
+- ✅ Native MCP integration
+- ✅ Security-first architecture
+
+[Learn more about MCP-UI →](/generative-ui-specs/mcp-ui)
+
+## Why Multiple Specs?
+
+Different generative UI specifications excel in different scenarios:
+
+- **A2UI** is ideal for streaming, real-time UI generation
+- **Open-JSON-UI** provides strong typing and OpenAI integration
+- **MCP-UI** enables rich, interactive experiences with full web capabilities
+
+CopilotKit's universal support means you can choose the right specification for your use case—or even use multiple specs within the same application.
+
+## AG-UI: The Universal Protocol
+
+CopilotKit's **AG-UI protocol** acts as the universal runtime that supports all these specifications. AG-UI provides:
+
+- **Bi-directional communication** between agents and applications
+- **Multi-spec support** for any generative UI standard
+- **Custom spec support** for your own proprietary formats
+- **Streaming capabilities** for real-time UI updates
+
+[Learn more about AG-UI →](/ag-ui-protocol)
+
+## Getting Started
+
+To use generative UI specs with CopilotKit:
+
+1. **Choose your spec** - Select A2UI, Open-JSON-UI, or MCP-UI based on your needs
+2. **Configure your agent** - Set up your agent to return UI specifications
+3. **Integrate AG-UI** - Use CopilotKit's AG-UI protocol to handle rendering
+4. **Customize rendering** - Implement custom renderers for your components
+
+```typescript
+// Example: Agent returns generative UI
+{
+  type: "a2ui", // or "open-json-ui" or "mcp-ui"
+  spec: {
+    // Your UI specification
+  }
+}
+```
+
+## Learn More
+
+- [Generative UI Specs Overview](/generative-ui-specs) - Compare all specifications in detail
+- [A2UI Documentation](/generative-ui-specs/a2ui) - Google's declarative spec
+- [Open-JSON-UI Documentation](/generative-ui-specs/open-json-ui) - OpenAI's standard
+- [MCP-UI Documentation](/generative-ui-specs/mcp-ui) - Microsoft + Shopify's iframe spec
+- [AG-UI Protocol](/ag-ui-protocol) - The universal protocol supporting all specs
+- [Generative UI Guide](/generative-ui) - Build with Generative UI in CopilotKit
+
