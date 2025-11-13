@@ -70,7 +70,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   return (
     <ToastProvider enabled={enabled}>
       <CopilotErrorBoundary publicApiKey={publicApiKey} showUsageBanner={enabled}>
-        <ThreadsProvider>
+        <ThreadsProvider threadId={props.threadId}>
           <CopilotKitProvider
             runtimeUrl={props.runtimeUrl}
             renderCustomMessages={renderArr}
@@ -388,12 +388,6 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     [props.threadId],
   );
 
-  // update the internal threadId if the props.threadId changes
-  useEffect(() => {
-    if (props.threadId !== undefined) {
-      setThreadId(props.threadId);
-    }
-  }, [props.threadId]);
 
   const [runId, setRunId] = useState<string | null>(null);
 
