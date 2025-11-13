@@ -1,7 +1,6 @@
-import { createCopilotEndpointSingleRoute } from "@copilotkitnext/runtime";
+import "reflect-metadata";
 import { CreateCopilotRuntimeServerOptions, getCommonConfig } from "../shared";
 import telemetry, { getRuntimeInstanceTelemetryInfo } from "../../telemetry-client";
-import { handle } from "hono/vercel";
 import { copilotRuntimeNodeHttpEndpoint } from "../node-http";
 
 export const config = {
