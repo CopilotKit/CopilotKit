@@ -1,4 +1,3 @@
-import "reflect-metadata";
 import { createCopilotEndpointSingleRoute } from "@copilotkitnext/runtime";
 import { CreateCopilotRuntimeServerOptions, getCommonConfig } from "../shared";
 import telemetry, { getRuntimeInstanceTelemetryInfo } from "../../telemetry-client";

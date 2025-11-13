@@ -1,4 +1,3 @@
-import "reflect-metadata";
 import { CreateCopilotRuntimeServerOptions, getCommonConfig } from "../shared";
 import telemetry, { getRuntimeInstanceTelemetryInfo } from "../../telemetry-client";
 import { copilotRuntimeNodeHttpEndpoint } from "../node-http";
