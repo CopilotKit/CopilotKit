@@ -667,6 +667,9 @@ importers:
       class-validator:
         specifier: ^0.14.1
         version: 0.14.1
+      core-js:
+        specifier: ^3.46.0
+        version: 3.46.0
       express:
         specifier: ^4.19.2
         version: 4.19.2
@@ -6265,6 +6268,9 @@ packages:
   cookie@0.7.2:
     resolution: {integrity: sha512-yki5XnKuf750l50uGTllt6kKILY4nQ1eNIQatoXEByZ5dWgnKqbnqmTrBE5B4N7lrMJKQ2ytWMiTO2o0v6Ew/w==}
     engines: {node: '>= 0.6'}
+
+  core-js@3.46.0:
+    resolution: {integrity: sha512-vDMm9B0xnqqZ8uSBpZ8sNtRtOdmfShrvT6h2TuQGLs0Is+cR0DYbj/KWP6ALVNbWPpqA/qPLoOuppJN07humpA==}
 
   cors@2.8.5:
     resolution: {integrity: sha512-KIHbLJqu73RGr/hnbrO9uBeixNGuvSQjul/jdFvS/KFSIH1hWVd1ng7zOHx+YrEfInLG7q4n6GHQ9cDtxv/P6g==}
@@ -17758,6 +17764,8 @@ snapshots:
 
   cookie@0.7.2: {}
 
+  core-js@3.46.0: {}
+
   cors@2.8.5:
     dependencies:
       object-assign: 4.1.1
@@ -19752,7 +19760,7 @@ snapshots:
       isstream: 0.1.2
       jsonwebtoken: 9.0.2
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.7.9)
+      retry-axios: 2.6.0(axios@1.7.9(debug@4.4.1))
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -22969,7 +22977,7 @@ snapshots:
       onetime: 5.1.2
       signal-exit: 3.0.7
 
-  retry-axios@2.6.0(axios@1.7.9):
+  retry-axios@2.6.0(axios@1.7.9(debug@4.4.1)):
     dependencies:
       axios: 1.7.9(debug@4.4.1)
 
