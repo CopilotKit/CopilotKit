@@ -59,8 +59,8 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.57.0",
     "@copilotkit/shared": "workspace:*",
-    "@copilotkitnext/agent": "0.0.22-alpha.9",
-    "@copilotkitnext/runtime": "0.0.22-alpha.9",
+    "@copilotkitnext/agent": "0.0.22-alpha.1",
+    "@copilotkitnext/runtime": "0.0.22-alpha.1",
     "@graphql-yoga/plugin-defer-stream": "^3.3.1",
     "@langchain/aws": "^0.1.9",
     "@langchain/community": "^0.3.29",
@@ -71,6 +71,7 @@
     "@scarf/scarf": "^1.3.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
+    "express": "^4.19.2",
     "graphql": "^16.8.1",
     "graphql-scalars": "^1.23.0",
     "graphql-yoga": "^5.3.1",
@@ -91,11 +92,7 @@
     "@ag-ui/core": ">=0.0.39",
     "@ag-ui/encoder": ">=0.0.39",
     "@ag-ui/langgraph": ">=0.0.18",
-    "@ag-ui/proto": ">=0.0.39",
-    "express": "^4.19.2"
-  },
-  "peerDependenciesMeta": {
-    "express": { "optional": true }
+    "@ag-ui/proto": ">=0.0.39"
   },
   "keywords": [
     "copilotkit",
