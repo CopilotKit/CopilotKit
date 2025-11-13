@@ -5,6 +5,7 @@ description: Render your agent's tool calls with custom UI components.
 ---
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import { IframeSwitcher } from "@/components/content"
+import DefaultToolRendering from "@/snippets/shared/guides/default-tool-rendering.mdx"
 
 {/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the feature viewer */}
 <IframeSwitcher
@@ -114,3 +115,7 @@ render the tool call and display the arguments that were passed to the tool.
 
 </Step>
 </Steps>
+
+## Default Tool Rendering
+
+<DefaultToolRendering components={props.components} />
