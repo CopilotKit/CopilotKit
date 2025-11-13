@@ -1,4 +1,3 @@
-import "./../metadata-polyfill";
 export type {
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
