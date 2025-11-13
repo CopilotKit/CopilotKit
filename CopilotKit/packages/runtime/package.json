@@ -10,9 +10,7 @@
     "access": "public"
   },
   "version": "1.10.6",
-  "sideEffects": [
-    "./dist/index.js"
-  ],
+  "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "exports": {
