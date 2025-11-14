@@ -89,7 +89,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Message, parseJson } from "@copilotkit/shared";
+import { Message } from "@copilotkit/shared";
 import { useAgent } from "@copilotkitnext/react";
 import { type AgentSubscriber } from "@ag-ui/client";
 
@@ -219,9 +219,32 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     [agent?.state, agent?.setState],
   );
 
+  // Sync internal state with external state if state management is external
+  useEffect(() => {
+    if (
+      agent?.state &&
+      isExternalStateManagement(options) &&
+      JSON.stringify(options.state) !== JSON.stringify(agent.state)
+    ) {
+      handleStateUpdate(options.state);
+    }
+  }, [agent, isExternalStateManagement(options) ? JSON.stringify(options.state) : undefined]);
+
   useEffect(() => {
     if (!agent) return;
     const subscriber: AgentSubscriber = {
+      onStateChanged: (args: any) => {
+        if (isExternalStateManagement(options)) {
+          options.setState(args.state);
+        }
+      },
+      onRunInitialized: (args: any) => {
+        if (!args.state || !Object.keys(args.state).length) {
+          handleStateUpdate(
+            isExternalStateManagement(options) ? options.state : options.initialState,
+          );
+        }
+      },
       onStepStartedEvent: ({ event }) => {
         if (event.stepName !== nodeName) {
           setNodeName(event.stepName);
@@ -290,3 +313,9 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     options.name,
   ]);
 }
+
+const isExternalStateManagement = <T>(
+  options: UseCoagentOptions<T>,
+): options is WithExternalStateManagement<T> => {
+  return "state" in options && "setState" in options;
+};
