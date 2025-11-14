@@ -41,7 +41,6 @@ import {
 import { FrontendAction } from "../../types/frontend-action";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { CopilotKitProps } from "./copilotkit-props";
-import { CoAgentStateRender } from "../../types/coagent-action";
 import { CoagentState } from "../../types/coagent-state";
 import { CopilotMessages, MessagesTapProvider } from "./copilot-messages";
 import { ToastProvider } from "../toast/toast-provider";
@@ -58,6 +57,7 @@ import { ConsoleTrigger } from "../dev-console/console-trigger";
 import { CoAgentStateRendersProvider } from "../../context/coagent-state-renders-context";
 import { CoAgentStateRenderBridge } from "../../hooks/use-coagent-state-render-bridge";
 import { ThreadsProvider, useThreads } from "../../context/threads-context";
+import { CopilotListeners } from "../CopilotListeners";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const enabled = shouldShowDevConsole(props.showDevConsole);

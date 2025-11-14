@@ -19,7 +19,7 @@ import {
   useConfigureChatSuggestions,
   UseCopilotChatSuggestionsConfiguration,
 } from "./use-configure-chat-suggestions";
-import { useAgentSubscribers } from "./use-agent-subscribers";
+import { AbstractAgent, AGUIConnectNotImplementedError } from "@ag-ui/client";
 
 /**
  * The type of suggestions to use in the chat.
@@ -279,8 +279,6 @@ export function useCopilotChatInternal({
     [threadId, existingConfig?.threadId],
   );
   const { agent } = useAgent({ agentId: resolvedAgentId });
-
-  useAgentSubscribers(agent);
 
   useEffect(() => {
     if (agent) {
