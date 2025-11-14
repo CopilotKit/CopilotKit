@@ -13,8 +13,8 @@ export interface ThreadsProviderProps {
   threadId?: string;
 }
 
-export function ThreadsProvider({ children }: ThreadsProviderProps) {
-  const [internalThreadId, setThreadId] = useState<string>(randomUUID());
+export function ThreadsProvider({ children, threadId: explicitThreadId }: ThreadsProviderProps) {
+  const [internalThreadId, setThreadId] = useState<string>(explicitThreadId ?? randomUUID());
 
   const threadId = internalThreadId;
 
