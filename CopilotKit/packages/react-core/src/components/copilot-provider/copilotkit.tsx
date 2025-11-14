@@ -388,7 +388,6 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     [props.threadId],
   );
 
-
   const [runId, setRunId] = useState<string | null>(null);
 
   const chatAbortControllerRef = useRef<AbortController | null>(null);
@@ -583,6 +582,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
           removeInternalErrorHandler,
         }}
       >
+        <CopilotListeners />
         <CoAgentStateRendersProvider>
           <MessagesTapProvider>
             <CopilotMessages>

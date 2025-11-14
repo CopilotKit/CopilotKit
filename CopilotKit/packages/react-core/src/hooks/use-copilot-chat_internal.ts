@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useMemo } from "react";
+import { useRef, useEffect, useCallback, useMemo, useState } from "react";
 import { useCopilotContext } from "../context/copilot-context";
 import { SystemMessageFunction } from "../types";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
@@ -12,7 +12,6 @@ import {
   useRenderCustomMessages,
   useSuggestions,
 } from "@copilotkitnext/react";
-import { randomUUID } from "@copilotkit/shared";
 import { Suggestion } from "@copilotkitnext/core";
 import { useLazyToolRenderer } from "./use-lazy-tool-renderer";
 import {
@@ -193,6 +192,18 @@ export interface UseCopilotChatReturn {
    */
   isLoading: boolean;
 
+  /**
+   * Whether the chat agent is available to generate responses
+   *
+   * ```tsx
+   * if (isAvailable) {
+   *   console.log("Loading...");
+   * } else {
+   *   console.log("Not loading");
+   * }
+   */
+  isAvailable: boolean;
+
   /** Manually trigger chat completion (advanced usage) */
   runChatCompletion: () => Promise<Message[]>;
 
@@ -270,22 +281,33 @@ export function useCopilotChatInternal({
   const { copilotkit } = useCopilotKit();
   const { threadId, agentSession } = useCopilotContext();
   const existingConfig = useCopilotChatConfiguration();
+  const [agentAvailable, setAgentAvailable] = useState(false);
   useConfigureSuggestions(suggestions);
 
   // Apply priority: props > existing config > defaults
   const resolvedAgentId = agentSession?.agentName ?? existingConfig?.agentId ?? "default";
-  const resolvedThreadId = useMemo(
-    () => threadId ?? existingConfig?.threadId ?? randomUUID(),
-    [threadId, existingConfig?.threadId],
-  );
   const { agent } = useAgent({ agentId: resolvedAgentId });
 
   useEffect(() => {
-    if (agent) {
-      agent.threadId = resolvedThreadId;
+    const connect = async (agent: AbstractAgent) => {
+      setAgentAvailable(false);
+      try {
+        await copilotkit.connectAgent({ agent });
+        setAgentAvailable(true);
+      } catch (error) {
+        if (error instanceof AGUIConnectNotImplementedError) {
+          // connect not implemented, ignore
+        } else {
+          throw error;
+        }
+      }
+    };
+    if (agent && existingConfig?.threadId && agent.threadId !== existingConfig.threadId) {
+      agent.threadId = existingConfig.threadId;
+      connect(agent);
     }
     return () => {};
-  }, [resolvedThreadId, agent]);
+  }, [existingConfig?.threadId, agent, copilotkit, resolvedAgentId]);
 
   // @ts-expect-error -- agui client version mismatch causes this
   const interrupt = useLangGraphInterruptRender(agent);
@@ -457,7 +479,8 @@ export function useCopilotChatInternal({
     stopGeneration: latestStopFunc,
     reset: latestResetFunc,
     deleteMessage: latestDeleteFunc,
-    isLoading: !Boolean(agent) ? true : Boolean(agent?.isRunning),
+    isAvailable: !agentAvailable,
+    isLoading: Boolean(agent?.isRunning),
     // mcpServers,
     // setMcpServers,
     suggestions: currentSuggestions.suggestions,
