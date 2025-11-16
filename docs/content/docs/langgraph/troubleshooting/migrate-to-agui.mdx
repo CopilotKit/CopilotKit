@@ -94,11 +94,11 @@ Everything else (mainly your graph) stays the same.
         ```python
         from fastapi import FastAPI
         from copilotkit import LangGraphAGUIAgent
-        from ag_ui_langgraph import add_langgraph_fastapi_endpoint
+        from ag_ui_langgraph import add_langgraph_fastapi_endpoints
         from .agent import graph
 
         app = FastAPI()
-        add_langgraph_fastapi_endpoint(
+        add_langgraph_fastapi_endpoints(
             app=app,
             agent=LangGraphAGUIAgent(
                 name="sample_agent",

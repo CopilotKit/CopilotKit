@@ -64,7 +64,7 @@ import { Tab } from "../components/react/tabs";
     from fastapi import FastAPI
     import uvicorn
     from copilotkit import LangGraphAGUIAgent # [!code highlight]
-    from ag_ui_langgraph import add_langgraph_fastapi_endpoint # [!code highlight]
+    from ag_ui_langgraph import add_langgraph_fastapi_endpoints # [!code highlight]
     from sample_agent.agent import graph # the coagents-starter path, replace this if its different # [!code highlight]
 
     from dotenv import load_dotenv
@@ -72,7 +72,7 @@ import { Tab } from "../components/react/tabs";
 
     app = FastAPI()
     # [!code highlight:9]
-    add_langgraph_fastapi_endpoint(
+    add_langgraph_fastapi_endpoints(
       app=app,
       agent=LangGraphAGUIAgent(
         name="sample_agent", # the name of your agent defined in langgraph.json
