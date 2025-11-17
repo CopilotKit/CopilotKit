@@ -94,10 +94,10 @@ export function CopilotListeners() {
         setBannerError(new CopilotKitLowLevelError({ error, message: error.message }));
       },
     };
-    copilotkit.subscribe(subscriber);
+    const subscription = copilotkit.subscribe(subscriber);
 
     return () => {
-      copilotkit.unsubscribe(subscriber);
+      subscription.unsubscribe();
     };
   }, [copilotkit?.subscribe]);
 

@@ -309,7 +309,6 @@ export function useCopilotChatInternal({
     return () => {};
   }, [existingConfig?.threadId, agent, copilotkit, resolvedAgentId]);
 
-  // @ts-expect-error -- agui client version mismatch causes this
   const interrupt = useLangGraphInterruptRender(agent);
 
   const reset = () => {

@@ -66,7 +66,7 @@ export function useConfigureChatSuggestions(
 
   useEffect(() => {
     if (finalSuggestionConfig.available === "disabled") return;
-    const unsubscribe = copilotkit.subscribe({
+    const subscription = copilotkit.subscribe({
       onAgentsChanged: () => {
         // When agents change, check if our target agent now exists and reload
         const agent = copilotkit.getAgent(agentSession?.agentName!);
@@ -77,7 +77,7 @@ export function useConfigureChatSuggestions(
     });
 
     return () => {
-      unsubscribe();
+      subscription.unsubscribe();
     };
   }, []);
 
