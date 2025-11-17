@@ -1,7 +1,7 @@
 import { CreateCopilotRuntimeServerOptions, getCommonConfig } from "../shared";
 import telemetry, { getRuntimeInstanceTelemetryInfo } from "../../telemetry-client";
-// @ts-expect-error - createCopilotEndpointSingleRouteExpress is exported. Type issues in imported package.
-import { createCopilotEndpointSingleRouteExpress } from "@copilotkitnext/runtime/express";
+import { createCopilotEndpointSingleRoute } from "@copilotkitnext/runtime";
+import { getRequestListener } from "@hono/node-server";
 
 export function copilotRuntimeNodeHttpEndpoint(options: CreateCopilotRuntimeServerOptions) {
   const commonConfig = getCommonConfig(options);
@@ -26,8 +26,10 @@ export function copilotRuntimeNodeHttpEndpoint(options: CreateCopilotRuntimeServ
   const serviceAdapter = options.serviceAdapter;
   options.runtime.handleServiceAdapter(serviceAdapter);
 
-  return createCopilotEndpointSingleRouteExpress({
+  const honoApp = createCopilotEndpointSingleRoute({
     runtime: options.runtime.instance,
     basePath: options.baseUrl ?? options.endpoint,
   });
+
+  return getRequestListener(honoApp.fetch);
 }
