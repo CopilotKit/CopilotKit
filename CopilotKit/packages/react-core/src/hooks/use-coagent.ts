@@ -251,18 +251,8 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
         }
       },
       onStepStartedEvent: ({ event }) => {
-        console.log("step started event: ", event.stepName);
-        // if (event.stepName !== nodeName) {
-        //   setNodeName(event.stepName);
-        // }
         nodeNameRef.current = event.stepName;
       },
-      // onStepFinishedEvent: ({ event }) => {
-      //   console.log('step finished event: ', event.stepName)
-      //   if (event.stepName === nodeName) {
-      //     setNodeName(undefined);
-      //   }
-      // },
       onRunStartedEvent: () => {
         nodeNameRef.current = "start";
       },
