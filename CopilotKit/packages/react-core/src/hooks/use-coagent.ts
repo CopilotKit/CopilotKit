@@ -88,7 +88,7 @@
  * </PropertyReference>
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Message } from "@copilotkit/shared";
 import { useAgent } from "@copilotkitnext/react";
 import { type AgentSubscriber } from "@ag-ui/client";
@@ -203,7 +203,7 @@ export type HintFunction = (params: HintFunctionParams) => Message | undefined;
  */
 export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentReturnType<T> {
   const { agent } = useAgent({ agentId: options.name });
-  const [nodeName, setNodeName] = useState<string | undefined>(undefined);
+  const nodeNameRef = useRef<string>('start')
 
   const handleStateUpdate = useCallback(
     (newState: T | ((prevState: T | undefined) => T)) => {
@@ -219,6 +219,10 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     [agent?.state, agent?.setState],
   );
 
+  const externalStateStr = useMemo(
+    () => (isExternalStateManagement(options) ? JSON.stringify(options.state) : undefined),
+      [isExternalStateManagement(options) ? JSON.stringify(options.state) : undefined]);
+
   // Sync internal state with external state if state management is external
   useEffect(() => {
     if (
@@ -228,7 +232,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     ) {
       handleStateUpdate(options.state);
     }
-  }, [agent, isExternalStateManagement(options) ? JSON.stringify(options.state) : undefined]);
+  }, [agent, externalStateStr, handleStateUpdate]);
 
   useEffect(() => {
     if (!agent) return;
@@ -246,14 +250,23 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
         }
       },
       onStepStartedEvent: ({ event }) => {
-        if (event.stepName !== nodeName) {
-          setNodeName(event.stepName);
-        }
+        console.log('step started event: ', event.stepName)
+        // if (event.stepName !== nodeName) {
+        //   setNodeName(event.stepName);
+        // }
+        nodeNameRef.current = event.stepName;
       },
-      onStepFinishedEvent: ({ event }) => {
-        if (event.stepName === nodeName) {
-          setNodeName(undefined);
-        }
+      // onStepFinishedEvent: ({ event }) => {
+      //   console.log('step finished event: ', event.stepName)
+      //   if (event.stepName === nodeName) {
+      //     setNodeName(undefined);
+      //   }
+      // },
+      onRunStartedEvent: () => {
+        nodeNameRef.current = 'start'
+      },
+      onRunFinishedEvent: () => {
+        nodeNameRef.current = 'end'
       },
     };
 
@@ -261,8 +274,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     return () => {
       unsubscribe();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent?.agentId, nodeName]);
+  }, [agent]);
 
   // Return a consistent shape whether or not the agent is available
   return useMemo<UseCoagentReturnType<T>>(() => {
@@ -277,7 +289,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
         ({} as T);
       return {
         name: options.name,
-        nodeName,
+        nodeName: nodeNameRef.current,
         threadId: undefined,
         running: false,
         state: initialState as T,
@@ -290,7 +302,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
 
     return {
       name: agent?.agentId ?? options.name,
-      nodeName,
+      nodeName: nodeNameRef.current,
       threadId: agent.threadId,
       running: agent.isRunning,
       state: agent.state,
@@ -308,7 +320,6 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     agent?.threadId,
     agent?.isRunning,
     agent?.agentId,
-    nodeName,
     handleStateUpdate,
     options.name,
   ]);
