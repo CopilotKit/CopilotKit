@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { MessagesProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import { Message } from "@copilotkit/shared";
@@ -28,7 +28,7 @@ export const Messages = ({
   RenderResultMessage,
   RenderImageMessage,
 }: MessagesProps) => {
-  const { labels } = useChatContext();
+  const { labels, icons } = useChatContext();
   const { messages: visibleMessages, interrupt } = useCopilotChatInternal();
   const initialMessages = useMemo(() => makeInitialMessages(labels.initial), [labels.initial]);
   const messages = [...initialMessages, ...visibleMessages];
@@ -77,6 +77,8 @@ export const Messages = ({
     ? (props: any) => <LegacyRenderMessage {...props} legacyProps={legacyProps} />
     : RenderMessage;
 
+  const LoadingIcon = () => <span>{icons.activityIcon}</span>;
+
   return (
     <div className="copilotKitMessages" ref={messagesContainerRef}>
       <div className="copilotKitMessagesContainer">
@@ -102,6 +104,7 @@ export const Messages = ({
             />
           );
         })}
+        {messages[messages.length - 1]?.role === "user" && inProgress && <LoadingIcon />}
         {interrupt}
         {chatError && ErrorMessage && <ErrorMessage error={chatError} isCurrentMessage />}
       </div>

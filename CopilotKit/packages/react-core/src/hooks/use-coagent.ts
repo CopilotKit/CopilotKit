@@ -203,7 +203,7 @@ export type HintFunction = (params: HintFunctionParams) => Message | undefined;
  */
 export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentReturnType<T> {
   const { agent } = useAgent({ agentId: options.name });
-  const nodeNameRef = useRef<string>('start')
+  const nodeNameRef = useRef<string>("start");
 
   const handleStateUpdate = useCallback(
     (newState: T | ((prevState: T | undefined) => T)) => {
@@ -221,7 +221,8 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
 
   const externalStateStr = useMemo(
     () => (isExternalStateManagement(options) ? JSON.stringify(options.state) : undefined),
-      [isExternalStateManagement(options) ? JSON.stringify(options.state) : undefined]);
+    [isExternalStateManagement(options) ? JSON.stringify(options.state) : undefined],
+  );
 
   // Sync internal state with external state if state management is external
   useEffect(() => {
@@ -250,7 +251,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
         }
       },
       onStepStartedEvent: ({ event }) => {
-        console.log('step started event: ', event.stepName)
+        console.log("step started event: ", event.stepName);
         // if (event.stepName !== nodeName) {
         //   setNodeName(event.stepName);
         // }
@@ -263,10 +264,10 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
       //   }
       // },
       onRunStartedEvent: () => {
-        nodeNameRef.current = 'start'
+        nodeNameRef.current = "start";
       },
       onRunFinishedEvent: () => {
-        nodeNameRef.current = 'end'
+        nodeNameRef.current = "end";
       },
     };
 
