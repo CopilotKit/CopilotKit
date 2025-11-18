@@ -50,7 +50,7 @@ const usePredictStateSubscription = (agent?: AbstractAgent) => {
     return () => {
       unsubscribe();
     };
-  }, [Boolean(agent)]);
+  }, [agent, getSubscriber]);
 };
 
 export function CopilotListeners() {
@@ -61,29 +61,6 @@ export function CopilotListeners() {
   const { setBannerError } = useToast();
 
   const { agent } = useAgent({ agentId: resolvedAgentId });
-
-  // useEffect(() => {
-  //   if (!existingConfig?.threadId) return;
-  //
-  //   const connect = async (agent: AbstractAgent) => {
-  //     console.log('connect called')
-  //     try {
-  //       await copilotkit.connectAgent({ agent });
-  //     } catch (error) {
-  //       console.log('connect error')
-  //       if (error instanceof AGUIConnectNotImplementedError) {
-  //         // connect not implemented, ignore
-  //       } else {
-  //         throw error;
-  //       }
-  //     }
-  //   };
-  //   if (agent) {
-  //     agent.threadId = existingConfig?.threadId;
-  //     connect(agent);
-  //   }
-  //   return () => {};
-  // }, [existingConfig?.threadId, agent, copilotkit, resolvedAgentId]);
 
   usePredictStateSubscription(agent);
 
