@@ -83,28 +83,72 @@ Use frontend tools when you need your agent to interact with client-side primiti
         Set up your AG-UI server to serve your agent. Frontend tools registered with `useFrontendTool` are automatically
         made available to your agent through the AG-UI protocol.
 
-        ```csharp title="Program.cs"
-        using Azure.AI.OpenAI;
-        using Azure.Identity;
-        using Microsoft.Agents.AI;
-        using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+        <Tabs groupId="language" items={['.NET', 'Python']}>
+          <Tab value=".NET">
+            ```csharp title="Program.cs"
+            using Azure.AI.OpenAI;
+            using Azure.Identity;
+            using Microsoft.Agents.AI;
+            using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
 
-        var builder = WebApplication.CreateBuilder(args);
-        builder.Services.AddAGUI();
-        var app = builder.Build();
+            var builder = WebApplication.CreateBuilder(args);
+            builder.Services.AddAGUI();
+            var app = builder.Build();
 
-        string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
-        string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
+            string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
+            string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
 
-        // Create the agent
-        var agent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
-            .GetChatClient(deployment)
-            .CreateAIAgent(name: "AGUIAssistant", instructions: "You are a helpful assistant.");
+            // Create the agent
+            var agent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
+                .GetChatClient(deployment)
+                .CreateAIAgent(name: "AGUIAssistant", instructions: "You are a helpful assistant.");
 
-        // Map the AG-UI endpoint
-        app.MapAGUI("/", agent);
-        await app.RunAsync();
-        ```
+            // Map the AG-UI endpoint
+            app.MapAGUI("/", agent);
+            await app.RunAsync();
+            ```
+          </Tab>
+          <Tab value="Python">
+            ```python title="agent/src/byo_agent.py"
+            from __future__ import annotations
+            import os
+            from fastapi import FastAPI
+            from dotenv import load_dotenv
+            from agent_framework import ChatAgent
+            from agent_framework import ChatClientProtocol
+            from agent_framework.azure import AzureOpenAIChatClient
+            from agent_framework.openai import OpenAIChatClient
+            from agent_framework.ag_ui import add_agent_framework_fastapi_endpoint
+            from azure.identity import DefaultAzureCredential
+
+            load_dotenv()
+
+            def _build_chat_client() -> ChatClientProtocol:
+                if bool(os.getenv("AZURE_OPENAI_ENDPOINT")):
+                    return AzureOpenAIChatClient(
+                        credential=DefaultAzureCredential(),
+                        deployment_name=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-4o-mini"),
+                        endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+                    )
+                if bool(os.getenv("OPENAI_API_KEY")):
+                    return OpenAIChatClient(
+                        model_id=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o-mini"),
+                        api_key=os.getenv("OPENAI_API_KEY"),
+                    )
+                raise RuntimeError("Set AZURE_OPENAI_* or OPENAI_API_KEY in agent/.env")
+
+            chat_client = _build_chat_client()
+            agent = ChatAgent(
+                name="AGUIAssistant",
+                instructions="You are a helpful assistant.",
+                chat_client=chat_client,
+            )
+
+            app = FastAPI(title="AG-UI Server (Python)")
+            add_agent_framework_fastapi_endpoint(app=app, agent=agent, path="/")
+            ```
+          </Tab>
+        </Tabs>
 
         <Callout type="info">
           Frontend tools registered with `useFrontendTool` are automatically forwarded to your agent by the AG-UI protocol. The agent can invoke them just like backend tools, but execution happens on the frontend.

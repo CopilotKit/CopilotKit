@@ -39,12 +39,65 @@ You can use this when you need to update agent state from your application — f
     ### Define the Agent State
     Decide which parts of agent state you want to reflect in the UI and allow updating from the UI.
 
-    ```csharp title="agent/Program.cs (excerpt)"
-    public class AgentStateSnapshot
-    {
-        public string Language { get; set; } = "english";
-    }
-    ```
+    <Tabs groupId="language" items={['.NET', 'Python']}>
+      <Tab value=".NET">
+        ```csharp title="agent/Program.cs (excerpt)"
+        public class AgentStateSnapshot
+        {
+            public string Language { get; set; } = "english";
+        }
+        ```
+      </Tab>
+      <Tab value="Python">
+        ```python title="agent/src/agent.py (excerpt)"
+        from typing import Annotated
+        from agent_framework import ChatAgent, ChatClientProtocol, ai_function
+        from agent_framework.ag_ui import AgentFrameworkAgent
+        from pydantic import Field
+
+        STATE_SCHEMA: dict[str, object] = {
+            "language": {
+                "type": "string",
+                "enum": ["english", "spanish"],
+                "description": "Preferred language.",
+            }
+        }
+
+        PREDICT_STATE_CONFIG: Dict[str, Dict[str, str]] = {
+            "language": {"tool": "update_language", "tool_argument": "language"}
+        }
+
+        @ai_function(
+            name="update_language",
+            description="Update the preferred language (english or spanish).",
+        )
+        def update_language(
+            language: Annotated[str, Field(description="Preferred language: 'english' or 'spanish'")],
+        ) -> str:
+            normalized = (language or "").strip().lower()
+            if normalized not in ("english", "spanish"):
+                return "Language unchanged. Use 'english' or 'spanish'."
+            return f"Language updated to {normalized}."
+
+        def create_agent(chat_client: ChatClientProtocol) -> AgentFrameworkAgent:
+            base_agent = ChatAgent(
+                name="sample_agent",
+                instructions="You are a helpful assistant.",
+                chat_client=chat_client,
+                tools=[update_language],   # [!code highlight:1]
+            )
+
+            return AgentFrameworkAgent(
+                agent=base_agent,
+                name="CopilotKitMicrosoftAgentFrameworkAgent",
+                description="Assistant that tracks a simple language state.",
+                state_schema=STATE_SCHEMA,               # [!code highlight:2]
+                predict_state_config=PREDICT_STATE_CONFIG, # [!code highlight:2]
+                require_confirmation=False,
+            )
+        ```
+      </Tab>
+    </Tabs>
 
     ```ts title="ui/app/page.tsx"
     type AgentState = {
