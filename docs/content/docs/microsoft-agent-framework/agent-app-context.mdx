@@ -130,7 +130,7 @@ This context can then be shared with your AG-UI server and agent logic.
             ```python title="agent/src/agent.py"
 
             from agent_framework import ChatAgent, ChatClientProtocol
-            from agent_framework_ag_ui import AgentFrameworkAgent
+            from agent_framework.ag_ui import AgentFrameworkAgent
 
 
             def create_agent(chat_client: ChatClientProtocol) -> AgentFrameworkAgent:
