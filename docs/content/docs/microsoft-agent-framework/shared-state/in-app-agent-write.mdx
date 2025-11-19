@@ -56,7 +56,7 @@ You can use this when you need to update agent state from your application — f
         from agent_framework_ag_ui import AgentFrameworkAgent
         from pydantic import Field
 
-        STATE_SCHEMA: Dict[str, object] = {
+        STATE_SCHEMA: dict[str, object] = {
             "language": {
                 "type": "string",
                 "enum": ["english", "spanish"],
