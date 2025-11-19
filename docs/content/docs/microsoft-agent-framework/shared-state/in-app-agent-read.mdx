@@ -52,15 +52,13 @@ state updates, you can reflect these updates natively in your application.
       </Tab>
       <Tab value="Python">
         ```python title="agent/src/agent.py (excerpt)"
-        from typing import Dict
-
-        STATE_SCHEMA: Dict[str, object] = {
-            "language": {
-                "type": "string",
-                "enum": ["english", "spanish"],
-                "description": "Preferred language."
-            }
-        }
+        STATE_SCHEMA: dict[str, object] = {  
+            "language": {  
+                "type": "string",  
+                "enum": ["english", "spanish"],  
+                "description": "Preferred language."  
+            }  
+        }  
         ```
       </Tab>
     </Tabs>
