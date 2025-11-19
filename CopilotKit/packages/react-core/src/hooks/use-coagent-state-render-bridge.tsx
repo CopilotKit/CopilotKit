@@ -106,19 +106,18 @@ function areStatesEquals(a: any, b: any) {
  *   → Both messages render independently with their own snapshots
  * ```
  */
-export function useCoagentStateRenderBridge(
-  agentId: string,
-  props: {
-    message: any;
-    position: ReactCustomMessageRendererPosition;
-    runId: string;
-    messageIndex: number;
-    messageIndexInRun: number;
-    numberOfMessagesInRun: number;
-    agentId: string;
-    stateSnapshot: any;
-  },
-) {
+export interface CoAgentStateRenderBridgeProps {
+  message: any;
+  position: ReactCustomMessageRendererPosition;
+  runId: string;
+  messageIndex: number;
+  messageIndexInRun: number;
+  numberOfMessagesInRun: number;
+  agentId: string;
+  stateSnapshot: any;
+}
+
+export function useCoagentStateRenderBridge(agentId: string, props: CoAgentStateRenderBridgeProps) {
   const { stateSnapshot, messageIndexInRun, message } = props;
   const { coAgentStateRenders, claimsRef } = useCoAgentStateRenders();
   const { agent } = useAgent({ agentId });
@@ -155,15 +154,17 @@ export function useCoagentStateRenderBridge(
 
   const getStateRender = useCallback(
     (messageId: string) => {
-      return Object.entries(coAgentStateRenders).find(([stateRenderId, stateRender]) => {
-        if (claimsRef.current[messageId]) {
-          return stateRenderId === claimsRef.current[messageId].stateRenderId;
-        }
-        const matchingAgentName = stateRender.name === agentId;
-        const matchingNodeName = stateRender.nodeName === nodeName;
-        return matchingAgentName && (nodeName ? matchingNodeName : true);
-      });
-    },
+    return Object.entries(coAgentStateRenders).find(([stateRenderId, stateRender]) => {
+      if (claimsRef.current[messageId]) {
+        return stateRenderId === claimsRef.current[messageId].stateRenderId;
+      }
+      const matchingAgentName = stateRender.name === agentId;
+      const matchesNodeContext = stateRender.nodeName
+        ? stateRender.nodeName === nodeName
+        : true;
+      return matchingAgentName && matchesNodeContext;
+    });
+  },
     [coAgentStateRenders, nodeName, agentId],
   );
 
@@ -217,8 +218,10 @@ export function useCoagentStateRenderBridge(
       return false;
     }
 
-    // In this case, we're trying to render a renderer that should already been claimed. It's an edge case, do not allow.
-    if (runId !== "pending") return false;
+    // No existing claim anywhere yet – allow this message to claim even if we already know the runId.
+    if (!runId) {
+      return false;
+    }
 
     claimsRef.current[messageId] = { stateRenderId, runId };
     return true;
@@ -227,7 +230,9 @@ export function useCoagentStateRenderBridge(
   return useMemo(() => {
     const [stateRenderId, stateRender] = getStateRender(message.id) ?? [];
 
-    if (!stateRender || !stateRenderId) return null;
+    if (!stateRender || !stateRenderId) {
+      return null;
+    }
 
     // Is there any state we can use?
     const snapshot = stateSnapshot ? parseJson(stateSnapshot, stateSnapshot) : agent?.state;
@@ -239,7 +244,9 @@ export function useCoagentStateRenderBridge(
       runId: effectiveRunId,
       stateSnapshot: snapshot,
     });
-    if (!canRender) return null;
+    if (!canRender) {
+      return null;
+    }
 
     // If we found state, and given that now there's a claim for the current message, let's save it in the claim
     if (snapshot && !claimsRef.current[message.id].locked) {
@@ -263,11 +270,11 @@ export function useCoagentStateRenderBridge(
 
       if (typeof stateRender.render === "string") return stateRender.render;
 
-      return stateRender.render({
-        status,
-        // Always use state from claim, to make sure the state does not seem "wiped" for a fraction of a second
-        state: claimsRef.current[message.id].stateSnapshot ?? {},
-        nodeName: nodeName ?? "",
+    return stateRender.render({
+      status,
+      // Always use state from claim, to make sure the state does not seem "wiped" for a fraction of a second
+      state: claimsRef.current[message.id].stateSnapshot ?? {},
+      nodeName: nodeName ?? "",
       });
     }
   }, [
@@ -281,15 +288,6 @@ export function useCoagentStateRenderBridge(
   ]);
 }
 
-export function CoAgentStateRenderBridge(props: {
-  message: any;
-  position: ReactCustomMessageRendererPosition;
-  runId: string;
-  messageIndex: number;
-  messageIndexInRun: number;
-  numberOfMessagesInRun: number;
-  agentId: string;
-  stateSnapshot: any;
-}) {
+export function CoAgentStateRenderBridge(props: CoAgentStateRenderBridgeProps) {
   return useCoagentStateRenderBridge(props.agentId, props);
 }

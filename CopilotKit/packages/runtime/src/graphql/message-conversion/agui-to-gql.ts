@@ -31,6 +31,37 @@ function hasImageProperty(message: agui.Message): boolean {
   return true;
 }
 
+function normalizeMessageContent(content: agui.Message["content"]): string {
+  if (typeof content === "string" || typeof content === "undefined") {
+    return content || "";
+  }
+
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        if (part?.type === "text") {
+          return part.text;
+        }
+        if (part?.type === "binary") {
+          return part.data || part.url || part.filename || `[binary:${part.mimeType}]`;
+        }
+        return "";
+      })
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  if (content && typeof content === "object") {
+    try {
+      return JSON.stringify(content);
+    } catch (error) {
+      console.warn("Failed to serialize message content", error);
+    }
+  }
+
+  return String(content ?? "");
+}
+
 /*
   ----------------------------
   AGUI Message -> GQL Message
@@ -150,7 +181,7 @@ export function aguiTextMessageToGQLMessage(message: agui.Message): gql.TextMess
 
   return new gql.TextMessage({
     id: message.id,
-    content: message.content || "",
+    content: normalizeMessageContent(message.content),
     role: roleValue,
   });
 }

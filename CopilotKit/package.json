@@ -44,9 +44,9 @@
   "name": "CopilotKit",
   "pnpm": {
     "overrides": {
-      "@ag-ui/client": "0.0.40-alpha.6",
-      "@ag-ui/core": "0.0.40-alpha.6",
-      "@ag-ui/encoder": "0.0.40-alpha.6",
+      "@ag-ui/client": "0.0.42-alpha.1",
+      "@ag-ui/core": "0.0.42-alpha.1",
+      "@ag-ui/encoder": "0.0.42-alpha.1",
       "@types/react": "^19.1.0",
       "@types/react-dom": "^19.0.2"
     },

@@ -9,7 +9,11 @@ import {
 } from "@copilotkit/shared";
 import { useHumanInTheLoop as useHumanInTheLoopVNext } from "@copilotkitnext/react";
 import { ToolCallStatus } from "@copilotkitnext/core";
-import { ComponentType, FunctionComponent, useEffect, useRef } from "react";
+import React, { ComponentType, FunctionComponent, useEffect, useRef } from "react";
+
+type HumanInTheLoopOptions = Parameters<typeof useHumanInTheLoopVNext>[0];
+type HumanInTheLoopRender = HumanInTheLoopOptions["render"];
+type HumanInTheLoopRenderArgs = HumanInTheLoopRender extends (props: infer P) => any ? P : never;
 
 export type UseHumanInTheLoopArgs<T extends Parameter[] | [] = []> = {
   available?: "disabled" | "enabled";
@@ -54,8 +58,14 @@ export function useHumanInTheLoop<const T extends Parameter[] | [] = []>(
   const renderRef = useRef<HitlRenderer | null>(null);
 
   useEffect(() => {
-    renderRef.current = (args: HitlRendererArgs) => {
-      if (typeof render === "string") return render;
+    renderRef.current = (args: HitlRendererArgs): React.ReactElement | null => {
+      if (typeof render === "string") {
+        return React.createElement(React.Fragment, null, render);
+      }
+
+      if (!render) {
+        return null;
+      }
 
       const renderProps: ActionRenderPropsWait<T> = (() => {
         const mappedArgs = args.args as unknown as MappedParameterTypes<T>;
@@ -91,7 +101,13 @@ export function useHumanInTheLoop<const T extends Parameter[] | [] = []>(
         }
       })();
 
-      return render?.(renderProps);
+      const rendered = render(renderProps);
+
+      if (typeof rendered === "string") {
+        return React.createElement(React.Fragment, null, rendered);
+      }
+
+      return rendered ?? null;
     };
   }, [render, ...(dependencies ?? [])]);
 
@@ -100,6 +116,7 @@ export function useHumanInTheLoop<const T extends Parameter[] | [] = []>(
     description,
     followUp,
     parameters: zodParameters,
-    render: (args) => renderRef.current?.(args) ?? null,
+    render: ((args: HumanInTheLoopRenderArgs) =>
+      renderRef.current?.(args as HitlRendererArgs) ?? null) as HumanInTheLoopOptions["render"],
   });
 }
