@@ -41,12 +41,29 @@ state updates, you can reflect these updates natively in your application.
     ### Define the Agent State
     Decide which parts of agent state you want to reflect in the UI.
 
-    ```csharp title="agent/Program.cs (excerpt)"
-    public class AgentStateSnapshot
-    {
-        public string Language { get; set; } = "spanish";
-    }
-    ```
+    <Tabs groupId="language" items={['.NET', 'Python']}>
+      <Tab value=".NET">
+        ```csharp title="agent/Program.cs (excerpt)"
+        public class AgentStateSnapshot
+        {
+            public string Language { get; set; } = "spanish";
+        }
+        ```
+      </Tab>
+      <Tab value="Python">
+        ```python title="agent/src/agent.py (excerpt)"
+        from typing import Dict
+
+        STATE_SCHEMA: Dict[str, object] = {
+            "language": {
+                "type": "string",
+                "enum": ["english", "spanish"],
+                "description": "Preferred language."
+            }
+        }
+        ```
+      </Tab>
+    </Tabs>
 
     ```ts title="ui/app/page.tsx"
     type AgentState = {
