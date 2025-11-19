@@ -115,10 +115,10 @@ Use frontend tools when you need your agent to interact with client-side primiti
             from fastapi import FastAPI
             from dotenv import load_dotenv
             from agent_framework import ChatAgent
-            from agent_framework._clients import ChatClientProtocol
+            from agent_framework import ChatClientProtocol
             from agent_framework.azure import AzureOpenAIChatClient
             from agent_framework.openai import OpenAIChatClient
-            from agent_framework_ag_ui import add_agent_framework_fastapi_endpoint
+            from agent_framework.ag_ui import add_agent_framework_fastapi_endpoint
             from azure.identity import DefaultAzureCredential
 
             load_dotenv()

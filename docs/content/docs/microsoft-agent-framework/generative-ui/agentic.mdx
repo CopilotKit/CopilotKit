@@ -226,7 +226,7 @@ is a situation where a user and an agent are working together to solve a problem
         ```python title="agent/src/agent.py"
         from typing import Annotated, Dict
         from agent_framework import ChatAgent, ChatClientProtocol, ai_function
-        from agent_framework_ag_ui import AgentFrameworkAgent
+        from agent_framework.ag_ui import AgentFrameworkAgent
         from pydantic import BaseModel, Field
 
         class SearchItem(BaseModel):

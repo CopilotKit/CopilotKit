@@ -82,11 +82,11 @@ Configure authentication in your AG-UI server:
     import os
     from fastapi import FastAPI, HTTPException, Request, status
     from fastapi.middleware.cors import CORSMiddleware
-    from agent_framework._clients import ChatClientProtocol
+    from agent_framework import ChatClientProtocol
     from agent_framework.azure import AzureOpenAIChatClient
     from agent_framework.openai import OpenAIChatClient
     from azure.identity import DefaultAzureCredential
-    from agent_framework_ag_ui import add_agent_framework_fastapi_endpoint
+    from agent_framework.ag_ui import add_agent_framework_fastapi_endpoint
     from agent import create_agent
 
     app = FastAPI(title="CopilotKit + Microsoft Agent Framework (Python)")
