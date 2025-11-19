@@ -1,0 +1,287 @@
+---
+title: Agent State
+icon: "lucide/Bot"
+description: Render the state of your agent with custom UI components.
+---
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import { IframeSwitcher } from "@/components/content"
+
+{/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the feature viewer */}
+<IframeSwitcher
+  id="agent-state-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/agentic_generative_ui?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/agentic_generative_ui?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+## What is this?
+
+Microsoft Agent Framework agents can maintain state throughout their execution. CopilotKit allows you to render this state in your application with custom UI components, which we call **Agentic Generative UI**. State updates can be streamed to the frontend as your agent processes requests.
+
+## When should I use this?
+
+Rendering the state of your agent in the UI is useful when you want to provide the user with feedback about the overall state of a session. A great example of this
+is a situation where a user and an agent are working together to solve a problem. The agent can store a draft in its state which is then rendered in the UI.
+
+## Implementation
+
+<Steps>
+
+  <Step>
+    ### Define your agent state
+
+    Define a state snapshot class that represents the data you want to stream to the frontend. This class should be JSON-serializable and contain only UI-relevant properties.
+
+    ```csharp title="Program.cs"
+    using System.Text.Json.Serialization;
+
+    public class SearchInfo
+    {
+        [JsonPropertyName("query")]
+        public string Query { get; set; } = string.Empty;
+
+        [JsonPropertyName("done")]
+        public bool Done { get; set; }
+    }
+
+    public class AgentStateSnapshot
+    {
+        [JsonPropertyName("searches")]
+        public List<SearchInfo> Searches { get; set; } = new();
+    }
+    ```
+
+    On the frontend, define the matching TypeScript type:
+
+    ```tsx title="app/page.tsx"
+    type SearchInfo = {
+      query: string;
+      done: boolean;
+    };
+
+    type AgentState = {
+      searches: SearchInfo[];
+    };
+    ```
+  </Step>
+  <Step>
+    ### Stream state from your agent
+
+    To stream state updates to the frontend, wrap your agent with a `DelegatingAIAgent` that intercepts the streaming response and emits state snapshots as `DataContent`.
+
+    Here's an example of a state-streaming agent wrapper:
+
+    ```csharp title="Program.cs"
+    using System.Runtime.CompilerServices;
+    using System.Text.Json;
+    using Azure.AI.OpenAI;
+    using Azure.Identity;
+    using Microsoft.Agents.AI;
+    using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+    using Microsoft.AspNetCore.Builder;
+    using Microsoft.AspNetCore.Http.Json;
+    using Microsoft.Extensions.AI;
+    using Microsoft.Extensions.DependencyInjection;
+    using Microsoft.Extensions.Options;
+
+    var builder = WebApplication.CreateBuilder(args);
+    builder.Services.AddAGUI();
+    var app = builder.Build();
+
+    string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
+    string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
+
+    // Get JSON serializer options
+    var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
+
+    // Create the base agent
+    AIAgent baseAgent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
+        .GetChatClient(deployment)
+        .CreateAIAgent(
+            name: "ResearchAssistant",
+            instructions: "You are a research assistant that tracks your progress.");
+
+    // Wrap with state-streaming agent
+    AIAgent agent = new StateStreamingAgent(baseAgent, jsonOptions.Value.SerializerOptions);
+
+    // Map the AG-UI endpoint
+    app.MapAGUI("/", agent);
+    await app.RunAsync();
+
+    // Agent wrapper that streams state updates
+    internal sealed class StateStreamingAgent : DelegatingAIAgent
+    {
+        private readonly JsonSerializerOptions _jsonSerializerOptions;
+
+        public StateStreamingAgent(AIAgent innerAgent, JsonSerializerOptions jsonSerializerOptions)
+            : base(innerAgent)
+        {
+            this._jsonSerializerOptions = jsonSerializerOptions;
+        }
+
+        public override async IAsyncEnumerable<AgentRunResponseUpdate> RunStreamingAsync(
+            IEnumerable<ChatMessage> messages,
+            AgentThread? thread = null,
+            AgentRunOptions? options = null,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            // Get current state from options if provided
+            JsonElement currentState = default;
+            if (options is ChatClientAgentRunOptions { ChatOptions.AdditionalProperties: { } properties } &&
+                properties.TryGetValue("ag_ui_state", out object? stateObj) && stateObj is JsonElement state)
+            {
+                currentState = state;
+            }
+
+            // Create options with JSON schema for structured state output
+            ChatClientAgentRunOptions stateOptions = new ChatClientAgentRunOptions
+            {
+                ChatOptions = new ChatOptions
+                {
+                    ResponseFormat = ChatResponseFormat.ForJsonSchema<AgentStateSnapshot>(
+                        schemaName: "AgentStateSnapshot",
+                        schemaDescription: "Research progress state")
+                }
+            };
+
+            // Add system message with current state
+            var stateMessage = new ChatMessage(ChatRole.System,
+                $"Current state: {(currentState.ValueKind != JsonValueKind.Undefined ? currentState.GetRawText() : "{}")}");
+            var messagesWithState = messages.Append(stateMessage);
+
+            // Collect all updates
+            var allUpdates = new List<AgentRunResponseUpdate>();
+            await foreach (var update in this.InnerAgent.RunStreamingAsync(messagesWithState, thread, stateOptions, cancellationToken))
+            {
+                allUpdates.Add(update);
+                // Stream non-text updates immediately
+                if (update.Contents.Any(c => c is not TextContent))
+                {
+                    yield return update;
+                }
+            }
+
+            // Deserialize state snapshot from response
+            var response = allUpdates.ToAgentRunResponse();
+            if (response.TryDeserialize(this._jsonSerializerOptions, out JsonElement stateSnapshot))
+            {
+                byte[] stateBytes = JsonSerializer.SerializeToUtf8Bytes(
+                    stateSnapshot,
+                    this._jsonSerializerOptions.GetTypeInfo(typeof(JsonElement)));
+
+                // Emit state snapshot as DataContent
+                yield return new AgentRunResponseUpdate
+                {
+                    Contents = [new DataContent(stateBytes, "application/json")]
+                };
+            }
+
+            // Stream text summary
+            var summaryMessage = new ChatMessage(ChatRole.System, "Provide a brief summary of your progress.");
+            await foreach (var update in this.InnerAgent.RunStreamingAsync(
+                messages.Concat(response.Messages).Append(summaryMessage), thread, options, cancellationToken))
+            {
+                yield return update;
+            }
+        }
+    }
+    ```
+
+    <Callout type="info">
+      The `DelegatingAIAgent` wrapper intercepts streaming responses, uses JSON schema response format to generate structured state, and emits it as `DataContent` which the AG-UI protocol forwards to the frontend.
+    </Callout>
+
+    <Callout type="tip">
+      For a complete, production-ready implementation of state streaming, see the [SharedStateAgent sample](https://github.com/microsoft/agent-framework/blob/main/dotnet/samples/AGUIClientServer/AGUIDojoServer/SharedStateAgent.cs) in the Agent Framework repository.
+    </Callout>
+  </Step>
+  <Step>
+    ### Render state of the agent in the chat
+    Now we can utilize `useCoAgentStateRender` to render the state of our agent **in the chat**.
+
+    ```tsx title="app/page.tsx"
+    import { useCoAgentStateRender } from "@copilotkit/react-core";
+
+    // For type safety, define the state type matching your agent's state snapshot
+    type AgentState = {
+      searches: {
+        query: string;
+        done: boolean;
+      }[];
+    };
+
+    function YourMainContent() {
+      // ...
+
+      // [!code highlight:13]
+      // styles omitted for brevity
+      useCoAgentStateRender<AgentState>({
+        name: "sample_agent", // the name the agent is served as
+        render: ({ state }) => (
+          <div>
+            {state.searches?.map((search, index) => (
+              <div key={index}>
+                {search.done ? "✅" : "❌"} {search.query}{search.done ? "" : "..."}
+              </div>
+            ))}
+          </div>
+        ),
+      });
+
+      // ...
+
+      return <div>...</div>;
+    }
+    ```
+  </Step>
+  <Step>
+    ### Render state outside of the chat
+    You can also render the state of your agent **outside of the chat**. This is useful when you want to render the state of your agent anywhere
+    other than the chat.
+
+    ```tsx title="app/page.tsx"
+    import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
+    // ...
+
+    // Define the state type matching your agent's state snapshot
+    type AgentState = {
+      searches: {
+        query: string;
+        done: boolean;
+      }[];
+    };
+
+    function YourMainContent() {
+      // ...
+
+      // [!code highlight:3]
+      const { state } = useCoAgent<AgentState>({
+        name: "sample_agent", // the name the agent is served as
+      })
+
+      // ...
+
+      return (
+        <div>
+          {/* ... */}
+          <div className="flex flex-col gap-2 mt-4">
+            {/* [!code highlight:5] */}
+            {state.searches?.map((search, index) => (
+              <div key={index} className="flex flex-row">
+                {search.done ? "✅" : "❌"} {search.query}
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+    ```
+  </Step>
+  <Step>
+    ### Give it a try!
+
+    You've now created a component that will render the agent's state in the chat.
+  </Step>
+</Steps>

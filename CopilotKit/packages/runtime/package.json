@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.10.6-next.1",
+  "version": "1.10.6",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -47,11 +47,6 @@
     "zod-to-json-schema": "^3.23.5"
   },
   "dependencies": {
-    "@ag-ui/client": "^0.0.39",
-    "@ag-ui/core": "^0.0.39",
-    "@ag-ui/encoder": "^0.0.39",
-    "@ag-ui/langgraph": "^0.0.17",
-    "@ag-ui/proto": "^0.0.39",
     "@anthropic-ai/sdk": "^0.57.0",
     "@copilotkit/shared": "workspace:*",
     "@graphql-yoga/plugin-defer-stream": "^3.3.1",
@@ -83,6 +78,7 @@
     "@ag-ui/client": ">=0.0.39",
     "@ag-ui/core": ">=0.0.39",
     "@ag-ui/encoder": ">=0.0.39",
+    "@ag-ui/langgraph": ">=0.0.18",
     "@ag-ui/proto": ">=0.0.39"
   },
   "keywords": [

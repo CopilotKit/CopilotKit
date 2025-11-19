@@ -1,0 +1,151 @@
+---
+title: Writing agent state
+icon: "lucide/ArrowRight"
+description: Write to agent's state from your application.
+---
+import RunAndConnect from "@/snippets/integrations/microsoft-agent-framework/run-and-connect.mdx"
+import { IframeSwitcher } from "@/components/content"
+
+{/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the feature viewer */}
+<IframeSwitcher
+  id="shared-state-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/shared_state?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/shared_state?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+<Callout type="info">
+  This example demonstrates reading from shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/shared_state).
+</Callout>
+
+## What is this?
+
+This guide shows you how to write to your agent's state from your application.
+
+## When should I use this?
+
+You can use this when you need to update agent state from your application — for example, changing user preferences, toggling settings, or providing user input that affects agent behavior.
+
+## Implementation
+
+<Steps>
+  <Step>
+    ### Run and connect your agent
+    <RunAndConnect components={props.components} />
+  </Step>
+  <Step>
+    ### Define the Agent State
+    Decide which parts of agent state you want to reflect in the UI and allow updating from the UI.
+
+    ```csharp title="agent/Program.cs (excerpt)"
+    public class AgentStateSnapshot
+    {
+        public string Language { get; set; } = "english";
+    }
+    ```
+
+    ```ts title="ui/app/page.tsx"
+    type AgentState = {
+      language: "english" | "spanish";
+    }
+    ```
+  </Step>
+  <Step>
+    ### Call `setState` function from the `useCoAgent` hook
+    `useCoAgent` returns a `setState` function that you can use to update the agent state. Calling this
+    will update the agent state and trigger a rerender of anything that depends on the agent state.
+
+    ```tsx title="ui/app/page.tsx"
+    import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
+
+    // Define the agent state type, should match the actual state of your agent
+    type AgentState = {
+      language: "english" | "spanish";
+    }
+
+    // Example usage in a pseudo React component
+    function YourMainContent() {
+      const { state, setState } = useCoAgent<AgentState>({ // [!code highlight]
+        name: "sample_agent",
+        initialState: { language: "spanish" }  // optionally provide an initial state
+      });
+
+      // ...
+
+      const toggleLanguage = () => {
+        setState({ language: state.language === "english" ? "spanish" : "english" }); // [!code highlight]
+      };
+
+      // ...
+
+      return (
+        // style excluded for brevity
+        <div>
+          <h1>Your main content</h1>
+          {/* [!code highlight:1] */}
+          <p>Language: {state.language}</p>
+          <button onClick={toggleLanguage}>Toggle Language</button>
+        </div>
+      );
+    }
+    ```
+  </Step>
+  <Step>
+    ### Give it a try!
+    You can now use the `setState` function to update the agent state and `state` to read it. Try toggling the language button
+    and talking to your agent. You'll see the language change to match the agent's state.
+
+<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/write-agent-state.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<Callout>
+  This video shows the result of `npx copilotkit@latest init` with the implementation section applied to it!
+</Callout>
+  </Step>
+</Steps>
+
+## Advanced Usage
+
+### Re-run the agent with a hint about what's changed
+
+The new agent state will be used next time the agent runs.
+If you want to re-run it manually, use the `run` argument on the `useCoAgent` hook.
+
+The agent will be re-run, and it will get not only the latest updated state, but also a **hint** that can depend on the data delta between the previous and the current state.
+
+```tsx title="ui/app/page.tsx"
+import { useCoAgent } from "@copilotkit/react-core";
+import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";  // [!code highlight]
+
+// ...
+
+function YourMainContent() {
+  // [!code word:run:1]
+  const { state, setState, run } = useCoAgent<AgentState>({
+    name: "sample_agent",
+    initialState: { language: "spanish" }  // optionally provide an initial state
+  });
+
+  // setup to be called when some event in the app occurs
+  const toggleLanguage = () => {
+    const newLanguage = state.language === "english" ? "spanish" : "english";
+    setState({ language: newLanguage });
+
+    // [!code highlight:7]
+    // re-run the agent and provide a hint about what's changed
+    run(({ previousState, currentState }) => {
+      return new TextMessage({
+        role: MessageRole.User,
+        content: `the language has been updated to ${currentState.language}`,
+      });
+    });
+  };
+
+  return (
+    // ...
+  );
+}
+```
+
+### Notes on state updates
+Depending on your agent implementation, you may choose to surface progress via tool responses or messages rather than frequent state snapshots. See [Generative UI](/microsoft-agent-framework/generative-ui) for recommended patterns.

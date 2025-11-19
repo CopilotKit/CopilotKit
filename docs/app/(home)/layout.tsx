@@ -4,8 +4,9 @@ import { baseOptions } from "../layout.config";
 import { source } from "@/app/source";
 import { SubdocsMenu } from "@/components/react/subdocs-menu";
 import { TerminalIcon, RocketIcon, CloudIcon } from "lucide-react";
-import { SiCrewai } from "@icons-pack/react-simple-icons";
+import { SiCrewai, SiDiscord } from "@icons-pack/react-simple-icons";
 import { SiLangchain } from "react-icons/si";
+import { FaMicrosoft } from "react-icons/fa";
 import {
   AG2Icon,
   MastraIcon,
@@ -43,6 +44,15 @@ export default function Layout({ children }: { children: ReactNode }) {
                   bgGradient:
                     "bg-gradient-to-b from-blue-700 to-blue-400 text-blue-100",
                   selectedStyle: "ring-blue-500/70 ring-2 rounded-sm",
+                },
+                {
+                  title: "Discord Community",
+                  description: "Join our Discord community",
+                  href: "https://go.copilotkit.ai/discord-community",
+                  icon: <SiDiscord className="w-4 h-4" />,
+                  bgGradient:
+                    "bg-gradient-to-b from-indigo-600 to-indigo-500 text-white",
+                  selectedStyle: "ring-indigo-500/70 ring-2 rounded-sm",
                 },
                 {
                   title: "API Reference",
@@ -121,7 +131,27 @@ export default function Layout({ children }: { children: ReactNode }) {
                       icon: <ADKIcon className="w-4 h-4 text-bold" />,
                       bgGradient: "bg-black text-white",
                       selectedStyle: "ring-gray-500 ring-2 rounded-sm",
-                    },                    {
+                    },
+                    {
+                      title: "Microsoft Agent Framework",
+                      description:
+                        "Documentation for CoAgents with Microsoft Agent Framework",
+                      url: "/microsoft-agent-framework",
+                      icon: (
+                        <FaMicrosoft
+                          className="w-4 h-4"
+                          style={{
+                            fontSize: "16px",
+                            width: "16px",
+                            height: "16px",
+                          }}
+                        />
+                      ),
+                      bgGradient:
+                        "bg-gradient-to-b from-blue-700 to-blue-400 text-blue-100",
+                      selectedStyle: "ring-blue-500/70 ring-2 rounded-sm",
+                    },
+                    {
                       title: "Agno",
                       description: "Documentation for CoAgents with Agno",
                       url: "/agno",

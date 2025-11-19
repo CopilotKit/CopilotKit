@@ -1,0 +1,126 @@
+---
+title: Agent state inputs and outputs
+icon: "lucide/ArrowRightLeft"
+description: Decide which state properties are sent to and received from the frontend
+---
+
+## What is this?
+
+Not all state properties are relevant for frontend-backend sharing.
+This guide shows how to ensure only the right portion of state is communicated back and forth.
+
+This guide helps you design a UI-facing state contract for your agent when using CopilotKit with Microsoft Agent Framework.
+
+## When should I use this?
+
+Depending on your implementation, some properties are meant to be processed internally, while some others are the way for the UI to communicate user input.
+In addition, some state properties contain a lot of information. Syncing them back and forth between the agent and UI can be costly, while it might not have any practical benefit.
+
+## Implementation
+
+<Steps>
+  <Step>
+      ### Examine our old state
+      For this example, let's assume our agent maintains a few state properties. We'll keep the UI-facing contract minimal while allowing internal data on the server:
+
+      ```csharp title="agent/Program.cs (excerpt)"
+      // Full server-side snapshot (internal + UI-facing)
+      public class OverallStateSnapshot
+      {
+          public string? Question { get; set; }
+          public string? Answer { get; set; }
+          public List<string> Resources { get; set; } = new(); // internal only
+      }
+      ```
+
+      On the UI, we only need to read the question we set and the answer returned by the agent:
+      ```typescript title="ui/app/page.tsx"
+      type AgentState = {
+        question?: string;
+        answer?: string;
+      }
+      ```
+  </Step>
+  <Step>
+    ### Divide state to Input and Output
+    Our example case lists several state properties, each with its own purpose:
+      - The question is being asked by the user, expecting the llm to answer
+      - The answer is what the LLM returns
+      - The resources list will be used by the LLM to answer the question, and should not be communicated to the user, or set by them.
+
+      On the server, design your state snapshots to expose only UI-relevant data:
+
+      ```csharp title="agent/Program.cs (excerpt)"
+      using Azure.AI.OpenAI;
+      using Azure.Identity;
+      using Microsoft.Agents.AI;
+      using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+
+      // UI-facing output state  
+      public class OutputStateSnapshot
+      {
+          public string? Answer { get; set; }
+      }
+
+      // Internal state (not sent to frontend)
+      public class InternalState
+      {
+          public List<string> Resources { get; set; } = new();
+      }
+
+      var builder = WebApplication.CreateBuilder(args);
+      builder.Services.AddAGUI();
+      var app = builder.Build();
+
+      string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
+      string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
+
+      // Create agent - state snapshots returned from tools determine what's sent to frontend
+      var agent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
+          .GetChatClient(deployment)
+          .CreateAIAgent(name: "SampleAgent");
+
+      app.MapAGUI("/", agent);
+      await app.RunAsync();
+      ```
+
+      On the UI, read only the agreed contract:
+
+      ```tsx
+      import { useCoAgent } from "@copilotkit/react-core";
+
+      const { state } = useCoAgent<AgentState>({
+        name: "sample_agent",
+        initialState: { question: "How's the weather in SF?" },
+      });
+
+      console.log(state);
+      // Expect the UI to set "question" and the agent to return "answer"
+      ```
+  </Step>
+  <Step>
+    ### Give it a try!
+    Now that we know which state properties our agent emits, we can inspect the state and expect the following to happen:
+    - While we are able to provide a question, we will not receive it back from the agent. If we are using it in our UI, we need to remember the UI is the source of truth for it
+    - Answer will change once it's returned back from the agent
+    - The UI has no access to resources.
+
+    ```tsx
+    import { useCoAgent } from "@copilotkit/react-core";
+
+    type AgentState = {
+      question: string;
+      answer: string;
+    }
+
+    const { state } = useCoAgent<AgentState>({
+      name: "sample_agent",
+      initialState: {
+        question: "How's the weather in SF?",
+      }
+    });
+
+    console.log(state) // You can expect seeing "answer" change, while the others are not returned from the agent
+    ```
+  </Step>
+</Steps>
