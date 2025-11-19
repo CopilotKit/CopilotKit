@@ -78,11 +78,15 @@ When the tool completes, the agent emits a final state snapshot. Any predictive 
       <Tab value=".NET">
         ```csharp title="agent/Program.cs (excerpt)"
         using System.ComponentModel;
+        using System.Text.Json;
         using Azure.AI.OpenAI;
         using Azure.Identity;
         using Microsoft.Agents.AI;
         using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+        using Microsoft.AspNetCore.Http.Json;
         using Microsoft.Extensions.AI;
+        using Microsoft.Extensions.DependencyInjection;
+        using Microsoft.Extensions.Options;
 
         var builder = WebApplication.CreateBuilder(args);
         builder.Services.AddAGUI();
@@ -91,37 +95,71 @@ When the tool completes, the agent emits a final state snapshot. Any predictive 
         string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
         string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
 
-        // Define a tool the LLM will call as it progresses
+        // Define a tool the LLM may call as it progresses to report partial steps
         [Description("Report current step progress.")]
         static string StepProgress([Description("Steps completed so far")] string[] steps)
             => "Progress received.";
 
-        // Create the agent and map predictive state updates
-        var agent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
+        // Create the base agent with the reporting tool
+        var baseAgent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
             .GetChatClient(deployment)
             .CreateAIAgent(
                 name: "AGUIAssistant",
-                instructions: "You are a task performer. Report steps using the step_progress tool.",
-                tools: [AIFunctionFactory.Create(StepProgress)]
-            );
+                instructions: "You are a helpful assistant that may call the 'step_progress' tool to report intermediate steps.",
+                tools: [AIFunctionFactory.Create(StepProgress)]);
 
-        // Map tool args to state: observed_steps <- steps
-        agent = agent.AsBuilder()
-            .WithStateManagement(
-                stateSchema: new Dictionary<string, object> {
-                    ["observed_steps"] = new { type = "array", items = new { type = "string" }, description = "Array of completed steps" }
-                },
-                predictStateConfig: new Dictionary<string, Dictionary<string, string>> {
-                    ["observed_steps"] = new Dictionary<string, string> {
-                        ["tool"] = "step_progress",
-                        ["tool_argument"] = "steps"
-                    }
-                }
-            )
-            .Build();
+        // Wrap with a streaming middleware that emits interim state snapshots.
+        // See the "Stream state from your agent" section in the Agent State guide for a full example of a DelegatingAIAgent
+        // that reads streaming updates and emits DataContent with an AgentStateSnapshot.
+        var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
+        AIAgent agent = new StateStreamingAgent(baseAgent, jsonOptions.Value.SerializerOptions);
 
         app.MapAGUI("/", agent);
         await app.RunAsync();
+
+        // Example: streaming agent wrapper emitting state snapshots (simplified)
+        internal sealed class StateStreamingAgent : DelegatingAIAgent
+        {
+            private readonly JsonSerializerOptions _jsonOptions;
+            public StateStreamingAgent(AIAgent inner, JsonSerializerOptions jsonOptions) : base(inner)
+            {
+                _jsonOptions = jsonOptions;
+            }
+
+            public override async IAsyncEnumerable<AgentRunResponseUpdate> RunStreamingAsync(
+                IEnumerable<ChatMessage> messages,
+                AgentThread? thread = null,
+                AgentRunOptions? options = null,
+                [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+            {
+                var observedSteps = new List<string>();
+                await foreach (var update in this.InnerAgent.RunStreamingAsync(messages, thread, options, cancellationToken))
+                {
+                    // Inspect streaming contents for function calls and collect step arguments as they arrive
+                    foreach (var content in update.Contents)
+                    {
+                        if (content is FunctionCallContent f && string.Equals(f.Name, "step_progress", StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (f.Arguments is JsonElement args && args.TryGetProperty("steps", out var steps) && steps.ValueKind == JsonValueKind.Array)
+                            {
+                                observedSteps.Clear();
+                                foreach (var s in steps.EnumerateArray())
+                                {
+                                    if (s.ValueKind == JsonValueKind.String) observedSteps.Add(s.GetString()!);
+                                }
+                                // Emit a lightweight state snapshot into the AG‑UI stream
+                                var snapshot = new { observed_steps = observedSteps };
+                                var payload = JsonSerializer.SerializeToUtf8Bytes(snapshot, _jsonOptions);
+                                yield return new AgentRunResponseUpdate { Contents = [ new DataContent(payload, "application/json") ] };
+                            }
+                        }
+                    }
+
+                    // Always forward the original update (text deltas / final tool results, etc.)
+                    yield return update;
+                }
+            }
+        }
         ```
       </Tab>
       <Tab value="Python">
