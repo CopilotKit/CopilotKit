@@ -82,6 +82,10 @@ Configure authentication in your AG-UI server:
     import os
     from fastapi import FastAPI, HTTPException, Request, status
     from fastapi.middleware.cors import CORSMiddleware
+    from agent_framework._clients import ChatClientProtocol
+    from agent_framework.azure import AzureOpenAIChatClient
+    from agent_framework.openai import OpenAIChatClient
+    from azure.identity import DefaultAzureCredential
     from agent_framework_ag_ui import add_agent_framework_fastapi_endpoint
     from agent import create_agent
 
@@ -108,7 +112,24 @@ Configure authentication in your AG-UI server:
                 raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
         return await call_next(request)
 
-    my_agent = create_agent(chat_client=...)  # build your chat client as in the quickstart
+    # Build a chat client (same pattern as the Quickstart)
+    def _build_chat_client() -> ChatClientProtocol:
+        if bool(os.getenv("AZURE_OPENAI_ENDPOINT")):
+            deployment_name = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-4o-mini")
+            return AzureOpenAIChatClient(
+                credential=DefaultAzureCredential(),
+                deployment_name=deployment_name,
+                endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+            )
+        if bool(os.getenv("OPENAI_API_KEY")):
+            return OpenAIChatClient(
+                model_id=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o-mini"),
+                api_key=os.getenv("OPENAI_API_KEY"),
+            )
+        raise RuntimeError("Set AZURE_OPENAI_* or OPENAI_API_KEY in agent/.env")
+
+    chat_client = _build_chat_client()
+    my_agent = create_agent(chat_client)
     add_agent_framework_fastapi_endpoint(app=app, agent=my_agent, path="/")
     ```
   </Tab>
