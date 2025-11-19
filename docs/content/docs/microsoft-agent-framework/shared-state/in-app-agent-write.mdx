@@ -50,10 +50,9 @@ You can use this when you need to update agent state from your application — f
       </Tab>
       <Tab value="Python">
         ```python title="agent/src/agent.py (excerpt)"
-        from __future__ import annotations
-        from typing import Annotated, Dict
+        from typing import Annotated
         from agent_framework import ChatAgent, ChatClientProtocol, ai_function
-        from agent_framework_ag_ui import AgentFrameworkAgent
+        from agent_framework.ag_ui import AgentFrameworkAgent
         from pydantic import Field
 
         STATE_SCHEMA: dict[str, object] = {
