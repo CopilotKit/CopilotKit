@@ -127,7 +127,7 @@ When the tool completes, the agent emits a final state snapshot. Any predictive 
       <Tab value="Python">
         ```python title="agent/src/agent.py (excerpt)"
         from __future__ import annotations
-        from typing import Annotated, Dict, List
+        from typing import Annotated, Dict
         from agent_framework import ChatAgent, ChatClientProtocol, ai_function
         from agent_framework_ag_ui import AgentFrameworkAgent
         from pydantic import Field
@@ -155,7 +155,7 @@ When the tool completes, the agent emits a final state snapshot. Any predictive 
             description="Report current step progress."
         )
         def step_progress(
-            steps: Annotated[List[str], Field(description="Steps completed so far")]
+            steps: Annotated[list[str], Field(description="Steps completed so far")]
         ) -> str:
             return "Progress received."
 
