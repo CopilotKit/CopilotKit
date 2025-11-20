@@ -30,5 +30,7 @@ export function copilotRuntimeNextJSAppRouterEndpoint(options: CreateCopilotRunt
     runtime: options.runtime.instance,
     basePath: options.baseUrl ?? options.endpoint,
   });
-  return { handleRequest: handle(copilotRoute) };
+
+  const handleRequest = handle(copilotRoute as any);
+  return { handleRequest };
 }

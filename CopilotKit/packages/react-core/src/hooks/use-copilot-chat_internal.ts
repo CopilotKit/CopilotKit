@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useMemo, useState } from "react";
+import { useRef, useEffect, useCallback, useMemo, useState, createElement } from "react";
 import { useCopilotContext } from "../context/copilot-context";
 import { SystemMessageFunction } from "../types";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
@@ -19,6 +19,10 @@ import {
   UseCopilotChatSuggestionsConfiguration,
 } from "./use-configure-chat-suggestions";
 import { AbstractAgent, AGUIConnectNotImplementedError } from "@ag-ui/client";
+import {
+  CoAgentStateRenderBridge,
+  type CoAgentStateRenderBridgeProps,
+} from "./use-coagent-state-render-bridge";
 
 /**
  * The type of suggestions to use in the chat.
@@ -446,27 +450,78 @@ export function useCopilotChatInternal({
 
   const lazyToolRendered = useLazyToolRenderer();
   const renderCustomMessage = useRenderCustomMessages();
+  const legacyCustomMessageRenderer = useLegacyCoagentRenderer({
+    copilotkit,
+    agent,
+    agentId: resolvedAgentId,
+    threadId: existingConfig?.threadId ?? threadId,
+  });
   const allMessages = agent?.messages ?? [];
   const resolvedMessages = useMemo(() => {
-    return allMessages.map((message) => {
+    let processedMessages = allMessages.map((message) => {
       if (message.role !== "assistant") {
         return message;
       }
 
-      let genUI = lazyToolRendered(message, allMessages);
-      const renderedGenUi = genUI?.();
-      if (renderedGenUi) {
-        genUI = () => renderedGenUi;
-      } else if (renderCustomMessage) {
-        genUI = () =>
-          renderCustomMessage({
-            message,
-            position: "before",
-          });
+      const lazyRendered = lazyToolRendered(message, allMessages);
+      if (lazyRendered) {
+        const renderedGenUi = lazyRendered();
+        if (renderedGenUi) {
+          return { ...message, generativeUI: () => renderedGenUi };
+        }
       }
-      return genUI ? { ...message, generativeUI: genUI } : message;
+
+      const bridgeRenderer = legacyCustomMessageRenderer || renderCustomMessage
+        ? () => {
+            const customRender = renderCustomMessage?.({
+              message,
+              position: "before",
+            });
+            if (customRender) {
+              return customRender;
+            }
+            return legacyCustomMessageRenderer?.({ message, position: "before" });
+          }
+        : null;
+
+      if (bridgeRenderer) {
+        return { ...message, generativeUI: bridgeRenderer };
+      }
+      return message;
     });
-  }, [agent?.messages, lazyToolRendered, allMessages]);
+
+    const hasAssistantMessages = processedMessages.some((msg) => msg.role === "assistant");
+
+    if (legacyCustomMessageRenderer && !hasAssistantMessages) {
+      const placeholderId = `coagent-state-render-${resolvedAgentId}`;
+      const placeholderMessage: Message = {
+        id: placeholderId,
+        role: "assistant",
+        content: "",
+        name: "coagent-state-render",
+      };
+      processedMessages = [
+        ...processedMessages,
+        {
+          ...placeholderMessage,
+          generativeUI: () =>
+            legacyCustomMessageRenderer({
+              message: placeholderMessage,
+              position: "before",
+            }),
+        } as Message,
+      ];
+    }
+
+    return processedMessages;
+  }, [
+    agent?.messages,
+    lazyToolRendered,
+    allMessages,
+    renderCustomMessage,
+    legacyCustomMessageRenderer,
+    resolvedAgentId,
+  ]);
 
   // @ts-ignore
   return {
@@ -503,6 +558,55 @@ function useUpdatedRef<T>(value: T) {
   }, [value]);
 
   return ref;
+}
+
+type LegacyRenderParams = {
+  message: Message;
+  position: "before" | "after";
+};
+
+type LegacyRenderer = ((args: LegacyRenderParams) => any) | null;
+
+function useLegacyCoagentRenderer({
+  copilotkit,
+  agent,
+  agentId,
+  threadId,
+}: {
+  copilotkit: ReturnType<typeof useCopilotKit>["copilotkit"];
+  agent?: AbstractAgent;
+  agentId: string;
+  threadId?: string;
+}): LegacyRenderer {
+  return useMemo(() => {
+    if (!copilotkit || !agent) {
+      return null;
+    }
+
+    return ({ message, position }: LegacyRenderParams) => {
+      const effectiveThreadId = threadId ?? agent.threadId ?? "default";
+      const existingRunId = copilotkit.getRunIdForMessage(
+        agentId,
+        effectiveThreadId,
+        message.id,
+      );
+      const runId = existingRunId || `pending:${message.id}`;
+      const messageIndex = Math.max(agent.messages.findIndex((msg) => msg.id === message.id), 0);
+
+      const bridgeProps: CoAgentStateRenderBridgeProps = {
+        message: message as any,
+        position,
+        runId,
+        messageIndex,
+        messageIndexInRun: 0,
+        numberOfMessagesInRun: 1,
+        agentId,
+        stateSnapshot: (message as any).state,
+      };
+
+      return createElement(CoAgentStateRenderBridge, bridgeProps) as any;
+    };
+  }, [agent, agentId, copilotkit, threadId]);
 }
 
 export function defaultSystemMessage(

@@ -235,6 +235,32 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     }
   }, [agent, externalStateStr, handleStateUpdate]);
 
+  const hasStateValues = useCallback((value?: Record<string, any>) => {
+    return Boolean(value && Object.keys(value).length);
+  }, []);
+
+  const initialStateRef = useRef<any>(
+    isExternalStateManagement(options)
+      ? options.state
+      : "initialState" in options
+        ? options.initialState
+        : undefined,
+  );
+
+  useEffect(() => {
+    if (isExternalStateManagement(options)) {
+      initialStateRef.current = options.state;
+    } else if ("initialState" in options) {
+      initialStateRef.current = options.initialState;
+    }
+  }, [
+    isExternalStateManagement(options)
+      ? JSON.stringify(options.state)
+      : "initialState" in options
+        ? JSON.stringify(options.initialState)
+        : undefined,
+  ]);
+
   useEffect(() => {
     if (!agent) return;
     const subscriber: AgentSubscriber = {
@@ -244,10 +270,18 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
         }
       },
       onRunInitialized: (args: any) => {
-        if (!args.state || !Object.keys(args.state).length) {
-          handleStateUpdate(
-            isExternalStateManagement(options) ? options.state : options.initialState,
-          );
+        const runHasState = hasStateValues(args.state);
+        if (runHasState) {
+          handleStateUpdate(args.state);
+          return;
+        }
+
+        if (hasStateValues(agent.state)) {
+          return;
+        }
+
+        if (initialStateRef.current !== undefined) {
+          handleStateUpdate(initialStateRef.current);
         }
       },
       onStepStartedEvent: ({ event }) => {
@@ -261,11 +295,11 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
       },
     };
 
-    const { unsubscribe } = agent.subscribe(subscriber);
+    const subscription = agent.subscribe(subscriber);
     return () => {
-      unsubscribe();
+      subscription.unsubscribe();
     };
-  }, [agent]);
+  }, [agent, handleStateUpdate, hasStateValues]);
 
   // Return a consistent shape whether or not the agent is available
   return useMemo<UseCoagentReturnType<T>>(() => {

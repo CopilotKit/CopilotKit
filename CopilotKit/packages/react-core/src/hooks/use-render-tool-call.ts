@@ -9,6 +9,8 @@ import React, { useEffect, useRef } from "react";
 import { defineToolCallRenderer, useCopilotKit } from "@copilotkitnext/react";
 import { parseJson } from "@copilotkit/shared";
 
+type ToolCallRendererDefinition = Parameters<typeof defineToolCallRenderer>[0];
+
 export type UseRenderToolCallArgs<T extends Parameter[] | [] = []> = Pick<
   FrontendAction<T>,
   "name" | "description" | "parameters"
@@ -36,23 +38,22 @@ export function useRenderToolCall<const T extends Parameter[] | [] = []>(
       name === "*"
         ? defineToolCallRenderer({
             name: "*",
-            render: (args) => {
+            render: ((args) => {
               return render({
                 ...args,
                 result: args.result ? parseJson(args.result, args.result) : args.result,
               });
-            },
+            }) as ToolCallRendererDefinition["render"],
           })
         : defineToolCallRenderer({
             name,
             args: zodParameters,
-            // @ts-ignore TODO: intermittent issue with the render method, shows React types errors on some devices
-            render: (args) => {
+            render: ((args) => {
               return render({
                 ...args,
                 result: args.result ? parseJson(args.result, args.result) : args.result,
               });
-            },
+            }) as ToolCallRendererDefinition["render"],
           });
 
     // Remove any existing renderer with the same name
