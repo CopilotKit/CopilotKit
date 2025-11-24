@@ -1,4 +1,4 @@
-import { describe, test, expect, vi } from "vitest";
+import { describe, test, expect } from "@jest/globals";
 import * as gql from "../types/converted/index";
 import { MessageStatusCode } from "../types/message-status.type";
 import {
@@ -370,7 +370,7 @@ describe("message-conversion", () => {
         status: { code: MessageStatusCode.Pending },
       });
 
-      const mockRender = vi.fn();
+      const mockRender = jest.fn();
       const mockRenderAndWaitForResponse = (props: any) => "Test Render With Response";
 
       const actions = {
@@ -414,7 +414,7 @@ describe("message-conversion", () => {
         status: { code: MessageStatusCode.Pending },
       });
 
-      const mockRender = vi.fn();
+      const mockRender = jest.fn();
       const actions = {
         testAction: {
           name: "testAction",
@@ -445,7 +445,7 @@ describe("message-conversion", () => {
         status: { code: MessageStatusCode.Success },
       });
 
-      const mockRender = vi.fn();
+      const mockRender = jest.fn();
       const actions = {
         testAction: {
           name: "testAction",
@@ -483,7 +483,7 @@ describe("message-conversion", () => {
         actionName: "testAction",
       });
 
-      const mockRender = vi.fn();
+      const mockRender = jest.fn();
       const actions = {
         testAction: {
           name: "testAction",
@@ -517,7 +517,7 @@ describe("message-conversion", () => {
         status: { code: MessageStatusCode.Pending },
       });
 
-      const mockRender = vi.fn();
+      const mockRender = jest.fn();
       const actions = {
         testAction: {
           name: "testAction",
@@ -627,7 +627,7 @@ describe("message-conversion", () => {
         role: gql.Role.assistant,
       });
 
-      const mockRender = vi.fn();
+      const mockRender = jest.fn();
       const coAgentStateRenders = {
         testAgent: {
           name: "testAgent",
@@ -740,7 +740,7 @@ describe("message-conversion", () => {
         role: gql.Role.assistant,
       });
 
-      const mockRender = vi.fn();
+      const mockRender = jest.fn();
       const coAgentStateRenders = {
         testAgent: {
           name: "testAgent",
@@ -853,7 +853,7 @@ describe("message-conversion", () => {
       const actions = {
         testAction: {
           name: "testAction",
-          render: vi.fn((props) => `Rendered: ${props.args.test}`),
+          render: jest.fn((props) => `Rendered: ${props.args.test}`),
         },
       };
 
@@ -889,7 +889,7 @@ describe("message-conversion", () => {
       const actions = {
         "*": {
           name: "*",
-          render: vi.fn((props) => `Wildcard rendered: ${props.args.test}`),
+          render: jest.fn((props) => `Wildcard rendered: ${props.args.test}`),
         },
       };
 
@@ -922,7 +922,7 @@ describe("message-conversion", () => {
     });
 
     test("should pass tool name to wildcard action render function", () => {
-      const mockRender = vi.fn(
+      const mockRender = jest.fn(
         (props) => `Wildcard rendered: ${props.name} with args: ${JSON.stringify(props.args)}`,
       );
       const actions = {
@@ -954,7 +954,7 @@ describe("message-conversion", () => {
     });
 
     test("should pass tool name to regular action render function", () => {
-      const mockRender = vi.fn((props) => `Regular action rendered: ${JSON.stringify(props.args)}`);
+      const mockRender = jest.fn((props) => `Regular action rendered: ${JSON.stringify(props.args)}`);
       const actions = {
         testAction: {
           name: "testAction",
@@ -992,11 +992,11 @@ describe("message-conversion", () => {
       const actions = {
         specificAction: {
           name: "specificAction",
-          render: vi.fn((props) => "Specific action rendered"),
+          render: jest.fn((props) => "Specific action rendered"),
         },
         "*": {
           name: "*",
-          render: vi.fn((props) => "Wildcard action rendered"),
+          render: jest.fn((props) => "Wildcard action rendered"),
         },
       };
 
@@ -1032,7 +1032,7 @@ describe("message-conversion", () => {
       const actions = {
         otherAction: {
           name: "otherAction",
-          render: vi.fn(),
+          render: jest.fn(),
         },
       };
 
@@ -1095,7 +1095,7 @@ describe("message-conversion", () => {
       const actions = {
         "*": {
           name: "*",
-          render: vi.fn((props) => `Result: ${props.result}`),
+          render: jest.fn((props) => `Result: ${props.result}`),
         },
       };
 
@@ -1133,7 +1133,7 @@ describe("message-conversion", () => {
       const actions = {
         "*": {
           name: "*",
-          render: vi.fn((props) => `Status: ${props.status}`),
+          render: jest.fn((props) => `Status: ${props.status}`),
         },
       };
 
@@ -1170,7 +1170,7 @@ describe("message-conversion", () => {
       const actions = {
         "*": {
           name: "*",
-          render: vi.fn((props) => `Status: ${props.status}`),
+          render: jest.fn((props) => `Status: ${props.status}`),
         },
       };
 
@@ -1207,7 +1207,7 @@ describe("message-conversion", () => {
       const actions = {
         "*": {
           name: "*",
-          render: vi.fn((props) => `Status: ${props.status}`),
+          render: jest.fn((props) => `Status: ${props.status}`),
         },
       };
 
@@ -1244,7 +1244,7 @@ describe("message-conversion", () => {
       const actions = {
         "*": {
           name: "*",
-          render: vi.fn((props) => `Status: ${props.status}`),
+          render: jest.fn((props) => `Status: ${props.status}`),
         },
       };
 
@@ -1281,7 +1281,7 @@ describe("message-conversion", () => {
       const actions = {
         "*": {
           name: "*",
-          render: vi.fn((props) => `Args: ${JSON.stringify(props.args)}`),
+          render: jest.fn((props) => `Args: ${JSON.stringify(props.args)}`),
         },
       };
 
@@ -1317,7 +1317,7 @@ describe("message-conversion", () => {
       const actions = {
         "*": {
           name: "*",
-          render: vi.fn((props) => `Args: ${JSON.stringify(props.args)}`),
+          render: jest.fn((props) => `Args: ${JSON.stringify(props.args)}`),
         },
       };
 
@@ -1353,7 +1353,7 @@ describe("message-conversion", () => {
       const actions = {
         "*": {
           name: "*",
-          render: vi.fn((props) => `Complex: ${JSON.stringify(props.args)}`),
+          render: jest.fn((props) => `Complex: ${JSON.stringify(props.args)}`),
         },
       };
 
@@ -1401,11 +1401,11 @@ describe("message-conversion", () => {
       const actions = {
         wildcard1: {
           name: "*",
-          render: vi.fn((props) => "First wildcard"),
+          render: jest.fn((props) => "First wildcard"),
         },
         wildcard2: {
           name: "*",
-          render: vi.fn((props) => "Second wildcard"),
+          render: jest.fn((props) => "Second wildcard"),
         },
       };
 
@@ -1441,7 +1441,7 @@ describe("message-conversion", () => {
       const actions = {
         "*": {
           name: "*",
-          render: vi.fn((props) => `Result: ${JSON.stringify(props.result)}`),
+          render: jest.fn((props) => `Result: ${JSON.stringify(props.result)}`),
         },
       };
 
@@ -1478,7 +1478,7 @@ describe("message-conversion", () => {
       const actions = {
         "*": {
           name: "*",
-          render: vi.fn((props) => `Result: ${JSON.stringify(props.result)}`),
+          render: jest.fn((props) => `Result: ${JSON.stringify(props.result)}`),
         },
       };
 
@@ -1515,7 +1515,7 @@ describe("message-conversion", () => {
       const actions = {
         "*": {
           name: "*",
-          render: vi.fn((props) => `Result: ${JSON.stringify(props.result)}`),
+          render: jest.fn((props) => `Result: ${JSON.stringify(props.result)}`),
         },
       };
 
