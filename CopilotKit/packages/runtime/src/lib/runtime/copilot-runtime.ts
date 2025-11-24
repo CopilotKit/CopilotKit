@@ -312,8 +312,8 @@ interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []>
 /**
  * Central runtime object passed to all request handlers.
  */
-export class CopilotRuntime {
-  params?: CopilotRuntimeConstructorParams;
+export class CopilotRuntime<const T extends Parameter[] | [] = []> {
+  params?: CopilotRuntimeConstructorParams<T>;
   private observability?: CopilotObservabilityConfig;
   // Cache MCP tools per endpoint to avoid re-fetching repeatedly
   private mcpToolsCache: Map<string, BasicAgentConfiguration["tools"]> = new Map();
@@ -321,7 +321,7 @@ export class CopilotRuntime {
   private _instance: CopilotRuntimeVNext;
 
   constructor(
-    params?: CopilotRuntimeConstructorParams & PartialBy<CopilotRuntimeOptions, "agents">,
+    params?: CopilotRuntimeConstructorParams<T> & PartialBy<CopilotRuntimeOptions, "agents">,
   ) {
     const agents = params?.agents ?? {};
     this.runtimeArgs = {
@@ -345,7 +345,7 @@ export class CopilotRuntime {
     return this._instance;
   }
 
-  private assignEndpointsToAgents(endpoints: CopilotRuntimeConstructorParams["remoteEndpoints"]) {
+  private assignEndpointsToAgents(endpoints: CopilotRuntimeConstructorParams<T>["remoteEndpoints"]) {
     return endpoints.reduce((acc, endpoint) => {
       if (resolveEndpointType(endpoint) == EndpointType.LangGraphPlatform) {
         let lgAgents = {};
@@ -454,7 +454,7 @@ export class CopilotRuntime {
   }
 
   private createOnBeforeRequestHandler(
-    params?: CopilotRuntimeConstructorParams & PartialBy<CopilotRuntimeOptions, "agents">,
+    params?: CopilotRuntimeConstructorParams<T> & PartialBy<CopilotRuntimeOptions, "agents">,
   ) {
     return async (hookParams: BeforeRequestMiddlewareFnParameters[0]) => {
       // TODO: get public api key and run with expected data
@@ -492,7 +492,7 @@ export class CopilotRuntime {
   }
 
   private createOnAfterRequestHandler(
-    params?: CopilotRuntimeConstructorParams & PartialBy<CopilotRuntimeOptions, "agents">,
+    params?: CopilotRuntimeConstructorParams<T> & PartialBy<CopilotRuntimeOptions, "agents">,
   ) {
     return async (hookParams: AfterRequestMiddlewareFnParameters[0]) => {
       // TODO: get public api key and run with expected data
