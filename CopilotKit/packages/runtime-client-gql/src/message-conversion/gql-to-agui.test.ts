@@ -848,6 +848,120 @@ describe("message-conversion", () => {
     });
   });
 
+  describe("Stale Closure Fix", () => {
+    test("should use updated render function from actions reference", () => {
+      // This test verifies that the render function is fetched fresh from the actions
+      // reference rather than being captured in a closure, fixing the stale state issue
+
+      let renderCallCount = 0;
+      const actions: Record<string, any> = {
+        testAction: {
+          name: "testAction",
+          render: vi.fn(() => {
+            renderCallCount++;
+            return `Render call ${renderCallCount}`;
+          }),
+        },
+      };
+
+      const gqlMessage = new gql.ActionExecutionMessage({
+        id: "action-1",
+        name: "testAction",
+        arguments: { arg1: "value1" },
+        scope: "client",
+      });
+
+      // Convert message - this should NOT capture the render function
+      const aguiMessages = gqlToAGUI([gqlMessage], actions);
+      expect(aguiMessages).toHaveLength(1);
+
+      const message = aguiMessages[0] as AIMessage;
+      expect(message.generativeUI).toBeDefined();
+
+      // First render call
+      const result1 = message.generativeUI!();
+      expect(result1).toBe("Render call 1");
+      expect(renderCallCount).toBe(1);
+
+      // Update the render function in the actions reference
+      // This simulates what happens when component state changes
+      actions.testAction.render = vi.fn(() => {
+        renderCallCount++;
+        return `Updated render call ${renderCallCount}`;
+      });
+
+      // Second render call - should use the UPDATED render function
+      const result2 = message.generativeUI!();
+      expect(result2).toBe("Updated render call 2");
+      expect(renderCallCount).toBe(2);
+    });
+
+    test("should handle wildcard action render updates", () => {
+      let stateValue = "initial";
+      const actions: Record<string, any> = {
+        wildcardAction: {
+          name: "*",
+          render: vi.fn((props: any) => {
+            return `Wildcard: ${stateValue} - ${props.name}`;
+          }),
+        },
+      };
+
+      const gqlMessage = new gql.ActionExecutionMessage({
+        id: "action-2",
+        name: "someAction",
+        arguments: {},
+        scope: "client",
+      });
+
+      const aguiMessages = gqlToAGUI([gqlMessage], actions);
+      const message = aguiMessages[0] as AIMessage;
+
+      // First render
+      const result1 = message.generativeUI!();
+      expect(result1).toBe("Wildcard: initial - someAction");
+
+      // Update the render function to capture new state
+      stateValue = "updated";
+      actions.wildcardAction.render = vi.fn((props: any) => {
+        return `Wildcard: ${stateValue} - ${props.name}`;
+      });
+
+      // Second render - should see updated state
+      const result2 = message.generativeUI!();
+      expect(result2).toBe("Wildcard: updated - someAction");
+    });
+
+    test("should handle missing render function gracefully", () => {
+      const actions: Record<string, any> = {
+        testAction: {
+          name: "testAction",
+          render: vi.fn(() => "Initial render"),
+        },
+      };
+
+      const gqlMessage = new gql.ActionExecutionMessage({
+        id: "action-3",
+        name: "testAction",
+        arguments: {},
+        scope: "client",
+      });
+
+      const aguiMessages = gqlToAGUI([gqlMessage], actions);
+      const message = aguiMessages[0] as AIMessage;
+
+      // First render works
+      expect(message.generativeUI!()).toBe("Initial render");
+
+      // Remove the render function
+      delete actions.testAction.render;
+
+      // Should return undefined when render is missing
+      const result = message.generativeUI!();
+      expect(result).toBeUndefined();
+    });
+  });
+
   describe("Wild Card Actions", () => {
     test("should handle action execution with specific action", () => {
       const actions = {
