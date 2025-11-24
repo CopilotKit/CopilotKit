@@ -8972,7 +8972,7 @@ On this pageWhat is this?
 Render your agent's tool calls with custom UI components.
 
 This video demonstrates the [implementation](https://docs.copilotkit.ai/crewai-crews/generative-ui/tool-based#implementation) section applied
-to out [coagents starter\\
+to our [coagents starter\\
 project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-crewai-crews).
 
 ## [What is this?](https://docs.copilotkit.ai/crewai-crews/generative-ui/tool-based\#what-is-this)
