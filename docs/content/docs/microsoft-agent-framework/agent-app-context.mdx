@@ -56,7 +56,7 @@ This context can then be shared with your AG-UI server and agent logic.
         ### Consume the data in your AG-UI server
         The `context` you register on the frontend is forwarded to your AG-UI server in `ChatOptions.AdditionalProperties["ag_ui_context"]`. Use middleware to access this context and inject it into the agent's conversation.
 
-        <Tabs groupId="language" items={['.NET', 'Python']}>
+        <Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']} persist>
           <Tab value=".NET">
             ```csharp title="Program.cs"
             using System.Runtime.CompilerServices;

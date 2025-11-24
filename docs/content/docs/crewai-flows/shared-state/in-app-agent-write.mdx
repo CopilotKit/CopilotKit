@@ -44,7 +44,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     CrewAI Flows are stateful. As you transition through the flow, that state is updated and available to the next function. For this example,
     let's assume that our agent state looks something like this.
 
-    <Tabs groupId="language" items={["Python", "TypeScript"]}>
+    <Tabs groupId="language_crewai-flows_agent" items={["Python", "TypeScript"]} persist>
       <Tab value="Python">
         ```python title="agent-py/sample_agent/agent.py"
         from copilotkit.crewai import CopilotKitState

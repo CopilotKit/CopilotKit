@@ -106,7 +106,7 @@ is interrupted and then resumes execution from where it left off, unaware of the
     - If the `writeEssay` action is found in the model's response, the agent will transition to the `user_feedback_node`.
     - The agent is interrupted before the `user_feedback_node` to allow for user input.
 
-    <Tabs groupId="language" items={["Python", "TypeScript"]}>
+    <Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]} persist>
       <Tab value="Python">
         ```python title="agent/sample_agent/agent.py"
         from typing_extensions import Literal

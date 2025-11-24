@@ -59,7 +59,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
         ### Define the state
         We'll be defining a `observed_steps` field in the state, which will be updated as the agent writes different sections of the report.
 
-        <Tabs groupId="language" items={["Python", "TypeScript"]}>
+        <Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]} persist>
             <Tab value="Python">
                 ```python title="agent-py/sample_agent/agent.py"
                 from copilotkit import CopilotKitState
@@ -103,7 +103,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                 icon={<FaArrowUp />}
             >
                 For long-running tasks, you can emit state updates progressively as predictions of the final state. In this example, we simulate a long-running task by executing a series of steps with a one second delay between each update.
-                <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+                <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
                     <Tab value="Python">
                         ```python title="agent-py/sample_agent/agent.py"
                         from copilotkit.langgraph import copilotkit_emit_state # [!code highlight]
@@ -160,7 +160,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                 icon={<FaWrench />}
             >
                 For long-running tasks, you can configure CopilotKit to automatically predict state updates when specific tool calls are made. In this example, we'll configure CopilotKit to predict state updates whenever the LLM calls the step progress tool.
-                <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+                <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
                     <Tab value="Python">
                         ```python
                         from copilotkit.langgraph import copilotkit_customize_config

@@ -57,7 +57,7 @@ interaction, however [CopilotKit's SDKs provide helpers to alleviate this](#make
 ### Setup your agent state
 We're going to have the agent ask us to name it, so we'll need a state property to store the name.
 
-<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+<Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
     <Tab value="Python">
         ```python title="agent/sample_agent/agent.py"
         # ...
@@ -99,7 +99,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
         If you want this behavior, see the [section on it below](#make-your-agent-aware-of-interruptions).
     </Callout>
 
-    <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+    <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
         <Tab value="Python">
             ```python title="agent/sample_agent/agent.py"
             from langgraph.types import interrupt # [!code highlight]
@@ -223,7 +223,7 @@ For this reason, the hook can take an `enabled` argument which will apply it con
     <Step>
         ### Define multiple interrupts
         First, let's define two different interrupts. We will include a "type" property to differentiate them.
-        <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+        <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
             <Tab value="Python">
                 ```python title="agent/sample_agent/agent.py"
                 from langgraph.types import interrupt # [!code highlight]

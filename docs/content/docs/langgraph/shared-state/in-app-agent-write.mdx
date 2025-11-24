@@ -40,7 +40,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     LangGraph is stateful. As you transition between nodes, that state is updated and passed to the next node. For this example,
     let's assume that our agent state looks something like this.
 
-    <Tabs groupId="language" items={["Python", "TypeScript"]}>
+    <Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]} persist>
       <Tab value="Python">
         ```python title="agent-py/sample_agent/agent.py"
         from copilotkit import CopilotKitState

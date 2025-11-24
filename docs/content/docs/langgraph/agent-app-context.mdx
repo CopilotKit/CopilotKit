@@ -52,7 +52,7 @@ This context can then be shared with your LangGraph agent.
         ### Setup your agent state
         Make sure your agent state inherits from CopilotKit state definition
 
-        <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+        <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
             <Tab value="Python">
                 ```python title="agent/sample_agent/agent.py"
                 # ...
@@ -90,7 +90,7 @@ This context can then be shared with your LangGraph agent.
         The state of a LangGraph agent is the "hub" for applicative information used by the agent.
         Naturally, the context from CopilotKit will be injected there.
 
-        <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+        <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
             <Tab value="Python">
                 ```python title="agent/sample_agent/agent.py"
                 from langchain_core.messages import SystemMessage
