@@ -1,0 +1,205 @@
+---
+title: "Authentication"
+icon: "lucide/Shield"
+description: "Secure your Microsoft Agent Framework agents with user authentication"
+---
+
+## Overview
+
+Forward user authentication from your frontend to your AG-UI server:
+
+- **Frontend**: Pass tokens via `<CopilotKit headers={{ Authorization: token }}>`
+- **Backend**: Validate tokens using ASP.NET Core authentication middleware
+
+## Frontend Setup
+
+Pass your authentication token via the `headers` prop:
+
+```tsx
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  headers={{
+    Authorization: `Bearer ${userToken}`,
+  }}
+>
+  <YourApp />
+</CopilotKit>
+```
+
+## Backend Setup
+
+Configure authentication in your AG-UI server:
+
+<Tabs groupId="language" items={['.NET', 'Python']}>
+  <Tab value=".NET">
+    ```csharp title="Program.cs"
+    using Microsoft.Agents.AI;
+    using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+    using Microsoft.AspNetCore.Authentication.JwtBearer;
+    using OpenAI;
+
+    var builder = WebApplication.CreateBuilder(args);
+
+    // Configure JWT authentication
+    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(options =>
+        {
+            options.Authority = builder.Configuration["JwtAuthority"];
+            options.Audience = builder.Configuration["JwtAudience"];
+            options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true
+            };
+        });
+
+    builder.Services.AddAuthorization();
+
+    var app = builder.Build();
+
+    app.UseAuthentication();
+    app.UseAuthorization();
+
+    // Create and map your agent
+    string githubToken = builder.Configuration["GitHubToken"]!;
+    var openAI = new OpenAIClient(
+        new System.ClientModel.ApiKeyCredential(githubToken),
+        new OpenAIClientOptions { Endpoint = new Uri("https://models.inference.ai.azure.com") }
+    );
+    var agent = openAI.GetChatClient("gpt-4o-mini")
+        .CreateAIAgent(name: "AGUIAssistant", instructions: "You are a helpful assistant.");
+
+    app.MapAGUI("/", agent).RequireAuthorization();
+
+    await app.RunAsync();
+    ```
+  </Tab>
+  <Tab value="Python">
+    ```python title="agent/src/main.py (excerpt)"
+    from __future__ import annotations
+    import os
+    from fastapi import FastAPI, HTTPException, Request, status
+    from fastapi.middleware.cors import CORSMiddleware
+    from agent_framework import ChatClientProtocol
+    from agent_framework.azure import AzureOpenAIChatClient
+    from agent_framework.openai import OpenAIChatClient
+    from azure.identity import DefaultAzureCredential
+    from agent_framework.ag_ui import add_agent_framework_fastapi_endpoint
+    from agent import create_agent
+
+    app = FastAPI(title="CopilotKit + Microsoft Agent Framework (Python)")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    REQUIRED_BEARER_TOKEN = os.getenv("AUTH_BEARER_TOKEN")
+
+    @app.middleware("http")
+    async def auth_middleware(request: Request, call_next):
+        # Protect the AG-UI endpoint if a token is configured
+        if REQUIRED_BEARER_TOKEN and request.url.path == "/":
+            auth_header = request.headers.get("Authorization", "")
+            if not auth_header.startswith("Bearer "):
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token")
+            token = auth_header.split(" ", 1)[1].strip()
+            if token != REQUIRED_BEARER_TOKEN:
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        return await call_next(request)
+
+    # Build a chat client (same pattern as the Quickstart)
+    def _build_chat_client() -> ChatClientProtocol:
+        if bool(os.getenv("AZURE_OPENAI_ENDPOINT")):
+            deployment_name = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-4o-mini")
+            return AzureOpenAIChatClient(
+                credential=DefaultAzureCredential(),
+                deployment_name=deployment_name,
+                endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+            )
+        if bool(os.getenv("OPENAI_API_KEY")):
+            return OpenAIChatClient(
+                model_id=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o-mini"),
+                api_key=os.getenv("OPENAI_API_KEY"),
+            )
+        raise RuntimeError("Set AZURE_OPENAI_* or OPENAI_API_KEY in agent/.env")
+
+    chat_client = _build_chat_client()
+    my_agent = create_agent(chat_client)
+    add_agent_framework_fastapi_endpoint(app=app, agent=my_agent, path="/")
+    ```
+  </Tab>
+</Tabs>
+
+### Configuration
+
+Add settings to your server configuration:
+
+<Tabs groupId="language" items={['.NET', 'Python']}>
+  <Tab value=".NET">
+    ```json title="appsettings.json"
+    {
+      "JwtAuthority": "https://login.microsoftonline.com/{your-tenant-id}/v2.0",
+      "JwtAudience": "api://{your-client-id}",
+      "GitHubToken": "your-github-token-here"
+    }
+    ```
+  </Tab>
+  <Tab value="Python">
+    ```bash title="agent/.env"
+    # Simple shared-secret example for demo purposes
+    AUTH_BEARER_TOKEN=super-secret-demo-token
+    ```
+  </Tab>
+</Tabs>
+
+### CORS (if needed)
+
+If your frontend and backend are on different origins:
+
+```csharp title="Program.cs"
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.WithOrigins("http://localhost:3000")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
+// ...
+
+app.UseCors();
+app.UseAuthentication();
+app.UseAuthorization();
+```
+
+## Security Best Practices
+
+- Validate tokens on every request
+- Scope data access to authenticated users
+- Implement role-based access control in your agents
+- Use HTTPS in production
+
+<Callout type="warning" title="Avoid shared-secret bearer tokens in production">
+  Examples that validate a bearer token against a single shared secret (e.g., an environment variable) are for local demos only.
+  For production, use proper authentication:
+  - .NET: Validate JWTs with `Microsoft.AspNetCore.Authentication.JwtBearer` (as shown above), backed by your IdP (e.g., Entra ID).
+  - Python: Use OAuth 2.0 / OpenID Connect JWT validation or an API gateway that validates tokens before requests reach your AG‑UI server.
+</Callout>
+
+## Troubleshooting
+
+**Token not reaching server**: Verify the `Authorization` header is set in `<CopilotKit>` and forwarded through any proxies.
+
+**Invalid token**: Ensure the token includes the `Bearer ` prefix.
+
+**CORS errors**: Configure CORS if frontend and backend are on different origins (see [CORS section](#cors-if-needed)).
+
+For more details, see [Microsoft's JWT authentication guide](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/configure-jwt-bearer-authentication).

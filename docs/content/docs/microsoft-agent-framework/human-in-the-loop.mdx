@@ -1,0 +1,168 @@
+---
+title: Human-in-the-loop
+icon: "lucide/User"
+description: Create frontend tools and use them within your agent framework agent.
+---
+import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/microsoft-agent-framework/run-and-connect.mdx"
+
+{/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the feature viewer */}
+<IframeSwitcher
+  id="frontend-tools-based-hitl-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+## What is this?
+Frontend tools enable you to define client-side functions that your Microsoft Agent Framework agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
+the logic runs on the client side, giving you direct access to the frontend environment.
+
+This can be utilized to let [your agent control the UI](/microsoft-agent-framework/frontend-actions), [power generative UI](/microsoft-agent-framework/generative-ui/frontend-tools), or support Human-in-the-loop interactions.
+
+In this guide, we cover the use of frontend tools for Human-in-the-loop.
+
+## When should I use this?
+Use frontend tools when you need your agent to interact with client-side primitives such as:
+- Reading or modifying React component state
+- Accessing browser APIs like localStorage, sessionStorage, or cookies
+- Triggering UI updates or animations
+- Interacting with third-party frontend libraries
+- Performing actions that require the user's immediate browser context
+
+## Implementation
+
+<Steps>
+    <Step>
+        ### Run and connect your agent
+        <RunAndConnect components={props.components} />
+    </Step>
+
+    <Step>
+        ### Create a frontend human-in-the-loop tool
+
+        Frontend tools can be leveraged in a variety of ways. One of those ways is to have a human-in-the-loop flow where the response
+        of the tool is gated by a user's decision.
+
+        In this example we will simulate a "approval" flow for executing a command. First, use the `useHumanInTheLoop` hook to create a tool that
+        prompts the user for approval.
+
+        ```tsx title="page.tsx"
+        import { useHumanInTheLoop } from "@copilotkit/react-core" // [!code highlight]
+
+        export function Page() {
+          // ...
+
+          useHumanInTheLoop({
+            name: "humanApprovedCommand",
+            description: "Ask human for approval to run a command.",
+            parameters: [
+              {
+                name: "command",
+                type: "string",
+                description: "The command to run",
+                required: true,
+              },
+            ],
+            render: ({ args, respond }) => {
+              if (!respond) return <></>;
+              return (
+                <div>
+                  <pre>{args.command}</pre>
+                  // [!code highlight:4]
+                  // Respond will resume execution and be the value will become the tool result.
+                  <button onClick={() => respond(`Command is APPROVED`)}>Approve</button>
+                  <button onClick={() => respond(`Command is DENIED`)}>Deny</button>
+                </div>
+              );
+            },
+          });
+
+          // ...
+        }
+        ```
+    </Step>
+    <Step>
+        ### Receiving frontend tools in your AG-UI server
+
+        Frontend tools registered with `useHumanInTheLoop` are forwarded to your AG-UI server and passed to the underlying agent via the AgentRunOptions on the server.  They are automatically available by default to the underlying chat client.
+
+        <Tabs groupId="language" items={['.NET', 'Python']}>
+          <Tab value=".NET">
+            ```csharp title="Program.cs"
+            using Azure.AI.OpenAI;
+            using Azure.Identity;
+            using Microsoft.Agents.AI;
+            using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+
+            var builder = WebApplication.CreateBuilder(args);
+            builder.Services.AddAGUI();
+            var app = builder.Build();
+
+            string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
+            string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
+
+            // Create the agent - frontend tools are automatically available
+            var agent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
+                .GetChatClient(deployment)
+                .CreateAIAgent(name: "AGUIAssistant", instructions: "You are a helpful assistant.");
+
+            // Map the AG-UI endpoint
+            app.MapAGUI("/", agent);
+            await app.RunAsync();
+            ```
+          </Tab>
+          <Tab value="Python">
+            ```python title="agent/src/agent.py"
+            from __future__ import annotations
+            import os
+            from fastapi import FastAPI
+            from dotenv import load_dotenv
+            from agent_framework import ChatAgent
+            from agent_framework import ChatClientProtocol
+            from agent_framework.azure import AzureOpenAIChatClient
+            from agent_framework.openai import OpenAIChatClient
+            from agent_framework.ag_ui import add_agent_framework_fastapi_endpoint
+            from azure.identity import DefaultAzureCredential
+
+            load_dotenv()
+
+            def _build_chat_client() -> ChatClientProtocol:
+                if bool(os.getenv("AZURE_OPENAI_ENDPOINT")):
+                    return AzureOpenAIChatClient(
+                        credential=DefaultAzureCredential(),
+                        deployment_name=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-4o-mini"),
+                        endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+                    )
+                if bool(os.getenv("OPENAI_API_KEY")):
+                    return OpenAIChatClient(
+                        model_id=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o-mini"),
+                        api_key=os.getenv("OPENAI_API_KEY"),
+                    )
+                raise RuntimeError("Set AZURE_OPENAI_* or OPENAI_API_KEY in agent/.env")
+
+            chat_client = _build_chat_client()
+            # Frontend tools registered with useHumanInTheLoop are automatically available
+            agent = ChatAgent(
+                name="sample_agent",
+                instructions="You are a helpful assistant.",
+                chat_client=chat_client,
+            )
+
+            app = FastAPI(title="AG-UI Server (Python)")
+            add_agent_framework_fastapi_endpoint(app=app, agent=agent, path="/")
+            ```
+          </Tab>
+        </Tabs>
+
+        <Callout type="info">
+          Frontend tools defined with `useHumanInTheLoop` are automatically forwarded to your agent through the AG-UI protocol. The tool execution and rendering happen on the frontend, providing seamless human-in-the-loop interactions.
+        </Callout>
+    </Step>
+    <Step>
+        ### Give it a try!
+        You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
+    </Step>
+</Steps>

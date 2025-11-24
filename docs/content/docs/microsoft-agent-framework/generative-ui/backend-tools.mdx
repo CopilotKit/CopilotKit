@@ -1,0 +1,159 @@
+---
+title: Backend Tools
+icon: "lucide/Server"
+description: Render your agent's tool calls with custom UI components.
+---
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import { IframeSwitcher } from "@/components/content"
+import DefaultToolRendering from "@/snippets/shared/guides/default-tool-rendering.mdx"
+
+{/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the feature viewer */}
+<IframeSwitcher
+  id="backend-tools-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/backend_tool_rendering?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+<Callout>
+  This example demonstrates the [implementation](#implementation) section applied in the <a href="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/agentic_chat" target="_blank">CopilotKit feature viewer</a>.
+</Callout>
+
+## What is this?
+
+Tools are a way for the LLM to call predefined, typically, deterministic functions. CopilotKit allows you to render these tools in the UI
+as a custom component, which we call **Generative UI**.
+
+## When should I use this?
+
+Rendering tools in the UI is useful when you want to provide the user with feedback about what your agent is doing, specifically
+when your agent is calling tools. CopilotKit allows you to fully customize how these tools are rendered in the chat.
+
+## Implementation
+
+<Steps>
+<Step>
+### Give your agent a tool to call
+
+Define a tool function that your agent can call. Microsoft Agent Framework will automatically convert this into a tool the LLM can call.
+
+<Tabs groupId="language" items={['.NET', 'Python']}>
+  <Tab value=".NET">
+    ```csharp title="Program.cs"
+    using System.ComponentModel;
+    using Azure.AI.OpenAI;
+    using Azure.Identity;
+    using Microsoft.Agents.AI;
+    using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+
+    var builder = WebApplication.CreateBuilder(args);
+    builder.Services.AddAGUI();
+    var app = builder.Build();
+
+    string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
+    string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
+
+    // [!code highlight:4]
+    // Define the weather tool function
+    [Description("Get the weather for a given location.")]
+    static string GetWeather([Description("The location to get weather for")] string location)
+        => $"The weather for {location} is 70 degrees.";
+
+    // Create the agent with tools
+    var agent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
+        .GetChatClient(deployment)
+        .CreateAIAgent(
+            name: "AGUIAssistant",
+            tools: [AIFunctionFactory.Create(GetWeather)]);
+
+    // Map the AG-UI endpoint
+    app.MapAGUI("/", agent);
+
+    await app.RunAsync();
+    ```
+  </Tab>
+  <Tab value="Python">
+    ```python title="agent/src/agent.py"
+    from __future__ import annotations
+    from typing import Annotated
+    from agent_framework import ChatAgent, ChatClientProtocol, ai_function
+    from agent_framework.ag_ui import AgentFrameworkAgent
+    from pydantic import Field
+
+    # [!code highlight:9]
+    @ai_function(
+        name="get_weather",
+        description="Get the weather for a given location.",
+    )
+    def get_weather(
+        location: Annotated[str, Field(description="The location to get weather for")],
+    ) -> str:
+        normalized = location.strip() or "the requested location"
+        return f"The weather for {normalized} is 70 degrees."
+
+    def create_agent(chat_client: ChatClientProtocol) -> AgentFrameworkAgent:
+        base_agent = ChatAgent(
+            name="sample_agent",
+            instructions="You are a helpful assistant.",
+            chat_client=chat_client,
+            tools=[get_weather],
+        )
+
+        return AgentFrameworkAgent(
+            agent=base_agent,
+            name="CopilotKitMicrosoftAgentFrameworkAgent",
+            description="Assistant with a get_weather backend tool.",
+            require_confirmation=False,
+        )
+    ```
+  </Tab>
+</Tabs>
+</Step>
+<Step>
+### Render the tool call in your frontend
+At this point, your agent will be able to call the `get_weather` tool. Now
+we just need to add a `useCopilotAction` hook to render the tool call in
+the UI.
+
+<Callout type="info" title="Important">
+  In order to render a tool call in the UI, the name of the action must match the name of the tool.
+</Callout>
+
+```tsx title="app/page.tsx"
+import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
+// ...
+
+const YourMainContent = () => {
+  // ...
+  // [!code highlight:12]
+  useCopilotAction({
+    name: "get_weather",
+    available: "disabled", // Don't allow the agent or UI to call this tool as its only for rendering
+    render: ({status, args}) => {
+      return (
+        <p className="text-gray-500 mt-2">
+          {status !== "complete" && "Calling weather API..."}
+          {status === "complete" && `Called the weather API for ${args.location}.`}
+        </p>
+      );
+    },
+  });
+  // ...
+}
+```
+
+</Step>
+<Step>
+### Give it a try!
+
+Try asking the agent to get the weather for a location. You should see the custom UI component that we added
+render the tool call and display the arguments that were passed to the tool.
+
+</Step>
+</Steps>
+
+## Default Tool Rendering
+
+<DefaultToolRendering components={props.components} />

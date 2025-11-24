@@ -48,7 +48,7 @@
 - [Multi-Agent Flows](https://docs.copilotkit.ai/coagents/multi-agent-flows): Learn to orchestrate complex flows with multiple agents.
 - [Copilot Sidebar Component](https://docs.copilotkit.ai/reference/components/chat/CopilotSidebar): Customizable sidebar component for chatbot interactions in CopilotKit.
 - [CrewAI Quickstart Guide](https://docs.copilotkit.ai/crewai-flows/quickstart/crewai): Quickly set up CrewAI Flows with CopilotKit integration.
-- [Copilotkit Configuration Guide](https://docs.copilotkit.ai/coagents/concepts/copilotkit-config): Learn to configure message streaming and tool calls in Copilotkit.
+- [CopilotKit Configuration Guide](https://docs.copilotkit.ai/coagents/concepts/copilotkit-config): Learn to configure message streaming and tool calls in CopilotKit.
 - [Agentic Chat UI](https://docs.copilotkit.ai/coagents/agentic-chat-ui): Explore CopilotKit's agentic chat UI components for user interaction.
 - [CrewAIAgent Overview](https://docs.copilotkit.ai/reference/sdk/python/CrewAIAgent): Define and serve agents using CrewAIAgent in Python.
 - [CrewAI Quickstart Guide](https://docs.copilotkit.ai/crewai-crews/quickstart/crewai): Quickly set up CrewAI Crews with CopilotKit integration.

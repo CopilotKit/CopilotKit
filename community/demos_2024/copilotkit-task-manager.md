@@ -5,7 +5,7 @@ In this project, I developed a Task Manager using React for the frontend, Tailwi
 ### Method 1 - Using Form
 - User can add Task using form with its detail description, date & time and also needs to add priority of task.
 - User also show task completed as well as delete the task.
-### Method 2 - Using Copilotkit
+### Method 2 - Using CopilotKit
 - User need to write task name,task details also update and delete the task.
 
 ## 2. Name of Issue/Topic

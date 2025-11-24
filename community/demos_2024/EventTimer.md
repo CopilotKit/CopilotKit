@@ -20,7 +20,7 @@ List the technologies and frameworks you used (e.g., CopilotKit, Next.js)
 ## 4. GitHub Project Link
 
 ### GitHub Repo Link: 
-[https://github.com/prathamesh424/EventCounter--Copilotkit](https://github.com/prathamesh424/EventCounter--Copilotkit)
+[https://github.com/prathamesh424/EventCounter--CopilotKit](https://github.com/prathamesh424/EventCounter--CopilotKit)
 
 ### 5 bonus points
 

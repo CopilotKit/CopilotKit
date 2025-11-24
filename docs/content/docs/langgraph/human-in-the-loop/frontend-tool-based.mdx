@@ -1,0 +1,165 @@
+---
+title: Frontend Tool Based
+icon: "lucide/Wrench"
+description: Create frontend tools and use them within your LangGraph agent.
+---
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
+import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx"
+import { Tabs, Tab } from "fumadocs-ui/components/tabs"
+
+<IframeSwitcher
+  id="frontend-tools-based-hitl-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+## What is this?
+Frontend tools enable you to define client-side functions that your LangGraph agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
+the logic runs on the client side, giving you direct access to the frontend environment.
+
+This can be utilized for to let [your agent control the UI](/langgraph/frontend-actions), [generative UI](/langgraph/generative-ui/frontend-tools), or for Human-in-the-loop interactions.
+
+In this guide, we cover the use of frontend tools for Human-in-the-loop.
+
+## When should I use this?
+Use frontend tools when you need your agent to interact with client-side primitives such as:
+- Reading or modifying React component state
+- Accessing browser APIs like localStorage, sessionStorage, or cookies
+- Triggering UI updates or animations
+- Interacting with third-party frontend libraries
+- Performing actions that require the user's immediate browser context
+
+## Implementation
+
+<Steps>
+    <Step>
+      ### Run and connect your agent
+      <RunAndConnect components={props.components} />
+    </Step>
+
+    <Step>
+        ### Create a frontend human-in-the-loop tool
+
+        Frontend tools can be leveraged in a variety of ways. One of those ways is to have a human-in-the-loop flow where the response
+        of the tool is gated by a user's decision.
+
+        In this example we will simulate a "approval" flow for executing a command. First, use the `useHumanInTheLoop` hook to create a tool that
+        prompts the user for approval.
+
+        ```tsx title="page.tsx"
+        import { useHumanInTheLoop } from "@copilotkit/react-core" // [!code highlight]
+
+        export function Page() {
+          // ...
+
+          useHumanInTheLoop({
+            name: "humanApprovedCommand",
+            description: "Ask human for approval to run a command.",
+            parameters: [
+              {
+                name: "command",
+                type: "string",
+                description: "The command to run",
+                required: true,
+              },
+            ],
+            render: ({ args, respond }) => {
+              if (!respond) return <></>;
+              return (
+                <div>
+                  <pre>{args.command}</pre>
+                  // [!code highlight:4]
+                  // Respond will resume execution and be the value will become the tool result.
+                  <button onClick={() => respond(`Command is APPROVED`)}>Approve</button>
+                  <button onClick={() => respond(`Command is DENIED`)}>Deny</button>
+                </div>
+              );
+            },
+          });
+
+          // ...
+        }
+        ```
+    </Step>
+    <Step>
+        ###  Modify your agent
+        Now, we'll need to modify the agent to access these frontend actions. Open up for your agent's folder and continue from there!
+    </Step>
+    <Step>
+        ### Install the CopilotKit SDK
+        <InstallSDKSnippet components={props.components}/>
+    </Step>
+    <Step>
+        ### Inheriting from CopilotKitState
+
+        To access the frontend tools provided by CopilotKit, you can inherit from CopilotKitState in your agent's state definition:
+
+        <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+            <Tab value="Python">
+                ```python title="agent-py/sample_agent/agent.py"
+                from copilotkit import CopilotKitState # [!code highlight]
+
+                class YourAgentState(CopilotKitState): # [!code highlight]
+                    your_additional_properties: str
+                ```
+            </Tab>
+            <Tab value="TypeScript">
+                ```typescript title="agent-js/src/agent.ts"
+                import { Annotation } from "@langchain/langgraph";
+                import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+
+                export const YourAgentStateAnnotation = Annotation.Root({
+                    yourAdditionalProperty: Annotation<string>,
+                    ...CopilotKitStateAnnotation.spec, // [!code highlight]
+                });
+                export type YourAgentState = typeof YourAgentStateAnnotation.State;
+                ```
+            </Tab>
+        </Tabs>
+
+        By doing this, your agent's state will include the `copilotkit` property, which contains the frontend tools that can be accessed and invoked.
+    </Step>
+    <Step>
+        ### Accessing Frontend Tools
+
+        Once your agent's state includes the `copilotkit` property, you can access the frontend tools and utilize them within your agent's logic.
+
+        Here's how you can call a frontend tool from your agent:
+
+        <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+            <Tab value="Python">
+                ```python title="agent-py/sample_agent/agent.py"
+                async def agent_node(state: YourAgentState, config: RunnableConfig):
+                    # Access the tools from the copilotkit property
+
+                    tools = state.get("copilotkit", {}).get("actions", []) # [!code highlight]
+                    model = ChatOpenAI(model="gpt-4o").bind_tools(tools)
+
+                    # ...
+                ```
+            </Tab>
+            <Tab value="TypeScript">
+                ```typescript title="agent-js/src/agent.ts"
+                async function agentNode(state: YourAgentState, config: RunnableConfig): Promise<YourAgentState> {
+                    // Access the tools from the copilotkit property
+
+                    const tools = state.copilotkit?.actions; // [!code highlight]
+                    const model = ChatOpenAI({ model: 'gpt-4o' }).bindTools(tools);
+
+                    // ...
+                }
+                ```
+            </Tab>
+        </Tabs>
+
+        These tools are automatically populated by CopilotKit and are compatible with LangChain's tool call definitions, making it straightforward to integrate them into your agent's workflow.
+    </Step>
+    <Step>
+        ### Give it a try!
+        You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
+    </Step>
+</Steps>
