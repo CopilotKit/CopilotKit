@@ -5,6 +5,7 @@ import { useCoAgentStateRenders } from "../context";
 import { dataToUUID, parseJson } from "@copilotkit/shared";
 
 function getStateWithoutConstantKeys(state: any) {
+  if (!state) return {};
   const { messages, tools, copilotkit, ...stateWithoutConstantKeys } = state;
   return stateWithoutConstantKeys;
 }
@@ -148,10 +149,6 @@ export function useCoagentStateRenderBridge(agentId: string, props: CoAgentState
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentId, nodeName]);
 
-  if (messageIndexInRun !== 0) {
-    return null;
-  }
-
   const getStateRender = useCallback(
     (messageId: string) => {
     return Object.entries(coAgentStateRenders).find(([stateRenderId, stateRender]) => {
@@ -228,6 +225,10 @@ export function useCoagentStateRenderBridge(agentId: string, props: CoAgentState
   };
 
   return useMemo(() => {
+    if (messageIndexInRun !== 0) {
+      return null;
+    }
+
     const [stateRenderId, stateRender] = getStateRender(message.id) ?? [];
 
     if (!stateRender || !stateRenderId) {
@@ -285,6 +286,7 @@ export function useCoagentStateRenderBridge(agentId: string, props: CoAgentState
     nodeName,
     effectiveRunId,
     message.id,
+    messageIndexInRun,
   ]);
 }
 
