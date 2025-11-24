@@ -225,7 +225,13 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
 
     let config = options.config ?? {};
     if (options.configurable) {
-      config = config.configurable ?? options.configurable;
+      config = {
+        ...config,
+        configurable: {
+          ...options.configurable,
+          ...config.configurable,
+        },
+      };
     }
     copilotkit.setProperties(config);
   }, [options.config, options.configurable]);

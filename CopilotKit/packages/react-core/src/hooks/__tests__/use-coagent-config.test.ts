@@ -1,8 +1,43 @@
 import { renderHook } from "@testing-library/react";
 import { useCoAgent } from "../use-coagent";
+import type { AgentSubscriber } from "@ag-ui/client";
 
-// Mock the dependencies
-const mockSetCoagentStatesWithRef = jest.fn();
+// Mock functions for @copilotkitnext/react
+const mockSetState = jest.fn();
+const mockRunAgent = jest.fn();
+const mockAbortRun = jest.fn();
+const mockSubscribe = jest.fn();
+const mockSetProperties = jest.fn();
+
+// Store the last subscriber for triggering events
+let lastSubscriber: AgentSubscriber | null = null;
+
+const mockAgent = {
+  agentId: "test-agent",
+  state: { count: 0 },
+  isRunning: false,
+  threadId: "thread-123",
+  setState: mockSetState,
+  runAgent: mockRunAgent,
+  abortRun: mockAbortRun,
+  subscribe: mockSubscribe.mockImplementation((subscriber: AgentSubscriber) => {
+    lastSubscriber = subscriber;
+    return {
+      unsubscribe: jest.fn(),
+    };
+  }),
+};
+
+jest.mock("@copilotkitnext/react", () => ({
+  useAgent: jest.fn(() => ({ agent: mockAgent })),
+  useCopilotKit: jest.fn(() => ({
+    copilotkit: {
+      setProperties: mockSetProperties,
+    },
+  })),
+}));
+
+// Mock other dependencies
 const mockAppendMessage = jest.fn();
 const mockRunChatCompletion = jest.fn();
 
@@ -27,7 +62,6 @@ jest.mock("../../context", () => ({
     availableAgents: [],
     coagentStates: {},
     coagentStatesRef: { current: {} },
-    setCoagentStatesWithRef: mockSetCoagentStatesWithRef,
     threadId: "test-thread",
     copilotApiConfig: {
       headers: {},
@@ -61,14 +95,10 @@ jest.mock("../../components/copilot-provider/copilot-messages", () => ({
 describe("useCoAgent config synchronization", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockSetCoagentStatesWithRef.mockImplementation((updater) => {
-      if (typeof updater === "function") {
-        updater({});
-      }
-    });
+    lastSubscriber = null;
   });
 
-  it("should call setCoagentStatesWithRef when config changes", () => {
+  it("should call setProperties when config changes", () => {
     const { rerender } = renderHook(
       ({ config }) =>
         useCoAgent({
@@ -82,16 +112,16 @@ describe("useCoAgent config synchronization", () => {
     );
 
     // Clear the initial calls
-    mockSetCoagentStatesWithRef.mockClear();
+    mockSetProperties.mockClear();
 
     // Change config
     rerender({ config: { configurable: { model: "gpt-4o" } } });
 
-    // Should have called setCoagentStatesWithRef with new config
-    expect(mockSetCoagentStatesWithRef).toHaveBeenCalledWith(expect.any(Function));
+    // Should have called setProperties with new config
+    expect(mockSetProperties).toHaveBeenCalledWith({ model: "gpt-4o" });
   });
 
-  it("should not call setCoagentStatesWithRef when config is unchanged", () => {
+  it("should not call setProperties when config is unchanged", () => {
     const config = { configurable: { model: "gpt-4" } };
 
     const { rerender } = renderHook(
@@ -107,13 +137,13 @@ describe("useCoAgent config synchronization", () => {
     );
 
     // Clear the initial calls
-    mockSetCoagentStatesWithRef.mockClear();
+    mockSetProperties.mockClear();
 
-    // Re-render with same config
+    // Re-render with same config reference
     rerender({ config });
 
-    // Should not have called setCoagentStatesWithRef
-    expect(mockSetCoagentStatesWithRef).not.toHaveBeenCalled();
+    // Should not have called setProperties
+    expect(mockSetProperties).not.toHaveBeenCalled();
   });
 
   it("should handle backward compatibility with configurable prop", () => {
@@ -130,126 +160,25 @@ describe("useCoAgent config synchronization", () => {
     );
 
     // Clear the initial calls
-    mockSetCoagentStatesWithRef.mockClear();
+    mockSetProperties.mockClear();
 
     // Change configurable prop
     rerender({ configurable: { model: "gpt-4o" } });
 
-    // Should have called setCoagentStatesWithRef
-    expect(mockSetCoagentStatesWithRef).toHaveBeenCalledWith(expect.any(Function));
+    // Should have called setProperties with new config
+    expect(mockSetProperties).toHaveBeenCalledWith({ model: "gpt-4o" });
   });
 
-  it("should update config while preserving other state properties", () => {
-    let capturedUpdater: any = null;
-
-    mockSetCoagentStatesWithRef.mockImplementation((updater) => {
-      capturedUpdater = updater;
-      return updater;
-    });
-
-    const { rerender } = renderHook(
-      ({ config }) =>
-        useCoAgent({
-          name: "test-agent",
-          initialState: { count: 0 },
-          config,
-        }),
-      {
-        initialProps: { config: { configurable: { model: "gpt-4" } } },
-      },
+  it("should not call setProperties when both config and configurable are undefined", () => {
+    renderHook(() =>
+      useCoAgent({
+        name: "test-agent",
+        initialState: { count: 0 },
+      }),
     );
 
-    // Clear the initial calls and reset captured updater
-    mockSetCoagentStatesWithRef.mockClear();
-    capturedUpdater = null;
-
-    // Change config
-    rerender({ config: { configurable: { model: "gpt-4o" } } });
-
-    // Should have called setCoagentStatesWithRef
-    expect(mockSetCoagentStatesWithRef).toHaveBeenCalledWith(expect.any(Function));
-    expect(capturedUpdater).toBeTruthy();
-
-    // Test the updater function behavior
-    const prevState = {
-      "test-agent": {
-        name: "test-agent",
-        state: { count: 5 },
-        config: { configurable: { model: "gpt-4" } },
-        running: true,
-        active: true,
-        threadId: "thread-123",
-        nodeName: "test-node",
-        runId: "run-456",
-      },
-    };
-
-    const newState = capturedUpdater(prevState);
-
-    // Verify the state is updated correctly
-    expect(newState).toEqual({
-      "test-agent": {
-        name: "test-agent",
-        state: { count: 5 }, // State preserved
-        config: { configurable: { model: "gpt-4o" } }, // Config updated
-        running: true, // Other properties preserved
-        active: true,
-        threadId: "thread-123",
-        nodeName: "test-node",
-        runId: "run-456",
-      },
-    });
-  });
-
-  it("should create new agent state when agent doesn't exist", () => {
-    let capturedUpdater: any = null;
-
-    mockSetCoagentStatesWithRef.mockImplementation((updater) => {
-      capturedUpdater = updater;
-      return updater;
-    });
-
-    const { rerender } = renderHook(
-      ({ config }) =>
-        useCoAgent({
-          name: "test-agent",
-          initialState: { count: 0 },
-          config,
-        }),
-      {
-        initialProps: { config: { configurable: { model: "gpt-4" } } },
-      },
-    );
-
-    // Clear the initial calls and reset captured updater
-    mockSetCoagentStatesWithRef.mockClear();
-    capturedUpdater = null;
-
-    // Change config
-    rerender({ config: { configurable: { model: "gpt-4o" } } });
-
-    // Should have called setCoagentStatesWithRef
-    expect(mockSetCoagentStatesWithRef).toHaveBeenCalledWith(expect.any(Function));
-    expect(capturedUpdater).toBeTruthy();
-
-    // Test the updater function behavior with empty previous state
-    const prevState = {}; // No existing agent state
-
-    const newState = capturedUpdater(prevState);
-
-    // Verify the state creates a new agent state with default values
-    expect(newState).toEqual({
-      "test-agent": {
-        name: "test-agent",
-        state: { count: 0 }, // Uses initialState
-        config: { configurable: { model: "gpt-4o" } }, // New config
-        running: false, // Default values
-        active: false,
-        threadId: undefined,
-        nodeName: undefined,
-        runId: undefined,
-      },
-    });
+    // Should not have called setProperties
+    expect(mockSetProperties).not.toHaveBeenCalled();
   });
 
   it("should handle deeply nested config changes", () => {
@@ -273,7 +202,7 @@ describe("useCoAgent config synchronization", () => {
     );
 
     // Clear the initial calls
-    mockSetCoagentStatesWithRef.mockClear();
+    mockSetProperties.mockClear();
 
     // Change nested config
     rerender({
@@ -286,6 +215,125 @@ describe("useCoAgent config synchronization", () => {
     });
 
     // Should detect the nested change
-    expect(mockSetCoagentStatesWithRef).toHaveBeenCalledWith(expect.any(Function));
+    expect(mockSetProperties).toHaveBeenCalledWith({
+      model: "gpt-4",
+      settings: { temperature: 0.7 },
+    });
+  });
+
+  describe("State Management", () => {
+    // Helper to create mock subscriber params
+    const createMockParams = (stateOverride: any = {}) => ({
+      messages: [],
+      state: stateOverride,
+      agent: mockAgent as any,
+      input: {} as any,
+    });
+
+    it("should initialize agent state via onRunInitialized event", () => {
+      // Set agent to have NO state (empty object)
+      mockAgent.state = {} as any;
+
+      renderHook(() =>
+        useCoAgent({
+          name: "test-agent",
+          initialState: { count: 42 },
+        }),
+      );
+
+      // Verify subscription was created
+      expect(mockSubscribe).toHaveBeenCalled();
+      expect(lastSubscriber).toBeTruthy();
+
+      // Clear any initial state calls
+      mockSetState.mockClear();
+
+      // Trigger onRunInitialized with no run state
+      lastSubscriber?.onRunInitialized?.(createMockParams({}));
+
+      // Should set state to initialState
+      expect(mockSetState).toHaveBeenCalledWith({ count: 42 });
+
+      // Reset agent state
+      mockAgent.state = { count: 0 };
+    });
+
+    it("should preserve existing agent state on onRunInitialized", () => {
+      // Set agent to have existing state
+      mockAgent.state = { count: 100 };
+
+      renderHook(() =>
+        useCoAgent({
+          name: "test-agent",
+          initialState: { count: 42 },
+        }),
+      );
+
+      // Clear any initial state calls
+      mockSetState.mockClear();
+
+      // Trigger onRunInitialized with no new state
+      lastSubscriber?.onRunInitialized?.(createMockParams({}));
+
+      // Should NOT override existing state
+      expect(mockSetState).not.toHaveBeenCalled();
+
+      // Reset agent state
+      mockAgent.state = { count: 0 };
+    });
+
+    it("should prioritize run state over initialState", () => {
+      renderHook(() =>
+        useCoAgent({
+          name: "test-agent",
+          initialState: { count: 42 },
+        }),
+      );
+
+      // Clear any initial state calls
+      mockSetState.mockClear();
+
+      // Trigger onRunInitialized with state from the run
+      lastSubscriber?.onRunInitialized?.(createMockParams({ count: 999 }));
+
+      // Should use run state, not initialState
+      expect(mockSetState).toHaveBeenCalledWith({ count: 999 });
+    });
+
+    it("should handle setState with object updates", () => {
+      const { result } = renderHook(() =>
+        useCoAgent({
+          name: "test-agent",
+          initialState: { count: 0 },
+        }),
+      );
+
+      // Update state with object
+      result.current.setState({ count: 5 });
+
+      // Should merge with existing state
+      expect(mockSetState).toHaveBeenCalledWith({ count: 5 });
+    });
+
+    it("should handle setState with function updaters", () => {
+      // Set current agent state
+      mockAgent.state = { count: 10 };
+
+      const { result } = renderHook(() =>
+        useCoAgent({
+          name: "test-agent",
+          initialState: { count: 0 },
+        }),
+      );
+
+      // Update state with function
+      result.current.setState((prev) => ({ count: (prev?.count || 0) + 5 }));
+
+      // Should call function with current state and set result
+      expect(mockSetState).toHaveBeenCalledWith({ count: 15 });
+
+      // Reset agent state
+      mockAgent.state = { count: 0 };
+    });
   });
 });
