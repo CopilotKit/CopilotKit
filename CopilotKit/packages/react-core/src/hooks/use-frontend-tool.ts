@@ -3,7 +3,10 @@ import { ActionRenderProps, FrontendAction } from "../types/frontend-action";
 import { Parameter, getZodParameters, MappedParameterTypes } from "@copilotkit/shared";
 import { parseJson } from "@copilotkit/shared";
 import { ToolCallStatus } from "@copilotkitnext/core";
-import { type ReactFrontendTool, useFrontendTool as useFrontendToolVNext } from "@copilotkitnext/react";
+import {
+  type ReactFrontendTool,
+  useFrontendTool as useFrontendToolVNext,
+} from "@copilotkitnext/react";
 
 type FrontendToolOptions<T extends Parameter[] | []> = ReactFrontendTool<MappedParameterTypes<T>>;
 type FrontendToolRenderArgs<T extends Parameter[] | []> =
@@ -47,7 +50,12 @@ export function useFrontendTool<const T extends Parameter[] = []>(
 
     if (typeof render === "string") {
       const staticRender = render;
-      return (() => React.createElement(React.Fragment, null, staticRender)) as FrontendToolOptions<T>["render"];
+      return (() =>
+        React.createElement(
+          React.Fragment,
+          null,
+          staticRender,
+        )) as FrontendToolOptions<T>["render"];
     }
 
     return ((args: FrontendToolRenderArgs<T>) => {

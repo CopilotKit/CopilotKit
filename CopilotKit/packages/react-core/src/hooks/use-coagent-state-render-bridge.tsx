@@ -151,17 +151,15 @@ export function useCoagentStateRenderBridge(agentId: string, props: CoAgentState
 
   const getStateRender = useCallback(
     (messageId: string) => {
-    return Object.entries(coAgentStateRenders).find(([stateRenderId, stateRender]) => {
-      if (claimsRef.current[messageId]) {
-        return stateRenderId === claimsRef.current[messageId].stateRenderId;
-      }
-      const matchingAgentName = stateRender.name === agentId;
-      const matchesNodeContext = stateRender.nodeName
-        ? stateRender.nodeName === nodeName
-        : true;
-      return matchingAgentName && matchesNodeContext;
-    });
-  },
+      return Object.entries(coAgentStateRenders).find(([stateRenderId, stateRender]) => {
+        if (claimsRef.current[messageId]) {
+          return stateRenderId === claimsRef.current[messageId].stateRenderId;
+        }
+        const matchingAgentName = stateRender.name === agentId;
+        const matchesNodeContext = stateRender.nodeName ? stateRender.nodeName === nodeName : true;
+        return matchingAgentName && matchesNodeContext;
+      });
+    },
     [coAgentStateRenders, nodeName, agentId],
   );
 
@@ -271,11 +269,11 @@ export function useCoagentStateRenderBridge(agentId: string, props: CoAgentState
 
       if (typeof stateRender.render === "string") return stateRender.render;
 
-    return stateRender.render({
-      status,
-      // Always use state from claim, to make sure the state does not seem "wiped" for a fraction of a second
-      state: claimsRef.current[message.id].stateSnapshot ?? {},
-      nodeName: nodeName ?? "",
+      return stateRender.render({
+        status,
+        // Always use state from claim, to make sure the state does not seem "wiped" for a fraction of a second
+        state: claimsRef.current[message.id].stateSnapshot ?? {},
+        nodeName: nodeName ?? "",
       });
     }
   }, [

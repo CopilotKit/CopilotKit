@@ -471,18 +471,19 @@ export function useCopilotChatInternal({
         }
       }
 
-      const bridgeRenderer = legacyCustomMessageRenderer || renderCustomMessage
-        ? () => {
-            const customRender = renderCustomMessage?.({
-              message,
-              position: "before",
-            });
-            if (customRender) {
-              return customRender;
+      const bridgeRenderer =
+        legacyCustomMessageRenderer || renderCustomMessage
+          ? () => {
+              const customRender = renderCustomMessage?.({
+                message,
+                position: "before",
+              });
+              if (customRender) {
+                return customRender;
+              }
+              return legacyCustomMessageRenderer?.({ message, position: "before" });
             }
-            return legacyCustomMessageRenderer?.({ message, position: "before" });
-          }
-        : null;
+          : null;
 
       if (bridgeRenderer) {
         return { ...message, generativeUI: bridgeRenderer };
@@ -585,13 +586,12 @@ function useLegacyCoagentRenderer({
 
     return ({ message, position }: LegacyRenderParams) => {
       const effectiveThreadId = threadId ?? agent.threadId ?? "default";
-      const existingRunId = copilotkit.getRunIdForMessage(
-        agentId,
-        effectiveThreadId,
-        message.id,
-      );
+      const existingRunId = copilotkit.getRunIdForMessage(agentId, effectiveThreadId, message.id);
       const runId = existingRunId || `pending:${message.id}`;
-      const messageIndex = Math.max(agent.messages.findIndex((msg) => msg.id === message.id), 0);
+      const messageIndex = Math.max(
+        agent.messages.findIndex((msg) => msg.id === message.id),
+        0,
+      );
 
       const bridgeProps: CoAgentStateRenderBridgeProps = {
         message: message as any,

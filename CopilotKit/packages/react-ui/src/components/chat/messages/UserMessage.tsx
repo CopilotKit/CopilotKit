@@ -11,16 +11,18 @@ const getTextContent = (content: UserMessageContent | undefined): string | undef
     return content;
   }
 
-  return content
-    .map((part) => {
-      if (part.type === "text") {
-        return part.text;
-      }
-      return undefined;
-    })
-    .filter((value): value is string => typeof value === "string" && value.length > 0)
-    .join(" ")
-    .trim() || undefined;
+  return (
+    content
+      .map((part) => {
+        if (part.type === "text") {
+          return part.text;
+        }
+        return undefined;
+      })
+      .filter((value): value is string => typeof value === "string" && value.length > 0)
+      .join(" ")
+      .trim() || undefined
+  );
 };
 
 export const UserMessage = (props: UserMessageProps) => {
