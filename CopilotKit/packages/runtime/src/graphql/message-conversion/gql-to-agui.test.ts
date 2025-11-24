@@ -954,7 +954,9 @@ describe("message-conversion", () => {
     });
 
     test("should pass tool name to regular action render function", () => {
-      const mockRender = jest.fn((props) => `Regular action rendered: ${JSON.stringify(props.args)}`);
+      const mockRender = jest.fn(
+        (props) => `Regular action rendered: ${JSON.stringify(props.args)}`,
+      );
       const actions = {
         testAction: {
           name: "testAction",

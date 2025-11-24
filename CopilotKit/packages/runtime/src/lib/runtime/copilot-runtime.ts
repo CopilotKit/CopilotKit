@@ -345,7 +345,9 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     return this._instance;
   }
 
-  private assignEndpointsToAgents(endpoints: CopilotRuntimeConstructorParams<T>["remoteEndpoints"]) {
+  private assignEndpointsToAgents(
+    endpoints: CopilotRuntimeConstructorParams<T>["remoteEndpoints"],
+  ) {
     return endpoints.reduce((acc, endpoint) => {
       if (resolveEndpointType(endpoint) == EndpointType.LangGraphPlatform) {
         let lgAgents = {};

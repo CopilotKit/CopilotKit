@@ -90,7 +90,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Message } from "@copilotkit/shared";
-import { useAgent } from "@copilotkitnext/react";
+import { useAgent, useCopilotKit } from "@copilotkitnext/react";
 import { type AgentSubscriber } from "@ag-ui/client";
 
 interface UseCoagentOptionsBase {
@@ -203,6 +203,7 @@ export type HintFunction = (params: HintFunctionParams) => Message | undefined;
  */
 export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentReturnType<T> {
   const { agent } = useAgent({ agentId: options.name });
+  const { copilotkit } = useCopilotKit();
   const nodeNameRef = useRef<string>("start");
 
   const handleStateUpdate = useCallback(
@@ -218,6 +219,16 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     },
     [agent?.state, agent?.setState],
   );
+
+  useEffect(() => {
+    if (!options.config || !options.configurable) return;
+
+    let config = options.config ?? {};
+    if (options.configurable) {
+      config = config.configurable ?? options.configurable;
+    }
+    copilotkit.setProperties(config);
+  }, [options.config, options.configurable]);
 
   const externalStateStr = useMemo(
     () => (isExternalStateManagement(options) ? JSON.stringify(options.state) : undefined),
