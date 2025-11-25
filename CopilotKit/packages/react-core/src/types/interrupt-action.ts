@@ -26,7 +26,7 @@ export interface LangGraphInterruptRender<TEventValue = any> {
    * Method that returns a boolean, indicating if the interrupt action should run
    * Useful when using multiple interrupts
    */
-  enabled?: (args: { eventValue: TEventValue; agentMetadata: AgentSession | null }) => boolean;
+  enabled?: (args: { eventValue: TEventValue; agentMetadata: AgentSession }) => boolean;
 }
 
 export type LangGraphInterruptAction = LangGraphInterruptRender & {
