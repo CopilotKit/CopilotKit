@@ -4,6 +4,7 @@ icon: "lucide/Wrench"
 description: Create frontend tools and use them within your LlamaIndex agent.
 ---
 import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/llamaindex/run-and-connect.mdx"
 
 <IframeSwitcher
   id="frontend-tools-example"
@@ -35,17 +36,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
 <Steps>
     <Step>
       ### Run and connect your agent
-
-      You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
-      you can follow the instructions in the [Getting Started](/llamaindex/quickstart) guide.
-
-      <Callout type="info">
-      If you don't already have an agent, simply run the following command to create a new application:
-
-      ```bash
-      npx copilotkit@latest create -f llamaindex
-      ```
-      </Callout>
+      <RunAndConnect components={props.components} />
     </Step>
 
     <Step>
@@ -125,4 +116,3 @@ Use frontend tools when you need your agent to interact with client-side primiti
         You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
     </Step>
 </Steps>
-

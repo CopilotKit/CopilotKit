@@ -6,6 +6,7 @@ description: Render your agent's tool calls with custom UI components.
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import { IframeSwitcher } from "@/components/content"
 import DefaultToolRendering from "@/snippets/shared/guides/default-tool-rendering.mdx"
+import RunAndConnect from "@/snippets/integrations/llamaindex/run-and-connect.mdx"
 
 <IframeSwitcher
   id="backend-tools-example"
@@ -35,13 +36,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 <Steps>
 <Step>
 ### Run and connect your agent
-
-You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
-you can follow the instructions in the [Getting Started](/llamaindex/quickstart/llamaindex) guide.
-
-If you don't already have an agent, you can use the [coagent starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/llamaindex/starter) as a starting point
-as this guide uses it as a starting point.
-
+<RunAndConnect components={props.components} />
 </Step>
 <Step>
 ### Give your agent a tool to call
@@ -123,4 +118,3 @@ render the tool call and display the arguments that were passed to the tool.
 ## Default Tool Rendering
 
 <DefaultToolRendering components={props.components} />
-
