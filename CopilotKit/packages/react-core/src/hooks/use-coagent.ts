@@ -92,6 +92,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Message } from "@copilotkit/shared";
 import { useAgent, useCopilotKit } from "@copilotkitnext/react";
 import { type AgentSubscriber } from "@ag-ui/client";
+import { useAgentNodeName } from "./use-agent-nodename";
 
 interface UseCoagentOptionsBase {
   /**
@@ -204,7 +205,7 @@ export type HintFunction = (params: HintFunctionParams) => Message | undefined;
 export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentReturnType<T> {
   const { agent } = useAgent({ agentId: options.name });
   const { copilotkit } = useCopilotKit();
-  const nodeNameRef = useRef<string>("start");
+  const nodeName = useAgentNodeName(options.name);
 
   const handleStateUpdate = useCallback(
     (newState: T | ((prevState: T | undefined) => T)) => {
@@ -301,15 +302,6 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
           handleStateUpdate(initialStateRef.current);
         }
       },
-      onStepStartedEvent: ({ event }) => {
-        nodeNameRef.current = event.stepName;
-      },
-      onRunStartedEvent: () => {
-        nodeNameRef.current = "start";
-      },
-      onRunFinishedEvent: () => {
-        nodeNameRef.current = "end";
-      },
     };
 
     const subscription = agent.subscribe(subscriber);
@@ -331,7 +323,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
         ({} as T);
       return {
         name: options.name,
-        nodeName: nodeNameRef.current,
+        nodeName,
         threadId: undefined,
         running: false,
         state: initialState as T,
@@ -344,7 +336,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
 
     return {
       name: agent?.agentId ?? options.name,
-      nodeName: nodeNameRef.current,
+      nodeName,
       threadId: agent.threadId,
       running: agent.isRunning,
       state: agent.state,

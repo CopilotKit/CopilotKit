@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo } from "react";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import { MetaEventName } from "@copilotkit/runtime-client-gql";
 import { dataToUUID, parseJson } from "@copilotkit/shared";
+import { useAgentNodeName } from "./use-agent-nodename";
 
 type InterruptProps = {
   event: any;
@@ -30,6 +31,7 @@ export function useLangGraphInterruptRender(
     addInterruptEvent,
     removeInterruptEvent,
   } = useCopilotContext();
+  const nodeName = useAgentNodeName(agentSession?.agentName);
 
   useEffect(() => {
     if (!agent) return;
@@ -78,7 +80,7 @@ export function useLangGraphInterruptRender(
     const eventQueue = interruptEventQueue[threadId] || [];
     const currentQueuedEvent = eventQueue.find((qe) => !qe.event.response);
 
-    if (!currentQueuedEvent) return null;
+    if (!currentQueuedEvent || !agentSession) return null;
 
     // Find the first matching action from all registered actions
     const allActions = Object.values(interruptActions);
@@ -86,7 +88,10 @@ export function useLangGraphInterruptRender(
       if (!action.enabled) return true; // No filter = match all
       return action.enabled({
         eventValue: currentQueuedEvent.event.value,
-        agentMetadata: agentSession,
+        agentMetadata: {
+          ...agentSession,
+          nodeName,
+        },
       });
     });
 
