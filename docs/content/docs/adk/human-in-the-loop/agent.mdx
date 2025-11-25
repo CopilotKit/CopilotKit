@@ -5,16 +5,20 @@ icon: lucide/Share2
 ---
 
 import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";
+import { IframeSwitcher } from "@/components/content"
 
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/node-hitl.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
+<IframeSwitcher
+  id="human-in-the-loop-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
 />
+
+<Callout type="info">
+  This example demonstrates human-in-the-loop (HITL) in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop).
+</Callout>
 
 ## What is this?
 
@@ -181,6 +185,16 @@ Now we'll setup the ADK agent. The flow is hard to understand without a complete
         ### Give it a try!
         Try asking your agent to write an essay about the benefits of AI. You'll see that it will generate an essay,
         stream the progress and eventually ask you to review it.
+
+        <video
+          src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/node-hitl.mp4"
+          className="rounded-lg shadow-xl"
+          loop
+          playsInline
+          controls
+          autoPlay
+          muted
+        />
     </Step>
 
 </Steps>

@@ -1,0 +1,138 @@
+---
+title: Frontend Tools
+icon: "lucide/Wrench"
+description: Create frontend tools and use them within your ADK agent.
+---
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
+import { IframeSwitcher } from "@/components/content"
+import { Tabs, Tab } from "fumadocs-ui/components/tabs"
+
+<IframeSwitcher
+  id="frontend-tools-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+## What is this?
+Frontend tools enable you to define client-side functions that your ADK agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
+the logic runs on the client side, giving you direct access to the frontend environment.
+
+This can be utilized for to let [your agent control the UI](/adk/frontend-actions), [generative UI](/adk/generative-ui/frontend-tools), or for Human-in-the-loop interactions.
+
+In this guide, we cover the use of frontend tools for generative UI.
+
+## When should I use this?
+Use frontend tools when you need your agent to interact with client-side primitives such as:
+- Reading or modifying React component state
+- Accessing browser APIs like localStorage, sessionStorage, or cookies
+- Triggering UI updates or animations
+- Interacting with third-party frontend libraries
+- Performing actions that require the user's immediate browser context
+
+## Implementation
+
+<Steps>
+    <Step>
+      ### Run and connect your agent
+
+      You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
+      you can follow the instructions in the [Getting Started](/adk/quickstart/adk) guide.
+    </Step>
+
+    <Step>
+        ### Create a frontend tool
+
+        First, you'll need to create a frontend tool using the [useFrontendTool](/reference/hooks/useFrontendTool) hook. Here's a simple one to get you started
+        that says hello to the user.
+
+        ```tsx title="page.tsx"
+        import { useFrontendTool } from "@copilotkit/react-core" // [!code highlight]
+
+        export function Page() {
+          // ...
+
+          // [!code highlight:25]
+          useFrontendTool({
+            name: "sayHello",
+            description: "Say hello to the user",
+            parameters: [
+              {
+                name: "name",
+                type: "string",
+                description: "The name of the user to say hello to",
+                required: true,
+              },
+            ],
+            handler({ name }) {
+              // Handler returns the result of the tool call
+              return { currentURLPath: window.location.href, userName: name };
+            },
+            render: ({ args }) => {
+              // Renders UI based on the data of the tool call
+              return (
+                <div>
+                  <h1>Hello, {args.name}!</h1>
+                  <h1>You're currently on {window.location.href}</h1>
+                </div>
+              );
+            },
+          });
+
+          // ...
+        }
+        ```
+    </Step>
+    <Step>
+        ###  Modify your agent
+        Now, we'll need to modify the agent to access these frontend actions. Open up your agent's folder and continue from there!
+    </Step>
+    <Step>
+        ### Setup your ADK agent with frontend tools
+
+        To access the frontend tools provided by CopilotKit, you need to set up your ADK agent to use them:
+
+        <Tabs groupId="language_adk_agent" items={['Python']} default="Python" persist>
+            <Tab value="Python">
+                ```python title="agent/sample_agent/agent.py"
+                import uvicorn
+                from fastapi import FastAPI
+                from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
+                from google.adk.agents import LlmAgent
+
+                sample_agent = LlmAgent(
+                    model="gemini-2.5-flash",
+                    name="sample_agent",
+                    instruction="""
+                    You are a helpful assistant. When the user asks you to say hello,
+                    use the sayHello tool to greet them.
+                    """,
+                )
+
+                adk_agent = ADKAgent(
+                    adk_agent=sample_agent,
+                    app_name="sample_app",
+                    user_id="demo_user"
+                )
+
+                # Create FastAPI app
+                app = FastAPI(title="ADK Middleware Sample Agent")
+
+                # Add the ADK endpoint
+                add_adk_fastapi_endpoint(app, adk_agent, path="/")
+
+                uvicorn.run(app, host="localhost", port=8000)
+                ```
+            </Tab>
+        </Tabs>
+
+        By doing this, your agent will have access to the frontend tools you defined, which are automatically passed to the agent by CopilotKit.
+    </Step>
+    <Step>
+        ### Give it a try!
+        You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
+    </Step>
+</Steps>
+
