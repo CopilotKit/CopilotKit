@@ -1,11 +1,36 @@
 ---
-title: Frontend Actions
+title: Frontend Tools
 icon: "lucide/Wrench"
-description: Create frontend actions and use them within your CrewAI Flows agent.
+description: Create frontend tools and use them within your CrewAI Flows agent.
 ---
-
 import InstallSDKSnippet from "@/snippets/install-python-sdk-crew.mdx";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+import { IframeSwitcher } from "@/components/content"
 
+<IframeSwitcher
+  id="frontend-actions-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+## What is this?
+Frontend tools enable you to define client-side functions that your CrewAI Flow agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
+the logic runs on the client side, giving you direct access to the frontend environment.
+
+This can be utilized to let [your agent control the UI](/crewai-flows/frontend-actions), [generative UI](/crewai-flows/generative-ui/frontend-tools), or for Human-in-the-loop interactions.
+
+In this guide, we cover the use of frontend tools driving and interacting with the UI.
+
+## When should I use this?
+Use frontend tools when you need your agent to interact with client-side primitives such as:
+- Reading or modifying React component state
+- Accessing browser APIs like localStorage, sessionStorage, or cookies
+- Triggering UI updates or animations
+- Interacting with third-party frontend libraries
+- Performing actions that require the user's immediate browser context
 
 ## Implementation
 
@@ -116,7 +141,9 @@ Check out the [Frontend Actions overview](/frontend-actions) to understand what 
     </Step>
     <Step>
         ### Give it a try!
-        You've now given your agent the ability to directly call any CopilotActions you've defined. These actions will be available as tools to the agent where they can be used as needed.
+        You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
+
+        <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
     </Step>
 
 </Steps>
