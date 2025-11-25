@@ -3,18 +3,19 @@ title: Setting the inputs
 icon: "lucide/ArrowRight"
 description: Write to the inputs of a CrewAI Crew from your application.
 ---
+import { IframeSwitcher } from "@/components/content"
 
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/write-agent-state.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
+<IframeSwitcher
+  id="shared-state-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
 />
-<Callout>
-  This video shows the result of `npx copilotkit@latest init` with the [implementation](#implementation) section applied to it!
+
+<Callout type="info">
+  This example demonstrates writing to shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state).
 </Callout>
 
 ## What is this?
@@ -88,5 +89,18 @@ You can use this when you want to provide the user with a way to update the inpu
   <Step>
     ### Give it a try!
     You can now use the `setState` function to update the crew `inputs` and `state` to read it. Try setting  a topic and talking to your agent.
+
+    <video
+      src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/write-agent-state.mp4"
+      className="rounded-lg shadow-xl"
+      loop
+      playsInline
+      controls
+      autoPlay
+      muted
+    />
+    <Callout>
+      This video shows the result of `npx copilotkit@latest init` with the [implementation](#implementation) section applied to it!
+    </Callout>
   </Step>
 </Steps>

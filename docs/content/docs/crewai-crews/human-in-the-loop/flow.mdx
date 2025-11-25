@@ -5,20 +5,19 @@ icon: lucide/Share2
 ---
 
 import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";
+import { IframeSwitcher } from "@/components/content"
 
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/node-hitl.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
+<IframeSwitcher
+  id="human-in-the-loop-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
 />
 
 <Callout type="info">
-  Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter-crewai-crews)
-  with the implementation below applied!
+  This example demonstrates Human-in-the-Loop in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop).
 </Callout>
 
 ## What is this?
@@ -44,7 +43,7 @@ Crew-based agents are ideal for HITL because they preserve execution state and c
   <Step>
     ### Run and connect your agent
 
-    Make sure your agent is running and connected to CopilotKit. If you haven’t set this up, start with the [Getting Started guide](/crewai-crews/quickstart/crewai).
+    Make sure your agent is running and connected to CopilotKit. If you haven't set this up, start with the [Getting Started guide](/crewai-crews/quickstart/crewai).
 
   </Step>
 
@@ -52,7 +51,7 @@ Crew-based agents are ideal for HITL because they preserve execution state and c
   <Step>
     ### Add a `useCopilotAction` to your frontend
 
-    Create a component that displays the crew’s output and asks the user for approval before proceeding.
+    Create a component that displays the crew's output and asks the user for approval before proceeding.
 
     ```tsx title="ui/app/page.tsx"
     import { useCopilotAction } from "@copilotkit/react-core";
@@ -91,7 +90,7 @@ Crew-based agents are ideal for HITL because they preserve execution state and c
   <Step>
     ### Set up HITL on your Crew
 
-    You’ll need to configure your CrewAI Crew to pause and wait for human input before continuing.
+    You'll need to configure your CrewAI Crew to pause and wait for human input before continuing.
 
     - Follow this CrewAI guide: [Human Input on Execution](https://docs.crewai.com/how-to/human-input-on-execution)
     - Reference this working example: [restaurant-finder-crew with HITL](https://github.com/suhasdeshpande/restaurant-finder-crew/tree/main/src/similar_company_finder_template)
@@ -105,6 +104,21 @@ Crew-based agents are ideal for HITL because they preserve execution state and c
     Run a test prompt like:
     **"Research the state of AI in 2025."**
 
-    You’ll see your custom UI appear, giving you the chance to approve or cancel the crew’s execution before it continues.
+    You'll see your custom UI appear, giving you the chance to approve or cancel the crew's execution before it continues.
+
+    <video
+      src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/node-hitl.mp4"
+      className="rounded-lg shadow-xl"
+      loop
+      playsInline
+      controls
+      autoPlay
+      muted
+    />
+
+    <Callout type="info">
+      Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter-crewai-crews)
+      with the implementation below applied!
+    </Callout>
   </Step>
 </Steps>
