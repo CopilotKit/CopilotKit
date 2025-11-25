@@ -6,6 +6,7 @@ description: Create frontend tools and use them within your Agno agent.
 import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 import { IframeSwitcher } from "@/components/content"
 import { Tabs, Tab } from "fumadocs-ui/components/tabs"
+import RunAndConnect from "@/snippets/integrations/agno/run-and-connect.mdx"
 
 <IframeSwitcher
   id="frontend-tools-example"
@@ -37,12 +38,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
 <Steps>
     <Step>
         ### Run and connect your agent
-
-        You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
-        you can follow the instructions in the [Getting Started](/agno/quickstart/agno) guide.
-
-        If you don't already have an agent, you can use the [coagent starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/agno/starter) as a starting point
-        as this guide uses it as a starting point.
+        <RunAndConnect components={props.components} />
     </Step>
 
     <Step>
