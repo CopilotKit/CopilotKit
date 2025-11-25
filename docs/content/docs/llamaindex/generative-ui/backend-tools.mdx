@@ -1,25 +1,23 @@
 ---
-title: Tool-based Generative UI
-icon: "lucide/Wrench"
+title: Backend Tools
+icon: "lucide/Server"
 description: Render your agent's tool calls with custom UI components.
 ---
-
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
-import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";
+import { IframeSwitcher } from "@/components/content"
+import DefaultToolRendering from "@/snippets/shared/guides/default-tool-rendering.mdx"
 
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tool-based-gen-ui.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
+<IframeSwitcher
+  id="backend-tools-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/backend_tool_rendering?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
 />
+
 <Callout>
-  This video demonstrates the [implementation](#implementation) section applied
-  to our [coagents starter
-  project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-llamaindex).
+  This example demonstrates the [implementation](#implementation) section applied in the <a href="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat" target="_blank">CopilotKit feature viewer</a>.
 </Callout>
 
 ## What is this?
@@ -82,7 +80,7 @@ if __name__ == "__main__":
 <Step>
 ### Render the tool call in your frontend
 At this point, your agent will be able to call the `get_weather` tool. Now 
-we just need to add a `useCopilotAction` hook to render the tool call in
+we just need to add a `useRenderToolCall` hook to render the tool call in
 the UI.
 
 <Callout type="info" title="Important">
@@ -91,15 +89,14 @@ the UI.
 </Callout>
 
 ```tsx title="app/page.tsx"
-import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
+import { useRenderToolCall } from "@copilotkit/react-core"; // [!code highlight]
 // ...
 
 const YourMainContent = () => {
   // ...
   // [!code highlight:12]
-  useCopilotAction({
+  useRenderToolCall({
     name: "get_weather",
-    available: "disabled", // Don't allow the agent or UI to call this tool as its only for rendering
     render: ({status, args}) => {
       return (
         <p className="text-gray-500 mt-2">
@@ -123,6 +120,7 @@ render the tool call and display the arguments that were passed to the tool.
 </Step>
 </Steps>
 
-### Setup the LlamaIndex Agent
-On the agent side, we are already done! LlamaIndex natively supports the AG-UI protocol and will automatically
-pass control back to the frontend when the `get_weather` action is found in the model's response. 
+## Default Tool Rendering
+
+<DefaultToolRendering components={props.components} />
+

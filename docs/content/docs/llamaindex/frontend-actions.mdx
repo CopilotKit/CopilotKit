@@ -3,11 +3,16 @@ title: Frontend Actions
 icon: "lucide/Wrench"
 description: Create frontend actions and use them within your LlamaIndex agent.
 ---
+import { IframeSwitcher } from "@/components/content"
 
-<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
-<Callout type="info">
-  Pictured above is the [llamaindex starter](https://github.com/copilotkit/with-llamaindex) with the implementation below applied!
-</Callout>
+<IframeSwitcher
+  id="frontend-actions-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
 
 ## Implementation
 
@@ -92,6 +97,8 @@ description: Create frontend actions and use them within your LlamaIndex agent.
     <Step>
         ### Give it a try!
         Your front-end tool will now be executed on the front-end when the it decides to call the `say_hello` action.
+
+        <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
     </Step>
     <Step>
         ### Try it out!
