@@ -259,7 +259,7 @@ persisted at the end of a node.
     <Accordion title="I want these messages to be persisted">
         To fix this, you can simply persist the messages by returning the new messages at the end of the node.
 
-         <Tabs groupId="language" items={["Python", "TypeScript"]}>
+         <Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]} persist>
             <Tab value="Python">
                 ```python
                 from copilotkit.langgraph import copilotkit_customize_config
@@ -297,7 +297,7 @@ persisted at the end of a node.
         In this case, you can reference our document on [disabling streaming](/coagents/advanced/disabling-state-streaming). More specifically,
         you can use the copilotkit config to disable emitting messages anywhere you'd like a message to not be streamed.
 
-        <Tabs groupId="language" items={["Python", "TypeScript"]}>
+        <Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]} persist>
             <Tab value="Python">
                 ```python
                 from copilotkit.langgraph import copilotkit_customize_config

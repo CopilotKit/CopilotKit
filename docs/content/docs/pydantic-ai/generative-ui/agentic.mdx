@@ -17,8 +17,7 @@ import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 />
 <Callout>
   This video demonstrates the [implementation](#implementation) section applied
-  to out [coagents starter
-  project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-pydantic-ai).
+  to our [starter project](/pydantic-ai/quickstart/pydantic-ai).
 </Callout>
 
 ## What is this?
@@ -38,7 +37,7 @@ is a situation where a user and an agent are working together to solve a problem
     ### Run and Connect your Pydantic AI Agent to CopilotKit
 First, you'll need to make sure you have a running Pydantic AI Agent. If you haven't already done this, you can follow the [getting started guide](/pydantic-ai/quickstart/pydantic-ai)
 
-    This guide uses the [CoAgents starter repo](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-pydantic-ai) as its starting point.
+    This guide uses the [starter project](/pydantic-ai/quickstart/pydantic-ai) as its starting point.
 
   </Step>
   <Step>
@@ -48,7 +47,7 @@ First, you'll need to make sure you have a running Pydantic AI Agent. If you hav
 
     For the sake of this guide, let's say our state looks like this in our agent.
 
-    <Tabs groupId="language" items={['Python']} default="Python">
+    <Tabs groupId="language_pydantic-ai_agent" items={['Python']} default="Python" persist>
         <Tab value="Python">
           ```python title="agent-py/sample_agent/agent.py"
           import asyncio
@@ -78,7 +77,7 @@ First, you'll need to make sure you have a running Pydantic AI Agent. If you hav
     ### Simulate state updates
     Next, let's write some logic into our agent that will simulate state updates occurring.
 
-    <Tabs groupId="language" items={['Python']} default="Python">
+    <Tabs groupId="language_pydantic-ai_agent" items={['Python']} default="Python" persist>
       <Tab value="Python">
         ```python title="agent-py/sample_agent/agent.py"
         @agent.tool

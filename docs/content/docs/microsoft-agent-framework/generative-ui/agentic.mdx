@@ -34,24 +34,55 @@ is a situation where a user and an agent are working together to solve a problem
 
     Define a state snapshot class that represents the data you want to stream to the frontend. This class should be JSON-serializable and contain only UI-relevant properties.
 
-    ```csharp title="Program.cs"
-    using System.Text.Json.Serialization;
+    <Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']} persist>
+      <Tab value=".NET">
+        ```csharp title="Program.cs"
+        using System.Text.Json.Serialization;
 
-    public class SearchInfo
-    {
-        [JsonPropertyName("query")]
-        public string Query { get; set; } = string.Empty;
+        public class SearchInfo
+        {
+            [JsonPropertyName("query")]
+            public string Query { get; set; } = string.Empty;
 
-        [JsonPropertyName("done")]
-        public bool Done { get; set; }
-    }
+            [JsonPropertyName("done")]
+            public bool Done { get; set; }
+        }
 
-    public class AgentStateSnapshot
-    {
-        [JsonPropertyName("searches")]
-        public List<SearchInfo> Searches { get; set; } = new();
-    }
-    ```
+        public class AgentStateSnapshot
+        {
+            [JsonPropertyName("searches")]
+            public List<SearchInfo> Searches { get; set; } = new();
+        }
+        ```
+      </Tab>
+      <Tab value="Python">
+        ```python title="agent/src/agent.py (excerpt)"
+        from typing import Annotated, Dict
+        from pydantic import BaseModel, Field
+
+        class SearchItem(BaseModel):
+            query: str
+            done: bool
+
+        # JSON schema used by AG-UI to validate and forward state to the frontend
+        STATE_SCHEMA: Dict[str, object] = {
+            "searches": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string"},
+                        "done": {"type": "boolean"},
+                    },
+                    "required": ["query", "done"],
+                    "additionalProperties": False,
+                },
+                "description": "List of searches and whether each is done.",
+            }
+        }
+        ```
+      </Tab>
+    </Tabs>
 
     On the frontend, define the matching TypeScript type:
 
@@ -73,121 +104,197 @@ is a situation where a user and an agent are working together to solve a problem
 
     Here's an example of a state-streaming agent wrapper:
 
-    ```csharp title="Program.cs"
-    using System.Runtime.CompilerServices;
-    using System.Text.Json;
-    using Azure.AI.OpenAI;
-    using Azure.Identity;
-    using Microsoft.Agents.AI;
-    using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
-    using Microsoft.AspNetCore.Builder;
-    using Microsoft.AspNetCore.Http.Json;
-    using Microsoft.Extensions.AI;
-    using Microsoft.Extensions.DependencyInjection;
-    using Microsoft.Extensions.Options;
+    <Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']} persist>
+      <Tab value=".NET">
+        ```csharp title="Program.cs"
+        using System.Runtime.CompilerServices;
+        using System.Text.Json;
+        using Azure.AI.OpenAI;
+        using Azure.Identity;
+        using Microsoft.Agents.AI;
+        using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+        using Microsoft.AspNetCore.Builder;
+        using Microsoft.AspNetCore.Http.Json;
+        using Microsoft.Extensions.AI;
+        using Microsoft.Extensions.DependencyInjection;
+        using Microsoft.Extensions.Options;
 
-    var builder = WebApplication.CreateBuilder(args);
-    builder.Services.AddAGUI();
-    var app = builder.Build();
+        var builder = WebApplication.CreateBuilder(args);
+        builder.Services.AddAGUI();
+        var app = builder.Build();
 
-    string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
-    string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
+        string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
+        string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
 
-    // Get JSON serializer options
-    var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
+        // Get JSON serializer options
+        var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
 
-    // Create the base agent
-    AIAgent baseAgent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
-        .GetChatClient(deployment)
-        .CreateAIAgent(
-            name: "ResearchAssistant",
-            instructions: "You are a research assistant that tracks your progress.");
+        // Create the base agent
+        AIAgent baseAgent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
+            .GetChatClient(deployment)
+            .CreateAIAgent(
+                name: "ResearchAssistant",
+                instructions: "You are a research assistant that tracks your progress.");
 
-    // Wrap with state-streaming agent
-    AIAgent agent = new StateStreamingAgent(baseAgent, jsonOptions.Value.SerializerOptions);
+        // Wrap with state-streaming agent
+        AIAgent agent = new StateStreamingAgent(baseAgent, jsonOptions.Value.SerializerOptions);
 
-    // Map the AG-UI endpoint
-    app.MapAGUI("/", agent);
-    await app.RunAsync();
+        // Map the AG-UI endpoint
+        app.MapAGUI("/", agent);
+        await app.RunAsync();
 
-    // Agent wrapper that streams state updates
-    internal sealed class StateStreamingAgent : DelegatingAIAgent
-    {
-        private readonly JsonSerializerOptions _jsonSerializerOptions;
-
-        public StateStreamingAgent(AIAgent innerAgent, JsonSerializerOptions jsonSerializerOptions)
-            : base(innerAgent)
+        // Agent wrapper that streams state updates
+        internal sealed class StateStreamingAgent : DelegatingAIAgent
         {
-            this._jsonSerializerOptions = jsonSerializerOptions;
-        }
+            private readonly JsonSerializerOptions _jsonSerializerOptions;
 
-        public override async IAsyncEnumerable<AgentRunResponseUpdate> RunStreamingAsync(
-            IEnumerable<ChatMessage> messages,
-            AgentThread? thread = null,
-            AgentRunOptions? options = null,
-            [EnumeratorCancellation] CancellationToken cancellationToken = default)
-        {
-            // Get current state from options if provided
-            JsonElement currentState = default;
-            if (options is ChatClientAgentRunOptions { ChatOptions.AdditionalProperties: { } properties } &&
-                properties.TryGetValue("ag_ui_state", out object? stateObj) && stateObj is JsonElement state)
+            public StateStreamingAgent(AIAgent innerAgent, JsonSerializerOptions jsonSerializerOptions)
+                : base(innerAgent)
             {
-                currentState = state;
+                this._jsonSerializerOptions = jsonSerializerOptions;
             }
 
-            // Create options with JSON schema for structured state output
-            ChatClientAgentRunOptions stateOptions = new ChatClientAgentRunOptions
+            public override async IAsyncEnumerable<AgentRunResponseUpdate> RunStreamingAsync(
+                IEnumerable<ChatMessage> messages,
+                AgentThread? thread = null,
+                AgentRunOptions? options = null,
+                [EnumeratorCancellation] CancellationToken cancellationToken = default)
             {
-                ChatOptions = new ChatOptions
+                // Get current state from options if provided
+                JsonElement currentState = default;
+                if (options is ChatClientAgentRunOptions { ChatOptions.AdditionalProperties: { } properties } &&
+                    properties.TryGetValue("ag_ui_state", out object? stateObj) && stateObj is JsonElement state)
                 {
-                    ResponseFormat = ChatResponseFormat.ForJsonSchema<AgentStateSnapshot>(
-                        schemaName: "AgentStateSnapshot",
-                        schemaDescription: "Research progress state")
+                    currentState = state;
                 }
-            };
 
-            // Add system message with current state
-            var stateMessage = new ChatMessage(ChatRole.System,
-                $"Current state: {(currentState.ValueKind != JsonValueKind.Undefined ? currentState.GetRawText() : "{}")}");
-            var messagesWithState = messages.Append(stateMessage);
+                // Create options with JSON schema for structured state output
+                ChatClientAgentRunOptions stateOptions = new ChatClientAgentRunOptions
+                {
+                    ChatOptions = new ChatOptions
+                    {
+                        ResponseFormat = ChatResponseFormat.ForJsonSchema<AgentStateSnapshot>(
+                            schemaName: "AgentStateSnapshot",
+                            schemaDescription: "Research progress state")
+                    }
+                };
 
-            // Collect all updates
-            var allUpdates = new List<AgentRunResponseUpdate>();
-            await foreach (var update in this.InnerAgent.RunStreamingAsync(messagesWithState, thread, stateOptions, cancellationToken))
-            {
-                allUpdates.Add(update);
-                // Stream non-text updates immediately
-                if (update.Contents.Any(c => c is not TextContent))
+                // Add system message with current state
+                var stateMessage = new ChatMessage(ChatRole.System,
+                    $"Current state: {(currentState.ValueKind != JsonValueKind.Undefined ? currentState.GetRawText() : "{}")}");
+                var messagesWithState = messages.Append(stateMessage);
+
+                // Collect all updates
+                var allUpdates = new List<AgentRunResponseUpdate>();
+                await foreach (var update in this.InnerAgent.RunStreamingAsync(messagesWithState, thread, stateOptions, cancellationToken))
+                {
+                    allUpdates.Add(update);
+                    // Stream non-text updates immediately
+                    if (update.Contents.Any(c => c is not TextContent))
+                    {
+                        yield return update;
+                    }
+                }
+
+                // Deserialize state snapshot from response
+                var response = allUpdates.ToAgentRunResponse();
+                if (response.TryDeserialize(this._jsonSerializerOptions, out JsonElement stateSnapshot))
+                {
+                    byte[] stateBytes = JsonSerializer.SerializeToUtf8Bytes(
+                        stateSnapshot,
+                        this._jsonSerializerOptions.GetTypeInfo(typeof(JsonElement)));
+
+                    // Emit state snapshot as DataContent
+                    yield return new AgentRunResponseUpdate
+                    {
+                        Contents = [new DataContent(stateBytes, "application/json")]
+                    };
+                }
+
+                // Stream text summary
+                var summaryMessage = new ChatMessage(ChatRole.System, "Provide a brief summary of your progress.");
+                await foreach (var update in this.InnerAgent.RunStreamingAsync(
+                    messages.Concat(response.Messages).Append(summaryMessage), thread, options, cancellationToken))
                 {
                     yield return update;
                 }
             }
+        }
+        ```
+      </Tab>
+      <Tab value="Python">
+        ```python title="agent/src/agent.py"
+        from typing import Annotated, Dict
+        from agent_framework import ChatAgent, ChatClientProtocol, ai_function
+        from agent_framework.ag_ui import AgentFrameworkAgent
+        from pydantic import BaseModel, Field
 
-            // Deserialize state snapshot from response
-            var response = allUpdates.ToAgentRunResponse();
-            if (response.TryDeserialize(this._jsonSerializerOptions, out JsonElement stateSnapshot))
-            {
-                byte[] stateBytes = JsonSerializer.SerializeToUtf8Bytes(
-                    stateSnapshot,
-                    this._jsonSerializerOptions.GetTypeInfo(typeof(JsonElement)));
+        class SearchItem(BaseModel):
+            query: str
+            done: bool
 
-                // Emit state snapshot as DataContent
-                yield return new AgentRunResponseUpdate
-                {
-                    Contents = [new DataContent(stateBytes, "application/json")]
-                };
-            }
-
-            // Stream text summary
-            var summaryMessage = new ChatMessage(ChatRole.System, "Provide a brief summary of your progress.");
-            await foreach (var update in this.InnerAgent.RunStreamingAsync(
-                messages.Concat(response.Messages).Append(summaryMessage), thread, options, cancellationToken))
-            {
-                yield return update;
+        STATE_SCHEMA: Dict[str, object] = {
+            "searches": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string"},
+                        "done": {"type": "boolean"},
+                    },
+                    "required": ["query", "done"],
+                    "additionalProperties": False,
+                },
+                "description": "List of searches and whether each is done.",
             }
         }
-    }
-    ```
+
+        PREDICT_STATE_CONFIG: Dict[str, Dict[str, str]] = {
+            "searches": {
+                "tool": "update_searches",
+                "tool_argument": "searches",
+            }
+        }
+
+        @ai_function(
+            name="update_searches",
+            description=(
+                "Replace the entire list of searches with the provided values. "
+                "Always include the full list you want to keep. "
+                "Each search should include: { query: string, done: boolean }."
+            ),
+        )
+        def update_searches(
+            searches: Annotated[list[SearchItem], Field(description=("The complete source of truth for the user's searches. Maintain ordering and include the full list on each call."))],
+        ) -> str:
+            return f"Searches updated. Tracking {len(searches)} item(s)."
+
+        def create_agent(chat_client: ChatClientProtocol) -> AgentFrameworkAgent:
+            base_agent = ChatAgent(
+                name="search_agent",
+                instructions=(
+                    "You help users create and run searches.\\n\\n"
+                    "State sync rules:\\n"
+                    "- Maintain a list of searches: each item has { query, done }.\\n"
+                    "- When adding a new search, call `update_searches` with the FULL list, including the new item with done=true.\\n"
+                    "- All searches in the list should have done=true unless explicitly in progress.\\n"
+                    "- Never send partial updates—always include the full list on each call.\\n"
+                ),
+                chat_client=chat_client,
+                tools=[update_searches],
+            )
+
+            return AgentFrameworkAgent(
+                agent=base_agent,
+                name="CopilotKitMicrosoftAgentFrameworkAgent",
+                description="Maintains a list of searches and streams state to the UI.",
+                state_schema=STATE_SCHEMA,
+                predict_state_config=PREDICT_STATE_CONFIG,
+                require_confirmation=False,
+            )
+        ```
+      </Tab>
+    </Tabs>
 
     <Callout type="info">
       The `DelegatingAIAgent` wrapper intercepts streaming responses, uses JSON schema response format to generate structured state, and emits it as `DataContent` which the AG-UI protocol forwards to the frontend.

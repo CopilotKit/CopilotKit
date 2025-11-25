@@ -54,50 +54,91 @@ Before you begin, you'll need the following:
 
                 First, we'll use our CLI to create a new project for us.
 
-                ```bash
-                npx copilotkit@latest create -f microsoft-agent-framework-dotnet
-                ```
+                <Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']} persist>
+                    <Tab value=".NET">
+                        ```bash
+                        npx copilotkit@latest create -f microsoft-agent-framework-dotnet
+                        ```
+                    </Tab>
+                    <Tab value="Python">
+                        ```bash
+                        npx copilotkit@latest create -f microsoft-agent-framework-py
+                        ```
+                    </Tab>
+                </Tabs>
             </Step>
             <Step>
                 ### Install dependencies
 
-                The starter includes a `postinstall` script that automatically installs both your npm and .NET dependencies.
+                The starter includes a `postinstall` script that automatically installs both your npm and agent dependencies.
 
                 ```package-install
                 ```
 
-                <Callout type="info" title="Manual .NET setup">
-                  If you have issues with automatic .NET package installation, you can manually restore them:
-                  ```bash
-                  npm run install:agent
-                  ```
+                <Callout type="info" title="Manual setup">
+                  <Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']} persist>
+                    <Tab value=".NET">
+                      If you have issues with automatic .NET package installation, you can manually restore them:
+                      ```bash
+                      npm run install:agent
+                      ```
+                    </Tab>
+                    <Tab value="Python">
+                      If you have issues with automatic Python setup, you can manually install the agent dependencies:
+                      ```bash
+                      npm run install:agent
+                      # or manually:
+                      cd agent
+                      uv sync
+                      ```
+                    </Tab>
+                  </Tabs>
                 </Callout>
             </Step>
             <Step>
                 ### Configure your environment
 
-                The starter template uses GitHub Models API for free access to AI models. Set up your GitHub token:
+                <Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']} persist>
+                    <Tab value=".NET">
+                        The starter template uses GitHub Models API for free access to AI models. Set up your GitHub token:
 
-                First, get your GitHub token (requires [GitHub CLI](https://github.com/cli/cli)):
-                ```bash
-                gh auth token
-                ```
+                        First, get your GitHub token (requires [GitHub CLI](https://github.com/cli/cli)):
+                        ```bash
+                        gh auth token
+                        ```
 
-                Then navigate to the agent directory and set it as a user secret:
-                ```bash
-                cd agent
-                dotnet user-secrets set GitHubToken "$(gh auth token)"
-                cd ..
-                ```
+                        Then navigate to the agent directory and set it as a user secret:
+                        ```bash
+                        cd agent
+                        dotnet user-secrets set GitHubToken "$(gh auth token)"
+                        cd ..
+                        ```
 
-                <Callout type="info" title="Want to use a different model provider?">
-                  The starter template is configured to use GitHub Models (free), but you can modify it to use:
-                  - OpenAI directly
-                  - Azure OpenAI
-                  - Any other model supported by Microsoft Agent Framework
+                        <Callout type="info" title="Want to use a different model provider?">
+                          The starter template is configured to use GitHub Models (free), but you can modify it to use:
+                          - OpenAI directly
+                          - Azure OpenAI
+                          - Any other model supported by Microsoft Agent Framework
 
-                  Check the `agent/Program.cs` file to customize the model configuration.
-                </Callout>
+                          Check the `agent/Program.cs` file to customize the model configuration.
+                        </Callout>
+                    </Tab>
+                    <Tab value="Python">
+                        Create a `.env` file inside the `agent` folder with one of the following configurations:
+
+                        ```bash title="agent/.env (OpenAI)"
+                        OPENAI_API_KEY=sk-...your-openai-key-here...
+                        OPENAI_CHAT_MODEL_ID=gpt-4o-mini
+                        ```
+
+                        ```bash title="agent/.env (Azure OpenAI)"
+                        AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+                        AZURE_OPENAI_CHAT_DEPLOYMENT_NAME=gpt-4o-mini
+                        # If you are not relying on az login:
+                        # AZURE_OPENAI_API_KEY=...
+                        ```
+                    </Tab>
+                </Tabs>
             </Step>
             <Step>
                 ### Start the development server
@@ -125,7 +166,7 @@ Before you begin, you'll need the following:
                     </Tab>
                 </Tabs>
 
-                This will start both the Next.js UI (port 3000) and C# agent server (port 8000) concurrently.
+                This will start both the Next.js UI (port 3000) and agent server (port 8000) concurrently.
             </Step>
         </TailoredContentOption>
         <TailoredContentOption
@@ -136,58 +177,137 @@ Before you begin, you'll need the following:
             <Step>
                 ### Start your Microsoft Agent Framework agent
 
-                Make sure your .NET agent is running and exposing an AGUI endpoint. Here's a minimal example:
+                Make sure your agent is running and exposing an AG-UI endpoint. Here's a minimal example:
 
-                First, setup a new .NET project:
-                ```bash
-                dotnet new web -n AGUIServer
-                cd AGUIServer
-                dotnet add package Microsoft.Agents.AI.Hosting.AGUI.AspNetCore --version 1.0.0-preview.251110.1
-                dotnet add package Microsoft.Extensions.AI.OpenAI --version 9.10.2-preview.1.25552.1
-                dotnet add package OpenAI --version 2.6.0
-                dotnet user-secrets init
-                ```
+                <Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']} persist>
+                    <Tab value=".NET">
+                        First, setup a new .NET project:
+                        ```bash
+                        dotnet new web -n AGUIServer
+                        cd AGUIServer
+                        dotnet add package Microsoft.Agents.AI.Hosting.AGUI.AspNetCore --version 1.0.0-preview.251110.1
+                        dotnet add package Microsoft.Extensions.AI.OpenAI --version 9.10.2-preview.1.25552.1
+                        dotnet add package OpenAI --version 2.6.0
+                        dotnet user-secrets init
+                        ```
 
-                Build a minimal agent and serve it via AGUI:
+                        Build a minimal agent and serve it via AG-UI:
 
-                ```csharp title="Program.cs"
-                using Microsoft.Agents.AI;
-                # [!code highlight:1]
-                using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
-                using Microsoft.Extensions.AI;
-                using OpenAI;
+                        ```csharp title="Program.cs"
+                        using Microsoft.Agents.AI;
+                        # [!code highlight:1]
+                        using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+                        using Microsoft.Extensions.AI;
+                        using OpenAI;
 
-                var builder = WebApplication.CreateBuilder(args);
-                # [!code highlight:1]
-                builder.Services.AddAGUI();
-                var app = builder.Build();
+                        var builder = WebApplication.CreateBuilder(args);
+                        # [!code highlight:1]
+                        builder.Services.AddAGUI();
+                        var app = builder.Build();
 
-                // Get your GitHub token for GitHub Models (free)
-                var githubToken = builder.Configuration["GitHubToken"]!;
-                var openAI = new OpenAIClient(
-                    new System.ClientModel.ApiKeyCredential(githubToken),
-                    new OpenAIClientOptions {
-                        Endpoint = new Uri("https://models.inference.ai.azure.com")
-                    });
+                        // Get your GitHub token for GitHub Models (free)
+                        var githubToken = builder.Configuration["GitHubToken"]!;
+                        var openAI = new OpenAIClient(
+                            new System.ClientModel.ApiKeyCredential(githubToken),
+                            new OpenAIClientOptions {
+                                Endpoint = new Uri("https://models.inference.ai.azure.com")
+                            });
 
-                var chatClient = openAI.GetChatClient("gpt-4o-mini").AsIChatClient();
-                var agent = new ChatClientAgent(
-                    chatClient,
-                    name: "MyAgent",
-                    description: "You are a helpful assistant.");
+                        var chatClient = openAI.GetChatClient("gpt-4o-mini").AsIChatClient();
+                        var agent = new ChatClientAgent(
+                            chatClient,
+                            name: "MyAgent",
+                            description: "You are a helpful assistant.");
 
-                # [!code highlight:1]
-                app.MapAGUI("/", agent);
-                app.Run("http://localhost:8000");
-                ```
+                        # [!code highlight:1]
+                        app.MapAGUI("/", agent);
+                        app.Run("http://localhost:8000");
+                        ```
 
-                Then just setup the environment and run your agent:
+                        Then just setup the environment and run your agent:
 
-                ```bash
-                # Set your GitHub token and run
-                dotnet user-secrets set GitHubToken "$(gh auth token)"
-                dotnet run
-                ```
+                        ```bash
+                        # Set your GitHub token and run
+                        dotnet user-secrets set GitHubToken "$(gh auth token)"
+                        dotnet run
+                        ```
+                    </Tab>
+                    <Tab value="Python">
+                        Create a minimal FastAPI server that exposes a Microsoft Agent Framework agent over AG-UI:
+
+                        ```python title="agent/src/byo_agent.py"
+                        from __future__ import annotations
+
+                        import os
+
+                        import uvicorn
+                        from agent_framework import ChatClientProtocol
+                        from azure.identity import DefaultAzureCredential
+                        from agent_framework.azure import AzureOpenAIChatClient
+                        from agent_framework.openai import OpenAIChatClient
+                        from agent_framework import ChatAgent
+                        from agent_framework.ag_ui import add_agent_framework_fastapi_endpoint
+                        from dotenv import load_dotenv
+                        from fastapi import FastAPI
+
+
+                        load_dotenv()
+
+
+                        def _build_chat_client() -> ChatClientProtocol:
+                            if bool(os.getenv("AZURE_OPENAI_ENDPOINT")):
+                                deployment_name = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-4o-mini")
+                                return AzureOpenAIChatClient(
+                                    credential=DefaultAzureCredential(),
+                                    deployment_name=deployment_name,
+                                    endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+                                )
+
+                            if bool(os.getenv("OPENAI_API_KEY")):
+                                return OpenAIChatClient(
+                                    model_id=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o-mini"),
+                                    api_key=os.getenv("OPENAI_API_KEY"),
+                                )
+
+                            raise RuntimeError(
+                                "Missing credentials. Set either AZURE_OPENAI_ENDPOINT (+ AZURE_OPENAI_CHAT_DEPLOYMENT_NAME) "
+                                "or OPENAI_API_KEY as environment variables."
+                            )
+
+
+                        chat_client = _build_chat_client()
+
+                        agent = ChatAgent(
+                            name="MyAgent",
+                            instructions="You are a helpful assistant.",
+                            chat_client=chat_client,
+                        )
+
+                        app = FastAPI(title="Microsoft Agent Framework (Python) - Quickstart")
+                        add_agent_framework_fastapi_endpoint(app=app, agent=agent, path="/")
+
+
+                        if __name__ == "__main__":
+                            uvicorn.run("byo_agent:app", host="0.0.0.0", port=8000, reload=True)
+                        ```
+
+                        Then set your environment and run:
+
+                        ```bash
+                        # OpenAI (agent/.env)
+                        OPENAI_API_KEY=sk-...your-openai-key-here...
+                        OPENAI_CHAT_MODEL_ID=gpt-4o-mini
+                        # or Azure OpenAI (agent/.env)
+                        AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+                        AZURE_OPENAI_CHAT_DEPLOYMENT_NAME=gpt-4o-mini
+                        # (optional) AZURE_OPENAI_API_KEY=...
+
+                        # Run the agent
+                        cd agent
+                        uv run src/byo_agent.py
+                        ```
+                    </Tab>
+                </Tabs>
 
             </Step>
             <Step>

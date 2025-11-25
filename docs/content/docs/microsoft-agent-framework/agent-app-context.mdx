@@ -56,73 +56,102 @@ This context can then be shared with your AG-UI server and agent logic.
         ### Consume the data in your AG-UI server
         The `context` you register on the frontend is forwarded to your AG-UI server in `ChatOptions.AdditionalProperties["ag_ui_context"]`. Use middleware to access this context and inject it into the agent's conversation.
 
-        ```csharp title="Program.cs"
-        using System.Runtime.CompilerServices;
-        using System.Text;
-        using Azure.AI.OpenAI;
-        using Azure.Identity;
-        using Microsoft.Agents.AI;
-        using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
-        using Microsoft.AspNetCore.Builder;
-        using Microsoft.Extensions.AI;
+        <Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']} persist>
+          <Tab value=".NET">
+            ```csharp title="Program.cs"
+            using System.Runtime.CompilerServices;
+            using System.Text;
+            using Azure.AI.OpenAI;
+            using Azure.Identity;
+            using Microsoft.Agents.AI;
+            using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+            using Microsoft.AspNetCore.Builder;
+            using Microsoft.Extensions.AI;
 
-        var builder = WebApplication.CreateBuilder(args);
-        builder.Services.AddAGUI();
-        var app = builder.Build();
+            var builder = WebApplication.CreateBuilder(args);
+            builder.Services.AddAGUI();
+            var app = builder.Build();
 
-        string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
-        string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
+            string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
+            string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
 
-        // Create the base agent
-        AIAgent baseAgent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
-            .GetChatClient(deployment)
-            .CreateAIAgent(
-                name: "AGUIAssistant",
-                instructions: "You are a helpful assistant. Use the provided context about colleagues to answer questions.");
+            // Create the base agent
+            AIAgent baseAgent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
+                .GetChatClient(deployment)
+                .CreateAIAgent(
+                    name: "AGUIAssistant",
+                    instructions: "You are a helpful assistant. Use the provided context about colleagues to answer questions.");
 
-        // Wrap the agent with middleware to inject context
-        AIAgent agent = baseAgent
-            .AsBuilder()
-            .Use(runFunc: null, runStreamingFunc: InjectContextMiddleware)
-            .Build();
+            // Wrap the agent with middleware to inject context
+            AIAgent agent = baseAgent
+                .AsBuilder()
+                .Use(runFunc: null, runStreamingFunc: InjectContextMiddleware)
+                .Build();
 
-        // Map the AG-UI endpoint
-        app.MapAGUI("/", agent);
-        await app.RunAsync();
+            // Map the AG-UI endpoint
+            app.MapAGUI("/", agent);
+            await app.RunAsync();
 
-        // Middleware to inject useCopilotReadable context as a system message
-        async IAsyncEnumerable<AgentRunResponseUpdate> InjectContextMiddleware(
-            IEnumerable<ChatMessage> messages,
-            AgentThread? thread,
-            AgentRunOptions? options,
-            AIAgent innerAgent,
-            CancellationToken cancellationToken)
-        {
-            // Extract context from AG-UI additional properties and inject if present
-            if (options is ChatClientAgentRunOptions { ChatOptions.AdditionalProperties: { } properties } &&
-                properties.TryGetValue("ag_ui_context", out KeyValuePair<string, string>[]? context) &&
-                context?.Length > 0)
+            // Middleware to inject useCopilotReadable context as a system message
+            async IAsyncEnumerable<AgentRunResponseUpdate> InjectContextMiddleware(
+                IEnumerable<ChatMessage> messages,
+                AgentThread? thread,
+                AgentRunOptions? options,
+                AIAgent innerAgent,
+                CancellationToken cancellationToken)
             {
-                var contextBuilder = new StringBuilder();
-                contextBuilder.AppendLine("The following context from the user's application is available:");
-                foreach (var item in context)
+                // Extract context from AG-UI additional properties and inject if present
+                if (options is ChatClientAgentRunOptions { ChatOptions.AdditionalProperties: { } properties } &&
+                    properties.TryGetValue("ag_ui_context", out KeyValuePair<string, string>[]? context) &&
+                    context?.Length > 0)
                 {
-                    contextBuilder.AppendLine($"- {item.Key}: {item.Value}");
+                    var contextBuilder = new StringBuilder();
+                    contextBuilder.AppendLine("The following context from the user's application is available:");
+                    foreach (var item in context)
+                    {
+                        contextBuilder.AppendLine($"- {item.Key}: {item.Value}");
+                    }
+
+                    var contextMessage = new ChatMessage(
+                        ChatRole.System,
+                        [new TextContent(contextBuilder.ToString())]);
+
+                    messages = messages.Append(contextMessage);
                 }
 
-                var contextMessage = new ChatMessage(
-                    ChatRole.System,
-                    [new TextContent(contextBuilder.ToString())]);
-
-                messages = messages.Append(contextMessage);
+                await foreach (var update in innerAgent.RunStreamingAsync(messages, thread, options, cancellationToken))
+                {
+                    yield return update;
+                }
             }
+            ```
+          </Tab>
+          <Tab value="Python">
+            ```python title="agent/src/agent.py"
 
-            await foreach (var update in innerAgent.RunStreamingAsync(messages, thread, options, cancellationToken))
-            {
-                yield return update;
-            }
-        }
-        ```
+            from agent_framework import ChatAgent, ChatClientProtocol
+            from agent_framework.ag_ui import AgentFrameworkAgent
+
+
+            def create_agent(chat_client: ChatClientProtocol) -> AgentFrameworkAgent:
+                """
+                Minimal agent for agent app context demo (frontend context is forwarded automatically).
+                """
+                base_agent = ChatAgent(
+                    name="sample_agent",
+                    instructions="You are a helpful assistant.",
+                    chat_client=chat_client,
+                )
+
+                return AgentFrameworkAgent(
+                    agent=base_agent,
+                    name="CopilotKitMicrosoftAgentFrameworkAgent",
+                    description="Assistant using app context forwarded from the frontend.",
+                    require_confirmation=False,
+                )
+            ```
+          </Tab>
+        </Tabs>
 
         <Callout type="info">
           Context registered with `useCopilotReadable` is automatically forwarded by the AG-UI protocol in `ChatOptions.AdditionalProperties["ag_ui_context"]` as an array of key-value pairs (description → value). The middleware extracts and injects this context into the conversation.
