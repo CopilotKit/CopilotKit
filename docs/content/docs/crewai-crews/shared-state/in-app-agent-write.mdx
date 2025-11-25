@@ -4,6 +4,7 @@ icon: "lucide/ArrowRight"
 description: Write to the inputs of a CrewAI Crew from your application.
 ---
 import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/crewai-crews/run-and-connect.mdx"
 
 <IframeSwitcher
   id="shared-state-example"
@@ -30,13 +31,8 @@ You can use this when you want to provide the user with a way to update the inpu
 
 <Steps>
   <Step>
-    ### Run and Connect Your Agent to CopilotKit
-
-    You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already, you can follow the instructions in the [Getting Started](/crewai-crews/quickstart) guide.
-
-    If you don't already have an agent, you can use the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter-crewai-crews) as a starting point
-    as this guide uses it as a starting point.
-
+    ### Run and connect your agent
+    <RunAndConnect components={props.components} />
   </Step>
   <Step>
     ### Calling `setState` function from the `useCoAgent` hook

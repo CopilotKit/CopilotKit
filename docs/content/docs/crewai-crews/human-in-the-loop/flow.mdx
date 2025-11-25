@@ -4,8 +4,8 @@ description: Learn how to implement Human-in-the-Loop (HITL) using CrewAI Crews.
 icon: lucide/Share2
 ---
 
-import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";
 import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/crewai-crews/run-and-connect.mdx"
 
 <IframeSwitcher
   id="human-in-the-loop-example"
@@ -42,11 +42,8 @@ Crew-based agents are ideal for HITL because they preserve execution state and c
 <Steps>
   <Step>
     ### Run and connect your agent
-
-    Make sure your agent is running and connected to CopilotKit. If you haven't set this up, start with the [Getting Started guide](/crewai-crews/quickstart/crewai).
-
+    <RunAndConnect components={props.components} />
   </Step>
-
 
   <Step>
     ### Add a `useCopilotAction` to your frontend
