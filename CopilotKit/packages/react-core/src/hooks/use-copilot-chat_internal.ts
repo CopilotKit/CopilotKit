@@ -227,7 +227,7 @@ export interface UseCopilotChatReturn {
    * Manually set suggestions
    * Useful for manual mode or custom suggestion workflows
    */
-  setSuggestions: (suggestions: Suggestion[]) => void;
+  setSuggestions: (suggestions: Omit<Suggestion, "isLoading">[]) => void;
 
   /**
    * Trigger AI-powered suggestion generation
@@ -539,7 +539,8 @@ export function useCopilotChatInternal({
     // mcpServers,
     // setMcpServers,
     suggestions: currentSuggestions.suggestions,
-    setSuggestions: (suggestions: Suggestion[]) => copilotkit.addSuggestionsConfig({ suggestions }),
+    setSuggestions: (suggestions: Omit<Suggestion, "isLoading">[]) =>
+      copilotkit.addSuggestionsConfig({ suggestions }),
     generateSuggestions: async () => copilotkit.reloadSuggestions(resolvedAgentId),
     resetSuggestions: () => copilotkit.clearSuggestions(resolvedAgentId),
     isLoadingSuggestions: currentSuggestions.isLoading,
