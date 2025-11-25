@@ -1,7 +1,4 @@
 {
   "title": "Generative UI",
-  "icon": "lucide/LayoutDashboard",
-  "pages": [
-    "tool-based"
-  ]
+  "pages": ["backend-tools", "frontend-tools", "agentic"]
 }

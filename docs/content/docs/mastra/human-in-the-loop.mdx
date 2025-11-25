@@ -5,20 +5,16 @@ icon: lucide/Pause
 ---
 
 import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";
+import { IframeSwitcher } from "@/components/content"
 
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/node-hitl.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
+<IframeSwitcher
+  id="frontend-tools-based-hitl-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
 />
-
-<Callout type="info">
-  Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/mastra/starter) with the implementation below applied!
-</Callout>
 
 ## What is this?
 
@@ -113,5 +109,15 @@ you can ensure that the agent is always making the right decisions and ultimatel
     ### Give it a try!
     Try asking your agent to write an essay about the benefits of AI. You'll see that it will generate an essay,
     stream the progress and eventually ask you to review it.
+
+    <video
+      src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/node-hitl.mp4"
+      className="rounded-lg shadow-xl"
+      loop
+      playsInline
+      controls
+      autoPlay
+      muted
+    />
   </Step>
 </Steps>
