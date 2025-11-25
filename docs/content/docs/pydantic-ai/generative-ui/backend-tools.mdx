@@ -7,6 +7,7 @@ import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import { IframeSwitcher } from "@/components/content"
 import { Tabs, Tab } from "fumadocs-ui/components/tabs"
 import DefaultToolRendering from "@/snippets/shared/guides/default-tool-rendering.mdx"
+import RunAndConnect from "@/snippets/integrations/pydantic-ai/run-and-connect.mdx"
 
 <IframeSwitcher
   id="backend-tools-example"
@@ -36,13 +37,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 <Steps>
 <Step>
 ### Run and connect your agent
-
-You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
-you can follow the instructions in the [Getting Started](/pydantic-ai/quickstart/pydantic-ai) guide.
-
-If you don't already have an agent, you can use the [starter project](/pydantic-ai/quickstart/pydantic-ai) as a starting point
-as this guide uses it as a starting point.
-
+<RunAndConnect components={props.components} />
 </Step>
 <Step>
 ### Give your agent a tool to call

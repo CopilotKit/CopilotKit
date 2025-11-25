@@ -3,8 +3,8 @@ title: Reading agent state
 icon: "lucide/ArrowLeft"
 description: Read the realtime agent state in your native application.
 ---
-
 import { ImageZoom } from "fumadocs-ui/components/image-zoom";
+import RunAndConnect from "@/snippets/integrations/pydantic-ai/run-and-connect.mdx"
 
 <Frame>
   <ImageZoom
@@ -29,12 +29,8 @@ state updates, you can reflect these updates natively in your application.
 
 <Steps>
   <Step>
-    ### Run and Connect Your Agent to CopilotKit
-
-    You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
-    you can follow the instructions in the [Getting Started](/pydantic-ai/quickstart) guide.
-
-
+    ### Run and connect your agent
+    <RunAndConnect components={props.components} />
   </Step>
   <Step>
     ### Define the Agent State

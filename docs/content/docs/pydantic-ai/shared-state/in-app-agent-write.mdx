@@ -3,6 +3,7 @@ title: Writing agent state
 icon: "lucide/ArrowRight"
 description: Write to agent's state from your application.
 ---
+import RunAndConnect from "@/snippets/integrations/pydantic-ai/run-and-connect.mdx"
 
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/write-agent-state.mp4"
@@ -30,11 +31,8 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 
 <Steps>
   <Step>
-    ### Run and Connect Your Agent to CopilotKit
-
-    You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
-    you can follow the instructions in the [Getting Started](/pydantic-ai/quickstart) guide.
-
+    ### Run and connect your agent
+    <RunAndConnect components={props.components} />
   </Step>
   <Step>
     ### Define the Agent State
