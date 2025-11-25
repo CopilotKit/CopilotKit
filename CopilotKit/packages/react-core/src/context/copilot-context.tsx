@@ -195,6 +195,9 @@ export interface CopilotContextParams {
   // i.e. when using `stop()` from `useChat`
   chatAbortControllerRef: React.MutableRefObject<AbortController | null>;
 
+  // Persistent storage for initialMessages that survives remounts
+  initialMessagesRef: React.MutableRefObject<any[] | undefined>;
+
   // runtime
   runtimeClient: CopilotRuntimeClient;
 
@@ -303,6 +306,7 @@ const emptyCopilotContext: CopilotContextParams = {
   runId: null,
   setRunId: () => {},
   chatAbortControllerRef: { current: null },
+  initialMessagesRef: { current: undefined },
   availableAgents: [],
   extensions: {},
   setExtensions: () => {},
