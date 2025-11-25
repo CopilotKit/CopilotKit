@@ -73,7 +73,7 @@ export default async function Page({
   params: Promise<{ slug?: string[] }>
 }) {
   const resolvedParams = await params
-  const page = source.getPage(resolvedParams.slug)
+  const page = source.getPage(["integrations", ...(resolvedParams.slug || [])])
   if (!page) notFound()
   const MDX = page.data.body
   const cloudOnly = cloudOnlyFeatures.includes(page.data.title)
@@ -102,7 +102,10 @@ export default async function Page({
   let snippetTOC: any[] = []
   if (!hideTOC) {
     try {
-      snippetTOC = await getSnippetTOCForPage(resolvedParams.slug)
+      snippetTOC = await getSnippetTOCForPage([
+        "integrations",
+        ...(resolvedParams.slug || []),
+      ])
     } catch (error) {
       console.warn("Failed to load snippet TOC:", error)
       snippetTOC = []
@@ -120,7 +123,7 @@ export default async function Page({
     >
       <div className="bg-glass-background">
         <div className="px-8 py-6 xl:py-12 xl:px-16 bg-linear-to-r from-foreground/[4%] to-foreground/0 dark:from-white/[3%] dark:to-white/0 rounded-2xl custom-scrollbar overflow-y-scroll">
-          <div className={hideHeader ? "":"min-h-screen"}>
+          <div className={hideHeader ? "" : "min-h-screen"}>
             {!hideHeader && (
               <>
                 <div className="flex gap-3 items-center">
@@ -168,7 +171,12 @@ export default async function Page({
 }
 
 export async function generateStaticParams() {
-  return source.generateParams()
+  return source
+    .generateParams()
+    .filter((params) => params.slug && params.slug[0] === "integrations")
+    .map((params) => ({
+      slug: params.slug?.slice(1) || [],
+    }))
 }
 
 export async function generateMetadata({
@@ -177,7 +185,7 @@ export async function generateMetadata({
   params: Promise<{ slug?: string[] }>
 }) {
   const resolvedParams = await params
-  const page = source.getPage(resolvedParams.slug)
+  const page = source.getPage(["integrations", ...(resolvedParams.slug || [])])
   if (!page) notFound()
 
   return {

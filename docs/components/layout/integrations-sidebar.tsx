@@ -1,3 +1,6 @@
+"use client"
+
+import { useState } from "react"
 import { DocsLayoutProps } from "fumadocs-ui/layouts/docs"
 import Separator from "../ui/sidebar/separator"
 import Page from "../ui/sidebar/page"
@@ -16,6 +19,9 @@ const IntegrationsSidebar = ({
 }: {
   pageTree: DocsLayoutProps["tree"]
 }) => {
+  const [selectedIntegration, setSelectedIntegration] = useState<string | null>(
+    null
+  )
   const pages = pageTree.children
 
   console.log("pages", pages)
