@@ -221,7 +221,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
   );
 
   useEffect(() => {
-    if (!options.config || !options.configurable) return;
+    if (!options.config && !options.configurable) return;
 
     let config = options.config ?? {};
     if (options.configurable) {

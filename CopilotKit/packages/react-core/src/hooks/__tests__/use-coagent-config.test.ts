@@ -1,4 +1,4 @@
-import { renderHook } from "@testing-library/react";
+import { renderHook, waitFor } from "@testing-library/react";
 import { useCoAgent } from "../use-coagent";
 import type { AgentSubscriber } from "@ag-ui/client";
 
@@ -98,7 +98,7 @@ describe("useCoAgent config synchronization", () => {
     lastSubscriber = null;
   });
 
-  it("should call setProperties when config changes", () => {
+  it("should call setProperties when config changes", async () => {
     const { rerender } = renderHook(
       ({ config }) =>
         useCoAgent({
@@ -117,8 +117,12 @@ describe("useCoAgent config synchronization", () => {
     // Change config
     rerender({ config: { configurable: { model: "gpt-4o" } } });
 
-    // Should have called setProperties with new config
-    expect(mockSetProperties).toHaveBeenCalledWith({ model: "gpt-4o" });
+    // Wait for effect to complete and verify setProperties was called
+    await waitFor(() => {
+      expect(mockSetProperties).toHaveBeenCalledWith({
+        configurable: { model: "gpt-4o" },
+      });
+    });
   });
 
   it("should not call setProperties when config is unchanged", () => {
@@ -146,7 +150,7 @@ describe("useCoAgent config synchronization", () => {
     expect(mockSetProperties).not.toHaveBeenCalled();
   });
 
-  it("should handle backward compatibility with configurable prop", () => {
+  it("should handle backward compatibility with configurable prop", async () => {
     const { rerender } = renderHook(
       ({ configurable }) =>
         useCoAgent({
@@ -165,8 +169,12 @@ describe("useCoAgent config synchronization", () => {
     // Change configurable prop
     rerender({ configurable: { model: "gpt-4o" } });
 
-    // Should have called setProperties with new config
-    expect(mockSetProperties).toHaveBeenCalledWith({ model: "gpt-4o" });
+    // Wait for effect to complete and verify setProperties was called
+    await waitFor(() => {
+      expect(mockSetProperties).toHaveBeenCalledWith({
+        configurable: { model: "gpt-4o" },
+      });
+    });
   });
 
   it("should not call setProperties when both config and configurable are undefined", () => {
@@ -181,7 +189,7 @@ describe("useCoAgent config synchronization", () => {
     expect(mockSetProperties).not.toHaveBeenCalled();
   });
 
-  it("should handle deeply nested config changes", () => {
+  it("should handle deeply nested config changes", async () => {
     const { rerender } = renderHook(
       ({ config }) =>
         useCoAgent({
@@ -214,10 +222,14 @@ describe("useCoAgent config synchronization", () => {
       },
     });
 
-    // Should detect the nested change
-    expect(mockSetProperties).toHaveBeenCalledWith({
-      model: "gpt-4",
-      settings: { temperature: 0.7 },
+    // Wait for effect to complete and verify setProperties was called
+    await waitFor(() => {
+      expect(mockSetProperties).toHaveBeenCalledWith({
+        configurable: {
+          model: "gpt-4",
+          settings: { temperature: 0.7 },
+        },
+      });
     });
   });
 

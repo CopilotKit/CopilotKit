@@ -109,9 +109,10 @@ function convertToJSON(description: string, value: any): string {
 export function useCopilotReadable(
   { description, value }: UseCopilotReadableOptions,
   dependencies?: any[],
-): void {
+): undefined {
   useAgentContext({
     description,
     value,
   });
+  return;
 }
