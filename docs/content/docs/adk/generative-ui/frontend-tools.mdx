@@ -6,6 +6,7 @@ description: Create frontend tools and use them within your ADK agent.
 import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 import { IframeSwitcher } from "@/components/content"
 import { Tabs, Tab } from "fumadocs-ui/components/tabs"
+import RunAndConnect from "@/snippets/integrations/adk/run-and-connect.mdx"
 
 <IframeSwitcher
   id="frontend-tools-example"
@@ -37,9 +38,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
 <Steps>
     <Step>
       ### Run and connect your agent
-
-      You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
-      you can follow the instructions in the [Getting Started](/adk/quickstart/adk) guide.
+      <RunAndConnect components={props.components} />
     </Step>
 
     <Step>

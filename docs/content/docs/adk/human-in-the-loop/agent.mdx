@@ -4,8 +4,8 @@ description: Learn how to implement Human-in-the-Loop (HITL) using ADK Agents.
 icon: lucide/Share2
 ---
 
-import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";
 import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/adk/run-and-connect.mdx"
 
 <IframeSwitcher
   id="human-in-the-loop-example"
@@ -39,9 +39,7 @@ of everything that has happened during a HITL interaction.
 <Steps>
     <Step>
         ### Run and connect your agent
-
-        You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
-        you can follow the instructions in the [Getting Started](/adk/quickstart/adk) guide.
+        <RunAndConnect components={props.components} />
     </Step>
 
     <Step>
