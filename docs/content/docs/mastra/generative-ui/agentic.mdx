@@ -5,6 +5,7 @@ description: Render the state of your agent with custom UI components.
 ---
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx"
 
 <IframeSwitcher
   id="agent-state-example"
@@ -29,9 +30,7 @@ is a situation where a user and an agent are working together to solve a problem
 <Steps>
   <Step>
     ### Run and connect your agent
-
-    You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
-    you can follow the instructions in the [Getting Started](/mastra/quickstart/mastra) guide.
+    <RunAndConnect components={props.components} />
   </Step>
   <Step>
     ### Define your agent state

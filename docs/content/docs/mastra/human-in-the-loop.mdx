@@ -4,8 +4,8 @@ description: Learn how to implement Human-in-the-Loop (HITL) using Mastra Agents
 icon: lucide/Pause
 ---
 
-import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";
 import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx"
 
 <IframeSwitcher
   id="frontend-tools-based-hitl-example"
@@ -33,21 +33,8 @@ you can ensure that the agent is always making the right decisions and ultimatel
 
 <Steps>
   <Step>
-    ### Run and Connect Your Agent to CopilotKit
-
-    You'll need to run your agent and connect it to CopilotKit before proceeding.
-
-    #### I already have an agent
-
-    You can follow the instructions in the [quickstart](/mastra/quickstart) guide.
-
-    #### I want to start from scratch
-
-    Run the following command to create a brand new project with a pre-configured agent:
-
-    ```bash
-    npx copilotkit@latest create -f mastra
-    ```
+    ### Run and connect your agent
+    <RunAndConnect components={props.components} />
   </Step>
 
   <Step>

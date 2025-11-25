@@ -4,6 +4,7 @@ icon: "lucide/ArrowLeft"
 description: Read the realtime agent state in your native application.
 ---
 import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
+import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx"
 
 <Frame>
   <ImageZoom src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/read-agent-state.png" alt="read agent state" width={1000} height={1000} className="my-0"/>
@@ -39,21 +40,8 @@ state updates, you can reflect these updates natively in your application.
 
 <Steps>
   <Step>
-    ### Run and Connect Your Agent to CopilotKit
-
-    You'll need to run your agent and connect it to CopilotKit before proceeding.
-
-    #### I already have an agent
-
-    You can follow the instructions in the [quickstart](/mastra/quickstart) guide.
-    
-    #### I want to start from scratch
-
-    Run the following command to create a brand new project with a pre-configured agent:
-
-    ```bash
-    npx copilotkit@latest create -f mastra
-    ```
+    ### Run and connect your agent
+    <RunAndConnect components={props.components} />
   </Step>
   <Step>
     ### Define the Agent State

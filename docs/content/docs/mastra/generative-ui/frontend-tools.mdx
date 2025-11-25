@@ -5,6 +5,7 @@ description: Create frontend tools and use them within your Mastra agent.
 ---
 import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx"
 
 <IframeSwitcher
   id="frontend-tools-example"
@@ -35,11 +36,8 @@ Use frontend tools when you need your agent to interact with client-side primiti
 
 <Steps>
     <Step>
-        ### Setup CopilotKit
-
-        To use frontend tools, you'll need to setup CopilotKit first. For the sake of brevity, we won't cover it here.
-
-        Check out our [getting started guide](/mastra/quickstart/mastra) and come back here when you're setup!
+        ### Run and connect your agent
+        <RunAndConnect components={props.components} />
     </Step>
 
     <Step>

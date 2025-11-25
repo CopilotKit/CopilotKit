@@ -4,6 +4,7 @@ icon: "lucide/Wrench"
 description: Create frontend tools and use them within your Mastra agent.
 ---
 import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx"
 
 <IframeSwitcher
   id="frontend-actions-example"
@@ -38,11 +39,8 @@ Check out the [Frontend Tools overview](/frontend-tools) to understand what they
 
 <Steps>
     <Step>
-        ### Setup CopilotKit
-
-        To use frontend tools, you'll need to setup CopilotKit first. For the sake of brevity, we won't cover it here.
-
-        Check out our [getting started guide](/mastra/quickstart/mastra) and come back here when you're setup!
+        ### Run and connect your agent
+        <RunAndConnect components={props.components} />
     </Step>
 
     <Step>
