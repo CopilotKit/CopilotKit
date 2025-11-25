@@ -3,9 +3,9 @@ title: CrewAI Flows
 description: Learn how to implement Human-in-the-Loop (HITL) using CrewAI Flows.
 icon: lucide/Share2
 ---
-import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";
 import InstallSDKSnippet from "@/snippets/install-python-sdk-crew.mdx";
 import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/crewai-flows/run-and-connect.mdx"
 
 <IframeSwitcher
   id="human-in-the-loop-example"
@@ -40,12 +40,7 @@ of everything that has happened during a HITL interaction.
 <Steps>
     <Step>
         ### Run and connect your agent
-
-        You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
-        you can follow the instructions in the [Getting Started](/crewai-flows/quickstart/crewai) guide.
-
-        If you don't already have an agent, you can use the [coagent starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-crewai-flows) as a starting point
-        as this guide uses it as a starting point.
+        <RunAndConnect components={props.components} />
     </Step>
 
     <Step>

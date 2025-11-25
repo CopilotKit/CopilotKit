@@ -6,6 +6,7 @@ description: Create frontend tools and use them within your CrewAI Flows agent.
 import InstallSDKSnippet from "@/snippets/install-python-sdk-crew.mdx";
 import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/crewai-flows/run-and-connect.mdx"
 
 <IframeSwitcher
   id="frontend-actions-example"
@@ -40,11 +41,8 @@ Check out the [Frontend Actions overview](/frontend-actions) to understand what 
 
 <Steps>
     <Step>
-        ### Setup CopilotKit
-
-        To use frontend actions, you'll need to setup CopilotKit first. For the sake of brevity, we won't cover it here.
-
-        Check out our [getting started guide](/crewai-flows/quickstart/crewai/crewai-flows) and come back here when you're setup!
+        ### Run and connect your agent
+        <RunAndConnect components={props.components} />
     </Step>
 
     <Step>
