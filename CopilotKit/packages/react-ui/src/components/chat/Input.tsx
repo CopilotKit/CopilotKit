@@ -11,7 +11,7 @@ const MAX_NEWLINES = 6;
 export const Input = ({
   inProgress,
   onSend,
-  chatReady = true,
+  chatReady = false,
   onStop,
   onUpload,
   hideStopButton = false,
@@ -73,7 +73,7 @@ export const Input = ({
   const isInProgress = inProgress || pushToTalkState === "transcribing";
   const { buttonIcon, buttonAlt } = useMemo(() => {
     if (!chatReady) return { buttonIcon: context.icons.spinnerIcon, buttonAlt: "Loading" };
-    return isInProgress && !hideStopButton
+    return isInProgress && !hideStopButton && chatReady
       ? { buttonIcon: context.icons.stopIcon, buttonAlt: "Stop" }
       : { buttonIcon: context.icons.sendIcon, buttonAlt: "Send" };
   }, [isInProgress, chatReady, hideStopButton, context.icons.stopIcon, context.icons.sendIcon]);
