@@ -55,7 +55,9 @@ export function copilotRuntimeNodeHttpEndpoint(options: CreateCopilotRuntimeServ
   logger.debug("Creating Node HTTP endpoint");
 
   const serviceAdapter = options.serviceAdapter;
-  options.runtime.handleServiceAdapter(serviceAdapter);
+  if (serviceAdapter) {
+    options.runtime.handleServiceAdapter(serviceAdapter);
+  }
 
   const honoApp = createCopilotEndpointSingleRoute({
     runtime: options.runtime.instance,

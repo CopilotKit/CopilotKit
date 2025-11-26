@@ -24,7 +24,9 @@ export function copilotRuntimeNextJSAppRouterEndpoint(options: CreateCopilotRunt
   logger.debug("Creating NextJS App Router endpoint");
 
   const serviceAdapter = options.serviceAdapter;
-  options.runtime.handleServiceAdapter(serviceAdapter);
+  if (serviceAdapter) {
+    options.runtime.handleServiceAdapter(serviceAdapter);
+  }
 
   const copilotRoute = createCopilotEndpointSingleRoute({
     runtime: options.runtime.instance,
