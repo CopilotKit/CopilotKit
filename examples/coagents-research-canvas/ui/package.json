@@ -9,9 +9,9 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@copilotkit/react-core": "0.0.0-feat-cpk-1-5-20251126150155",
-    "@copilotkit/react-ui": "0.0.0-feat-cpk-1-5-20251126150155",
-    "@copilotkit/runtime": "0.0.0-feat-cpk-1-5-20251126150155",
+    "@copilotkit/react-core": "0.0.0-feat-cpk-1-5-20251126164304",
+    "@copilotkit/react-ui": "0.0.0-feat-cpk-1-5-20251126164304",
+    "@copilotkit/runtime": "0.0.0-feat-cpk-1-5-20251126164304",
     "@radix-ui/react-dialog": "^1.1.2",
     "@radix-ui/react-icons": "^1.3.2",
     "@radix-ui/react-select": "^2.1.2",
