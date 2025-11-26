@@ -5,6 +5,10 @@ import { DocsLayoutProps } from "fumadocs-ui/layouts/docs"
 import Separator from "../ui/sidebar/separator"
 import Page from "../ui/sidebar/page"
 import Folder from "../ui/sidebar/folder"
+import IntegrationSelector, {
+  Integration,
+} from "../ui/integrations-sidebar/integration-selector"
+import IntegrationSelectorSkeleton from "../ui/integrations-sidebar/skeleton"
 
 type Node = DocsLayoutProps["tree"]["children"][number] & { url: string }
 
@@ -19,31 +23,31 @@ const IntegrationsSidebar = ({
 }: {
   pageTree: DocsLayoutProps["tree"]
 }) => {
-  const [selectedIntegration, setSelectedIntegration] = useState<string | null>(
-    null
-  )
+  const [selectedIntegration, setSelectedIntegration] =
+    useState<Integration | null>(null)
   const pages = pageTree.children
-
-  console.log("pages", pages)
-
-  const findIntegrationsFolder = pages.find(
-    (page) => page?.index?.url === "/integrations"
-  )
-
-  console.log("findIntegrationsFolder", findIntegrationsFolder)
 
   return (
     <aside
       id="nd-sidebar"
-      className="w-full max-w-[260px] h-[calc(100vh-64px-8px)] lg:h-[calc(100vh-80px-8px)] border backdrop-blur-lg border-r-0 border-border bg-glass-background rounded-l-2xl pl-3 pr-1 hidden md:block"
+      className="w-full flex-col max-w-[260px] h-[calc(100vh-64px-8px)] lg:h-[calc(100vh-80px-8px)] border backdrop-blur-lg border-r-0 border-border bg-glass-background rounded-l-2xl pl-3 pr-3 hidden md:flex"
     >
-      <ul className="flex overflow-y-auto flex-col pr-1 max-h-full custom-scrollbar">
-        <li className="w-full h-6" />
-        {pages.map((page) => {
-          const Component = NODE_COMPONENTS[page.type]
-          return <Component key={crypto.randomUUID()} node={page as Node} />
-        })}
-      </ul>
+      <IntegrationSelector
+        selectedIntegration={selectedIntegration}
+        setSelectedIntegration={setSelectedIntegration}
+      />
+
+      {selectedIntegration ? (
+        <ul className="flex overflow-y-auto flex-col pr-1 max-h-full custom-scrollbar">
+          <li className="w-full h-6" />
+          {pages.map((page) => {
+            const Component = NODE_COMPONENTS[page.type]
+            return <Component key={crypto.randomUUID()} node={page as Node} />
+          })}
+        </ul>
+      ) : (
+        <IntegrationSelectorSkeleton />
+      )}
     </aside>
   )
 }
