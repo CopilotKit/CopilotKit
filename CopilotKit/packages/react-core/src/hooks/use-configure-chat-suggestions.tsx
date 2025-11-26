@@ -50,7 +50,8 @@ export function useConfigureChatSuggestions(
   config: UseCopilotChatSuggestionsConfiguration,
   dependencies: any[] = [],
 ): ReturnType<typeof useSuggestions> {
-  const { agentSession } = useCopilotContext();
+  const existingConfig = useCopilotChatConfiguration();
+  const resolvedAgentId = existingConfig?.agentId ?? 'default';
   const { copilotkit } = useCopilotKit();
 
   const available = config.available === "enabled" ? "always" : config.available;
@@ -58,20 +59,20 @@ export function useConfigureChatSuggestions(
   const finalSuggestionConfig = {
     ...config,
     available,
-    consumerAgentId: agentSession?.agentName, // Use chatConfig.agentId here
+    consumerAgentId: resolvedAgentId, // Use chatConfig.agentId here
   };
   useConfigureSuggestions(finalSuggestionConfig, { deps: dependencies });
 
-  const result = useSuggestions({ agentId: agentSession?.agentName });
+  const result = useSuggestions({ agentId: resolvedAgentId });
 
   useEffect(() => {
     if (finalSuggestionConfig.available === "disabled") return;
     const subscription = copilotkit.subscribe({
       onAgentsChanged: () => {
         // When agents change, check if our target agent now exists and reload
-        const agent = copilotkit.getAgent(agentSession?.agentName!);
+        const agent = copilotkit.getAgent(resolvedAgentId);
         if (agent && !agent.isRunning && !result.suggestions.length) {
-          copilotkit.reloadSuggestions(agentSession?.agentName!);
+          copilotkit.reloadSuggestions(resolvedAgentId);
         }
       },
     });
@@ -79,7 +80,7 @@ export function useConfigureChatSuggestions(
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [resolvedAgentId]);
 
   return result;
 }

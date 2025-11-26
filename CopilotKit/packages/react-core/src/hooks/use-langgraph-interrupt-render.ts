@@ -4,6 +4,7 @@ import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import { MetaEventName } from "@copilotkit/runtime-client-gql";
 import { dataToUUID, parseJson } from "@copilotkit/shared";
 import { useAgentNodeName } from "./use-agent-nodename";
+import { useCopilotChatConfiguration } from "@copilotkitnext/react";
 
 type InterruptProps = {
   event: any;
@@ -31,7 +32,9 @@ export function useLangGraphInterruptRender(
     addInterruptEvent,
     removeInterruptEvent,
   } = useCopilotContext();
-  const nodeName = useAgentNodeName(agentSession?.agentName);
+  const existingConfig = useCopilotChatConfiguration();
+  const resolvedAgentId = existingConfig?.agentId ?? 'default';
+  const nodeName = useAgentNodeName(resolvedAgentId);
 
   useEffect(() => {
     if (!agent) return;
