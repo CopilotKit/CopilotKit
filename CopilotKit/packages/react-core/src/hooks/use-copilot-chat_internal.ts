@@ -493,26 +493,27 @@ export function useCopilotChatInternal({
 
     const hasAssistantMessages = processedMessages.some((msg) => msg.role === "assistant");
 
-    if (legacyCustomMessageRenderer && !hasAssistantMessages) {
-      const placeholderId = `coagent-state-render-${resolvedAgentId}`;
-      const placeholderMessage: Message = {
-        id: placeholderId,
-        role: "assistant",
-        content: "",
-        name: "coagent-state-render",
-      };
-      processedMessages = [
-        ...processedMessages,
-        {
-          ...placeholderMessage,
-          generativeUI: () =>
-            legacyCustomMessageRenderer({
-              message: placeholderMessage,
-              position: "before",
-            }),
-        } as Message,
-      ];
-    }
+    // TODO: what is this?
+    // if (legacyCustomMessageRenderer && !hasAssistantMessages) {
+    //   const placeholderId = `coagent-state-render-${resolvedAgentId}`;
+    //   const placeholderMessage: Message = {
+    //     id: placeholderId,
+    //     role: "assistant",
+    //     content: "",
+    //     name: "coagent-state-render",
+    //   };
+    //   processedMessages = [
+    //     ...processedMessages,
+    //     {
+    //       ...placeholderMessage,
+    //       generativeUI: () =>
+    //         legacyCustomMessageRenderer({
+    //           message: placeholderMessage,
+    //           position: "before",
+    //         }),
+    //     } as Message,
+    //   ];
+    // }
 
     return processedMessages;
   }, [
@@ -520,7 +521,7 @@ export function useCopilotChatInternal({
     lazyToolRendered,
     allMessages,
     renderCustomMessage,
-    legacyCustomMessageRenderer,
+    // legacyCustomMessageRenderer,
     resolvedAgentId,
   ]);
 
