@@ -534,7 +534,7 @@ export function useCopilotChatInternal({
     stopGeneration: latestStopFunc,
     reset: latestResetFunc,
     deleteMessage: latestDeleteFunc,
-    isAvailable: !agentAvailable,
+    isAvailable: agentAvailable,
     isLoading: Boolean(agent?.isRunning),
     // mcpServers,
     // setMcpServers,
