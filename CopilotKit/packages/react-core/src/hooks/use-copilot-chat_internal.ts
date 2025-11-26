@@ -289,7 +289,7 @@ export function useCopilotChatInternal({
   useConfigureSuggestions(suggestions);
 
   // Apply priority: props > existing config > defaults
-  const resolvedAgentId = agentSession?.agentName ?? existingConfig?.agentId ?? "default";
+  const resolvedAgentId = existingConfig?.agentId ?? 'default';
   const { agent } = useAgent({ agentId: resolvedAgentId });
 
   useEffect(() => {

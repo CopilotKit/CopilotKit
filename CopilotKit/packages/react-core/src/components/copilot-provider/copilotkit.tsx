@@ -519,7 +519,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     <CopilotChatConfigurationProvider
       // labels={labels}
       // isModalDefaultOpen={isModalDefaultOpen}
-      agentId={agentSession?.agentName ?? "default"}
+      agentId={props.agent ?? "default"}
       threadId={threadId}
     >
       <CopilotContext.Provider

@@ -252,47 +252,6 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
     [setBannerError, showDevConsole, traceUIError],
   );
 
-  // useEffect(() => {
-  //   if (!threadId || threadId === lastLoadedThreadId.current) return;
-  //   if (
-  //     threadId === lastLoadedThreadId.current &&
-  //     agentSession?.agentName === lastLoadedAgentName.current
-  //   ) {
-  //     return;
-  //   }
-  //
-  //   const fetchMessages = async () => {
-  //     if (!agentSession?.agentName) return;
-  //
-  //     const result = await runtimeClient.loadAgentState({
-  //       threadId,
-  //       agentName: agentSession?.agentName,
-  //     });
-  //
-  //     // Check for GraphQL errors and manually trigger error handling
-  //     if (result.error) {
-  //       // Update refs to prevent infinite retries of the same failed request
-  //       lastLoadedThreadId.current = threadId;
-  //       lastLoadedAgentName.current = agentSession?.agentName;
-  //       handleGraphQLErrors(result.error);
-  //       return; // Don't try to process the data if there's an error
-  //     }
-  //
-  //     const newMessages = result.data?.loadAgentState?.messages;
-  //     if (newMessages === lastLoadedMessages.current) return;
-  //
-  //     if (result.data?.loadAgentState) {
-  //       lastLoadedMessages.current = newMessages;
-  //       lastLoadedThreadId.current = threadId;
-  //       lastLoadedAgentName.current = agentSession?.agentName;
-  //
-  //       const messages = loadMessagesFromJsonRepresentation(JSON.parse(newMessages || "[]"));
-  //       setMessages(messages);
-  //     }
-  //   };
-  //   void fetchMessages();
-  // }, [threadId, agentSession?.agentName]);
-
   useEffect(() => {
     updateTapMessages(messages);
   }, [messages, updateTapMessages]);

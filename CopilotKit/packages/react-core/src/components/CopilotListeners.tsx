@@ -55,9 +55,8 @@ const usePredictStateSubscription = (agent?: AbstractAgent) => {
 
 export function CopilotListeners() {
   const { copilotkit } = useCopilotKit();
-  const { agentSession } = useCopilotContext();
   const existingConfig = useCopilotChatConfiguration();
-  const resolvedAgentId = agentSession?.agentName ?? existingConfig?.agentId ?? "default";
+  const resolvedAgentId = existingConfig?.agentId;
   const { setBannerError } = useToast();
 
   const { agent } = useAgent({ agentId: resolvedAgentId });
