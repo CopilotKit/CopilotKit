@@ -61,7 +61,7 @@ export function useConfigureChatSuggestions(
     available,
     consumerAgentId: resolvedAgentId, // Use chatConfig.agentId here
   };
-  useConfigureSuggestions(finalSuggestionConfig, { deps: dependencies });
+  useConfigureSuggestions(finalSuggestionConfig, dependencies);
 
   const result = useSuggestions({ agentId: resolvedAgentId });
 
