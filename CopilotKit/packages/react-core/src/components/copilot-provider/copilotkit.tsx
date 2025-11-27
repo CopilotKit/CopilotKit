@@ -72,7 +72,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
       <CopilotErrorBoundary publicApiKey={publicApiKey} showUsageBanner={enabled}>
         <ThreadsProvider threadId={props.threadId}>
           <CopilotKitProvider
-            runtimeUrl={props.runtimeUrl}
+            {...props}
             renderCustomMessages={renderArr}
             useSingleEndpoint={true}
           >
