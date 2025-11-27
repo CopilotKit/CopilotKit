@@ -19,7 +19,7 @@ export type JSONSchemaBoolean = {
 
 export type JSONSchemaObject = {
   type: "object";
-  properties?: Record<string, JSONSchema>;
+  properties?: Record<string, JSONSchema | NullableJSONSchema>;
   required?: string[];
   description?: string;
 };
@@ -36,6 +36,17 @@ export type JSONSchema =
   | JSONSchemaBoolean
   | JSONSchemaObject
   | JSONSchemaArray;
+
+type Nullable<SchemaType extends JSONSchema> = Omit<SchemaType, "type"> & {
+  type: Array<SchemaType["type"] | "null">;
+};
+
+export type NullableJSONSchema =
+  | Nullable<JSONSchemaString>
+  | Nullable<JSONSchemaNumber>
+  | Nullable<JSONSchemaBoolean>
+  | Nullable<JSONSchemaObject>
+  | Nullable<JSONSchemaArray>;
 
 export function actionParametersToJsonSchema(actionParameters: Parameter[]): JSONSchema {
   // Create the parameters object based on the argumentAnnotations
@@ -79,13 +90,30 @@ export function jsonSchemaToActionParameters(jsonSchema: JSONSchema): Parameter[
 // Convert JSONSchema property to Parameter
 function convertJsonSchemaToParameter(
   name: string,
-  schema: JSONSchema,
+  maybeNullableSchema: JSONSchema | NullableJSONSchema,
   isRequired: boolean,
 ): Parameter {
   const baseParameter: Parameter = {
     name,
-    description: schema.description,
+    description: maybeNullableSchema.description,
   };
+
+  if (Array.isArray(maybeNullableSchema.type)) {
+    // Check if null is in the union, making it nullable
+    isRequired &&= !maybeNullableSchema.type.includes("null");
+    const otherTypes = maybeNullableSchema.type.filter((type: string) => type !== "null");
+    if (otherTypes.length !== 1) {
+      throw new Error("Only supporting single non-null type in union types");
+    }
+    return convertJsonSchemaToParameter(
+      name,
+      { ...maybeNullableSchema, type: otherTypes[0] } as JSONSchema,
+      // handling nullable types as "not required" is not perfectly correct, but the best representation we have in the current parameter type
+      isRequired,
+    );
+  }
+
+  const schema = maybeNullableSchema as JSONSchema;
 
   if (!isRequired) {
     baseParameter.required = false;
@@ -143,6 +171,8 @@ function convertJsonSchemaToParameter(
         };
       } else if (schema.items.type === "array") {
         throw new Error("Nested arrays are not supported");
+      } else if (Array.isArray(schema.items.type)) {
+        throw new Error("Array items with union types are not supported");
       } else {
         return {
           ...baseParameter,
