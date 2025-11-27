@@ -169,14 +169,14 @@ Before you begin, you'll need the following:
                 from agno.app.agui.app import AGUIApp
                 from agno.agent.agent import Agent
                 from agno.models.openai import OpenAIChat
-                
+
                 # Setup your Agno Agent, can be any Agno Agent
                 agent = Agent(
                     name="Agno Assistant",
                     model=OpenAIChat(id="gpt-4o"),
                     instructions="You are a helpful AI assistant.",
                 )
-                
+
                 # Setup the AG-UI app
                 agui_app = AGUIApp(
                     agent=agent,
@@ -184,7 +184,7 @@ Before you begin, you'll need the following:
                     app_id="agno_agent",
                 )
                 app = agui_app.get_app()
-                
+
                 # Serve the app, effectively exposing your Agno Agent
                 agui_app.serve(app="agno_agent:app", port=8000, reload=True)
                 ```
@@ -224,7 +224,7 @@ Before you begin, you'll need the following:
                 // [!code highlight:2]
                 import { AgnoAgent } from "@ag-ui/agno"
                 import { NextRequest } from "next/server";
-                
+
                 // 1. You can use any service adapter here for multi-agent support. We use
                 //    the empty adapter since we're only using one agent.
                 const serviceAdapter = new ExperimentalEmptyAdapter();
@@ -236,7 +236,7 @@ Before you begin, you'll need the following:
                      agents: {
                         // Our FastAPI endpoint URL
                         "agno_agent": new AgnoAgent({url: "http://localhost:8000/agui"}),
-                    }   
+                    }
                 });
 
                 // 3. Build a Next.js API route that handles the CopilotKit runtime requests.
@@ -246,7 +246,7 @@ Before you begin, you'll need the following:
                     serviceAdapter,
                     endpoint: "/api/copilotkit",
                   });
-                
+
                   return handleRequest(req);
                 };
                 ```
@@ -268,8 +268,8 @@ Before you begin, you'll need the following:
                     <html lang="en">
                       <body>
                         {/* [!code highlight:6] */}
-                        <CopilotKit 
-                          runtimeUrl="/api/copilotkit" 
+                        <CopilotKit
+                          runtimeUrl="/api/copilotkit"
                           agent="agno_agent"
                         >
                           {children}
@@ -293,7 +293,7 @@ Before you begin, you'll need the following:
                 return (
                   <main>
                     <h1>Your App</h1>
-                    <CopilotSidebar /> // [!code highlight]
+                    <CopilotSidebar /> {/* [!code highlight] */}
                   </main>
                 );
               }
@@ -351,4 +351,4 @@ Now that you have your basic agent setup, explore these advanced features:
     href="/agno/frontend-actions"
     icon={<WrenchIcon />}
   />
-</Cards> 
+</Cards>

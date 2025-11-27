@@ -26,7 +26,7 @@ You can easily use the realtime agent state not only in the chat UI, but also in
 
 ## When should I use this?
 
-You can use this when you want to provide the user with feedback about your agent's state. As your agent's 
+You can use this when you want to provide the user with feedback about your agent's state. As your agent's
 state updates, you can reflect these updates natively in your application.
 
 ## Implementation
@@ -117,7 +117,7 @@ state updates, you can reflect these updates natively in your application.
         // style excluded for brevity
         <div>
           <h1>Your main content</h1>
-          <p>Language: {state.language}</p> // [!code highlight]
+          <p>Language: {state.language}</p> {/* [!code highlight] */}
         </div>
       );
     }
@@ -144,7 +144,7 @@ state updates, you can reflect these updates natively in your application.
 
 ## Rendering agent state in the chat
 
-You can also render the agent's state in the chat UI. This is useful for informing the user about the agent's state in a 
+You can also render the agent's state in the chat UI. This is useful for informing the user about the agent's state in a
 more in-context way. To do this, you can use the [useCoAgentStateRender](/reference/hooks/useCoAgentStateRender) hook.
 
 ```tsx title="ui/app/page.tsx"
