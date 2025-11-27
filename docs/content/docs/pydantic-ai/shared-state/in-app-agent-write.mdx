@@ -4,18 +4,19 @@ icon: "lucide/ArrowRight"
 description: Write to agent's state from your application.
 ---
 import RunAndConnect from "@/snippets/integrations/pydantic-ai/run-and-connect.mdx"
+import { IframeSwitcher } from "@/components/content"
 
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/write-agent-state.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
+<IframeSwitcher
+  id="shared-state-write-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/pydantic-ai/feature/shared_state?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/pydantic-ai/feature/shared_state?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
 />
-<Callout>
-  This video shows the result of `npx copilotkit@latest init` with the [implementation](#implementation) section applied to it!
+
+<Callout type="info">
+  This example demonstrates writing to shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/pydantic-ai/feature/shared_state).
 </Callout>
 
 ## What is this?
@@ -36,70 +37,52 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
   </Step>
   <Step>
     ### Define the Agent State
-    Pydantic AI Agents are stateful. As you transition through the flow, that state is updated and available to the next function. For this example,
-    let's assume that our agent state looks something like this.
 
-    <Tabs groupId="language_pydantic-ai_agent" items={["Python", "TypeScript"]} persist>
-      <Tab value="Python">
-        ```python title="agent-py/sample_agent/agent.py"
-        from pydantic import BaseModel
-        from pydantic_ai import Agent, RunContext
-        from pydantic_ai.ag_ui import StateDeps
-        from ag_ui.core import StateSnapshotEvent, EventType
-        from textwrap import dedent
+    Create your Pydantic AI agent with a stateful structure. Here's a complete example that tracks language:
+
+    ```python title="agent.py"
+    from textwrap import dedent
+
+    from pydantic import BaseModel
+    from pydantic_ai import Agent, RunContext
+    from pydantic_ai.ag_ui import StateDeps
 
 
-        class AgentState(BaseModel):
-            """State for the agent."""
-
-            language: str = "english"
-
-
-        agent = Agent("openai:gpt-4o-mini", deps_type=StateDeps[AgentState])
+    class AgentState(BaseModel):
+        """State for the agent."""
+        language: str = "english"
 
 
-        @agent.tool_plain
-        def update_language(language: str) -> StateSnapshotEvent:
-            """Update the language of the agent."""
-            updated_state = {"language": language}
-
-            return StateSnapshotEvent(type=EventType.STATE_SNAPSHOT, snapshot=updated_state)
+    agent = Agent("openai:gpt-4o-mini", deps_type=StateDeps[AgentState])
 
 
-        @agent.instructions()
-        async def language_instructions(ctx: RunContext[StateDeps[AgentState]]) -> str:
-            """Instructions for the language tracking agent.
+    @agent.instructions()
+    async def language_instructions(ctx: RunContext[StateDeps[AgentState]]) -> str:
+        """Instructions for the language tracking agent.
 
-            Args:
-                ctx: The run context containing language state information.
+        Args:
+            ctx: The run context containing language state information.
 
-            Returns:
-                Instructions string for the language tracking agent.
+        Returns:
+            Instructions string for the language tracking agent.
+        """
+        return dedent(
+            f"""
+            You are a helpful assistant for tracking the language.
+
+            IMPORTANT:
+            - ALWAYS use the lower case for the language
+            - ALWAYS response in the current language: {ctx.deps.state.language}
             """
-            return dedent(
-                f"""
-                You are a helpful assistant for tracking the language.
-
-                IMPORTANT:
-                - Use the `update_language` tool to update the language
-                - ALWAYS use the lower case for the language
-                - The language is not used for responding, always respond in english. Just track the language.
-
-                The current state of the language is: "{ctx.deps.state.language}"
-                """
-            )
+        )
 
 
-        app = agent.to_ag_ui(deps=StateDeps(AgentState()))
+    app = agent.to_ag_ui(deps=StateDeps(AgentState()))
 
-
-        if __name__ == "__main__":
-            import uvicorn
-
-            uvicorn.run(app, host="0.0.0.0", port=8000)
-        ```
-      </Tab>
-    </Tabs>
+    if __name__ == "__main__":
+        import uvicorn
+        uvicorn.run(app, host="0.0.0.0", port=8000)
+    ```
 
   </Step>
   <Step>
@@ -118,7 +101,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     // Example usage in a pseudo React component
     function YourMainContent() {
       const { state, setState } = useCoAgent<AgentState>({ // [!code highlight]
-        name: "sample_agent",
+        name: "my_agent", // MUST match the agent name in CopilotRuntime
         initialState: { language: "spanish" }  // optionally provide an initial state
       });
 
@@ -141,6 +124,10 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
       );
     }
     ```
+
+    <Callout type="warn" title="Important">
+      The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+    </Callout>
 
   </Step>
   <Step>
@@ -168,7 +155,7 @@ import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";  // [
 function YourMainContent() {
   // [!code word:run:1]
   const { state, setState, run } = useCoAgent<AgentState>({
-    name: "sample_agent",
+    name: "my_agent", // MUST match the agent name in CopilotRuntime
     initialState: { language: "spanish" }  // optionally provide an initial state
   });
 
