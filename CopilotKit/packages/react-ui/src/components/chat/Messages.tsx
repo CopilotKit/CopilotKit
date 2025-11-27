@@ -19,6 +19,9 @@ export const Messages = ({
   onThumbsDown,
   messageFeedback,
   markdownTagRenderers,
+  canRegenerateAssistantMessage,
+  canCopyAssistantMessage,
+  disableFirstAssistantMessageControls,
   chatError,
 
   // Legacy props
@@ -98,6 +101,9 @@ export const Messages = ({
               onThumbsDown={onThumbsDown}
               messageFeedback={messageFeedback}
               markdownTagRenderers={markdownTagRenderers}
+              canRegenerateAssistantMessage={canRegenerateAssistantMessage}
+              canCopyAssistantMessage={canCopyAssistantMessage}
+              disableFirstAssistantMessageControls={disableFirstAssistantMessageControls}
             />
           );
         })}
