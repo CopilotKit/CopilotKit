@@ -33,7 +33,7 @@ export function useLangGraphInterruptRender(
     removeInterruptEvent,
   } = useCopilotContext();
   const existingConfig = useCopilotChatConfiguration();
-  const resolvedAgentId = existingConfig?.agentId ?? 'default';
+  const resolvedAgentId = existingConfig?.agentId ?? "default";
   const nodeName = useAgentNodeName(resolvedAgentId);
 
   useEffect(() => {

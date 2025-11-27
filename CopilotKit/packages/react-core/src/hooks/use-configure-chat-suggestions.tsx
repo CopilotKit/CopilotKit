@@ -51,7 +51,7 @@ export function useConfigureChatSuggestions(
   dependencies: any[] = [],
 ): ReturnType<typeof useSuggestions> {
   const existingConfig = useCopilotChatConfiguration();
-  const resolvedAgentId = existingConfig?.agentId ?? 'default';
+  const resolvedAgentId = existingConfig?.agentId ?? "default";
   const { copilotkit } = useCopilotKit();
 
   const available = config.available === "enabled" ? "always" : config.available;
