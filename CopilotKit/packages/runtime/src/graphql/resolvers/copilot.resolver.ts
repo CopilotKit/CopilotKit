@@ -240,6 +240,7 @@ export class CopilotResolver {
     logger.debug("Processing");
     let runtimeResponse;
     try {
+      console.log(1, "calling processRuntimeRequest from generateCopilotResponse");
       runtimeResponse = await copilotRuntime.processRuntimeRequest({
         serviceAdapter,
         messages: data.messages,
@@ -259,7 +260,9 @@ export class CopilotResolver {
         metaEvents: data.metaEvents,
         context: data.context,
       });
+      console.log(4, "success - called processRuntimeRequest from generateCopilotResponse");
     } catch (error) {
+      console.log("caught error in generateCopilotResponse", error);
       // Catch structured CopilotKit errors at the main mutation level and re-throw as GraphQL errors
       if (isStructuredCopilotKitError(error) || (error as any)?.extensions?.visibility) {
         throw new GraphQLError(error.message || "Agent error occurred", {
