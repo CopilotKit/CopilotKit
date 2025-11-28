@@ -222,7 +222,7 @@ export interface CopilotContextParams {
   removeInterruptAction: (actionId: string) => void;
   interruptEventQueue: Record<string, QueuedInterruptEvent[]>;
   addInterruptEvent: (queuedEvent: QueuedInterruptEvent) => void;
-  removeInterruptEvent: (threadId: string, eventId: string) => void;
+  resolveInterruptEvent: (threadId: string, eventId: string, response: string) => void;
 
   /**
    * Optional trace handler for comprehensive debugging and observability.
@@ -308,7 +308,7 @@ const emptyCopilotContext: CopilotContextParams = {
   removeInterruptAction: () => {},
   interruptEventQueue: {},
   addInterruptEvent: () => {},
-  removeInterruptEvent: () => {},
+  resolveInterruptEvent: () => {},
   onError: () => {},
   bannerError: null,
   setBannerError: () => {},

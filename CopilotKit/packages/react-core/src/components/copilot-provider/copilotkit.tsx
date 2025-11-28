@@ -426,15 +426,22 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     });
   }, []);
 
-  const removeInterruptEvent = useCallback((threadId: string, eventId: string) => {
-    setInterruptEventQueue((prev) => {
-      const threadQueue = prev[threadId] || [];
-      return {
-        ...prev,
-        [threadId]: threadQueue.filter((event) => event.eventId !== eventId),
-      };
-    });
-  }, []);
+  const resolveInterruptEvent = useCallback(
+    (threadId: string, eventId: string, response: string) => {
+      setInterruptEventQueue((prev) => {
+        const threadQueue = prev[threadId] || [];
+        return {
+          ...prev,
+          [threadId]: threadQueue.map((queuedEvent) =>
+            queuedEvent.eventId === eventId
+              ? { ...queuedEvent, event: { ...queuedEvent.event, response } }
+              : queuedEvent,
+          ),
+        };
+      });
+    },
+    [],
+  );
 
   const memoizedChildren = useMemo(() => children, [children]);
   const [bannerError, setBannerError] = useState<CopilotKitError | null>(null);
@@ -566,7 +573,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
           removeInterruptAction,
           interruptEventQueue,
           addInterruptEvent,
-          removeInterruptEvent,
+          resolveInterruptEvent,
           bannerError,
           setBannerError,
           onError: handleErrors,

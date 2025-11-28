@@ -30,7 +30,7 @@ export function useLangGraphInterruptRender(
     threadId,
     interruptEventQueue,
     addInterruptEvent,
-    removeInterruptEvent,
+    resolveInterruptEvent,
   } = useCopilotContext();
   const existingConfig = useCopilotChatConfiguration();
   const resolvedAgentId = existingConfig?.agentId ?? "default";
@@ -72,7 +72,7 @@ export function useLangGraphInterruptRender(
           },
         },
       });
-      removeInterruptEvent(threadId, eventId);
+      resolveInterruptEvent(threadId, eventId, response ?? "");
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [agent, threadId],
