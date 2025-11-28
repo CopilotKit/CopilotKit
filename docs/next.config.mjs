@@ -235,6 +235,11 @@ const config = {
         permanent: true,
       },
       {
+        source: "/pydantic-ai/quickstart/pydantic-ai",
+        destination: "/pydantic-ai/quickstart",
+        permanent: true,
+      },
+      {
         source: "/adk/quickstart/adk",
         destination: "/adk/quickstart",
         permanent: true,

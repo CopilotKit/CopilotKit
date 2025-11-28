@@ -3,18 +3,22 @@ title: Reading agent state
 icon: "lucide/ArrowLeft"
 description: Read the realtime agent state in your native application.
 ---
-
 import { ImageZoom } from "fumadocs-ui/components/image-zoom";
+import RunAndConnect from "@/snippets/integrations/pydantic-ai/run-and-connect.mdx"
+import { IframeSwitcher } from "@/components/content"
 
-<Frame>
-  <ImageZoom
-    src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/read-agent-state.png"
-    alt="read agent state"
-    width={1000}
-    height={1000}
-    className="my-0"
-  />
-</Frame>
+<IframeSwitcher
+  id="shared-state-read-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/pydantic-ai/feature/shared_state?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/pydantic-ai/feature/shared_state?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+<Callout type="info">
+  This example demonstrates reading from shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/pydantic-ai/feature/shared_state).
+</Callout>
 
 ## What is this?
 
@@ -29,66 +33,57 @@ state updates, you can reflect these updates natively in your application.
 
 <Steps>
   <Step>
-    ### Run and Connect Your Agent to CopilotKit
-
-    You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
-    you can follow the instructions in the [Getting Started](/pydantic-ai/quickstart) guide.
-
-
+    ### Run and connect your agent
+    <RunAndConnect components={props.components} />
   </Step>
   <Step>
     ### Define the Agent State
-    Pydantic AI Agents are stateful. As you transition through the flow, that state is updated and available to the next function. For this example,
-    let's assume that our agent state looks something like this.
 
-    <Tabs groupId="language_pydantic-ai_agent" items={["Python"]} persist>
-      <Tab value="Python">
-        ```python title="agent-py/sample_agent/agent.py"
-        from pydantic import BaseModel
-        from pydantic_ai import Agent, RunContext
-        from pydantic_ai.ag_ui import StateDeps
-        from textwrap import dedent
+    Create your Pydantic AI agent with a stateful structure. Here's a complete example that tracks language:
 
+    ```python title="agent.py"
+    from textwrap import dedent
 
-        class AgentState(BaseModel):
-            """State for the agent."""
-            language: str = "english"
+    from pydantic import BaseModel
+    from pydantic_ai import Agent, RunContext
+    from pydantic_ai.ag_ui import StateDeps
 
 
-        agent = Agent("openai:gpt-4o-mini", deps_type=StateDeps[AgentState])
+    class AgentState(BaseModel):
+        """State for the agent."""
+        language: str = "english"
 
 
-        @agent.instructions()
-        async def language_instructions(ctx: RunContext[StateDeps[AgentState]]) -> str:
-            """Instructions for the language tracking agent.
+    agent = Agent("openai:gpt-4o-mini", deps_type=StateDeps[AgentState])
 
-            Args:
-                ctx: The run context containing language state information.
 
-            Returns:
-                Instructions string for the language tracking agent.
+    @agent.instructions()
+    async def language_instructions(ctx: RunContext[StateDeps[AgentState]]) -> str:
+        """Instructions for the language tracking agent.
+
+        Args:
+            ctx: The run context containing language state information.
+
+        Returns:
+            Instructions string for the language tracking agent.
+        """
+        return dedent(
+            f"""
+            You are a helpful assistant for tracking the language.
+
+            IMPORTANT:
+            - ALWAYS use the lower case for the language
+            - ALWAYS response in the current language: {ctx.deps.state.language}
             """
-            return dedent(
-                f"""
-                You are a helpful assistant for tracking the language.
+        )
 
-                IMPORTANT:
-                - ALWAYS use the lower case for the language
-                - The language is not used for responding, always respond in english. Just track the language.
 
-                The current state of the language is: "{ctx.deps.state.language}"
-                """
-            )
+    app = agent.to_ag_ui(deps=StateDeps(AgentState()))
 
-        app = agent.to_ag_ui(deps=StateDeps(AgentState()))
-
-        if __name__ == "__main__":
-            import uvicorn
-
-            uvicorn.run(app, host="0.0.0.0", port=8000)
-        ```
-      </Tab>
-    </Tabs>
+    if __name__ == "__main__":
+        import uvicorn
+        uvicorn.run(app, host="0.0.0.0", port=8000)
+    ```
 
   </Step>
   <Step>
@@ -107,7 +102,7 @@ state updates, you can reflect these updates natively in your application.
     function YourMainContent() {
       // [!code highlight:4]
       const { state } = useCoAgent<AgentState>({
-        name: "sample_agent",
+        name: "my_agent", // MUST match the agent name in CopilotRuntime
         initialState: { language: "spanish" }  // optionally provide an initial state
       });
 
@@ -117,11 +112,16 @@ state updates, you can reflect these updates natively in your application.
         // style excluded for brevity
         <div>
           <h1>Your main content</h1>
-          <p>Language: {state.language}</p> // [!code highlight]
+          <p>Language: {state.language}</p> {/* [!code highlight] */}
         </div>
       );
     }
     ```
+
+    <Callout type="warn" title="Important">
+      The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+    </Callout>
+
     <Callout type="info">
       The `state` in `useCoAgent` is reactive and will automatically update when the agent's state changes.
     </Callout>
@@ -151,7 +151,7 @@ function YourMainContent() {
   // ...
   // [!code highlight:7]
   useCoAgentStateRender({
-    name: "sample_agent",
+    name: "my_agent", // MUST match the agent name in CopilotRuntime
     render: ({ state }) => {
       if (!state.language) return null;
       return <div>Language: {state.language}</div>;
@@ -160,6 +160,10 @@ function YourMainContent() {
   // ...
 }
 ```
+
+<Callout type="warn" title="Important">
+  The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+</Callout>
 
 <Callout type="info">
   The `state` in `useCoAgentStateRender` is reactive and will automatically
