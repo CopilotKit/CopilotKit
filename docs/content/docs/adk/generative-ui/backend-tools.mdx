@@ -19,10 +19,6 @@ import RunAndConnect from "@/snippets/integrations/adk/run-and-connect.mdx"
   height="700px"
 />
 
-<Callout>
-  This example demonstrates the [implementation](#implementation) section applied in the <a href="https://feature-viewer.copilotkit.ai/adk-middleware/feature/agentic_chat" target="_blank">CopilotKit feature viewer</a>.
-</Callout>
-
 ## What is this?
 
 Tools are a way for the LLM to call predefined, typically, deterministic functions. CopilotKit allows you to render these tools in the UI
@@ -46,46 +42,42 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 <Tabs groupId="language_adk_agent" items={['Python']} default="Python" persist>
     <Tab value="Python">
         ```python title="agent/sample_agent/agent.py"
-        import uvicorn
         from fastapi import FastAPI
         from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
         from google.adk.agents import LlmAgent
 
 
         def get_weather(location: str = "the entire world") -> str:
-            """Get the weather in a given location.
+            """Retrieves the current weather report for a specified location.
 
             Args:
-                location: The location to get the weather for.
+                location (str): The name of the location to get the weather for.
 
             Returns:
-                the weather in the specified location.
+                str: The weather report for the specified location.
             """
-            return "it is sunny in " + location
+            return f"The weather in {location} is sunny."
 
 
-        weather_agent = LlmAgent(
+        agent = LlmAgent(
             model="gemini-2.5-flash",
-            name="weather_agent",
-            instruction=f"""
-              You are an expert weather analyzer that can tell the current weather in a specific location.
-              Use the get_weather tool to get the weather in a specific location. If the user doesn't specify
-              a location, use "the entire world" as the location.
-              """,
+            name="my_agent",
+            instruction="You are a helpful weather assistant.",
             tools=[get_weather],
         )
 
-        adk_agent_weather = ADKAgent(
-            adk_agent=weather_agent, app_name="weather_demo", user_id="demo_user"
+        adk_agent = ADKAgent(
+            adk_agent=agent,
+            app_name="weather_demo",
+            user_id="demo_user"
         )
 
-        # Create FastAPI app
-        app = FastAPI(title="ADK Middleware Weather Tool Agent")
+        app = FastAPI()
+        add_adk_fastapi_endpoint(app, adk_agent, path="/")
 
-        # Add the ADK endpoint
-        add_adk_fastapi_endpoint(app, adk_agent_weather, path="/")
-
-        uvicorn.run(app, host="localhost", port=8000)
+        if __name__ == "__main__":
+            import uvicorn
+            uvicorn.run(app, host="0.0.0.0", port=8000)
         ```
     </Tab>
 

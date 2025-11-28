@@ -86,43 +86,38 @@ Use frontend tools when you need your agent to interact with client-side primiti
     </Step>
     <Step>
         ###  Modify your agent
-        Now, we'll need to modify the agent to access these frontend actions. Open up your agent's folder and continue from there!
+        Now, we'll need to modify the agent to access these frontend tools. Open up your agent's folder and continue from there!
     </Step>
     <Step>
         ### Setup your ADK agent with frontend tools
 
-        To access the frontend tools provided by CopilotKit, you need to set up your ADK agent to use them:
+        Frontend tools registered with `useFrontendTool` are automatically forwarded to your agent through the AG-UI protocol. The agent can invoke them, and execution happens on the frontend.
 
         <Tabs groupId="language_adk_agent" items={['Python']} default="Python" persist>
             <Tab value="Python">
                 ```python title="agent/sample_agent/agent.py"
-                import uvicorn
                 from fastapi import FastAPI
                 from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
                 from google.adk.agents import LlmAgent
 
-                sample_agent = LlmAgent(
+                agent = LlmAgent(
                     model="gemini-2.5-flash",
-                    name="sample_agent",
-                    instruction="""
-                    You are a helpful assistant. When the user asks you to say hello,
-                    use the sayHello tool to greet them.
-                    """,
+                    name="my_agent",
+                    instruction="You are a helpful assistant.",
                 )
 
                 adk_agent = ADKAgent(
-                    adk_agent=sample_agent,
+                    adk_agent=agent,
                     app_name="sample_app",
                     user_id="demo_user"
                 )
 
-                # Create FastAPI app
-                app = FastAPI(title="ADK Middleware Sample Agent")
-
-                # Add the ADK endpoint
+                app = FastAPI()
                 add_adk_fastapi_endpoint(app, adk_agent, path="/")
 
-                uvicorn.run(app, host="localhost", port=8000)
+                if __name__ == "__main__":
+                    import uvicorn
+                    uvicorn.run(app, host="0.0.0.0", port=8000)
                 ```
             </Tab>
         </Tabs>
