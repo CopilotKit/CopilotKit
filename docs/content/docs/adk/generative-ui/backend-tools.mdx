@@ -12,15 +12,15 @@ import RunAndConnect from "@/snippets/integrations/adk/run-and-connect.mdx"
 
 <IframeSwitcher
   id="backend-tools-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/backend_tool_rendering?view=code&sidebar=false&codeLayout=tabs"
+  exampleUrl="https://feature-viewer.copilotkit.ai/adk-middleware/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/adk-middleware/feature/backend_tool_rendering?view=code&sidebar=false&codeLayout=tabs"
   exampleLabel="Demo"
   codeLabel="Code"
   height="700px"
 />
 
 <Callout>
-  This example demonstrates the [implementation](#implementation) section applied in the <a href="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat" target="_blank">CopilotKit feature viewer</a>.
+  This example demonstrates the [implementation](#implementation) section applied in the <a href="https://feature-viewer.copilotkit.ai/adk-middleware/feature/agentic_chat" target="_blank">CopilotKit feature viewer</a>.
 </Callout>
 
 ## What is this?
@@ -131,6 +131,15 @@ const YourMainContent = () => {
 Try asking the agent to get the weather for a location. You should see the custom UI component that we added
 render the tool call and display the arguments that were passed to the tool.
 
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tool-based-gen-ui.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
 </Step>
 </Steps>
 

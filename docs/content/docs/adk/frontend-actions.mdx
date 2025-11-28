@@ -1,66 +1,62 @@
 ---
-title: Frontend Actions
+title: Frontend Tools
 icon: "lucide/Wrench"
-description: Create frontend actions and use them within your agent.
+description: Create frontend tools and use them within your ADK agent.
 ---
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
+import RunAndConnect from "@/snippets/integrations/adk/run-and-connect.mdx"
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+import { IframeSwitcher } from "@/components/content"
 
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
+<IframeSwitcher
+  id="frontend-actions-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/adk-middleware/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/adk-middleware/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
 />
-<Callout>
-  This video shows the result of `npx copilotkit@latest init` with the [implementation](#implementation) section applied to it!
-</Callout>
 
 ## What is this?
+Frontend tools enable you to define client-side functions that your ADK agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
+the logic runs on the client side, giving you direct access to the frontend environment.
 
-Frontend actions are powerful tools that allow your AI agents to directly interact with and update your application's user interface. Think of them as bridges that connect your agent's decision-making capabilities with your frontend's interactive elements.
+This can be utilized for to let [your agent control the UI](/adk/frontend-actions), [generative UI](/adk/generative-ui/frontend-tools), or for Human-in-the-loop interactions.
+
+In this guide, we cover the use of frontend tools driving and interacting with the UI.
 
 ## When should I use this?
-
-Frontend actions are essential when you want to create truly interactive AI applications where your agent needs to:
-
-- Dynamically update UI elements
-- Trigger frontend animations or transitions
-- Show alerts or notifications
-- Modify application state
-- Handle user interactions programmatically
-
-Without frontend actions, agents are limited to just processing and returning data. By implementing frontend actions, you can create rich, interactive experiences where your agent actively drives the user interface.
+Use frontend tools when you need your agent to interact with client-side primitives such as:
+- Reading or modifying React component state
+- Accessing browser APIs like localStorage, sessionStorage, or cookies
+- Triggering UI updates or animations
+- Interacting with third-party frontend libraries
+- Performing actions that require the user's immediate browser context
 
 ## Implementation
 
 <Steps>
     <Step>
-        ### Setup CopilotKit
-
-        To use frontend actions, you'll need to setup CopilotKit first. For the sake of brevity, we won't cover it here.
-
-        Check out our [getting started guide](/adk/quickstart/adk) and come back here when you're setup!
+        ### Run and connect your agent
+       <RunAndConnect components={props.components} />
     </Step>
 
     <Step>
-        ### Create a frontend action
+        ### Create a frontend tool
 
-        First, you'll need to create a frontend action using the [useCopilotAction](/reference/hooks/useCopilotAction) hook. Here's a simple one to get you started
+        First, you'll need to create a frontend tool using the [useFrontendTool](/reference/hooks/useFrontendTool) hook. Here's a simple one to get you started
         that says hello to the user.
 
         ```tsx title="page.tsx"
-        import { useCopilotAction } from "@copilotkit/react-core" // [!code highlight]
+        import { useFrontendTool } from "@copilotkit/react-core" // [!code highlight]
 
         export function Page() {
           // ...
 
-          // [!code highlight:16]
-          useCopilotAction({
+          // [!code highlight:15]
+          useFrontendTool({
             name: "sayHello",
             description: "Say hello to the user",
-            available: "remote", // optional, makes it so the action is *only* available to the agent
             parameters: [
               {
                 name: "name",
@@ -80,16 +76,16 @@ Without frontend actions, agents are limited to just processing and returning da
     </Step>
     <Step>
         ###  Modify your agent
-        Now, we'll need to modify the agent to access these frontend actions. Open up for your agent's folder and continue from there!
+        Now, we'll need to modify the agent to access these frontend tools. Open up your agent's folder and continue from there!
     </Step>
     <Step>
         ### Setup your ADK Agent
 
-        ADK automatically picks up frontend actions when you create your agent. No special configuration or state inheritance is needed:
+        ADK automatically picks up frontend tools when you create your agent. No special configuration or state inheritance is needed:
 
         <Tabs groupId="language_adk_agent" items={['Python']} default="Python" persist>
             <Tab value="Python">
-                ```python title="agent-py/sample_agent/agent.py"
+                ```python title="agent/sample_agent/agent.py"
                 from fastapi import FastAPI
                 from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
                 from google.adk.agents import LlmAgent
@@ -103,7 +99,7 @@ Without frontend actions, agents are limited to just processing and returning da
                 )
 
                 # Create ADK middleware agent instance
-                adk_agent_sample = ADKAgent(
+                adk_agent = ADKAgent(
                     adk_agent=sample_agent,
                     app_name="demo_app",
                     user_id="demo_user",
@@ -115,16 +111,18 @@ Without frontend actions, agents are limited to just processing and returning da
                 app = FastAPI(title="ADK Middleware Sample Agent")
 
                 # Add the ADK endpoint
-                add_adk_fastapi_endpoint(app, adk_agent_sample, path="/")
+                add_adk_fastapi_endpoint(app, adk_agent, path="/")
                 ```
             </Tab>
         </Tabs>
 
-        That's it! Your agent will automatically have access to all frontend actions you've defined using `useCopilotAction` in your React components.
+        That's it! Your agent will automatically have access to all frontend tools you've defined using `useFrontendTool` in your React components.
     </Step>
     <Step>
         ### Give it a try!
-        You've now given your agent the ability to directly call any CopilotActions you've defined. These actions will be available as tools to the agent where they can be used as needed.
+        You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
+
+        <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
     </Step>
 
 </Steps>

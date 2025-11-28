@@ -10,8 +10,8 @@ import RunAndConnect from "@/snippets/integrations/adk/run-and-connect.mdx"
 
 <IframeSwitcher
   id="frontend-tools-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs"
+  exampleUrl="https://feature-viewer.copilotkit.ai/adk-middleware/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/adk-middleware/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs"
   exampleLabel="Demo"
   codeLabel="Code"
   height="700px"
@@ -127,11 +127,23 @@ Use frontend tools when you need your agent to interact with client-side primiti
             </Tab>
         </Tabs>
 
-        By doing this, your agent will have access to the frontend tools you defined, which are automatically passed to the agent by CopilotKit.
+        <Callout type="info">
+          Frontend tools registered with `useFrontendTool` are automatically forwarded to your agent through the AG-UI protocol. The agent can invoke them, and execution happens on the frontend.
+        </Callout>
     </Step>
     <Step>
         ### Give it a try!
         You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
+
+        <video
+          src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tool-based-gen-ui.mp4"
+          className="rounded-lg shadow-xl"
+          loop
+          playsInline
+          controls
+          autoPlay
+          muted
+        />
     </Step>
 </Steps>
 
