@@ -71,11 +71,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     <ToastProvider enabled={enabled}>
       <CopilotErrorBoundary publicApiKey={publicApiKey} showUsageBanner={enabled}>
         <ThreadsProvider threadId={props.threadId}>
-          <CopilotKitProvider
-            {...props}
-            renderCustomMessages={renderArr}
-            useSingleEndpoint={true}
-          >
+          <CopilotKitProvider {...props} renderCustomMessages={renderArr} useSingleEndpoint={true}>
             <CopilotKitInternal {...props}>{children}</CopilotKitInternal>
           </CopilotKitProvider>
         </ThreadsProvider>
@@ -397,21 +393,18 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   const [interruptActions, _setInterruptActions] = useState<
     Record<string, LangGraphInterruptRender>
   >({});
-  const setInterruptAction = useCallback(
-    (threadId: string, action: LangGraphInterruptActionSetterArgs) => {
-      _setInterruptActions((prev) => {
-        if (action == null || !action.id) {
-          // Cannot set action without id
-          return prev;
-        }
-        return {
-          ...prev,
-          [action.id]: { ...(prev[action.id] ?? {}), ...action } as LangGraphInterruptRender,
-        };
-      });
-    },
-    [],
-  );
+  const setInterruptAction = useCallback((action: LangGraphInterruptActionSetterArgs) => {
+    _setInterruptActions((prev) => {
+      if (action == null || !action.id) {
+        // Cannot set action without id
+        return prev;
+      }
+      return {
+        ...prev,
+        [action.id]: { ...(prev[action.id] ?? {}), ...action } as LangGraphInterruptRender,
+      };
+    });
+  }, []);
   const removeInterruptAction = useCallback((actionId: string): void => {
     _setInterruptActions((prev) => {
       const { [actionId]: _, ...rest } = prev;

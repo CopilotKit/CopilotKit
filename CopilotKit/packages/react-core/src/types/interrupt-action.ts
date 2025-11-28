@@ -34,10 +34,7 @@ export type LangGraphInterruptAction = LangGraphInterruptRender & {
 };
 
 export type LangGraphInterruptActionSetterArgs = Partial<LangGraphInterruptRender> | null;
-export type LangGraphInterruptActionSetter = (
-  threadId: string,
-  action: LangGraphInterruptActionSetterArgs,
-) => void;
+export type LangGraphInterruptActionSetter = (action: LangGraphInterruptActionSetterArgs) => void;
 
 export interface QueuedInterruptEvent {
   eventId: string; // Generated unique ID for tracking

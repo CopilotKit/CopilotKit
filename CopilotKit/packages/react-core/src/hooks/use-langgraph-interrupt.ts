@@ -13,7 +13,14 @@ export function useLangGraphInterrupt<TEventValue = any>(
     useContext(CopilotContext);
   const { addToast } = useToast();
 
-  const actionId = dataToUUID(JSON.stringify(action), "lgAction");
+  const actionId = useMemo(() => {
+    const serializable = {
+      handler: action.handler?.toString(),
+      render: action.render?.toString(),
+      enabled: action.enabled?.toString(),
+    };
+    return dataToUUID(JSON.stringify(serializable), "lgAction");
+  }, [action.handler, action.render, action.enabled]);
 
   useEffect(() => {
     if (!action) return;
@@ -27,7 +34,7 @@ export function useLangGraphInterrupt<TEventValue = any>(
     //   return;
     // }
 
-    setInterruptAction(threadId, { ...action, id: actionId });
+    setInterruptAction({ ...action, id: actionId });
 
     // Cleanup: remove action on unmount
     return () => {
