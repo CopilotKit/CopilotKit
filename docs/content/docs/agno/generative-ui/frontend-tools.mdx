@@ -1,17 +1,14 @@
 ---
 title: Frontend Tools
 icon: "lucide/Wrench"
-description: Create frontend tools and use them within your Agno agent.
+description: Create frontend tools and use them within your Agno agent for generative UI.
 ---
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 import { IframeSwitcher } from "@/components/content"
-import { Tabs, Tab } from "fumadocs-ui/components/tabs"
-import RunAndConnect from "@/snippets/integrations/agno/run-and-connect.mdx"
 
 <IframeSwitcher
   id="frontend-tools-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs"
+  exampleUrl="https://feature-viewer.copilotkit.ai/agno/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/agno/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs"
   exampleLabel="Demo"
   codeLabel="Code"
   height="700px"
@@ -21,7 +18,7 @@ import RunAndConnect from "@/snippets/integrations/agno/run-and-connect.mdx"
 Frontend tools enable you to define client-side functions that your Agno agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
 the logic runs on the client side, giving you direct access to the frontend environment.
 
-This can be utilized for to let [your agent control the UI](/agno/frontend-actions), [generative UI](/agno/generative-ui/frontend-tools), or for Human-in-the-loop interactions.
+This can be utilized to let [your agent control the UI](/agno/frontend-tools), [generative UI](/agno/generative-ui/frontend-tools), or for Human-in-the-loop interactions.
 
 In this guide, we cover the use of frontend tools for generative UI.
 
@@ -37,15 +34,51 @@ Use frontend tools when you need your agent to interact with client-side primiti
 
 <Steps>
     <Step>
-        ### Run and connect your agent
-        <RunAndConnect components={props.components} />
+        ### Define the frontend tool in your Agno agent
+
+        In your Agno agent, define a tool with the `@tool(external_execution=True)` decorator:
+
+        ```python title="tools/frontend.py"
+        from agno.tools import tool
+
+        @tool(external_execution=True)
+        def sayHello(name: str):
+            """
+            Say hello to the user.
+
+            Args:
+                name: str: The name of the user to say hello to
+            """
+        ```
+
+        Register the tool with your agent:
+
+        ```python title="agent.py"
+        from agno.agent import Agent
+        from agno.models.openai import OpenAIChat
+        from agno.os import AgentOS
+        from agno.os.interfaces.agui import AGUI
+        from tools.frontend import sayHello
+
+        agent = Agent(
+            model=OpenAIChat(id="gpt-4o"),
+            tools=[sayHello],
+            description="A helpful assistant that can answer questions and provide information.",
+            instructions="Be helpful and friendly. Format your responses using markdown where appropriate.",
+        )
+
+        agent_os = AgentOS(agents=[agent], interfaces=[AGUI(agent=agent)])
+        app = agent_os.get_app()
+
+        if __name__ == "__main__":
+            agent_os.serve(app="main:app", port=8000, reload=True)
+        ```
     </Step>
 
     <Step>
-        ### Create a frontend tool
+        ### Create a frontend tool with generative UI
 
-        First, you'll need to create a frontend tool using the [useFrontendTool](/reference/hooks/useFrontendTool) hook. Here's a simple one to get you started
-        that says hello to the user.
+        Use the [useFrontendTool](/reference/hooks/useFrontendTool) hook to implement the tool with custom rendering:
 
         ```tsx title="page.tsx"
         import { useFrontendTool } from "@copilotkit/react-core" // [!code highlight]
@@ -56,7 +89,6 @@ Use frontend tools when you need your agent to interact with client-side primiti
           // [!code highlight:25]
           useFrontendTool({
             name: "sayHello",
-            description: "Say hello to the user",
             parameters: [
               {
                 name: "name",
@@ -85,41 +117,8 @@ Use frontend tools when you need your agent to interact with client-side primiti
         ```
     </Step>
     <Step>
-        ###  Modify your agent
-        Now, we'll need to modify the agent to access these frontend actions. Open up your agent's folder and continue from there!
-    </Step>
-    <Step>
-        ### Install the CopilotKit SDK
-        <InstallSDKSnippet components={props.components}/>
-    </Step>
-    <Step>
-        ### Accessing Frontend Tools
-
-        Once you've installed the CopilotKit SDK, you can access frontend tools within your Agno agent. The tools are automatically available through the CopilotKit integration.
-
-        <Tabs groupId="language_agno_agent" items={['Python']} default="Python" persist>
-            <Tab value="Python">
-                ```python title="agent/sample_agent/agent.py"
-                from agno.agent import Agent
-                from copilotkit.agno import CopilotKitAgno
-
-                # Create the base agent
-                agent = Agent(
-                    name="sample_agent",
-                    instructions="You are a helpful assistant.",
-                )
-
-                # Wrap with CopilotKit to access frontend tools
-                copilotkit_agent = CopilotKitAgno(agent=agent)
-                ```
-            </Tab>
-        </Tabs>
-
-        These tools are automatically populated by CopilotKit and are compatible with Agno's tool call definitions, making it straightforward to integrate them into your agent's workflow.
-    </Step>
-    <Step>
         ### Give it a try!
-        You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
+        You've now given your agent the ability to directly call frontend tools with custom UI rendering. These tools will be available to the agent where they can be used as needed.
 
         <video
           src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tool-based-gen-ui.mp4"
@@ -137,4 +136,3 @@ Use frontend tools when you need your agent to interact with client-side primiti
         </Callout>
     </Step>
 </Steps>
-

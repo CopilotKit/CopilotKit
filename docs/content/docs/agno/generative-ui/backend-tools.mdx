@@ -11,8 +11,8 @@ import RunAndConnect from "@/snippets/integrations/agno/run-and-connect.mdx"
 
 <IframeSwitcher
   id="backend-tools-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/backend_tool_rendering?view=code&sidebar=false&codeLayout=tabs"
+  exampleUrl="https://feature-viewer.copilotkit.ai/agno/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/agno/feature/backend_tool_rendering?view=code&sidebar=false&codeLayout=tabs"
   exampleLabel="Demo"
   codeLabel="Code"
   height="700px"
@@ -35,17 +35,10 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 ## Implementation
 
 <Steps>
-<Step>
-### Run and connect your agent
-<RunAndConnect components={props.components} />
-</Step>
-<Step>
-### Install the DuckDuckGo search tool
-```bash
-pip install ddgs duckduckgo-search
-```
-
-</Step>
+  <Step>
+    ### Run and connect your agent
+    <RunAndConnect components={props.components} />
+  </Step>
 <Step>
 ### Give your agent a tool to call
 
@@ -53,10 +46,25 @@ pip install ddgs duckduckgo-search
     <Tab value="Python">
         ```python title="agent/sample_agent/agent.py"
         from agno.agent import Agent
-        from agno.tools.duckduckgo import DuckDuckGoTools
+        from agno.models.openai import OpenAIChat
+        from agno.tools import tool
+        # ...
+
+        # [!code highlight:6]
+        @tool
+        def get_weather(location: str):
+            """
+            Get the weather for a given location.
+            """
+            return f"The weather for {location} is 70 degrees."
+
+        # ...
 
         agent = Agent(
-            tools=[DuckDuckGoTools()],
+            model=OpenAIChat(id="gpt-4o"),
+            tools=[get_weather], # [!code highlight]
+            description="A helpful assistant that can answer questions and provide information.",
+            instructions="Be helpful and friendly. Format your responses using markdown where appropriate.",
             show_tool_calls=True,
         )
         ```
@@ -66,13 +74,12 @@ pip install ddgs duckduckgo-search
 </Step>
 <Step>
 ### Render the tool call in your frontend
-At this point, your agent will be able to call the `duckduckgo_search` tool. Now
+At this point, your agent will be able to call the `get_weather` tool. Now
 we just need to add a `useRenderToolCall` hook to render the tool call in
 the UI.
 
 <Callout type="info" title="Important">
-  In order to render a tool call in the UI, the name of the action must match
-  the name of the tool.
+  In order to render a tool call in the UI, the name of the action must match the name of the tool.
 </Callout>
 
 ```tsx title="app/page.tsx"
@@ -81,44 +88,28 @@ import { useRenderToolCall } from "@copilotkit/react-core"; // [!code highlight]
 
 const YourMainContent = () => {
   // ...
-  // [!code highlight:12]
+  {/* [!code highlight:12] */}
   useRenderToolCall({
-    name: "duckduckgo_search",
-    render: ({ status, args }) => {
+    name: "get_weather",
+    render: ({status, args}) => {
       return (
         <p className="text-gray-500 mt-2">
-          {status !== "complete" && "Calling DuckDuckGo API..."}
-          {status === "complete" &&
-            `Called the DuckDuckGo API for ${args.query}.`}
+          {status !== "complete" && "Calling weather API..."}
+          {status === "complete" && `Called the weather API for ${args.location}.`}
         </p>
       );
     },
   });
   // ...
-};
+}
 ```
 
 </Step>
 <Step>
 ### Give it a try!
 
-Try asking the agent to search for something on the Internet. You should see the custom UI component that we added
+Try asking the agent to get the weather for a location. You should see the custom UI component that we added
 render the tool call and display the arguments that were passed to the tool.
-
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tool-based-gen-ui.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
-/>
-<Callout>
-  This video demonstrates the [implementation](#implementation) section applied
-  to our [coagents starter
-  project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/agno/starter).
-</Callout>
 
 </Step>
 </Steps>
@@ -126,4 +117,3 @@ render the tool call and display the arguments that were passed to the tool.
 ## Default Tool Rendering
 
 <DefaultToolRendering components={props.components} />
-
