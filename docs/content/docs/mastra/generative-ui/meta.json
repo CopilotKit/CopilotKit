@@ -1,4 +1,6 @@
 {
   "title": "Generative UI",
-  "pages": ["backend-tools", "frontend-tools", "agentic"]
+  "icon": "lucide/LayoutDashboard",
+  "defaultOpen": true,
+  "pages": ["backend-tools", "frontend-tools"]
 }
