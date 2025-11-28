@@ -18,62 +18,88 @@ export type Integration =
 
 const INTEGRATION_OPTIONS: Record<
   Integration,
-  { label: string; logoSrc: string; href: string }
+  { label: string; icon: string; href: string; width: number; height: number }
 > = {
   adk: {
     label: "ADK",
-    logoSrc: "/icons/sidebar/adk.svg",
+    icon: "/icons/sidebar/adk.svg",
     href: "/integrations/adk",
+    width: 22,
+    height: 22,
   },
   ag2: {
     label: "AG2",
-    logoSrc: "/icons/sidebar/ag2.svg",
+    icon: "/icons/sidebar/ag2.svg",
     href: "/integrations/ag2",
+    width: 22,
+    height: 22,
   },
   agno: {
     label: "Agno",
-    logoSrc: "/icons/sidebar/agno.svg",
+    icon: "/icons/sidebar/agno.svg",
     href: "/integrations/agno",
+    width: 19,
+    height: 17,
   },
   "crewai-flows": {
     label: "CrewAI Flows",
-    logoSrc: "/icons/sidebar/crewai-flows.svg",
+    icon: "/icons/sidebar/crewai.svg",
     href: "/integrations/crewai-flows",
+    width: 19,
+    height: 22,
   },
   "crewai-crews": {
     label: "CrewAI Crews",
-    logoSrc: "/icons/sidebar/crewai-crews.svg",
+    icon: "/icons/sidebar/crewai.svg",
     href: "/integrations/crewai-crews",
+    width: 19,
+    height: 22,
   },
   "direct-to-llm": {
     label: "Direct to LLM",
-    logoSrc: "/icons/sidebar/direct-to-llm.svg",
+    icon: "/icons/sidebar/direct-to-llm.svg",
     href: "/integrations/direct-to-llm",
+    width: 22,
+    height: 22,
   },
   langgraph: {
     label: "LangGraph",
-    logoSrc: "/icons/sidebar/langgraph.svg",
+    icon: "/icons/sidebar/langraph.svg",
     href: "/integrations/langgraph",
+    width: 30,
+    height: 16,
   },
   llamaindex: {
     label: "LlamaIndex",
-    logoSrc: "/icons/sidebar/llamaindex.svg",
+    icon: "/icons/sidebar/llama-index.svg",
     href: "/integrations/llamaindex",
+    width: 21,
+    height: 21,
   },
   mastra: {
     label: "Mastra",
-    logoSrc: "/icons/sidebar/mastra.svg",
+    icon: "/icons/sidebar/mastra.svg",
     href: "/integrations/mastra",
+    width: 23,
+    height: 23,
   },
   "pydantic-ai": {
     label: "Pydantic AI",
-    logoSrc: "/icons/sidebar/pydantic-ai.svg",
+    icon: "/icons/sidebar/pydantic-ai.svg",
     href: "/integrations/pydantic-ai",
+    width: 21,
+    height: 18,
   },
 }
 
 const DEFAULT_INTEGRATION_LOGO = "/icons/sidebar/puzzle.svg"
-const DEFAULT_INTEGRATION_TEXT = "Select integration..."
+const DEFAULT_INTEGRATION = {
+  label: "Select integration...",
+  icon: DEFAULT_INTEGRATION_LOGO,
+  href: "/integrations",
+  width: 20,
+  height: 20,
+}
 
 interface IntegrationSelectorProps {
   selectedIntegration: Integration | null
@@ -87,12 +113,9 @@ const IntegrationSelector = ({
   const [isOpen, setIsOpen] = useState(false)
   // const pathname = usePathname()
 
-  const logoSrc = selectedIntegration
-    ? `/icons/sidebar/${selectedIntegration}.svg`
-    : DEFAULT_INTEGRATION_LOGO
-  const integrationText = selectedIntegration
-    ? INTEGRATION_OPTIONS[selectedIntegration].label
-    : DEFAULT_INTEGRATION_TEXT
+  const integration = selectedIntegration
+    ? INTEGRATION_OPTIONS[selectedIntegration]
+    : DEFAULT_INTEGRATION
 
   const handleIntegrationClick = (integration: Integration) => {
     setSelectedIntegration(integration)
@@ -113,15 +136,16 @@ const IntegrationSelector = ({
         onClick={() => setIsOpen(!isOpen)}
       >
         <div className="flex gap-2 items-center">
-          <Image
-            src={logoSrc}
-            alt="Integration Logo"
-            width={40}
-            height={40}
-            className="w-10 h-10"
-          />
+          <div className="flex justify-center items-center w-10 h-10 rounded-md bg-white/5">
+            <Image
+              src={integration.icon}
+              alt="Integration Logo"
+              width={integration.width}
+              height={integration.height}
+            />
+          </div>
           <span className="text-sm font-medium opacity-60">
-            {integrationText}
+            {integration.label}
           </span>
         </div>
 
@@ -134,16 +158,15 @@ const IntegrationSelector = ({
             <Link
               key={integration.href}
               href={integration.href}
-              className="flex gap-4 items-center p-1 rounded-lg cursor-pointer hover:bg-white/5"
+              className="flex gap-4 items-center p-1 rounded-lg cursor-pointer hover:bg-white/5 group"
               onClick={() => handleIntegrationClick(key as Integration)}
             >
-              <div className="flex justify-center items-center">
+              <div className="flex justify-center items-center w-10 h-10 rounded-md bg-white/5 group-hover:bg-[#7076D5] transition-all duration-200">
                 <Image
-                  src={integration.logoSrc}
+                  src={integration.icon}
                   alt={integration.label}
-                  width={40}
-                  height={40}
-                  className="w-10 h-10"
+                  width={integration.width}
+                  height={integration.height}
                 />
               </div>
               <span className="text-sm font-medium">{integration.label}</span>
