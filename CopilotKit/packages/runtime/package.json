@@ -52,8 +52,7 @@
     "tsconfig": "workspace:*",
     "tsup": "^6.7.0",
     "typescript": "^5.2.3",
-    "vitest": "^3.2.4",
-    "zod-to-json-schema": "^3.23.5"
+    "vitest": "^3.2.4"
   },
   "dependencies": {
     "@copilotkit/shared": "workspace:*",
