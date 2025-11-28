@@ -18,7 +18,11 @@ export type SuggestionElement = {
 
 export type CustomElement = ParagraphElement | SuggestionElement;
 export type SuggestionAwareText = { text: string };
-export type CustomText = SuggestionAwareText;
+export type FormattingMarks = {
+  bold?: boolean;
+  italic?: boolean;
+};
+export type CustomText = SuggestionAwareText & FormattingMarks;
 
 declare module "slate" {
   interface CustomTypes {

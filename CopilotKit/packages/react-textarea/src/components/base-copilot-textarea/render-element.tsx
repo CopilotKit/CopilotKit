@@ -8,15 +8,17 @@ export function makeRenderElementFunction(
   return (props: RenderElementProps) => {
     switch (props.element.type) {
       case "paragraph":
-        return <DefaultElement {...props} />;
+        return <ParagraphElement {...props} />;
       case "suggestion":
         return <SuggestionElement {...props} suggestionsStyle={suggestionsStyle} />;
+      default:
+        return <ParagraphElement {...props} />;
     }
   };
 }
 
-const DefaultElement = (props: RenderElementProps) => {
-  return <div {...props.attributes}>{props.children}</div>;
+const ParagraphElement = (props: RenderElementProps) => {
+  return <p {...props.attributes}>{props.children}</p>;
 };
 const SuggestionElement = (
   props: RenderElementProps & {
