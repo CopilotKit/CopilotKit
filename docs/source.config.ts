@@ -57,5 +57,8 @@ export default defineConfig({
       [remarkInstall, { persist: { id: "package-manager" } }],
       [remarkDocGen, { generators: [typescriptGenerator(), fileGenerator()] }],
     ],
+    remarkNpmOptions: {
+      persist: { id: "package-manager" },
+    },
   },
 });

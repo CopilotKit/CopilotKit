@@ -1,6 +1,6 @@
 ---
 title: Quickstart
-description: Turn your Mastra Agents into an agent-native application in 10 minutes.
+description: Turn your Pydantic AI agent into an agent-native application in 10 minutes.
 icon: "lucide/Play"
 hideTOC: true
 ---
@@ -9,25 +9,14 @@ import {
   TailoredContent,
   TailoredContentOption,
 } from "@/components/react/tailored-content.tsx";
-import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
-import { CoAgentsDiagram } from "@/components/react/coagents/coagents-diagram.tsx";
-import { FaPython, FaJs, FaCloud } from "react-icons/fa";
-import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
-import CopilotKitCloudCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
-import FindYourCopilotRuntime from "@/snippets/find-your-copilot-runtime.mdx";
-import CloudCopilotKitProvider from "@/snippets/coagents/cloud-configure-copilotkit-provider.mdx";
-import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/coagents/self-host-configure-copilotkit-provider.mdx";
-import SelfHostingCopilotRuntimeStarter from "@/snippets/self-hosting-copilot-runtime-starter.mdx";
-import SelfHostingRemoteEndpoints from "@/snippets/self-hosting-remote-endpoints.mdx";
 import {
   UserIcon,
   PaintbrushIcon,
   WrenchIcon,
   RepeatIcon,
-  ServerIcon,
 } from "lucide-react";
-import CopilotUI from "@/snippets/copilot-ui.mdx";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
@@ -45,6 +34,7 @@ Before you begin, you'll need the following:
 
 - An OpenAI API key
 - Node.js 20+
+- Python 3.9+
 - Your favorite package manager
 
 ## Getting started
@@ -57,7 +47,7 @@ Before you begin, you'll need the following:
             <div>
                 <p className="text-xl font-semibold">Choose your starting point</p>
                 <p className="text-base">
-                    You can either start fresh with our starter template or integrate CopilotKit into your existing Mastra Agent.
+                    You can either start fresh with our starter template or integrate CopilotKit into your existing Pydantic AI agent.
                 </p>
             </div>
         }
@@ -70,10 +60,8 @@ Before you begin, you'll need the following:
             <Step>
                 ### Run our CLI
 
-                First, we'll use our CLI to create a new project for us.
-
                 ```bash
-                npx copilotkit@latest create -f mastra
+                npx copilotkit@latest create -f pydantic-ai
                 ```
             </Step>
             <Step>
@@ -85,14 +73,14 @@ Before you begin, you'll need the following:
             <Step>
                 ### Configure your environment
 
-                Create a `.env` file and add your OpenAI API key:
+                Create a `.env` file in your agent directory and add your OpenAI API key:
 
-                ```plaintext title=".env"
+                ```plaintext title="agent/.env"
                 OPENAI_API_KEY=your_openai_api_key
                 ```
 
                 <Callout type="info" title="What about other models?">
-                  The starter template is configured to use OpenAI's GPT-4o by default, but you can modify it to use any language model supported by Mastra.
+                  The starter template is configured to use OpenAI's GPT-4o by default, but you can modify it to use any language model supported by Pydantic AI.
                 </Callout>
             </Step>
             <Step>
@@ -127,10 +115,63 @@ Before you begin, you'll need the following:
         <TailoredContentOption
             id="bring-your-own"
             title="Use an existing agent"
-            description="I already have a Mastra Agent and want to add CopilotKit."
+            description="I already have a Pydantic AI agent and want to add CopilotKit."
         >
             <Step>
-                ### Frontend Setup
+                ### Initialize your agent project
+
+                If you don't already have a Python project set up, create one using `uv`:
+
+                ```bash
+                uv init my-agent
+                cd my-agent
+                ```
+            </Step>
+            <Step>
+                ### Install Pydantic AI with AG-UI
+
+                Add Pydantic AI with AG-UI support and uvicorn to your project:
+
+                ```bash
+                uv add 'pydantic-ai-slim[ag-ui]' 'pydantic-ai-slim[openai]' uvicorn
+                ```
+            </Step>
+            <Step>
+                ### Configure your environment
+
+                Set your OpenAI API key as an environment variable:
+
+                ```bash
+                export OPENAI_API_KEY=your_openai_api_key
+                ```
+
+                <Callout type="info" title="What about other models?">
+                  This example uses OpenAI's GPT-4.1-mini, but you can modify it to use any language model supported by Pydantic AI.
+                </Callout>
+            </Step>
+            <Step>
+                ### Expose your agent via AG-UI
+
+                Update your agent file to expose it as an AG-UI ASGI application:
+
+                ```python title="main.py"
+                from pydantic_ai import Agent
+
+                agent = Agent('openai:gpt-4.1-mini', instructions='Be fun!')
+                app = agent.to_ag_ui()
+
+                if __name__ == "__main__":
+                    import uvicorn
+                    uvicorn.run(app, host="localhost", port=8000)
+                ```
+
+                <Callout type="info" title="What is AG-UI?">
+                  AG-UI is an open protocol for frontend-agent communication. Pydantic AI's `.to_ag_ui()` method creates an ASGI app that CopilotKit can connect to.
+                </Callout>
+            </Step>
+            <Step>
+                ### Create your frontend
+
                 CopilotKit works with any React-based frontend. We'll use Next.js for this example.
 
                 ```bash
@@ -142,41 +183,33 @@ Before you begin, you'll need the following:
                 ### Install CopilotKit packages
 
                 ```package-install
-                @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/mastra @mastra/client-js
+                @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client
                 ```
             </Step>
             <Step>
                 ### Setup Copilot Runtime
 
-                CopilotKit requires a Copilot Runtime endpoint to safely communicate with your agent. This can be served
-                anywhere that Node.js can run, but for this example we'll just use Next.js.
+                Create an API route to connect CopilotKit to your Pydantic AI agent:
 
-                ```ts title="api/copilotkit/route.ts"
+                ```tsx title="app/api/copilotkit/route.ts"
                 import {
                   CopilotRuntime,
                   ExperimentalEmptyAdapter,
                   copilotRuntimeNextJSAppRouterEndpoint,
                 } from "@copilotkit/runtime";
+                import { HttpAgent } from "@ag-ui/client";
                 import { NextRequest } from "next/server";
-                // [!code highlight:3]
-                import { MastraAgent } from "@ag-ui/mastra"
-                import { MastraClient } from "@mastra/client-js";
-                import { mastra } from "@/mastra"; // the path to your existing Mastra instance
 
-                // 1. Service adapter for multi-agent support (using empty adapter for this example)
                 const serviceAdapter = new ExperimentalEmptyAdapter();
 
-                // 2. Create the CopilotRuntime instance and utilize the Mastra AG-UI
-                //    integration to connect to your existing agent.
-                // [!code highlight:3]
                 const runtime = new CopilotRuntime({
-                  agents: MastraAgent.getLocalAgents({ mastra }),
+                  agents: {
+                    my_agent: new HttpAgent({ url: "http://localhost:8000/" }),
+                  }
                 });
 
-                // 3. Build a Next.js API route that handles the CopilotKit runtime requests.
                 export const POST = async (req: NextRequest) => {
                   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-                    // [!code highlight:3]
                     runtime,
                     serviceAdapter,
                     endpoint: "/api/copilotkit",
@@ -184,13 +217,12 @@ Before you begin, you'll need the following:
 
                   return handleRequest(req);
                 };
-                ```
+               ```
             </Step>
             <Step>
                 ### Configure CopilotKit Provider
 
-                Next, wrap your application with the CopilotKit provider so that CopilotKit can take control across your application
-                via the Mastra agent.
+                Wrap your application with the CopilotKit provider:
 
                 ```tsx title="app/layout.tsx"
                 import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
@@ -202,18 +234,14 @@ Before you begin, you'll need the following:
                   return (
                     <html lang="en">
                       <body>
-                        {/* [!code highlight:6] */}
-                        <CopilotKit
-                          runtimeUrl="/api/copilotkit"
-                          agent="your-mastra-agent-name"
-                        >
+                        {/* [!code highlight:3] */}
+                        <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
                           {children}
                         </CopilotKit>
                       </body>
                     </html>
                   );
                 }
-
                 ```
             </Step>
             <Step>
@@ -222,44 +250,90 @@ Before you begin, you'll need the following:
               Add the CopilotSidebar component to your page:
 
               ```tsx title="app/page.tsx"
-              import { CopilotSidebar } from "@copilotkit/react-ui"; // [!code highlight]
+              import { CopilotSidebar } from "@copilotkit/react-ui"; // [!code highlight:1]
 
               export default function Page() {
                 return (
                   <main>
                     <h1>Your App</h1>
-                    <CopilotSidebar /> {/* [!code highlight] */}
+                    <CopilotSidebar /> {/* [!code highlight:1] */}
                   </main>
                 );
               }
               ```
+            </Step>
+            <Step>
+                ### Start your agent
+
+                From your agent directory, start the agent server:
+
+                ```bash
+                cd ..
+                uv run main.py
+                ```
+
+                Your agent will be available at `http://localhost:8000`.
+            </Step>
+            <Step>
+                ### Start your UI
+
+                In a separate terminal, navigate to your frontend directory and start the development server:
+
+                <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+                    <Tab value="npm">
+                        ```bash
+                        cd my-copilot-app
+                        npm run dev
+                        ```
+                    </Tab>
+                    <Tab value="pnpm">
+                        ```bash
+                        cd my-copilot-app
+                        pnpm dev
+                        ```
+                    </Tab>
+                    <Tab value="yarn">
+                        ```bash
+                        cd my-copilot-app
+                        yarn dev
+                        ```
+                    </Tab>
+                    <Tab value="bun">
+                        ```bash
+                        cd my-copilot-app
+                        bun dev
+                        ```
+                    </Tab>
+                </Tabs>
             </Step>
         </TailoredContentOption>
     </TailoredContent>
     <Step>
         ### 🎉 Start chatting!
 
-        Your AI agent is now ready to use! Try asking it some questions:
+        Your AI agent is now ready to use! Navigate to `localhost:3000` and try asking it some questions:
 
         ```
-        What tools do you have access to?
+        Can you tell me a joke?
+        ```
+
+        ```
+        Can you help me understand AI?
         ```
 
         ```
         What do you think about React?
         ```
 
-        ```
-        Show me some cool things you can do!
-        ```
-
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
                 - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
-                - Make sure your Mastra agent is running on port 4111
-                - Check that your OpenAI API key is correctly set in the `.env` file
+                - Make sure your agent is running on port 8000
+                - Check that your OpenAI API key is correctly set
+                - Verify that the `@ag-ui/client` package is installed in your frontend
             </Accordion>
         </Accordions>
+
     </Step>
 </Steps>
 
@@ -271,19 +345,25 @@ Now that you have your basic agent setup, explore these advanced features:
   <Card
     title="Implement Human in the Loop"
     description="Allow your users and agents to collaborate together on tasks."
-    href="/mastra/human-in-the-loop"
+    href="/pydantic-ai/human-in-the-loop"
     icon={<UserIcon />}
+  />
+  <Card
+    title="Utilize the Shared State"
+    description="Learn how to synchronize your agent's state with your UI's state, and vice versa."
+    href="/pydantic-ai/shared-state"
+    icon={<RepeatIcon />}
   />
   <Card
     title="Add some generative UI"
     description="Render your agent's progress and output in the UI."
-    href="/mastra/generative-ui"
+    href="/pydantic-ai/generative-ui"
     icon={<PaintbrushIcon />}
   />
   <Card
     title="Setup frontend actions"
     description="Give your agent the ability to call frontend tools, directly updating your application."
-    href="/mastra/frontend-actions"
+    href="/pydantic-ai/frontend-actions"
     icon={<WrenchIcon />}
   />
 </Cards>

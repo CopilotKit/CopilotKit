@@ -20,7 +20,7 @@ To load an existing thread in CopilotKit, you can simply set the `threadId` prop
 ```tsx
 import { CopilotKit } from "@copilotkit/react-core";
 
-<CopilotKit threadId="37aa68d0-d15b-45ae-afc1-0ba6c3e11353"> // [!code highlight]
+<CopilotKit threadId="37aa68d0-d15b-45ae-afc1-0ba6c3e11353"> {/* [!code highlight] */}
   <YourApp />
 </CopilotKit>
 ```
@@ -36,15 +36,15 @@ import { CopilotKit } from "@copilotkit/react-core";
 const Page = () => {
   const [threadId, setThreadId] = useState("af2fa5a4-36bd-4e02-9b55-2580ab584f89"); // [!code highlight]
   return (
-    <CopilotKit threadId={threadId}> // [!code highlight]
-      <YourApp setThreadId={setThreadId} /> // [!code highlight]
+    <CopilotKit threadId={threadId}> {/* [!code highlight] */}
+      <YourApp setThreadId={setThreadId} /> {/* [!code highlight] */}
     </CopilotKit>
   )
 }
 
 const YourApp = ({ setThreadId }) => {
   return (
-    <Button onClick={() => setThreadId("679e8da5-ee9b-41b1-941b-80e0cc73a008")}> // [!code highlight]
+    <Button onClick={() => setThreadId("679e8da5-ee9b-41b1-941b-80e0cc73a008")}> {/* [!code highlight] */}
       Change Thread
     </Button>
   )
@@ -61,10 +61,9 @@ import { useCopilotContext } from "@copilotkit/react-core";
 const ChangeThreadButton = () => {
   const { threadId, setThreadId } = useCopilotContext(); // [!code highlight]
   return (
-    <Button onClick={() => setThreadId("d73c22f3-1f8e-4a93-99db-5c986068d64f")}> // [!code highlight]
+    <Button onClick={() => setThreadId("d73c22f3-1f8e-4a93-99db-5c986068d64f")}> {/* [!code highlight] */}
       Change Thread
     </Button>
   )
 }
 ```
-
