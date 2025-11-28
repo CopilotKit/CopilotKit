@@ -195,8 +195,8 @@ export function useCoagentStateRenderBridge(agentId: string, props: CoAgentState
     const renderClaimedByOtherMessage = Object.values(claimsRef.current).find(
       (c) =>
         c.stateRenderId === stateRenderId &&
-        dataToUUID(JSON.stringify(getStateWithoutConstantKeys(c.stateSnapshot))) ===
-          dataToUUID(JSON.stringify(getStateWithoutConstantKeys(renderSnapshot))),
+        dataToUUID(getStateWithoutConstantKeys(c.stateSnapshot)) ===
+          dataToUUID(getStateWithoutConstantKeys(renderSnapshot)),
     );
     if (renderClaimedByOtherMessage) {
       // If:

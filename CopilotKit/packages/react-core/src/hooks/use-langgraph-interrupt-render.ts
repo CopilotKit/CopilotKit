@@ -38,6 +38,7 @@ export function useLangGraphInterruptRender(
 
   useEffect(() => {
     if (!agent) return;
+    let localInterrupt: any = null;
     const subscriber: AgentSubscriber = {
       onCustomEvent: ({ event }) => {
         if (event.name === "on_interrupt") {
@@ -46,12 +47,21 @@ export function useLangGraphInterruptRender(
             type: event.type,
             value: parseJson(event.value, event.value),
           };
-          const eventId = dataToUUID(JSON.stringify(eventData), "interruptEvents");
-          addInterruptEvent({
+          const eventId = dataToUUID(eventData, "interruptEvents");
+          localInterrupt = {
             eventId,
             threadId,
             event: eventData,
-          });
+          };
+        }
+      },
+      onRunStartedEvent: () => {
+        localInterrupt = null;
+      },
+      onRunFinalized: () => {
+        if (localInterrupt) {
+          addInterruptEvent(localInterrupt);
+          localInterrupt = null;
         }
       },
     };
