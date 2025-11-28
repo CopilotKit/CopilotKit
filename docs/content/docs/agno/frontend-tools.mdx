@@ -1,0 +1,124 @@
+---
+title: Frontend Tools
+icon: "lucide/Wrench"
+description: Create frontend tools and use them within your Agno agent.
+---
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
+import RunAndConnect from "@/snippets/integrations/agno/run-and-connect.mdx"
+import { IframeSwitcher } from "@/components/content"
+
+<IframeSwitcher
+  id="frontend-tools-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/agno/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/agno/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+## What is this?
+Frontend tools enable you to define client-side functions that your Agno agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
+the logic runs on the client side, giving you direct access to the frontend environment.
+
+This can be utilized for to let [your agent control the UI](/agno/frontend-tools), [generative UI](/agno/generative-ui/frontend-tools), or for [Human-in-the-loop](/agno/human-in-the-loop) interactions.
+
+In this guide, we cover the use of frontend tools driving and interacting with the UI.
+
+## When should I use this?
+Use frontend tools when you need your agent to interact with client-side primitives such as:
+- Reading or modifying React component state
+- Accessing browser APIs like localStorage, sessionStorage, or cookies
+- Triggering UI updates or animations
+- Interacting with third-party frontend libraries
+- Performing actions that require the user's immediate browser context
+
+## Implementation
+
+<Steps>
+    <Step>
+        ### Run and connect your agent
+       <RunAndConnect components={props.components} />
+    </Step>
+
+    <Step>
+        ### Create a frontend tool
+
+        First, you'll need to create a frontend tool using the [useFrontendTool](/reference/hooks/useFrontendTool) hook. Here's a simple one to get you started
+        that says hello to the user.
+
+        ```tsx title="page.tsx"
+        import { useFrontendTool } from "@copilotkit/react-core" // [!code highlight]
+
+        export function Page() {
+          // ...
+
+          {/* [!code highlight:15] */}
+          useFrontendTool({
+            name: "sayHello",
+            description: "Say hello to the user",
+            parameters: [
+              {
+                name: "name",
+                type: "string",
+                description: "The name of the user to say hello to",
+                required: true,
+              },
+            ],
+            handler: async ({ name }) => {
+              alert(`Hello, ${name}!`);
+            },
+          });
+
+          // ...
+        }
+        ```
+    </Step>
+    <Step>
+        ###  Modify your agent
+        Now, we'll need to modify the agent to access these frontend tools. Open up your agent's folder and continue from there!
+    </Step>
+    <Step>
+        ### Define the frontend tool in your Agno agent
+
+        In your Agno agent, define a tool with the `@tool(external_execution=True)` decorator. This tells Agno that the tool will be executed externally (on the frontend).
+
+        ```python title="tools/frontend.py"
+        from agno.tools import tool
+
+        @tool(external_execution=True)
+        def sayHello(name: str):
+            """
+            Say hello to the user.
+
+            Args:
+                name: The name of the user to say hello to
+            """
+        ```
+
+        Register the tool with your agent:
+
+        ```python title="agent.py"
+        from agno.agent import Agent
+        from agno.models.openai import OpenAIChat
+        from agno.os import AgentOS
+        from agno.os.interfaces.agui import AGUI
+        from tools.frontend import sayHello
+
+        agent = Agent(
+            model=OpenAIChat(id="gpt-4o"),
+            tools=[sayHello],
+            description="A helpful assistant that can answer questions and provide information.",
+            instructions="Be helpful and friendly. Format your responses using markdown where appropriate.",
+        )
+
+        agent_os = AgentOS(agents=[agent], interfaces=[AGUI(agent=agent)])
+        app = agent_os.get_app()
+        ```
+    </Step>
+    <Step>
+        ### Give it a try!
+        You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
+
+        <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+    </Step>
+</Steps>
