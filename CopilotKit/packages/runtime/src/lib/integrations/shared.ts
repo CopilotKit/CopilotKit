@@ -9,6 +9,7 @@ import { LogLevel, createLogger } from "../../lib/logger";
 import { createYoga } from "graphql-yoga";
 import telemetry from "../telemetry-client";
 import { StateResolver } from "../../graphql/resolvers/state.resolver";
+import { ReinforcementLearningStateResolver } from "../../graphql/resolvers/reinforcement-learning.resolver";
 import * as packageJson from "../../../package.json";
 import { CopilotKitError, CopilotKitErrorCode } from "@copilotkit/shared";
 
@@ -68,7 +69,7 @@ export function buildSchema(
 ) {
   logger.debug("Building GraphQL schema...");
   const schema = buildSchemaSync({
-    resolvers: [CopilotResolver, StateResolver],
+    resolvers: [CopilotResolver, StateResolver, ReinforcementLearningStateResolver],
     emitSchemaFile: options.emitSchemaFile,
   });
   logger.debug("GraphQL schema built successfully");
