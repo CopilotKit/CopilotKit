@@ -91,6 +91,10 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
   private disableParallelToolCalls: boolean;
   private keepSystemRole: boolean = false;
 
+  public get name() {
+    return "OpenAIAssistantAdapter";
+  }
+
   constructor(params: OpenAIAssistantAdapterParams) {
     this.openai = params.openai || new OpenAI({});
     this.codeInterpreterEnabled = params.codeInterpreterEnabled === false || true;

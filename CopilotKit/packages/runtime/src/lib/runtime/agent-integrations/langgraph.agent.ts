@@ -56,6 +56,11 @@ export class LangGraphAgent extends AGUILangGraphAgent {
     super(config);
   }
 
+  // @ts-ignore
+  public clone() {
+    return new LangGraphAgent(this.config);
+  }
+
   dispatchEvent(event: ProcessedEvents) {
     if (event.type === EventType.CUSTOM) {
       // const event = processedEvent as unknown as CustomEvent;

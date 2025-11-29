@@ -75,7 +75,7 @@
 
 import {
   UseCopilotChatOptions,
-  useCopilotChat as useCopilotChatInternal,
+  useCopilotChatInternal,
   UseCopilotChatReturn as UseCopilotChatReturnInternal,
 } from "./use-copilot-chat_internal";
 
@@ -100,6 +100,7 @@ export type UseCopilotChatReturn = Omit<
  *
  * **Open Source Friendly** - Works without requiring a `publicApiKey`.
  */
+// TODO: Do we need this? If so, does it work properly? test.
 export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotChatReturn {
   const {
     visibleMessages,
@@ -108,6 +109,7 @@ export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotC
     stopGeneration,
     reset,
     isLoading,
+    isAvailable,
     runChatCompletion,
     mcpServers,
     setMcpServers,
@@ -120,6 +122,7 @@ export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotC
     stopGeneration,
     reset,
     isLoading,
+    isAvailable,
     runChatCompletion,
     mcpServers,
     setMcpServers,

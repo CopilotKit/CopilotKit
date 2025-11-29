@@ -1,6 +1,7 @@
-import { createYoga } from "graphql-yoga";
+import { createCopilotEndpointSingleRoute } from "@copilotkitnext/runtime";
 import { CreateCopilotRuntimeServerOptions, getCommonConfig } from "../shared";
 import telemetry, { getRuntimeInstanceTelemetryInfo } from "../../telemetry-client";
+import { handle } from "hono/vercel";
 
 export function copilotRuntimeNextJSAppRouterEndpoint(options: CreateCopilotRuntimeServerOptions) {
   const commonConfig = getCommonConfig(options);
@@ -22,16 +23,16 @@ export function copilotRuntimeNextJSAppRouterEndpoint(options: CreateCopilotRunt
   const logger = commonConfig.logging;
   logger.debug("Creating NextJS App Router endpoint");
 
-  const yoga = createYoga({
-    ...commonConfig,
-    graphqlEndpoint: options.endpoint,
-    fetchAPI: { Response: globalThis.Response },
+  const serviceAdapter = options.serviceAdapter;
+  if (serviceAdapter) {
+    options.runtime.handleServiceAdapter(serviceAdapter);
+  }
+
+  const copilotRoute = createCopilotEndpointSingleRoute({
+    runtime: options.runtime.instance,
+    basePath: options.baseUrl ?? options.endpoint,
   });
 
-  return {
-    handleRequest: yoga,
-    GET: yoga as any,
-    POST: yoga as any,
-    OPTIONS: yoga as any,
-  };
+  const handleRequest = handle(copilotRoute as any);
+  return { handleRequest };
 }
