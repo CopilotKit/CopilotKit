@@ -83,44 +83,8 @@ Use frontend tools when you need your agent to interact with client-side primiti
           // ...
         }
         ```
-    </Step>
-    <Step>
-        ###  Modify your agent
-        Now, we'll need to modify the agent to access these frontend tools. Open up your agent's folder and continue from there!
-    </Step>
-    <Step>
-        ### Set up your ADK agent with frontend tools
 
-        Frontend tools registered with `useFrontendTool` are automatically forwarded to your agent through the AG-UI protocol. The agent can invoke them, and execution happens on the frontend.
-
-        <Tabs groupId="language_adk_agent" items={['Python']} default="Python" persist>
-            <Tab value="Python">
-                ```python title="agent.py"
-                from fastapi import FastAPI
-                from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
-                from google.adk.agents import LlmAgent
-
-                agent = LlmAgent(
-                    model="gemini-2.5-flash",
-                    name="my_agent",
-                    instruction="You are a helpful assistant.",
-                )
-
-                adk_agent = ADKAgent(
-                    adk_agent=agent,
-                    app_name="sample_app",
-                    user_id="demo_user"
-                )
-
-                app = FastAPI()
-                add_adk_fastapi_endpoint(app, adk_agent, path="/")
-
-                if __name__ == "__main__":
-                    import uvicorn
-                    uvicorn.run(app, host="0.0.0.0", port=8000)
-                ```
-            </Tab>
-        </Tabs>
+        That's it! Your agent will automatically have access to all frontend tools you've defined using `useFrontendTool` in your React components.
 
         <Callout type="info">
           Frontend tools registered with `useFrontendTool` are automatically forwarded to your agent through the AG-UI protocol. The agent can invoke them, and execution happens on the frontend.

@@ -73,50 +73,12 @@ Use frontend tools when you need your agent to interact with client-side primiti
           // ...
         }
         ```
-    </Step>
-    <Step>
-        ###  Modify your agent
-        Now, we'll need to modify the agent to access these frontend tools. Open up your agent's folder and continue from there!
-    </Step>
-    <Step>
-        ### Set up your ADK Agent
-
-        ADK automatically picks up frontend tools when you create your agent. No special configuration or state inheritance is needed:
-
-        <Tabs groupId="language_adk_agent" items={['Python']} default="Python" persist>
-            <Tab value="Python">
-                ```python title="agent.py"
-                from fastapi import FastAPI
-                from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
-                from google.adk.agents import LlmAgent
-
-                sample_agent = LlmAgent(
-                    name="assistant",
-                    model="gemini-2.5-flash",
-                    instruction="""
-                    You are a helpful assistant. Help users by answering their questions and assisting with their needs.
-                    """
-                )
-
-                # Create ADK middleware agent instance
-                adk_agent = ADKAgent(
-                    adk_agent=sample_agent,
-                    app_name="demo_app",
-                    user_id="demo_user",
-                    session_timeout_seconds=3600,
-                    use_in_memory_services=True
-                )
-
-                # Create FastAPI app
-                app = FastAPI(title="ADK Middleware Sample Agent")
-
-                # Add the ADK endpoint
-                add_adk_fastapi_endpoint(app, adk_agent, path="/")
-                ```
-            </Tab>
-        </Tabs>
 
         That's it! Your agent will automatically have access to all frontend tools you've defined using `useFrontendTool` in your React components.
+
+        <Callout type="info">
+          Frontend tools registered with `useFrontendTool` are automatically forwarded to your agent through the AG-UI protocol. The agent can invoke them, and execution happens on the frontend.
+        </Callout>
     </Step>
     <Step>
         ### Give it a try!
