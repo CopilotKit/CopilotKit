@@ -3,24 +3,21 @@ title: Backend Tools
 icon: "lucide/Server"
 description: Render your agent's tool calls with custom UI components.
 ---
+
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import { IframeSwitcher } from "@/components/content"
 import { Tabs, Tab } from "fumadocs-ui/components/tabs"
 import DefaultToolRendering from "@/snippets/shared/guides/default-tool-rendering.mdx"
-import RunAndConnect from "@/snippets/integrations/pydantic-ai/run-and-connect.mdx"
+import RunAndConnect from "@/snippets/integrations/adk/run-and-connect.mdx"
 
 <IframeSwitcher
   id="backend-tools-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/backend_tool_rendering?view=code&sidebar=false&codeLayout=tabs"
+  exampleUrl="https://feature-viewer.copilotkit.ai/adk-middleware/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/adk-middleware/feature/backend_tool_rendering?view=code&sidebar=false&codeLayout=tabs"
   exampleLabel="Demo"
   codeLabel="Code"
   height="700px"
 />
-
-<Callout>
-  This example demonstrates the [implementation](#implementation) section applied in the <a href="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat" target="_blank">CopilotKit feature viewer</a>.
-</Callout>
 
 ## What is this?
 
@@ -42,25 +39,44 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 <Step>
 ### Give your agent a tool to call
 
-<Tabs groupId="language_pydantic-ai_agent" items={['Python']} default="Python" persist>
+<Tabs groupId="language_adk_agent" items={['Python']} default="Python" persist>
     <Tab value="Python">
         ```python title="agent.py"
-        from pydantic_ai import Agent
+        from fastapi import FastAPI
+        from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
+        from google.adk.agents import LlmAgent
 
-        agent = Agent("openai:gpt-4o-mini")
 
+        def get_weather(location: str = "the entire world") -> str:
+            """Retrieves the current weather report for a specified location.
 
-        @agent.tool_plain
-        async def get_weather(location: str = "Everywhere ever") -> str:
-            """Get the weather for a given location. Ensure location is fully spelled out."""
+            Args:
+                location (str): The name of the location to get the weather for.
+
+            Returns:
+                str: The weather report for the specified location.
+            """
             return f"The weather in {location} is sunny."
 
 
-        app = agent.to_ag_ui()
+        agent = LlmAgent(
+            model="gemini-2.5-flash",
+            name="my_agent",
+            instruction="You are a helpful weather assistant.",
+            tools=[get_weather],
+        )
+
+        adk_agent = ADKAgent(
+            adk_agent=agent,
+            app_name="weather_demo",
+            user_id="demo_user"
+        )
+
+        app = FastAPI()
+        add_adk_fastapi_endpoint(app, adk_agent, path="/")
 
         if __name__ == "__main__":
             import uvicorn
-
             uvicorn.run(app, host="0.0.0.0", port=8000)
         ```
     </Tab>
@@ -74,7 +90,8 @@ we just need to add a `useRenderToolCall` hook to render the tool call in
 the UI.
 
 <Callout type="info" title="Important">
-  In order to render a tool call in the UI, the name of the action must match the name of the tool.
+  In order to render a tool call in the UI, the name of the action must match
+  the name of the tool.
 </Callout>
 
 ```tsx title="app/page.tsx"
