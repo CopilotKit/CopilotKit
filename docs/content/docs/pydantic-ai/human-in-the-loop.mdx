@@ -78,8 +78,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
               if (!respond) return <></>;
               return (
                 <div>
-                  // [!code highlight:3] // Respond will resume execution and the value
-                  will become the tool result.
+                  {/* [!code highlight:2] */}
                   <button onClick={() => respond(`${args.option_1} was selected`)}>{args.option_1}</button>
                   <button onClick={() => respond(`${args.option_2} was selected`)}>{args.option_2}</button>
                 </div>
@@ -92,7 +91,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
         ```
     </Step>
     <Step>
-        ###  Setup your agent
+        ###  Set up your agent
 
         Pydantic AI automatically picks up human-in-the-loop tools when you create your agent. No special configuration is needed:
 
