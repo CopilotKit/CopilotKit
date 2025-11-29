@@ -11,7 +11,7 @@ const AgenticGenerativeUI: React.FC = () => {
       runtimeUrl="/api/copilotkit"
       showDevConsole={false}
       // agent lock to the relevant agent
-      agent="agentiveGenerativeUIAgent"
+      agent="agenticChatAgent"
     >
       <Chat />
     </CopilotKit>
@@ -27,7 +27,7 @@ interface AgentState {
 
 const Chat = () => {
   useCoAgentStateRender<AgentState>({
-    name: "agentiveGenerativeUIAgent",
+    name: "agenticChatAgent",
     render: ({ state }) => {
       if (!state.steps || state.steps.length === 0) {
         return null;
