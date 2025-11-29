@@ -10,6 +10,7 @@ import {
   TailoredContentOption,
 } from "@/components/react/tailored-content.tsx";
 import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 import { CoAgentsDiagram } from "@/components/react/coagents/coagents-diagram.tsx";
 import { FaPython, FaJs, FaCloud } from "react-icons/fa";
 import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
@@ -130,7 +131,58 @@ Before you begin, you'll need the following:
             description="I already have a Mastra Agent and want to add CopilotKit."
         >
             <Step>
-                ### Frontend Setup
+                ### Initialize your Mastra project
+
+                If you don't already have a Mastra project set up, create one:
+
+                ```bash
+                npx create-mastra@latest my-agent
+                cd my-agent
+                ```
+            </Step>
+            <Step>
+                ### Create your Mastra agent
+
+                Create a new agent file in your Mastra project:
+
+                ```ts title="src/mastra/agents/index.ts"
+                import { openai } from "@ai-sdk/openai";
+                import { Agent } from "@mastra/core/agent";
+
+                export const myAgent = new Agent({
+                  name: "My Agent",
+                  instructions: "You are a helpful assistant!",
+                  model: openai("gpt-4o"),
+                });
+                ```
+
+                Then export it from your Mastra instance:
+
+                ```ts title="src/mastra/index.ts"
+                import { Mastra } from "@mastra/core";
+                import { myAgent } from "./agents";
+
+                export const mastra = new Mastra({
+                  agents: { myAgent },
+                });
+                ```
+
+                <Callout type="info" title="What about other models?">
+                  This example uses OpenAI's GPT-4o, but you can modify it to use any language model supported by Mastra.
+                </Callout>
+            </Step>
+            <Step>
+                ### Configure your environment
+
+                Set your OpenAI API key as an environment variable:
+
+                ```bash
+                export OPENAI_API_KEY=your_openai_api_key
+                ```
+            </Step>
+            <Step>
+                ### Create your frontend
+
                 CopilotKit works with any React-based frontend. We'll use Next.js for this example.
 
                 ```bash
@@ -141,42 +193,33 @@ Before you begin, you'll need the following:
             <Step>
                 ### Install CopilotKit packages
 
-                ```npm
-                @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/mastra @mastra/client-js
+                ```package-install
+                @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/mastra
                 ```
             </Step>
             <Step>
                 ### Setup Copilot Runtime
 
-                CopilotKit requires a Copilot Runtime endpoint to safely communicate with your agent. This can be served
-                anywhere that Node.js can run, but for this example we'll just use Next.js.
+                Create an API route to connect CopilotKit to your Mastra agent:
 
-                ```ts title="api/copilotkit/route.ts"
+                ```ts title="app/api/copilotkit/route.ts"
                 import {
                   CopilotRuntime,
                   ExperimentalEmptyAdapter,
                   copilotRuntimeNextJSAppRouterEndpoint,
                 } from "@copilotkit/runtime";
                 import { NextRequest } from "next/server";
-                // [!code highlight:3]
                 import { MastraAgent } from "@ag-ui/mastra"
-                import { MastraClient } from "@mastra/client-js";
-                import { mastra } from "@/mastra"; // the path to your existing Mastra instance
+                import { mastra } from "@/mastra"; // the path to your Mastra instance
 
-                // 1. Service adapter for multi-agent support (using empty adapter for this example)
                 const serviceAdapter = new ExperimentalEmptyAdapter();
 
-                // 2. Create the CopilotRuntime instance and utilize the Mastra AG-UI
-                //    integration to connect to your existing agent.
-                // [!code highlight:3]
                 const runtime = new CopilotRuntime({
                   agents: MastraAgent.getLocalAgents({ mastra }),
                 });
 
-                // 3. Build a Next.js API route that handles the CopilotKit runtime requests.
                 export const POST = async (req: NextRequest) => {
                   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-                    // [!code highlight:3]
                     runtime,
                     serviceAdapter,
                     endpoint: "/api/copilotkit",
@@ -189,8 +232,7 @@ Before you begin, you'll need the following:
             <Step>
                 ### Configure CopilotKit Provider
 
-                Next, wrap your application with the CopilotKit provider so that CopilotKit can take control across your application
-                via the Mastra agent.
+                Wrap your application with the CopilotKit provider:
 
                 ```tsx title="app/layout.tsx"
                 import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
@@ -202,18 +244,14 @@ Before you begin, you'll need the following:
                   return (
                     <html lang="en">
                       <body>
-                        {/* [!code highlight:6] */}
-                        <CopilotKit
-                          runtimeUrl="/api/copilotkit"
-                          agent="your-mastra-agent-name"
-                        >
+                        {/* [!code highlight:3] */}
+                        <CopilotKit runtimeUrl="/api/copilotkit" agent="myAgent">
                           {children}
                         </CopilotKit>
                       </body>
                     </html>
                   );
                 }
-
                 ```
             </Step>
             <Step>
@@ -222,17 +260,46 @@ Before you begin, you'll need the following:
               Add the CopilotSidebar component to your page:
 
               ```tsx title="app/page.tsx"
-              import { CopilotSidebar } from "@copilotkit/react-ui"; // [!code highlight]
+              import { CopilotSidebar } from "@copilotkit/react-ui"; // [!code highlight:1]
 
               export default function Page() {
                 return (
                   <main>
                     <h1>Your App</h1>
-                    <CopilotSidebar /> {/* [!code highlight] */}
+                    {/* [!code highlight:1] */}
+                    <CopilotSidebar />
                   </main>
                 );
               }
               ```
+            </Step>
+            <Step>
+                ### Start your UI
+
+                Start the development server:
+
+                <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+                    <Tab value="npm">
+                        ```bash
+                        npm run dev
+                        ```
+                    </Tab>
+                    <Tab value="pnpm">
+                        ```bash
+                        pnpm dev
+                        ```
+                    </Tab>
+                    <Tab value="yarn">
+                        ```bash
+                        yarn dev
+                        ```
+                    </Tab>
+                    <Tab value="bun">
+                        ```bash
+                        bun dev
+                        ```
+                    </Tab>
+                </Tabs>
             </Step>
         </TailoredContentOption>
     </TailoredContent>

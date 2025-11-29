@@ -49,12 +49,12 @@ This context can then be shared with your LangGraph agent.
     </Step>
 
     <Step>
-        ### Setup your agent state
+        ### Set up your agent state
         Make sure your agent state inherits from CopilotKit state definition
 
         <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
             <Tab value="Python">
-                ```python title="agent/sample_agent/agent.py"
+                ```python title="agent.py"
                 # ...
                 from copilotkit import CopilotKitState # extends MessagesState
                 # ...
@@ -92,7 +92,7 @@ This context can then be shared with your LangGraph agent.
 
         <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
             <Tab value="Python">
-                ```python title="agent/sample_agent/agent.py"
+                ```python title="agent.py"
                 from langchain_core.messages import SystemMessage
                 from langchain_openai import ChatOpenAI
                 from copilotkit import CopilotKitState

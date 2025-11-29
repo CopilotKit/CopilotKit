@@ -72,8 +72,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
               return (
                 <div>
                   <pre>{args.command}</pre>
-                  // [!code highlight:4]
-                  // Respond will resume execution and be the value will become the tool result.
+                  {/* [!code highlight:2] */}
                   <button onClick={() => respond(`Command is APPROVED`)}>Approve</button>
                   <button onClick={() => respond(`Command is DENIED`)}>Deny</button>
                 </div>
@@ -86,11 +85,10 @@ Use frontend tools when you need your agent to interact with client-side primiti
         ```
     </Step>
     <Step>
-        ###  Modify your agent
-        Now, we'll need to modify the agent to access these frontend actions. Open up for your agent's folder and continue from there!
-    </Step>
-    <Step>
         ### Install the CopilotKit SDK
+        
+        Now, we'll need to modify the agent to access these frontend tools. In your terminal, navigate to your agent's folder and continue from there!
+
         <InstallSDKSnippet components={props.components}/>
     </Step>
     <Step>
