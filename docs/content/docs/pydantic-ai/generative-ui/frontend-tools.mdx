@@ -83,36 +83,8 @@ Use frontend tools when you need your agent to interact with client-side primiti
           // ...
         }
         ```
-    </Step>
-    <Step>
-        ###  Modify your agent
-        Now, we'll need to modify the agent to access these frontend actions. Open up your agent's folder and continue from there!
-    </Step>
-    <Step>
-        ### Setup your Pydantic AI agent with frontend tools
 
-        Frontend tools registered with `useFrontendTool` are automatically forwarded to your agent through the AG-UI protocol. The agent can invoke them, and execution happens on the frontend.
-
-        <Tabs groupId="language_pydantic-ai_agent" items={['Python']} default="Python" persist>
-            <Tab value="Python">
-                ```python title="agent/sample_agent/agent.py"
-                from pydantic_ai import Agent
-
-                agent = Agent("openai:gpt-4o-mini")
-
-
-                # Frontend tools are automatically available to the agent
-                # through the AG-UI protocol when registered with useFrontendTool
-
-                app = agent.to_ag_ui()
-
-                if __name__ == "__main__":
-                    import uvicorn
-
-                    uvicorn.run(app, host="0.0.0.0", port=8000)
-                ```
-            </Tab>
-        </Tabs>
+        That's it! Your agent will automatically have access to all frontend tools you've defined using `useFrontendTool` in your React components.
 
         <Callout type="info">
           Frontend tools registered with `useFrontendTool` are automatically forwarded to your agent through the AG-UI protocol. The agent can invoke them, and execution happens on the frontend.

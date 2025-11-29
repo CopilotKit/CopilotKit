@@ -68,8 +68,7 @@ you can ensure that the agent is always making the right decisions and ultimatel
           if (!respond) return <></>;
           return (
             <div>
-              {/* [!code highlight:3] */}
-              {/* Respond will resume execution and the value will become the tool result. */}
+              {/* [!code highlight:2] */}
               <button onClick={() => respond(`${args.option_1} was selected`)}>{args.option_1}</button>
               <button onClick={() => respond(`${args.option_2} was selected`)}>{args.option_2}</button>
             </div>

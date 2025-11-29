@@ -2,31 +2,21 @@
 title: Quickstart
 description: Turn your ADK Agents into an agent-native application in 10 minutes.
 icon: "lucide/Play"
+hideTOC: true
 ---
 
 import {
   TailoredContent,
   TailoredContentOption,
 } from "@/components/react/tailored-content.tsx";
-import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
-import { CoAgentsDiagram } from "@/components/react/coagents/coagents-diagram.tsx";
-import { FaPython, FaJs, FaCloud } from "react-icons/fa";
-import CopilotKitCloudCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
-import FindYourCopilotRuntime from "@/snippets/find-your-copilot-runtime.mdx";
-import CloudCopilotKitProvider from "@/snippets/coagents/cloud-configure-copilotkit-provider.mdx";
-import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/coagents/self-host-configure-copilotkit-provider.mdx";
-import SelfHostingCopilotRuntimeStarter from "@/snippets/self-hosting-copilot-runtime-starter.mdx";
-import SelfHostingRemoteEndpoints from "@/snippets/self-hosting-remote-endpoints.mdx";
-import { ADKIcon } from "@/lib/icons/custom-icons";
 import {
   UserIcon,
   PaintbrushIcon,
   WrenchIcon,
   RepeatIcon,
-  ServerIcon,
 } from "lucide-react";
-import CopilotUI from "@/snippets/copilot-ui.mdx";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
@@ -42,28 +32,30 @@ import CopilotUI from "@/snippets/copilot-ui.mdx";
 
 Before you begin, you'll need the following:
 
-- [**Gemini API Key**](https://makersuite.google.com/app/apikey)
+- A Google Gemini API key
+- Node.js 20+
+- Python 3.9+
+- Your favorite package manager
 
 ## Getting started
 
 <Steps>
     <TailoredContent
         className="step"
-        id="path"
+        id="agent"
         header={
             <div>
-                <p className="text-xl font-semibold">Do you already have an ADK Agent?</p>
+                <p className="text-xl font-semibold">Choose your starting point</p>
                 <p className="text-base">
-                    You can either create a new project quickly or bring your existing agent into CopilotKit.
+                    You can either start fresh with our starter template or integrate CopilotKit into your existing ADK agent.
                 </p>
             </div>
         }
     >
         <TailoredContentOption
-            id="create"
+            id="starter"
             title="Start from scratch"
-            description="I don't have an agent yet, but want to get started quickly."
-            icon={<img src="https://cdn.copilotkit.ai/docs/copilotkit/images/copilotkit-logo.svg" alt="CopilotKit Logo" width={20} height={20} />}
+            description="Get started quickly with our ready-to-go starter application."
         >
             <Step>
                 ### Run our CLI
@@ -74,113 +66,172 @@ Before you begin, you'll need the following:
             </Step>
             <Step>
                 ### Install dependencies
+
                 ```npm
                 ```
-                <Callout type="info">
-                    This will also install your agent's python dependencies! If you have trouble, try running `npm run install:agent` instead.
+            </Step>
+            <Step>
+                ### Configure your environment
+
+                Create a `.env` file in your agent directory and add your Google API key:
+
+                ```plaintext title="agent/.env"
+                GOOGLE_API_KEY=your_google_api_key
+                ```
+
+                <Callout type="info" title="What about other models?">
+                  The starter template is configured to use Google's Gemini by default, but you can modify it to use any language model supported by ADK.
                 </Callout>
             </Step>
             <Step>
-                ### Mount your Google API key
+                ### Start the development server
+
+                <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+                    <Tab value="npm">
+                        ```bash
+                        npm run dev
+                        ```
+                    </Tab>
+                    <Tab value="pnpm">
+                        ```bash
+                        pnpm dev
+                        ```
+                    </Tab>
+                    <Tab value="yarn">
+                        ```bash
+                        yarn dev
+                        ```
+                    </Tab>
+                    <Tab value="bun">
+                        ```bash
+                        bun dev
+                        ```
+                    </Tab>
+                </Tabs>
+
+                This will start both the UI and agent servers concurrently.
+            </Step>
+            <Step>
+                ### 🎉 Start chatting!
+
+                Your AI agent is now ready to use! Navigate to `localhost:3000` and start prompting it:
+
+                ```
+                Set the theme to orange
+                ```
+
+                ```
+                Write a proverb about AI
+                ```
+
+                ```
+                Get the weather in SF
+                ```
+
+                <Accordions className="mb-4">
+                    <Accordion title="Troubleshooting">
+                        - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
+                        - Make sure your agent is running on port 8000
+                        - Check that your Google API key is correctly set
+                    </Accordion>
+                </Accordions>
+
+            </Step>
+        </TailoredContentOption>
+        <TailoredContentOption
+            id="bring-your-own"
+            title="Use an existing agent"
+            description="I already have an ADK agent and want to add CopilotKit."
+        >
+            <Step>
+                ### Initialize your agent project
+
+                If you don't already have a Python project set up, create one using `uv`:
+
+                ```bash
+                uv init my-agent
+                cd my-agent
+                ```
+            </Step>
+            <Step>
+                ### Install ADK with AG-UI
+
+                Add ADK with AG-UI support and uvicorn to your project:
+
+                ```bash
+                uv add ag-ui-adk google-adk uvicorn fastapi
+                ```
+
+                <Callout type="info" title="What is AG-UI?">
+                  AG-UI is an open protocol for frontend-agent communication. The `ag-ui-adk` package provides ADK integration that CopilotKit can connect to.
+                </Callout>
+            </Step>
+            <Step>
+                ### Configure your environment
+
+                Set your Google API key as an environment variable:
 
                 ```bash
                 export GOOGLE_API_KEY=your_google_api_key
                 ```
 
-                Or set it in your agent's `.env` file.
-
-                ```plaintext title="agent/.env"
-                GOOGLE_API_KEY=your_google_api_key
-                ```
+                <Callout type="info" title="What about other models?">
+                  This example uses Gemini 2.5 Flash, but you can modify it to use any language model supported by ADK.
+                </Callout>
             </Step>
             <Step>
-                ### Run your agent
-                Now you can run your agent and UI together in the same terminal!
+                ### Expose your agent via AG-UI
 
-                ```bash
-                npm run dev
-                ```
-            </Step>
-        </TailoredContentOption>
-        <TailoredContentOption
-            id="exiting-agent"
-            title="Use an existing agent"
-            description="I already have an ADK Agent and want to use it with CopilotKit."
-            icon={<ADKIcon className="w-4 h-4 text-bold" />}
-        >
-            <Step>
-                ### Add necessary dependencies
-                ADKs integration relies on [AG-UI](https://docs.ag-ui.com/), as such
-                you'll need to install it into your project.
+                Update your agent file to expose it as an AG-UI ASGI application:
 
-                Our examples will also use fastapi and uvicorn to run the agent.
-
-                ```sh
-                pip install ag_ui_adk uvicorn fastapi
-                ```
-            </Step>
-            <Step>
-                ### Expose your agent as an AG-UI ASGI application
-
-                ```python title="agent.py"
+                ```python title="main.py"
                 from fastapi import FastAPI
                 from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
                 from google.adk.agents import LlmAgent
 
-                sample_agent = LlmAgent(
+                agent = LlmAgent(
                     name="assistant",
                     model="gemini-2.5-flash",
-                    instruction="""
-                    You are a helpful assistant. Help users by answering their questions and assisting with their needs.
-                    """
+                    instruction="Be helpful and fun!"
                 )
 
-                # Create ADK middleware agent instance
-                adk_agent_sample = ADKAgent(
-                    adk_agent=sample_agent,
+                adk_agent = ADKAgent(
+                    adk_agent=agent,
                     app_name="demo_app",
                     user_id="demo_user",
                     session_timeout_seconds=3600,
                     use_in_memory_services=True
                 )
 
-                # Create FastAPI app
-                app = FastAPI(title="ADK Middleware Sample Agent")
+                app = FastAPI()
+                add_adk_fastapi_endpoint(app, adk_agent, path="/")
 
-                # Add the ADK endpoint
-                add_adk_fastapi_endpoint(app, adk_agent_sample, path="/")
-
-                # If you want the server to run on invocation, you can do the following:
                 if __name__ == "__main__":
                     import uvicorn
                     uvicorn.run(app, host="localhost", port=8000)
-
                 ```
             </Step>
             <Step>
                 ### Create your frontend
-                CopilotKit runs anywhere that React runs. As such, you can such Next.js,
-                Vite, or any other React environment.
 
-                For this example, we'll create a new Next.js app.
+                CopilotKit works with any React-based frontend. We'll use Next.js for this example.
 
                 ```bash
-                npx create-next-app@latest
+                npx create-next-app@latest my-copilot-app
+                cd my-copilot-app
                 ```
             </Step>
             <Step>
-                ### Install CopilotKit
-                First, install the latest packages for CopilotKit into your frontend.
-                ```npm
-                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime
-                ```
-            </Step>
-            <Step>
-                ### Setup the Copilot Runtime
-                CopilotKit's runtime is responsible secure communication between your agent and your frontend. As you progress
-                with your applicaiton, this will be where you'll do things like setup threads or authentication.
+                ### Install CopilotKit packages
 
-                For now, let's start with a minimal setup.
+                ```npm
+                @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client
+                ```
+            </Step>
+            <Step>
+                ### Setup Copilot Runtime
+
+                Create an API route to connect CopilotKit to your ADK agent:
 
                 ```tsx title="app/api/copilotkit/route.ts"
                 import {
@@ -191,20 +242,14 @@ Before you begin, you'll need the following:
                 import { HttpAgent } from "@ag-ui/client";
                 import { NextRequest } from "next/server";
 
-                // 1. You can use any service adapter here for multi-agent support. We use
-                //    the empty adapter since we're only using one agent.
                 const serviceAdapter = new ExperimentalEmptyAdapter();
 
-                // 2. Create the CopilotRuntime instance and utilize the ADK AG-UI
-                //    integration to setup the connection.
                 const runtime = new CopilotRuntime({
                   agents: {
-                    // Our AG-UI endpoint URL
-                    "my_agent": new HttpAgent({ url: "http://localhost:8000/" }),
+                    my_agent: new HttpAgent({ url: "http://localhost:8000/" }),
                   }
                 });
 
-                // 3. Build a Next.js API route that handles the CopilotKit runtime requests.
                 export const POST = async (req: NextRequest) => {
                   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
                     runtime,
@@ -217,20 +262,20 @@ Before you begin, you'll need the following:
                ```
             </Step>
             <Step>
-                ### Setup the CopilotKit provider
-                The CopilotKit provide component is responsible for managing the session with your current agent. Typically,
-                users will wrap their entire application in the CopilotKit provider.
+                ### Configure CopilotKit Provider
+
+                Wrap your application with the CopilotKit provider:
 
                 ```tsx title="app/layout.tsx"
-                import "./globals.css";
-                import { ReactNode } from "react";
-                import { CopilotKit } from "@copilotkit/react-core";
+                import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
+                import "@copilotkit/react-ui/styles.css";
 
-                export default function RootLayout({ children }: { children: ReactNode }) {
+                // ...
+
+                export default function RootLayout({ children }: {children: React.ReactNode}) {
                   return (
                     <html lang="en">
                       <body>
-                        {/* This points to the runtime we setup in the previous step */}
                         {/* [!code highlight:3] */}
                         <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
                           {children}
@@ -242,71 +287,101 @@ Before you begin, you'll need the following:
                 ```
             </Step>
             <Step>
-                ### Setup the Copilot UI
-                The last step is to use CopilotKit's UI components to render the chat interaction with your agent. In most situations,
-                this is done alongside your core page components, e.g. in your `page.tsx` file.
+              ### Add the chat interface
 
-                ```tsx title="page.tsx"
-                // [!code highlight:2]
-                import "@copilotkit/react-ui/styles.css";
-                import { CopilotSidebar } from "@copilotkit/react-ui";
+              Add the CopilotSidebar component to your page:
 
-                export function YourApp() {
+              ```tsx title="app/page.tsx"
+              import { CopilotSidebar } from "@copilotkit/react-ui"; // [!code highlight:1]
+
+              export default function Page() {
                 return (
-                    <main>
-                    <h1>Your main content</h1>
-                    // [!code highlight:6]
-                    <CopilotSidebar
-                        labels={{
-                            title: "Popup Assistant",
-                            initial: "Hi! I'm connected to an agent. How can I help?",
-                        }}
-                    />
-                    </main>
+                  <main>
+                    <h1>Your App</h1>
+                    {/* [!code highlight:1] */}
+                    <CopilotSidebar />
+                  </main>
                 );
-                }
+              }
+              ```
+            </Step>
+            <Step>
+                ### Start your agent
+
+                From your agent directory, start the agent server:
+
+                ```bash
+                uv run main.py
                 ```
 
-                <Callout type="info">
-                    Looking for other chat component options? Check out our [Agentic Chat UI](/adk/agentic-chat-ui) guide.
-                </Callout>
+                Your agent will be available at `http://localhost:8000`.
+            </Step>
+            <Step>
+                ### Start your UI
+
+                In a separate terminal, navigate to your frontend directory and start the development server:
+
+                <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+                    <Tab value="npm">
+                        ```bash
+                        cd my-copilot-app
+                        npm run dev
+                        ```
+                    </Tab>
+                    <Tab value="pnpm">
+                        ```bash
+                        cd my-copilot-app
+                        pnpm dev
+                        ```
+                    </Tab>
+                    <Tab value="yarn">
+                        ```bash
+                        cd my-copilot-app
+                        yarn dev
+                        ```
+                    </Tab>
+                    <Tab value="bun">
+                        ```bash
+                        cd my-copilot-app
+                        bun dev
+                        ```
+                    </Tab>
+                </Tabs>
+            </Step>
+            <Step>
+                ### 🎉 Start chatting!
+
+                Your AI agent is now ready to use! Navigate to `localhost:3000` and try asking it some questions:
+
+                ```
+                Can you tell me a joke?
+                ```
+
+                ```
+                Can you help me understand AI?
+                ```
+
+                ```
+                What do you think about React?
+                ```
+
+                <Accordions className="mb-4">
+                    <Accordion title="Troubleshooting">
+                        - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
+                        - Make sure your agent is running on port 8000
+                        - Check that your Google API key is correctly set
+                        - Verify that the `@ag-ui/client` package is installed in your frontend
+                    </Accordion>
+                </Accordions>
+
             </Step>
         </TailoredContentOption>
     </TailoredContent>
-    <Step>
-        ### 🎉 Talk to your agent!
-
-        Congrats! You've successfully integrated a ADK Agent chatbot to your application. To start, try asking a few questions to your agent.
-
-        ```
-        Can you tell me a joke?
-        ```
-
-        ```
-        Can you help me understand AI?
-        ```
-
-        ```
-        What do you think about React?
-        ```
-
-        <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
-
-        <Accordions className="mb-4">
-            <Accordion title="Having trouble?">
-                - Try changing the host to `0.0.0.0` or `127.0.0.1` instead of `localhost`.
-            </Accordion>
-        </Accordions>
-    </Step>
-
 </Steps>
-
----
 
 ## What's next?
 
-You've now got a ADK Agent running in CopilotKit! Now you can start exploring the various ways that CopilotKit
-can help you build power agent native applications.
+Now that you have your basic agent setup, explore these advanced features:
 
 <Cards>
   <Card

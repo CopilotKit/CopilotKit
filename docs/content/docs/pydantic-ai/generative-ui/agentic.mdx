@@ -35,7 +35,7 @@ is a situation where a user and an agent are working together to solve a problem
     <RunAndConnect components={props.components} />
   </Step>
   <Step>
-    ### Setup your agent with state
+    ### Set up your agent with state
 
     Create your Pydantic AI agent with a stateful structure. Here's a complete example that tracks searches:
 
@@ -121,7 +121,7 @@ is a situation where a user and an agent are working together to solve a problem
 
     ```tsx title="app/page.tsx"
     // ...
-    import { useCoAgent } from "@copilotkit/react-core";
+    import { useCoAgentStateRender } from "@copilotkit/react-core";
     // ...
 
     // Define the state of the agent, should match the state of your Pydantic AI Agent.

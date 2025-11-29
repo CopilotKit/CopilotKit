@@ -1732,7 +1732,7 @@ export function Page() {
 
 ### [Modify your agent](https://docs.copilotkit.ai/coagents/frontend-actions\#modify-your-agent)
 
-Now, we'll need to modify the agent to access these frontend actions. Open up for your agent's folder and continue from there!
+Now, we'll need to modify the agent to access these frontend actions. In your terminal, navigate to your agent's folder and continue from there!
 
 ### [Install the CopilotKit SDK](https://docs.copilotkit.ai/coagents/frontend-actions\#install-the-copilotkit-sdk)
 
