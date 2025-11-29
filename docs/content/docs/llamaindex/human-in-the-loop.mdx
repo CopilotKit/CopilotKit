@@ -3,19 +3,20 @@ title: Human-in-the-Loop (HITL)
 description: Learn how to implement Human-in-the-Loop (HITL) using LlamaIndex Agents.
 icon: lucide/Share2
 ---
+import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/llamaindex/run-and-connect.mdx"
 
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/node-hitl.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
+<IframeSwitcher
+  id="human-in-the-loop-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
 />
 
 <Callout type="info">
-  Pictured above is the [llamaindex starter](https://github.com/copilotkit/with-llamaindex) with the implementation below applied!
+  This example demonstrates interrupt-based human-in-the-loop (HITL) in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop).
 </Callout>
 
 ## What is this?
@@ -33,17 +34,7 @@ you can ensure that the agent is always making the right decisions and ultimatel
 <Steps>
     <Step>
         ### Run and connect your agent
-
-        You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
-        you can follow the instructions in the [Getting Started](/llamaindex/quickstart) guide.
-
-        <Callout type="info">
-        If you don't already have an agent, simply run the following command to create a new application:
-
-        ```bash
-        npx copilotkit@latest create -f llamaindex
-        ```
-        </Callout>
+        <RunAndConnect components={props.components} />
     </Step>
 
     <Step>
@@ -145,6 +136,16 @@ you can ensure that the agent is always making the right decisions and ultimatel
     ### Give it a try!
     Try asking your agent to write an essay about the benefits of AI. You'll see that it will generate an essay,
     stream the progress and eventually ask you to review it.
+
+    <video
+      src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/node-hitl.mp4"
+      className="rounded-lg shadow-xl"
+      loop
+      playsInline
+      controls
+      autoPlay
+      muted
+    />
     </Step>
 
 </Steps>
