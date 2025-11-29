@@ -1,0 +1,55 @@
+---
+title: Generative UI
+icon: "lucide/Paintbrush"
+description: Render your agent's behavior with custom UI components.
+---
+import { ServerIcon, SquareMousePointerIcon, BotIcon } from "lucide-react";
+
+<Frame>
+  <img
+    src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/AgenticGenerativeUI.gif"
+    className="my-0"
+    alt="Demo of Generative UI showing a meeting scheduling agent"
+  />
+</Frame>
+
+<Callout>
+    This example shows our [Research Canvas](/mastra/videos/research-canvas) making use of Generative UI!
+</Callout>
+
+## What is Generative UI?
+
+Generative UI lets you render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. It bridges the gap between AI
+agents and user interfaces. As your agent processes information and makes decisions, you can render custom UI components that:
+
+- Show loading states and progress indicators
+- Display structured data in tables, cards, or charts
+- Create interactive elements for user input
+- Animate transitions between different states
+
+## How can I use this?
+
+To get started, you first need to decide what is going to be backing your generative UI. There are three main variants of Generative UI with CopilotKit.
+
+<Cards>
+  <Card
+    icon={<ServerIcon className="text-primary" />}
+    title="Backend Tools"
+    description="Render your agent's tool calls with custom UI components"
+    href="./backend-tools"
+  />
+  <Card
+    icon={<SquareMousePointerIcon className="text-primary"/>}
+    title="Frontend Tools"
+    description="Provide your agent with client-side tools to show custom components and drive the UI."
+    href="./frontend-tools"
+  />
+  <Card
+    className="col-span-2"
+    icon={<BotIcon className="text-primary"/>}
+    title="Agent State"
+    description="Render your agent's state, progress, and outputs with custom UI components."
+    href="./agentic"
+  />
+</Cards>
+

@@ -1,26 +1,21 @@
 ---
-title: Tool-based
-icon: "lucide/Wrench"
+title: Backend Tools
+icon: "lucide/Server"
 description: Render your agent's tool calls with custom UI components.
 ---
 
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
-import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";
+import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx"
 
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tool-based-gen-ui.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
+<IframeSwitcher
+  id="tool-based-generative-ui-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/mastra/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/mastra/feature/backend_tool_rendering?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
 />
-<Callout>
-  This video demonstrates the [implementation](#implementation) section applied
-  to our [coagents starter
-  project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-Mastra).
-</Callout>
 
 ## What is this?
 
@@ -37,13 +32,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 <Steps>
 <Step>
 ### Run and connect your agent
-
-You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
-you can follow the instructions in the [Getting Started](/mastra/quickstart/mastra) guide.
-
-If you don't already have an agent, you can use the [coagent starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-Mastra) as a starting point
-as this guide uses it as a starting point.
-
+<RunAndConnect components={props.components} />
 </Step>
 <Step>
 ### Give your agent a tool to call
@@ -53,16 +42,16 @@ Add a new tool definition:
 ```ts title="src/mastra/tools/weatherInfo.ts"
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
- 
+
 export const weatherInfo = createTool({
   id: "weatherInfo",
   inputSchema: z.object({
-    city: z.string(),
+    location: z.string(),
   }),
-  description: `Fetches the current weather information for a given city`,
-  execute: async ({ context: { city } }) => {
+  description: `Fetches the current weather information for a given location`,
+  execute: async ({ context: { location } }) => {
     // Tool logic here (e.g., API call)
-    console.log("Using tool to fetch weather information for", city);
+    console.log("Using tool to fetch weather information for", location);
     return { temperature: 20, conditions: "Sunny" }; // Example return
   },
 });
@@ -74,7 +63,7 @@ Then, pass the tool to the agent:
 import { Agent } from "@mastra/core/agent";
 import { openai } from "@ai-sdk/openai";
 import { weatherInfo } from "../tools/weatherInfo";
- 
+
 export const weatherAgent = new Agent({
   name: "Weather Agent",
   instructions:
@@ -85,11 +74,11 @@ export const weatherAgent = new Agent({
   },
 });
 ```
-    
+
 </Step>
 <Step>
 ### Render the tool call in your frontend
-At this point, your agent will be able to call the `weatherInfo` tool. Now 
+At this point, your agent will be able to call the `weatherInfo` tool. Now
 we just need to add a `useCopilotAction` hook to render the tool call in
 the UI.
 
@@ -130,4 +119,4 @@ Try asking the agent to get the weather for a location. You should see the custo
 render the tool call and display the arguments that were passed to the tool.
 
 </Step>
-</Steps> 
+</Steps>
