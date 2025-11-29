@@ -59,7 +59,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
 
 <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
     <Tab value="Python">
-        ```python title="agent/sample_agent/agent.py"
+        ```python title="agent.py"
         # ...
         from copilotkit import CopilotKitState # extends MessagesState
         # ...
@@ -101,7 +101,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
 
     <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
         <Tab value="Python">
-            ```python title="agent/sample_agent/agent.py"
+            ```python title="agent.py"
             from langgraph.types import interrupt # [!code highlight]
             from langchain_core.messages import SystemMessage
             from langchain_openai import ChatOpenAI
@@ -225,7 +225,7 @@ For this reason, the hook can take an `enabled` argument which will apply it con
         First, let's define two different interrupts. We will include a "type" property to differentiate them.
         <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
             <Tab value="Python">
-                ```python title="agent/sample_agent/agent.py"
+                ```python title="agent.py"
                 from langgraph.types import interrupt # [!code highlight]
                 from langchain_core.messages import SystemMessage
                 from langchain_openai import ChatOpenAI
