@@ -4,11 +4,20 @@ icon: "lucide/ArrowRight"
 description: Write to agent's state from your application.
 ---
 import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
+import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx"
+import { IframeSwitcher } from "@/components/content"
 
-<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/write-agent-state.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<IframeSwitcher
+  id="shared-state-write-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/mastra/feature/shared_state?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/mastra/feature/shared_state?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
 <Callout type="info">
-  Pictured above is the [mastra starter](https://github.com/copilotkit/with-mastra) with
-  the [implementation](#implementation) section applied!
+  This example demonstrates writing to shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/mastra/feature/shared_state).
 </Callout>
 
 ## What is this?
@@ -35,21 +44,8 @@ You can use this when you want to provide user input or control to your agent's 
 
 <Steps>
   <Step>
-    ### Run and Connect Your Agent to CopilotKit
-
-    You'll need to run your agent and connect it to CopilotKit before proceeding.
-
-    #### I already have an agent
-
-    You can follow the instructions in the [quickstart](/mastra/quickstart) guide.
-    
-    #### I want to start from scratch
-
-    Run the following command to create a brand new project with a pre-configured agent:
-
-    ```bash
-    npx copilotkit@latest create -f mastra
-    ```
+    ### Run and connect your agent
+    <RunAndConnect components={props.components} />
   </Step>
   <Step>
     ### Define the Agent State
