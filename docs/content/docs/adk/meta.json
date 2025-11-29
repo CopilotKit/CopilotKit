@@ -4,18 +4,20 @@
   "pages": [
     "---Getting Started---",
     "index",
-    "...quickstart",
+    "quickstart",
     "vibe-coding-mcp",
     "---Guides---",
-    "custom-look-and-feel",
     "agentic-chat-ui",
+    "custom-look-and-feel",
+    "frontend-actions",
     "generative-ui",
     "human-in-the-loop",
     "shared-state",
-    "frontend-actions",
     "---Premium Features---",
     "...premium",
     "---Troubleshooting---",
-    "...troubleshooting"
+    "...troubleshooting",
+    "---Other---",
+    "...(other)"
   ]
 }

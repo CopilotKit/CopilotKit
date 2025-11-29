@@ -1,0 +1,123 @@
+---
+title: Frontend Tools
+icon: "lucide/Wrench"
+description: Create frontend tools and use them within your Mastra agent.
+---
+import { IframeSwitcher } from "@/components/content"
+import { Tabs, Tab } from "fumadocs-ui/components/tabs"
+import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx"
+
+<IframeSwitcher
+  id="frontend-tools-generative-ui-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/mastra/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/mastra/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+## What is this?
+Frontend tools enable you to define client-side functions that your Mastra agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
+the logic runs on the client side, giving you direct access to the frontend environment.
+
+This can be utilized to let [your agent control the UI](/mastra/frontend-actions), [generative UI](/mastra/generative-ui/frontend-tools), or for Human-in-the-loop interactions.
+
+In this guide, we cover the use of frontend tools for generative UI.
+
+## When should I use this?
+Use frontend tools when you need your agent to interact with client-side primitives such as:
+- Reading or modifying React component state
+- Accessing browser APIs like localStorage, sessionStorage, or cookies
+- Triggering UI updates or animations
+- Interacting with third-party frontend libraries
+- Performing actions that require the user's immediate browser context
+
+## Implementation
+
+<Steps>
+    <Step>
+      ### Run and connect your agent
+      <RunAndConnect components={props.components} />
+    </Step>
+
+    <Step>
+        ### Create a frontend tool
+
+        First, you'll need to create a frontend tool using the [useFrontendTool](/reference/hooks/useFrontendTool) hook. Here's a simple one to get you started
+        that says hello to the user.
+
+        ```tsx title="page.tsx"
+        import { useFrontendTool } from "@copilotkit/react-core" // [!code highlight]
+
+        export function Page() {
+          // ...
+
+          // [!code highlight:25]
+          useFrontendTool({
+            name: "sayHello",
+            description: "Say hello to the user",
+            parameters: [
+              {
+                name: "name",
+                type: "string",
+                description: "The name of the user to say hello to",
+                required: true,
+              },
+            ],
+            handler({ name }) {
+              // Handler returns the result of the tool call
+              return { currentURLPath: window.location.href, userName: name };
+            },
+            render: ({ args }) => {
+              // Renders UI based on the data of the tool call
+              return (
+                <div>
+                  <h1>Hello, {args.name}!</h1>
+                  <h1>You're currently on {window.location.href}</h1>
+                </div>
+              );
+            },
+          });
+
+          // ...
+        }
+        ```
+    </Step>
+    <Step>
+        ### Set up your Mastra agent with frontend tools
+
+        Frontend tools registered with `useFrontendTool` are automatically forwarded to your agent through the AG-UI protocol. The agent can invoke them, and execution happens on the frontend.
+
+        ```ts title="src/mastra/agents/index.ts"
+        import { openai } from "@ai-sdk/openai";
+        import { Agent } from "@mastra/core/agent";
+
+        export const myAgent = new Agent({
+          name: "My Agent",
+          instructions: "You are a helpful assistant!",
+          model: openai("gpt-4o"),
+        });
+
+        // Frontend tools are automatically available to the agent
+        // through the AG-UI protocol when registered with useFrontendTool
+        ```
+
+        <Callout type="info">
+          Frontend tools registered with `useFrontendTool` are automatically forwarded to your agent through the AG-UI protocol. The agent can invoke them, and execution happens on the frontend.
+        </Callout>
+    </Step>
+    <Step>
+        ### Give it a try!
+        You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
+
+        <video
+          src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tool-based-gen-ui.mp4"
+          className="rounded-lg shadow-xl"
+          loop
+          playsInline
+          controls
+          autoPlay
+          muted
+        />
+    </Step>
+</Steps>
