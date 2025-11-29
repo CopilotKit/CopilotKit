@@ -22,7 +22,7 @@ langchain-google-genai = "2.1.6"
 langchain-core = "^0.3.25"
 langchain = "0.3.26"
 openai = "^1.61.1"
-copilotkit = "0.1.55"
+copilotkit = "0.1.72"
 uvicorn = "^0.31.0"
 python-dotenv = "^1.0.1"
 crewai = { version = "0.102.0" }

@@ -2,36 +2,36 @@
 
 [[package]]
 name = "ag-ui-langgraph"
-version = "0.0.8"
+version = "0.0.21"
 description = "Implementation of the AG-UI protocol for LangGraph."
 optional = false
 python-versions = "<3.14,>=3.10"
 groups = ["main"]
 files = [
-    {file = "ag_ui_langgraph-0.0.8-py3-none-any.whl", hash = "sha256:dd76fd72d0b58c92a5b28bcb76f37a21502ea071deff657f43e7f3759ef2c34e"},
-    {file = "ag_ui_langgraph-0.0.8.tar.gz", hash = "sha256:7a6c66e1a615db0c261b342688c7b05efded88eae80ab8f8238ef24efe42472a"},
+    {file = "ag_ui_langgraph-0.0.21-py3-none-any.whl", hash = "sha256:589f52bb20a6c0fded89decacaa42265c57d984d20d8fbfb5e53d9f23cbe1060"},
+    {file = "ag_ui_langgraph-0.0.21.tar.gz", hash = "sha256:0c6096604c18c836bb736bc028222887d5f39413f9024b266fc199ffbf0dacb3"},
 ]
 
 [package.dependencies]
-ag-ui-protocol = "0.1.7"
+ag-ui-protocol = ">=0.1.10,<0.2.0"
 fastapi = {version = ">=0.115.12,<0.116.0", optional = true, markers = "extra == \"fastapi\""}
 langchain = ">=0.3.0"
 langchain-core = ">=0.3.0"
-langgraph = ">=0.3.25,<0.7.0"
+langgraph = ">=0.3.25,<1.1.0"
 
 [package.extras]
 fastapi = ["fastapi (>=0.115.12,<0.116.0)"]
 
 [[package]]
 name = "ag-ui-protocol"
-version = "0.1.7"
+version = "0.1.10"
 description = ""
 optional = false
 python-versions = "<4.0,>=3.9"
 groups = ["main"]
 files = [
-    {file = "ag_ui_protocol-0.1.7-py3-none-any.whl", hash = "sha256:8c821662ca6e9852569022f449b9f7aeb3f16aa75390fa8c28ceae2cce642baa"},
-    {file = "ag_ui_protocol-0.1.7.tar.gz", hash = "sha256:0e93fd9f7c74d52afbd824d6e9738bd3422e859503905ba7582481cbc3c67ab2"},
+    {file = "ag_ui_protocol-0.1.10-py3-none-any.whl", hash = "sha256:c81e6981f30aabdf97a7ee312bfd4df0cd38e718d9fc10019c7d438128b93ab5"},
+    {file = "ag_ui_protocol-0.1.10.tar.gz", hash = "sha256:3213991c6b2eb24bb1a8c362ee270c16705a07a4c5962267a083d0959ed894f4"},
 ]
 
 [package.dependencies]
@@ -310,21 +310,21 @@ files = [
 
 [[package]]
 name = "copilotkit"
-version = "0.1.61"
+version = "0.1.72"
 description = "CopilotKit python SDK"
 optional = false
 python-versions = "<3.13,>=3.10"
 groups = ["main"]
 files = [
-    {file = "copilotkit-0.1.61-py3-none-any.whl", hash = "sha256:849622570a980b889cc51a21dc0bc399396f54189eaf1aad97678c3cdf2716a5"},
-    {file = "copilotkit-0.1.61.tar.gz", hash = "sha256:4763044af93d8d72a57cdc3d349670bebfd4f6a22fe6f5c80c77705663a1a842"},
+    {file = "copilotkit-0.1.72-py3-none-any.whl", hash = "sha256:6b502cffa3d2ee17daf61673c3ed6b20d10f01b3696d7de7a67a3f2772143aa2"},
+    {file = "copilotkit-0.1.72.tar.gz", hash = "sha256:738718f28fccfd3f5ecf55ffb545da7f1f3b12f15ac5ca8f12d70583cb9b5008"},
 ]
 
 [package.dependencies]
-ag-ui-langgraph = {version = "0.0.8", extras = ["fastapi"]}
+ag-ui-langgraph = {version = "0.0.21", extras = ["fastapi"]}
 fastapi = ">=0.115.0,<0.116.0"
-langchain = ">=0.3.4,<=0.3.26"
-langgraph = ">=0.3.18,<0.7.0"
+langchain = ">=0.3.0"
+langgraph = ">=0.3.25,<1.1.0"
 partialjson = ">=0.0.8,<0.0.9"
 toml = ">=0.10.2,<0.11.0"
 
@@ -1936,4 +1936,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.13"
-content-hash = "0567e6640071e2a8d9729c6715c3f6680bfb2a79f653e6cafa77ada14a3f4cf7"
+content-hash = "d61347209876f7b6421ea2dba28858b9c87c3f87cdae1040e176ce509ada4076"
