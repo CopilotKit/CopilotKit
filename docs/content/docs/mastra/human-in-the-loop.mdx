@@ -4,21 +4,17 @@ description: Learn how to implement Human-in-the-Loop (HITL) using Mastra Agents
 icon: lucide/Pause
 ---
 
-import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";
+import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx"
 
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/node-hitl.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
+<IframeSwitcher
+  id="human-in-the-loop-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/mastra/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/mastra/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
 />
-
-<Callout type="info">
-  Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/mastra/starter) with the implementation below applied!
-</Callout>
 
 ## What is this?
 
@@ -37,63 +33,45 @@ you can ensure that the agent is always making the right decisions and ultimatel
 
 <Steps>
   <Step>
-    ### Run and Connect Your Agent to CopilotKit
-
-    You'll need to run your agent and connect it to CopilotKit before proceeding.
-
-    #### I already have an agent
-
-    You can follow the instructions in the [quickstart](/mastra/quickstart) guide.
-
-    #### I want to start from scratch
-
-    Run the following command to create a brand new project with a pre-configured agent:
-
-    ```bash
-    npx copilotkit@latest create -f mastra
-    ```
+    ### Run and connect your agent
+    <RunAndConnect components={props.components} />
   </Step>
 
   <Step>
-    ### Add a `useCopilotAction` to your Frontend
-    First, we'll create a component that renders the agent's essay draft and waits for user approval.
+    ### Add a human-in-the-loop tool to your Frontend
+    First, we'll create a component that offers the user options and waits for their selection.
 
     ```tsx title="ui/app/page.tsx"
-    import { useCopilotAction } from "@copilotkit/react-core"
-    import { Markdown } from "@copilotkit/react-ui"
+    import { useHumanInTheLoop } from "@copilotkit/react-core" // [!code highlight]
 
     function YourMainContent() {
       // ...
 
-      useCopilotAction({
-        name: "writeEssay",
-        available: "remote",
-        description: "Writes an essay and takes the draft as an argument.",
+      useHumanInTheLoop({
+        name: "offerOptions",
+        description: "Give the user a choice between two options and have them select one.",
         parameters: [
-          { name: "draft", type: "string", description: "The draft of the essay", required: true },
+          {
+            name: "option_1",
+            type: "string",
+            description: "The first option",
+            required: true,
+          },
+          {
+            name: "option_2",
+            type: "string",
+            description: "The second option",
+            required: true,
+          },
         ],
-        // [!code highlight:25]
-        renderAndWaitForResponse: ({ args, respond, status }) => {
+        render: ({ args, respond }) => {
+          if (!respond) return <></>;
           return (
             <div>
-              <Markdown content={args.draft || 'Preparing your draft...'} />
-
-              <div className={`flex gap-4 pt-4 ${status !== "executing" ? "hidden" : ""}`}>
-                <button
-                  onClick={() => respond?.("CANCEL")}
-                  disabled={status !== "executing"}
-                  className="border p-2 rounded-xl w-full"
-                >
-                  Try Again
-                </button>
-                <button
-                  onClick={() => respond?.("SEND")}
-                  disabled={status !== "executing"}
-                  className="bg-blue-500 text-white p-2 rounded-xl w-full"
-                >
-                  Approve Draft
-                </button>
-              </div>
+              {/* [!code highlight:3] */}
+              {/* Respond will resume execution and the value will become the tool result. */}
+              <button onClick={() => respond(`${args.option_1} was selected`)}>{args.option_1}</button>
+              <button onClick={() => respond(`${args.option_2} was selected`)}>{args.option_2}</button>
             </div>
           );
         },
@@ -107,11 +85,16 @@ you can ensure that the agent is always making the right decisions and ultimatel
   <Step>
     ### Setup the Mastra Agent
     On the agent side, we are already done! Mastra natively supports the AG-UI protocol and will automatically
-    pass control back to the frontend when the `writeEssay` action is found in the model's response.
+    pass control back to the frontend when the `offerOptions` tool is called by the agent.
   </Step>
   <Step>
     ### Give it a try!
-    Try asking your agent to write an essay about the benefits of AI. You'll see that it will generate an essay,
-    stream the progress and eventually ask you to review it.
+    Try asking your agent something that requires a choice.
+
+    ```
+    Can you show me two good options for a restaurant name?"
+    ```
+
+    You'll see that the agent will present two options and wait for you to select one before continuing.
   </Step>
 </Steps>
