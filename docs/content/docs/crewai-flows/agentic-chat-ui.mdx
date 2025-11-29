@@ -3,26 +3,22 @@ title: Chat with an Agent
 icon: "lucide/SendHorizontal"
 description: Chat with an agent using CopilotKit's UI components.
 ---
-
 import ConnectCopilotUI from "@/snippets/copilot-ui.mdx";
 import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
 import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/self-hosting-copilot-runtime-configure-copilotkit-provider.mdx";
 import CopilotCloudConfigureCopilotKitProvider from "@/snippets/cloud/cloud-copilotkit-provider.mdx";
 import ComponentExamples from "@/snippets/component-examples.mdx";
 import { UserIcon, PaintbrushIcon, WrenchIcon, RepeatIcon } from "lucide-react";
+import { IframeSwitcher } from "@/components/content"
 
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/agentic-chat-ui.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
+<IframeSwitcher
+  id="agentic-chat-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
 />
-<Callout>
-  This video shows the result of `npx copilotkit@latest init` with the [implementation](#implementation) section applied to it!
-</Callout>
 
 ## What is this?
 
