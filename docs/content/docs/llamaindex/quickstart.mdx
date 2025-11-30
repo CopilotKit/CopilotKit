@@ -233,7 +233,7 @@ Before you begin, you'll need the following:
                 ### Install CopilotKit packages
 
                 ```npm
-                @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client
+                @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/llamaindex
                 ```
             </Step>
             <Step>
@@ -247,15 +247,15 @@ Before you begin, you'll need the following:
                   ExperimentalEmptyAdapter,
                   copilotRuntimeNextJSAppRouterEndpoint,
                 } from "@copilotkit/runtime";
-                import { HttpAgent } from "@ag-ui/client";
+                import { LlamaIndexAgent } from "@ag-ui/llamaindex";
                 import { NextRequest } from "next/server";
 
                 const serviceAdapter = new ExperimentalEmptyAdapter();
 
                 const runtime = new CopilotRuntime({
                   agents: {
-                    my_agent: new HttpAgent({ url: "http://localhost:8000/" }),
-                  }
+                    my_agent: new LlamaIndexAgent({ url: "http://localhost:8000/run" }),
+                  }   
                 });
 
                 export const POST = async (req: NextRequest) => {
@@ -378,7 +378,7 @@ Before you begin, you'll need the following:
                         - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
                         - Make sure your agent is running on port 8000
                         - Check that your OpenAI API key is correctly set
-                        - Verify that the `@ag-ui/client` package is installed in your frontend
+                        - Verify that the `@ag-ui/llamaindex` package is installed in your frontend
                     </Accordion>
                 </Accordions>
 
