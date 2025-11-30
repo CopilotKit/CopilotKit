@@ -57,14 +57,31 @@ The endpoint for the Copilot transcribe audio service.
 The endpoint for the Copilot text to speech service.
 </PropertyReference>
 
-<PropertyReference name="headers" type="Record<string, string>"  > 
+<PropertyReference name="headers" type="HeadersInput"  > 
 Additional headers to be sent with the request.
  
-  For example:
-  ```json
-  {
-    "Authorization": "Bearer X"
-  }
+  Can be either a static object or a function that returns headers.
+  When a function is provided, it will be called for each request,
+  allowing for dynamic header values (e.g., refreshed auth tokens).
+ 
+  @example Static headers
+  ```tsx
+  <CopilotKit
+    runtimeUrl="/api/copilot"
+    headers={{ "Authorization": "Bearer token" }}
+  >
+    {children}
+  </CopilotKit>
+  ```
+ 
+  @example Dynamic headers (function)
+  ```tsx
+  <CopilotKit
+    runtimeUrl="/api/copilot"
+    headers={() => ({ "Authorization": `Bearer ${getAuthToken()}` })}
+  >
+    {children}
+  </CopilotKit>
   ```
 </PropertyReference>
 
