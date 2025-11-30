@@ -1,10 +1,12 @@
 ---
-title: Frontend Actions
+title: Frontend Tools
 icon: "lucide/Wrench"
-description: Create frontend actions and use them within your LlamaIndex agent.
+description: Create frontend tools and use them within your LlamaIndex agent.
 ---
-import { IframeSwitcher } from "@/components/content"
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 import RunAndConnect from "@/snippets/integrations/llamaindex/run-and-connect.mdx"
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+import { IframeSwitcher } from "@/components/content"
 
 <IframeSwitcher
   id="frontend-actions-example"
@@ -15,58 +17,45 @@ import RunAndConnect from "@/snippets/integrations/llamaindex/run-and-connect.md
   height="700px"
 />
 
+## What is this?
+Frontend tools enable you to define client-side functions that your LlamaIndex agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
+the logic runs on the client side, giving you direct access to the frontend environment.
+
+This can be utilized for to let [your agent control the UI](/llamaindex/frontend-actions), [generative UI](/llamaindex/generative-ui/frontend-tools), or for Human-in-the-loop interactions.
+
+In this guide, we cover the use of frontend tools driving and interacting with the UI.
+
+## When should I use this?
+Use frontend tools when you need your agent to interact with client-side primitives such as:
+- Reading or modifying React component state
+- Accessing browser APIs like localStorage, sessionStorage, or cookies
+- Triggering UI updates or animations
+- Interacting with third-party frontend libraries
+- Performing actions that require the user's immediate browser context
+
 ## Implementation
 
 <Steps>
     <Step>
-      ### Run and connect your agent
-      <RunAndConnect components={props.components} />
+        ### Run and connect your agent
+       <RunAndConnect components={props.components} />
     </Step>
 
     <Step>
-        ### Add a tool to your agent
-        Add a tool to your agent that will be used to say hello to the user. Since the tool will be used in the frontend,
-        we'll add it to the `frontend_tools` list.
+        ### Create a frontend tool
 
-        ```python title="agent-py/agent/agent.py"
-        from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
-        from llama_index.llms.openai import OpenAI
-        from fastapi import FastAPI
-
-        def say_hello(name: str) -> str:
-            """Says hello to the user and takes the name as an argument."""
-            return f"Hello, {name}!"
-
-        app = FastAPI()
-
-        router = get_ag_ui_workflow_router(
-            llm=OpenAI(model="gpt-4.1"),
-            frontend_tools=[say_hello],
-        )
-
-        app.include_router(router)
-
-        if __name__ == "__main__":
-            import uvicorn
-            uvicorn.run(app, host="0.0.0.0", port=8000)
-        ```
-    </Step>
-
-    <Step>
-        ### Create a frontend action
-
-        First, you'll need to create a frontend action using the [useCopilotAction](/reference/hooks/useCopilotAction) hook. Here's a simple one to get you started
+        First, you'll need to create a frontend tool using the [useFrontendTool](/reference/hooks/useFrontendTool) hook. Here's a simple one to get you started
         that says hello to the user.
 
         ```tsx title="page.tsx"
-        import { useCopilotAction } from "@copilotkit/react-core" // [!code highlight]
+        import { useFrontendTool } from "@copilotkit/react-core" // [!code highlight]
 
         export function Page() {
           // ...
 
           // [!code highlight:15]
-          useCopilotAction({
-            name: "say_hello",
+          useFrontendTool({
+            name: "sayHello",
             description: "Say hello to the user",
             parameters: [
               {
@@ -84,20 +73,18 @@ import RunAndConnect from "@/snippets/integrations/llamaindex/run-and-connect.md
           // ...
         }
         ```
+
+        That's it! Your agent will automatically have access to all frontend tools you've defined using `useFrontendTool` in your React components.
+
+        <Callout type="info">
+          Frontend tools registered with `useFrontendTool` are automatically forwarded to your agent through the AG-UI protocol. The agent can invoke them, and execution happens on the frontend.
+        </Callout>
     </Step>
     <Step>
         ### Give it a try!
-        Your front-end tool will now be executed on the front-end when the it decides to call the `say_hello` action.
+        You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
 
         <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
-    </Step>
-    <Step>
-        ### Try it out!
-        Navigate to the front-end and try it out!
-
-        ```
-        Say hello to the John
-        ```
     </Step>
 
 </Steps>

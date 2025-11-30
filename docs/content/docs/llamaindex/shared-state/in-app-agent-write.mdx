@@ -1,13 +1,13 @@
 ---
-title: Shared state
-icon: "lucide/Repeat"
+title: Writing agent state
+icon: "lucide/ArrowRight"
 description: Write to agent's state from your application.
 ---
-import { IframeSwitcher } from "@/components/content"
 import RunAndConnect from "@/snippets/integrations/llamaindex/run-and-connect.mdx"
+import { IframeSwitcher } from "@/components/content"
 
 <IframeSwitcher
-  id="shared-state-example"
+  id="shared-state-write-example"
   exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state?sidebar=false&chatDefaultOpen=false"
   codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state?view=code&sidebar=false&codeLayout=tabs"
   exampleLabel="Demo"
@@ -21,13 +21,12 @@ import RunAndConnect from "@/snippets/integrations/llamaindex/run-and-connect.md
 
 ## What is this?
 
-This guide shows you how to read and write to your agent's state from your application. LlamaIndex's `get_ag_ui_workflow_router` handler allows you to have stateful concepts that are automatically loaded into the LLM's context.
-
-From the front-end you can modify this state directly or via tools - enabling a bi-directional concept of state.
+This guide shows you how to write to your agent's state from your application.
 
 ## When should I use this?
 
-You can use this when you want to provide the user with feedback about what your agent is doing, specifically when your agent is calling tools. CopilotKit allows you to fully customize how these tools are rendered in the chat.
+You can use this when you want to provide the user with feedback about what your agent is doing, specifically
+when your agent is calling tools. CopilotKit allows you to fully customize how these tools are rendered in the chat.
 
 ## Implementation
 
@@ -39,19 +38,33 @@ You can use this when you want to provide the user with feedback about what your
   <Step>
     ### Define the Agent State
 
-    First, define the agent's state in the workflow router.
+    Create your LlamaIndex agent with a stateful structure using `initial_state`. Here's a complete example that tracks language:
 
-    ```python title="agent/agent/agent.py"
+    ```python title="agent.py"
     from llama_index.llms.openai import OpenAI
     from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
+    from fastapi import FastAPI
 
     agentic_chat_router = get_ag_ui_workflow_router(
-      llm=OpenAI(model="gpt-4.1"),
-      system_prompt=SYSTEM_PROMPT,
-      initial_state={
-        "language": "english"
-      },
+        llm=OpenAI(model="gpt-4o"),
+        system_prompt="""
+        You are a helpful assistant for tracking the language.
+
+        IMPORTANT:
+        - ALWAYS use the lower case for the language
+        - ALWAYS respond in the current language from the state
+        """,
+        initial_state={
+            "language": "english"
+        },
     )
+
+    app = FastAPI()
+    app.include_router(agentic_chat_router)
+
+    if __name__ == "__main__":
+        import uvicorn
+        uvicorn.run(app, host="0.0.0.0", port=8000)
     ```
 
   </Step>
@@ -61,7 +74,7 @@ You can use this when you want to provide the user with feedback about what your
     will update the agent state and trigger a rerender of anything that depends on the agent state.
 
     ```tsx title="ui/app/page.tsx"
-    import { useCoAgent } from "@copilotkit/react-core";
+    import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
 
     // Define the agent state type, should match the actual state of your agent
     type AgentState = {
@@ -70,15 +83,15 @@ You can use this when you want to provide the user with feedback about what your
 
     // Example usage in a pseudo React component
     function YourMainContent() {
-      const { state, setState } = useCoAgent<AgentState>({
-        name: "sample_agent",
+      const { state, setState } = useCoAgent<AgentState>({ // [!code highlight]
+        name: "my_agent", // MUST match the agent name in CopilotRuntime
         initialState: { language: "spanish" }  // optionally provide an initial state
       });
 
       // ...
 
       const toggleLanguage = () => {
-        setState({ language: state.language === "english" ? "spanish" : "english" });
+        setState({ language: state.language === "english" ? "spanish" : "english" }); // [!code highlight]
       };
 
       // ...
@@ -95,21 +108,15 @@ You can use this when you want to provide the user with feedback about what your
     }
     ```
 
+    <Callout type="warn" title="Important">
+      The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+    </Callout>
+
   </Step>
   <Step>
     ### Give it a try!
     You can now use the `setState` function to update the agent state and `state` to read it. Try toggling the language button
     and talking to your agent. You'll see the language change to match the agent's state.
-
-    <video
-      src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/write-agent-state.mp4"
-      className="rounded-lg shadow-xl"
-      loop
-      playsInline
-      controls
-      autoPlay
-      muted
-    />
   </Step>
 </Steps>
 
@@ -124,13 +131,14 @@ The agent will be re-run, and it will get not only the latest updated state, but
 
 ```tsx title="ui/app/page.tsx"
 import { useCoAgent } from "@copilotkit/react-core";
+import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";  // [!code highlight]
 
 // ...
 
 function YourMainContent() {
   // [!code word:run:1]
   const { state, setState, run } = useCoAgent<AgentState>({
-    name: "sample_agent",
+    name: "my_agent", // MUST match the agent name in CopilotRuntime
     initialState: { language: "spanish" }  // optionally provide an initial state
   });
 
@@ -142,11 +150,10 @@ function YourMainContent() {
     // re-run the agent and provide a hint about what's changed
     // [!code highlight:6]
     run(({ previousState, currentState }) => {
-      return {
-        id: /* use a unique id (e.g. uuid, crypto.randomUUID(), etc.) */,
-        role: "developer",
+      return new TextMessage({
+        role: MessageRole.User,
         content: `the language has been updated to ${currentState.language}`,
-      } as const;
+      });
     });
   };
 
@@ -155,3 +162,4 @@ function YourMainContent() {
   );
 }
 ```
+
