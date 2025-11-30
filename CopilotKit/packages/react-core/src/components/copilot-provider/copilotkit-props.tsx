@@ -2,6 +2,24 @@ import { ForwardedParametersInput } from "@copilotkit/runtime-client-gql";
 import { ReactNode } from "react";
 import { AuthState } from "../../context/copilot-context";
 import { CopilotErrorHandler } from "@copilotkit/shared";
+
+/**
+ * Static headers object type.
+ */
+export type HeadersInit = Record<string, string>;
+
+/**
+ * Function that returns headers, called per-request for dynamic header resolution.
+ */
+export type HeadersFunction = () => HeadersInit;
+
+/**
+ * Headers can be either a static object or a function that returns headers.
+ * When a function is provided, it will be called for each request, allowing
+ * for dynamic header values (e.g., refreshed auth tokens).
+ */
+export type HeadersInput = HeadersInit | HeadersFunction;
+
 /**
  * Props for CopilotKit.
  */
@@ -59,14 +77,31 @@ export interface CopilotKitProps {
   /**
    * Additional headers to be sent with the request.
    *
-   * For example:
-   * ```json
-   * {
-   *   "Authorization": "Bearer X"
-   * }
+   * Can be either a static object or a function that returns headers.
+   * When a function is provided, it will be called for each request,
+   * allowing for dynamic header values (e.g., refreshed auth tokens).
+   *
+   * @example Static headers
+   * ```tsx
+   * <CopilotKit
+   *   runtimeUrl="/api/copilot"
+   *   headers={{ "Authorization": "Bearer token" }}
+   * >
+   *   {children}
+   * </CopilotKit>
+   * ```
+   *
+   * @example Dynamic headers (function)
+   * ```tsx
+   * <CopilotKit
+   *   runtimeUrl="/api/copilot"
+   *   headers={() => ({ "Authorization": `Bearer ${getAuthToken()}` })}
+   * >
+   *   {children}
+   * </CopilotKit>
    * ```
    */
-  headers?: Record<string, string>;
+  headers?: HeadersInput;
 
   /**
    * The children to be rendered within the CopilotKit.

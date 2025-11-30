@@ -26,6 +26,7 @@ import {
   LangGraphInterruptActionSetter,
 } from "../types/interrupt-action";
 import { SuggestionItem } from "../utils/suggestions";
+import { HeadersInput } from "../components/copilot-provider/copilotkit-props";
 
 /**
  * Interface for the configuration of the Copilot API.
@@ -57,16 +58,24 @@ export interface CopilotApiConfig {
   textToSpeechUrl?: string;
 
   /**
-   * additional headers to be sent with the request
+   * Additional headers to be sent with the request.
+   * Can be either a static object or a function that returns headers.
+   * When a function is provided, it will be called for each request.
    * @default {}
-   * @example
+   * @example Static headers
    * ```
    * {
    *   'Authorization': 'Bearer your_token_here'
    * }
    * ```
+   * @example Dynamic headers
+   * ```
+   * () => ({
+   *   'Authorization': `Bearer ${getAuthToken()}`
+   * })
+   * ```
    */
-  headers: Record<string, string>;
+  headers: HeadersInput;
 
   /**
    * Custom properties to be sent with the request

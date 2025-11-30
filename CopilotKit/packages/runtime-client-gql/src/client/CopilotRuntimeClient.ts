@@ -17,6 +17,23 @@ import {
   getPossibleVersionMismatch,
 } from "@copilotkit/shared";
 
+/**
+ * Static headers object type.
+ */
+export type HeadersInit = Record<string, string>;
+
+/**
+ * Function that returns headers, called per-request for dynamic header resolution.
+ */
+export type HeadersFunction = () => HeadersInit;
+
+/**
+ * Headers can be either a static object or a function that returns headers.
+ * When a function is provided, it will be called for each request, allowing
+ * for dynamic header values (e.g., refreshed auth tokens).
+ */
+export type HeadersInput = HeadersInit | HeadersFunction;
+
 const createFetchFn =
   (signal?: AbortSignal, handleGQLWarning?: (warning: string) => void) =>
   async (...args: Parameters<typeof fetch>) => {
@@ -65,7 +82,7 @@ const createFetchFn =
 export interface CopilotRuntimeClientOptions {
   url: string;
   publicApiKey?: string;
-  headers?: Record<string, string>;
+  headers?: HeadersInput;
   credentials?: RequestCredentials;
   handleGQLErrors?: (error: Error) => void;
   handleGQLWarning?: (warning: string) => void;
@@ -77,28 +94,27 @@ export class CopilotRuntimeClient {
   public handleGQLWarning?: (warning: string) => void;
 
   constructor(options: CopilotRuntimeClientOptions) {
-    const headers: Record<string, string> = {};
-
     this.handleGQLErrors = options.handleGQLErrors;
     this.handleGQLWarning = options.handleGQLWarning;
-
-    if (options.headers) {
-      Object.assign(headers, options.headers);
-    }
-
-    if (options.publicApiKey) {
-      headers["x-copilotcloud-public-api-key"] = options.publicApiKey;
-    }
 
     this.client = new Client({
       url: options.url,
       exchanges: [cacheExchange, fetchExchange],
-      fetchOptions: {
-        headers: {
-          ...headers,
-          "X-CopilotKit-Runtime-Client-GQL-Version": packageJson.version,
-        },
-        ...(options.credentials ? { credentials: options.credentials } : {}),
+      fetchOptions: () => {
+        // Resolve headers - call function if provided, otherwise use static object
+        const baseHeaders =
+          typeof options.headers === "function" ? options.headers() : options.headers || {};
+
+        return {
+          headers: {
+            ...baseHeaders,
+            ...(options.publicApiKey
+              ? { "x-copilotcloud-public-api-key": options.publicApiKey }
+              : {}),
+            "X-CopilotKit-Runtime-Client-GQL-Version": packageJson.version,
+          },
+          ...(options.credentials ? { credentials: options.credentials } : {}),
+        };
       },
     });
   }

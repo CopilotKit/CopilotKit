@@ -1,5 +1,6 @@
 import { renderHook } from "@testing-library/react";
 import { useCopilotRuntimeClient } from "../use-copilot-runtime-client";
+import { CopilotRuntimeClient } from "@copilotkit/runtime-client-gql";
 
 const mockClientInstance = {
   generateCopilotResponse: jest.fn(),
@@ -20,14 +21,16 @@ jest.mock("../../components/toast/toast-provider", () => ({
   }),
 }));
 
+const MockedCopilotRuntimeClient = CopilotRuntimeClient as jest.MockedClass<
+  typeof CopilotRuntimeClient
+>;
+
 describe("useCopilotRuntimeClient with dynamic headers", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   test("should pass static headers to CopilotRuntimeClient", () => {
-    const { CopilotRuntimeClient } = require("@copilotkit/runtime-client-gql");
-
     renderHook(() =>
       useCopilotRuntimeClient({
         url: "http://test.com",
@@ -36,7 +39,7 @@ describe("useCopilotRuntimeClient with dynamic headers", () => {
       }),
     );
 
-    expect(CopilotRuntimeClient).toHaveBeenCalledWith(
+    expect(MockedCopilotRuntimeClient).toHaveBeenCalledWith(
       expect.objectContaining({
         headers: { Authorization: "Bearer static" },
       }),
@@ -44,7 +47,6 @@ describe("useCopilotRuntimeClient with dynamic headers", () => {
   });
 
   test("should pass headers function to CopilotRuntimeClient", () => {
-    const { CopilotRuntimeClient } = require("@copilotkit/runtime-client-gql");
     const headersFn = () => ({ Authorization: "Bearer dynamic" });
 
     renderHook(() =>
@@ -55,7 +57,7 @@ describe("useCopilotRuntimeClient with dynamic headers", () => {
       }),
     );
 
-    expect(CopilotRuntimeClient).toHaveBeenCalledWith(
+    expect(MockedCopilotRuntimeClient).toHaveBeenCalledWith(
       expect.objectContaining({
         headers: headersFn,
       }),

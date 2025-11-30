@@ -227,7 +227,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       publicApiKey: publicApiKey,
       ...(cloud ? { cloud } : {}),
       chatApiEndpoint: chatApiEndpoint,
-      headers: props.headers || {},
+      headers: props.headers ?? {},
       properties: props.properties || {},
       transcribeAudioUrl: props.transcribeAudioUrl,
       textToSpeechUrl: props.textToSpeechUrl,
@@ -244,25 +244,35 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     props.guardrails_c,
   ]);
 
-  const headers = useMemo(() => {
-    const authHeaders = Object.values(authStates || {}).reduce((acc, state) => {
-      if (state.status === "authenticated" && state.authHeaders) {
-        return {
-          ...acc,
-          ...Object.entries(state.authHeaders).reduce(
-            (headers, [key, value]) => ({
-              ...headers,
-              [key.startsWith("X-Custom-") ? key : `X-Custom-${key}`]: value,
-            }),
-            {},
-          ),
-        };
-      }
-      return acc;
-    }, {});
+  // Create a getter function for headers that resolves dynamic headers on each call
+  const getHeaders = useCallback(() => {
+    // Resolve base headers - call function if provided, otherwise use static object
+    const baseHeaders =
+      typeof copilotApiConfig.headers === "function"
+        ? copilotApiConfig.headers()
+        : copilotApiConfig.headers || {};
+
+    const authHeaders = Object.values(authStates || {}).reduce(
+      (acc, state) => {
+        if (state.status === "authenticated" && state.authHeaders) {
+          return {
+            ...acc,
+            ...Object.entries(state.authHeaders).reduce(
+              (headers, [key, value]) => ({
+                ...headers,
+                [key.startsWith("X-Custom-") ? key : `X-Custom-${key}`]: value,
+              }),
+              {},
+            ),
+          };
+        }
+        return acc;
+      },
+      {} as Record<string, string>,
+    );
 
     return {
-      ...(copilotApiConfig.headers || {}),
+      ...baseHeaders,
       ...(copilotApiConfig.publicApiKey
         ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: copilotApiConfig.publicApiKey }
         : {}),
@@ -321,7 +331,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   const runtimeClient = useCopilotRuntimeClient({
     url: copilotApiConfig.chatApiEndpoint,
     publicApiKey: publicApiKey,
-    headers,
+    headers: getHeaders,
     credentials: copilotApiConfig.credentials,
     showDevConsole: shouldShowDevConsole(props.showDevConsole),
     onError: handleErrors,

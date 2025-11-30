@@ -235,14 +235,22 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
   const { coagentStates, coagentStatesRef, setCoagentStatesWithRef, threadId, copilotApiConfig } =
     context;
   const { sendMessage, runChatCompletion } = useCopilotChat();
-  const headers = {
-    ...(copilotApiConfig.headers || {}),
-  };
+
+  // Create a getter function for headers that resolves dynamic headers on each call
+  const getHeaders = useCallback(() => {
+    // Resolve base headers - call function if provided, otherwise use static object
+    const baseHeaders =
+      typeof copilotApiConfig.headers === "function"
+        ? copilotApiConfig.headers()
+        : copilotApiConfig.headers || {};
+
+    return baseHeaders;
+  }, [copilotApiConfig.headers]);
 
   const runtimeClient = useCopilotRuntimeClient({
     url: copilotApiConfig.chatApiEndpoint,
     publicApiKey: copilotApiConfig.publicApiKey,
-    headers,
+    headers: getHeaders,
     credentials: copilotApiConfig.credentials,
     showDevConsole: context.showDevConsole,
     onError,

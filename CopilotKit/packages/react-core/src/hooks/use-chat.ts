@@ -287,15 +287,24 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
   const publicApiKey = copilotConfig.publicApiKey;
 
-  const headers = {
-    ...(copilotConfig.headers || {}),
-    ...(publicApiKey ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicApiKey } : {}),
-  };
+  // Create a getter function for headers that resolves dynamic headers on each call
+  const getHeaders = useCallback(() => {
+    // Resolve base headers - call function if provided, otherwise use static object
+    const baseHeaders =
+      typeof copilotConfig.headers === "function"
+        ? copilotConfig.headers()
+        : copilotConfig.headers || {};
+
+    return {
+      ...baseHeaders,
+      ...(publicApiKey ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicApiKey } : {}),
+    };
+  }, [copilotConfig.headers, publicApiKey]);
 
   const runtimeClient = useCopilotRuntimeClient({
     url: copilotConfig.chatApiEndpoint,
     publicApiKey: copilotConfig.publicApiKey,
-    headers,
+    headers: getHeaders,
     credentials: copilotConfig.credentials,
     showDevConsole,
     onError,

@@ -1,7 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { CopilotRuntimeClient } from "../CopilotRuntimeClient";
 
-vi.mock("urql", () => ({
+vi.mock("@urql/core", () => ({
   Client: vi.fn().mockImplementation((options) => ({
     mutation: vi.fn().mockReturnValue({ toPromise: () => Promise.resolve({}) }),
     _fetchOptions: options.fetchOptions,
@@ -18,13 +18,13 @@ describe("CopilotRuntimeClient dynamic headers", () => {
   test("should accept static headers object (backward compatibility)", () => {
     const client = new CopilotRuntimeClient({
       url: "http://test.com",
-      headers: { "Authorization": "Bearer static-token" },
+      headers: { Authorization: "Bearer static-token" },
     });
     expect(client).toBeDefined();
   });
 
   test("should accept headers as a function", () => {
-    const headersFunction = () => ({ "Authorization": "Bearer dynamic-token" });
+    const headersFunction = () => ({ Authorization: "Bearer dynamic-token" });
     const client = new CopilotRuntimeClient({
       url: "http://test.com",
       headers: headersFunction,
@@ -36,7 +36,7 @@ describe("CopilotRuntimeClient dynamic headers", () => {
     let callCount = 0;
     const headersFunction = vi.fn(() => {
       callCount++;
-      return { "Authorization": `Bearer token-${callCount}` };
+      return { Authorization: `Bearer token-${callCount}` };
     });
 
     const client = new CopilotRuntimeClient({
