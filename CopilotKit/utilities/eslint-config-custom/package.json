@@ -2,13 +2,18 @@
   "name": "eslint-config-custom",
   "private": true,
   "version": "1.4.6",
-  "main": "index.js",
+  "main": "index.mjs",
   "license": "MIT",
   "dependencies": {
-    "eslint-config-next": "^14.1.0",
+    "@eslint/js": "^9",
+    "@eslint/eslintrc": "^3",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint-config-next": "^15.1.7",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-react": "7.33.2",
-    "eslint-config-turbo": "^1.12.4"
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8"
   },
   "publishConfig": {
     "access": "public"

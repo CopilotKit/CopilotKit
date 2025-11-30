@@ -3,19 +3,18 @@ import {
   CopilotRuntimeClientOptions,
   GraphQLError,
 } from "@copilotkit/runtime-client-gql";
-import { useToast } from "../components/toast/toast-provider";
-import { useMemo, useRef } from "react";
 import {
-  ErrorVisibility,
-  CopilotKitApiDiscoveryError,
-  CopilotKitRemoteEndpointDiscoveryError,
+  CopilotErrorEvent,
+  CopilotErrorHandler,
   CopilotKitAgentDiscoveryError,
+  CopilotKitApiDiscoveryError,
   CopilotKitError,
   CopilotKitErrorCode,
-  CopilotErrorHandler,
-  CopilotErrorEvent,
+  CopilotKitRemoteEndpointDiscoveryError,
+  ErrorVisibility,
 } from "@copilotkit/shared";
-import { shouldShowDevConsole } from "../utils/dev-console";
+import { useMemo, useRef } from "react";
+import { useToast } from "../components/toast/toast-provider";
 
 export interface CopilotRuntimeClientHookOptions extends CopilotRuntimeClientOptions {
   showDevConsole?: boolean;
@@ -24,7 +23,7 @@ export interface CopilotRuntimeClientHookOptions extends CopilotRuntimeClientOpt
 
 export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions) => {
   const { setBannerError } = useToast();
-  const { showDevConsole, onError, ...runtimeOptions } = options;
+  const { showDevConsole: _showDevConsole, onError, ...runtimeOptions } = options;
 
   // Deduplication state for structured errors
   const lastStructuredErrorRef = useRef<{ message: string; timestamp: number } | null>(null);

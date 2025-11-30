@@ -1,14 +1,14 @@
-import { describe, test, expect, vi } from "vitest";
+import { AIMessage } from "@copilotkit/shared";
+import { describe, expect, test, vi } from "vitest";
 import * as gql from "../client";
 import { MessageStatusCode } from "../graphql/@generated/graphql";
 import {
-  gqlToAGUI,
-  gqlTextMessageToAGUIMessage,
-  gqlResultMessageToAGUIMessage,
-  gqlImageMessageToAGUIMessage,
   gqlActionExecutionMessageToAGUIMessage,
+  gqlImageMessageToAGUIMessage,
+  gqlResultMessageToAGUIMessage,
+  gqlTextMessageToAGUIMessage,
+  gqlToAGUI,
 } from "./gql-to-agui";
-import { AIMessage } from "@copilotkit/shared";
 
 describe("message-conversion", () => {
   describe("gqlTextMessageToAGUIMessage", () => {
@@ -371,7 +371,7 @@ describe("message-conversion", () => {
       });
 
       const mockRender = vi.fn();
-      const mockRenderAndWaitForResponse = (props: any) => "Test Render With Response";
+      const mockRenderAndWaitForResponse = () => "Test Render With Response";
 
       const actions = {
         testAction: {
@@ -992,11 +992,11 @@ describe("message-conversion", () => {
       const actions = {
         specificAction: {
           name: "specificAction",
-          render: vi.fn((props) => "Specific action rendered"),
+          render: vi.fn(() => "Specific action rendered"),
         },
         "*": {
           name: "*",
-          render: vi.fn((props) => "Wildcard action rendered"),
+          render: vi.fn(() => "Wildcard action rendered"),
         },
       };
 
@@ -1401,11 +1401,11 @@ describe("message-conversion", () => {
       const actions = {
         wildcard1: {
           name: "*",
-          render: vi.fn((props) => "First wildcard"),
+          render: vi.fn(() => "First wildcard"),
         },
         wildcard2: {
           name: "*",
-          render: vi.fn((props) => "Second wildcard"),
+          render: vi.fn(() => "Second wildcard"),
         },
       };
 
@@ -1459,9 +1459,7 @@ describe("message-conversion", () => {
 
       expect((result as AIMessage).generativeUI).toBeDefined();
       // Call the render function to test the result parsing
-      const renderResult = (result as AIMessage).generativeUI!({
-        result: '{"from": "props", "data": "test"}',
-      });
+      (result as AIMessage).generativeUI!({ result: '{"from": "props", "data": "test"}' });
 
       // Verify the render function was called and the result was parsed
       expect(actions["*"].render).toHaveBeenCalledWith(
@@ -1496,9 +1494,7 @@ describe("message-conversion", () => {
 
       expect((result as AIMessage).generativeUI).toBeDefined();
       // Call the render function to test malformed JSON handling
-      const renderResult = (result as AIMessage).generativeUI!({
-        result: "invalid json {",
-      });
+      (result as AIMessage).generativeUI!({ result: "invalid json {" });
 
       // Verify the render function was called with the original string (unparsed)
       expect(actions["*"].render).toHaveBeenCalledWith(
@@ -1533,9 +1529,7 @@ describe("message-conversion", () => {
 
       expect((result as AIMessage).generativeUI).toBeDefined();
       // Call the render function with an object result
-      const renderResult = (result as AIMessage).generativeUI!({
-        result: { from: "props", data: "object" },
-      });
+      (result as AIMessage).generativeUI!({ result: { from: "props", data: "object" } });
 
       // Verify the render function was called with the object as-is
       expect(actions["*"].render).toHaveBeenCalledWith(

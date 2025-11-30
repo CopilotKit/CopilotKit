@@ -34,7 +34,7 @@
   "devDependencies": {
     "@types/jest": "^29.5.4",
     "@types/uuid": "^10.0.0",
-    "eslint": "^8.56.0",
+    "eslint": "^9",
     "eslint-config-custom": "workspace:*",
     "jest": "^29.6.4",
     "ts-jest": "^29.1.1",

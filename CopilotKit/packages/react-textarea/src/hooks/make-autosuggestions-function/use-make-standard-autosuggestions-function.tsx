@@ -1,19 +1,19 @@
-import { COPILOT_CLOUD_PUBLIC_API_KEY_HEADER } from "@copilotkit/shared";
 import { useCopilotContext } from "@copilotkit/react-core";
-import { useCallback } from "react";
-import { AutosuggestionsBareFunction } from "../../types";
-import { retry } from "../../lib/retry";
-import { InsertionEditorState } from "../../types/base/autosuggestions-bare-function";
-import { SuggestionsApiConfig } from "../../types/autosuggestions-config/suggestions-api-config";
 import {
+  CopilotRequestType,
   Message,
   Role,
   TextMessage,
   convertGqlOutputToMessages,
   convertMessagesToGqlInput,
   filterAgentStateMessages,
-  CopilotRequestType,
 } from "@copilotkit/runtime-client-gql";
+import { COPILOT_CLOUD_PUBLIC_API_KEY_HEADER } from "@copilotkit/shared";
+import { useCallback } from "react";
+import { retry } from "../../lib/retry";
+import { AutosuggestionsBareFunction } from "../../types";
+import { SuggestionsApiConfig } from "../../types/autosuggestions-config/suggestions-api-config";
+import { InsertionEditorState } from "../../types/base/autosuggestions-bare-function";
 
 /**
  * Returns a memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.
@@ -34,8 +34,13 @@ export function useMakeStandardAutosuggestionFunction(
   apiConfig: SuggestionsApiConfig,
 ): AutosuggestionsBareFunction {
   const { getContextString, copilotApiConfig, runtimeClient } = useCopilotContext();
-  const { chatApiEndpoint: url, publicApiKey, credentials, properties } = copilotApiConfig;
-  const headers = {
+  const {
+    chatApiEndpoint: _url,
+    publicApiKey,
+    credentials: _credentials,
+    properties,
+  } = copilotApiConfig;
+  const _headers = {
     ...copilotApiConfig.headers,
     ...(publicApiKey ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicApiKey } : {}),
   };

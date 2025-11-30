@@ -15,16 +15,16 @@ import { replaceEditorText } from "../../lib/slatejs-edits/replace-text";
 import { BaseAutosuggestionsConfig, defaultBaseAutosuggestionsConfig } from "../../types/base";
 import { AutosuggestionState } from "../../types/base/autosuggestion-state";
 import { BaseCopilotTextareaProps } from "../../types/base/base-copilot-textarea-props";
-import "./base-copilot-textarea.css";
-import { HoveringToolbar } from "../hovering-toolbar/hovering-toolbar";
-import { makeRenderElementFunction } from "./render-element";
-import { makeRenderPlaceholderFunction } from "./render-placeholder";
-import { useAddBrandingCss } from "./use-add-branding-css";
 import {
   HoveringEditorProvider,
   useHoveringEditorContext,
 } from "../hovering-toolbar/hovering-editor-provider";
+import { HoveringToolbar } from "../hovering-toolbar/hovering-toolbar";
+import "./base-copilot-textarea.css";
+import { makeRenderElementFunction } from "./render-element";
+import { makeRenderPlaceholderFunction } from "./render-placeholder";
 import { TrackerTextEditedSinceLastCursorMovement } from "./track-cursor-moved-since-last-text-change";
+import { useAddBrandingCss } from "./use-add-branding-css";
 
 /**
  * Purpose: to be used as the `ref` type for `CopilotTextarea` and `BaseCopilotTextarea`.
@@ -214,14 +214,14 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
 
     // separate into TextareaHTMLAttributes<HTMLDivElement> and CopilotTextareaProps
     const {
-      placeholderStyle,
-      value,
+      placeholderStyle: _placeholderStyle,
+      value: _value,
       hoverMenuClassname,
-      onValueChange,
-      baseAutosuggestionsConfig: autosuggestionsConfigFromProps,
+      onValueChange: _onValueChange,
+      baseAutosuggestionsConfig: _autosuggestionsConfigFromProps,
       className,
-      onChange,
-      onKeyDown,
+      onChange: _onChange,
+      onKeyDown: _onKeyDown,
       disableBranding,
       ...propsToForward
     } = props;
@@ -241,7 +241,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
       <Slate
         editor={editor}
         initialValue={initialValue}
-        onChange={(value) => {
+        onChange={(_value) => {
           const newEditorState = getTextAroundCollapsedCursor(editor);
 
           const fullEditorText = newEditorState

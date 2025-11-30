@@ -6,14 +6,14 @@ import {
 import {
   ActionExecutionMessage,
   AgentStateMessage,
+  ImageMessage,
   Message,
   ResultMessage,
   TextMessage,
-  ImageMessage,
 } from "./types";
 
-import untruncateJson from "untruncate-json";
 import { parseJson } from "@copilotkit/shared";
+import untruncateJson from "untruncate-json";
 
 export function filterAgentStateMessages(messages: Message[]): Message[] {
   return messages.filter((message) => !message.isAgentStateMessage());
@@ -89,7 +89,7 @@ export function filterAdjacentAgentStateMessages(
   const filteredMessages: GenerateCopilotResponseMutation["generateCopilotResponse"]["messages"] =
     [];
 
-  messages.forEach((message, i) => {
+  messages.forEach((message) => {
     // keep all other message types
     if (message.__typename !== "AgentStateMessageOutput") {
       filteredMessages.push(message);
@@ -242,7 +242,7 @@ function getPartialArguments(args: string[]) {
     if (!args.length) return {};
 
     return JSON.parse(untruncateJson(args.join("")));
-  } catch (e) {
+  } catch (_e) {
     return {};
   }
 }

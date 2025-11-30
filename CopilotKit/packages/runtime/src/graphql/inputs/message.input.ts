@@ -49,7 +49,7 @@ export class ActionExecutionMessageInput {
     nullable: true,
     deprecationReason: "This field will be removed in a future version",
   })
-  scope?: String;
+  scope?: string;
 }
 
 @InputType()

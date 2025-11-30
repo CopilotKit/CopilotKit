@@ -1,26 +1,22 @@
 import {
-  Action,
-  COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
-  MappedParameterTypes,
-  Parameter,
-  actionParametersToJsonSchema,
-} from "@copilotkit/shared";
-import {
   ActionExecutionMessage,
+  CopilotRequestType,
+  ForwardedParametersInput,
   Message,
   Role,
   TextMessage,
   convertGqlOutputToMessages,
-  CopilotRequestType,
-  ForwardedParametersInput,
-} from "@copilotkit/runtime-client-gql";
-import { CopilotContextParams, CopilotMessagesContextParams } from "../context";
-import { defaultCopilotContextCategories } from "../components";
-import { CopilotRuntimeClient } from "@copilotkit/runtime-client-gql";
-import {
   convertMessagesToGqlInput,
   filterAgentStateMessages,
 } from "@copilotkit/runtime-client-gql";
+import {
+  Action,
+  MappedParameterTypes,
+  Parameter,
+  actionParametersToJsonSchema,
+} from "@copilotkit/shared";
+import { defaultCopilotContextCategories } from "../components";
+import { CopilotContextParams, CopilotMessagesContextParams } from "../context";
 
 interface InitialState<T extends Parameter[] | [] = []> {
   status: "initial";
@@ -76,7 +72,7 @@ export async function extract<const T extends Parameter[]>({
     name: "extract",
     description: instructions,
     parameters,
-    handler: (args: any) => {},
+    handler: (_args: any) => {},
   };
 
   const includeReadable = include?.readable ?? false;
@@ -194,7 +190,7 @@ Any additional messages provided are for providing context only and should not b
 `;
 }
 
-function makeSystemMessage(contextString: string, instructions: string): string {
+function makeSystemMessage(contextString: string, _instructions: string): string {
   return `
 Please act as an efficient, competent, conscientious, and industrious professional assistant.
 

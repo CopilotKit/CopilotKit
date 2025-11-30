@@ -1,7 +1,6 @@
-import { AIMessage, Message, UserMessage, CopilotErrorEvent } from "@copilotkit/shared";
-import { CopilotChatSuggestion } from "../../types/suggestions";
+import { AIMessage, CopilotErrorEvent, ImageData, Message, UserMessage } from "@copilotkit/shared";
 import { ReactNode } from "react";
-import { ImageData } from "@copilotkit/shared";
+import { CopilotChatSuggestion } from "../../types/suggestions";
 
 /**
  * Event hooks for CopilotKit chat events.
@@ -55,7 +54,9 @@ export interface CopilotObservabilityHooks {
   onError?: (errorEvent: CopilotErrorEvent) => void;
 }
 
-export interface ButtonProps {}
+export interface ButtonProps {
+  onClick: () => void;
+}
 
 export interface WindowProps {
   clickOutsideToClose: boolean;
@@ -64,7 +65,10 @@ export interface WindowProps {
   children?: React.ReactNode;
 }
 
-export interface HeaderProps {}
+export interface HeaderProps {
+  title: string;
+  onClose: () => void;
+}
 
 export interface SuggestionsProps {
   title: string;
