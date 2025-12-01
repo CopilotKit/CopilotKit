@@ -1,4 +1,5 @@
 {
   "title": "Generative UI",
-  "pages": ["agentic", "backend-tools", "frontend-tools"]
+  "defaultOpen": true,
+  "pages": ["backend-tools", "frontend-tools", "agentic"]
 }
