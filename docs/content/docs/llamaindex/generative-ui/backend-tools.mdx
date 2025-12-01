@@ -41,34 +41,46 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 <Step>
 ### Give your agent a tool to call
 
-Add a new tool definition:
+Add a new tool definition and pass the tool to the agent:
 
-```python
-def get_weather(location: str) -> str:
+```python title="agent.py"
+from fastapi import FastAPI
+from llama_index.llms.openai import OpenAI
+from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
+
+def getWeather(location: str) -> str:
     """Get the weather for a given location."""
     return f"The weather in {location} is sunny and 70 degrees."
-```
 
-Then, pass the tool to the agent and start the server:
+# Initialize the LLM
+llm = OpenAI(model="gpt-4o")
 
-```python
-from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
-from llama_index.llms.openai import OpenAI
-from fastapi import FastAPI
-
-app = FastAPI()
-
-router = get_ag_ui_workflow_router(
-    llm=OpenAI(model="gpt-4.1"),
+# Create the AG-UI workflow router
+agentic_chat_router = get_ag_ui_workflow_router(
+    llm=llm,
     # These are the tools that only have a render function in the frontend
-    backend_tools=[get_weather],
+    backend_tools=[getWeather],
+    system_prompt="You are a helpful AI assistant with access to various tools and capabilities.",
 )
 
-app.include_router(router)
+# Create FastAPI app
+app = FastAPI(
+    title="LlamaIndex Agent",
+    description="A LlamaIndex agent integrated with CopilotKit",
+    version="1.0.0"
+)
+
+# Include the router
+app.include_router(agentic_chat_router)
+
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "agent": "llamaindex"}
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="localhost", port=8000)
 ```
     
 </Step>
@@ -91,7 +103,7 @@ const YourMainContent = () => {
   // ...
   // [!code highlight:12]
   useRenderToolCall({
-    name: "get_weather",
+    name: "getWeather",
     render: ({status, args}) => {
       return (
         <p className="text-gray-500 mt-2">

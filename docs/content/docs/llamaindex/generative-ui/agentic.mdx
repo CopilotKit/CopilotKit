@@ -36,44 +36,114 @@ is a situation where a user and an agent are working together to solve a problem
   <Step>
     ### Set up your agent with state
 
-    Create your LlamaIndex agent with a stateful structure using `initial_state`. Here's a complete example that tracks language selection:
+    Create your LlamaIndex agent with a stateful structure using `initial_state`. Here's a complete example that tracks searches:
 
     ```python title="agent.py"
+    import asyncio
     from typing import Annotated
-    from llama_index.llms.openai import OpenAI
-    from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
     from fastapi import FastAPI
+    from llama_index.llms.openai import OpenAI
+    from llama_index.core.workflow import Context
+    from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
+    from llama_index.protocols.ag_ui.events import StateSnapshotWorkflowEvent
 
-
-    def set_language(
-        new_language: Annotated[str, "The language to save in state."]
+    async def addSearch(
+        ctx: Context,
+        query: Annotated[str, "The search query to add."]
     ) -> str:
-        """Sets the language preference for the user.
+        """Add a search to the agent's list of searches."""
+        async with ctx.store.edit_state() as global_state:
+            state = global_state.get("state", {})
+            if state is None:
+                state = {}
+            
+            if "searches" not in state:
+                state["searches"] = []
+            
+            # Add new search
+            new_search = {"query": query, "done": False}
+            state["searches"].append(new_search)
+            
+            # Emit state snapshot to frontend
+            ctx.write_event_to_stream(
+                StateSnapshotWorkflowEvent(
+                    snapshot=state
+                )
+            )
+            
+            global_state["state"] = state
+        
+        return f"Added search: {query}"
 
-        Args:
-            new_language: The language to save in state.
+    async def runSearches(ctx: Context) -> str:
+        """Run all the searches that have been added."""
+        async with ctx.store.edit_state() as global_state:
+            state = global_state.get("state", {})
+            if state is None:
+                state = {}
+            
+            if "searches" not in state:
+                state["searches"] = []
+            
+            # Update each search to done
+            for search in state["searches"]:
+                if not search.get("done", False):
+                    await asyncio.sleep(1)  # Simulate search execution
+                    search["done"] = True
+                    
+                    # Emit state update as each search completes
+                    ctx.write_event_to_stream(
+                        StateSnapshotWorkflowEvent(
+                            snapshot=state
+                        )
+                    )
+            
+            global_state["state"] = state
+        
+        return "All searches completed!"
 
-        Returns:
-            str: A message indicating the language was set.
-        """
-        return f"Language set to {new_language}"
+    # Initialize the LLM
+    llm = OpenAI(model="gpt-4o")
 
-
+    # Create the AG-UI workflow router
     agentic_chat_router = get_ag_ui_workflow_router(
-        llm=OpenAI(model="gpt-4o"),
-        system_prompt="You are a helpful assistant that can change language settings.",
-        backend_tools=[set_language],
+        llm=llm,
+        system_prompt="""
+        You are a helpful assistant for storing searches.
+
+        IMPORTANT:
+        - Use the addSearch tool to add a search to the agent's state
+        - After using the addSearch tool, YOU MUST ALWAYS use the runSearches tool to run the searches
+        - ONLY USE THE addSearch TOOL ONCE FOR A GIVEN QUERY
+        
+        When adding searches, update the state to track:
+        - query: the search query
+        - done: whether the search is complete (false initially, true after running)
+        """,
+        backend_tools=[addSearch, runSearches],
         initial_state={
-            "language": "english"
+            "searches": []
         },
     )
 
-    app = FastAPI()
+    # Create FastAPI app
+    app = FastAPI(
+        title="LlamaIndex Agent",
+        description="A LlamaIndex agent integrated with CopilotKit",
+        version="1.0.0"
+    )
+
+    # Include the router
     app.include_router(agentic_chat_router)
+
+    # Health check endpoint
+    @app.get("/health")
+    async def health_check():
+        return {"status": "healthy", "agent": "llamaindex"}
 
     if __name__ == "__main__":
         import uvicorn
-        uvicorn.run(app, host="0.0.0.0", port=8000)
+        uvicorn.run(app, host="localhost", port=8000)
     ```
 
   </Step>
@@ -88,7 +158,10 @@ is a situation where a user and an agent are working together to solve a problem
 
     // Define the state of the agent, should match the state of your LlamaIndex Agent.
     type AgentState = {
-      language: string;
+      searches: {
+        query: string;
+        done: boolean;
+      }[];
     };
 
     function YourMainContent() {
@@ -100,7 +173,11 @@ is a situation where a user and an agent are working together to solve a problem
         name: "my_agent", // MUST match the agent name in CopilotRuntime
         render: ({ state }) => (
           <div>
-            Current language: {state.language || 'not set'}
+            {state.searches?.map((search, index) => (
+              <div key={index}>
+                {search.done ? "✅" : "❌"} {search.query}{search.done ? "" : "..."}
+              </div>
+            ))}
           </div>
         ),
       });
@@ -127,7 +204,10 @@ is a situation where a user and an agent are working together to solve a problem
 
     // Define the state of the agent, should match the state of your LlamaIndex Agent.
     type AgentState = {
-      language: string;
+      searches: {
+        query: string;
+        done: boolean;
+      }[];
     };
 
     function YourMainContent() {
@@ -144,8 +224,12 @@ is a situation where a user and an agent are working together to solve a problem
         <div>
           {/* ... */}
           <div className="flex flex-col gap-2 mt-4">
-            {/* [!code highlight:1] */}
-            Current language: {state.language || 'not set'}
+            {/* [!code highlight:5] */}
+            {state.searches?.map((search, index) => (
+              <div key={index} className="flex flex-row">
+                {search.done ? "✅" : "❌"} {search.query}
+              </div>
+            ))}
           </div>
         </div>
       )
@@ -173,4 +257,3 @@ is a situation where a user and an agent are working together to solve a problem
     />
   </Step>
 </Steps>
-

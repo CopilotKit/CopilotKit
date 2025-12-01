@@ -65,14 +65,14 @@ Use frontend tools when you need your agent to interact with client-side primiti
             ],
             handler({ name }) {
               // Handler returns the result of the tool call
-              return { currentURLPath: window.location.href, userName: name };
+              return `Hello, ${name}!`;
             },
             render: ({ args }) => {
               // Renders UI based on the data of the tool call
               return (
                 <div>
                   <h1>Hello, {args.name}!</h1>
-                  <h1>You're currently on {window.location.href}</h1>
+                  <h1>{`You're currently on ${window.location.href}`}</h1>
                 </div>
               );
             },
