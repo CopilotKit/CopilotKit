@@ -1,10 +1,10 @@
 ---
-title: Shared Context Between the Agent and App
+title: Readables
 icon: "lucide/BookA"
 description: Share app specific context with your agent.
 ---
 
-One of the most common use cases for CopilotKit is to register app state and context using `useCopilotReadble`.
+One of the most common use cases for CopilotKit is to register app state and context using `useCopilotReadable`.
 This way, you can notify CopilotKit of what is going in your app in real time.
 Some examples might be: the current user, the current page, etc.
 
@@ -35,7 +35,7 @@ This context can then be shared with your LangGraph agent.
             ]);
 
             // Define Copilot readable state
-            // [!code highlight:5]
+            // [!code highlight:4]
             useCopilotReadable({
                 description: "The current user's colleagues",
                 value: colleagues,
@@ -49,12 +49,12 @@ This context can then be shared with your LangGraph agent.
     </Step>
 
     <Step>
-        ### Setup your agent state
+        ### Set up your agent state
         Make sure your agent state inherits from CopilotKit state definition
 
-        <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+        <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
             <Tab value="Python">
-                ```python title="agent/sample_agent/agent.py"
+                ```python title="agent.py"
                 # ...
                 from copilotkit import CopilotKitState # extends MessagesState
                 # ...
@@ -90,9 +90,9 @@ This context can then be shared with your LangGraph agent.
         The state of a LangGraph agent is the "hub" for applicative information used by the agent.
         Naturally, the context from CopilotKit will be injected there.
 
-        <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+        <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
             <Tab value="Python">
-                ```python title="agent/sample_agent/agent.py"
+                ```python title="agent.py"
                 from langchain_core.messages import SystemMessage
                 from langchain_openai import ChatOpenAI
                 from copilotkit import CopilotKitState

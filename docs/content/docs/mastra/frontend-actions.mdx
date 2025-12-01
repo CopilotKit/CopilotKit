@@ -1,46 +1,64 @@
 ---
-title: Frontend Actions
+title: Frontend Tools
 icon: "lucide/Wrench"
-description: Create frontend actions and use them within your Mastra agent.
+description: Create frontend tools and use them within your Mastra agent.
 ---
+import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx"
 
-<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
-<Callout type="info">
-  Pictured above is the [mastra starter](https://github.com/copilotkit/with-mastra) with the implementation below applied!
-</Callout>
+<IframeSwitcher
+  id="frontend-actions-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/mastra/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/mastra/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+## What is this?
+Frontend tools enable you to define client-side functions that your Mastra agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
+the logic runs on the client side, giving you direct access to the frontend environment.
+
+This can be utilized to let [your agent control the UI](/mastra/frontend-actions), [generative UI](/mastra/generative-ui/frontend-tools), or for Human-in-the-loop interactions.
+
+In this guide, we cover the use of frontend tools driving and interacting with the UI.
+
+## When should I use this?
+Use frontend tools when you need your agent to interact with client-side primitives such as:
+- Reading or modifying React component state
+- Accessing browser APIs like localStorage, sessionStorage, or cookies
+- Triggering UI updates or animations
+- Interacting with third-party frontend libraries
+- Performing actions that require the user's immediate browser context
 
 ## Implementation
 
 <Callout>
-Check out the [Frontend Actions overview](/frontend-actions) to understand what they are and when to use them.
+Check out the [Frontend Tools overview](/frontend-tools) to understand what they are and when to use them.
 </Callout>
 
 <Steps>
     <Step>
-        ### Setup CopilotKit
-
-        To use frontend actions, you'll need to setup CopilotKit first. For the sake of brevity, we won't cover it here.
-
-        Check out our [getting started guide](/mastra/quickstart/mastra) and come back here when you're setup!
+        ### Run and connect your agent
+        <RunAndConnect components={props.components} />
     </Step>
 
     <Step>
-        ### Create a frontend action
+        ### Create a frontend tool
 
-        First, you'll need to create a frontend action using the [useCopilotAction](/reference/hooks/useCopilotAction) hook. Here's a simple one to get you started
+        First, you'll need to create a frontend tool using the [useFrontendTool](/reference/hooks/useFrontendTool) hook. Here's a simple one to get you started
         that says hello to the user.
 
         ```tsx title="page.tsx"
-        import { useCopilotAction } from "@copilotkit/react-core" // [!code highlight]
+        import { useFrontendTool } from "@copilotkit/react-core" // [!code highlight]
 
         export function Page() {
           // ...
 
-          // [!code highlight:16]
-          useCopilotAction({
+          // [!code highlight:15]
+          useFrontendTool({
             name: "sayHello",
             description: "Say hello to the user",
-            available: "remote", // optional, makes it so the action is *only* available to the agent
             parameters: [
               {
                 name: "name",
@@ -59,14 +77,16 @@ Check out the [Frontend Actions overview](/frontend-actions) to understand what 
         ```
     </Step>
     <Step>
-        ### Accessing Frontend Actions
+        ### Accessing Frontend Tools
 
-        Since Mastra includes native support for the AG-UI protocol, frontend actions are automatically available to the agent as
+        Since Mastra includes native support for the AG-UI protocol, frontend tools are automatically available to the agent as
         tools.
     </Step>
     <Step>
         ### Give it a try!
-        You've now given your agent the ability to directly call any CopilotActions you've defined. These actions will be available as tools to the agent where they can be used as needed.
+        You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
+
+        <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
     </Step>
 
-</Steps> 
+</Steps>

@@ -18,7 +18,7 @@ import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent
 />
 <Callout>
   This video demonstrates the [implementation](#implementation) section applied
-  to out [coagents starter
+  to our [coagents starter
   project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-llamaindex).
 </Callout>
 
@@ -96,7 +96,7 @@ import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
 
 const YourMainContent = () => {
   // ...
-  // [!code highlight:13]
+  // [!code highlight:12]
   useCopilotAction({
     name: "get_weather",
     available: "disabled", // Don't allow the agent or UI to call this tool as its only for rendering

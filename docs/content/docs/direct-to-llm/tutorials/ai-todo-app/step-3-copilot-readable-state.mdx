@@ -33,7 +33,7 @@ import { useCopilotReadable } from "@copilotkit/react-core"; // [!code highlight
 export const TasksProvider = ({ children }: { children: ReactNode }) => {
   const [tasks, setTasks] = useState<Task[]>(defaultTasks);
 
-  // [!code highlight:5]
+  // [!code highlight:4]
   useCopilotReadable({
     description: "The state of the todo list",
     value: JSON.stringify(tasks)

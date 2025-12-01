@@ -77,7 +77,8 @@ If you're seeing this error, it means CopilotKit couldn't find the LangGraph age
         ```
 
         ```tsx title="layout.tsx"
-        <CopilotKit agent="my_agent"> // [!code highlight]
+        {/* [!code highlight:1] */}
+        <CopilotKit agent="my_agent">
             {/* Your application components */}
         </CopilotKit>
         ```
@@ -105,7 +106,8 @@ If you're seeing this error, it means CopilotKit couldn't find the LangGraph age
         ```typescript title="/copilotkit/api/route.ts"
         const runtime = new CopilotRuntime({
           // ... The rest of your CopilotRuntime definition
-          agents: { // [!code highlight:7]
+          // [!code highlight:7]
+          agents: {
             'my_agent': new LangGraphAgent({
               deploymentUrl: '<your-api-url>',
               graphId: 'my_agent',
@@ -246,11 +248,11 @@ You can visit the [LangGraph Persistence guide](https://langchain-ai.github.io/l
 LangGraph agents are stateful. As a graph is traversed, the state is saved at the end of each node. CopilotKit uses the agent's state as
 the source of truth for what to display in the frontend chat. However, since state is only emitted at the end of a node,  CopilotKit allows
 you to stream predictive state updates *in the middle of a node*. By default, CopilotKit will stream messages and tool calls being actively
-generated to the frontend chat that initiated the interaction. **If this predictive state is not persisted at the end of the node, it will 
+generated to the frontend chat that initiated the interaction. **If this predictive state is not persisted at the end of the node, it will
 disappear in the frontend chat**.
 
 In this situation, the most likely scenario is that the `messages` property in the state is being updated in the middle of a node but those edits are not being
-persisted at the end of a node. 
+persisted at the end of a node.
 
 <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/message-state-diagram.png" />
 
@@ -258,16 +260,16 @@ persisted at the end of a node.
     <Accordion title="I want these messages to be persisted">
         To fix this, you can simply persist the messages by returning the new messages at the end of the node.
 
-         <Tabs groupId="language" items={["Python", "TypeScript"]}>
+         <Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]} persist>
             <Tab value="Python">
                 ```python
                 from copilotkit.langgraph import copilotkit_customize_config
- 
+
                 async def chat_node(state: AgentState, config: RunnableConfig):
                     # 1) Call the model with CopilotKit's modified config
                     model = ChatOpenAI(model="gpt-4o")
-                    response = await model.ainvoke(state["messages"], modifiedConfig) 
-                
+                    response = await model.ainvoke(state["messages"], modifiedConfig)
+
                     # 2) Make sure to return the new messages
                     return {
                         messages: response,
@@ -277,12 +279,12 @@ persisted at the end of a node.
             <Tab value="TypeScript">
                 ```typescript
                 import { copilotkitCustomizeConfig } from '@copilotkit/sdk-js/langgraph';
- 
+
                 async function chatNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
                     // 1) Call the model with CopilotKit's modified config
                     const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
                     const response = await model.invoke(state.messages, modifiedConfig);
-                
+
                     // 2) Make sure to return the new messages
                     return {
                         messages: response,
@@ -296,22 +298,22 @@ persisted at the end of a node.
         In this case, you can reference our document on [disabling streaming](/coagents/advanced/disabling-state-streaming). More specifically,
         you can use the copilotkit config to disable emitting messages anywhere you'd like a message to not be streamed.
 
-        <Tabs groupId="language" items={["Python", "TypeScript"]}>
+        <Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]} persist>
             <Tab value="Python">
                 ```python
                 from copilotkit.langgraph import copilotkit_customize_config
- 
+
                 async def chat_node(state: AgentState, config: RunnableConfig):
                     # 1) Configure CopilotKit not to emit messages
                     modifiedConfig = copilotkit_customize_config(
                         config,
                         emit_messages=False, # if you want to disable message streaming
                     )
-                
+
                     # 2) Call the model with CopilotKit's modified config
                     model = ChatOpenAI(model="gpt-4o")
-                    response = await model.ainvoke(state["messages"], modifiedConfig) 
-                
+                    response = await model.ainvoke(state["messages"], modifiedConfig)
+
                     # 3) Don't return the new response to hide it from the user
                     return state
                 ```
@@ -319,17 +321,17 @@ persisted at the end of a node.
             <Tab value="TypeScript">
                 ```typescript
                 import { copilotkitCustomizeConfig } from '@copilotkit/sdk-js/langgraph';
- 
+
                 async function chatNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
                     // 1) Configure CopilotKit not to emit messages
                     const modifiedConfig = copilotkitCustomizeConfig(config, {
                         emitMessages: false, // if you want to disable message streaming
                     });
-                
+
                     // 2) Call the model with CopilotKit's modified config
                     const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
                     const response = await model.invoke(state.messages, modifiedConfig);
-                
+
                     // 3) Don't return the new response to hide it from the user
                     return state;
                 }
@@ -342,6 +344,3 @@ persisted at the end of a node.
         </Callout>
     </Accordion>
 </Accordions>
-
-
-

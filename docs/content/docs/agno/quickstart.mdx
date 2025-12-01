@@ -1,6 +1,6 @@
 ---
 title: Quickstart
-description: Turn your Agno Agents into an agent-native application in 10 minutes.
+description: Turn your Agno agent into an agent-native application in 10 minutes.
 icon: "lucide/Play"
 hideTOC: true
 ---
@@ -9,25 +9,13 @@ import {
   TailoredContent,
   TailoredContentOption,
 } from "@/components/react/tailored-content.tsx";
-import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
-import { CoAgentsDiagram } from "@/components/react/coagents/coagents-diagram.tsx";
-import { FaPython, FaJs, FaCloud } from "react-icons/fa";
-import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
-import CopilotKitCloudCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
-import FindYourCopilotRuntime from "@/snippets/find-your-copilot-runtime.mdx";
-import CloudCopilotKitProvider from "@/snippets/coagents/cloud-configure-copilotkit-provider.mdx";
-import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/coagents/self-host-configure-copilotkit-provider.mdx";
-import SelfHostingCopilotRuntimeStarter from "@/snippets/self-hosting-copilot-runtime-starter.mdx";
-import SelfHostingRemoteEndpoints from "@/snippets/self-hosting-remote-endpoints.mdx";
 import {
   UserIcon,
   PaintbrushIcon,
   WrenchIcon,
-  RepeatIcon,
-  ServerIcon,
 } from "lucide-react";
-import CopilotUI from "@/snippets/copilot-ui.mdx";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
@@ -44,9 +32,9 @@ import CopilotUI from "@/snippets/copilot-ui.mdx";
 Before you begin, you'll need the following:
 
 - An OpenAI API key
-- Node.js 18+
-- Your favorite Node package manager
-- pip
+- Node.js 20+
+- Python 3.9+
+- Your favorite package manager
 
 ## Getting started
 
@@ -58,68 +46,36 @@ Before you begin, you'll need the following:
             <div>
                 <p className="text-xl font-semibold">Choose your starting point</p>
                 <p className="text-base">
-                    You can either start fresh with our starter template or integrate CopilotKit into your existing Agno Agent.
+                    You can either start fresh with our starter template or integrate CopilotKit into your existing Agno agent.
                 </p>
             </div>
         }
     >
         <TailoredContentOption
-            id="coagents-starter"
-            title="Start with our template"
-            description="Get started quickly with our pre-configured starter template."
-            icon={<img src="https://cdn.copilotkit.ai/docs/copilotkit/images/copilotkit-logo.svg" alt="CopilotKit Logo" width={20} height={20} />}
+            id="starter"
+            title="Start from scratch"
+            description="Get started quickly with our ready-to-go starter application."
         >
             <Step>
-                ### Clone the starter template
+                ### Run our CLI
 
                 ```bash
-                git clone https://github.com/CopilotKit/with-agno copilotkit-agno-starter
-                cd copilotkit-agno-starter
+                npx copilotkit@latest create -f agno
                 ```
             </Step>
             <Step>
                 ### Install dependencies
 
-                Now we need to install the depedencies for the frontend and the agent. This repo comes with a helper function to do this for you.
-
-                <Callout type="info">
-                    This Agno agent uses pip and manages the installation of dependencies through an package.json script, `install:agent`.
-                </Callout>
-
-                <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
-                    <Tab value="npm">
-                        ```bash
-                        npm install
-                        npm run install:agent
-                        ```
-                    </Tab>
-                    <Tab value="pnpm">
-                        ```bash
-                        pnpm install
-                        pnpm install:agent
-                        ```
-                    </Tab>
-                    <Tab value="yarn">
-                        ```bash
-                        yarn install
-                        yarn install:agent
-                        ```
-                    </Tab>
-                    <Tab value="bun">
-                        ```bash
-                        bun install
-                        bun install:agent
-                        ```
-                    </Tab>
-                </Tabs>
+                ```npm
+                ```
             </Step>
             <Step>
                 ### Configure your environment
 
-                This Agno agent uses OpenAI's `gpt-4o` by default, so we need to set the `OPENAI_API_KEY` environment variable.
+                Create a `.env` file in your agent directory and add your OpenAI API key:
 
-                ```bash
-                export OPENAI_API_KEY="your_openai_api_key"
+                ```plaintext title="agent/.env"
+                OPENAI_API_KEY=your_openai_api_key
                 ```
 
                 <Callout type="info" title="What about other models?">
@@ -128,7 +84,6 @@ Before you begin, you'll need the following:
             </Step>
             <Step>
                 ### Start the development server
-                This will start both the frontend and agent servers concurrently.
 
                 <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
                     <Tab value="npm">
@@ -158,104 +113,123 @@ Before you begin, you'll need the following:
         </TailoredContentOption>
         <TailoredContentOption
             id="bring-your-own"
-            title="Integrate with existing agent"
-            description="I already have a Agno Agent and want to add CopilotKit."
-            icon={<img src="https://cdn.copilotkit.ai/docs/copilotkit/images/copilotkit-logo.svg" alt="CopilotKit Logo" width={20} height={20} />}
+            title="Use an existing agent"
+            description="I already have an Agno agent and want to add CopilotKit."
         >
             <Step>
-                ### Serve your Agno agent as a AG-UI endpoint
+                ### Initialize your agent project
 
-                ```python title="agent.py"
-                from agno.app.agui.app import AGUIApp
-                from agno.agent.agent import Agent
-                from agno.models.openai import OpenAIChat
-                
-                # Setup your Agno Agent, can be any Agno Agent
-                agent = Agent(
-                    name="Agno Assistant",
-                    model=OpenAIChat(id="gpt-4o"),
-                    instructions="You are a helpful AI assistant.",
-                )
-                
-                # Setup the AG-UI app
-                agui_app = AGUIApp(
-                    agent=agent,
-                    name="AG-UI Agno Agent",
-                    app_id="agno_agent",
-                )
-                app = agui_app.get_app()
-                
-                # Serve the app, effectively exposing your Agno Agent
-                agui_app.serve(app="agno_agent:app", port=8000, reload=True)
+                If you don't already have a Python project set up, create one using `uv`:
+
+                ```bash
+                uv init my-agent
+                cd my-agent
                 ```
             </Step>
             <Step>
-                ### Frontend Setup
-                CopilotKit works with any React-based frontend. If you don't have one yet, you can create a new Next.js app:
+                ### Install Agno with AG-UI
+
+                Add Agno and uvicorn to your project:
+
+                ```bash
+                uv add agno fastapi uvicorn openai ag-ui-protocol
+                ```
+            </Step>
+            <Step>
+                ### Configure your environment
+
+                Set your OpenAI API key as an environment variable:
+
+                ```bash
+                export OPENAI_API_KEY=your_openai_api_key
+                ```
+
+                <Callout type="info" title="What about other models?">
+                  This example uses OpenAI's GPT-4o, but you can modify it to use any language model supported by Agno.
+                </Callout>
+            </Step>
+            <Step>
+                ### Expose your agent via AG-UI
+
+                Update your agent file to expose it as an AG-UI ASGI application:
+
+                ```python title="main.py"
+                from agno.agent import Agent
+                from agno.models.openai import OpenAIChat
+                from agno.os import AgentOS
+                from agno.os.interfaces.agui import AGUI
+
+                agent = Agent(
+                    model=OpenAIChat(id="gpt-4o"),
+                    description="A helpful assistant that can answer questions and provide information.",
+                    instructions="Be helpful and friendly. Format your responses using markdown where appropriate.",
+                )
+
+                agent_os = AgentOS(agents=[agent], interfaces=[AGUI(agent=agent)])
+                app = agent_os.get_app()
+
+                if __name__ == "__main__":
+                    agent_os.serve(app="main:app", port=8000, reload=True)
+                ```
+
+                <Callout type="info" title="What is AG-UI?">
+                  AG-UI is an open protocol for frontend-agent communication. AgentOS with the AGUI interface creates an ASGI app that CopilotKit can connect to.
+                </Callout>
+            </Step>
+            <Step>
+                ### Create your frontend
+
+                CopilotKit works with any React-based frontend. We'll use Next.js for this example.
 
                 ```bash
                 npx create-next-app@latest my-copilot-app
                 cd my-copilot-app
                 ```
-
-                <Callout type="info" title="What about other frameworks?">
-                    While we recommend Next.js for its simplicity and features, CopilotKit will work with any React framework (Vite, Remix, Tanstack, etc.) or custom React setup.
-                </Callout>
             </Step>
             <Step>
                 ### Install CopilotKit packages
 
-                ```package-install
-                @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/agno
+                ```npm
+               @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/agno
                 ```
             </Step>
             <Step>
                 ### Setup Copilot Runtime
 
-                CopilotKit requires a Copilot Runtime endpoint to safely communicate with your agent. This can be served
-                anywhere that Node.js can run, but for this example we'll just use Next.js.
+                Create an API route to connect CopilotKit to your Agno agent:
 
-                ```ts title="app/api/copilotkit/route.ts"
+                ```tsx title="app/api/copilotkit/route.ts"
                 import {
                   CopilotRuntime,
                   ExperimentalEmptyAdapter,
                   copilotRuntimeNextJSAppRouterEndpoint,
                 } from "@copilotkit/runtime";
-                // [!code highlight:3]
-                import { AgnoAgent } from "@ag-ui/agno"
+                import { AgnoAgent } from "@ag-ui/agno";
                 import { NextRequest } from "next/server";
-                
-                // 1. You can use any service adapter here for multi-agent support. We use
-                //    the empty adapter since we're only using one agent.
+
                 const serviceAdapter = new ExperimentalEmptyAdapter();
 
-                // [!code highlight:8]
-                // 2. Create the CopilotRuntime instance and utilize the Agno AG-UI
-                //    integration to setup the connection.
                 const runtime = new CopilotRuntime({
-                     agents: {
-                        // Our FastAPI endpoint URL
-                        "agno_agent": new AgnoAgent({url: "http://localhost:8000/agui"}),
-                    }   
+                  agents: {
+                    my_agent: new AgnoAgent({ url: "http://localhost:8000/agui" }),
+                  }
                 });
 
-                // 3. Build a Next.js API route that handles the CopilotKit runtime requests.
                 export const POST = async (req: NextRequest) => {
                   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-                    runtime, // [!code highlight]
+                    runtime,
                     serviceAdapter,
                     endpoint: "/api/copilotkit",
                   });
-                
+
                   return handleRequest(req);
                 };
-                ```
+               ```
             </Step>
             <Step>
                 ### Configure CopilotKit Provider
 
-                Next, wrap your application with the CopilotKit provider so that CopilotKit can take control across your application
-                via the Agno agent.
+                Wrap your application with the CopilotKit provider:
 
                 ```tsx title="app/layout.tsx"
                 import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
@@ -267,18 +241,14 @@ Before you begin, you'll need the following:
                   return (
                     <html lang="en">
                       <body>
-                        /* [!code highlight:7] */
-                        <CopilotKit 
-                          runtimeUrl="/api/copilotkit" 
-                          agent="agno_agent"
-                        >
+                        {/* [!code highlight:3] */}
+                        <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
                           {children}
                         </CopilotKit>
                       </body>
                     </html>
                   );
                 }
-
                 ```
             </Step>
             <Step>
@@ -287,44 +257,91 @@ Before you begin, you'll need the following:
               Add the CopilotSidebar component to your page:
 
               ```tsx title="app/page.tsx"
-              import { CopilotSidebar } from "@copilotkit/react-ui"; // [!code highlight]
+              import { CopilotSidebar } from "@copilotkit/react-ui"; // [!code highlight:1]
 
               export default function Page() {
                 return (
                   <main>
                     <h1>Your App</h1>
-                    <CopilotSidebar /> // [!code highlight]
+                    {/* [!code highlight:1] */}
+                    <CopilotSidebar />
                   </main>
                 );
               }
               ```
+            </Step>
+            <Step>
+                ### Start your agent
+
+                From your agent directory, start the agent server:
+
+                ```bash
+                cd ..
+                uv run main.py
+                ```
+
+                Your agent will be available at `http://localhost:8000/agui`.
+            </Step>
+            <Step>
+                ### Start your UI
+
+                In a separate terminal, navigate to your frontend directory and start the development server:
+
+                <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+                    <Tab value="npm">
+                        ```bash
+                        cd my-copilot-app
+                        npm run dev
+                        ```
+                    </Tab>
+                    <Tab value="pnpm">
+                        ```bash
+                        cd my-copilot-app
+                        pnpm dev
+                        ```
+                    </Tab>
+                    <Tab value="yarn">
+                        ```bash
+                        cd my-copilot-app
+                        yarn dev
+                        ```
+                    </Tab>
+                    <Tab value="bun">
+                        ```bash
+                        cd my-copilot-app
+                        bun dev
+                        ```
+                    </Tab>
+                </Tabs>
             </Step>
         </TailoredContentOption>
     </TailoredContent>
     <Step>
         ### 🎉 Start chatting!
 
-        Your AI agent is now ready to use! Try asking it some questions:
+        Your AI agent is now ready to use! Navigate to `localhost:3000` and try asking it some questions:
 
         ```
-        What tools do you have access to?
+        Can you tell me a joke?
+        ```
+
+        ```
+        Can you help me understand AI?
         ```
 
         ```
         What do you think about React?
         ```
 
-        ```
-        Show me some cool things you can do!
-        ```
-
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
                 - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
-                - Make sure your Agno agent is running on port 8000
-                - Check that your OpenAI API key is correctly set in the `.env` file
+                - Make sure your agent is running on port 8000
+                - Check that your OpenAI API key is correctly set
+                - Verify that the `@ag-ui/client` package is installed in your frontend
             </Accordion>
         </Accordions>
+
     </Step>
 </Steps>
 
@@ -346,9 +363,9 @@ Now that you have your basic agent setup, explore these advanced features:
     icon={<PaintbrushIcon />}
   />
   <Card
-    title="Setup frontend actions"
+    title="Setup frontend tools"
     description="Give your agent the ability to call frontend tools, directly updating your application."
-    href="/agno/frontend-actions"
+    href="/agno/frontend-tools"
     icon={<WrenchIcon />}
   />
-</Cards> 
+</Cards>

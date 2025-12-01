@@ -67,7 +67,7 @@ export interface UseCopilotChatReturn {
    */
   messages: Message[];
 
-  /** @deprecated use `sendMessage` instead */
+  /** @deprecated use `sendMessage` in `useCopilotChatHeadless_c` instead. This will be removed in a future major version. */
   appendMessage: (message: DeprecatedGqlMessage, options?: AppendMessageOptions) => Promise<void>;
 
   /**

@@ -49,7 +49,7 @@ Manually emitted messages are great for **when you don't want to wait for the fu
         ### Manually emit a message
         The `copilotkit_emit_message` method allows you to emit messages early in a functions's execution to communicate status updates to the user. This is particularly useful for long running tasks.
 
-        <Tabs groupId="language" items={['Python']} default="Python">
+        <Tabs groupId="language_crewai-flows_agent" items={['Python']} default="Python" persist>
             <Tab value="Python">
                 ```python
                 from litellm import completion
@@ -59,7 +59,7 @@ Manually emitted messages are great for **when you don't want to wait for the fu
 
                 @start()
                 async def start(self):
-                    # [!code highlight:3]
+                    # [!code highlight:2]
                     intermediate_message = "Thinking really hard..."
                     await copilotkit_emit_message(intermediate_message)
 

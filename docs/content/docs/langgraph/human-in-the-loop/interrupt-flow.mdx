@@ -1,23 +1,31 @@
 ---
-title: Interrupt
+title: Interrupt Based
 icon: "lucide/CirclePause"
 description: Learn how to implement Human-in-the-Loop (HITL) using a interrupt-based flow.
 ---
 import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 import {
-    TailoredContent,
-    TailoredContentOption,
+  TailoredContent,
+  TailoredContentOption,
 } from "@/components/react/tailored-content.tsx";
 import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx"
 import { MessageCircle, PanelsTopLeft } from "lucide-react";
+import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx"
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
-<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/interrupt-flow.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<IframeSwitcher
+  id="human-in-the-loop-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
 
 <Callout type="info">
-  Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter) with
-  the implementation below applied!
+  This example demonstrates interrupt-based human-in-the-loop (HITL) in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop).
 </Callout>
-
 
 ## What is this?
 
@@ -31,31 +39,31 @@ Human-in-the-loop is a powerful way to implement complex workflows that are prod
 you can ensure that the agent is always making the right decisions and ultimately is being steered in the right direction.
 
 Interrupt-based flows are a very intuitive way to implement HITL. Instead of having a node await user input before or after its execution,
-nodes can be interrupted in the middle of their execution to allow for user input. The trade-off is that the agent is not aware of the 
+nodes can be interrupted in the middle of their execution to allow for user input. The trade-off is that the agent is not aware of the
 interaction, however [CopilotKit's SDKs provide helpers to alleviate this](#make-your-agent-aware-of-interruptions).
 
 ## Implementation
 
 <Steps>
 <Step>
-### Run and connect your agent
-<RunAndConnectAgentSnippet />
+  ### Run and connect your agent
+  <RunAndConnect components={props.components} />
 </Step>
 <Step>
   ### Install the CopilotKit SDK
-  <InstallSDKSnippet components={props.components}/>
+  <InstallSDKSnippet components={props.components} />
 </Step>
 <Step>
-### Setup your agent state
+### Set up your agent state
 We're going to have the agent ask us to name it, so we'll need a state property to store the name.
 
-<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+<Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
     <Tab value="Python">
-        ```python title="agent/sample_agent/agent.py"
+        ```python title="agent.py"
         # ...
         from copilotkit import CopilotKitState # extends MessagesState
         # ...
-        
+
         # This is the state of the agent.
         # It inherits from the CopilotKitState properties from CopilotKit.
         class AgentState(CopilotKitState):
@@ -68,7 +76,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
         import { Annotation } from "@langchain/langgraph";
         import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
         // ...
-        
+
         // This is the state of the agent.
         // It inherits from the CopilotKitState properties from CopilotKit.
         export const AgentStateAnnotation = Annotation.Root({
@@ -91,9 +99,9 @@ We're going to have the agent ask us to name it, so we'll need a state property 
         If you want this behavior, see the [section on it below](#make-your-agent-aware-of-interruptions).
     </Callout>
 
-    <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+    <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
         <Tab value="Python">
-            ```python title="agent/sample_agent/agent.py"
+            ```python title="agent.py"
             from langgraph.types import interrupt # [!code highlight]
             from langchain_core.messages import SystemMessage
             from langchain_openai import ChatOpenAI
@@ -143,7 +151,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
 
                 // Tell the agent its name
                 const systemMessage = new SystemMessage({
-                    content: `You are a helpful assistant named ${state.agentName}...`,
+                    content: `You are a helpful assistant named ${agentName}...`,
                 });
 
                 const response = await new ChatOpenAI({ model: "gpt-4o" }).invoke(
@@ -174,7 +182,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
 
     const YourMainContent = () => {
     // ...
-    // [!code highlight:16]
+    // [!code highlight:15]
     // styles omitted for brevity
     useLangGraphInterrupt({
         render: ({ event, resolve }) => (
@@ -200,6 +208,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
 <Step>
 ### Give it a try!
 Try talking to your agent, you'll see that it now pauses execution and waits for you to respond!
+<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/interrupt-flow.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
 </Step>
 </Steps>
 
@@ -214,9 +223,9 @@ For this reason, the hook can take an `enabled` argument which will apply it con
     <Step>
         ### Define multiple interrupts
         First, let's define two different interrupts. We will include a "type" property to differentiate them.
-        <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+        <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
             <Tab value="Python">
-                ```python title="agent/sample_agent/agent.py"
+                ```python title="agent.py"
                 from langgraph.types import interrupt # [!code highlight]
                 from langchain_core.messages import SystemMessage
                 from langchain_openai import ChatOpenAI
@@ -315,7 +324,7 @@ For this reason, the hook can take an `enabled` argument which will apply it con
 
         const YourMainContent = () => {
             // ...
-            // [!code highlight:14]
+            // [!code highlight:13]
             useLangGraphInterrupt({
                 enabled: ({ eventValue }) => eventValue.type === 'ask',
                 render: ({ event, resolve }) => (
@@ -360,7 +369,7 @@ const YourMainContent = () => {
 
     // ...
     // styles omitted for brevity
-    // [!code highlight:30]
+    // [!code highlight:28]
     useLangGraphInterrupt({
         handler: async ({ result, event, resolve }) => {
             const { department } = await getUserByEmail(userEmail)

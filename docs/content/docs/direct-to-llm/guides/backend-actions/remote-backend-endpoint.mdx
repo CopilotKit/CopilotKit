@@ -5,7 +5,7 @@ icon: "custom/python"
 ---
 import FindCopilotRuntimeSnippet from "@/snippets/find-your-copilot-runtime.mdx";
 import CopilotCloudConfigureRemoteEndpointSnippet from "@/snippets/copilot-cloud-configure-remote-endpoint.mdx";
-import CopilotCloudConfigureCopilotkitProviderSnippet from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
+import CopilotCloudConfigureCopilotKitProviderSnippet from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
 import { TailoredContent, TailoredContentOption } from "@/components/react/tailored-content";
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import { FaCloud, FaServer } from "react-icons/fa";
@@ -147,11 +147,11 @@ action = CopilotAction(
     handler=fetch_name_for_user_id
 )
 
-# Initialize the CopilotKit SDK # [!code highlight:2]
-sdk = CopilotKitRemoteEndpoint(actions=[action])
+# Initialize the CopilotKit SDK
+sdk = CopilotKitRemoteEndpoint(actions=[action]) # [!code highlight]
 
-# Add the CopilotKit endpoint to your FastAPI app # [!code highlight:2]
-add_fastapi_endpoint(app, sdk, "/copilotkit_remote")
+# Add the CopilotKit endpoint to your FastAPI app
+add_fastapi_endpoint(app, sdk, "/copilotkit_remote") # [!code highlight]
 
 def main():
     """Run the uvicorn server."""
@@ -222,7 +222,8 @@ Now that you've set up your FastAPI server with the backend actions, integrate i
                 ```tsx
                 const runtime = new CopilotRuntime({
                     // ...existing configuration
-                    remoteEndpoints: [ // [!code highlight:5]
+                    // [!code highlight:3]
+                    remoteEndpoints: [
                         { url: "http://localhost:8000/copilotkit_remote" },
                     ],
                 });

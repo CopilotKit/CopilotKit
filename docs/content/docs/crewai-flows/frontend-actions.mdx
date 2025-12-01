@@ -57,11 +57,10 @@ Check out the [Frontend Actions overview](/frontend-actions) to understand what 
         ```
     </Step>
     <Step>
-        ###  Modify your agent
-        Now, we'll need to modify the agent to access these frontend actions. Open up for your agent's folder and continue from there!
-    </Step>
-    <Step>
         ### Install the CopilotKit SDK
+        
+        Now, we'll need to modify the agent to access these frontend tools. In your terminal, navigate to your agent's folder and continue from there!
+
         <InstallSDKSnippet components={props.components}/>
     </Step>
     <Step>
@@ -69,7 +68,7 @@ Check out the [Frontend Actions overview](/frontend-actions) to understand what 
 
         To access the frontend actions provided by CopilotKit, you can inherit from CopilotKitState in your agent's state definition:
 
-        <Tabs groupId="language" items={['Python']} default="Python">
+        <Tabs groupId="language_crewai-flows_agent" items={['Python']} default="Python" persist>
             <Tab value="Python">
                 ```python title="agent-py/sample_agent/agent.py"
                 from copilotkit import CopilotKitState # [!code highlight]
@@ -89,7 +88,7 @@ Check out the [Frontend Actions overview](/frontend-actions) to understand what 
 
         Here's how you can call a frontend action from your agent:
 
-        <Tabs groupId="language" items={['Python']} default="Python">
+        <Tabs groupId="language_crewai-flows_agent" items={['Python']} default="Python" persist>
             <Tab value="Python">
                 ```python title="agent-py/sample_agent/agent.py"
                 async def agent(self):

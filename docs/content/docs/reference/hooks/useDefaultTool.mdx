@@ -1,0 +1,136 @@
+---
+title: "useDefaultTool"
+description: "The useDefaultTool hook enables rendering of a default UI which catches any tool that does not have a specific renderer."
+---
+
+`useDefaultTool` is a React hook that allows you to render custom UI for any tool
+call that doesn't have a specific renderer
+
+## Usage
+
+```tsx
+import { useDefaultTool } from "@copilotkit/react-core";
+
+useDefaultTool({
+  render: ({ name, args, status, result }) => {
+    return (
+      <div className="p-4 border rounded my-2">
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="font-semibold">{name}</h4>
+          <span className="text-sm text-gray-500">
+            {status === "inProgress" && "Running..."}
+            {status === "executing" && "Executing..."}
+            {status === "complete" && "Complete"}
+          </span>
+        </div>
+
+        {Object.keys(args).length > 0 && (
+          <div className="mb-2">
+            <p className="text-sm font-medium text-gray-600">Parameters:</p>
+            <pre className="text-xs bg-gray-100 p-2 rounded mt-1">
+              {JSON.stringify(args, null, 2)}
+            </pre>
+          </div>
+        )}
+
+        {status === "complete" && result && (
+          <div>
+            <p className="text-sm font-medium text-gray-600">Result:</p>
+            <pre className="text-xs bg-gray-100 p-2 rounded mt-1">
+              {JSON.stringify(result, null, 2)}
+            </pre>
+          </div>
+        )}
+      </div>
+    );
+  },
+});
+```
+
+### Rendering Model Context Protocol (MCP) Tools
+
+```tsx
+import { useDefaultTool } from "@copilotkit/react-core";
+
+// Render any MCP tool call with a custom UI
+useDefaultTool({
+  render: ({ name, args, status, result }) => {
+    // Custom rendering for MCP tools
+    if (name.startsWith("mcp_")) {
+      return <MCPToolRenderer name={name} args={args} status={status} result={result} />;
+    }
+
+    // Default rendering for other tools
+    return <DefaultToolRenderer name={name} args={args} status={status} result={result} />;
+  },
+});
+```
+
+## Parameters
+
+<PropertyReference name="tool" type="ReactRenderToolCall<T>" required>
+  The tool rendering configuration object.
+    <PropertyReference name="render" type="React.ComponentType<RenderProps>">
+      A React component that renders the tool call UI. The component receives props with:
+
+      <div className="ml-8">
+        <PropertyReference name="status" type="'inProgress' | 'executing' | 'complete'">
+          - `"inProgress"`: Tool is being prepared or arguments are being streamed.
+          - `"executing"`: Tool is actively running.
+          - `"complete"`: Tool execution has finished.
+        </PropertyReference>
+
+        <PropertyReference name="args" type="Partial<T> | T | any">
+          The arguments passed to the tool. Type-safe if parameters schema is provided.
+          For catch-all renderers (`name: "*"`), this will be `any`.
+        </PropertyReference>
+
+        <PropertyReference name="result" type="any">
+          The result returned by the tool. Only available when status is `"complete"`.
+        </PropertyReference>
+
+        <PropertyReference name="name" type="string">
+          The actual name of the tool being executed. Particularly useful for
+          catch-all renderers to know which tool is being rendered.
+        </PropertyReference>
+
+        <PropertyReference name="description" type="string">
+          The description of the tool being executed.
+        </PropertyReference>
+      </div>
+    </PropertyReference>
+</PropertyReference>
+
+<PropertyReference name="dependencies" type="any[]">
+  An optional array of dependencies.
+</PropertyReference>
+
+## Common Use Cases
+
+1. **Backend Tool Visualization**: Display progress and results of long-running backend operations
+2. **Generic Tool Rendering**: Provide a fallback UI for any tool without specific rendering
+3. **MCP Tool Integration**: Render Model Context Protocol tools from various sources
+4. **Debugging**: Display all tool calls during development
+5. **Analytics**: Track and display tool usage
+
+## Migration from useCopilotAction
+
+If you're migrating from `useCopilotAction` with only a `render` function:
+
+```tsx
+// Before with useCopilotAction
+useCopilotAction({
+  render: ({ name, args, status, result }) => (
+    <GenericToolCall name={name} args={args} status={status} result={result} />
+  ),
+});
+
+// After with useDefaultTool
+useDefaultTool({
+  render: ({ name, args, status, result }) => (
+    <GenericToolCall name={name} args={args} status={status} result={result} />
+  ),
+});
+```
+
+The migration is straightforward - just change the hook name. The render props remain the same.

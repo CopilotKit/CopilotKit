@@ -12,7 +12,7 @@ This way, you can notify your agent of what is going in your app in real time.
 ## When should I use this?
 
 You can use this when you want to provide the user with feedback about what your working memory. As your agent's 
-state update you can reflect these updates natively in your application.
+state updates, you can reflect these updates natively in your application.
 
 Some examples might be: the current user, the current page, etc. This be shared with your agent in real time.
 
@@ -37,7 +37,7 @@ Some examples might be: the current user, the current page, etc. This be shared 
             ]);
 
             // Define Copilot readable state
-            // [!code highlight:5]
+            // [!code highlight:4]
             useCopilotReadable({
                 description: "The current user's colleagues",
                 value: colleagues,
@@ -62,7 +62,7 @@ Some examples might be: the current user, the current page, etc. This be shared 
             name: "Colleagues contact Agent",
             model: openai("gpt-4o"),
             // Use the injected runtime context
-            // [!code highlight:10]
+            // [!code highlight:9]
             instructions: ({ runtimeContext }) => {
               // AG-UI context is an array of items, the specific context can be grabbed by filtering
               const aguiContext = runtimeContext.get('ag-ui')?.context

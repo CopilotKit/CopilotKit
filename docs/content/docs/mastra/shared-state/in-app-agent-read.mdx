@@ -4,14 +4,20 @@ icon: "lucide/ArrowLeft"
 description: Read the realtime agent state in your native application.
 ---
 import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
+import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx"
+import { IframeSwitcher } from "@/components/content"
 
-<Frame>
-  <ImageZoom src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/read-agent-state.png" alt="read agent state" width={1000} height={1000} className="my-0"/>
-</Frame>
+<IframeSwitcher
+  id="shared-state-read-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/mastra-agent-local/feature/shared_state?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/mastra-agent-local/feature/shared_state?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
 
 <Callout type="info">
-  Pictured above is the [mastra starter](https://github.com/copilotkit/with-mastra) with
-  the [implementation](#implementation) section applied!
+  This example demonstrates reading from shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/mastra/feature/shared_state).
 </Callout>
 
 ## What is this?
@@ -32,28 +38,15 @@ You can easily use the realtime agent state not only in the chat UI, but also in
 
 ## When should I use this?
 
-You can use this when you want to provide the user with feedback about what your working memory. As your agent's 
-state update you can reflect these updates natively in your application.
+You can use this when you want to provide the user with feedback about what your working memory. As your agent's
+state updates, you can reflect these updates natively in your application.
 
 ## Implementation
 
 <Steps>
   <Step>
-    ### Run and Connect Your Agent to CopilotKit
-
-    You'll need to run your agent and connect it to CopilotKit before proceeding.
-
-    #### I already have an agent
-
-    You can follow the instructions in the [quickstart](/mastra/quickstart) guide.
-    
-    #### I want to start from scratch
-
-    Run the following command to create a brand new project with a pre-configured agent:
-
-    ```bash
-    npx copilotkit@latest create -f mastra
-    ```
+    ### Run and connect your agent
+    <RunAndConnect components={props.components} />
   </Step>
   <Step>
     ### Define the Agent State
@@ -69,7 +62,7 @@ state update you can reflect these updates natively in your application.
     import { z } from "zod";
     import { Memory } from "@mastra/memory";
 
-    // [!code highlight:5]
+    // [!code highlight:4]
     // 1. Define the agent state schema
     export const AgentStateSchema = z.object({
       language: z.enum(["english", "spanish"]),
@@ -86,7 +79,7 @@ state update you can reflect these updates natively in your application.
       memory: new Memory({
         storage: new LibSQLStore({ url: "file::memory:" }),
         options: {
-          // [!code highlight:5]
+          // [!code highlight:4]
           workingMemory: {
             enabled: true,
             schema: AgentStateSchema,
@@ -94,7 +87,7 @@ state update you can reflect these updates natively in your application.
         },
       }),
     });
-    ```    
+    ```
   </Step>
   <Step>
     ### Use the `useCoAgent` Hook
@@ -106,10 +99,11 @@ state update you can reflect these updates natively in your application.
     import { AgentState } from "@/mastra/agents/language-agent";
 
     function YourMainContent() {
-      const { state } = useCoAgent<AgentState>({ // [!code highlight:5]
-          name: "your-mastra-agent-name",
+      // [!code highlight:5]
+      const { state } = useCoAgent<AgentState>({
+        name: "your-mastra-agent-name",
         // optionally provide a type-safe initial state
-        initialState: { language: "spanish" }  
+        initialState: { language: "spanish" }
       });
 
       // ...
@@ -118,8 +112,8 @@ state update you can reflect these updates natively in your application.
         // style excluded for brevity
         <div>
           <h1>Your main content</h1>
-          // [!code highlight:2]
-          <p>Language: {state.language}</p> 
+          {/* [!code highlight:1] */}
+          <p>Language: {state.language}</p>
         </div>
       );
     }
@@ -137,7 +131,7 @@ state update you can reflect these updates natively in your application.
 
 ## Rendering agent state in the chat
 
-You can also render the working memory in the chat UI. This is useful for informing the user about the working memory in a 
+You can also render the working memory in the chat UI. This is useful for informing the user about the working memory in a
 more in-context way. To do this, you can use the [useCoAgentStateRender](/reference/hooks/useCoAgentStateRender) hook.
 
 ```tsx title="ui/app/page.tsx"
@@ -150,7 +144,7 @@ type AgentState = {
 
 function YourMainContent() {
   // ...
-  // [!code highlight:8]
+  // [!code highlight:7]
   useCoAgentStateRender({
     name: "your-mastra-agent-name",
     render: ({ state }) => {

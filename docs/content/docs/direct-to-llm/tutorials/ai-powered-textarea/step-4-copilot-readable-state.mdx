@@ -22,7 +22,7 @@ import { useCopilotReadable } from "@copilotkit/react-core"; // [!code highlight
 export const EmailsProvider = ({ children }: { children: ReactNode }) => {
   const [emails, setEmails] = useState<Email[]>(emailHistory);
 
-  // [!code highlight:5]
+  // [!code highlight:4]
   useCopilotReadable({
     description: "The history of this email thread",
     value: emails

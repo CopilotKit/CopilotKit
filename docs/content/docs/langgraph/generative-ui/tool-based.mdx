@@ -4,7 +4,7 @@ icon: "lucide/Wrench"
 description: Render your agent's tool calls with custom UI components.
 ---
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
-import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx"
+import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx"
 
 <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tool-based-gen-ui.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
 <Callout>
@@ -26,19 +26,19 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 <Steps>
 <Step>
 ### Run and connect your agent
-<RunAndConnectAgentSnippet />
+<RunAndConnect components={props.components} />
 </Step>
 <Step>
 ### Give your agent a tool to call
 
-<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+<Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
     <Tab value="Python">
-        ```python title="agent/sample_agent/agent.py"
+        ```python title="agent.py"
         from langchain_openai import ChatOpenAI
         from langchain.tools import tool
         # ...
 
-        # [!code highlight:7]
+        # [!code highlight:6]
         @tool
         def get_weather(location: str):
             """
@@ -65,7 +65,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
         import { ChatOpenAI } from "@langchain/openai";
         import { tool } from "@langchain/core/tools";
 
-        // [!code highlight:13]
+        // [!code highlight:12]
         const get_weather = tool(
           (args) => {
             return `The weather for ${args.location} is 70 degrees.`;
@@ -110,7 +110,7 @@ import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
 
 const YourMainContent = () => {
   // ...
-  // [!code highlight:13]
+  // [!code highlight:12]
   useCopilotAction({
     name: "get_weather",
     available: "disabled", // Don't allow the agent or UI to call this tool as its only for rendering

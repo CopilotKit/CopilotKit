@@ -1,0 +1,127 @@
+---
+title: "useRenderToolCall"
+description: "The useRenderToolCall hook enables rendering of backend tool calls in the frontend."
+---
+
+`useRenderToolCall` is purely a rendering hook — it displays custom UI for tool calls without executing
+any logic. This is typically used to visualize backend tool executions in your chat interface, showing
+users what the AI is doing behind the scenes.
+
+This hook has no handler function. You only provide a render function that receives information about
+the tool call (arguments, status, results) and displays it however you want. You can target specific
+tool names or use an empty string (`""`) to catch and render all tool calls.
+
+## Usage
+
+### Rendering a Specific Backend Tool
+
+```tsx
+import { useRenderToolCall } from "@copilotkit/react-core";
+
+useRenderToolCall({
+  name: "analyzeData",
+  description: "Display results of data analysis",
+  parameters: [
+    {
+      name: "datasetName",
+      type: "string",
+      description: "Name of the dataset being analyzed",
+      required: true,
+    },
+    {
+      name: "metrics",
+      type: "string[]",
+      description: "Metrics being calculated",
+      required: true,
+    },
+  ],
+  render: ({ args, status, result }) => {
+    if (status === "inProgress") {
+      return (
+        <div className="p-4 border rounded animate-pulse">
+          <h3>Analyzing {args.datasetName}...</h3>
+          <p>Calculating: {args.metrics?.join(", ")}</p>
+        </div>
+      );
+    }
+
+    if (status === "complete" && result) {
+      return (
+        <div className="p-4 border rounded bg-green-50">
+          <h3>Analysis Complete: {args.datasetName}</h3>
+          <pre className="mt-2 p-2 bg-gray-100 rounded">
+            {JSON.stringify(result, null, 2)}
+          </pre>
+        </div>
+      );
+    }
+
+    return null;
+  },
+});
+```
+
+## Migration from useCopilotAction
+
+If you're migrating from `useCopilotAction` with only a `render` function:
+
+```tsx
+// Before with useCopilotAction
+useCopilotAction({
+  name: "showResult",
+  render: ({ args }) => <ResultCard {...args} />,
+});
+
+// After with useRenderToolCall
+useRenderToolCall({
+  name: "showResult",
+  render: ({ args }) => <ResultCard {...args} />,
+});
+```
+
+The migration is straightforward - just change the hook name. The render props remain the same.
+
+## Parameters
+
+<PropertyReference name="name" type="string" required >
+The name of the tool to render. Use `""` to catch all tool calls.
+</PropertyReference>
+
+<PropertyReference name="description" type="string"  >
+A description of what this renderer does. Mainly for documentation purposes.
+</PropertyReference>
+
+<PropertyReference name="parameters" type="T"  >
+Optional array of parameter definitions. If provided, adds type safety to the args in the render function. Each parameter object should have:
+- `name` (string): The parameter name
+- `type` (string): The parameter type (e.g., "string", "number", "boolean", "string[]", "object")
+- `description` (string): A description of what the parameter is for
+- `required` (boolean): Whether the parameter is required
+- `properties` (array, optional): For object types, define nested properties using the same schema
+
+Simple example: `[{ name: "datasetName", type: "string", description: "Name of the dataset", required: true }]`
+
+Nested example:
+```typescript
+[
+  {
+    name: "analysisConfig",
+    type: "object",
+    description: "Configuration for the analysis",
+    required: true,
+    properties: [
+      { name: "method", type: "string", description: "Analysis method to use", required: true },
+      { name: "threshold", type: "number", description: "Threshold value", required: false }
+    ]
+  }
+]
+```
+</PropertyReference>
+
+<PropertyReference name="render" type="FrontendAction<T>['render']"  >
+A React component that renders the tool call UI. The component receives props with `status`, `args`, `result`, `name`, and `description`.
+</PropertyReference>
+
+<PropertyReference name="available" type="'disabled' | 'enabled'"  >
+Whether the renderer is available. Set to "disabled" to prevent rendering.
+</PropertyReference>

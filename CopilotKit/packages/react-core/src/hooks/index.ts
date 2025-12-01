@@ -19,3 +19,7 @@ export { useLangGraphInterrupt } from "./use-langgraph-interrupt";
 export { useLangGraphInterruptRender } from "./use-langgraph-interrupt-render";
 export { useCopilotAdditionalInstructions } from "./use-copilot-additional-instructions";
 export type { Tree, TreeNode } from "./use-tree";
+export { useFrontendTool } from "./use-frontend-tool";
+export { useHumanInTheLoop } from "./use-human-in-the-loop";
+export { useRenderToolCall } from "./use-render-tool-call";
+export { useDefaultTool } from "./use-default-tool";

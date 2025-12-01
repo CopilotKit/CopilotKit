@@ -32,7 +32,7 @@ If you are not sure yet, simply ignore this note.
     <If conditions={[{ key: 'packageName', value: true }]}>
         ### Install provider package
 
-        ```package-install
+        ```npm
         npm install {{packageName}}
         ```
     </If>
@@ -254,7 +254,7 @@ If you are not sure yet, simply ignore this note.
             import { Request, Response } from 'express';
 
             @Controller()
-            export class CopilotkitController {
+            export class CopilotKitController {
               @All('/copilotkit')
               copilotkit(@Req() req: Request, @Res() res: Response) {
                 {{adapterSetup}}
