@@ -62,7 +62,7 @@ included in the function's final returned state. Otherwise, they will be overwri
 
         <Tabs groupId="language_crewai-flows_agent" items={["Python"]} persist>
             <Tab value="Python">
-                ```python title="agent-py/sample_agent/agent.py"
+                ```python title="agent.py"
                 from copilotkit.crewai import CopilotKitState
                 from typing import Literal
 
@@ -95,7 +95,7 @@ included in the function's final returned state. Otherwise, they will be overwri
                 For long-running tasks, you can emit state updates progressively as predictions of the final state. In this example, we simulate a long-running task by executing a series of steps with a one second delay between each update.
                 <Tabs groupId="language_crewai-flows_agent" items={['Python']} default="Python" persist>
                     <Tab value="Python">
-                        ```python title="agent-py/sample_agent/agent.py"
+                        ```python title="agent.py"
                         from copilotkit.crewai import copilotkit_emit_state # [!code highlight]
                         from crewai.flow.flow import Flow, start
                         import asyncio

@@ -88,7 +88,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
         Add the frontend tool to your agent so it knows about it. Since the tool will be executed in the frontend,
         we'll add it to the `frontend_tools` list.
 
-        ```python title="agent-py/agent/agent.py"
+        ```python title="agent.py"
         from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
         from llama_index.llms.openai import OpenAI
         from fastapi import FastAPI
