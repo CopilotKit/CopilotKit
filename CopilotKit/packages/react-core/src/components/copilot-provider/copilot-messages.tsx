@@ -124,9 +124,23 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
 
   const { updateTapMessages } = useMessagesTap();
 
-  const { threadId, agentSession, runtimeClient, showDevConsole, onError, copilotApiConfig } =
-    useCopilotContext();
+  const {
+    threadId,
+    agentSession,
+    runtimeClient,
+    showDevConsole,
+    onError,
+    copilotApiConfig,
+    initialMessagesRef,
+  } = useCopilotContext();
   const { setBannerError } = useToast();
+
+  // Initialize messages from context ref on mount (survives remounts)
+  useEffect(() => {
+    if (initialMessagesRef.current && initialMessagesRef.current.length > 0 && messages.length === 0) {
+      setMessages(initialMessagesRef.current);
+    }
+  }, []); // Empty deps - only run on mount
 
   // Helper function to trace UI errors (similar to useCopilotRuntimeClient)
   const traceUIError = useCallback(
@@ -254,7 +268,9 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    if (!threadId || threadId === lastLoadedThreadId.current) return;
+    if (!threadId || threadId === lastLoadedThreadId.current) {
+      return;
+    }
     if (
       threadId === lastLoadedThreadId.current &&
       agentSession?.agentName === lastLoadedAgentName.current
@@ -263,7 +279,9 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
     }
 
     const fetchMessages = async () => {
-      if (!agentSession?.agentName) return;
+      if (!agentSession?.agentName) {
+        return;
+      }
 
       const result = await runtimeClient.loadAgentState({
         threadId,
@@ -280,15 +298,27 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
       }
 
       const newMessages = result.data?.loadAgentState?.messages;
-      if (newMessages === lastLoadedMessages.current) return;
+
+      if (newMessages === lastLoadedMessages.current) {
+        return;
+      }
 
       if (result.data?.loadAgentState) {
         lastLoadedMessages.current = newMessages;
         lastLoadedThreadId.current = threadId;
         lastLoadedAgentName.current = agentSession?.agentName;
 
-        const messages = loadMessagesFromJsonRepresentation(JSON.parse(newMessages || "[]"));
-        setMessages(messages);
+        // Only update messages if we actually have agent state data
+        // Don't overwrite existing messages (e.g., initialMessages) with empty array
+        if (newMessages) {
+          const messages = loadMessagesFromJsonRepresentation(JSON.parse(newMessages));
+
+          // Only overwrite if we actually have messages from agent state
+          // Don't replace initialMessages with an empty array
+          if (messages.length > 0) {
+            setMessages(messages);
+          }
+        }
       }
     };
     void fetchMessages();
