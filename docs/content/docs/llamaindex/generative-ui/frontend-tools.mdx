@@ -89,26 +89,42 @@ Use frontend tools when you need your agent to interact with client-side primiti
         we'll add it to the `frontend_tools` list.
 
         ```python title="agent.py"
-        from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
-        from llama_index.llms.openai import OpenAI
         from fastapi import FastAPI
+        from llama_index.llms.openai import OpenAI
+        from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
 
-        def say_hello(name: str) -> str:
-            """Say hello to the user and takes the name as an argument."""
+        def sayHello(name: str) -> str:
+            """Says hello to the user and takes the name as an argument."""
             return f"Hello, {name}!"
 
-        app = FastAPI()
+        # Initialize the LLM
+        llm = OpenAI(model="gpt-4o")
 
-        router = get_ag_ui_workflow_router(
-            llm=OpenAI(model="gpt-4.1"),
-            frontend_tools=[say_hello],
+        # Create the AG-UI workflow router
+        agentic_chat_router = get_ag_ui_workflow_router(
+            llm=llm,
+            frontend_tools=[sayHello],
+            system_prompt="You are a helpful AI assistant with access to various tools and capabilities.",
         )
 
-        app.include_router(router)
+        # Create FastAPI app
+        app = FastAPI(
+            title="LlamaIndex Agent",
+            description="A LlamaIndex agent integrated with CopilotKit",
+            version="1.0.0"
+        )
+
+        # Include the router
+        app.include_router(agentic_chat_router)
+
+        # Health check endpoint
+        @app.get("/health")
+        async def health_check():
+            return {"status": "healthy", "agent": "llamaindex"}
 
         if __name__ == "__main__":
             import uvicorn
-            uvicorn.run(app, host="0.0.0.0", port=8000)
+            uvicorn.run(app, host="localhost", port=8000)
         ```
     </Step>
     <Step>
