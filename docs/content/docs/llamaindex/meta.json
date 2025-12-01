@@ -12,13 +12,11 @@
     "frontend-actions",
     "generative-ui",
     "human-in-the-loop",
-    "...shared-state",
+    "shared-state",
     "multi-agent-flows",
     "---Premium Features---",
     "...premium",
     "---Troubleshooting---",
-    "...troubleshooting",
-    "---Other---",
-    "...(other)"
+    "...troubleshooting"
   ]
 }
