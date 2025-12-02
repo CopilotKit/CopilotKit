@@ -14,4 +14,7 @@ export default defineConfig((options: Options) => ({
     "**/__tests__/*", // Exclude any files inside a __tests__ directory
   ],
   treeshake: true,
+  // Disable code splitting so each entry point is fully independent
+  // This prevents @ag-ui/langgraph from being pulled into index.mjs via shared chunks
+  splitting: false,
 }));
