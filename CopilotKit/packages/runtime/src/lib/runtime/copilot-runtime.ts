@@ -355,7 +355,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       if (resolveEndpointType(endpoint) == EndpointType.LangGraphPlatform) {
         // Lazy require to avoid loading @ag-ui/langgraph when not needed
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const { LangGraphAgent } = require("./agent-integrations/langgraph.agent");
+        const { LangGraphAgent } = require("./agent-integrations/langgraph/agent");
         const lgEndpoint = endpoint as LangGraphPlatformEndpoint;
 
         for (const agent of lgEndpoint.agents) {
