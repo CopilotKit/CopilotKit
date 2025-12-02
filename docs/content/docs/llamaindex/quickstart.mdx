@@ -9,25 +9,14 @@ import {
   TailoredContent,
   TailoredContentOption,
 } from "@/components/react/tailored-content.tsx";
-import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
-import { CoAgentsDiagram } from "@/components/react/coagents/coagents-diagram.tsx";
-import { FaPython, FaJs, FaCloud } from "react-icons/fa";
-import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
-import CopilotKitCloudCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
-import FindYourCopilotRuntime from "@/snippets/find-your-copilot-runtime.mdx";
-import CloudCopilotKitProvider from "@/snippets/coagents/cloud-configure-copilotkit-provider.mdx";
-import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/coagents/self-host-configure-copilotkit-provider.mdx";
-import SelfHostingCopilotRuntimeStarter from "@/snippets/self-hosting-copilot-runtime-starter.mdx";
-import SelfHostingRemoteEndpoints from "@/snippets/self-hosting-remote-endpoints.mdx";
 import {
   UserIcon,
   PaintbrushIcon,
   WrenchIcon,
   RepeatIcon,
-  ServerIcon,
 } from "lucide-react";
-import CopilotUI from "@/snippets/copilot-ui.mdx";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
@@ -46,8 +35,7 @@ Before you begin, you'll need the following:
 - An OpenAI API key
 - Node.js 20+
 - Python 3.10+
-- Your favorite Node package manager
-- Your favorite Python package manager
+- Your favorite package manager
 
 ## Getting started
 
@@ -59,19 +47,18 @@ Before you begin, you'll need the following:
             <div>
                 <p className="text-xl font-semibold">Choose your starting point</p>
                 <p className="text-base">
-                    You can either start fresh with our starter template or integrate CopilotKit into your existing LlamaIndex Agent.
+                    You can either start fresh with our starter template or integrate CopilotKit into your existing LlamaIndex agent.
                 </p>
             </div>
         }
     >
         <TailoredContentOption
-            id="cli"
+            id="starter"
             title="Start from scratch"
             description="Get started quickly with our ready-to-go starter application."
         >
             <Step>
                 ### Run our CLI
-                First, we'll use our CLI to create a new project for us.
 
                 ```bash
                 npx copilotkit@latest create -f llamaindex
@@ -80,42 +67,17 @@ Before you begin, you'll need the following:
             <Step>
                 ### Install dependencies
 
-                Now we need to install the depedencies for the frontend and the agent.
 
-                <Callout type="info">
-                  The starter comes with a post-install script to install both the frontend and agent dependencies. 
-                </Callout>
-
-                <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
-                    <Tab value="npm">
-                        ```bash
-                        npm install
-                        ```
-                    </Tab>
-                    <Tab value="pnpm">
-                        ```bash
-                        pnpm install
-                        ```
-                    </Tab>
-                    <Tab value="yarn">
-                        ```bash
-                        yarn install
-                        ```
-                    </Tab>
-                    <Tab value="bun">
-                        ```bash
-                        bun install
-                        ```
-                    </Tab>
-                </Tabs>
+                ```npm
+                ```
             </Step>
             <Step>
                 ### Configure your environment
 
-                This LlamaIndex agent uses OpenAI's `gpt-4o` by default, so we need to set the `OPENAI_API_KEY` environment variable.
+                Create a `.env` file in your agent directory and add your OpenAI API key:
 
-                ```bash
-                export OPENAI_API_KEY="your_openai_api_key"
+                ```plaintext title="agent/.env"
+                OPENAI_API_KEY=your_openai_api_key
                 ```
 
                 <Callout type="info" title="What about other models?">
@@ -124,7 +86,6 @@ Before you begin, you'll need the following:
             </Step>
             <Step>
                 ### Start the development server
-                This will start both the frontend and agent servers concurrently.
 
                 <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
                     <Tab value="npm">
@@ -151,69 +112,86 @@ Before you begin, you'll need the following:
 
                 This will start both the UI and agent servers concurrently.
             </Step>
+            <Step>
+                ### 🎉 Start chatting!
+
+                Your AI agent is now ready to use! Navigate to `localhost:3000` and start prompting it:
+
+                ```
+                What tools do you have access to?
+                ```
+
+                ```
+                What do you think about React?
+                ```
+
+                ```
+                Show me some cool things you can do!
+                ```
+
+                <Accordions className="mb-4">
+                    <Accordion title="Troubleshooting">
+                        - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
+                        - Make sure your agent is running on port 8000
+                        - Check that your OpenAI API key is correctly set
+                    </Accordion>
+                </Accordions>
+
+            </Step>
         </TailoredContentOption>
         <TailoredContentOption
             id="bring-your-own"
-            title="Code along"
-            description="I want to start from scratch and code along with the example."
+            title="Use an existing agent"
+            description="I already have a LlamaIndex agent and want to add CopilotKit."
         >
             <Step>
-                ### Add necessary dependencies
+                ### Initialize your agent project
 
-                First, we'll need to make sure we have the necessary dependencies installed.
-                
-                <Tabs groupId="python-pm" items={['pip', 'poetry', 'uv']}>
-                    <Tab value="pip">
-                        ```bash
-                        pip install llama-index llama-index-llms-openai llama-index-protocols-ag-ui fastapi uvicorn
-                        ```
-                    </Tab>
-                    <Tab value="poetry">
-                        ```bash
-                        poetry init
-                        poetry add llama-index llama-index-llms-openai llama-index-protocols-ag-ui fastapi uvicorn
-                        ```
-                    </Tab>
-                    <Tab value="uv">
-                        ```bash
-                        uv init
-                        uv add llama-index llama-index-llms-openai llama-index-protocols-ag-ui fastapi uvicorn
-                        ```
-                    </Tab>
-                </Tabs>
-            </Step>
-            <Step>
-                ### Frontend Setup
-                CopilotKit works with any React-based frontend. We'll use Next.js for this example.
+                If you don't already have a Python project set up, create one using `uv`:
 
                 ```bash
-                npx create-next-app@latest my-copilot-app
-                cd my-copilot-app
+                uv init my-agent
+                cd my-agent
                 ```
             </Step>
             <Step>
-                ### Install CopilotKit packages
+                ### Install LlamaIndex with AG-UI
 
-                ```npm
-                @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/llamaindex
+                Add LlamaIndex with AG-UI support and uvicorn to your project:
+
+                ```bash
+                uv add llama-index llama-index-llms-openai llama-index-protocols-ag-ui fastapi uvicorn
                 ```
+
+                <Callout type="info" title="What is AG-UI?">
+                  AG-UI is an open protocol for frontend-agent communication. The `llama-index-protocols-ag-ui` package provides LlamaIndex integration that CopilotKit can connect to.
+                </Callout>
             </Step>
             <Step>
-                ### Create your LlamaIndex agent server
+                ### Configure your environment
 
-                Create a new file called `agent.py` in your project root:
+                Set your OpenAI API key as an environment variable:
 
-                ```python title="agent.py"
-                import os
+                ```bash
+                export OPENAI_API_KEY=your_openai_api_key
+                ```
+
+                <Callout type="info" title="What about other models?">
+                  This example uses OpenAI's GPT-4o, but you can modify it to use any language model supported by LlamaIndex.
+                </Callout>
+            </Step>
+            <Step>
+                ### Expose your agent via AG-UI
+
+                Update your agent file to expose it as an AG-UI ASGI application:
+
+                ```python title="main.py"
                 from fastapi import FastAPI
                 from llama_index.llms.openai import OpenAI
                 from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
 
                 # Initialize the LLM
-                llm = OpenAI(
-                    model="gpt-4o",  # Use gpt-4o for better performance
-                    api_key=os.getenv("OPENAI_API_KEY")
-                )
+                llm = OpenAI(model="gpt-4o")
 
                 # Create the AG-UI workflow router
                 agentic_chat_router = get_ag_ui_workflow_router(
@@ -238,21 +216,32 @@ Before you begin, you'll need the following:
 
                 if __name__ == "__main__":
                     import uvicorn
-                    uvicorn.run(app, host="0.0.0.0", port=8000)
+                    uvicorn.run(app, host="localhost", port=8000)
                 ```
+            </Step>
+            <Step>
+                ### Create your frontend
 
-                <Callout type="info" title="AG-UI Integration">
-                  The `get_ag_ui_workflow_router` creates a standardized API endpoint that CopilotKit can communicate with. This allows your LlamaIndex agent to work seamlessly with the CopilotKit frontend.
-                </Callout>
+                CopilotKit works with any React-based frontend. We'll use Next.js for this example.
+
+                ```bash
+                npx create-next-app@latest my-copilot-app
+                cd my-copilot-app
+                ```
+            </Step>
+            <Step>
+                ### Install CopilotKit packages
+
+                ```npm
+                @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/llamaindex
+                ```
             </Step>
             <Step>
                 ### Setup Copilot Runtime
 
-                CopilotKit requires a Copilot Runtime endpoint to safely communicate with your agent. This acts as a bridge between your frontend and the LlamaIndex agent.
+                Create an API route to connect CopilotKit to your LlamaIndex agent:
 
-                Create a new file at `app/api/copilotkit/route.ts` and copy/paste this snippet into it.
-
-                ```ts title="app/api/copilotkit/route.ts"
+                ```tsx title="app/api/copilotkit/route.ts"
                 import {
                   CopilotRuntime,
                   ExperimentalEmptyAdapter,
@@ -261,59 +250,42 @@ Before you begin, you'll need the following:
                 import { LlamaIndexAgent } from "@ag-ui/llamaindex";
                 import { NextRequest } from "next/server";
 
-                // Service adapter for multi-agent support (using empty adapter for single agent)
                 const serviceAdapter = new ExperimentalEmptyAdapter();
 
-                // Create the CopilotRuntime with LlamaIndex agent integration
                 const runtime = new CopilotRuntime({
                   agents: {
-                    // Connect to your LlamaIndex agent running on port 8000
-                    "llamaindex_agent": new LlamaIndexAgent({
-                      url: "http://localhost:8000/run"
-                    }),
+                    my_agent: new LlamaIndexAgent({ url: "http://localhost:8000/run" }),
                   }   
                 });
 
-                // Handle CopilotKit runtime requests
                 export const POST = async (req: NextRequest) => {
                   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
                     runtime,
                     serviceAdapter,
                     endpoint: "/api/copilotkit",
                   });
-                
+
                   return handleRequest(req);
                 };
-                ```
-
-                <Callout type="info" title="Runtime Configuration">
-                  The CopilotRuntime acts as a secure proxy between your frontend and the LlamaIndex agent. It handles authentication, request routing, and response formatting.
-                </Callout>
+               ```
             </Step>
             <Step>
                 ### Configure CopilotKit Provider
 
-                Wrap your application with the CopilotKit provider to enable AI functionality throughout your app.
-
-                You can just copy/paste this snippet into your existing `layout.tsx` file.
+                Wrap your application with the CopilotKit provider:
 
                 ```tsx title="app/layout.tsx"
-                import { CopilotKit } from "@copilotkit/react-core";
-                import "@/app/globals.css";
+                import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
                 import "@copilotkit/react-ui/styles.css";
 
-                export default function RootLayout({ 
-                  children 
-                }: { 
-                  children: React.ReactNode 
-                }) {
+                // ...
+
+                export default function RootLayout({ children }: {children: React.ReactNode}) {
                   return (
                     <html lang="en">
                       <body>
-                        <CopilotKit 
-                          runtimeUrl="/api/copilotkit" 
-                          agent="llamaindex_agent"
-                        >
+                        {/* [!code highlight:3] */}
+                        <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
                           {children}
                         </CopilotKit>
                       </body>
@@ -321,146 +293,98 @@ Before you begin, you'll need the following:
                   );
                 }
                 ```
-
-                <Callout type="info" title="Provider Configuration">
-                  The `CopilotKit` provider makes AI functionality available throughout your React component tree. The `agentName` should match the agent key you defined in the runtime configuration.
-                </Callout>
             </Step>
             <Step>
-              ### Add chat to your application
+              ### Add the chat interface
 
-              Add a CopilotChat component to your page to enable users to interact with your LlamaIndex agent.
-
-              You can just copy/paste this snippet into your existing `page.tsx` file.
+              Add the CopilotSidebar component to your page:
 
               ```tsx title="app/page.tsx"
-              import { CopilotChat } from "@copilotkit/react-ui";
+              import { CopilotSidebar } from "@copilotkit/react-ui"; // [!code highlight:1]
 
               export default function Page() {
                 return (
-                  <main className="min-h-screen p-8 bg-indigo-500/20">
-                    <CopilotChat 
-                      labels={{
-                        initial: ["Howdy! I'm connected to your LlamaIndex agent 🦙"],
-                      }}
-                      className="w-[600px] h-[80vh] mx-auto border border-indigo-300 rounded-xl p-4"
-                    />
+                  <main>
+                    <h1>Your App</h1>
+                    {/* [!code highlight:1] */}
+                    <CopilotSidebar />
                   </main>
                 );
               }
               ```
-
-              <Callout type="info" title="UI Components">
-                Feel free to also use `CopilotSidebar` and `CopilotPopup` for modal-based chat interfaces.
-              </Callout>
             </Step>
             <Step>
-              ### Start both servers
+                ### Start your agent
 
-              You'll need to run both the agent server and frontend server. Open two terminal windows:
+                From your agent directory, start the agent server:
 
-              **Terminal 1**: Start the LlamaIndex agent:
+                ```bash
+                uv run main.py
+                ```
 
-              <Tabs groupId="python-pm" items={['pip', 'poetry', 'uv']}>
-                <Tab value="pip">
-                  ```bash
-                  export OPENAI_API_KEY="your_openai_api_key"
-                  python agent.py
-                  ```
-                </Tab>
-                <Tab value="poetry">
-                  ```bash
-                  export OPENAI_API_KEY="your_openai_api_key"
-                  poetry run python agent.py
-                  ```
-                </Tab>
-                <Tab value="uv">
-                  ```bash
-                  export OPENAI_API_KEY="your_openai_api_key"
-                  uv run python agent.py
-                  ```
-                </Tab>
-              </Tabs>
+                Your agent will be available at `http://localhost:8000`.
+            </Step>
+            <Step>
+                ### Start your UI
 
-              **Terminal 2**: Start the frontend server:
+                In a separate terminal, navigate to your frontend directory and start the development server:
 
-              <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
-                <Tab value="npm">
-                  ```bash
-                  npm run dev
-                  ```
-                </Tab>
-                <Tab value="pnpm">
-                  ```bash
-                  pnpm dev
-                  ```
-                </Tab>
-                <Tab value="yarn">
-                  ```bash
-                  yarn dev
-                  ```
-                </Tab>
-                <Tab value="bun">
-                  ```bash
-                  bun dev
-                  ```
-                </Tab>
-              </Tabs>
+                <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+                    <Tab value="npm">
+                        ```bash
+                        cd my-copilot-app
+                        npm run dev
+                        ```
+                    </Tab>
+                    <Tab value="pnpm">
+                        ```bash
+                        cd my-copilot-app
+                        pnpm dev
+                        ```
+                    </Tab>
+                    <Tab value="yarn">
+                        ```bash
+                        cd my-copilot-app
+                        yarn dev
+                        ```
+                    </Tab>
+                    <Tab value="bun">
+                        ```bash
+                        cd my-copilot-app
+                        bun dev
+                        ```
+                    </Tab>
+                </Tabs>
+            </Step>
+            <Step>
+                ### 🎉 Start chatting!
 
-              <Callout type="info" title="Server URLs">
-                - Agent server: http://localhost:8000
-                - Frontend server: http://localhost:3000
-                - Agent health check: http://localhost:8000/health
-              </Callout>
+                Your AI agent is now ready to use! Navigate to `localhost:3000` and try asking it some questions:
+
+                ```
+                Can you tell me a joke?
+                ```
+
+                ```
+                Can you help me understand AI?
+                ```
+
+                ```
+                What do you think about React?
+                ```
+
+                <Accordions className="mb-4">
+                    <Accordion title="Troubleshooting">
+                        - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
+                        - Make sure your agent is running on port 8000
+                        - Check that your OpenAI API key is correctly set
+                        - Verify that the `@ag-ui/llamaindex` package is installed in your frontend
+                    </Accordion>
+                </Accordions>
+
             </Step>
         </TailoredContentOption>
     </TailoredContent>
-    <Step>
-        ### 🎉 Start chatting!
-
-        Your agent is now ready to use! 
-        
-        Navigate to http://localhost:3000 and start chatting with it:
-
-        ```
-        What tools do you have access to?
-        ```
-
-        ```
-        What do you think about React?
-        ```
-
-        ```
-        Show me some cool things you can do!
-        ```
-
-        <Accordions className="mb-4">
-            <Accordion title="Troubleshooting">
-                <div className="space-y-2">
-                    <p><strong>Connection Issues:</strong></p>
-                    <ul className="list-disc list-inside ml-4 space-y-1">
-                        <li>Try using <code>0.0.0.0</code> or <code>127.0.0.1</code> instead of <code>localhost</code></li>
-                        <li>Ensure your LlamaIndex agent is running on port 8000</li>
-                        <li>Check that the agent health endpoint responds: <code>curl http://localhost:8000/health</code></li>
-                    </ul>
-                    
-                    <p><strong>API Key Issues:</strong></p>
-                    <ul className="list-disc list-inside ml-4 space-y-1">
-                        <li>Verify your OpenAI API key is correctly set: <code>echo $OPENAI_API_KEY</code></li>
-                        <li>Check that your API key has sufficient credits</li>
-                        <li>Ensure the key has access to the GPT-4o model</li>
-                    </ul>
-                    
-                    <p><strong>Frontend Issues:</strong></p>
-                    <ul className="list-disc list-inside ml-4 space-y-1">
-                        <li>Check browser console for errors</li>
-                        <li>Verify the CopilotKit provider is properly configured</li>
-                        <li>Ensure the runtime URL matches your API route</li>
-                    </ul>
-                </div>
-            </Accordion>
-        </Accordions>
-    </Step>
 </Steps>
 
 ## What's next?
@@ -475,6 +399,12 @@ Now that you have your basic agent setup, explore these advanced features:
     icon={<UserIcon />}
   />
   <Card
+    title="Utilize the Shared State"
+    description="Learn how to synchronize your agent's state with your UI's state, and vice versa."
+    href="/llamaindex/shared-state"
+    icon={<RepeatIcon />}
+  />
+  <Card
     title="Add some generative UI"
     description="Render your agent's progress and output in the UI."
     href="/llamaindex/generative-ui"
@@ -486,4 +416,4 @@ Now that you have your basic agent setup, explore these advanced features:
     href="/llamaindex/frontend-actions"
     icon={<WrenchIcon />}
   />
-</Cards> 
+</Cards>

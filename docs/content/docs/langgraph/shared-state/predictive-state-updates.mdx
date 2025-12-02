@@ -61,7 +61,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
 
         <Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]} persist>
             <Tab value="Python">
-                ```python title="agent-py/sample_agent/agent.py"
+                ```python title="agent.py"
                 from copilotkit import CopilotKitState
                 from typing import Literal
 
@@ -105,7 +105,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                 For long-running tasks, you can emit state updates progressively as predictions of the final state. In this example, we simulate a long-running task by executing a series of steps with a one second delay between each update.
                 <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
                     <Tab value="Python">
-                        ```python title="agent-py/sample_agent/agent.py"
+                        ```python title="agent.py"
                         from copilotkit.langgraph import copilotkit_emit_state # [!code highlight]
                         # ...
                         async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Literal["cpk_action_node", "tool_node", "__end__"]]:

@@ -3,30 +3,29 @@ title: Writing agent state
 icon: "lucide/ArrowRight"
 description: Write to agent's state from your application.
 ---
+import RunAndConnect from "@/snippets/integrations/llamaindex/run-and-connect.mdx"
 import { IframeSwitcher } from "@/components/content"
-import RunAndConnect from "@/snippets/integrations/adk/run-and-connect.mdx"
 
 <IframeSwitcher
   id="shared-state-write-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/adk-middleware/feature/shared_state?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/adk-middleware/feature/shared_state?view=code&sidebar=false&codeLayout=tabs"
+  exampleUrl="https://feature-viewer.copilotkit.ai/llama-index/feature/shared_state?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/llama-index/feature/shared_state?view=code&sidebar=false&codeLayout=tabs"
   exampleLabel="Demo"
   codeLabel="Code"
   height="700px"
 />
 
 <Callout type="info">
-  This example demonstrates writing to shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/adk-middleware/feature/shared_state).
+  This example demonstrates writing to shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/llama-index/feature/shared_state).
 </Callout>
 
 ## What is this?
 
-This guide shows you how to write to your agent's state from your application.
+You can easily write to your agent's state from your native application, allowing you to update the agent's working memory from your UI.
 
 ## When should I use this?
 
-You can use this when you want to provide the user with feedback about what your agent is doing, specifically
-when your agent is calling tools. CopilotKit allows you to fully customize how these tools are rendered in the chat.
+You can use this when you want to provide user input or control to your agent's working memory. As your application state changes, you can update the agent state to reflect these changes.
 
 ## Implementation
 
@@ -38,70 +37,60 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
   <Step>
     ### Define the Agent State
 
-    Create your ADK agent with a stateful structure. Here's a complete example that tracks language:
+    Create your LlamaIndex agent with a stateful structure using `initial_state`. Here's a complete example that tracks language:
 
     ```python title="agent.py"
-    from typing import Dict
     from fastapi import FastAPI
-    from pydantic import BaseModel
-    from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
-    from google.adk.agents import LlmAgent
-    from google.adk.tools import ToolContext
+    from llama_index.llms.openai import OpenAI
+    from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
 
+    # Initialize the LLM
+    llm = OpenAI(model="gpt-4o")
 
-    class AgentState(BaseModel):
-        """State for the agent."""
-        language: str = "english"
+    # Create the AG-UI workflow router
+    agentic_chat_router = get_ag_ui_workflow_router(
+        llm=llm,
+        system_prompt="""
+        You are a helpful assistant for tracking the language.
 
-
-    def set_language(tool_context: ToolContext, new_language: str) -> Dict[str, str]:
-        """Sets the language preference for the user.
-
-        Args:
-            tool_context (ToolContext): The tool context for accessing state.
-            new_language (str): The language to save in state.
-
-        Returns:
-            Dict[str, str]: A dictionary indicating success status and message.
-        """
-        tool_context.state["language"] = new_language
-        return {"status": "success", "message": f"Language set to {new_language}"}
-
-
-    agent = LlmAgent(
-        name="my_agent",
-        model="gemini-2.5-flash",
-        instruction="""
-        You are a helpful assistant. Help users by answering their questions.
-        Please use the language specified in state when responding to the user.
-        You can set the language in state by using the set_language tool.
+        IMPORTANT:
+        - ALWAYS use the lower case for the language
+        - ALWAYS respond in the current language from the state
         """,
-        tools=[set_language],
+        initial_state={
+            "language": "english"
+        },
     )
 
-    adk_agent = ADKAgent(
-        adk_agent=agent,
-        app_name="demo_app",
-        user_id="demo_user",
-        session_timeout_seconds=3600,
-        use_in_memory_services=True,
+    # Create FastAPI app
+    app = FastAPI(
+        title="LlamaIndex Agent",
+        description="A LlamaIndex agent integrated with CopilotKit",
+        version="1.0.0"
     )
 
-    app = FastAPI()
-    add_adk_fastapi_endpoint(app, adk_agent, path="/")
+    # Include the router
+    app.include_router(agentic_chat_router)
+
+    # Health check endpoint
+    @app.get("/health")
+    async def health_check():
+        return {"status": "healthy", "agent": "llamaindex"}
 
     if __name__ == "__main__":
         import uvicorn
-        uvicorn.run(app, host="0.0.0.0", port=8000)
+        uvicorn.run(app, host="localhost", port=8000)
     ```
 
   </Step>
   <Step>
-    ### Call `setState` function from the `useCoAgent` hook
-    `useCoAgent` returns a `setState` function that you can use to update the agent state. Calling this
-    will update the agent state and trigger a rerender of anything that depends on the agent state.
+    ### Use the `useCoAgent` Hook
+    With your agent connected and running all that is left is to call the [useCoAgent](/reference/hooks/useCoAgent) hook, pass the agent's name, and
+    use the `setState` function to update the agent state.
 
     ```tsx title="ui/app/page.tsx"
+    "use client";
+
     import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
 
     // Define the agent state type, should match the actual state of your agent
@@ -138,6 +127,10 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 
     <Callout type="warn" title="Important">
       The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+    </Callout>
+
+    <Callout type="info">
+      The `setState` function in `useCoAgent` will update the state and trigger a rerender when the state changes.
     </Callout>
 
   </Step>

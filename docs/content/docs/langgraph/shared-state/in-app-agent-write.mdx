@@ -42,7 +42,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 
     <Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]} persist>
       <Tab value="Python">
-        ```python title="agent-py/sample_agent/agent.py"
+        ```python title="agent.py"
         from copilotkit import CopilotKitState
         from typing import Literal
 
@@ -81,7 +81,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     function YourMainContent() {
       const { state, setState } = useCoAgent<AgentState>({ // [!code highlight]
         name: "sample_agent",
-        initialState: { language: "spanish" }  // optionally provide an initial state
+        initialState: { language: "english" }  // optionally provide an initial state
       });
 
       // ...
@@ -135,7 +135,7 @@ function YourMainContent() {
   // [!code word:run:1]
   const { state, setState, run } = useCoAgent<AgentState>({
     name: "sample_agent",
-    initialState: { language: "spanish" }  // optionally provide an initial state
+    initialState: { language: "english" }  // optionally provide an initial state
   });
 
   // setup to be called when some event in the app occurs

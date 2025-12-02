@@ -4,20 +4,20 @@ icon: "lucide/ArrowLeft"
 description: Read the realtime agent state in your native application.
 ---
 import { ImageZoom } from "fumadocs-ui/components/image-zoom";
-import RunAndConnect from "@/snippets/integrations/pydantic-ai/run-and-connect.mdx"
+import RunAndConnect from "@/snippets/integrations/llamaindex/run-and-connect.mdx"
 import { IframeSwitcher } from "@/components/content"
 
 <IframeSwitcher
   id="shared-state-read-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/pydantic-ai/feature/shared_state?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/pydantic-ai/feature/shared_state?view=code&sidebar=false&codeLayout=tabs"
+  exampleUrl="https://feature-viewer.copilotkit.ai/llama-index/feature/shared_state?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/llama-index/feature/shared_state?view=code&sidebar=false&codeLayout=tabs"
   exampleLabel="Demo"
   codeLabel="Code"
   height="700px"
 />
 
 <Callout type="info">
-  This example demonstrates reading from shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/pydantic-ai/feature/shared_state).
+  This example demonstrates reading from shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/llama-index/feature/shared_state).
 </Callout>
 
 ## What is this?
@@ -39,50 +39,49 @@ state updates, you can reflect these updates natively in your application.
   <Step>
     ### Define the Agent State
 
-    Create your Pydantic AI agent with a stateful structure. Here's a complete example that tracks language:
+    Create your LlamaIndex agent with a stateful structure using `initial_state`. Here's a complete example that tracks language:
 
     ```python title="agent.py"
-    from textwrap import dedent
+    from fastapi import FastAPI
+    from llama_index.llms.openai import OpenAI
+    from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
 
-    from pydantic import BaseModel
-    from pydantic_ai import Agent, RunContext
-    from pydantic_ai.ag_ui import StateDeps
+    # Initialize the LLM
+    llm = OpenAI(model="gpt-4o")
 
+    # Create the AG-UI workflow router
+    agentic_chat_router = get_ag_ui_workflow_router(
+        llm=llm,
+        system_prompt="""
+        You are a helpful assistant for tracking the language.
 
-    class AgentState(BaseModel):
-        """State for the agent."""
-        language: str = "english"
+        IMPORTANT:
+        - ALWAYS use the lower case for the language
+        - ALWAYS respond in the current language from the state
+        """,
+        initial_state={
+            "language": "english"
+        },
+    )
 
+    # Create FastAPI app
+    app = FastAPI(
+        title="LlamaIndex Agent",
+        description="A LlamaIndex agent integrated with CopilotKit",
+        version="1.0.0"
+    )
 
-    agent = Agent("openai:gpt-4o-mini", deps_type=StateDeps[AgentState])
+    # Include the router
+    app.include_router(agentic_chat_router)
 
-
-    @agent.instructions()
-    async def language_instructions(ctx: RunContext[StateDeps[AgentState]]) -> str:
-        """Instructions for the language tracking agent.
-
-        Args:
-            ctx: The run context containing language state information.
-
-        Returns:
-            Instructions string for the language tracking agent.
-        """
-        return dedent(
-            f"""
-            You are a helpful assistant for tracking the language.
-
-            IMPORTANT:
-            - ALWAYS use the lower case for the language
-            - ALWAYS response in the current language: {ctx.deps.state.language}
-            """
-        )
-
-
-    app = agent.to_ag_ui(deps=StateDeps(AgentState()))
+    # Health check endpoint
+    @app.get("/health")
+    async def health_check():
+        return {"status": "healthy", "agent": "llamaindex"}
 
     if __name__ == "__main__":
         import uvicorn
-        uvicorn.run(app, host="0.0.0.0", port=8000)
+        uvicorn.run(app, host="localhost", port=8000)
     ```
 
   </Step>
@@ -92,6 +91,8 @@ state updates, you can reflect these updates natively in your application.
     optionally provide an initial state.
 
     ```tsx title="ui/app/page.tsx"
+    "use client";
+
     import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
 
     // Define the agent state type, should match the actual state of your agent
@@ -171,7 +172,3 @@ function YourMainContent() {
   update when the agent's state changes.
 </Callout>
 
-## Intermediately Stream and Render Agent State
-
-By default, the Pydantic AI Agent state will only update _between_ Pydantic AI Agent node transitions --
-which means state updates will be discontinuous and delayed.

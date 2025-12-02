@@ -7,18 +7,16 @@
     "quickstart",
     "vibe-coding-mcp",
     "---Guides---",
-    "custom-look-and-feel",
     "agentic-chat-ui",
+    "custom-look-and-feel",
+    "frontend-actions",
     "generative-ui",
     "human-in-the-loop",
-    "frontend-actions",
     "shared-state",
     "multi-agent-flows",
     "---Premium Features---",
     "...premium",
     "---Troubleshooting---",
-    "...troubleshooting",
-    "---Other---",
-    "...(other)"
+    "...troubleshooting"
   ]
 }

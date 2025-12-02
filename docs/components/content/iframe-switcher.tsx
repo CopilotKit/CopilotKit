@@ -8,6 +8,7 @@ import {
 import { Monitor, Code } from "lucide-react";
 
 interface IframeSwitcherProps {
+  id?: string;
   exampleUrl: string;
   codeUrl: string;
   height?: string;
@@ -16,6 +17,7 @@ interface IframeSwitcherProps {
 }
 
 export function IframeSwitcher({
+  id,
   exampleUrl,
   codeUrl,
   height = "600px",
@@ -23,7 +25,7 @@ export function IframeSwitcher({
   codeLabel = "Code",
 }: IframeSwitcherProps) {
   return (
-    <Tabs defaultValue={exampleLabel}>
+    <Tabs defaultValue={exampleLabel} id={id}>
       <TabsList>
         <TabsTrigger value={exampleLabel}>
           <Monitor className="w-4 h-4" />

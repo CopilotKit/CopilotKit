@@ -1,49 +1,45 @@
 ---
-title: Human-in-the-Loop (HITL)
-description: Learn how to implement Human-in-the-Loop (HITL) using LlamaIndex Agents.
-icon: lucide/Share2
+title: Human-in-the-Loop
+icon: "lucide/User"
+description: Create frontend tools and use them within your LlamaIndex agent for human-in-the-loop interactions.
 ---
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
+import RunAndConnect from "@/snippets/integrations/llamaindex/run-and-connect.mdx"
+import { IframeSwitcher } from "@/components/content"
 
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/node-hitl.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
+<IframeSwitcher
+  id="frontend-tools-based-hitl-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/llama-index/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/llama-index/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
 />
-
-<Callout type="info">
-  Pictured above is the [llamaindex starter](https://github.com/copilotkit/with-llamaindex) with the implementation below applied!
-</Callout>
 
 ## What is this?
 
+Frontend tools enable you to define client-side functions that your LlamaIndex agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
+the logic runs on the client side, giving you direct access to the frontend environment.
 
-CopilotKit lets you to add custom UI to take user input and then pass it back to the agent upon completion.
+This can be utilized to let [your agent control the UI](/llamaindex/frontend-actions), [generative UI](/llamaindex/generative-ui/frontend-tools), or for Human-in-the-loop interactions.
 
-## Why should I use this?
+In this guide, we cover the use of frontend tools for Human-in-the-loop.
 
-Human-in-the-loop is a powerful way to implement complex workflows that are production ready. By having a human in the loop,
-you can ensure that the agent is always making the right decisions and ultimately is being steered in the right direction.
+## When should I use this?
+
+Use frontend tools when you need your agent to interact with client-side primitives such as:
+- Reading or modifying React component state
+- Accessing browser APIs like localStorage, sessionStorage, or cookies
+- Triggering UI updates or animations
+- Interacting with third-party frontend libraries
+- Performing actions that require the user's immediate browser context
 
 ## Implementation
 
 <Steps>
     <Step>
-        ### Run and connect your agent
-
-        You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
-        you can follow the instructions in the [Getting Started](/llamaindex/quickstart) guide.
-
-        <Callout type="info">
-        If you don't already have an agent, simply run the following command to create a new application:
-
-        ```bash
-        npx copilotkit@latest create -f llamaindex
-        ```
-        </Callout>
+      ### Run and connect your agent
+      <RunAndConnect components={props.components} />
     </Step>
 
     <Step>
@@ -51,80 +47,85 @@ you can ensure that the agent is always making the right decisions and ultimatel
         Add a tool to your agent that will be used to write an essay. Since the tool will be used in the frontend,
         we'll add it to the `frontend_tools` list.
 
-        ```python title="agent-py/agent/agent.py"
-        from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
-        from llama_index.llms.openai import OpenAI
-
-        def write_essay(draft: str) -> str:
-            """Writes an essay and takes the draft as an argument."""
-            return "Essay draft written!"
-
-        agentic_chat_router = get_ag_ui_workflow_router(
-            llm=OpenAI(model="gpt-4.1"),
-            frontend_tools=[write_essay],
-        )
-        ```
-
-        ```python title="agent-py/agent/server.py"
+        ```python title="agent.py"
         from fastapi import FastAPI
-        from agent.agent import agentic_chat_router
+        from llama_index.llms.openai import OpenAI
+        from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
 
-        app = FastAPI()
+        def offerOptions(option_1: str, option_2: str) -> str:
+            """Give the user a choice between two options and have them select one."""
+            return f"Presenting options: {option_1} or {option_2}"
+
+        # Initialize the LLM
+        llm = OpenAI(model="gpt-4o")
+
+        # Create the AG-UI workflow router
+        agentic_chat_router = get_ag_ui_workflow_router(
+            llm=llm,
+            frontend_tools=[offerOptions],
+            system_prompt="You are a helpful AI assistant that can write essays. When the user asks you to choose between two options or when you need to present them with a choice, you MUST use the offerOptions tool to let them select between the options.",
+        )
+
+        # Create FastAPI app
+        app = FastAPI(
+            title="LlamaIndex Agent",
+            description="A LlamaIndex agent integrated with CopilotKit",
+            version="1.0.0"
+        )
+
+        # Include the router
         app.include_router(agentic_chat_router)
+
+        # Health check endpoint
+        @app.get("/health")
+        async def health_check():
+            return {"status": "healthy", "agent": "llamaindex"}
 
         if __name__ == "__main__":
             import uvicorn
-            uvicorn.run(app, host="0.0.0.0", port=8000)
+            uvicorn.run(app, host="localhost", port=8000)
         ```
     </Step>
 
     <Step>
-        ### Add a `useCopilotAction` to your Frontend
-        First, we'll create a component that renders the agent's essay draft and waits for user approval.
+        ### Create a frontend human-in-the-loop tool
 
-        ```tsx title="ui/app/page.tsx"
-        import { useCopilotAction } from "@copilotkit/react-core"
-        import { Markdown } from "@copilotkit/react-ui"
+        Frontend tools can be leveraged in a variety of ways. One of those ways is to have a human-in-the-loop flow where the response
+        of the tool is gated by a user's decision.
 
-        function YourMainContent() {
+        In this example we will simulate an "approval" flow for executing a command. First, use the `useHumanInTheLoop` hook to create a tool that
+        prompts the user for approval.
+
+        ```tsx title="page.tsx"
+        import { useHumanInTheLoop } from "@copilotkit/react-core" // [!code highlight]
+
+        export function Page() {
           // ...
 
-          useCopilotAction({
-            name: "write_essay",
-            available: "remote",
-            description: "Writes an essay and takes the draft as an argument.",
+          useHumanInTheLoop({
+            name: "offerOptions",
+            description: "Give the user a choice between two options and have them select one.",
             parameters: [
-              { name: "draft", type: "string", description: "The draft of the essay", required: true },
+              {
+                name: "option_1",
+                type: "string",
+                description: "The first option",
+                required: true,
+              },
+              {
+                name: "option_2",
+                type: "string",
+                description: "The second option",
+                required: true,
+              },
             ],
-            followUp: false,
-            // [!code highlight:31]
-            renderAndWaitForResponse: ({ args, respond, status }) => {
+            render: ({ args, respond }) => {
+              if (!respond) return <></>;
               return (
                 <div>
-                  <Markdown content={args.draft || 'Preparing your draft...'} />
-
-                  <div className={`flex gap-4 pt-4 ${status !== "executing" ? "hidden" : ""}`}>
-                    <button
-                      onClick={() => {
-                        respond?.("CANCEL");
-                        alert("Draft canceled (ignored by default)");
-                      }}
-                      disabled={status !== "executing"}
-                      className="border p-2 rounded-xl w-full"
-                    >
-                      Try Again
-                    </button>
-                    <button
-                      onClick={() => {
-                        respond?.("SEND");
-                        alert("Draft approved\n\nNow do something with it ✨");
-                      }}
-                      disabled={status !== "executing"}
-                      className="bg-blue-500 text-white p-2 rounded-xl w-full"
-                    >
-                      Approve Draft
-                    </button>
-                  </div>
+                  {/* [!code highlight:2] */}
+                  <button onClick={() => respond(`${args.option_1} was selected`)}>{args.option_1}</button>
+                  <button onClick={() => respond(`${args.option_2} was selected`)}>{args.option_2}</button>
                 </div>
               );
             },
@@ -133,18 +134,20 @@ you can ensure that the agent is always making the right decisions and ultimatel
           // ...
         }
         ```
-    </Step>
 
+        That's it! Your agent will automatically have access to all human-in-the-loop tools you've defined using `useHumanInTheLoop` in your React components.
+
+        <Callout type="info">
+          Human-in-the-loop tools registered with `useHumanInTheLoop` are automatically forwarded to your agent through the AG-UI protocol.
+        </Callout>
+    </Step>
     <Step>
-    ### Setup the LlamaIndex Agent
-    On the agent side, we are already done! LlamaIndex natively supports the AG-UI protocol and will automatically
-    pass control back to the frontend when the `writeEssay` action is found in the model's response.
-    </Step>
+        ### Try it out!
 
-    <Step>
-    ### Give it a try!
-    Try asking your agent to write an essay about the benefits of AI. You'll see that it will generate an essay,
-    stream the progress and eventually ask you to review it.
-    </Step>
+        You've now given your agent the ability to show the user two options and have them select one. The agent will then be aware of the user's choice and can use it in subsequent steps.
 
+        ```
+        Can you show me two good options for a restaurant name?
+        ```
+    </Step>
 </Steps>
