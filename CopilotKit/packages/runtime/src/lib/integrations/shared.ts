@@ -40,6 +40,7 @@ export interface CreateCopilotRuntimeServerOptions {
   baseUrl?: string;
   cloud?: CopilotCloudOptions;
   properties?: CopilotRequestContextProperties;
+  plugins?: Parameters<typeof createYoga>[0]["plugins"];
   logLevel?: LogLevel;
 }
 
@@ -124,7 +125,7 @@ export function getCommonConfig(options: CreateCopilotRuntimeServerOptions): Com
   return {
     logging: createLogger({ component: "Yoga GraphQL", level: logLevel }),
     schema: buildSchema(),
-    plugins: [useDeferStream(), addCustomHeaderPlugin],
+    plugins: [useDeferStream(), addCustomHeaderPlugin, ...(options.plugins || [])],
     context: (ctx: YogaInitialContext): Promise<Partial<GraphQLContext>> =>
       createContext(ctx, options, contextLogger, options.properties),
     // Suppress logging for user configuration errors
