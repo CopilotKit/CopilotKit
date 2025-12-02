@@ -48,7 +48,7 @@
  * return new OpenAIAdapter({ openai });
  * ```
  */
-import OpenAI from "openai";
+import type OpenAI from "openai";
 import {
   CopilotServiceAdapter,
   CopilotRuntimeChatCompletionRequest,
@@ -111,12 +111,25 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
   }
 
   constructor(params?: OpenAIAdapterParams) {
-    this._openai = params?.openai || new OpenAI({});
+    if (params?.openai) {
+      this._openai = params.openai;
+    }
+    // If no instance provided, we'll lazy-load in ensureOpenAI()
+
     if (params?.model) {
       this.model = params.model;
     }
     this.disableParallelToolCalls = params?.disableParallelToolCalls || false;
     this.keepSystemRole = params?.keepSystemRole ?? false;
+  }
+
+  private ensureOpenAI(): OpenAI {
+    if (!this._openai) {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const OpenAI = require("openai").default;
+      this._openai = new OpenAI();
+    }
+    return this._openai;
   }
 
   async process(
@@ -174,7 +187,8 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
     }
 
     try {
-      const stream = this.openai.beta.chat.completions.stream({
+      const openai = this.ensureOpenAI();
+      const stream = openai.beta.chat.completions.stream({
         model: model,
         stream: true,
         messages: openaiMessages,

@@ -70,7 +70,6 @@ import {
   convertMCPToolsToActions,
   generateMcpToolInstructions,
 } from "./mcp-tools-utils";
-import { LangGraphAgent } from "./agent-integrations/langgraph.agent";
 import { BasicAgent, BasicAgentConfiguration } from "@copilotkitnext/agent";
 // Define the function type alias here or import if defined elsewhere
 type CreateMCPClientFunction = (config: MCPEndpointConfig) => Promise<MCPClient>;
@@ -324,8 +323,10 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     params?: CopilotRuntimeConstructorParams<T> & PartialBy<CopilotRuntimeOptions, "agents">,
   ) {
     const agents = params?.agents ?? {};
+    const endpointAgents = this.assignEndpointsToAgents(params?.remoteEndpoints ?? []);
+
     this.runtimeArgs = {
-      agents: { ...this.assignEndpointsToAgents(params?.remoteEndpoints ?? []), ...agents },
+      agents: { ...endpointAgents, ...agents },
       runner: params?.runner ?? new InMemoryAgentRunnerVNext(),
       // TODO: add support for transcriptionService from CopilotRuntimeOptionsVNext once it is ready
       // transcriptionService: params?.transcriptionService,
@@ -347,28 +348,28 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
   private assignEndpointsToAgents(
     endpoints: CopilotRuntimeConstructorParams<T>["remoteEndpoints"],
-  ) {
-    return endpoints.reduce((acc, endpoint) => {
+  ): Record<string, AbstractAgent> {
+    let result: Record<string, AbstractAgent> = {};
+
+    for (const endpoint of endpoints) {
       if (resolveEndpointType(endpoint) == EndpointType.LangGraphPlatform) {
-        let lgAgents = {};
+        // Lazy require to avoid loading @ag-ui/langgraph when not needed
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { LangGraphAgent } = require("./agent-integrations/langgraph.agent");
         const lgEndpoint = endpoint as LangGraphPlatformEndpoint;
-        lgEndpoint.agents.forEach((agent) => {
+
+        for (const agent of lgEndpoint.agents) {
           const graphId = agent.assistantId ?? agent.name;
-          lgAgents[graphId] = new LangGraphAgent({
+          result[graphId] = new LangGraphAgent({
             deploymentUrl: lgEndpoint.deploymentUrl,
             langsmithApiKey: lgEndpoint.langsmithApiKey,
             graphId,
           });
-        });
-
-        return {
-          ...acc,
-          ...lgAgents,
-        };
+        }
       }
+    }
 
-      return acc;
-    }, {});
+    return result;
   }
 
   handleServiceAdapter(serviceAdapter: CopilotServiceAdapter) {
