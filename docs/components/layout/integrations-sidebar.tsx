@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { DocsLayoutProps } from "fumadocs-ui/layouts/docs"
 import Separator from "../ui/sidebar/separator"
 import Page from "../ui/sidebar/page"
@@ -10,7 +10,11 @@ import IntegrationSelector, {
 } from "../ui/integrations-sidebar/integration-selector"
 import IntegrationSelectorSkeleton from "../ui/integrations-sidebar/skeleton"
 
-type Node = DocsLayoutProps["tree"]["children"][number] & { url: string }
+type Node = DocsLayoutProps["tree"]["children"][number] & {
+  url: string
+  index?: { url: string }
+  children?: Node[]
+}
 
 const NODE_COMPONENTS = {
   separator: Separator,
@@ -25,7 +29,22 @@ const IntegrationsSidebar = ({
 }) => {
   const [selectedIntegration, setSelectedIntegration] =
     useState<Integration | null>(null)
-  const pages = pageTree.children
+
+  const integrationPages = useMemo(() => {
+    if (!selectedIntegration) return []
+
+    const integrationPath = `/integrations/${selectedIntegration}`
+
+    const integrationFolder = pageTree.children.find((node) => {
+      const folderNode = node as Node
+      return (
+        folderNode.type === "folder" &&
+        folderNode.index?.url === integrationPath
+      )
+    }) as Node | undefined
+
+    return integrationFolder?.children ?? []
+  }, [selectedIntegration, pageTree.children])
 
   return (
     <aside
@@ -40,7 +59,7 @@ const IntegrationsSidebar = ({
       {selectedIntegration ? (
         <ul className="flex overflow-y-auto flex-col pr-1 max-h-full custom-scrollbar">
           <li className="w-full h-6" />
-          {pages.map((page) => {
+          {integrationPages.map((page) => {
             const Component = NODE_COMPONENTS[page.type]
             return <Component key={crypto.randomUUID()} node={page as Node} />
           })}

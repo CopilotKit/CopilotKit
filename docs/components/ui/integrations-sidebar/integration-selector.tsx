@@ -111,7 +111,7 @@ const IntegrationSelector = ({
   setSelectedIntegration,
 }: IntegrationSelectorProps) => {
   const [isOpen, setIsOpen] = useState(false)
-  // const pathname = usePathname()
+  const pathname = usePathname()
 
   const integration = selectedIntegration
     ? INTEGRATION_OPTIONS[selectedIntegration]
@@ -122,12 +122,17 @@ const IntegrationSelector = ({
     setIsOpen(false)
   }
 
-  // useEffect(() => {
-  //   const isRootIntegration = pathname === "/integrations"
+  useEffect(() => {
+    const isRootIntegration = pathname === "/integrations"
 
-  //   console.log({ isRootIntegration })
-  //   if (isRootIntegration && selectedIntegration) setSelectedIntegration(null)
-  // }, [selectedIntegration])
+    if (!isRootIntegration) {
+      const integrationId = pathname.split("/")[2]
+      setSelectedIntegration(integrationId as Integration)
+      return
+    }
+
+    if (isRootIntegration && selectedIntegration) setSelectedIntegration(null)
+  }, [pathname])
 
   return (
     <div className="relative w-full">
