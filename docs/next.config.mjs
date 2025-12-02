@@ -150,6 +150,26 @@ const config = {
         permanent: true,
       },
       {
+        source: "/llamaindex/multi-agent-flows",
+        destination: "/llamaindex",
+        permanent: true,
+      },
+      {
+        source: "/crewai-crews/multi-agent-flows",
+        destination: "/crewai-crews",
+        permanent: true,
+      },
+      {
+        source: "/crewai-flows/multi-agent-flows",
+        destination: "/crewai-flows",
+        permanent: true,
+      },
+      {
+        source: "/langgraph/advanced/multi-agent-flows",
+        destination: "/langgraph",
+        permanent: true,
+      },
+      {
         source: "/coagents/quickstart/langgraph",
         destination: "/coagents/quickstart",
         permanent: true,
