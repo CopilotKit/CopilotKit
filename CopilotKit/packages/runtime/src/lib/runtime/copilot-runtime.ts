@@ -70,7 +70,6 @@ import {
   convertMCPToolsToActions,
   generateMcpToolInstructions,
 } from "./mcp-tools-utils";
-import { LangGraphAgent } from "./agent-integrations/langgraph.agent";
 import { BasicAgent, BasicAgentConfiguration } from "@copilotkitnext/agent";
 // Define the function type alias here or import if defined elsewhere
 type CreateMCPClientFunction = (config: MCPEndpointConfig) => Promise<MCPClient>;
