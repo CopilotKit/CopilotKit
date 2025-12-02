@@ -5,15 +5,6 @@
     "...(root)",
     "reference",
     "---Integrations---",
-    "direct-to-llm",
-    "langgraph",
-    "mastra",
-    "pydantic-ai",
-    "adk",
-    "agno",
-    "crewai-flows",
-    "crewai-crews",
-    "ag2",
-    "llamaindex"
+    "...integrations"
   ]
 }
