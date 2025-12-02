@@ -16,7 +16,11 @@ export * from "./runtime/mcp-tools-utils";
  */
 
 // Re-export types (these don't cause runtime loading)
-export type { PredictStateTool, TextMessageEvents, ToolCallEvents } from "./runtime/agent-integrations/langgraph.agent";
+export type {
+  PredictStateTool,
+  TextMessageEvents,
+  ToolCallEvents,
+} from "./runtime/agent-integrations/langgraph.agent";
 
 // Re-export enum (enums are values, but CustomEventNames is just string constants - acceptable)
 export { CustomEventNames } from "./runtime/agent-integrations/langgraph.agent";
@@ -32,7 +36,7 @@ function getLanggraphModule() {
       _deprecationWarned = true;
       console.warn(
         '[CopilotKit] Importing LangGraphAgent or LangGraphHttpAgent from "@copilotkit/runtime" is deprecated. ' +
-        'Please import from "@copilotkit/runtime/langgraph" instead.'
+          'Please import from "@copilotkit/runtime/langgraph" instead.',
       );
     }
     // eslint-disable-next-line @typescript-eslint/no-var-requires
