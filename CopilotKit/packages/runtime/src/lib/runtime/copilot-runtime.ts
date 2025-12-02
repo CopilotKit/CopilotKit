@@ -350,21 +350,22 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   ) {
     return endpoints.reduce((acc, endpoint) => {
       if (resolveEndpointType(endpoint) == EndpointType.LangGraphPlatform) {
-        let lgAgents = {};
-        const lgEndpoint = endpoint as LangGraphPlatformEndpoint;
-        lgEndpoint.agents.forEach((agent) => {
-          const graphId = agent.assistantId ?? agent.name;
-          lgAgents[graphId] = new LangGraphAgent({
-            deploymentUrl: lgEndpoint.deploymentUrl,
-            langsmithApiKey: lgEndpoint.langsmithApiKey,
-            graphId,
-          });
-        });
-
-        return {
-          ...acc,
-          ...lgAgents,
-        };
+        // // TODO: import LangGraphAgent dynamically here
+        // let lgAgents = {};
+        // const lgEndpoint = endpoint as LangGraphPlatformEndpoint;
+        // lgEndpoint.agents.forEach((agent) => {
+        //   const graphId = agent.assistantId ?? agent.name;
+        //   lgAgents[graphId] = new LangGraphAgent({
+        //     deploymentUrl: lgEndpoint.deploymentUrl,
+        //     langsmithApiKey: lgEndpoint.langsmithApiKey,
+        //     graphId,
+        //   });
+        // });
+        //
+        // return {
+        //   ...acc,
+        //   ...lgAgents,
+        // };
       }
 
       return acc;
