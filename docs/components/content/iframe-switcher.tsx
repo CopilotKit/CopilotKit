@@ -8,7 +8,7 @@ import {
 import { Monitor, Code } from "lucide-react";
 
 interface IframeSwitcherProps {
-  id?: string | null;
+  id?: string;
   exampleUrl: string;
   codeUrl: string;
   height?: string;
