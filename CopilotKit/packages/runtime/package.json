@@ -23,6 +23,11 @@
       "import": "./dist/v2/index.mjs",
       "require": "./dist/v2/index.js",
       "types": "./dist/v2/index.d.ts"
+    },
+    "./langgraph": {
+      "import": "./dist/langgraph.mjs",
+      "require": "./dist/langgraph.js",
+      "types": "./dist/langgraph.d.ts"
     }
   },
   "types": "./dist/index.d.ts",
