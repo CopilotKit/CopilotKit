@@ -91,7 +91,7 @@ const config = {
       },
       {
         source: "/coagents/advanced/router-mode-agent-lock",
-        destination: "/coagents/multi-agent-flows",
+        destination: "/coagents",
         permanent: true,
       },
       {
@@ -146,7 +146,7 @@ const config = {
       },
       {
         source: "/coagents/concepts/multi-agent-flows",
-        destination: "/coagents/multi-agent-flows",
+        destination: "/coagents",
         permanent: true,
       },
       {
