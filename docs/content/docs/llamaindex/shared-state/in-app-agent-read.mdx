@@ -42,12 +42,16 @@ state updates, you can reflect these updates natively in your application.
     Create your LlamaIndex agent with a stateful structure using `initial_state`. Here's a complete example that tracks language:
 
     ```python title="agent.py"
+    from fastapi import FastAPI
     from llama_index.llms.openai import OpenAI
     from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
-    from fastapi import FastAPI
 
+    # Initialize the LLM
+    llm = OpenAI(model="gpt-4o")
+
+    # Create the AG-UI workflow router
     agentic_chat_router = get_ag_ui_workflow_router(
-        llm=OpenAI(model="gpt-4o"),
+        llm=llm,
         system_prompt="""
         You are a helpful assistant for tracking the language.
 
@@ -60,12 +64,24 @@ state updates, you can reflect these updates natively in your application.
         },
     )
 
-    app = FastAPI()
+    # Create FastAPI app
+    app = FastAPI(
+        title="LlamaIndex Agent",
+        description="A LlamaIndex agent integrated with CopilotKit",
+        version="1.0.0"
+    )
+
+    # Include the router
     app.include_router(agentic_chat_router)
+
+    # Health check endpoint
+    @app.get("/health")
+    async def health_check():
+        return {"status": "healthy", "agent": "llamaindex"}
 
     if __name__ == "__main__":
         import uvicorn
-        uvicorn.run(app, host="0.0.0.0", port=8000)
+        uvicorn.run(app, host="localhost", port=8000)
     ```
 
   </Step>
@@ -75,6 +91,8 @@ state updates, you can reflect these updates natively in your application.
     optionally provide an initial state.
 
     ```tsx title="ui/app/page.tsx"
+    "use client";
+
     import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
 
     // Define the agent state type, should match the actual state of your agent
@@ -86,7 +104,7 @@ state updates, you can reflect these updates natively in your application.
       // [!code highlight:4]
       const { state } = useCoAgent<AgentState>({
         name: "my_agent", // MUST match the agent name in CopilotRuntime
-        initialState: { language: "spanish" }  // optionally provide an initial state
+        initialState: { language: "english" }  // optionally provide an initial state
       });
 
       // ...
@@ -114,7 +132,7 @@ state updates, you can reflect these updates natively in your application.
   <Step>
     ### Give it a try!
     As the agent state updates, your `state` variable will automatically update with it! In this case, you'll see the
-    language set to "spanish" as that's the initial state we set.
+    language set to "english" as that's the initial state we set.
   </Step>
 </Steps>
 

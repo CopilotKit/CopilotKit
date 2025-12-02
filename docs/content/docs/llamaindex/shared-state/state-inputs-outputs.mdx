@@ -42,62 +42,107 @@ In addition, some state properties contain a lot of information. Syncing them ba
 
     ```python title="agent.py"
     from typing import Annotated, List
-    from llama_index.llms.openai import OpenAI
-    from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
     from fastapi import FastAPI
+    from llama_index.llms.openai import OpenAI
+    from llama_index.core.workflow import Context
+    from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
+    from llama_index.protocols.ag_ui.events import StateSnapshotWorkflowEvent
 
-
-    def answer_question(
+    async def answerQuestion(
+        ctx: Context,
         answer: Annotated[str, "The answer to store in state."]
     ) -> str:
-        """Stores the answer to the user's question.
+        """Stores the answer to the user's question in shared state.
 
         Args:
+            ctx: The workflow context for state management.
             answer: The answer to store in state.
 
         Returns:
             str: A message indicating the answer was stored.
         """
+        async with ctx.store.edit_state() as global_state:
+            state = global_state.get("state", {})
+            if state is None:
+                state = {}
+            
+            state["answer"] = answer
+            
+            # Emit state update to frontend
+            ctx.write_event_to_stream(
+                StateSnapshotWorkflowEvent(snapshot=state)
+            )
+            
+            global_state["state"] = state
+        
         return f"Answer stored: {answer}"
 
-
-    def add_resource(
+    async def addResource(
+        ctx: Context,
         resource: Annotated[str, "The resource URL or reference to add."]
     ) -> str:
-        """Adds a resource to the internal resources list.
+        """Adds a resource to the internal resources list in shared state.
 
         Args:
+            ctx: The workflow context for state management.
             resource: The resource URL or reference to add.
 
         Returns:
             str: A message indicating the resource was added.
         """
+        async with ctx.store.edit_state() as global_state:
+            state = global_state.get("state", {})
+            if state is None:
+                state = {}
+            
+            resources = state.get("resources", [])
+            resources.append(resource)
+            state["resources"] = resources
+            
+            global_state["state"] = state
+        
         return f"Resource added: {resource}"
 
+    # Initialize the LLM
+    llm = OpenAI(model="gpt-4o")
 
+    # Create the AG-UI workflow router
     agentic_chat_router = get_ag_ui_workflow_router(
-        llm=OpenAI(model="gpt-4o"),
+        llm=llm,
         system_prompt="""
-        You are a helpful assistant. When answering questions:
-        1. Use add_resource to track any sources you reference (internal use)
-        2. Use answer_question to provide your final answer to the user
+        You are a helpful assistant. When the user asks a question:
+        1. Think through your answer
+        2. Optionally use addResource to track any sources you reference
+        3. Use answerQuestion to provide your final answer - this stores it in state for the user to see
         
-        The question from the user is available in state as 'question'.
+        Always use the answerQuestion tool to provide your response so it appears in the UI.
         """,
-        backend_tools=[answer_question, add_resource],
+        backend_tools=[answerQuestion, addResource],
         initial_state={
             "question": "",       # Input: received from frontend
             "answer": "",         # Output: sent to frontend
-            "resources": []       # Internal: not shared with frontend
+            "resources": []       # Internal: tracking resources
         },
     )
 
-    app = FastAPI()
+    # Create FastAPI app
+    app = FastAPI(
+        title="LlamaIndex Agent",
+        description="A LlamaIndex agent integrated with CopilotKit",
+        version="1.0.0"
+    )
+
+    # Include the router
     app.include_router(agentic_chat_router)
+
+    # Health check endpoint
+    @app.get("/health")
+    async def health_check():
+        return {"status": "healthy", "agent": "llamaindex"}
 
     if __name__ == "__main__":
         import uvicorn
-        uvicorn.run(app, host="0.0.0.0", port=8000)
+        uvicorn.run(app, host="localhost", port=8000)
     ```
   </Step>
   <Step>
@@ -109,37 +154,87 @@ In addition, some state properties contain a lot of information. Syncing them ba
 
     ```tsx title="ui/app/page.tsx"
     "use client";
-    
+
+    import { useState } from "react";
     import { useCoAgent } from "@copilotkit/react-core";
 
-    // Only define the types for state you'll interact with
+    // Define the agent state type, should match the actual state of your agent
     type AgentState = {
       question: string;
       answer: string;
-      // Note: 'resources' is intentionally omitted - it's internal to the agent
     }
 
-    function YourMainContent() {
-      const { state, setState } = useCoAgent<AgentState>({
+    /* Example usage in a pseudo React component */
+    function YourMainContent() { // [!code highlight]
+      const [inputQuestion, setInputQuestion] = useState("What's the capital of France?");
+      const [isLoading, setIsLoading] = useState(false);
+      
+      const { state, setState, run } = useCoAgent<AgentState>({
         name: "my_agent",
         initialState: {
-          question: "How's the weather in SF?",
+          question: "",
           answer: "",
         }
       });
 
-      const askQuestion = (newQuestion: string) => {
-        setState({ ...state, question: newQuestion });
+      const askQuestion = async (newQuestion: string) => {
+        setIsLoading(true);
+        
+        // Update the state with the new question
+        setState({ ...state, question: newQuestion, answer: "" });
+        
+        try {
+          // Trigger the agent to run with a hint message that includes the question
+          await run(() => ({
+            id: crypto.randomUUID(),
+            role: "user" as const,
+            content: newQuestion,
+          }));
+        } catch (error) {
+          console.error("Error running agent:", error);
+        } finally {
+          setIsLoading(false);
+        }
       };
 
       return (
-        <div>
+        <div style={{ padding: "2rem", fontFamily: "system-ui, sans-serif" }}>
           <h1>Q&A Assistant</h1>
-          <p><strong>Question:</strong> {state.question}</p>
-          <p><strong>Answer:</strong> {state.answer || "Waiting for response..."}</p>
-          <button onClick={() => askQuestion("What's the capital of France?")}>
-            Ask New Question
-          </button>
+          
+          <div style={{ marginBottom: "1rem" }}>
+            <input
+              type="text"
+              value={inputQuestion}
+              onChange={(e) => setInputQuestion(e.target.value)}
+              placeholder="Enter your question..."
+              style={{ 
+                padding: "0.5rem", 
+                width: "300px", 
+                marginRight: "0.5rem",
+                borderRadius: "4px",
+                border: "1px solid #ccc"
+              }}
+            />
+            <button 
+              onClick={() => askQuestion(inputQuestion)}
+              disabled={isLoading || !inputQuestion.trim()}
+              style={{
+                padding: "0.5rem 1rem",
+                borderRadius: "4px",
+                border: "none",
+                backgroundColor: isLoading ? "#ccc" : "#0070f3",
+                color: "white",
+                cursor: isLoading ? "not-allowed" : "pointer"
+              }}
+            >
+              {isLoading ? "Thinking..." : "Ask Question"}
+            </button>
+          </div>
+
+          <div style={{ marginTop: "1.5rem" }}>
+            <p><strong>Question:</strong> {state.question || "(none yet)"}</p>
+            <p><strong>Answer:</strong> {state.answer || (isLoading ? "Thinking..." : "Waiting for question...")}</p>
+          </div>
         </div>
       );
     }

@@ -21,12 +21,11 @@ import { IframeSwitcher } from "@/components/content"
 
 ## What is this?
 
-This guide shows you how to write to your agent's state from your application.
+You can easily write to your agent's state from your native application, allowing you to update the agent's working memory from your UI.
 
 ## When should I use this?
 
-You can use this when you want to provide the user with feedback about what your agent is doing, specifically
-when your agent is calling tools. CopilotKit allows you to fully customize how these tools are rendered in the chat.
+You can use this when you want to provide user input or control to your agent's working memory. As your application state changes, you can update the agent state to reflect these changes.
 
 ## Implementation
 
@@ -41,12 +40,16 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     Create your LlamaIndex agent with a stateful structure using `initial_state`. Here's a complete example that tracks language:
 
     ```python title="agent.py"
+    from fastapi import FastAPI
     from llama_index.llms.openai import OpenAI
     from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
-    from fastapi import FastAPI
 
+    # Initialize the LLM
+    llm = OpenAI(model="gpt-4o")
+
+    # Create the AG-UI workflow router
     agentic_chat_router = get_ag_ui_workflow_router(
-        llm=OpenAI(model="gpt-4o"),
+        llm=llm,
         system_prompt="""
         You are a helpful assistant for tracking the language.
 
@@ -59,21 +62,35 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
         },
     )
 
-    app = FastAPI()
+    # Create FastAPI app
+    app = FastAPI(
+        title="LlamaIndex Agent",
+        description="A LlamaIndex agent integrated with CopilotKit",
+        version="1.0.0"
+    )
+
+    # Include the router
     app.include_router(agentic_chat_router)
+
+    # Health check endpoint
+    @app.get("/health")
+    async def health_check():
+        return {"status": "healthy", "agent": "llamaindex"}
 
     if __name__ == "__main__":
         import uvicorn
-        uvicorn.run(app, host="0.0.0.0", port=8000)
+        uvicorn.run(app, host="localhost", port=8000)
     ```
 
   </Step>
   <Step>
-    ### Call `setState` function from the `useCoAgent` hook
-    `useCoAgent` returns a `setState` function that you can use to update the agent state. Calling this
-    will update the agent state and trigger a rerender of anything that depends on the agent state.
+    ### Use the `useCoAgent` Hook
+    With your agent connected and running all that is left is to call the [useCoAgent](/reference/hooks/useCoAgent) hook, pass the agent's name, and
+    use the `setState` function to update the agent state.
 
     ```tsx title="ui/app/page.tsx"
+    "use client";
+
     import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
 
     // Define the agent state type, should match the actual state of your agent
@@ -85,7 +102,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     function YourMainContent() {
       const { state, setState } = useCoAgent<AgentState>({ // [!code highlight]
         name: "my_agent", // MUST match the agent name in CopilotRuntime
-        initialState: { language: "spanish" }  // optionally provide an initial state
+        initialState: { language: "english" }  // optionally provide an initial state
       });
 
       // ...
@@ -110,6 +127,10 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 
     <Callout type="warn" title="Important">
       The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+    </Callout>
+
+    <Callout type="info">
+      The `setState` function in `useCoAgent` will update the state and trigger a rerender when the state changes.
     </Callout>
 
   </Step>
@@ -139,7 +160,7 @@ function YourMainContent() {
   // [!code word:run:1]
   const { state, setState, run } = useCoAgent<AgentState>({
     name: "my_agent", // MUST match the agent name in CopilotRuntime
-    initialState: { language: "spanish" }  // optionally provide an initial state
+    initialState: { language: "english" }  // optionally provide an initial state
   });
 
   // setup to be called when some event in the app occurs
@@ -162,4 +183,3 @@ function YourMainContent() {
   );
 }
 ```
-
