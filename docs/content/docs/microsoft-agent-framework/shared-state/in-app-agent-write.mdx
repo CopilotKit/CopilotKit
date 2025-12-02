@@ -122,7 +122,7 @@ You can use this when you need to update agent state from your application — f
     function YourMainContent() {
       const { state, setState } = useCoAgent<AgentState>({ // [!code highlight]
         name: "sample_agent",
-        initialState: { language: "spanish" }  // optionally provide an initial state
+        initialState: { language: "english" }  // optionally provide an initial state
       });
 
       // ...
@@ -176,7 +176,7 @@ function YourMainContent() {
   // [!code word:run:1]
   const { state, setState, run } = useCoAgent<AgentState>({
     name: "sample_agent",
-    initialState: { language: "spanish" }  // optionally provide an initial state
+    initialState: { language: "english" }  // optionally provide an initial state
   });
 
   // setup to be called when some event in the app occurs
