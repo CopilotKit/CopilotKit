@@ -34,10 +34,7 @@ import {
 } from "@copilotkitnext/runtime";
 
 import { MessageInput } from "../../graphql/inputs/message.input";
-import { ActionInput } from "../../graphql/inputs/action.input";
-import { RuntimeEventSource } from "../../service-adapters/events";
 import { Message } from "../../graphql/types/converted";
-import { ForwardedParametersInput } from "../../graphql/inputs/forwarded-parameters.input";
 
 import {
   EndpointType,
@@ -46,19 +43,7 @@ import {
   LangGraphPlatformEndpoint,
 } from "./types";
 
-import { GraphQLContext } from "../integrations/shared";
-import { AgentSessionInput } from "../../graphql/inputs/agent-session.input";
-import { AgentStateInput } from "../../graphql/inputs/agent-state.input";
-import { Agent } from "../../graphql/types/agents-response.type";
-import { ExtensionsInput } from "../../graphql/inputs/extensions.input";
-import { ExtensionsResponse } from "../../graphql/types/extensions-response.type";
-import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
-import {
-  CopilotObservabilityConfig,
-  LLMRequestData,
-  LLMResponseData,
-  LLMErrorData,
-} from "../observability";
+import { CopilotObservabilityConfig, LLMRequestData, LLMResponseData } from "../observability";
 import { AbstractAgent } from "@ag-ui/client";
 
 // +++ MCP Imports +++
@@ -67,8 +52,6 @@ import {
   MCPEndpointConfig,
   MCPTool,
   extractParametersFromSchema,
-  convertMCPToolsToActions,
-  generateMcpToolInstructions,
 } from "./mcp-tools-utils";
 import { BasicAgent, BasicAgentConfiguration } from "@copilotkitnext/agent";
 // Define the function type alias here or import if defined elsewhere
@@ -351,22 +334,15 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   ): Record<string, AbstractAgent> {
     let result: Record<string, AbstractAgent> = {};
 
-    for (const endpoint of endpoints) {
-      if (resolveEndpointType(endpoint) == EndpointType.LangGraphPlatform) {
-        // Lazy require to avoid loading @ag-ui/langgraph when not needed
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const { LangGraphAgent } = require("./agent-integrations/langgraph/agent");
-        const lgEndpoint = endpoint as LangGraphPlatformEndpoint;
-
-        for (const agent of lgEndpoint.agents) {
-          const graphId = agent.assistantId ?? agent.name;
-          result[graphId] = new LangGraphAgent({
-            deploymentUrl: lgEndpoint.deploymentUrl,
-            langsmithApiKey: lgEndpoint.langsmithApiKey,
-            graphId,
-          });
-        }
-      }
+    if (
+      endpoints.some((endpoint) => resolveEndpointType(endpoint) == EndpointType.LangGraphPlatform)
+    ) {
+      throw new CopilotKitMisuseError({
+        message:
+          "LangGraphPlatformEndpoint in remoteEndpoints is deprecated. " +
+          'Please use the "agents" option instead with LangGraphAgent from "@copilotkit/runtime/langgraph". ' +
+          'Example: agents: { myAgent: new LangGraphAgent({ deploymentUrl: "...", graphId: "..." }) }',
+      });
     }
 
     return result;
