@@ -70,7 +70,7 @@ Check out the [Frontend Actions overview](/frontend-actions) to understand what 
 
         <Tabs groupId="language_crewai-flows_agent" items={['Python']} default="Python" persist>
             <Tab value="Python">
-                ```python title="agent-py/sample_agent/agent.py"
+                ```python title="agent.py"
                 from copilotkit import CopilotKitState # [!code highlight]
 
                 class YourAgentState(CopilotKitState): # [!code highlight]
@@ -90,7 +90,7 @@ Check out the [Frontend Actions overview](/frontend-actions) to understand what 
 
         <Tabs groupId="language_crewai-flows_agent" items={['Python']} default="Python" persist>
             <Tab value="Python">
-                ```python title="agent-py/sample_agent/agent.py"
+                ```python title="agent.py"
                 async def agent(self):
                     response = await copilotkit_stream(
                         completion(

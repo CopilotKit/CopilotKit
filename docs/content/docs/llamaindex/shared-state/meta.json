@@ -1,0 +1,10 @@
+{
+  "icon": "lucide/Repeat",
+  "defaultOpen": true,
+  "pages": [
+    "in-app-agent-read",
+    "in-app-agent-write",
+    "state-inputs-outputs",
+    "predictive-state-updates"
+  ]
+}

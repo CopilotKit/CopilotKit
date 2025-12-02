@@ -98,7 +98,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
 
         <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
             <Tab value="Python">
-                ```python title="agent-py/sample_agent/agent.py"
+                ```python title="agent.py"
                 from copilotkit import CopilotKitState # [!code highlight]
 
                 class YourAgentState(CopilotKitState): # [!code highlight]
@@ -130,7 +130,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
 
         <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
             <Tab value="Python">
-                ```python title="agent-py/sample_agent/agent.py"
+                ```python title="agent.py"
                 async def agent_node(state: YourAgentState, config: RunnableConfig):
                     # Access the tools from the copilotkit property
 

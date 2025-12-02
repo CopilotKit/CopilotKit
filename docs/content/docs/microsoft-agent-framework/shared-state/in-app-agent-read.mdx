@@ -46,7 +46,7 @@ state updates, you can reflect these updates natively in your application.
         ```csharp title="agent/Program.cs (excerpt)"
         public class AgentStateSnapshot
         {
-            public string Language { get; set; } = "spanish";
+            public string Language { get; set; } = "english";
         }
         ```
       </Tab>
@@ -86,7 +86,7 @@ state updates, you can reflect these updates natively in your application.
       // [!code highlight:4]
       const { state } = useCoAgent<AgentState>({
         name: "sample_agent",
-        initialState: { language: "spanish" }  // optionally provide an initial state
+        initialState: { language: "english" }  // optionally provide an initial state
       });
 
       // ...
@@ -108,7 +108,7 @@ state updates, you can reflect these updates natively in your application.
   <Step>
     ### Give it a try!
     As the agent state updates, your `state` variable will automatically update with it! In this case, you'll see the
-    language set to "spanish" as that's the initial state we set.
+    language set to "english" as that's the initial state we set.
 
     <Frame>
       <ImageZoom src="https://cdn.copilotkit.ai/docs/copilotkit/images/microsoft-agent-framework/read-agent-state.png" alt="read agent state" width={1000} height={1000} className="my-0"/>
