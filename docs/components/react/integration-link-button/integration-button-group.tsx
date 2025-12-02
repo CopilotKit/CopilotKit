@@ -1,75 +1,71 @@
 import { IntegrationLinkButton } from "./integration-link-button"
+import AdkIcon from "@/components/ui/icons/adk"
+import Ag2Icon from "@/components/ui/icons/ag2"
+import AgnoIcon from "@/components/ui/icons/agno"
+import CrewaiIcon from "@/components/ui/icons/crewai"
+import DirectToLlmIcon from "@/components/ui/icons/direct-to-llm"
+import LanggraphIcon from "@/components/ui/icons/langgraph"
+import LlamaIndexIcon from "@/components/ui/icons/llama-index"
+import MastraIcon from "@/components/ui/icons/mastra"
+import PydanticAiIcon from "@/components/ui/icons/pydantic-ai"
+import { ComponentType } from "react"
 
-const INTEGRATIONS = [
+interface Integration {
+  label: string
+  Icon: ComponentType<{ className?: string }>
+  href: string
+}
+
+const INTEGRATIONS: Integration[] = [
   {
     label: "ADK",
-    icon: "/icons/sidebar/adk.svg",
+    Icon: AdkIcon,
     href: "/integrations/adk",
-    width: 22,
-    height: 22,
   },
   {
     label: "AG2",
-    icon: "/icons/sidebar/ag2.svg",
+    Icon: Ag2Icon,
     href: "/integrations/ag2",
-    width: 22,
-    height: 22,
   },
   {
     label: "Agno",
-    icon: "/icons/sidebar/agno.svg",
+    Icon: AgnoIcon,
     href: "/integrations/agno",
-    width: 19,
-    height: 17,
   },
   {
     label: "CrewAI Flows",
-    icon: "/icons/sidebar/crewai.svg",
+    Icon: CrewaiIcon,
     href: "/integrations/crewai-flows",
-    width: 19,
-    height: 22,
   },
   {
     label: "CrewAI Crews",
-    icon: "/icons/sidebar/crewai.svg",
+    Icon: CrewaiIcon,
     href: "/integrations/crewai-crews",
-    width: 19,
-    height: 22,
   },
   {
     label: "Direct to LLM",
-    icon: "/icons/sidebar/direct-to-llm.svg",
+    Icon: DirectToLlmIcon,
     href: "/integrations/direct-to-llm",
-    width: 22,
-    height: 22,
   },
   {
     label: "LangGraph",
-    icon: "/icons/sidebar/langraph.svg",
+    Icon: LanggraphIcon,
     href: "/integrations/langgraph",
-    width: 30,
-    height: 16,
   },
   {
     label: "LlamaIndex",
-    icon: "/icons/sidebar/llama-index.svg",
+    Icon: LlamaIndexIcon,
     href: "/integrations/llamaindex",
-    width: 21,
-    height: 21,
   },
   {
     label: "Mastra",
-    icon: "/icons/sidebar/mastra.svg",
+    Icon: MastraIcon,
     href: "/integrations/mastra",
-    width: 23,
-    height: 23,
   },
   {
     label: "Pydantic AI",
-    icon: "/icons/sidebar/pydantic-ai.svg",
+    Icon: PydanticAiIcon,
     href: "/integrations/pydantic-ai",
-    width: 21,
-    height: 18,
   },
 ]
 

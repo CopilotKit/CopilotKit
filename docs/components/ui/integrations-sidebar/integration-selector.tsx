@@ -12,6 +12,7 @@ import LlamaIndexIcon from "../icons/llama-index"
 import MastraIcon from "../icons/mastra"
 import PydanticAiIcon from "../icons/pydantic-ai"
 import IntegrationPuzzleIcon from "../icons/integration-puzzle"
+import CheckIcon from "../icons/check"
 
 export type Integration =
   | "adk"
@@ -128,7 +129,11 @@ const IntegrationSelector = ({
   return (
     <div className="relative w-full">
       <div
-        className="flex justify-between items-center p-2 mt-3 mb-3 w-full h-14 rounded-lg border cursor-pointer bg-white/50 border-[#0C1112]/10 dark:border-border dark:bg-foreground/5"
+        className={`flex justify-between items-center p-2 mt-3 mb-3 w-full h-14 rounded-lg border cursor-pointer ${
+          pathname !== "/integrations"
+            ? "bg-[#BEC2FF33] dark:bg-[#7076D533] border-[#7076D5] dark:border-[#BEC2FF] [box-shadow:0px_17px_12px_-10px_rgba(112,118,213,0.3)]"
+            : "bg-white/50 dark:bg-foreground/5 border-[#0C1112]/10 dark:border-border"
+        }`}
         onClick={() => setIsOpen(!isOpen)}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -141,10 +146,20 @@ const IntegrationSelector = ({
         aria-expanded={isOpen}
       >
         <div className="flex gap-2 items-center">
-          <div className="flex justify-center items-center w-10 h-10 rounded-md bg-[#0C1112]/5 dark:bg-white/5">
+          <div
+            className={`flex justify-center items-center w-10 h-10 rounded-md ${
+              pathname !== "/integrations"
+                ? "bg-[#BEC2FF] dark:bg-[#7076D5]"
+                : "bg-[#0C1112]/5 dark:bg-white/5"
+            }`}
+          >
             <Icon className="text-[#0C1112] dark:text-white" />
           </div>
-          <span className="text-sm font-medium opacity-60">
+          <span
+            className={`text-sm font-medium opacity-60 ${
+              pathname !== "/integrations" && "text-foreground"
+            }`}
+          >
             {integration.label}
           </span>
         </div>
@@ -159,13 +174,28 @@ const IntegrationSelector = ({
               <Link
                 key={href}
                 href={href}
-                className="flex gap-4 items-center p-1 rounded-lg cursor-pointer hover:bg-[#0C1112]/5 dark:hover:bg-white/5 group"
+                className={`flex gap-2 justify-between items-center p-1 rounded-lg cursor-pointer group pr-3 ${
+                  integration.href === href
+                    ? "bg-[#BEC2FF33] dark:bg-[#7076D533]"
+                    : "hover:bg-[#0C1112]/5 dark:hover:bg-white/5"
+                }`}
                 onClick={() => handleIntegrationClick(key as Integration)}
               >
-                <div className="flex justify-center items-center w-10 h-10 rounded-md bg-[#0C1112]/5 dark:bg-white/5 group-hover:bg-[#BEC2FF] dark:group-hover:bg-[#7076D5] transition-all duration-200">
-                  <OptionIcon className="text-[#0C1112] dark:text-white dark:group-hover:text-white transition-all duration-200" />
+                <div className="flex gap-4 items-center">
+                  <div
+                    className={`flex justify-center items-center w-10 h-10 rounded-md  transition-all duration-200 ${
+                      integration.href === href
+                        ? "bg-[#BEC2FF] dark:bg-[#7076D5]"
+                        : "bg-[#0C1112]/5 dark:bg-white/5 group-hover:bg-[#0C1112]/10 dark:group-hover:bg-white/5"
+                    }`}
+                  >
+                    <OptionIcon className="text-[#0C1112] dark:text-white dark:group-hover:text-white transition-all duration-200" />
+                  </div>
+                  <span className="text-sm font-medium">{label}</span>
                 </div>
-                <span className="text-sm font-medium">{label}</span>
+                {integration.href === href && (
+                  <CheckIcon className="text-[#5C64DA] dark:text-[#7076D5]" />
+                )}
               </Link>
             )
           )}
