@@ -1,25 +1,20 @@
 ---
-title: Agentic Generative UI
+title: Agent State
 icon: "lucide/Bot"
 description: Render the state of your agent with custom UI components.
 ---
-
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/crewai-crews/run-and-connect.mdx"
 
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/agentic-generative-ui.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
+<IframeSwitcher
+  id="agent-state-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_generative_ui?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_generative_ui?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
 />
-<Callout>
-  This video demonstrates the [implementation](#implementation) section applied
-  to our [coagents starter
-  project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-crewai-crews).
-</Callout>
 
 ## What is this?
 
@@ -33,11 +28,8 @@ Rendering the outputs of your crew in the UI is essential to provide the user wi
 
 <Steps>
   <Step>
-    ### Run and Connect your CrewAI Crew to CopilotKit
-    First, you'll need to make sure you have a running CrewAI Crew. If you haven't already done this, you can follow the [getting started guide](/crewai-crews/quickstart/crewai)
-
-    This guide uses the [CoAgents starter repo](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-crewai-crews) as its starting point.
-
+    ### Run and connect your agent
+    <RunAndConnect components={props.components} />
   </Step>
   <Step>
     ### Render state of the agent in the chat
@@ -82,6 +74,16 @@ Rendering the outputs of your crew in the UI is essential to provide the user wi
     ### Give it a try!
 
     You've now created a component that will render the agent's state in the chat.
+
+    <video
+      src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/agentic-generative-ui.mp4"
+      className="rounded-lg shadow-xl"
+      loop
+      playsInline
+      controls
+      autoPlay
+      muted
+    />
 
   </Step>
 </Steps>
