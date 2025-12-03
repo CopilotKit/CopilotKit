@@ -2,11 +2,18 @@ import { ForwardedParametersInput } from "@copilotkit/runtime-client-gql";
 import { ReactNode } from "react";
 import { AuthState } from "../../context/copilot-context";
 import { CopilotErrorHandler } from "@copilotkit/shared";
+import { CopilotKitProviderProps } from "@copilotkitnext/react";
 /**
  * Props for CopilotKit.
  */
 
-export interface CopilotKitProps {
+/**
+ * We shouldn't need this `Omit` here, but using it because `CopilotKitProps`
+ * and `CopilotKitProviderProps` have non-identical `children` types
+ *
+ * TODO: Remove this `Omit` once this is resolved.
+ */
+export interface CopilotKitProps extends Omit<CopilotKitProviderProps, "children"> {
   /**
    * Your Copilot Cloud API key.
    *

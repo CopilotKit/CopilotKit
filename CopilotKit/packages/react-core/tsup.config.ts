@@ -10,7 +10,7 @@ export default defineConfig((options: Options) => ({
   format: ["esm", "cjs"],
   dts: true,
   minify: false,
-  external: ["react"],
+  external: ["react", "@copilotkitnext/core", "@copilotkitnext/react"],
   sourcemap: true,
   ...options,
 }));
