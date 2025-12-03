@@ -1,0 +1,22 @@
+{
+  "title": "AWS Strands",
+  "root": true,
+  "pages": [
+    "---Getting Started---",
+    "index",
+    "quickstart",
+    "---Guides---",
+    "agentic-chat-ui",
+    "custom-look-and-feel",
+    "frontend-actions",
+    "generative-ui",
+    "human-in-the-loop",
+    "shared-state",
+    "---Premium Features---",
+    "...premium",
+    "---Troubleshooting---",
+    "...troubleshooting",
+    "---Other---",
+    "...(other)"
+  ]
+}
