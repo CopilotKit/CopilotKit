@@ -7,12 +7,12 @@ alwaysApply: false
 
 ## Workspace Setup
 CopilotKit uses a monorepo structure with:
-- **[CopilotKit/package.json](mdc:src/v1.x/package.json)** - Main workspace configuration
-- **[CopilotKit/packages/](mdc:src/v1.x/packages)** - Core library packages
+- **[src/v1.x/package.json](mdc:src/v1.x/package.json)** - Main workspace configuration
+- **[src/v1.x/packages/](mdc:src/v1.x/packages)** - Core library packages
 - **[examples/](mdc:examples)** - Example applications
 
 ## Development Scripts
-Located in [CopilotKit/scripts/](mdc:src/v1.x/scripts):
+Located in [src/v1.x/scripts/](mdc:src/v1.x/scripts):
 
 ### Development Scripts
 - **[develop/](mdc:src/v1.x/scripts/develop)** - Development environment setup

@@ -36,8 +36,8 @@ alwaysApply: false
 - Use [react-ui/](mdc:src/v1.x/packages/react-ui) for pre-built components
 
 ### Set Up Development Environment
-- Review [CopilotKit/package.json](mdc:src/v1.x/package.json) for workspace setup
-- Use scripts in [CopilotKit/scripts/](mdc:src/v1.x/scripts)
+- Review [src/v1.x/package.json](mdc:src/v1.x/package.json) for workspace setup
+- Use scripts in [src/v1.x/scripts/](mdc:src/v1.x/scripts)
 - Check [utilities/](mdc:src/v1.x/utilities) for shared configurations
 
 ### Run Tests
@@ -50,7 +50,7 @@ alwaysApply: false
 - See [docs/content/docs/](mdc:docs/content/docs) for markdown files
 
 ## Key Files to Know
-- **[CopilotKit/package.json](mdc:src/v1.x/package.json)** - Main workspace configuration
+- **[src/v1.x/package.json](mdc:src/v1.x/package.json)** - Main workspace configuration
 - **[sdk-python/pyproject.toml](mdc:sdk-python/pyproject.toml)** - Python SDK configuration
 - **[CopilotKit.code-workspace](mdc:src/v1.x/CopilotKit.code-workspace)** - VS Code workspace settings
 - **[examples/shared/](mdc:examples/shared)** - Shared utilities and templates
