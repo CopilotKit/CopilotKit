@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import Link from "fumadocs-core/link"
 import { DocsLayoutProps } from "fumadocs-ui/layouts/docs"
 import { usePathname, useRouter } from "next/navigation"
 import Page from "./page"
