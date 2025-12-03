@@ -21,7 +21,8 @@
       "require": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
-    "./styles.css": "./dist/index.css"
+    "./styles.css": "./dist/index.css",
+    "./v2/styles.css": "./dist/v2/index.css"
   },
   "types": "./dist/index.d.ts",
   "license": "MIT",
