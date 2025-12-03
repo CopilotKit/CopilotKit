@@ -41,7 +41,7 @@ const Folder = ({ node }: FolderProps) => {
       <li
         className={cn(
           "w-full shrink-0 opacity-60 transition-opacity duration-300 hover:opacity-100 rounded-lg",
-          isActive && "opacity-100 bg-white/10"
+          isActive && "opacity-100 bg-white dark:bg-white/10"
         )}
       >
         <button
