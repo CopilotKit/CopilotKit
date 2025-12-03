@@ -117,7 +117,7 @@ export class HttpStreamClient implements MCPClientInterface {
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json, text/event-stream",
-        "Mcp-Session-Id": this.sessionId!,
+        ...(this.sessionId ? { "Mcp-Session-Id": this.sessionId } : {}),
         ...this.headers,
       },
       body: JSON.stringify(request),
@@ -169,7 +169,7 @@ export class HttpStreamClient implements MCPClientInterface {
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json, text/event-stream",
-        "Mcp-Session-Id": this.sessionId!,
+        ...(this.sessionId ? { "Mcp-Session-Id": this.sessionId } : {}),
         ...this.headers,
       },
       body: JSON.stringify(request),
