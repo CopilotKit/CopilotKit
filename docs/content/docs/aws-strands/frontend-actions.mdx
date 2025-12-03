@@ -1,0 +1,206 @@
+---
+title: Frontend Tools
+icon: "lucide/Wrench"
+description: Create frontend tools and use them within your Strands agent.
+---
+import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/aws-strands/run-and-connect.mdx"
+
+<IframeSwitcher
+  id="frontend-actions-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/aws-strands/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/aws-strands/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+## What is this?
+Frontend tools enable you to define client-side functions that your Strands agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
+the logic runs on the client side, giving you direct access to the frontend environment.
+
+This can be utilized to let [your agent control the UI](/aws-strands/frontend-actions), [generative UI](/aws-strands/generative-ui/frontend-tools), or for Human-in-the-loop interactions.
+
+In this guide, we cover the use of frontend tools driving and interacting with the UI.
+
+## When should I use this?
+Use frontend tools when you need your agent to interact with client-side primitives such as:
+- Reading or modifying React component state
+- Accessing browser APIs like localStorage, sessionStorage, or cookies
+- Triggering UI updates or animations
+- Interacting with third-party frontend libraries
+- Performing actions that require the user's immediate browser context
+
+## Implementation
+
+<Callout>
+Check out the [Frontend Tools overview](/frontend-tools) to understand what they are and when to use them.
+</Callout>
+
+<Steps>
+    <Step>
+        ### Run and connect your agent
+        <RunAndConnect components={props.components} />
+    </Step>
+
+    <Step>
+        ### Register the frontend tool in your agent
+
+        In your Strands agent, define a tool that returns `None`. This registers the tool with the LLM so it knows about it,
+        but the actual execution will happen on the frontend.
+
+        ```python title="main.py"
+        import os
+        from strands import Agent, tool
+        from strands.models.openai import OpenAIModel
+        from ag_ui_strands import StrandsAgent, create_strands_app
+
+        @tool
+        def change_background(background: str):
+            """
+            Change the background color of the chat. Can be anything that CSS accepts.
+
+            Args:
+                background: The background color or gradient. Prefer gradients.
+
+            Returns:
+                None - execution happens on the frontend
+            """
+            # Return None - frontend will handle execution
+            return None  # [!code highlight]
+
+        api_key = os.getenv("OPENAI_API_KEY", "")
+        model = OpenAIModel(
+            client_args={"api_key": api_key},
+            model_id="gpt-4o",
+        )
+
+        agent = Agent(
+            model=model,
+            tools=[change_background],  # [!code highlight]
+            system_prompt="You are a helpful assistant.",
+        )
+
+        agui_agent = StrandsAgent(
+            agent=agent,
+            name="my_agent",
+            description="A helpful assistant",
+        )
+
+        app = create_strands_app(agui_agent, "/")
+        ```
+    </Step>
+
+    <Step>
+        ### Create the frontend tool handler
+
+        Create a frontend tool using the [useFrontendTool](/reference/hooks/useFrontendTool) hook. The name must match
+        the tool name defined in your agent.
+
+        ```tsx title="app/page.tsx"
+        "use client";
+
+        import { useFrontendTool } from "@copilotkit/react-core"; // [!code highlight]
+        import { CopilotSidebar, CopilotKitCSSProperties } from "@copilotkit/react-ui";
+        import { useState } from "react";
+
+        export default function Page() {
+          const [background, setBackground] = useState("#6366f1");
+
+          // [!code highlight:15]
+          useFrontendTool({
+            name: "change_background",
+            description: "Change the background color of the chat.",
+            parameters: [
+              {
+                name: "background",
+                type: "string",
+                description: "The background color or gradient. Prefer gradients.",
+                required: true,
+              },
+            ],
+            handler: async ({ background }) => {
+              setBackground(background);
+              return `Background changed to ${background}`;
+            },
+          });
+
+          return (
+            <main
+              style={{
+                background,
+                transition: "background 0.3s ease",
+              }}
+              className="h-screen"
+            >
+              <CopilotSidebar />
+            </main>
+          );
+        }
+        ```
+    </Step>
+    <Step>
+        ### Give it a try!
+
+        Try asking the agent to change the background:
+
+        ```
+        Change the background to a sunset gradient
+        ```
+
+        ```
+        Make the background dark purple
+        ```
+
+        You should see the background change in real-time as the agent calls your frontend tool!
+
+        <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+    </Step>
+
+</Steps>
+
+## Accessing React state
+
+Frontend tools have full access to the DOM - including your React component state. For example, you can
+have your agent trigger re-renders via the `useFrontendTool` hook.
+
+```tsx
+"use client";
+
+import { useFrontendTool } from "@copilotkit/react-core";
+import { useState } from "react";
+
+export default function Page() {
+  const [tasks, setTasks] = useState<string[]>([]);
+
+  useFrontendTool({
+    name: "add_task",
+    description: "Add a task to the todo list",
+    parameters: [
+      {
+        name: "task",
+        type: "string",
+        description: "The task to add",
+        required: true,
+      },
+    ],
+    handler: async ({ task }) => {
+      setTasks((prev) => [...prev, task]);
+      return `Added task: ${task}`;
+    },
+  });
+
+  return (
+    <div>
+      <h1>Todo List</h1>
+      <ul>
+        {tasks.map((task, i) => (
+          <li key={i}>{task}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+Remember to define the corresponding tool in your Strands agent that returns `None`!
