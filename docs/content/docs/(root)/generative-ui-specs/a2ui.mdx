@@ -1,16 +1,16 @@
 ---
 title: "A2UI"
 icon: "lucide/Sparkles"
-description: "Google's declarative, LLM-friendly Generative UI specification"
+description: "Google's upcomingdeclarative, LLM-friendly Generative UI specification"
 ---
 
 # A2UI - Google's Generative UI Spec
 
-**A2UI** is Google's declarative, LLM-friendly Generative UI specification that enables agents to generate dynamic user interfaces.
+**A2UI** is Google's upcoming declarative, LLM-friendly Generative UI specification that enables agents to generate dynamic user interfaces.
 
 ## What is A2UI?
 
-A2UI is a declarative generative UI specification created by Google. It's designed to be:
+A2UI is a declarative generative UI specification pre-announced, but not yet launched, by Google. It's designed to be:
 
 - **JSONL-based** - Uses JSON Lines format for streaming
 - **LLM-friendly** - Easy for language models to generate
@@ -28,8 +28,12 @@ Built with streaming in mind, A2UI enables progressive rendering as the agent ge
 ### Platform Agnostic
 A2UI specifications can be rendered on web, mobile, or any other platform, making your agent's UI truly universal.
 
-## Using A2UI with CopilotKit
 
+## Using A2UI with CopilotKit
+<Callout>
+Once A2UI is launched, we'll update this page with documentation of CopilotKit and AG-UI's full support for A2UI.
+</Callout>
+{/*
 CopilotKit's AG-UI protocol natively supports A2UI alongside other generative UI specifications like MCP-UI and Open-JSON-UI.
 
 ```typescript
@@ -68,11 +72,13 @@ A2UI uses JSONL (JSON Lines) format, enabling progressive rendering as component
 
 ### 3. Cross-Platform Rendering
 The same A2UI specification can be rendered consistently across different platforms - web, mobile, desktop, or custom environments.
+*/}
 
 ## Learn More
 
 - [Generative UI Specs Overview](/generative-ui-specs) - Compare all supported specifications
 - [Generative UI Guide](/generative-ui) - Build with Generative UI in CopilotKit
+- [A2UI Pre-release](https://a2ui.org/) - Join the A2UI waitlist
 - [AG-UI Protocol](/ag-ui-protocol) - Learn about the protocol that supports A2UI
 - [Open-JSON-UI](/generative-ui-specs/open-json-ui) - OpenAI's alternative approach
 - [MCP-UI](/generative-ui-specs/mcp-ui) - Microsoft + Shopify's iframe-based spec
