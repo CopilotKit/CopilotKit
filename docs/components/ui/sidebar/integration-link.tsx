@@ -14,6 +14,7 @@ import LanggraphIcon from "../icons/langgraph"
 import LlamaIndexIcon from "../icons/llama-index"
 import MastraIcon from "../icons/mastra"
 import PydanticAiIcon from "../icons/pydantic-ai"
+import ChevronRightIcon from "../icons/chevron"
 
 type Node = DocsLayoutProps["tree"]["children"][number] & {
   url: string
@@ -62,10 +63,13 @@ const IntegrationLink = ({ node }: IntegrationLinkProps) => {
     >
       <Link
         href={linkUrl}
-        className="flex gap-2 items-center text-foreground dark:text-white"
+        className="flex gap-2 justify-between items-center w-full h-full text-foreground dark:text-white"
       >
-        {Icon && <Icon width={ICON_SIZE} height={ICON_SIZE} />}
-        {node.name}
+        <div className="flex gap-2 items-center">
+          {Icon && <Icon width={ICON_SIZE} height={ICON_SIZE} />}
+          {node.name}
+        </div>
+        <ChevronRightIcon className="text-white -rotate-90" />
       </Link>
     </li>
   )
