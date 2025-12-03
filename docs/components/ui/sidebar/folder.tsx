@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "fumadocs-core/link"
 import { DocsLayoutProps } from "fumadocs-ui/layouts/docs"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import Page from "./page"
 import ChevronDownIcon from "../icons/chevron"
 import { cn } from "@/lib/utils"
@@ -18,12 +18,24 @@ const Folder = ({ node }: FolderProps) => {
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
   const isActive = node?.index?.url === pathname
+  const router = useRouter()
 
   useEffect(() => {
     if (!node.index?.url) return
     const isFolderAlreadyOpen = pathname.includes(node.index?.url)
     setIsOpen(isFolderAlreadyOpen)
   }, [node.index?.url])
+
+  useEffect(() => {
+    console.log({ isActive, pathname, nodeIndexUrl: node.index?.url })
+    if (!isActive && !pathname.includes(node.index?.url ?? "")) setIsOpen(false)
+  }, [isActive, pathname])
+
+  const handleLinkClick = () => {
+    if (isActive) return
+    setIsOpen(!isOpen)
+    router.push(node.index?.url ?? "")
+  }
 
   return (
     <div className="w-full">
@@ -32,15 +44,14 @@ const Folder = ({ node }: FolderProps) => {
           "w-full shrink-0 opacity-60 transition-opacity duration-300 hover:opacity-100 rounded-lg",
           isActive && "opacity-100 bg-white/10"
         )}
-        onClick={() => setIsOpen(!isOpen)}
       >
-        <Link
-          href={node.index?.url}
-          className="flex gap-2 justify-between items-center px-3 w-full h-10"
+        <button
+          onClick={handleLinkClick}
+          className="flex gap-2 justify-between items-center px-3 w-full h-10 cursor-pointer"
         >
           <span className="w-max text-sm shrink-0">{node.name}</span>
           <ChevronDownIcon className={cn(isOpen ? "rotate-180" : "")} />
-        </Link>
+        </button>
       </li>
       {isOpen && (
         <ul className="flex relative flex-col gap-2 ml-4">
