@@ -10,7 +10,9 @@
     "access": "public"
   },
   "version": "1.50.0-beta.2",
-  "sideEffects": false,
+  "sideEffects": [
+    "**/*.css"
+  ],
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "exports": {
@@ -24,7 +26,7 @@
       "require": "./dist/v2/index.js",
       "types": "./dist/v2/index.d.ts"
     },
-    "./v2/styles.css": "./dist/index.css"
+    "./v2/styles.css": "./dist/v2/index.css"
   },
   "types": "./dist/index.d.ts",
   "license": "MIT",
