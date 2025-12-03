@@ -15,7 +15,7 @@
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen",
             "resolveSourceMapLocations": [
-                "${workspaceFolder}/CopilotKit/**",
+                "${workspaceFolder}/src/v1.x/**",
                 "!**/node_modules/**"
             ],
             "sourceMaps": true

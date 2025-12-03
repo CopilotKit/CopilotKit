@@ -9,11 +9,11 @@ RUN pnpm i -g turbo
 
 # Production Stage 
 FROM base AS production
-ARG APP_DIR="CopilotKit/examples/next-openai"
+ARG APP_DIR="src/v1.x/examples/next-openai"
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4 /lambda-adapter /opt/extensions/lambda-adapter
 
-WORKDIR /app/CopilotKit
-COPY CopilotKit/package.json CopilotKit/pnpm-lock.yaml CopilotKit/pnpm-workspace.yaml ./
+WORKDIR /app/src/v1.x
+COPY src/v1.x/package.json src/v1.x/pnpm-lock.yaml src/v1.x/pnpm-workspace.yaml ./
 COPY --parents ${APP_DIR}/**/package.json ./
 
 # Copy the built artifacts from the builder stage

@@ -48,7 +48,7 @@ export class ReferenceDoc {
     result += ` /*\n`;
     result += `  * ATTENTION! DO NOT MODIFY THIS FILE!\n`;
     result += `  * This page is auto-generated. If you want to make any changes to this page, changes must be made at:\n`;
-    result += `  * CopilotKit/${sourcePath}\n`;
+    result += `  * src/v1.x/${sourcePath}\n`;
     result += `  */\n`;
     result += `}\n`;
     return result;

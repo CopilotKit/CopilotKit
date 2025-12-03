@@ -139,11 +139,11 @@ jobs:
         uses: astral-sh/setup-uv@v6
 
       - name: Install cpk dependencies
-        working-directory: CopilotKit/CopilotKit
+        working-directory: CopilotKit/src/v1.x
         run: pnpm install --frozen-lockfile
 
       - name: Build cpk
-        working-directory: CopilotKit/CopilotKit
+        working-directory: CopilotKit/src/v1.x
         env:
           NODE_OPTIONS: --max-old-space-size=8192
           TURBO_CONCURRENCY: 2
