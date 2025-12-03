@@ -63,7 +63,7 @@ alwaysApply: false
 
 ## Getting Started Checklist
 1. Clone the repository
-2. Navigate to [CopilotKit/](mdc:CopilotKit) directory
+2. Navigate to [src/v1.x/](mdc:src/v1.x) directory
 3. Run `npm install` to set up workspace
 4. Choose an example from [examples/](mdc:examples)
 5. Follow the example's README.md

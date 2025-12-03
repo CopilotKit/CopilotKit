@@ -43,7 +43,7 @@
  * }
  * ```
  *
- * Have a look at the [Presentation Example App](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/examples/next-openai/src/app/presentation/page.tsx) for a more complete example.
+ * Have a look at the [Presentation Example App](https://github.com/CopilotKit/CopilotKit/blob/main/src/v1.x/examples/next-openai/src/app/presentation/page.tsx) for a more complete example.
  */
 
 import {

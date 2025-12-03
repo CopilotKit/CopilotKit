@@ -105,7 +105,7 @@ export interface CopilotTextareaProps
   extends Omit<BaseCopilotTextareaProps, "baseAutosuggestionsConfig"> {
   /**
    * Configuration settings for the autosuggestions feature.
-   * For full reference, [check the interface on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/packages/react-textarea/src/types/base/base-copilot-textarea-props.tsx#L8).
+   * For full reference, [check the interface on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/src/v1.x/packages/react-textarea/src/types/base/base-copilot-textarea-props.tsx#L8).
    *
    * <PropertyReference name="textareaPurpose" type="string" required={true} >
    *   The purpose of the text area in plain text.
@@ -119,10 +119,10 @@ export interface CopilotTextareaProps
    *   <strong>NOTE:</strong> You must provide specify at least one of `suggestionsApiConfig` or `insertionApiConfig`.
    *
    *   <PropertyReference name="suggestionsApiConfig" type="SuggestionsApiConfig">
-   *       For full reference, please [click here](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/packages/react-textarea/src/types/autosuggestions-config/suggestions-api-config.tsx#L4).
+   *       For full reference, please [click here](https://github.com/CopilotKit/CopilotKit/blob/main/src/v1.x/packages/react-textarea/src/types/autosuggestions-config/suggestions-api-config.tsx#L4).
    *   </PropertyReference>
    *   <PropertyReference name="insertionApiConfig" type="InsertionApiConfig">
-   *       For full reference, please [click here](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/packages/react-textarea/src/types/autosuggestions-config/insertions-api-config.tsx#L4).
+   *       For full reference, please [click here](https://github.com/CopilotKit/CopilotKit/blob/main/src/v1.x/packages/react-textarea/src/types/autosuggestions-config/insertions-api-config.tsx#L4).
    *   </PropertyReference>
    * </PropertyReference>
    *
