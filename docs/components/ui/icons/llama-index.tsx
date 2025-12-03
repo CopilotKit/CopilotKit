@@ -3,15 +3,21 @@ import { cn } from "@/lib/utils"
 
 interface LlamaIndexIconProps {
   className?: string
+  width?: number
+  height?: number
 }
 
 const DEFAULT_CLASSNAME = "text-icon"
 
-const LlamaIndexIcon = ({ className }: LlamaIndexIconProps) => {
+const LlamaIndexIcon = ({
+  className,
+  width = 21,
+  height = 21,
+}: LlamaIndexIconProps) => {
   return (
     <svg
-      width="21"
-      height="21"
+      width={width}
+      height={height}
       viewBox="0 0 21 21"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"

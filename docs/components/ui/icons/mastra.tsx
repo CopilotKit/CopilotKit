@@ -3,15 +3,21 @@ import { cn } from "@/lib/utils"
 
 interface MastraIconProps {
   className?: string
+  width?: number
+  height?: number
 }
 
 const DEFAULT_CLASSNAME = "text-icon"
 
-const MastraIcon = ({ className }: MastraIconProps) => {
+const MastraIcon = ({
+  className,
+  width = 24,
+  height = 23,
+}: MastraIconProps) => {
   return (
     <svg
-      width="24"
-      height="23"
+      width={width}
+      height={height}
       viewBox="0 0 24 23"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"

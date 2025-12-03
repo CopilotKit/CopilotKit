@@ -3,15 +3,17 @@ import { cn } from "@/lib/utils"
 
 interface CrewaiIconProps {
   className?: string
+  width?: number
+  height?: number
 }
 
 const DEFAULT_CLASSNAME = "text-icon"
 
-const CrewaiIcon = ({ className }: CrewaiIconProps) => {
+const CrewaiIcon = ({ className, width = 20, height = 22 }: CrewaiIconProps) => {
   return (
     <svg
-      width="20"
-      height="22"
+      width={width}
+      height={height}
       viewBox="0 0 20 22"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"

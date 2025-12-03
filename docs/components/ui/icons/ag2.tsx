@@ -3,15 +3,17 @@ import { cn } from "@/lib/utils"
 
 interface Ag2IconProps {
   className?: string
+  width?: number
+  height?: number
 }
 
 const DEFAULT_CLASSNAME = "text-icon"
 
-const Ag2Icon = ({ className }: Ag2IconProps) => {
+const Ag2Icon = ({ className, width = 23, height = 23 }: Ag2IconProps) => {
   return (
     <svg
-      width="23"
-      height="23"
+      width={width}
+      height={height}
       viewBox="0 0 23 23"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"

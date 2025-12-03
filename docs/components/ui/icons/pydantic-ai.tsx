@@ -3,15 +3,21 @@ import { cn } from "@/lib/utils"
 
 interface PydanticAiIconProps {
   className?: string
+  width?: number
+  height?: number
 }
 
 const DEFAULT_CLASSNAME = "text-icon"
 
-const PydanticAiIcon = ({ className }: PydanticAiIconProps) => {
+const PydanticAiIcon = ({
+  className,
+  width = 22,
+  height = 19,
+}: PydanticAiIconProps) => {
   return (
     <svg
-      width="22"
-      height="19"
+      width={width}
+      height={height}
       viewBox="0 0 22 19"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"

@@ -3,15 +3,21 @@ import { cn } from "@/lib/utils"
 
 interface LanggraphIconProps {
   className?: string
+  width?: number
+  height?: number
 }
 
 const DEFAULT_CLASSNAME = "text-icon"
 
-const LanggraphIcon = ({ className }: LanggraphIconProps) => {
+const LanggraphIcon = ({
+  className,
+  width = 31,
+  height = 16,
+}: LanggraphIconProps) => {
   return (
     <svg
-      width="31"
-      height="16"
+      width={width}
+      height={height}
       viewBox="0 0 31 16"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"

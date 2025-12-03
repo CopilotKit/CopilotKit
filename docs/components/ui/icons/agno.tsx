@@ -3,15 +3,17 @@ import { cn } from "@/lib/utils"
 
 interface AgnoIconProps {
   className?: string
+  width?: number
+  height?: number
 }
 
 const DEFAULT_CLASSNAME = "text-icon"
 
-const AgnoIcon = ({ className }: AgnoIconProps) => {
+const AgnoIcon = ({ className, width = 20, height = 18 }: AgnoIconProps) => {
   return (
     <svg
-      width="20"
-      height="18"
+      width={width}
+      height={height}
       viewBox="0 0 20 18"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
