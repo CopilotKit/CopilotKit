@@ -2,13 +2,24 @@ import { DocsLayoutProps } from "fumadocs-ui/layouts/docs"
 import Separator from "../ui/sidebar/separator"
 import Page from "../ui/sidebar/page"
 import Folder from "../ui/sidebar/folder"
+import IntegrationLink from "../ui/sidebar/integration-link"
 
-type Node = DocsLayoutProps["tree"]["children"][number] & { url: string }
+type Node = DocsLayoutProps["tree"]["children"][number] & {
+  url: string
+  index?: { url: string }
+}
 
 const NODE_COMPONENTS = {
   separator: Separator,
   page: Page,
   folder: Folder,
+  integrationLink: IntegrationLink,
+}
+
+const isIntegrationFolder = (node: Node): boolean => {
+  return (
+    node.type === "folder" && !!node.index?.url?.startsWith("/integrations/")
+  )
 }
 
 const Sidebar = ({ pageTree }: { pageTree: DocsLayoutProps["tree"] }) => {
@@ -22,7 +33,10 @@ const Sidebar = ({ pageTree }: { pageTree: DocsLayoutProps["tree"] }) => {
       <ul className="flex overflow-y-auto flex-col pr-1 max-h-full custom-scrollbar">
         <li className="w-full h-6" />
         {pages.map((page) => {
-          const Component = NODE_COMPONENTS[page.type]
+          const nodeType = isIntegrationFolder(page as Node)
+            ? "integrationLink"
+            : page.type
+          const Component = NODE_COMPONENTS[nodeType]
           return <Component key={crypto.randomUUID()} node={page as Node} />
         })}
       </ul>
