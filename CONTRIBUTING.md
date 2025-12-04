@@ -94,7 +94,7 @@ git checkout -b <new-branch-name-here>
 
 ## Step 5: Make your changes
 
-Now that everything is set up and works as expected, you can get start developing or update the code with your bug fix or new feature.
+Now that everything is set up and works as expected, you can get started developing or update the code with your bug fix or new feature.
 
 ```jsx
 # To start all packages in development mode

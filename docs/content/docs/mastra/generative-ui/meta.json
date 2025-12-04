@@ -1,7 +1,6 @@
 {
   "title": "Generative UI",
   "icon": "lucide/LayoutDashboard",
-  "pages": [
-    "tool-based"
-  ]
+  "defaultOpen": true,
+  "pages": ["backend-tools", "frontend-tools"]
 }

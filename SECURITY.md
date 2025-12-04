@@ -1,6 +1,6 @@
 # Security Policy
 
-At **Copilotkit**, we are continuously working to improve not only the product but also the open-source repository. To achieve this, we encourage you to take some time to responsibly disclose any issues you may encounter.
+At **CopilotKit**, we are continuously working to improve not only the product but also the open-source repository. To achieve this, we encourage you to take some time to responsibly disclose any issues you may encounter.
 
 ## Reporting a Vulnerability
 
@@ -26,7 +26,7 @@ We hope this product meets your expectations. However, if you notice anything th
 - **Resolution**: We aim to release a fix or mitigation within 30 days of confirming the vulnerability.
 
 ### Note
-**If you do not receive an acknowledgment of your email within 48 hours, and you haven’t heard from our security team after 5 days, please directly message someone from the Copilotkit team in our [Discord community](https://discord.gg/6dffbvGU3D).**
+**If you do not receive an acknowledgment of your email within 48 hours, and you haven’t heard from our security team after 5 days, please directly message someone from the CopilotKit team in our [Discord community](https://discord.gg/6dffbvGU3D).**
 
 ## Security Best Practices
 
