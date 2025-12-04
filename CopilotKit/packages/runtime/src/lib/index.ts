@@ -16,7 +16,9 @@ export * from "./runtime/mcp-tools-utils";
  */
 export class LangGraphAgent {
   constructor() {
-    throw new Error('LangGraphAgent import from @copilotkit/runtime is deprecated. Please import it from @copilotkit/runtime/langgraph instead')
+    throw new Error(
+      "LangGraphAgent import from @copilotkit/runtime is deprecated. Please import it from @copilotkit/runtime/langgraph instead",
+    );
   }
 }
 
@@ -25,23 +27,25 @@ export class LangGraphAgent {
  */
 export class LangGraphHttpAgent {
   constructor() {
-    throw new Error('LangGraphHttpAgent import from @copilotkit/runtime is deprecated. Please import it from @copilotkit/runtime/langgraph instead')
+    throw new Error(
+      "LangGraphHttpAgent import from @copilotkit/runtime is deprecated. Please import it from @copilotkit/runtime/langgraph instead",
+    );
   }
 }
 
 /**
  * @deprecated TextMessageEvents import from @copilotkit/runtime is deprecated. Please import it from @copilotkit/runtime/langgraph instead
  */
-export type TextMessageEvents = any
+export type TextMessageEvents = any;
 /**
  * @deprecated ToolCallEvents import from @copilotkit/runtime is deprecated. Please import it from @copilotkit/runtime/langgraph instead
  */
-export type ToolCallEvents = any
+export type ToolCallEvents = any;
 /**
  * @deprecated CustomEventNames import from @copilotkit/runtime is deprecated. Please import it from @copilotkit/runtime/langgraph instead
  */
-export type CustomEventNames = any
+export type CustomEventNames = any;
 /**
  * @deprecated PredictStateTool import from @copilotkit/runtime is deprecated. Please import it from @copilotkit/runtime/langgraph instead
  */
-export type PredictStateTool = any
+export type PredictStateTool = any;
