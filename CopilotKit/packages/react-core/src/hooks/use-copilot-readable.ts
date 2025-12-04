@@ -61,9 +61,8 @@
  * }
  * ```
  */
+import { useCopilotKit } from "@copilotkitnext/react";
 import { useEffect, useRef } from "react";
-import { useCopilotContext } from "../context/copilot-context";
-import { useAgentContext } from "@copilotkitnext/react";
 
 /**
  * Options for the useCopilotReadable hook.
@@ -109,10 +108,28 @@ function convertToJSON(description: string, value: any): string {
 export function useCopilotReadable(
   { description, value }: UseCopilotReadableOptions,
   dependencies?: any[],
-): undefined {
-  useAgentContext({
-    description,
-    value,
-  });
-  return;
+): string | undefined {
+  const { copilotkit } = useCopilotKit();
+  const ctxIdRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!copilotkit) return;
+
+    if (
+      ctxIdRef.current &&
+      copilotkit.context[ctxIdRef.current] &&
+      JSON.stringify(copilotkit.context[ctxIdRef.current]) ===
+        JSON.stringify({ description, value })
+    )
+      return;
+
+    ctxIdRef.current = copilotkit.addContext({ description, value });
+
+    // console.log('set ctx')
+    return () => {
+      if (!ctxIdRef.current) return;
+      copilotkit.removeContext(ctxIdRef.current);
+    };
+  }, [description, value]);
+
+  return ctxIdRef.current;
 }
