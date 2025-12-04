@@ -74,8 +74,6 @@ const Navbar = ({ pageTree }: NavbarProps) => {
   const pathname = usePathname()
   const activeRoute = pathname === "/" ? "/" : `/${pathname.split("/")[1]}`
 
-  console.log({ pathname, activeRoute })
-
   const handleToggleTheme = () => {
     document.documentElement.classList.toggle("dark")
     localStorage.theme = localStorage.theme === "dark" ? "light" : "dark"

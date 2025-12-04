@@ -19,7 +19,7 @@ const Page = ({ node }: PageProps) => {
     <li
       className={cn(
         "flex justify-start items-center px-3 h-10 text-sm opacity-60 transition-opacity duration-300 shrink-0 hover:opacity-100 rounded-lg",
-        isActive && "opacity-100 bg-white/10"
+        isActive && "opacity-100 bg-white dark:bg-white/10"
       )}
     >
       <Link href={node.url} className="text-foreground dark:text-white">
