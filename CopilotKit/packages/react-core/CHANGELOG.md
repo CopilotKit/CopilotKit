@@ -1,5 +1,38 @@
 # ui
 
+## 1.50.0-beta.4
+
+### Minor Changes
+
+- bad5f06: - feat: port old endpoint creators to 2.0
+- 33f47e3: - fix: fix predictive state update
+  - fix: fix state setters
+- 907ae5d: - feat: route CPK implementation to 2.0 copilotkitnext
+
+### Patch Changes
+
+- 8ce60af: - feat: enable coagent state renders
+- 04057d5: - fix: refrain from adding placeholder message
+- 2c93ff1: - fix: re-enable repeatable interrupt renders
+- b0e3652: - chore: Update to latest of vnext
+- 7643e71: - fix: make suggestions available
+- d55a8bd: - feat(runtime): export v2 of the runtime as a subpackage
+  - fix(runtime): update method for merging tools in assignToolsToAgent
+  - fix: remove redundant agent instantiation code
+- c38da1c: - feat: add suggestions support to 1.5
+- 3c60073: - fix: better sync back-and-forth state, including initial state
+- 962546c: - fix: resolve agent name directly from provider props
+- ca8eb39: - fix: fix result arguments passed to tool calls
+- c3d55e5: - fix: refactor interrupts mechanism to use a queue
+- 5840bab: - fix: adjust dependencies
+- 7808fac: - feat: add spinner indicator to show chat readiness for conversation
+- c70210e: - feat: use copilotnext's single endpoint
+- d2c57a1: - fix: export v2 styles
+- Updated dependencies [b0e3652]
+- Updated dependencies [4942f62]
+  - @copilotkit/runtime-client-gql@1.50.0-beta.4
+  - @copilotkit/shared@1.50.0-beta.4
+
 ## 1.10.7-next.0
 
 ### Patch Changes

@@ -1,5 +1,36 @@
 # ui
 
+## 1.50.0-beta.4
+
+### Minor Changes
+
+- 907ae5d: - feat: route CPK implementation to 2.0 copilotkitnext
+
+### Patch Changes
+
+- Updated dependencies [bad5f06]
+- Updated dependencies [8ce60af]
+- Updated dependencies [33f47e3]
+- Updated dependencies [04057d5]
+- Updated dependencies [2c93ff1]
+- Updated dependencies [b0e3652]
+- Updated dependencies [7643e71]
+- Updated dependencies [d55a8bd]
+- Updated dependencies [c38da1c]
+- Updated dependencies [3c60073]
+- Updated dependencies [962546c]
+- Updated dependencies [4942f62]
+- Updated dependencies [ca8eb39]
+- Updated dependencies [907ae5d]
+- Updated dependencies [c3d55e5]
+- Updated dependencies [5840bab]
+- Updated dependencies [7808fac]
+- Updated dependencies [c70210e]
+- Updated dependencies [d2c57a1]
+  - @copilotkit/react-core@1.50.0-beta.4
+  - @copilotkit/runtime-client-gql@1.50.0-beta.4
+  - @copilotkit/shared@1.50.0-beta.4
+
 ## 1.10.7-next.0
 
 ### Patch Changes

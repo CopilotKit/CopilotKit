@@ -1,5 +1,28 @@
 # @copilotkit/runtime
 
+## 1.50.0-beta.4
+
+### Minor Changes
+
+- bad5f06: - feat: port old endpoint creators to 2.0
+- 5a6029e: - fix(runtime): Update method for merging tools in assignToolsToAgent
+  - feat(runtime): Export v2 of the runtime as a subpackage
+- 4942f62: - feat: create rerouting CopilotRuntime
+
+### Patch Changes
+
+- b780092: - fix: treeshake and make providers optional
+- b0e3652: - chore: Update to latest of vnext
+- d55a8bd: - feat(runtime): export v2 of the runtime as a subpackage
+  - fix(runtime): update method for merging tools in assignToolsToAgent
+  - fix: remove redundant agent instantiation code
+- aee1e42: - fix: use hono node directly instead of express for the node http integration
+- 18ba908: - fix: unpack and set agents as promise, to avoid delaying runtime instantiation
+- c70210e: - feat: use copilotnext's single endpoint
+- Updated dependencies [b0e3652]
+- Updated dependencies [4942f62]
+  - @copilotkit/shared@1.50.0-beta.4
+
 ## 1.10.7-next.0
 
 ### Patch Changes
