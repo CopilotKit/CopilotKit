@@ -34,10 +34,7 @@ import {
 } from "@copilotkitnext/runtime";
 
 import { MessageInput } from "../../graphql/inputs/message.input";
-import { ActionInput } from "../../graphql/inputs/action.input";
-import { RuntimeEventSource } from "../../service-adapters/events";
 import { Message } from "../../graphql/types/converted";
-import { ForwardedParametersInput } from "../../graphql/inputs/forwarded-parameters.input";
 
 import {
   EndpointType,
@@ -46,19 +43,7 @@ import {
   LangGraphPlatformEndpoint,
 } from "./types";
 
-import { GraphQLContext } from "../integrations/shared";
-import { AgentSessionInput } from "../../graphql/inputs/agent-session.input";
-import { AgentStateInput } from "../../graphql/inputs/agent-state.input";
-import { Agent } from "../../graphql/types/agents-response.type";
-import { ExtensionsInput } from "../../graphql/inputs/extensions.input";
-import { ExtensionsResponse } from "../../graphql/types/extensions-response.type";
-import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
-import {
-  CopilotObservabilityConfig,
-  LLMRequestData,
-  LLMResponseData,
-  LLMErrorData,
-} from "../observability";
+import { CopilotObservabilityConfig, LLMRequestData, LLMResponseData } from "../observability";
 import { AbstractAgent } from "@ag-ui/client";
 
 // +++ MCP Imports +++
@@ -67,10 +52,7 @@ import {
   MCPEndpointConfig,
   MCPTool,
   extractParametersFromSchema,
-  convertMCPToolsToActions,
-  generateMcpToolInstructions,
 } from "./mcp-tools-utils";
-import { LangGraphAgent } from "./agent-integrations/langgraph.agent";
 import { BasicAgent, BasicAgentConfiguration } from "@copilotkitnext/agent";
 // Define the function type alias here or import if defined elsewhere
 type CreateMCPClientFunction = (config: MCPEndpointConfig) => Promise<MCPClient>;
@@ -324,8 +306,10 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     params?: CopilotRuntimeConstructorParams<T> & PartialBy<CopilotRuntimeOptions, "agents">,
   ) {
     const agents = params?.agents ?? {};
+    const endpointAgents = this.assignEndpointsToAgents(params?.remoteEndpoints ?? []);
+
     this.runtimeArgs = {
-      agents: { ...this.assignEndpointsToAgents(params?.remoteEndpoints ?? []), ...agents },
+      agents: { ...endpointAgents, ...agents },
       runner: params?.runner ?? new InMemoryAgentRunnerVNext(),
       // TODO: add support for transcriptionService from CopilotRuntimeOptionsVNext once it is ready
       // transcriptionService: params?.transcriptionService,
@@ -347,28 +331,21 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
   private assignEndpointsToAgents(
     endpoints: CopilotRuntimeConstructorParams<T>["remoteEndpoints"],
-  ) {
-    return endpoints.reduce((acc, endpoint) => {
-      if (resolveEndpointType(endpoint) == EndpointType.LangGraphPlatform) {
-        let lgAgents = {};
-        const lgEndpoint = endpoint as LangGraphPlatformEndpoint;
-        lgEndpoint.agents.forEach((agent) => {
-          const graphId = agent.assistantId ?? agent.name;
-          lgAgents[graphId] = new LangGraphAgent({
-            deploymentUrl: lgEndpoint.deploymentUrl,
-            langsmithApiKey: lgEndpoint.langsmithApiKey,
-            graphId,
-          });
-        });
+  ): Record<string, AbstractAgent> {
+    let result: Record<string, AbstractAgent> = {};
 
-        return {
-          ...acc,
-          ...lgAgents,
-        };
-      }
+    if (
+      endpoints.some((endpoint) => resolveEndpointType(endpoint) == EndpointType.LangGraphPlatform)
+    ) {
+      throw new CopilotKitMisuseError({
+        message:
+          "LangGraphPlatformEndpoint in remoteEndpoints is deprecated. " +
+          'Please use the "agents" option instead with LangGraphAgent from "@copilotkit/runtime/langgraph". ' +
+          'Example: agents: { myAgent: new LangGraphAgent({ deploymentUrl: "...", graphId: "..." }) }',
+      });
+    }
 
-      return acc;
-    }, {});
+    return result;
   }
 
   handleServiceAdapter(serviceAdapter: CopilotServiceAdapter) {
