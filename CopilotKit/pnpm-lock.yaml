@@ -546,9 +546,6 @@ importers:
       '@copilotkit/shared':
         specifier: workspace:*
         version: link:../shared
-      '@copilotkitnext/core':
-        specifier: 0.0.23
-        version: 0.0.23
       '@headlessui/react':
         specifier: ^2.2.9
         version: 2.2.9(react-dom@19.2.0(react@18.3.1))(react@18.3.1)
