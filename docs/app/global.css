@@ -174,6 +174,10 @@
   body {
     background-color: var(--background);
     color: var(--foreground);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
 
   .fd-codeblock pre {
@@ -197,8 +201,17 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
   background-color: var(--background) !important;
 } 
 
+/* Override fumadocs Banner sticky positioning to relative */
+#agui-banner {
+  position: relative !important;
+  top: auto !important;
+}
+
 #nd-home-layout {
   padding-top: 0 !important;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 #nd-docs-layout {
@@ -208,25 +221,32 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
   align-items: start;
   margin: 0 4px !important;
   padding: 0 !important;
+  height: 100%;
+  overflow: hidden;
 
   @media (min-width: 1280px) {
-    margin: 0 8px !important;
+    margin: 0 8px 8px 8px !important;
   }
 }
 
 #nd-page {
-  max-height: calc(100vh - 64px);
-  overflow-y: hidden;
+  max-height: 100%;
+  overflow-y: auto;
   margin: 0 !important;
   width: 100% !important;
   max-width: none !important;
   border: 1px solid var(--border) !important;
   border-left: none !important;
   border-radius: 0 var(--radius) var(--radius) 0 !important;
+  background: 
+    linear-gradient(to right, oklch(0.1081 0.0147 220.92 / 4%), oklch(0.1081 0.0147 220.92 / 0%)),
+    var(--glass-background) !important;
+}
 
-  @media (min-width: 1280px) {
-    max-height: calc(100vh - 80px - 8px);
-  }
+.dark #nd-page {
+  background: 
+    linear-gradient(to right, oklch(1 0 0 / 3%), oklch(1 0 0 / 0%)),
+    var(--glass-background) !important;
 }
 
 #nd-page article {

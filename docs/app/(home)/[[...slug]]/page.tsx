@@ -118,9 +118,9 @@ export default async function Page({
         style: "clerk",
       }}
     >
-      <div className="bg-glass-background">
-        <div className="px-8 py-6 xl:py-12 xl:px-16 bg-linear-to-r from-foreground/[4%] to-foreground/0 dark:from-white/[3%] dark:to-white/0 rounded-2xl custom-scrollbar overflow-y-scroll">
-          <div className={hideHeader ? "":"min-h-screen"}>
+      <div>
+        <div className="overflow-y-scroll px-8 py-6 rounded-2xl xl:py-12 xl:px-16 custom-scrollbar">
+          <div className={hideHeader ? "" : "min-h-screen"}>
             {!hideHeader && (
               <>
                 <div className="flex gap-3 items-center">
