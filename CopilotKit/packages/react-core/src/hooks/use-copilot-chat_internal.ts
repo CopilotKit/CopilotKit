@@ -419,15 +419,14 @@ export function useCopilotChatInternal({
     [latestSendMessageFunc],
   );
 
-  const latestSetMessages = useUpdatedRef(agent?.setMessages);
   const latestSetMessagesFunc = useCallback(
     (messages: Message[] | DeprecatedGqlMessage[]) => {
       if (messages.every((message) => message instanceof DeprecatedGqlMessage)) {
-        return latestSetMessages.current?.(gqlToAGUI(messages));
+        return agent?.setMessages?.(gqlToAGUI(messages));
       }
-      return latestSetMessages.current?.(messages);
+      return agent?.setMessages?.(messages);
     },
-    [latestSetMessages, agent],
+    [agent?.setMessages, agent],
   );
 
   const latestReload = useUpdatedRef(reload);
@@ -438,10 +437,9 @@ export function useCopilotChatInternal({
     [latestReload],
   );
 
-  const latestStop = useUpdatedRef(agent?.abortRun);
   const latestStopFunc = useCallback(() => {
-    return latestStop.current?.();
-  }, [latestStop]);
+    return agent?.abortRun?.();
+  }, [agent?.abortRun]);
 
   const latestReset = useUpdatedRef(reset);
   const latestResetFunc = useCallback(() => {
