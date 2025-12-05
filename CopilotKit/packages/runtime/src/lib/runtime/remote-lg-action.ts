@@ -268,7 +268,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       : null,
   };
 
-  const assistants = await client.assistants.search();
+  const assistants = await client.assistants.search({ limit: 1000 });
   const retrievedAssistant = assistants.find(
     (a) => a.name === name || a.assistant_id === initialAssistantId,
   );
