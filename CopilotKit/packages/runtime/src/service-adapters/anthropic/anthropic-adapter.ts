@@ -22,7 +22,7 @@
  * });
  * ```
  */
-import Anthropic from "@anthropic-ai/sdk";
+import type Anthropic from "@anthropic-ai/sdk";
 import {
   CopilotServiceAdapter,
   CopilotRuntimeChatCompletionRequest,
@@ -71,20 +71,36 @@ export interface AnthropicAdapterParams {
 }
 
 export class AnthropicAdapter implements CopilotServiceAdapter {
-  private model: string = DEFAULT_MODEL;
+  public model: string = DEFAULT_MODEL;
+  public provider = "anthropic";
   private promptCaching: AnthropicPromptCachingConfig;
 
   private _anthropic: Anthropic;
   public get anthropic(): Anthropic {
     return this._anthropic;
   }
+  public get name() {
+    return "AnthropicAdapter";
+  }
 
   constructor(params?: AnthropicAdapterParams) {
-    this._anthropic = params?.anthropic || new Anthropic({});
+    if (params?.anthropic) {
+      this._anthropic = params.anthropic;
+    }
+    // If no instance provided, we'll lazy-load in ensureAnthropic()
     if (params?.model) {
       this.model = params.model;
     }
     this.promptCaching = params?.promptCaching || { enabled: false };
+  }
+
+  private ensureAnthropic(): Anthropic {
+    if (!this._anthropic) {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const Anthropic = require("@anthropic-ai/sdk").default;
+      this._anthropic = new Anthropic({});
+    }
+    return this._anthropic;
   }
 
   /**
@@ -302,7 +318,8 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
         stream: true,
       };
 
-      const stream = await this.anthropic.messages.create(createParams);
+      const anthropic = this.ensureAnthropic();
+      const stream = await anthropic.messages.create(createParams);
 
       eventSource.stream(async (eventStream$) => {
         let mode: "function" | "message" | null = null;

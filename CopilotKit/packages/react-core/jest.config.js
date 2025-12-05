@@ -9,5 +9,17 @@ module.exports = {
   setupFilesAfterEnv: ["<rootDir>/src/setupTests.ts"],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
+    "\\.(css|less|scss|sass)$": "identity-obj-proxy",
+  },
+  transformIgnorePatterns: [
+    "node_modules/(?!(react-markdown|streamdown|@copilotkitnext)/)",
+  ],
+  transform: {
+    "^.+\\.(ts|tsx)$": "ts-jest",
+    "^.+\\.(js|jsx|mjs)$": ["ts-jest", {
+      tsconfig: {
+        allowJs: true,
+      },
+    }],
   },
 };

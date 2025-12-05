@@ -31,7 +31,7 @@
  * - A LangChain `AIMessage` object
  */
 
-import { BaseMessage } from "@langchain/core/messages";
+import type { BaseMessage } from "@langchain/core/messages";
 import { CopilotServiceAdapter } from "../service-adapter";
 import {
   CopilotRuntimeChatCompletionRequest,
@@ -42,10 +42,9 @@ import {
   convertMessageToLangChainMessage,
   streamLangChainResponse,
 } from "./utils";
-import { DynamicStructuredTool } from "@langchain/core/tools";
+import type { DynamicStructuredTool } from "@langchain/core/tools";
 import { LangChainReturnType } from "./types";
 import { randomUUID } from "@copilotkit/shared";
-import { awaitAllCallbacks } from "@langchain/core/callbacks/promises";
 
 interface ChainFnParameters {
   model: string;
@@ -66,6 +65,9 @@ export class LangChainAdapter implements CopilotServiceAdapter {
   /**
    * To use LangChain as a backend, provide a handler function to the adapter with your custom LangChain logic.
    */
+  public get name() {
+    return "LangChainAdapter";
+  }
   constructor(private options: LangChainAdapterOptions) {}
 
   async process(
@@ -100,6 +102,9 @@ export class LangChainAdapter implements CopilotServiceAdapter {
         threadId,
       };
     } finally {
+      // Lazy require for optional peer dependency
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { awaitAllCallbacks } = require("@langchain/core/callbacks/promises");
       await awaitAllCallbacks();
     }
   }

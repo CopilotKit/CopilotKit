@@ -22,7 +22,6 @@ import {
   CopilotRuntimeChatCompletionResponse,
   CopilotServiceAdapter,
 } from "../service-adapter";
-import OpenAI from "openai";
 import { randomId, randomUUID } from "@copilotkit/shared";
 import { convertActionInputToOpenAITool, convertMessageToOpenAIMessage } from "../openai/utils";
 
@@ -33,8 +32,13 @@ export interface UnifyAdapterParams {
 
 export class UnifyAdapter implements CopilotServiceAdapter {
   private apiKey: string;
-  private model: string;
+  public model: string;
   private start: boolean;
+  public provider = "unify";
+
+  public get name() {
+    return "UnifyAdapter";
+  }
 
   constructor(options?: UnifyAdapterParams) {
     if (options?.apiKey) {
@@ -50,6 +54,9 @@ export class UnifyAdapter implements CopilotServiceAdapter {
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
     const tools = request.actions.map(convertActionInputToOpenAITool);
+    // Lazy require for optional peer dependency
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const OpenAI = require("openai").default;
     const openai = new OpenAI({
       apiKey: this.apiKey,
       baseURL: "https://api.unify.ai/v0/",

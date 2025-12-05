@@ -19,7 +19,6 @@
  * ```
  */
 
-import { ChatBedrockConverse } from "@langchain/aws";
 import { LangChainAdapter } from "../langchain/langchain-adapter";
 
 export interface BedrockAdapterParams {
@@ -44,12 +43,21 @@ export interface BedrockAdapterParams {
   };
 }
 
+const DEFAULT_MODEL = "amazon.nova-lite-v1:0";
+
 export class BedrockAdapter extends LangChainAdapter {
+  public provider = "bedrock";
+  public model: string = DEFAULT_MODEL;
   constructor(options?: BedrockAdapterParams) {
     super({
       chainFn: async ({ messages, tools, threadId }) => {
+        // Lazy require for optional peer dependency
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { ChatBedrockConverse } = require("@langchain/aws");
+
+        this.model = options?.model ?? "amazon.nova-lite-v1:0";
         const model = new ChatBedrockConverse({
-          model: options?.model ?? "amazon.nova-lite-v1:0",
+          model: this.model,
           region: options?.region ?? "us-east-1",
           credentials: options?.credentials
             ? {

@@ -1,16 +1,5 @@
-import {
-  RunAgentInput,
-  EventType,
-  CustomEvent,
-  TextMessageStartEvent,
-  TextMessageContentEvent,
-  TextMessageEndEvent,
-  ToolCallStartEvent,
-  ToolCallArgsEvent,
-  ToolCallEndEvent,
-} from "@ag-ui/client";
 import { map } from "rxjs";
-import { LangGraphEventTypes } from "../../../agents/langgraph/events";
+import { LangGraphEventTypes } from "../../../../agents/langgraph/events";
 import { RawEvent } from "@ag-ui/core";
 import {
   LangGraphAgent as AGUILangGraphAgent,
@@ -31,29 +20,20 @@ interface CopilotKitStateEnrichment {
   };
 }
 
-export interface PredictStateTool {
-  tool: string;
-  state_key: string;
-  tool_argument: string;
-}
+import { RunAgentInput, EventType, CustomEvent } from "@ag-ui/client";
 
-export type TextMessageEvents =
-  | TextMessageStartEvent
-  | TextMessageContentEvent
-  | TextMessageEndEvent;
-
-export type ToolCallEvents = ToolCallStartEvent | ToolCallArgsEvent | ToolCallEndEvent;
-
-export enum CustomEventNames {
-  CopilotKitManuallyEmitMessage = "copilotkit_manually_emit_message",
-  CopilotKitManuallyEmitToolCall = "copilotkit_manually_emit_tool_call",
-  CopilotKitManuallyEmitIntermediateState = "copilotkit_manually_emit_intermediate_state",
-  CopilotKitExit = "copilotkit_exit",
-}
+// Import and re-export from separate file to maintain API compatibility
+import { CustomEventNames, TextMessageEvents, ToolCallEvents, PredictStateTool } from "./consts";
+export { CustomEventNames };
 
 export class LangGraphAgent extends AGUILangGraphAgent {
   constructor(config: LangGraphAgentConfig) {
     super(config);
+  }
+
+  // @ts-ignore
+  public clone() {
+    return new LangGraphAgent(this.config);
   }
 
   dispatchEvent(event: ProcessedEvents) {

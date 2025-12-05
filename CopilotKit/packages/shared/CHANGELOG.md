@@ -1,5 +1,21 @@
 # @copilotkit/shared
 
+## 1.50.0-beta.6
+
+### Minor Changes
+
+- Updating dependency versions across all packages
+
+## 1.50.0-beta.4
+
+### Minor Changes
+
+- 4942f62: - feat: create rerouting CopilotRuntime
+
+### Patch Changes
+
+- b0e3652: - chore: Update to latest of vnext
+
 ## 1.10.7-next.0
 
 ## 1.10.6

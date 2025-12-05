@@ -150,7 +150,7 @@ export function aguiTextMessageToGQLMessage(message: agui.Message): gql.TextMess
 
   return new gql.TextMessage({
     id: message.id,
-    content: message.content || "",
+    content: (message.content as any) || "",
     role: roleValue,
   });
 }

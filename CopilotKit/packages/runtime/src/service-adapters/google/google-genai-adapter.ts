@@ -14,9 +14,7 @@
  * return new GoogleGenerativeAIAdapter({ model: "gemini-1.5-pro" });
  * ```
  */
-import { ChatGoogle } from "@langchain/google-gauth";
 import { LangChainAdapter } from "../langchain/langchain-adapter";
-import { AIMessage } from "@langchain/core/messages";
 
 interface GoogleGenerativeAIAdapterOptions {
   /**
@@ -29,10 +27,21 @@ interface GoogleGenerativeAIAdapterOptions {
   apiKey?: string;
 }
 
+const DEFAULT_MODEL = "gemini-1.5-pro";
+
 export class GoogleGenerativeAIAdapter extends LangChainAdapter {
+  public provider = "google";
+  public model: string = DEFAULT_MODEL;
+
   constructor(options?: GoogleGenerativeAIAdapterOptions) {
     super({
       chainFn: async ({ messages, tools, threadId }) => {
+        // Lazy require for optional peer dependencies
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { ChatGoogle } = require("@langchain/google-gauth");
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { AIMessage } = require("@langchain/core/messages");
+
         // Filter out empty assistant messages to prevent Gemini validation errors
         // Gemini specifically rejects conversations containing AIMessages with empty content
         const filteredMessages = messages.filter((message) => {
@@ -43,15 +52,17 @@ export class GoogleGenerativeAIAdapter extends LangChainAdapter {
 
           // For AIMessages, only keep those with non-empty content
           // Also keep AIMessages with tool_calls even if content is empty
+          const aiMsg = message as any;
           return (
-            (message.content && String(message.content).trim().length > 0) ||
-            (message.tool_calls && message.tool_calls.length > 0)
+            (aiMsg.content && String(aiMsg.content).trim().length > 0) ||
+            (aiMsg.tool_calls && aiMsg.tool_calls.length > 0)
           );
         });
 
+        this.model = options?.model ?? "gemini-1.5-pro";
         const model = new ChatGoogle({
           apiKey: options?.apiKey ?? process.env.GOOGLE_API_KEY,
-          modelName: options?.model ?? "gemini-1.5-pro",
+          modelName: this.model,
           apiVersion: "v1beta",
         }).bindTools(tools);
 

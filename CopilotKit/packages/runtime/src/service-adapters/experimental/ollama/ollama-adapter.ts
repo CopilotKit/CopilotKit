@@ -23,7 +23,6 @@ import {
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
 } from "../../service-adapter";
-import { Ollama } from "@langchain/community/llms/ollama";
 import { randomId, randomUUID } from "@copilotkit/shared";
 
 const DEFAULT_MODEL = "llama3:latest";
@@ -33,7 +32,11 @@ interface OllamaAdapterOptions {
 }
 
 export class ExperimentalOllamaAdapter implements CopilotServiceAdapter {
-  private model: string;
+  public model: string;
+  public provider = "ollama";
+  public get name() {
+    return "OllamaAdapter";
+  }
 
   constructor(options?: OllamaAdapterOptions) {
     if (options?.model) {
@@ -49,6 +52,8 @@ export class ExperimentalOllamaAdapter implements CopilotServiceAdapter {
     const { messages, actions, eventSource } = request;
     // const messages = this.transformMessages(forwardedProps.messages);
 
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { Ollama } = require("@langchain/community/llms/ollama");
     const ollama = new Ollama({
       model: this.model,
     });

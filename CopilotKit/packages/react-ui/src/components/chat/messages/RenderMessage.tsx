@@ -11,6 +11,7 @@ export function RenderMessage({
 }: RenderMessageProps) {
   const {
     message,
+    messages,
     inProgress,
     index,
     isCurrentMessage,
@@ -41,6 +42,7 @@ export function RenderMessage({
           subComponent={message.generativeUI?.()}
           rawData={message}
           message={message}
+          messages={messages}
           isLoading={inProgress && isCurrentMessage && !message.content}
           isGenerating={inProgress && isCurrentMessage && !!message.content}
           isCurrentMessage={isCurrentMessage}
