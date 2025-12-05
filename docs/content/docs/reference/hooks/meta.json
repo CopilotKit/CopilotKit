@@ -1,6 +1,7 @@
 {
   "title": "hooks",
   "pages": [
+    "useAgent",
     "useDefaultTool",
     "useFrontendTool",
     "useRenderToolCall",
