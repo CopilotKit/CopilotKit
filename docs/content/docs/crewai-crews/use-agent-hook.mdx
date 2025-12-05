@@ -1,0 +1,65 @@
+---
+title: "useAgent Hook"
+description: "Access and interact with your CrewAI Crews agent directly from React components"
+icon: "lucide/Cpu"
+---
+
+import {
+  MessageCircle,
+  Database,
+  Zap,
+  BookOpen,
+} from "lucide-react"
+
+## Overview
+
+The `useAgent` hook provides direct access to your CrewAI Crews agent from any React component. It gives you real-time access to the agent's state, messages, execution status, and allows you to subscribe to custom events.
+
+This enables you to build custom agent dashboards, monitoring tools, and interactive features that respond to your agent's behavior.
+
+## Navigation
+
+This page covers everything you need to know about using `useAgent` with CrewAI Crews. Select where you'd like to get started below.
+
+<Cards className="gap-6">
+  <Card
+    icon={<MessageCircle className="text-primary" />}
+    className="p-6 rounded-xl text-base md:col-span-2"
+    title="Getting started"
+    description="Learn the basics of accessing your agent and displaying its properties."
+    href="#getting-started"
+  />
+  <Card
+    icon={<Database className="text-primary" />}
+    className="p-6 rounded-xl text-base"
+    title="Working with State"
+    description="Access and update shared state between your app and agent."
+    href="#working-with-state"
+  />
+  <Card
+    icon={<Zap className="text-primary" />}
+    className="p-6 rounded-xl text-base"
+    title="Agent Events"
+    description="Subscribe to agent lifecycle events and custom events."
+    href="#subscribing-to-agent-events"
+  />
+  <Card
+    icon={<BookOpen className="text-primary" />}
+    className="p-6 rounded-xl text-base"
+    title="Reference"
+    description="Complete API reference documentation for useAgent."
+    href="/reference/hooks/useAgent"
+  />
+</Cards>
+
+## Getting started
+
+Let's start by building a simple component that displays agent information.
+
+import UseAgentSnippet from "@/snippets/use-agent.mdx";
+
+<UseAgentSnippet components={props.components} />
+
+## See Also
+
+- [useAgent API Reference](/reference/hooks/useAgent) - Complete API documentation
