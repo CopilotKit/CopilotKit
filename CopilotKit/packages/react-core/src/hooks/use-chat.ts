@@ -943,7 +943,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         }
       }, []);
     },
-    [setLangGraphInterruptAction],
+    [setLangGraphInterruptAction, threadId],
   );
 
   const append = useAsyncCallback(
