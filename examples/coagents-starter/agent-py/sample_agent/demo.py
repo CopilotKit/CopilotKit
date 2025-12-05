@@ -11,11 +11,11 @@ load_dotenv() # pylint: disable=wrong-import-position
 from fastapi import FastAPI
 import uvicorn
 from copilotkit import LangGraphAGUIAgent
-from ag_ui_langgraph import add_langgraph_fastapi_endpoint
+from ag_ui_langgraph import add_langgraph_fastapi_endpoints
 from sample_agent.agent import graph
 
 app = FastAPI()
-add_langgraph_fastapi_endpoint(
+add_langgraph_fastapi_endpoints(
     app=app,
     agent=LangGraphAGUIAgent(
         name="sample_agent",
