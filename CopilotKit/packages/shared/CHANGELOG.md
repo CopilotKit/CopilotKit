@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.50.0-beta.6
+
+### Minor Changes
+
+- Updating dependency versions across all packages
+
 ## 1.50.0-beta.4
 
 ### Minor Changes

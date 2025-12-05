@@ -1,5 +1,17 @@
 # ui
 
+## 1.50.0-beta.6
+
+### Minor Changes
+
+- Updating dependency versions across all packages
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.0-beta.6
+  - @copilotkit/shared@1.50.0-beta.6
+
 ## 1.50.0-beta.4
 
 ### Minor Changes
