@@ -106,7 +106,7 @@ importers:
         specifier: ^1.0.40
         version: 1.0.40(@types/react@19.2.2)(react@19.0.0-rc-0bc30748-20241028)
       groq-sdk:
-        specifier: ^0.5.0
+        specifier: '>=0.3.0 <1.0.0'
         version: 0.5.0(encoding@0.1.13)
       langchain:
         specifier: ^0.3.3
@@ -680,7 +680,7 @@ importers:
         specifier: ^5.3.1
         version: 5.6.1(graphql@16.9.0)
       groq-sdk:
-        specifier: ^0.5.0
+        specifier: '>=0.3.0 <1.0.0'
         version: 0.5.0(encoding@0.1.13)
       hono:
         specifier: ^4.10.3
@@ -17552,7 +17552,7 @@ snapshots:
 
   '@types/node-fetch@2.6.12':
     dependencies:
-      '@types/node': 18.19.84
+      '@types/node': 20.14.12
       form-data: 4.0.2
 
   '@types/node@10.14.22': {}
@@ -20437,10 +20437,10 @@ snapshots:
 
   groq-sdk@0.5.0(encoding@0.1.13):
     dependencies:
-      '@types/node': 18.19.42
-      '@types/node-fetch': 2.6.11
+      '@types/node': 18.19.84
+      '@types/node-fetch': 2.6.12
       abort-controller: 3.0.0
-      agentkeepalive: 4.5.0
+      agentkeepalive: 4.6.0
       form-data-encoder: 1.7.2
       formdata-node: 4.4.1
       node-fetch: 2.7.0(encoding@0.1.13)
@@ -20713,7 +20713,7 @@ snapshots:
       isstream: 0.1.2
       jsonwebtoken: 9.0.2
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.7.9)
+      retry-axios: 2.6.0(axios@1.7.9(debug@4.4.1))
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -24016,7 +24016,7 @@ snapshots:
       onetime: 5.1.2
       signal-exit: 3.0.7
 
-  retry-axios@2.6.0(axios@1.7.9):
+  retry-axios@2.6.0(axios@1.7.9(debug@4.4.1)):
     dependencies:
       axios: 1.7.9(debug@4.4.1)
 
