@@ -31,16 +31,16 @@ Users can configure suggestions via `useCopilotChatSuggestions` hook which regis
 ## Core files
 
 - **@react-ui**
-  - [Suggestions.tsx](mdc:CopilotKit/packages/react-ui/src/components/chat/Suggestions.tsx) - How suggestions are rendered
-  - [Messages.tsx](mdc:CopilotKit/packages/react-ui/src/components/chat/Messages.tsx) - Includes relevant code for what renders [Suggestions.tsx](mdc:CopilotKit/packages/react-ui/src/components/chat/Suggestions.tsx)
-  - [Chat.tsx](mdc:CopilotKit/packages/react-ui/src/components/chat/Chat.tsx) - Includes relevant logic for our prebuilt components loading suggestions
-  - [use-copilot-chat-suggestions.tsx](mdc:CopilotKit/packages/react-ui/src/hooks/use-copilot-chat-suggestions.tsx) - How users specify the configuration for their suggestions
-  - [suggestions.css](mdc:CopilotKit/packages/react-ui/src/css/suggestions.css) - Styling for suggestions
+  - [Suggestions.tsx](mdc:src/v1.x/packages/react-ui/src/components/chat/Suggestions.tsx) - How suggestions are rendered
+  - [Messages.tsx](mdc:src/v1.x/packages/react-ui/src/components/chat/Messages.tsx) - Includes relevant code for what renders [Suggestions.tsx](mdc:src/v1.x/packages/react-ui/src/components/chat/Suggestions.tsx)
+  - [Chat.tsx](mdc:src/v1.x/packages/react-ui/src/components/chat/Chat.tsx) - Includes relevant logic for our prebuilt components loading suggestions
+  - [use-copilot-chat-suggestions.tsx](mdc:src/v1.x/packages/react-ui/src/hooks/use-copilot-chat-suggestions.tsx) - How users specify the configuration for their suggestions
+  - [suggestions.css](mdc:src/v1.x/packages/react-ui/src/css/suggestions.css) - Styling for suggestions
 - **@react-core**
-  - [copilot-context.tsx](mdc:CopilotKit/packages/react-core/src/context/copilot-context.tsx) - Where the actual suggestions are stored, the "provider" or "context"
-  - [use-copilot-chat.ts](mdc:CopilotKit/packages/react-core/src/hooks/use-copilot-chat.ts) - Hook that controls and contains logic for suggestions, often referred to as "headless UI"
-  - [suggestions.ts](mdc:CopilotKit/packages/react-core/src/utils/suggestions.ts) - Core suggestion generation logic with streaming validation and error handling
-  - [suggestions-constants.ts](mdc:CopilotKit/packages/react-core/src/utils/suggestions-constants.ts) - Retry configuration constants
+  - [copilot-context.tsx](mdc:src/v1.x/packages/react-core/src/context/copilot-context.tsx) - Where the actual suggestions are stored, the "provider" or "context"
+  - [use-copilot-chat.ts](mdc:src/v1.x/packages/react-core/src/hooks/use-copilot-chat.ts) - Hook that controls and contains logic for suggestions, often referred to as "headless UI"
+  - [suggestions.ts](mdc:src/v1.x/packages/react-core/src/utils/suggestions.ts) - Core suggestion generation logic with streaming validation and error handling
+  - [suggestions-constants.ts](mdc:src/v1.x/packages/react-core/src/utils/suggestions-constants.ts) - Retry configuration constants
 
 ## How Suggestions Work
 

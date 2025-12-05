@@ -116,19 +116,19 @@ jobs:
 
       - name: (UI, Local Deps) Install monorepo
         if: matrix.app.type == 'ui' || matrix.app.type == 'next-openai'
-        working-directory: ./CopilotKit
+        working-directory: ./src/v1.x
         run: pnpm install --frozen-lockfile
 
       - name: (UI, Local Deps) Build @copilotkit packages
         if: matrix.app.type == 'ui' || matrix.app.type == 'next-openai'
-        working-directory: ./CopilotKit
+        working-directory: ./src/v1.x
         run: pnpm run freshbuild
 
       - name: (UI, Local Deps) Link @copilotkit packages
         if: matrix.app.type == 'ui'
         working-directory: ./examples/${{ matrix.app.project }}/${{ matrix.app.type }}
         run: |
-          for package in $(ls -d ../../../CopilotKit/packages/*); do
+          for package in $(ls -d ../../../src/v1.x/packages/*); do
             pnpm link $package
           done
 
@@ -141,7 +141,7 @@ jobs:
 
       - name: (next-openai) Build app
         if: matrix.app.type == 'next-openai'
-        working-directory: CopilotKit/examples/next-openai
+        working-directory: src/v1.x/examples/next-openai
         run: pnpm run example-build
         env:
           OPENAI_API_KEY: placeholder
@@ -165,7 +165,7 @@ jobs:
         run: |
           docker buildx build \
             -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:next-openai-${{ github.run_id }} \
-            -f ./CopilotKit/examples/next-openai/Dockerfile \
+            -f ./src/v1.x/examples/next-openai/Dockerfile \
             --platform=linux/amd64 \
             --provenance=false \
             --push \

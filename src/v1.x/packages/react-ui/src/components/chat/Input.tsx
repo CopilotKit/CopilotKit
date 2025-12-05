@@ -1,0 +1,156 @@
+import React, { useMemo, useRef, useState } from "react";
+import { InputProps } from "./props";
+import { useChatContext } from "./ChatContext";
+import AutoResizingTextarea from "./Textarea";
+import { usePushToTalk } from "../../hooks/use-push-to-talk";
+import { useCopilotContext, useCopilotChatInternal } from "@copilotkit/react-core";
+import { PoweredByTag } from "./PoweredByTag";
+
+const MAX_NEWLINES = 6;
+
+export const Input = ({
+  inProgress,
+  onSend,
+  chatReady = false,
+  onStop,
+  onUpload,
+  hideStopButton = false,
+}: InputProps) => {
+  const context = useChatContext();
+  const copilotContext = useCopilotContext();
+
+  const showPoweredBy = !copilotContext.copilotApiConfig?.publicApiKey;
+
+  const pushToTalkConfigured =
+    copilotContext.copilotApiConfig.textToSpeechUrl !== undefined &&
+    copilotContext.copilotApiConfig.transcribeAudioUrl !== undefined;
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [isComposing, setIsComposing] = useState(false);
+
+  const handleDivClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+
+    // If the user clicked a button or inside a button, don't focus the textarea
+    if (target.closest("button")) return;
+
+    // If the user clicked the textarea, do nothing (it's already focused)
+    if (target.tagName === "TEXTAREA") return;
+
+    // Otherwise, focus the textarea
+    textareaRef.current?.focus();
+  };
+
+  const [text, setText] = useState("");
+  const send = () => {
+    if (inProgress) return;
+    onSend(text);
+    setText("");
+
+    textareaRef.current?.focus();
+  };
+
+  // tylerslaton:
+  //
+  // This scrolls CopilotKit into view always. Reading the commit history, it was likely
+  // added to fix a bug but it is causing issues now.
+  //
+  // For the future, if we want this behavior again, we will need to find a way to do it without
+  // forcing CopilotKit to always be in view. This code causes this because focusing an element
+  // in most browsers will scroll that element into view.
+  //
+  // useEffect(() => {
+  //   if (isVisible) {
+  //     textareaRef.current?.focus();
+  //   }
+  // }, [isVisible]);
+
+  const { pushToTalkState, setPushToTalkState } = usePushToTalk({
+    sendFunction: onSend,
+    inProgress,
+  });
+
+  const isInProgress = inProgress || pushToTalkState === "transcribing";
+  const { buttonIcon, buttonAlt } = useMemo(() => {
+    if (!chatReady) return { buttonIcon: context.icons.spinnerIcon, buttonAlt: "Loading" };
+    return isInProgress && !hideStopButton && chatReady
+      ? { buttonIcon: context.icons.stopIcon, buttonAlt: "Stop" }
+      : { buttonIcon: context.icons.sendIcon, buttonAlt: "Send" };
+  }, [isInProgress, chatReady, hideStopButton, context.icons.stopIcon, context.icons.sendIcon]);
+  const showPushToTalk =
+    pushToTalkConfigured &&
+    (pushToTalkState === "idle" || pushToTalkState === "recording") &&
+    !inProgress;
+
+  const { interrupt } = useCopilotChatInternal();
+
+  const canSend = useMemo(() => {
+    return !isInProgress && text.trim().length > 0 && pushToTalkState === "idle" && !interrupt;
+  }, [interrupt, isInProgress, text, pushToTalkState]);
+
+  const canStop = useMemo(() => {
+    return isInProgress && !hideStopButton;
+  }, [isInProgress, hideStopButton]);
+
+  const sendDisabled = !canSend && !canStop;
+
+  return (
+    <div className={`copilotKitInputContainer ${showPoweredBy ? "poweredByContainer" : ""}`}>
+      <div className="copilotKitInput" onClick={handleDivClick}>
+        <AutoResizingTextarea
+          ref={textareaRef}
+          placeholder={context.labels.placeholder}
+          autoFocus={false}
+          maxRows={MAX_NEWLINES}
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          onCompositionStart={() => setIsComposing(true)}
+          onCompositionEnd={() => setIsComposing(false)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey && !isComposing) {
+              event.preventDefault();
+              if (canSend) {
+                send();
+              }
+            }
+          }}
+        />
+        <div className="copilotKitInputControls">
+          {onUpload && (
+            <button onClick={onUpload} className="copilotKitInputControlButton">
+              {context.icons.uploadIcon}
+            </button>
+          )}
+
+          <div style={{ flexGrow: 1 }} />
+
+          {showPushToTalk && (
+            <button
+              onClick={() =>
+                setPushToTalkState(pushToTalkState === "idle" ? "recording" : "transcribing")
+              }
+              className={
+                pushToTalkState === "recording"
+                  ? "copilotKitInputControlButton copilotKitPushToTalkRecording"
+                  : "copilotKitInputControlButton"
+              }
+            >
+              {context.icons.pushToTalkIcon}
+            </button>
+          )}
+          <button
+            disabled={sendDisabled}
+            onClick={isInProgress && !hideStopButton ? onStop : send}
+            data-copilotkit-in-progress={inProgress}
+            data-test-id={inProgress ? "copilot-chat-request-in-progress" : "copilot-chat-ready"}
+            className="copilotKitInputControlButton"
+            aria-label={buttonAlt}
+          >
+            {buttonIcon}
+          </button>
+        </div>
+      </div>
+      <PoweredByTag showPoweredBy={showPoweredBy} />
+    </div>
+  );
+};

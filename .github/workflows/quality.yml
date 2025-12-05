@@ -9,9 +9,9 @@ on:
       - 'examples/**'
       - '.github/workflows/demos_preview.yml'
       - '.github/workflows/release.yml'
-      - 'CopilotKit/packages/**/package.json'
-      - 'CopilotKit/packages/**/CHANGELOG.md'
-      - 'CopilotKit/.changeset/**'
+      - 'src/v1.x/packages/**/package.json'
+      - 'src/v1.x/packages/**/CHANGELOG.md'
+      - 'src/v1.x/.changeset/**'
   pull_request:
     branches: [main]    
     paths-ignore:
@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: 'CopilotKit'
+        working-directory: 'src/v1.x'
 
     steps:
       - name: Checkout
@@ -54,7 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: CopilotKit
+        working-directory: src/v1.x
     steps:
       - name: Checkout
         uses: actions/checkout@v3

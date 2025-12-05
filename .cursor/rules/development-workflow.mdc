@@ -7,20 +7,20 @@ alwaysApply: false
 
 ## Workspace Setup
 CopilotKit uses a monorepo structure with:
-- **[CopilotKit/package.json](mdc:CopilotKit/package.json)** - Main workspace configuration
-- **[CopilotKit/packages/](mdc:CopilotKit/packages)** - Core library packages
+- **[src/v1.x/package.json](mdc:src/v1.x/package.json)** - Main workspace configuration
+- **[src/v1.x/packages/](mdc:src/v1.x/packages)** - Core library packages
 - **[examples/](mdc:examples)** - Example applications
 
 ## Development Scripts
-Located in [CopilotKit/scripts/](mdc:CopilotKit/scripts):
+Located in [src/v1.x/scripts/](mdc:src/v1.x/scripts):
 
 ### Development Scripts
-- **[develop/](mdc:CopilotKit/scripts/develop)** - Development environment setup
-- **[qa/](mdc:CopilotKit/scripts/qa)** - Quality assurance and testing scripts
-- **[release/](mdc:CopilotKit/scripts/release)** - Release automation scripts
+- **[develop/](mdc:src/v1.x/scripts/develop)** - Development environment setup
+- **[qa/](mdc:src/v1.x/scripts/qa)** - Quality assurance and testing scripts
+- **[release/](mdc:src/v1.x/scripts/release)** - Release automation scripts
 
 ### Documentation Scripts
-- **[docs/](mdc:CopilotKit/scripts/docs)** - Documentation generation and management
+- **[docs/](mdc:src/v1.x/scripts/docs)** - Documentation generation and management
 
 ## Package Management
 - Uses pnpm workspaces for package management
@@ -39,11 +39,11 @@ Located in [CopilotKit/scripts/](mdc:CopilotKit/scripts):
 - **[snippets/](mdc:docs/snippets)** - Code snippets for documentation
 
 ## Configuration Files
-- **[CopilotKit.code-workspace](mdc:CopilotKit/CopilotKit.code-workspace)** - VS Code workspace settings
-- **[utilities/](mdc:CopilotKit/utilities)** - Shared utilities:
-  - [eslint-config-custom/](mdc:CopilotKit/utilities/eslint-config-custom) - ESLint configuration
-  - [tailwind-config/](mdc:CopilotKit/utilities/tailwind-config) - Tailwind CSS configuration  
-  - [tsconfig/](mdc:CopilotKit/utilities/tsconfig) - TypeScript configurations
+- **[CopilotKit.code-workspace](mdc:src/v1.x/CopilotKit.code-workspace)** - VS Code workspace settings
+- **[utilities/](mdc:src/v1.x/utilities)** - Shared utilities:
+  - [eslint-config-custom/](mdc:src/v1.x/utilities/eslint-config-custom) - ESLint configuration
+  - [tailwind-config/](mdc:src/v1.x/utilities/tailwind-config) - Tailwind CSS configuration  
+  - [tsconfig/](mdc:src/v1.x/utilities/tsconfig) - TypeScript configurations
 
 ## Infrastructure
 - **[infra/](mdc:infra)** - AWS CDK infrastructure code

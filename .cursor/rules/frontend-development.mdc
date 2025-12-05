@@ -8,20 +8,20 @@ alwaysApply: false
 ## Core React Packages
 
 ### React Components
-- **[react-core/](mdc:CopilotKit/packages/react-core/)** - Core React components and hooks
+- **[react-core/](mdc:src/v1.x/packages/react-core/)** - Core React components and hooks
   - `CopilotProvider` - Main provider component
   - `useCopilotChat` - Chat functionality hook
   - `useCopilotAction` - Action definition hook
   - `useCopilotReadable` - State reading hook
 
 ### UI Components
-- **[react-ui/](mdc:CopilotKit/packages/react-ui/)** - Pre-built UI components
+- **[react-ui/](mdc:src/v1.x/packages/react-ui/)** - Pre-built UI components
   - `CopilotChat` - Chat interface component
   - `CopilotPopup` - Popup chat component
   - `CopilotSidebar` - Sidebar chat component
 
 ### Specialized Components
-- **[react-textarea/](mdc:CopilotKit/packages/react-textarea/)** - AI-enhanced textarea
+- **[react-textarea/](mdc:src/v1.x/packages/react-textarea/)** - AI-enhanced textarea
   - `CopilotTextarea` - Smart textarea with AI suggestions
   - Auto-completion and suggestions
 
@@ -115,8 +115,8 @@ function MyComponent() {
 ## Integration with Agents
 
 ### Runtime Configuration
-- **[runtime/](mdc:CopilotKit/packages/runtime/)** - Core runtime for agent communication
-- **[runtime-client-gql/](mdc:CopilotKit/packages/runtime-client-gql/)** - GraphQL client
+- **[runtime/](mdc:src/v1.x/packages/runtime/)** - Core runtime for agent communication
+- **[runtime-client-gql/](mdc:src/v1.x/packages/runtime-client-gql/)** - GraphQL client
 
 ### Agent Communication
 - Frontend components communicate with agents via the runtime
@@ -145,7 +145,7 @@ function MyComponent() {
 
 ### Styling and Theming
 - Uses Tailwind CSS for styling
-- Shared configuration in [utilities/tailwind-config/](mdc:CopilotKit/utilities/tailwind-config/)
+- Shared configuration in [utilities/tailwind-config/](mdc:src/v1.x/utilities/tailwind-config/)
 - Custom components in [components.json](mdc:docs/components.json)
 - UI components follow modern design patterns
 
