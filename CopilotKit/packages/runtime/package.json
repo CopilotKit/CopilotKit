@@ -61,8 +61,8 @@
   },
   "dependencies": {
     "@copilotkit/shared": "workspace:*",
-    "@copilotkitnext/agent": "0.0.24",
-    "@copilotkitnext/runtime": "0.0.24",
+    "@copilotkitnext/agent": "0.0.25",
+    "@copilotkitnext/runtime": "0.0.25",
     "@graphql-yoga/plugin-defer-stream": "^3.3.1",
     "@hono/node-server": "^1.13.5",
     "@langchain/core": "^0.3.38",
