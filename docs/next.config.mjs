@@ -4,6 +4,7 @@ const withMDX = createMDX();
 
 /** @type {import('next').NextConfig} */
 const config = {
+  serverExternalPackages: ["@copilotkit/runtime"],
   reactStrictMode: true,
   env: {
     RB2B_ID: process.env.RB2B_ID,

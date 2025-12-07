@@ -6,7 +6,7 @@
     "dev": "node scripts/generate-content-json.js && next dev",
     "build": "node scripts/generate-content-json.js && next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "generate-content-json": "node scripts/generate-content-json.js"
   },
   "dependencies": {
@@ -41,10 +41,10 @@
     "lucide-react": "^0.477.0",
     "markdown-it": "^14.1.0",
     "markdown-it-ins": "^4.0.0",
-    "next": "15.2.1",
+    "next": "16.0.7",
     "next-themes": "^0.4.6",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
     "react-markdown": "^10.1.0",
     "react-syntax-highlighter": "^15.6.1",
     "tailwind-merge": "^3.0.2",
@@ -52,7 +52,6 @@
     "uuid": "^11.1.0"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
     "@shadcn/ui": "^0.0.4",
     "@tailwindcss/postcss": "^4",
     "@tailwindcss/typography": "^0.5.16",
@@ -62,7 +61,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "15.2.1",
+    "eslint-config-next": "16.0.7",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

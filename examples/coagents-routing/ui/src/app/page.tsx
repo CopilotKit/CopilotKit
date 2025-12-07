@@ -132,13 +132,12 @@ function RunPirateMode() {
     <button
       onClick={() =>
         run(
-          () => {
-            return {
+          () =>
+            new TextMessage({
               id: randomId(),
-              role: "user",
+              role: MessageRole.User,
               content: "Run pirate mode",
-            };
-          }
+            })
         )
       }
       className="bg-white text-black border border-gray-300 rounded px-4 py-2 shadow hover:bg-gray-100"

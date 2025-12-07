@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint ."
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
@@ -18,16 +18,16 @@
     "@pinecone-database/pinecone": "^4.0.0",
     "axios": "^1.7.9",
     "lucide-react": "^0.466.0",
-    "next": "14.2.32",
-    "react": "^18",
-    "react-dom": "^18"
+    "next": "16.0.7",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1"
   },
   "devDependencies": {
     "@types/node": "^22",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "15.0.3",
+    "eslint-config-next": "16.0.7",
     "typescript": "^5"
   }
 }

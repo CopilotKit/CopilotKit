@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"
   },
   "dependencies": {
@@ -15,19 +15,18 @@
     "@copilotkit/runtime-client-gql": "1.8.13",
     "clsx": "^1.2.1",
     "motion": "^11.18.1",
-    "next": "14.2.1",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "next": "16.0.7",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
     "reactflow": "^11.11.4",
     "tailwind-merge": "^1.13.2"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
     "@types/node": "^20",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
-    "eslint": "^8",
-    "eslint-config-next": "14.2.1",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.0.7",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"

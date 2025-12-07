@@ -15,18 +15,10 @@ const withMDX = createMDX({
 });
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ["@copilotkit/runtime"],
   /* config options here */
   // Configure pageExtensions to include md and mdx
   pageExtensions: ["ts", "tsx", "js", "jsx", "md", "mdx"],
-  webpack: (config, { isServer }) => {
-    // Ignore the demo files during build
-    config.module.rules.push({
-      test: /agent\/demo\/crew_enterprise\/ui\/.*\.(ts|tsx|js|jsx)$/,
-      loader: "ignore-loader",
-    });
-
-    return config;
-  },
 };
 
 // Merge MDX config with Next.js config

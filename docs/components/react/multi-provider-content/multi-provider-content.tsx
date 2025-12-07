@@ -105,8 +105,9 @@ export function Interpolate({ children }: { children: React.ReactNode; }) {
 
             // Handle React elements
             if (isValidElement(element)) {
-                const processedChildren = React.Children.map(element.props.children, processElement);
-                return React.cloneElement(element, { ...element.props, children: processedChildren });
+                const elementWithProps = element as React.ReactElement<{ children?: React.ReactNode }>;
+                const processedChildren = React.Children.map(elementWithProps.props.children, processElement);
+                return React.cloneElement(elementWithProps, { ...elementWithProps.props, children: processedChildren });
             }
 
             // Handle arrays
