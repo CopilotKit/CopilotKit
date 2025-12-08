@@ -41,11 +41,11 @@
  * <iframe src="https://examples-coagents-ai-researcher-ui.vercel.app/" className="w-full rounded-lg border h-[700px] my-4" />
  */
 
-import { useRef, useContext, useEffect } from "react";
-import { CopilotContext } from "../context/copilot-context";
-import { randomId, CopilotKitAgentDiscoveryError } from "@copilotkit/shared";
-import { CoAgentStateRender } from "../types/coagent-action";
+import { CopilotKitAgentDiscoveryError, randomId } from "@copilotkit/shared";
+import { useContext, useEffect, useRef } from "react";
 import { useToast } from "../components/toast/toast-provider";
+import { CopilotContext } from "../context/copilot-context";
+import { CoAgentStateRender } from "../types/coagent-action";
 
 /**
  * This hook is used to render agent state with custom UI components or text. This is particularly
@@ -74,8 +74,6 @@ export function useCoAgentStateRender<T = any>(
 
   useEffect(() => {
     if (availableAgents?.length && !availableAgents.some((a) => a.name === action.name)) {
-      const message = `(useCoAgentStateRender): Agent "${action.name}" not found. Make sure the agent exists and is properly configured.`;
-
       // Route to banner instead of toast for consistency
       const agentError = new CopilotKitAgentDiscoveryError({
         agentName: action.name,

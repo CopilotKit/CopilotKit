@@ -1,9 +1,4 @@
-import {
-  ActionExecutionMessage,
-  Message,
-  ResultMessage,
-  TextMessage,
-} from "../../graphql/types/converted";
+import { convertJsonSchemaToZodSchema, randomId } from "@copilotkit/shared";
 import {
   AIMessage,
   AIMessageChunk,
@@ -16,9 +11,9 @@ import {
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
 import { ActionInput } from "../../graphql/inputs/action.input";
-import { LangChainReturnType } from "./types";
+import { Message } from "../../graphql/types/converted";
 import { RuntimeEventSubject } from "../events";
-import { randomId, convertJsonSchemaToZodSchema } from "@copilotkit/shared";
+import { LangChainReturnType } from "./types";
 
 export function convertMessageToLangChainMessage(message: Message): BaseMessage {
   if (message.isTextMessage()) {
@@ -71,13 +66,6 @@ interface StreamLangChainResponseParams {
     name: string;
     returnDirect?: boolean;
   };
-}
-
-function getConstructorName(object: any): string {
-  if (object && typeof object === "object" && object.constructor && object.constructor.name) {
-    return object.constructor.name;
-  }
-  return "";
 }
 
 function isAIMessage(message: any): message is AIMessage {
@@ -161,7 +149,7 @@ export async function streamLangChainResponse({
       eventStream$.sendTextMessage(randomId(), result.content as string);
     }
     if (result.lc_kwargs?.tool_calls) {
-      for (const toolCall of result.lc_kwargs?.tool_calls) {
+      for (const toolCall of result.lc_kwargs.tool_calls) {
         eventStream$.sendActionExecution({
           actionExecutionId: toolCall.id || randomId(),
           actionName: toolCall.name,
@@ -176,7 +164,7 @@ export async function streamLangChainResponse({
   else if (result && "getReader" in result) {
     maybeSendActionExecutionResultIsMessage(eventStream$, actionExecution);
 
-    let reader = result.getReader();
+    const reader = result.getReader();
 
     let mode: "function" | "message" | null = null;
     let currentMessageId: string;
@@ -204,7 +192,7 @@ export async function streamLangChainResponse({
         }
 
         if (isAIMessageChunk(value)) {
-          let chunk = value.tool_call_chunks?.[0];
+          const chunk = value.tool_call_chunks?.[0];
           toolCallArgs = chunk?.args;
           hasToolCall = chunk != undefined;
           if (chunk?.name) toolCallDetails.name = chunk.name;
@@ -221,7 +209,7 @@ export async function streamLangChainResponse({
           toolCallName = toolCallDetails.name;
           toolCallId = toolCallDetails.id;
         } else if (isBaseMessageChunk(value)) {
-          let chunk = value.additional_kwargs?.tool_calls?.[0];
+          const chunk = value.additional_kwargs?.tool_calls?.[0];
           toolCallName = chunk?.function?.name;
           toolCallId = chunk?.id;
           toolCallArgs = chunk?.function?.arguments;

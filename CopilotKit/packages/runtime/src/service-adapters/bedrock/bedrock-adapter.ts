@@ -47,7 +47,7 @@ export interface BedrockAdapterParams {
 export class BedrockAdapter extends LangChainAdapter {
   constructor(options?: BedrockAdapterParams) {
     super({
-      chainFn: async ({ messages, tools, threadId }) => {
+      chainFn: async ({ messages, tools }) => {
         const model = new ChatBedrockConverse({
           model: options?.model ?? "amazon.nova-lite-v1:0",
           region: options?.region ?? "us-east-1",

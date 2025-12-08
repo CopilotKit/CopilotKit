@@ -12,7 +12,7 @@ export class ForwardedParametersInput {
   stop?: string[];
 
   @Field(() => String, { nullable: true })
-  toolChoice?: String;
+  toolChoice?: string;
 
   @Field(() => String, { nullable: true })
   toolChoiceFunctionName?: string;

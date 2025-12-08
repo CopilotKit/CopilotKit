@@ -1,24 +1,22 @@
-import { COPILOT_CLOUD_PUBLIC_API_KEY_HEADER } from "@copilotkit/shared";
-import { useCopilotContext } from "@copilotkit/react-core";
-import { useCallback } from "react";
+import { DocumentPointer, useCopilotContext } from "@copilotkit/react-core";
 import {
-  CopilotRuntimeClient,
+  convertGqlOutputToMessages,
+  convertMessagesToGqlInput,
+  CopilotRequestType,
+  filterAgentStateMessages,
   Message,
   Role,
   TextMessage,
-  convertGqlOutputToMessages,
-  convertMessagesToGqlInput,
-  filterAgentStateMessages,
-  CopilotRequestType,
 } from "@copilotkit/runtime-client-gql";
+import { COPILOT_CLOUD_PUBLIC_API_KEY_HEADER } from "@copilotkit/shared";
+import { useCallback } from "react";
 import { retry } from "../../lib/retry";
+import { EditingApiConfig } from "../../types/autosuggestions-config/editing-api-config";
+import { InsertionsApiConfig } from "../../types/autosuggestions-config/insertions-api-config";
 import {
   EditingEditorState,
   Generator_InsertionOrEditingSuggestion,
 } from "../../types/base/autosuggestions-bare-function";
-import { InsertionsApiConfig } from "../../types/autosuggestions-config/insertions-api-config";
-import { EditingApiConfig } from "../../types/autosuggestions-config/editing-api-config";
-import { DocumentPointer } from "@copilotkit/react-core";
 
 /**
  * Returns a memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.
@@ -40,7 +38,7 @@ export function useMakeStandardInsertionOrEditingFunction(
   editingApiConfig: EditingApiConfig,
 ): Generator_InsertionOrEditingSuggestion {
   const { getContextString, copilotApiConfig, runtimeClient } = useCopilotContext();
-  const headers = {
+  const _headers = {
     ...(copilotApiConfig.publicApiKey
       ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: copilotApiConfig.publicApiKey }
       : {}),

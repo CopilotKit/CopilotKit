@@ -49,8 +49,8 @@ export class RemoteChain {
   async inferLangServeParameters() {
     const supportedTypes = ["string", "number", "boolean"];
 
-    let schemaUrl = this.chainUrl.replace(/\/+$/, "") + "/input_schema";
-    let schema = await fetch(schemaUrl)
+    const schemaUrl = this.chainUrl.replace(/\/+$/, "") + "/input_schema";
+    const schema = await fetch(schemaUrl)
       .then((res) => res.json())
       .catch(() => {
         throw new Error("Failed to fetch langserve schema at " + schemaUrl);
@@ -69,7 +69,7 @@ export class RemoteChain {
     } else if (schema.type === "object") {
       this.parameterType = "multi";
       this.parameters = Object.keys(schema.properties).map((key) => {
-        let property = schema.properties[key];
+        const property = schema.properties[key];
         if (!supportedTypes.includes(property.type)) {
           throw new Error("Unsupported schema type");
         }

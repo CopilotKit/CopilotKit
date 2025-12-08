@@ -62,37 +62,37 @@
  * For more information about how to customize the styles, check out the [Customize Look & Feel](/guides/custom-look-and-feel/customize-built-in-ui-components) guide.
  */
 
-import {
-  ChatContext,
-  ChatContextProvider,
-  CopilotChatIcons,
-  CopilotChatLabels,
-} from "./ChatContext";
-import { Messages as DefaultMessages } from "./Messages";
-import { Input as DefaultInput } from "./Input";
-import { RenderMessage as DefaultRenderMessage } from "./messages/RenderMessage";
-import { AssistantMessage as DefaultAssistantMessage } from "./messages/AssistantMessage";
-import { UserMessage as DefaultUserMessage } from "./messages/UserMessage";
-import { ImageRenderer as DefaultImageRenderer } from "./messages/ImageRenderer";
-import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import type { SuggestionItem } from "@copilotkit/react-core";
 import {
   SystemMessageFunction,
   useCopilotChatInternal as useCopilotChat,
   useCopilotContext,
   useCopilotMessagesContext,
 } from "@copilotkit/react-core";
-import type { SuggestionItem } from "@copilotkit/react-core";
 import {
+  CopilotErrorEvent,
+  CopilotErrorHandler,
   CopilotKitError,
   CopilotKitErrorCode,
-  CopilotErrorEvent,
-  Message,
-  Severity,
   ErrorVisibility,
+  Message,
+  randomId,
+  Severity,
   styledConsole,
-  CopilotErrorHandler,
 } from "@copilotkit/shared";
-import { randomId } from "@copilotkit/shared";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ChatContext,
+  ChatContextProvider,
+  CopilotChatIcons,
+  CopilotChatLabels,
+} from "./ChatContext";
+import { Input as DefaultInput } from "./Input";
+import { Messages as DefaultMessages } from "./Messages";
+import { AssistantMessage as DefaultAssistantMessage } from "./messages/AssistantMessage";
+import { ImageRenderer as DefaultImageRenderer } from "./messages/ImageRenderer";
+import { RenderMessage as DefaultRenderMessage } from "./messages/RenderMessage";
+import { UserMessage as DefaultUserMessage } from "./messages/UserMessage";
 import {
   AssistantMessageProps,
   ChatError,
@@ -893,7 +893,7 @@ export const useCopilotChatLogic = (
 
   // Error handling wrapper
   const generateSuggestionsWithErrorHandling = useCallback(
-    async (context: string) => {
+    async (_context: string) => {
       try {
         await generateSuggestions();
       } catch (error) {
@@ -1048,7 +1048,7 @@ export const useCopilotChatLogic = (
   };
 
   const currentAgentName = generalContext.agentSession?.agentName;
-  const restartCurrentAgent = async (hint?: HintFunction) => {
+  const restartCurrentAgent = async (_hint?: HintFunction) => {
     if (generalContext.agentSession) {
       generalContext.setAgentSession({
         ...generalContext.agentSession,
@@ -1068,7 +1068,7 @@ export const useCopilotChatLogic = (
       });
     }
   };
-  const runCurrentAgent = async (hint?: HintFunction) => {
+  const runCurrentAgent = async (_hint?: HintFunction) => {
     if (generalContext.agentSession) {
       await runAgent(
         generalContext.agentSession.agentName,

@@ -1,9 +1,8 @@
-import { HeaderProps } from "./props";
-import { useChatContext } from "./ChatContext";
 import { CopilotDevConsole } from "../dev-console";
-import React from "react";
+import { useChatContext } from "./ChatContext";
+import { HeaderProps } from "./props";
 
-export const Header = ({}: HeaderProps) => {
+export const Header = (_props: HeaderProps) => {
   const { setOpen, icons, labels } = useChatContext();
 
   return (

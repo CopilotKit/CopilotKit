@@ -1,31 +1,30 @@
 import {
+  Agent,
+  CopilotRuntimeClient,
+  ExtensionsInput,
+  ForwardedParametersInput,
+} from "@copilotkit/runtime-client-gql";
+import {
   CopilotCloudConfig,
-  FunctionCallHandler,
   CopilotErrorHandler,
   CopilotKitError,
+  FunctionCallHandler,
 } from "@copilotkit/shared";
-import {
-  ActionRenderProps,
-  CatchAllActionRenderProps,
-  FrontendAction,
-} from "../types/frontend-action";
 import React from "react";
-import { TreeNodeId, Tree } from "../hooks/use-tree";
+import { Tree, TreeNodeId } from "../hooks/use-tree";
 import { DocumentPointer } from "../types";
 import { CopilotChatSuggestionConfiguration } from "../types/chat-suggestion-configuration";
 import { CoAgentStateRender, CoAgentStateRenderProps } from "../types/coagent-action";
 import { CoagentState } from "../types/coagent-state";
 import {
-  CopilotRuntimeClient,
-  ExtensionsInput,
-  ForwardedParametersInput,
-} from "@copilotkit/runtime-client-gql";
-import { Agent } from "@copilotkit/runtime-client-gql";
+  ActionRenderProps,
+  CatchAllActionRenderProps,
+  FrontendAction,
+} from "../types/frontend-action";
 import {
   LangGraphInterruptAction,
   LangGraphInterruptActionSetter,
 } from "../types/interrupt-action";
-import { SuggestionItem } from "../utils/suggestions";
 
 /**
  * Interface for the configuration of the Copilot API.
@@ -251,7 +250,7 @@ const emptyCopilotContext: CopilotContextParams = {
   removeCoAgentStateRender: () => {},
 
   chatComponentsCache: { current: { actions: {}, coAgentStateRenders: {} } },
-  getContextString: (documents: DocumentPointer[], categories: string[]) =>
+  getContextString: (_documents: DocumentPointer[], _categories: string[]) =>
     returnAndThrowInDebug(""),
   addContext: () => "",
   removeContext: () => {},
@@ -268,7 +267,7 @@ const emptyCopilotContext: CopilotContextParams = {
   additionalInstructions: [],
   setAdditionalInstructions: () => returnAndThrowInDebug([]),
 
-  getDocumentsContext: (categories: string[]) => returnAndThrowInDebug([]),
+  getDocumentsContext: (_categories: string[]) => returnAndThrowInDebug([]),
   addDocumentContext: () => returnAndThrowInDebug(""),
   removeDocumentContext: () => {},
   runtimeClient: {} as any,

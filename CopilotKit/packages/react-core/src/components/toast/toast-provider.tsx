@@ -1,6 +1,6 @@
 import { GraphQLError } from "@copilotkit/runtime-client-gql";
-import React, { createContext, useContext, useState, useCallback } from "react";
-import { PartialBy, CopilotKitError, Severity } from "@copilotkit/shared";
+import { CopilotKitError, PartialBy, Severity } from "@copilotkit/shared";
+import React, { createContext, useCallback, useContext, useState } from "react";
 
 interface Toast {
   id: string;
@@ -145,7 +145,7 @@ export function ToastProvider({
     [enabled],
   );
 
-  const addGraphQLErrorsToast = useCallback((errors: GraphQLError[]) => {
+  const addGraphQLErrorsToast = useCallback((_errors: GraphQLError[]) => {
     // DEPRECATED: All errors now route to banners for consistency
     console.warn("addGraphQLErrorsToast is deprecated. All errors now show as banners.");
     // Function kept for backward compatibility - does nothing

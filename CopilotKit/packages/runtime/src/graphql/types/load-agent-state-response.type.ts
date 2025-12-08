@@ -1,5 +1,4 @@
 import { Field, ObjectType } from "type-graphql";
-import { BaseMessageOutput } from "./copilot-response.type";
 
 @ObjectType()
 export class LoadAgentStateResponse {

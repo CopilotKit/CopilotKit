@@ -88,17 +88,16 @@
  * </PropertyReference>
  */
 
+import { Message as GqlMessage } from "@copilotkit/runtime-client-gql";
+import { CopilotKitAgentDiscoveryError, Message, parseJson } from "@copilotkit/shared";
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useMessagesTap } from "../components/copilot-provider/copilot-messages";
+import { useAsyncCallback } from "../components/error-boundary/error-utils";
+import { useToast } from "../components/toast/toast-provider";
 import { CopilotContextParams, useCopilotContext } from "../context";
 import { CoagentState } from "../types/coagent-state";
 import { useCopilotChat } from "./use-copilot-chat_internal";
-import { Message } from "@copilotkit/shared";
-import { useAsyncCallback } from "../components/error-boundary/error-utils";
-import { useToast } from "../components/toast/toast-provider";
 import { useCopilotRuntimeClient } from "./use-copilot-runtime-client";
-import { parseJson, CopilotKitAgentDiscoveryError } from "@copilotkit/shared";
-import { useMessagesTap } from "../components/copilot-provider/copilot-messages";
-import { Message as GqlMessage } from "@copilotkit/runtime-client-gql";
 
 interface UseCoagentOptionsBase {
   /**
@@ -252,9 +251,11 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
   const setState = useCallback(
     (newState: T | ((prevState: T | undefined) => T)) => {
       // coagentStatesRef.current || {}
-      let coagentState: CoagentState = getCoagentState({ coagentStates, name, options });
+      const coagentState: CoagentState = getCoagentState({ coagentStates, name, options });
       const updatedState =
-        typeof newState === "function" ? (newState as Function)(coagentState.state) : newState;
+        typeof newState === "function"
+          ? (newState as (prevState: T | undefined) => T)(coagentState.state)
+          : newState;
 
       setCoagentStatesWithRef({
         ...coagentStatesRef.current,
@@ -288,9 +289,11 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
         lastLoadedState.current = newState;
         lastLoadedThreadId.current = threadId;
         const fetchedState = parseJson(newState, {});
-        isExternalStateManagement(options)
-          ? options.setState(fetchedState)
-          : setState(fetchedState);
+        if (isExternalStateManagement(options)) {
+          options.setState(fetchedState);
+        } else {
+          setState(fetchedState);
+        }
       }
     };
     void fetchAgentState();
@@ -421,7 +424,7 @@ export async function runAgent(
     }
   }
 
-  let state = context.coagentStatesRef.current?.[name]?.state || {};
+  const state = context.coagentStatesRef.current?.[name]?.state || {};
 
   if (hint) {
     const hintMessage = hint({ previousState, currentState: state });

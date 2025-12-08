@@ -142,7 +142,7 @@ type LangGraphOnChatModelStreamEvent = {
         };
         type: string;
         id: string;
-        tool_calls: { name: string; args: {}; id: string; type: string }[];
+        tool_calls: { name: string; args: { query: string }; id: string; type: string }[];
         tool_call_chunks: {
           name: string;
           args: string;

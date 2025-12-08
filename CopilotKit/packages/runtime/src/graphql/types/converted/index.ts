@@ -1,9 +1,9 @@
 import {
   ActionExecutionMessageInput,
-  ResultMessageInput,
-  TextMessageInput,
   AgentStateMessageInput,
   ImageMessageInput,
+  ResultMessageInput,
+  TextMessageInput,
 } from "../../inputs/message.input";
 import { BaseMessageInput } from "../base";
 import { MessageRole } from "../enums";
@@ -105,7 +105,7 @@ export class ResultMessage extends Message implements ResultMessageInput {
         return { result: JSON.stringify(parsed) };
       }
       return { result };
-    } catch (e) {
+    } catch (_e) {
       return { result };
     }
   }

@@ -14,7 +14,7 @@ export const defaultInsertionsMakeSystemPrompt: MakeSystemPrompt = (
   return `You are a versatile writing assistant helping the user insert new text into their existing work.
   
 The user is writing some text.
-The purpose is: \"${textareaPurpose}\"
+The purpose is: "${textareaPurpose}"
 
 The following external context is also provided. Use it to inform your suggestions when relevant!!!
 \`\`\`

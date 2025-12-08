@@ -3,81 +3,33 @@
  */
 
 import {
-  ReactNode,
-  useEffect,
-  useState,
-  useRef,
-  useCallback,
-  useMemo,
-  createContext,
-  useContext,
-} from "react";
-import { CopilotMessagesContext } from "../../context/copilot-messages-context";
-import {
+  GraphQLError,
   loadMessagesFromJsonRepresentation,
   Message,
-  GraphQLError,
 } from "@copilotkit/runtime-client-gql";
-import { useCopilotContext } from "../../context/copilot-context";
-import { useToast } from "../toast/toast-provider";
-import { shouldShowDevConsole } from "../../utils/dev-console";
 import {
-  ErrorVisibility,
-  CopilotKitApiDiscoveryError,
-  CopilotKitRemoteEndpointDiscoveryError,
   CopilotKitAgentDiscoveryError,
+  CopilotKitApiDiscoveryError,
   CopilotKitError,
   CopilotKitErrorCode,
+  CopilotKitRemoteEndpointDiscoveryError,
+  ErrorVisibility,
 } from "@copilotkit/shared";
+import {
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useCopilotContext } from "../../context/copilot-context";
+import { CopilotMessagesContext } from "../../context/copilot-messages-context";
+import { shouldShowDevConsole } from "../../utils/dev-console";
 import { SuggestionItem } from "../../utils/suggestions";
-
-// Helper to determine if error should show as banner based on visibility and legacy patterns
-function shouldShowAsBanner(gqlError: GraphQLError): boolean {
-  const extensions = gqlError.extensions;
-  if (!extensions) return false;
-
-  // Priority 1: Check error code for discovery errors (these should always be banners)
-  const code = extensions.code as CopilotKitErrorCode;
-  if (
-    code === CopilotKitErrorCode.AGENT_NOT_FOUND ||
-    code === CopilotKitErrorCode.API_NOT_FOUND ||
-    code === CopilotKitErrorCode.REMOTE_ENDPOINT_NOT_FOUND ||
-    code === CopilotKitErrorCode.CONFIGURATION_ERROR ||
-    code === CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR ||
-    code === CopilotKitErrorCode.UPGRADE_REQUIRED_ERROR
-  ) {
-    return true;
-  }
-
-  // Priority 2: Check banner visibility
-  if (extensions.visibility === ErrorVisibility.BANNER) {
-    return true;
-  }
-
-  // Priority 3: Check for critical errors that should be banners regardless of formal classification
-  const errorMessage = gqlError.message.toLowerCase();
-  if (
-    errorMessage.includes("api key") ||
-    errorMessage.includes("401") ||
-    errorMessage.includes("unauthorized") ||
-    errorMessage.includes("authentication") ||
-    errorMessage.includes("incorrect api key")
-  ) {
-    return true;
-  }
-
-  // Priority 4: Legacy stack trace detection for discovery errors
-  const originalError = extensions.originalError as any;
-  if (originalError?.stack) {
-    return (
-      originalError.stack.includes("CopilotApiDiscoveryError") ||
-      originalError.stack.includes("CopilotKitRemoteEndpointDiscoveryError") ||
-      originalError.stack.includes("CopilotKitAgentDiscoveryError")
-    );
-  }
-
-  return false;
-}
+import { useToast } from "../toast/toast-provider";
 
 /**
  * MessagesTap is used to mitigate performance issues when we only need

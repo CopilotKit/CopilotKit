@@ -68,7 +68,7 @@ export async function writeJsonLineResponseToEventStream<T>(
 
 function convertStreamingErrorToStructured(error: any): CopilotKitError {
   // Determine a more helpful error message based on context
-  let helpfulMessage = generateHelpfulErrorMessage(error);
+  const helpfulMessage = generateHelpfulErrorMessage(error);
 
   // For network-related errors, use CopilotKitLowLevelError to preserve the original error
   if (

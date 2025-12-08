@@ -14,7 +14,7 @@ export const defaultEditingMakeSystemPrompt: MakeSystemPrompt = (
   return `You are a versatile writing assistant helping the user edit a portion of their text.
   
 The user is writing some text.
-The purpose is: \"${textareaPurpose}\"
+The purpose is: "${textareaPurpose}"
 
 The following external context is also provided. Use it when relevant.
 \`\`\`

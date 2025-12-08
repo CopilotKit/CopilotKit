@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CloseIcon } from "./icons";
 
 export function CopilotKitHelpModal() {

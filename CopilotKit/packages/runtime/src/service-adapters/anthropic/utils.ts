@@ -38,7 +38,7 @@ export function limitMessagesToTokenCount(
     } else if (cutoff) {
       continue;
     }
-    let numTokens = countMessageTokens(model, message);
+    const numTokens = countMessageTokens(model, message);
     if (maxTokens < numTokens) {
       cutoff = true;
       continue;

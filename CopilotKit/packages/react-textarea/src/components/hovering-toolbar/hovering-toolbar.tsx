@@ -140,7 +140,7 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
   );
 };
 
-function editorState(editor: Editor, selection: Location): EditingEditorState {
+function editorState(editor: Editor, _selection: Location): EditingEditorState {
   const textAroundCursor = getTextAroundSelection(editor);
   if (textAroundCursor) {
     return textAroundCursor;

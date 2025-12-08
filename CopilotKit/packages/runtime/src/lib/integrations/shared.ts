@@ -87,7 +87,6 @@ export type CommonConfig = {
 
 export function getCommonConfig(options: CreateCopilotRuntimeServerOptions): CommonConfig {
   const logLevel = (process.env.LOG_LEVEL as LogLevel) || (options.logLevel as LogLevel) || "error";
-  const logger = createLogger({ level: logLevel, component: "getCommonConfig" });
 
   const contextLogger = createLogger({ level: logLevel });
 
@@ -129,7 +128,7 @@ export function getCommonConfig(options: CreateCopilotRuntimeServerOptions): Com
       createContext(ctx, options, contextLogger, options.properties),
     // Suppress logging for user configuration errors
     maskedErrors: {
-      maskError: (error: any, message: string, isDev?: boolean) => {
+      maskError: (error: any, _message: string, _isDev?: boolean) => {
         // Check if this is a user configuration error (could be wrapped in GraphQLError)
         const originalError = error.originalError || error;
         const extensions = error.extensions;

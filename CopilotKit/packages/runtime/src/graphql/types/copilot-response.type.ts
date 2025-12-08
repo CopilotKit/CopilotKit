@@ -1,21 +1,24 @@
 import { Field, InterfaceType, ObjectType } from "type-graphql";
 import { MessageRole } from "./enums";
-import { MessageStatusUnion } from "./message-status.type";
-import { ResponseStatusUnion } from "./response-status.type";
 import { ExtensionsResponse } from "./extensions-response.type";
+import { MessageStatusUnion } from "./message-status.type";
 import { BaseMetaEvent } from "./meta-events.type";
+import { ResponseStatusUnion } from "./response-status.type";
 
 @InterfaceType({
   resolveType(value) {
-    if (value.hasOwnProperty("content")) {
+    if (Object.prototype.hasOwnProperty.call(value, "content")) {
       return TextMessageOutput;
-    } else if (value.hasOwnProperty("name")) {
+    } else if (Object.prototype.hasOwnProperty.call(value, "name")) {
       return ActionExecutionMessageOutput;
-    } else if (value.hasOwnProperty("result")) {
+    } else if (Object.prototype.hasOwnProperty.call(value, "result")) {
       return ResultMessageOutput;
-    } else if (value.hasOwnProperty("state")) {
+    } else if (Object.prototype.hasOwnProperty.call(value, "state")) {
       return AgentStateMessageOutput;
-    } else if (value.hasOwnProperty("format") && value.hasOwnProperty("bytes")) {
+    } else if (
+      Object.prototype.hasOwnProperty.call(value, "format") &&
+      Object.prototype.hasOwnProperty.call(value, "bytes")
+    ) {
       return ImageMessageOutput;
     }
     return undefined;

@@ -31,6 +31,8 @@
     "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@eslint/js": "^9",
     "@types/node": "^22.0.0",
     "@types/react": "19.0.1",
     "@types/react-dom": "19.0.2",
