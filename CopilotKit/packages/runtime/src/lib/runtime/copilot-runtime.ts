@@ -402,7 +402,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         name: action.name,
         description: action.description || "",
         parameters: zodSchema,
-        execute: () => Promise.resolve()
+        execute: () => Promise.resolve(),
       };
     });
   }
@@ -616,7 +616,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
               name: toolName,
               description: tool.description || `MCP tool: ${toolName} (from ${endpointUrl})`,
               parameters: zodSchema,
-              execute: () => Promise.resolve()
+              execute: () => Promise.resolve(),
             };
           },
         );
