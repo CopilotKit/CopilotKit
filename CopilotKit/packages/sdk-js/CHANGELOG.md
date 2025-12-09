@@ -1,5 +1,11 @@
 # @copilotkit/sdk-js
 
+## 1.50.0-beta.7
+
+### Patch Changes
+
+- @copilotkit/shared@1.50.0-beta.7
+
 ## 1.50.0-beta.6
 
 ### Minor Changes

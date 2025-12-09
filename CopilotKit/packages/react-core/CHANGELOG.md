@@ -1,5 +1,15 @@
 # ui
 
+## 1.50.0-beta.7
+
+### Patch Changes
+
+- 6ce0edc: - fix: refrain from re-setting context infinitely if it hasnt changed
+  - fix: pass only strings to context value
+  - fix: allow custom convert and availability setup
+  - @copilotkit/runtime-client-gql@1.50.0-beta.7
+  - @copilotkit/shared@1.50.0-beta.7
+
 ## 1.50.0-beta.6
 
 ### Minor Changes
