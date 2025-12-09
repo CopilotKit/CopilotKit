@@ -9,8 +9,8 @@ alwaysApply: false
 
 ### Build a Simple Copilot
 - Start with [copilot-chat-with-your-data/](mdc:examples/copilot-chat-with-your-data)
-- Use [react-core/](mdc:CopilotKit/packages/react-core) for basic integration
-- Add [react-ui/](mdc:CopilotKit/packages/react-ui) for pre-built components
+- Use [react-core/](mdc:src/v1.x/packages/react-core) for basic integration
+- Add [react-ui/](mdc:src/v1.x/packages/react-ui) for pre-built components
 
 ### Create Multi-Agent Systems
 - Check [coagents-starter/](mdc:examples/coagents-starter) for basic setup
@@ -27,18 +27,18 @@ alwaysApply: false
 - See [coagents-starter/agent-py/](mdc:examples/coagents-starter/agent-py) for example
 
 ### Develop JavaScript Agents
-- Use [sdk-js/](mdc:CopilotKit/packages/sdk-js) package
+- Use [sdk-js/](mdc:src/v1.x/packages/sdk-js) package
 - Check [coagents-starter/agent-js/](mdc:examples/coagents-starter/agent-js) for example
 
 ### Customize UI Components
 - Browse [registry/](mdc:registry) for reusable components
 - Check [docs/components/react/](mdc:docs/components/react) for documentation
-- Use [react-ui/](mdc:CopilotKit/packages/react-ui) for pre-built components
+- Use [react-ui/](mdc:src/v1.x/packages/react-ui) for pre-built components
 
 ### Set Up Development Environment
-- Review [CopilotKit/package.json](mdc:CopilotKit/package.json) for workspace setup
-- Use scripts in [CopilotKit/scripts/](mdc:CopilotKit/scripts)
-- Check [utilities/](mdc:CopilotKit/utilities) for shared configurations
+- Review [src/v1.x/package.json](mdc:src/v1.x/package.json) for workspace setup
+- Use scripts in [src/v1.x/scripts/](mdc:src/v1.x/scripts)
+- Check [utilities/](mdc:src/v1.x/utilities) for shared configurations
 
 ### Run Tests
 - Use [examples/e2e/](mdc:examples/e2e) for end-to-end testing
@@ -50,9 +50,9 @@ alwaysApply: false
 - See [docs/content/docs/](mdc:docs/content/docs) for markdown files
 
 ## Key Files to Know
-- **[CopilotKit/package.json](mdc:CopilotKit/package.json)** - Main workspace configuration
+- **[src/v1.x/package.json](mdc:src/v1.x/package.json)** - Main workspace configuration
 - **[sdk-python/pyproject.toml](mdc:sdk-python/pyproject.toml)** - Python SDK configuration
-- **[CopilotKit.code-workspace](mdc:CopilotKit/CopilotKit.code-workspace)** - VS Code workspace settings
+- **[CopilotKit.code-workspace](mdc:src/v1.x/CopilotKit.code-workspace)** - VS Code workspace settings
 - **[examples/shared/](mdc:examples/shared)** - Shared utilities and templates
 
 ## Common Patterns
@@ -63,7 +63,7 @@ alwaysApply: false
 
 ## Getting Started Checklist
 1. Clone the repository
-2. Navigate to [CopilotKit/](mdc:CopilotKit) directory
+2. Navigate to [src/v1.x/](mdc:src/v1.x) directory
 3. Run `npm install` to set up workspace
 4. Choose an example from [examples/](mdc:examples)
 5. Follow the example's README.md

@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: "CopilotKit"
+        working-directory: "src/v1.x"
     timeout-minutes: 10
     steps:
       - name: Checkout Repo
@@ -117,6 +117,6 @@ jobs:
         with:
           tag_name: v${{ steps.new-version.outputs.version }}
           release_name: v${{ steps.new-version.outputs.version }}
-          body_path: ./CopilotKit/changelog.txt
+          body_path: ./src/v1.x/changelog.txt
           draft: false
           prerelease: false

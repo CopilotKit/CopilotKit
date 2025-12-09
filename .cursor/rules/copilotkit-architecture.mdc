@@ -6,18 +6,18 @@ alwaysApply: false
 # CopilotKit Architecture Overview
 
 ## Core Library Structure
-The main CopilotKit library is located in [CopilotKit/](mdc:CopilotKit/) with the following key packages:
+The main CopilotKit library is located in [CopilotKit/](mdc:src/v1.x/) with the following key packages:
 
 ### React Packages
-- **[react-core/](mdc:CopilotKit/packages/react-core/)** - Core React components and hooks for CopilotKit
-- **[react-textarea/](mdc:CopilotKit/packages/react-textarea/)** - Textarea component with AI integration
-- **[react-ui/](mdc:CopilotKit/packages/react-ui/)** - UI components for copilot interfaces
+- **[react-core/](mdc:src/v1.x/packages/react-core/)** - Core React components and hooks for CopilotKit
+- **[react-textarea/](mdc:src/v1.x/packages/react-textarea/)** - Textarea component with AI integration
+- **[react-ui/](mdc:src/v1.x/packages/react-ui/)** - UI components for copilot interfaces
 
 ### Runtime & SDK
-- **[runtime/](mdc:CopilotKit/packages/runtime/)** - Core runtime for executing copilot actions
-- **[runtime-client-gql/](mdc:CopilotKit/packages/runtime-client-gql/)** - GraphQL client for runtime communication
-- **[sdk-js/](mdc:CopilotKit/packages/sdk-js/)** - JavaScript SDK for backend integration
-- **[shared/](mdc:CopilotKit/packages/shared/)** - Shared utilities and types
+- **[runtime/](mdc:src/v1.x/packages/runtime/)** - Core runtime for executing copilot actions
+- **[runtime-client-gql/](mdc:src/v1.x/packages/runtime-client-gql/)** - GraphQL client for runtime communication
+- **[sdk-js/](mdc:src/v1.x/packages/sdk-js/)** - JavaScript SDK for backend integration
+- **[shared/](mdc:src/v1.x/packages/shared/)** - Shared utilities and types
 
 ### Python SDK
 - **[sdk-python/](mdc:sdk-python/)** - Python SDK with integrations for:
@@ -39,7 +39,7 @@ All examples are in [examples/](mdc:examples/) and typically follow this pattern
 
 ## Development Workflow
 - Examples use the local packages via workspace references
-- [package.json](mdc:CopilotKit/package.json) contains workspace configuration
-- Scripts in [scripts/](mdc:CopilotKit/scripts/) for development, testing, and releases
+- [package.json](mdc:src/v1.x/package.json) contains workspace configuration
+- Scripts in [scripts/](mdc:src/v1.x/scripts/) for development, testing, and releases
 
 

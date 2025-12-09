@@ -73,7 +73,7 @@ pnpm install
 To make sure everything works, let’s build all packages once:
 
 ```jsx
-cd CopilotKit
+cd src/v1.x
 turbo run build
 ```
 
