@@ -63,8 +63,8 @@
   },
   "peerDependencies": {
     "@langchain/community": "^0.0.53",
-    "@langchain/core": "^0.3.13 || ^0.4.0",
-    "@langchain/langgraph": "^0.2.44 || ^0.3.0 || ^0.4.0",
+    "@langchain/core": ">=0.4.0 <2.0.0",
+    "@langchain/langgraph": ">=0.4.0 <2.0.0",
     "langchain": "^0.3.3",
     "typescript": "^5.2.3",
     "zod": "^3.23.3 || ^3.24.0 || ^3.25.0"
