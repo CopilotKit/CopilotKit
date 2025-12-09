@@ -1,5 +1,12 @@
 # @copilotkit/sdk-js
 
+## 1.50.0-beta.8
+
+### Patch Changes
+
+- d1089a7: - fix: allow langgraph 1.0
+  - @copilotkit/shared@1.50.0-beta.8
+
 ## 1.50.0-beta.7
 
 ### Patch Changes

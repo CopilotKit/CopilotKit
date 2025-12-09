@@ -1,5 +1,11 @@
 # @copilotkit/runtime
 
+## 1.50.0-beta.8
+
+### Patch Changes
+
+- @copilotkit/shared@1.50.0-beta.8
+
 ## 1.50.0-beta.7
 
 ### Patch Changes

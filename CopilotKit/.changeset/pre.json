@@ -18,6 +18,7 @@
     "tsconfig": "1.4.6"
   },
   "changesets": [
+    "blue-cups-mate",
     "chilly-mangos-sneeze",
     "cuddly-jeans-fold",
     "cyan-camels-drive",
