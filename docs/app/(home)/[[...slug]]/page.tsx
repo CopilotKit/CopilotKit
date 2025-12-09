@@ -54,12 +54,20 @@ const mdxComponents = {
   Cards: Cards,
   Card: Card,
   PropertyReference: PropertyReference,
-  a: ({ href, children, ...props }: any) => {
+  a: ({ href, children, className, ...props }: any) => {
     // Don't wrap anchor links (hash links) in NavigationLink to avoid nested <a> tags
     if (href && typeof href === 'string' && href.startsWith('#')) {
-      return <a href={href} {...props}>{children}</a>;
+      return <a href={href} className={className} {...props}>{children}</a>;
     }
-    return <NavigationLink href={href as string} {...props}>{children}</NavigationLink>;
+    // Don't wrap links that have data-card attribute or peer className (fumadocs heading anchors)
+    if (props && (props['data-card'] !== undefined || props['data-heading'] !== undefined)) {
+      return <a href={href} className={className} {...props}>{children}</a>;
+    }
+    // Don't wrap links with 'peer' className (fumadocs uses this for heading anchor links)
+    if (className && typeof className === 'string' && className.includes('peer')) {
+      return <a href={href} className={className} {...props}>{children}</a>;
+    }
+    return <NavigationLink href={href as string} className={className} {...props}>{children}</NavigationLink>;
   },
   // HTML `ref` attribute conflicts with `forwardRef`
   pre: ({ ref: _ref, ...props }: any) => (
