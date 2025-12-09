@@ -1,0 +1,300 @@
+---
+title: "useAgent"
+description: "React hook for accessing AG-UI agent instances"
+---
+
+## Overview
+
+`useAgent` is a React hook that returns an [AG-UI AbstractAgent](https://docs.ag-ui.com/sdk/js/client/abstract-agent) instance. The hook subscribes to agent state changes and triggers re-renders when the agent's state, messages, or execution status changes.
+
+**Throws error** if no agent is configured with the specified `agentId`.
+
+## Signature
+
+```tsx
+function useAgent(options?: UseAgentOptions): { agent: AbstractAgent }
+```
+
+## Parameters
+
+<PropertyReference name="options" type="UseAgentOptions">
+  Configuration object for the hook.
+
+  <PropertyReference name="agentId" type="string" default='"default"'>
+    ID of the agent to retrieve. Must match an agent configured in `CopilotKitProvider`.
+  </PropertyReference>
+
+  <PropertyReference name="updates" type="UseAgentUpdate[]" default="[OnMessagesChanged, OnStateChanged, OnRunStatusChanged]">
+    Controls which agent changes trigger component re-renders. Options:
+    - `UseAgentUpdate.OnMessagesChanged` - Re-render when messages change
+    - `UseAgentUpdate.OnStateChanged` - Re-render when state changes
+    - `UseAgentUpdate.OnRunStatusChanged` - Re-render when execution status changes
+
+    Pass an empty array `[]` to prevent automatic re-renders.
+  </PropertyReference>
+</PropertyReference>
+
+## Return Value
+
+<PropertyReference name="object" type="{ agent: AbstractAgent }">
+  Object containing the agent instance.
+
+  <PropertyReference name="agent" type="AbstractAgent">
+    The AG-UI agent instance. See [AbstractAgent documentation](https://docs.ag-ui.com/sdk/js/client/abstract-agent) for full interface details.
+
+    ### Core Properties
+
+    <PropertyReference name="agentId" type="string | undefined">
+      Unique identifier for the agent instance.
+    </PropertyReference>
+
+    <PropertyReference name="description" type="string">
+      Human-readable description of the agent's purpose.
+    </PropertyReference>
+
+    <PropertyReference name="threadId" type="string">
+      Unique identifier for the current conversation thread.
+    </PropertyReference>
+
+    <PropertyReference name="messages" type="Message[]">
+      Array of conversation messages. Each message contains:
+      - `id: string` - Unique message identifier
+      - `role: "user" | "assistant" | "system"` - Message role
+      - `content: string` - Message content
+    </PropertyReference>
+
+    <PropertyReference name="state" type="any">
+      Shared state object synchronized between application and agent. Both can read and modify this state.
+    </PropertyReference>
+
+    <PropertyReference name="isRunning" type="boolean">
+      Indicates whether the agent is currently executing.
+    </PropertyReference>
+
+    <PropertyReference name="debug" type="boolean">
+      Enables debug logging for agent events and execution.
+    </PropertyReference>
+
+    ### Methods
+
+    <PropertyReference name="runAgent" type="(options?: RunAgentOptions) => Promise<void>">
+      Manually triggers agent execution.
+
+      **Parameters:**
+      - `options.forwardedProps?: any` - Data to pass to the agent execution context
+
+      **Example:**
+      ```tsx
+      await agent.runAgent({
+        forwardedProps: {
+          command: { resume: "user response" }
+        }
+      });
+      ```
+    </PropertyReference>
+
+    <PropertyReference name="setState" type="(newState: any) => void">
+      Updates the shared state. Changes are immediately available to both application and agent.
+
+      **Example:**
+      ```tsx
+      agent.setState({
+        ...agent.state,
+        theme: "dark"
+      });
+      ```
+    </PropertyReference>
+
+    <PropertyReference name="subscribe" type="(subscriber: AgentSubscriber) => { unsubscribe: () => void }">
+      Subscribes to agent events. Returns cleanup function.
+
+      **Subscriber Events:**
+      - `onCustomEvent?: ({ event: { name: string, value: any } }) => void` - Custom events (e.g., LangGraph interrupts)
+      - `onRunStartedEvent?: () => void` - Agent execution starts
+      - `onRunFinalized?: () => void` - Agent execution completes
+      - `onStateChanged?: (state: any) => void` - State changes
+      - `onMessagesChanged?: (messages: Message[]) => void` - Messages added/modified
+
+      **Example:**
+      ```tsx
+      const { unsubscribe } = agent.subscribe({
+        onCustomEvent: ({ event }) => {
+          console.log(event.name, event.value);
+        }
+      });
+
+      // Cleanup
+      unsubscribe();
+      ```
+    </PropertyReference>
+
+    <PropertyReference name="addMessage" type="(message: Message) => void">
+      Adds a single message to the conversation and notifies subscribers.
+
+      **Example:**
+      ```tsx
+      agent.addMessage({
+        id: crypto.randomUUID(),
+        role: "user",
+        content: "Hello"
+      });
+      ```
+    </PropertyReference>
+
+    <PropertyReference name="addMessages" type="(messages: Message[]) => void">
+      Adds multiple messages to the conversation and notifies subscribers once.
+    </PropertyReference>
+
+    <PropertyReference name="setMessages" type="(messages: Message[]) => void">
+      Replaces the entire message history with a new array of messages.
+    </PropertyReference>
+
+    <PropertyReference name="connectAgent" type="(options?: RunAgentParameters) => Promise<RunAgentResult>">
+      Connects to a streaming agent endpoint. Similar to `runAgent` but uses the `connect()` method for persistent connections.
+    </PropertyReference>
+
+    <PropertyReference name="detachActiveRun" type="() => Promise<void>">
+      Detaches from the currently active agent run without aborting it. The run continues in the background but stops updating the local agent state.
+    </PropertyReference>
+
+    <PropertyReference name="abortRun" type="() => void">
+      Aborts the currently running agent execution. Implementation varies by agent type.
+    </PropertyReference>
+
+    <PropertyReference name="clone" type="() => AbstractAgent">
+      Creates a deep copy of the agent with cloned messages, state, and configuration.
+    </PropertyReference>
+
+    <PropertyReference name="use" type="(...middlewares: Middleware[]) => this">
+      Adds middleware to the agent's execution pipeline. Middlewares can intercept and transform agent runs.
+    </PropertyReference>
+
+  </PropertyReference>
+</PropertyReference>
+
+## Usage
+
+### Basic Usage
+
+```tsx
+import { useAgent } from "@copilotkit/react-core/v2";
+
+function AgentStatus() {
+  const { agent } = useAgent();
+
+  return (
+    <div>
+      <div>Agent: {agent.id}</div>
+      <div>Messages: {agent.messages.length}</div>
+      <div>Running: {agent.isRunning ? "Yes" : "No"}</div>
+    </div>
+  );
+}
+```
+
+### Accessing State
+
+```tsx
+function StateDisplay() {
+  const { agent } = useAgent();
+
+  return <pre>{JSON.stringify(agent.state, null, 2)}</pre>;
+}
+```
+
+### Updating State
+
+```tsx
+function StateController() {
+  const { agent } = useAgent();
+
+  return (
+    <button onClick={() => agent.setState({ ...agent.state, count: 1 })}>
+      Increment
+    </button>
+  );
+}
+```
+
+### Event Subscription
+
+```tsx
+import { useEffect } from "react";
+import { useAgent } from "@copilotkit/react-core/v2";
+import type { AgentSubscriber } from "@ag-ui/client";
+
+function EventListener() {
+  const { agent } = useAgent();
+
+  useEffect(() => {
+    const { unsubscribe } = agent.subscribe({
+      onRunStartedEvent: () => console.log("Started"),
+      onRunFinalized: () => console.log("Finished"),
+    });
+
+    return unsubscribe;
+  }, []);
+
+  return null;
+}
+```
+
+### Multiple Agents
+
+```tsx
+function MultiAgentView() {
+  const { agent: primary } = useAgent({ agentId: "primary" });
+  const { agent: support } = useAgent({ agentId: "support" });
+
+  return (
+    <div>
+      <div>Primary: {primary.messages.length}</div>
+      <div>Support: {support.messages.length}</div>
+    </div>
+  );
+}
+```
+
+### Optimizing Re-renders
+
+Control when your component re-renders using the `updates` parameter:
+
+```tsx
+import { useAgent, UseAgentUpdate } from "@copilotkit/react-core/v2";
+
+// Only re-render when messages change
+function MessageCount() {
+  const { agent } = useAgent({
+    updates: [UseAgentUpdate.OnMessagesChanged]
+  });
+
+  return <div>Messages: {agent.messages.length}</div>;
+}
+
+// Manually manage subscriptions (no automatic re-renders)
+function ManualSubscription() {
+  const { agent } = useAgent({ updates: [] });
+
+  useEffect(() => {
+    const { unsubscribe } = agent.subscribe({
+      onMessagesChanged: () => {
+        // Handle changes manually
+      }
+    });
+    return unsubscribe;
+  }, [agent]);
+
+  return <div>Manual mode</div>;
+}
+```
+
+## Behavior
+
+- **Automatic Re-renders**: Component re-renders when agent state, messages, or execution status changes (configurable via `updates` parameter)
+- **Error Handling**: Throws error if no agent exists with specified `agentId`
+- **State Synchronization**: State updates via `setState()` are immediately available to both app and agent
+- **Event Subscriptions**: Subscribe/unsubscribe pattern for lifecycle and custom events
+
+## Related
+
+- [AG-UI AbstractAgent](https://docs.ag-ui.com/sdk/js/client/abstract-agent) - Full agent interface documentation
