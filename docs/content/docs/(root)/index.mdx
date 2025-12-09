@@ -23,27 +23,26 @@ import { IntegrationsGrid } from "@/components/react/integrations";
 import { MaximizableVideo } from "@/components/react/maximizable-video";
 import { CopilotKitHero } from "@/components/branding/CopilotKitHero";
 
-<div className="grid grid-cols-1 2xl:grid-cols-2 2xl:gap-10">
+<div className="grid grid-cols-1 2xl:grid-cols-2 2xl:gap-10 2xl:items-center">
   <div>
-    ## What is CopilotKit?
+    # What is CopilotKit?
     CopilotKit is the Agentic Application Framework — everything developers need to integrate AI agents into user-facing apps.
 
     It connects your app's logic, state, UI, and context to agentic backends to power interactive experiences across embedded UIs and headless interfaces. Build, deploy, and monitor AI features that feel intuitive and deeply integrated.
   </div>
+  <div>
     <video src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4" autoPlay controls loop muted playsInline className="rounded-xl shadow-lg mx-auto mt-auto w-2/3" />
-
-  <div className="mb-16 text-center">
-    <h2 className="text-4xl font-bold mb-4 text-foreground">Use Any Agentic Backend, Framework and Protocol</h2>
-    <div className="w-24 h-1 bg-gradient-to-r from-primary to-primary mx-auto mt-6 rounded-full"></div>
   </div>
   <div>
+    ## Use Any Agentic Backend, Framework and Protocol
+
     CopilotKit connects to any agentic backend directly or via any of the [Agentic Protocols](./agent-interaction-protocols) (AG-UI, MCP, or A2A). 
 
     CopilotKit also provides integrations with many prominent Agent Frameworks (through the [AG-UI](./ag-ui-protocol) protocol).
     
     By decoupling from specific frameworks, models, or agent protocols, CopilotKit lets you evolve your AI stack without redesigning your app's UX.
   </div>
-  <div className="w-full max-w-2xl mx-auto 2xl:mt-auto -mt-20">
+  <div className="w-full max-w-2xl mx-auto">
     <Image 
       src="/images/agentic-backend-agentic-application-light.png" 
       alt="Agentic Backend to Agentic Application" 
