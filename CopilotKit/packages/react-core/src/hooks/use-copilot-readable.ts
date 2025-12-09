@@ -108,7 +108,7 @@ function convertToJSON(description: string, value: any): string {
  * Adds the given information to the Copilot context to make it readable by Copilot.
  */
 export function useCopilotReadable(
-  { description, value }: UseCopilotReadableOptions,
+  { description, value, convert, available }: UseCopilotReadableOptions,
   dependencies?: any[],
 ): string | undefined {
   const { copilotkit } = useCopilotKit();
@@ -116,17 +116,18 @@ export function useCopilotReadable(
   useEffect(() => {
     if (!copilotkit) return;
 
-    if (
-      ctxIdRef.current &&
-      copilotkit.context[ctxIdRef.current] &&
-      JSON.stringify(copilotkit.context[ctxIdRef.current]) ===
-        JSON.stringify({ description, value })
-    )
-      return;
+    const found = Object.entries(copilotkit.context).find(([id, ctxItem]) => {
+      return JSON.stringify({ description, value }) == JSON.stringify(ctxItem)
+    })
+    if (found) {
+      ctxIdRef.current = found[0]
+      if (!available) copilotkit.removeContext(ctxIdRef.current);
+      return
+    }
+    if (!found && !available) return
 
-    ctxIdRef.current = copilotkit.addContext({ description, value: JSON.stringify(value) });
+    ctxIdRef.current = copilotkit.addContext({ description, value: (convert ?? JSON.stringify)(value) });
 
-    // console.log('set ctx')
     return () => {
       if (!ctxIdRef.current) return;
       copilotkit.removeContext(ctxIdRef.current);
