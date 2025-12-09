@@ -64,7 +64,7 @@
 import { useCopilotKit } from "@copilotkitnext/react";
 import { useEffect, useRef } from "react";
 
-type DataType = object | number | string | boolean | null | undefined
+type DataType = object | number | string | boolean | null | undefined;
 
 /**
  * Options for the useCopilotReadable hook.
@@ -117,16 +117,19 @@ export function useCopilotReadable(
     if (!copilotkit) return;
 
     const found = Object.entries(copilotkit.context).find(([id, ctxItem]) => {
-      return JSON.stringify({ description, value }) == JSON.stringify(ctxItem)
-    })
+      return JSON.stringify({ description, value }) == JSON.stringify(ctxItem);
+    });
     if (found) {
-      ctxIdRef.current = found[0]
+      ctxIdRef.current = found[0];
       if (!available) copilotkit.removeContext(ctxIdRef.current);
-      return
+      return;
     }
-    if (!found && !available) return
+    if (!found && !available) return;
 
-    ctxIdRef.current = copilotkit.addContext({ description, value: (convert ?? JSON.stringify)(value) });
+    ctxIdRef.current = copilotkit.addContext({
+      description,
+      value: (convert ?? JSON.stringify)(value),
+    });
 
     return () => {
       if (!ctxIdRef.current) return;
