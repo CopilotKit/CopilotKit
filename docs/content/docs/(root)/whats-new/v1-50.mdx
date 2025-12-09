@@ -3,6 +3,8 @@ title: "CopilotKit v1.50"
 icon: "lucide/Rocket"
 description: "Brand new interfaces, streamlined internals, and no breaking changes"
 ---
+import { Badge } from "@/components/ui/badge";
+import { V150SignupLink } from "@/components/react/v150-signup-link";
 
 CopilotKit v1.50 is now in pre-release and will be generally available very soon.
 
@@ -107,12 +109,14 @@ You can even make agents aware of each other!
     
 
 ---
+## Coming Soon
+v1.50 is in pre-release now, with useAgent fully ready.  The other features (listed below) will be added as they come out in the near future.  <V150SignupLink>Sign up here</V150SignupLink> for access, if you haven't already.
 
-# Threads & Persistence
+### Threads & Persistence
 
 v1.50 delivers support for threaded conversations, with built in thread storage and connection components.  Support for development with InMemory or SQLite is provided out of the box.
 
-### Thread storage
+#### Thread storage
     - **For development:** `InMemory` or `SQLite` out of the box
         
         ```tsx
@@ -130,7 +134,7 @@ v1.50 delivers support for threaded conversations, with built in thread storage 
         - **Coming soon! -** Use **Copilot Cloud** (managed) or **Copilot Enterprise** (self hosted) to persist threads to your own databases, get automatic stream reconnection, in-built product analytics.
             - **👉 Join the [Enterprise Early Access](https://go.copilotkit.ai/enterprise-threads-waitlist) waitlist!**
         
-### Thread connection
+#### Thread connection
     - Loading a thread
         
         ```tsx
@@ -150,7 +154,7 @@ v1.50 delivers support for threaded conversations, with built in thread storage 
 
 ---
 
-# New Design System
+### New Design System
 
 You can continue to use the design system in the v1 interfaces, but v2 provides A full UI overhaul with deeper customization:
 
@@ -162,7 +166,7 @@ You can continue to use the design system in the v1 interfaces, but v2 provides 
 
 ---
 
-# Zod Schema Support
+### Zod Schema Support
 
 Many CopilotKit hooks now take Zod schemas, enforcing type safety at both compile and run time.
 
@@ -172,17 +176,17 @@ Many CopilotKit hooks now take Zod schemas, enforcing type safety at both compil
 
 ---
 
-# Simplified Infrastructure
+### Simplified Infrastructure
 
 Earlier versions of CopilotKit required GraphQL installation.  That is completely removed by the new architecture.
 
 ---
 
-# Direct to LLM Improvements
+### Direct to LLM Improvements
 
 Our direct to LLM integration now supports more models and implements shared state.
 
-### BasicAgent - Now with broader model support
+#### BasicAgent - Now with broader model support
 
 ```tsx
 import { BasicAgent } from "@copilotkit/runtime"
@@ -198,7 +202,7 @@ const runtime = new CopilotRuntime({
 });
 ```
 
-### Shared state support
+#### Shared state support
 
 ```tsx
 import { useAgent } from "@copilotkit/react-core/v2";
