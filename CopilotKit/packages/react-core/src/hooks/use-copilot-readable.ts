@@ -97,11 +97,7 @@ export interface UseCopilotReadableOptions {
    * A custom conversion function to use to serialize the value to a string. If not provided, the value
    * will be serialized using `JSON.stringify`.
    */
-  convert?: (description: string, value: any) => string;
-}
-
-function convertToJSON(description: string, value: any): string {
-  return `${description}: ${typeof value === "string" ? value : JSON.stringify(value)}`;
+  convert?: (value: any) => string;
 }
 
 /**
@@ -121,10 +117,10 @@ export function useCopilotReadable(
     });
     if (found) {
       ctxIdRef.current = found[0];
-      if (!available) copilotkit.removeContext(ctxIdRef.current);
+      if (available === "disabled") copilotkit.removeContext(ctxIdRef.current);
       return;
     }
-    if (!found && !available) return;
+    if (!found && available === "disabled") return;
 
     ctxIdRef.current = copilotkit.addContext({
       description,
@@ -135,7 +131,7 @@ export function useCopilotReadable(
       if (!ctxIdRef.current) return;
       copilotkit.removeContext(ctxIdRef.current);
     };
-  }, [description, value]);
+  }, [description, value, convert]);
 
   return ctxIdRef.current;
 }
