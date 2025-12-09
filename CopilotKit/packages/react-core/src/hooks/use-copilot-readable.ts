@@ -64,6 +64,8 @@
 import { useCopilotKit } from "@copilotkitnext/react";
 import { useEffect, useRef } from "react";
 
+type DataType = object | number | string | boolean | null | undefined
+
 /**
  * Options for the useCopilotReadable hook.
  */
@@ -75,7 +77,7 @@ export interface UseCopilotReadableOptions {
   /**
    * The value to be added to the Copilot context. Object values are automatically stringified.
    */
-  value: any;
+  value: DataType | Record<string, any> | DataType[];
   /**
    * The ID of the parent context, if any.
    */
@@ -122,7 +124,7 @@ export function useCopilotReadable(
     )
       return;
 
-    ctxIdRef.current = copilotkit.addContext({ description, value });
+    ctxIdRef.current = copilotkit.addContext({ description, value: JSON.stringify(value) });
 
     // console.log('set ctx')
     return () => {
