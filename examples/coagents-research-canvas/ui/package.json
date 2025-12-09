@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@ag-ui/langgraph": "^0.0.20",
     "@copilotkit/react-core": "0.0.0-feat-cpk-1-5-20251209134628",
     "@copilotkit/react-ui": "0.0.0-feat-cpk-1-5-20251209134628",
     "@copilotkit/runtime": "0.0.0-feat-cpk-1-5-20251209134628",
