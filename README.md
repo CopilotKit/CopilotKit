@@ -56,6 +56,11 @@
 
 <img width="4096" height="2341" alt="Best in class support across the ecosystem" src="https://github.com/user-attachments/assets/bf399131-2a92-49f8-8748-38ed72353f9c" />
 
+## ⭐️ UseAgent to connect to any agent
+
+https://github.com/user-attachments/assets/46b7d161-a988-4453-9ca9-c0eca4c33da6
+
+
 
 ## ✨ Why CopilotKit?
 
