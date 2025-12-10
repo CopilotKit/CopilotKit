@@ -15,7 +15,11 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, SetStateAction } from "react";
-import { CopilotChatConfigurationProvider, CopilotKitProvider } from "@copilotkitnext/react";
+import {
+  CopilotChatConfigurationProvider,
+  CopilotKitInspector,
+  CopilotKitProvider,
+} from "@copilotkitnext/react";
 import {
   CopilotContext,
   CopilotApiConfig,
@@ -61,6 +65,7 @@ import { CopilotListeners } from "../CopilotListeners";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const enabled = shouldShowDevConsole(props.showDevConsole);
+  const showInspector = shouldShowDevConsole(props.enableInspector);
 
   // Use API key if provided, otherwise use the license key
   const publicApiKey = props.publicApiKey || props.publicLicenseKey;
@@ -72,7 +77,10 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
       <CopilotErrorBoundary publicApiKey={publicApiKey} showUsageBanner={enabled}>
         <ThreadsProvider threadId={props.threadId}>
           <CopilotKitProvider {...props} renderCustomMessages={renderArr} useSingleEndpoint={true}>
-            <CopilotKitInternal {...props}>{children}</CopilotKitInternal>
+            <CopilotKitInternal {...props}>
+              {children}
+              {showInspector ? <CopilotKitInspector /> : <></>}
+            </CopilotKitInternal>
           </CopilotKitProvider>
         </ThreadsProvider>
       </CopilotErrorBoundary>

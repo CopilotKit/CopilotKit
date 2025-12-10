@@ -159,4 +159,11 @@ export interface CopilotKitProps extends Omit<CopilotKitProviderProps, "children
    * ```
    */
   onError?: CopilotErrorHandler;
+
+  /**
+   * Enable or disable the CopilotKit Inspector, letting you inspect AG-UI events,
+   * view agent messages, check agent state, and visualize agent context. Defaults
+   * to enabled.
+   */
+  enableInspector?: boolean;
 }
