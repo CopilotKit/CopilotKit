@@ -57,9 +57,7 @@ export class TelemetryAgentRunner implements AgentRunner {
    * Runs an agent with telemetry tracking.
    * Wraps the underlying runner's Observable stream with telemetry events.
    */
-  run(
-    ...args: Parameters<AgentRunner["run"]>
-  ): ReturnType<AgentRunner["run"]> {
+  run(...args: Parameters<AgentRunner["run"]>): ReturnType<AgentRunner["run"]> {
     const streamInfo: AgentExecutionResponseInfo = {
       hashedLgcKey: this.hashedLgcKey,
     };
@@ -75,7 +73,11 @@ export class TelemetryAgentRunner implements AgentRunner {
       // Extract metadata from events if available
       tap((event) => {
         // Try to extract provider/model info from raw events
-        const rawEvent = (event as { rawEvent?: { metadata?: Record<string, unknown>; data?: Record<string, unknown> } }).rawEvent;
+        const rawEvent = (
+          event as {
+            rawEvent?: { metadata?: Record<string, unknown>; data?: Record<string, unknown> };
+          }
+        ).rawEvent;
         if (rawEvent?.data) {
           const data = rawEvent.data as { output?: { model?: string } };
           if (data?.output?.model) {
@@ -84,7 +86,10 @@ export class TelemetryAgentRunner implements AgentRunner {
           }
         }
         if (rawEvent?.metadata) {
-          const metadata = rawEvent.metadata as { langgraph_host?: string; langgraph_version?: string };
+          const metadata = rawEvent.metadata as {
+            langgraph_host?: string;
+            langgraph_version?: string;
+          };
           if (metadata?.langgraph_host) {
             streamInfo.langGraphHost = metadata.langgraph_host;
           }

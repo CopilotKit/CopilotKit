@@ -464,8 +464,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         | undefined;
 
       // Get cloud base URL from environment or default
-      const cloudBaseUrl =
-        process.env.COPILOT_CLOUD_BASE_URL || "https://api.cloud.copilotkit.ai";
+      const cloudBaseUrl = process.env.COPILOT_CLOUD_BASE_URL || "https://api.cloud.copilotkit.ai";
 
       telemetry.capture("oss.runtime.copilot_request_created", {
         "cloud.guardrails.enabled": forwardedProps?.cloud?.guardrails !== undefined,
