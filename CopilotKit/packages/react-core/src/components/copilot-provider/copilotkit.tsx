@@ -18,7 +18,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, SetStateAction } fro
 import {
   CopilotChatConfigurationProvider,
   CopilotKitInspector,
-  CopilotKitProvider,
+  CopilotKitProvider as CopilotKitNextProvider,
 } from "@copilotkitnext/react";
 import {
   CopilotContext,
@@ -57,7 +57,6 @@ import {
   LangGraphInterruptActionSetterArgs,
   QueuedInterruptEvent,
 } from "../../types/interrupt-action";
-import { ConsoleTrigger } from "../dev-console/console-trigger";
 import { CoAgentStateRendersProvider } from "../../context/coagent-state-renders-context";
 import { CoAgentStateRenderBridge } from "../../hooks/use-coagent-state-render-bridge";
 import { ThreadsProvider, useThreads } from "../../context/threads-context";
@@ -76,12 +75,14 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     <ToastProvider enabled={enabled}>
       <CopilotErrorBoundary publicApiKey={publicApiKey} showUsageBanner={enabled}>
         <ThreadsProvider threadId={props.threadId}>
-          <CopilotKitProvider {...props} renderCustomMessages={renderArr} useSingleEndpoint={true}>
-            <CopilotKitInternal {...props}>
-              {children}
-              {showInspector ? <CopilotKitInspector /> : <></>}
-            </CopilotKitInternal>
-          </CopilotKitProvider>
+          <CopilotKitNextProvider
+            {...props}
+            showDevConsole={showInspector}
+            renderCustomMessages={renderArr}
+            useSingleEndpoint={true}
+          >
+            <CopilotKitInternal {...props}>{children}</CopilotKitInternal>
+          </CopilotKitNextProvider>
         </ThreadsProvider>
       </CopilotErrorBoundary>
     </ToastProvider>
@@ -595,7 +596,6 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
           <MessagesTapProvider>
             <CopilotMessages>
               {memoizedChildren}
-              {showDevConsole && <ConsoleTrigger />}
               <RegisteredActionsRenderer />
             </CopilotMessages>
           </MessagesTapProvider>
