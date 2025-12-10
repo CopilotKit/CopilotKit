@@ -8,6 +8,7 @@ export * from "./integrations";
 export * from "./logger";
 export * from "./runtime/copilot-runtime";
 export * from "./runtime/mcp-tools-utils";
+export * from "./runtime/telemetry-agent-runner";
 
 // The below re-exports "dummy" classes and types, to get a deprecation warning redirecting the users to import these from the correct, new route
 

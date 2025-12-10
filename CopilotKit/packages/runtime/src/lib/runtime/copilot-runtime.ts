@@ -13,47 +13,47 @@
  */
 
 import {
-  Action,
-  CopilotErrorHandler,
+  type Action,
+  type CopilotErrorHandler,
   CopilotKitMisuseError,
-  MaybePromise,
-  NonEmptyRecord,
-  Parameter,
+  type MaybePromise,
+  type NonEmptyRecord,
+  type Parameter,
   readBody,
   getZodParameters,
-  PartialBy,
+  type PartialBy,
 } from "@copilotkit/shared";
-import { type RunAgentInput } from "@ag-ui/core";
+import type { RunAgentInput } from "@ag-ui/core";
 import { aguiToGQL } from "../../graphql/message-conversion/agui-to-gql";
-import { CopilotServiceAdapter, RemoteChainParameters } from "../../service-adapters";
+import type { CopilotServiceAdapter, RemoteChainParameters } from "../../service-adapters";
 import {
   CopilotRuntime as CopilotRuntimeVNext,
-  CopilotRuntimeOptions,
-  CopilotRuntimeOptions as CopilotRuntimeOptionsVNext,
-  InMemoryAgentRunner as InMemoryAgentRunnerVNext,
+  type CopilotRuntimeOptions,
+  type CopilotRuntimeOptions as CopilotRuntimeOptionsVNext,
 } from "@copilotkitnext/runtime";
+import { TelemetryAgentRunner } from "./telemetry-agent-runner";
 
-import { MessageInput } from "../../graphql/inputs/message.input";
-import { Message } from "../../graphql/types/converted";
+import type { MessageInput } from "../../graphql/inputs/message.input";
+import type { Message } from "../../graphql/types/converted";
 
 import {
   EndpointType,
-  EndpointDefinition,
-  CopilotKitEndpoint,
-  LangGraphPlatformEndpoint,
+  type EndpointDefinition,
+  type CopilotKitEndpoint,
+  type LangGraphPlatformEndpoint,
 } from "./types";
 
-import { CopilotObservabilityConfig, LLMRequestData, LLMResponseData } from "../observability";
-import { AbstractAgent } from "@ag-ui/client";
+import type { CopilotObservabilityConfig, LLMRequestData, LLMResponseData } from "../observability";
+import type { AbstractAgent } from "@ag-ui/client";
 
 // +++ MCP Imports +++
 import {
-  MCPClient,
-  MCPEndpointConfig,
-  MCPTool,
+  type MCPClient,
+  type MCPEndpointConfig,
+  type MCPTool,
   extractParametersFromSchema,
 } from "./mcp-tools-utils";
-import { BasicAgent, BasicAgentConfiguration } from "@copilotkitnext/agent";
+import { BasicAgent, type BasicAgentConfiguration } from "@copilotkitnext/agent";
 // Define the function type alias here or import if defined elsewhere
 type CreateMCPClientFunction = (config: MCPEndpointConfig) => Promise<MCPClient>;
 
@@ -310,7 +310,9 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
     this.runtimeArgs = {
       agents: { ...endpointAgents, ...agents },
-      runner: params?.runner ?? new InMemoryAgentRunnerVNext(),
+      // Use TelemetryAgentRunner by default to track agent execution telemetry
+      // Users can pass their own runner which will be wrapped for telemetry
+      runner: params?.runner ?? new TelemetryAgentRunner(),
       // TODO: add support for transcriptionService from CopilotRuntimeOptionsVNext once it is ready
       // transcriptionService: params?.transcriptionService,
 
