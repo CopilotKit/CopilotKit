@@ -32,6 +32,7 @@ import {
   type CopilotRuntimeOptions as CopilotRuntimeOptionsVNext,
 } from "@copilotkitnext/runtime";
 import { TelemetryAgentRunner } from "./telemetry-agent-runner";
+import telemetry from "../telemetry-client";
 
 import type { MessageInput } from "../../graphql/inputs/message.input";
 import type { Message } from "../../graphql/types/converted";
@@ -439,6 +440,30 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     params?: CopilotRuntimeConstructorParams<T> & PartialBy<CopilotRuntimeOptions, "agents">,
   ) {
     return async (hookParams: BeforeRequestMiddlewareFnParameters[0]) => {
+      const { request } = hookParams;
+
+      // Capture telemetry for copilot request creation
+      const publicApiKey = request.headers.get("x-copilotcloud-public-api-key");
+      const body = (await readBody(request)) as RunAgentInput;
+      const forwardedProps = body.forwardedProps as
+        | {
+            cloud?: { guardrails?: unknown };
+            metadata?: { requestType?: string };
+          }
+        | undefined;
+
+      // Get cloud base URL from environment or default
+      const cloudBaseUrl =
+        process.env.COPILOT_CLOUD_BASE_URL || "https://api.cloud.copilotkit.ai";
+
+      telemetry.capture("oss.runtime.copilot_request_created", {
+        "cloud.guardrails.enabled": forwardedProps?.cloud?.guardrails !== undefined,
+        requestType: forwardedProps?.metadata?.requestType ?? "unknown",
+        "cloud.api_key_provided": !!publicApiKey,
+        ...(publicApiKey ? { "cloud.public_api_key": publicApiKey } : {}),
+        "cloud.base_url": cloudBaseUrl,
+      });
+
       // TODO: get public api key and run with expected data
       // if (this.observability?.enabled && this.params.publicApiKey) {
       //   this.logObservabilityBeforeRequest()
@@ -449,7 +474,6 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
       if (params?.middleware?.onBeforeRequest) {
         const { request, runtime, path } = hookParams;
-        const body = (await readBody(request)) as RunAgentInput;
         const gqlMessages = (aguiToGQL(body.messages) as Message[]).reduce(
           (acc, msg) => {
             if ("role" in msg && msg.role === "user") {
