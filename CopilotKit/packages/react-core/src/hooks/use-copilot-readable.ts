@@ -64,8 +64,6 @@
 import { useCopilotKit } from "@copilotkitnext/react";
 import { useEffect, useRef } from "react";
 
-type DataType = object | number | string | boolean | null | undefined;
-
 /**
  * Options for the useCopilotReadable hook.
  */
@@ -77,7 +75,7 @@ export interface UseCopilotReadableOptions {
   /**
    * The value to be added to the Copilot context. Object values are automatically stringified.
    */
-  value: DataType | Record<string, any> | DataType[];
+  value: any;
   /**
    * The ID of the parent context, if any.
    */
@@ -97,7 +95,7 @@ export interface UseCopilotReadableOptions {
    * A custom conversion function to use to serialize the value to a string. If not provided, the value
    * will be serialized using `JSON.stringify`.
    */
-  convert?: (value: any) => string;
+  convert?: (description: string, value: any) => string;
 }
 
 /**
