@@ -1,5 +1,17 @@
 # ui
 
+## 1.50.0-beta.9
+
+### Minor Changes
+
+- Refactor suggestions to not always run
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.0-beta.9
+  - @copilotkit/shared@1.50.0-beta.9
+
 ## 1.50.0-beta.8
 
 ### Patch Changes
