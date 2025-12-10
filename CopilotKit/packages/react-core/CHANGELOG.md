@@ -1,5 +1,17 @@
 # ui
 
+## 1.50.0-beta.10
+
+### Minor Changes
+
+- add new runner with telemetry baked in
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.0-beta.10
+  - @copilotkit/shared@1.50.0-beta.10
+
 ## 1.50.0-beta.9
 
 ### Minor Changes

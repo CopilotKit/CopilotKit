@@ -18,6 +18,7 @@
     "tsconfig": "1.4.6"
   },
   "changesets": [
+    "big-readers-judge",
     "blue-cups-mate",
     "chilly-mangos-sneeze",
     "cuddly-jeans-fold",

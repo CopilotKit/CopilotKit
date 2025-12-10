@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.50.0-beta.10
+
+### Minor Changes
+
+- add new runner with telemetry baked in
+
 ## 1.50.0-beta.9
 
 ### Minor Changes
