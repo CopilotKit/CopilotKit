@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.50.0-beta.11
+
+### Minor Changes
+
+- fix telemetry in v1.50 runtime
+
 ## 1.50.0-beta.10
 
 ### Minor Changes
