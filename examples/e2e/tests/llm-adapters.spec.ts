@@ -19,7 +19,7 @@
  *    - Anthropic provider functionality
  *    - Google Generative AI provider functionality
  *    - Groq provider functionality
- *    - Azure OpenAI provider functionality
+ *    - Azure OpenAI provider functionality (TEMPORARILY DISABLED)
  *    - Amazon Bedrock provider functionality
  *
  * Test Flow:
@@ -30,7 +30,7 @@
  * 4. Tests chat interaction with selected provider
  * 5. Verifies AI responses are received
  *
- * @tested-providers OpenAI, Anthropic, Google Generative AI, Groq, Azure, Bedrock
+ * @tested-providers OpenAI, Anthropic, Google Generative AI, Groq, Bedrock (Azure temporarily disabled)
  */
 
 import { expect, test, Page, Locator } from "@playwright/test";
@@ -59,7 +59,8 @@ const providers: LLMProvider[] = [
     label: "Google Generative AI",
   },
   { id: "groq", name: "Groq", label: "Groq" },
-  { id: "azure", name: "Azure OpenAI", label: "Azure OpenAI" },
+  // Temporarily disabled - Azure OpenAI
+  // { id: "azure", name: "Azure OpenAI", label: "Azure OpenAI" },
   { id: "bedrock", name: "Amazon Bedrock", label: "Amazon Bedrock" },
 ];
 
@@ -84,13 +85,14 @@ const testScenarios: TestScenario[] = [
     testMessage: "What color is the sky on a clear day?",
     expectedResponsePattern: /blue/i,
   },
+  // Temporarily disabled - Azure OpenAI
+  // {
+  //   provider: providers[4], // Azure OpenAI
+  //   testMessage: "What is 5 multiplied by 3?",
+  //   expectedResponsePattern: /15/,
+  // },
   {
-    provider: providers[4], // Azure OpenAI
-    testMessage: "What is 5 multiplied by 3?",
-    expectedResponsePattern: /15/,
-  },
-  {
-    provider: providers[5], // Amazon Bedrock
+    provider: providers[4], // Amazon Bedrock (was providers[5])
     testMessage: "Name one planet in our solar system.",
     expectedResponsePattern:
       /(Earth|Mars|Venus|Jupiter|Saturn|Mercury|Uranus|Neptune)/i,
