@@ -9,8 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@copilotkit/react-core": "^1.10.4",
-    "@copilotkit/react-ui": "^1.10.4",
+    "@copilotkit/react-core": "^1.50.0-beta.14",
+    "@copilotkit/react-ui": "^1.50.0-beta.14",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",

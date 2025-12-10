@@ -1,7 +1,9 @@
 "use client";
 
-import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotChat } from "@copilotkit/react-ui";;
+import {
+  CopilotKitProvider,
+  CopilotChat,
+} from "@copilotkit/react-core/v2";
 import { providers, providerKeys } from "./llm-providers";
 import { useState } from "react";
 
@@ -34,15 +36,13 @@ export default function Home() {
           </div>
         </div>
         <div className="w-full">
-          <CopilotKit runtimeUrl={runtimeUrl} publicApiKey={publicApiKey}> 
-            <CopilotChat
-              instructions={"You are assisting the user as best as you can. Answer in the best way possible given the data you have."}
-              labels={{
-                title: "Your Assistant",
-                initial: "Hi! 👋 How can I assist you today?",
-              }}
-            />
-          </CopilotKit>
+          <CopilotKitProvider runtimeUrl={runtimeUrl}
+                              headers={{
+                                "x-copilotcloud-public-api-key": publicApiKey!,
+                                "x-copilotkit-runtime-client-gql-version": "1.50.0"
+                              }} > 
+            <CopilotChat agentId="agentic_chat" />
+          </CopilotKitProvider>
         </div>
       </div>
     </div>
