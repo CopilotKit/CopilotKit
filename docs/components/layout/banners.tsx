@@ -63,11 +63,11 @@ export function V150Banner() {
           <Sparkles className="w-5 h-5 hidden md:block flex-shrink-0" />
           {/* Short text for mobile (below 768px) */}
           <p className="text-xs md:text-base font-normal md:hidden">
-            CopilotKit 1.50 is in pre-release!
+            CopilotKit 1.50 is available!
           </p>
           {/* Full text for desktop (768px and above) */}
           <p className="text-sm sm:text-base font-normal hidden md:block">
-            CopilotKit 1.50 is in pre-release, featuring threads, no GraphQL, new interfaces, and more!
+            CopilotKit 1.50 is available, featuring threads, no GraphQL, new interfaces, and more!
           </p>
         </div>
         <Link 
