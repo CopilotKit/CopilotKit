@@ -385,10 +385,11 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
           });
         }
 
-        if (this.params.actions) {
+        const actions = this.params?.actions;
+        if (actions) {
           const mcpTools = await this.getToolsFromMCP();
           agentsList = this.assignToolsToAgents(agents, [
-            ...this.getToolsFromActions(this.params.actions),
+            ...this.getToolsFromActions(actions),
             ...mcpTools,
           ]);
         }
