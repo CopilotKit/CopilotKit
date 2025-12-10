@@ -499,6 +499,7 @@ async function executeAction(
         actionExecution: {
           name: action.name,
           id: actionExecutionId,
+          returnDirect: action.additionalConfig?.returnDirect,
         },
       });
     } catch (e) {

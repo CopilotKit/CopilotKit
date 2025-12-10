@@ -17,6 +17,7 @@ export const Messages = ({
   onCopy,
   onThumbsUp,
   onThumbsDown,
+  messageFeedback,
   markdownTagRenderers,
   chatError,
 
@@ -95,6 +96,7 @@ export const Messages = ({
               onCopy={onCopy}
               onThumbsUp={onThumbsUp}
               onThumbsDown={onThumbsDown}
+              messageFeedback={messageFeedback}
               markdownTagRenderers={markdownTagRenderers}
             />
           );

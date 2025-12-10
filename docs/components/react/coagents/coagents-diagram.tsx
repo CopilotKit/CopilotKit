@@ -1,6 +1,6 @@
 import React from "react";
 
-export const CoAgentsDiagram: React.FC = (): JSX.Element => {
+export const CoAgentsDiagram: React.FC = () => {
   return (
     <div className="flex flex-col items-center">
       <div className="flex items-center">
@@ -21,7 +21,7 @@ interface DiagramNodeProps {
   variant?: 'default' | 'colored';
 }
 
-const DiagramNode: React.FC<DiagramNodeProps> = ({ title, variant = 'default' }): JSX.Element => {
+const DiagramNode: React.FC<DiagramNodeProps> = ({ title, variant = 'default' }) => {
   const bgColor = variant === 'colored' 
     ? "bg-blue-100 dark:bg-blue-900" 
     : "bg-gray-50 dark:bg-neutral-900";
@@ -33,7 +33,7 @@ const DiagramNode: React.FC<DiagramNodeProps> = ({ title, variant = 'default' })
   );
 };
 
-const DiagramArrow: React.FC = (): JSX.Element => {
+const DiagramArrow: React.FC = () => {
   return (
     <div className="mx-2">
       <svg
