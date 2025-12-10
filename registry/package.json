@@ -14,7 +14,7 @@
     "@copilotkit/react-ui": "^1.8.8",
     "@copilotkit/runtime": "^1.8.8",
     "@copilotkit/runtime-client-gql": "^1.8.8",
-    "@modelcontextprotocol/sdk": "^1.10.2",
+    "@modelcontextprotocol/sdk": "^1.24.0",
     "@radix-ui/react-label": "^2.1.1",
     "@radix-ui/react-slot": "^1.1.1",
     "@radix-ui/react-tooltip": "^1.2.0",
