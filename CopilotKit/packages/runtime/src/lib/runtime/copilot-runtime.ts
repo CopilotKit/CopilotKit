@@ -22,6 +22,7 @@ import {
   readBody,
   getZodParameters,
   type PartialBy,
+  isTelemetryDisabled,
 } from "@copilotkit/shared";
 import type { RunAgentInput } from "@ag-ui/core";
 import { aguiToGQL } from "../../graphql/message-conversion/agui-to-gql";
@@ -30,6 +31,7 @@ import {
   CopilotRuntime as CopilotRuntimeVNext,
   type CopilotRuntimeOptions,
   type CopilotRuntimeOptions as CopilotRuntimeOptionsVNext,
+  InMemoryAgentRunner,
 } from "@copilotkitnext/runtime";
 import { TelemetryAgentRunner } from "./telemetry-agent-runner";
 import telemetry from "../telemetry-client";
@@ -309,11 +311,19 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     const agents = params?.agents ?? {};
     const endpointAgents = this.assignEndpointsToAgents(params?.remoteEndpoints ?? []);
 
+    // Determine the base runner (user-provided or default)
+    const baseRunner = params?.runner ?? new InMemoryAgentRunner();
+
+    // Wrap with TelemetryAgentRunner unless telemetry is disabled
+    // This ensures we always capture agent execution telemetry when enabled,
+    // even if the user provides their own custom runner
+    const runner = isTelemetryDisabled()
+      ? baseRunner
+      : new TelemetryAgentRunner({ runner: baseRunner });
+
     this.runtimeArgs = {
       agents: { ...endpointAgents, ...agents },
-      // Use TelemetryAgentRunner by default to track agent execution telemetry
-      // Users can pass their own runner which will be wrapped for telemetry
-      runner: params?.runner ?? new TelemetryAgentRunner(),
+      runner,
       // TODO: add support for transcriptionService from CopilotRuntimeOptionsVNext once it is ready
       // transcriptionService: params?.transcriptionService,
 
