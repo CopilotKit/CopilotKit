@@ -91,7 +91,7 @@ const config = {
       },
       {
         source: "/coagents/advanced/router-mode-agent-lock",
-        destination: "/coagents/multi-agent-flows",
+        destination: "/coagents",
         permanent: true,
       },
       {
@@ -146,7 +146,27 @@ const config = {
       },
       {
         source: "/coagents/concepts/multi-agent-flows",
-        destination: "/coagents/multi-agent-flows",
+        destination: "/coagents",
+        permanent: true,
+      },
+      {
+        source: "/llamaindex/multi-agent-flows",
+        destination: "/llamaindex",
+        permanent: true,
+      },
+      {
+        source: "/crewai-crews/multi-agent-flows",
+        destination: "/crewai-crews",
+        permanent: true,
+      },
+      {
+        source: "/crewai-flows/multi-agent-flows",
+        destination: "/crewai-flows",
+        permanent: true,
+      },
+      {
+        source: "/langgraph/advanced/multi-agent-flows",
+        destination: "/langgraph",
         permanent: true,
       },
       {
@@ -232,6 +252,11 @@ const config = {
       {
         source: "/pydantic-ai/mcp",
         destination: "/pydantic-ai/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/pydantic-ai/quickstart/pydantic-ai",
+        destination: "/pydantic-ai/quickstart",
         permanent: true,
       },
       {

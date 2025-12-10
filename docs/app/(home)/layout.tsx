@@ -14,6 +14,7 @@ import {
   AgnoIcon,
   LlamaIndexIcon,
   PydanticAIIcon,
+  AwsStrandsIcon,
 } from "@/lib/icons/custom-icons";
 
 export default function Layout({ children }: { children: ReactNode }) {
@@ -129,6 +130,15 @@ export default function Layout({ children }: { children: ReactNode }) {
                       description: "Documentation for CoAgents with ADK",
                       url: "/adk",
                       icon: <ADKIcon className="w-4 h-4 text-bold" />,
+                      bgGradient: "bg-black text-white",
+                      selectedStyle: "ring-gray-500 ring-2 rounded-sm",
+                    },
+                    {
+                      title: "AWS Strands",
+                      description:
+                        "Documentation for CoAgents with AWS Strands",
+                      url: "/aws-strands",
+                      icon: <AwsStrandsIcon className="w-4 h-4 text-bold" />,
                       bgGradient: "bg-black text-white",
                       selectedStyle: "ring-gray-500 ring-2 rounded-sm",
                     },
