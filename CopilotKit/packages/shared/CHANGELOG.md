@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.50.0-beta.15
+
+### Minor Changes
+
+- lint and format code
+
 ## 1.50.0-beta.14
 
 ### Minor Changes

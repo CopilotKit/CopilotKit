@@ -1,5 +1,18 @@
 # ui
 
+## 1.50.0-beta.15
+
+### Minor Changes
+
+- lint and format code
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.0-beta.15
+  - @copilotkit/react-core@1.50.0-beta.15
+  - @copilotkit/shared@1.50.0-beta.15
+
 ## 1.50.0-beta.14
 
 ### Minor Changes
