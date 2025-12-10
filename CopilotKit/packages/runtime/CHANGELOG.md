@@ -1,5 +1,16 @@
 # @copilotkit/runtime
 
+## 1.50.0-beta.13
+
+### Minor Changes
+
+- Updating to the latest version of vnext
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@1.50.0-beta.13
+
 ## 1.50.0-beta.12
 
 ### Minor Changes
