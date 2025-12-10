@@ -1,5 +1,16 @@
 # @copilotkit/runtime-client-gql
 
+## 1.50.0-beta.12
+
+### Minor Changes
+
+- eab69a2: Enabling the new inspector
+
+### Patch Changes
+
+- Updated dependencies [eab69a2]
+  - @copilotkit/shared@1.50.0-beta.12
+
 ## 1.50.0-beta.11
 
 ### Minor Changes

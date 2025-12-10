@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.50.0-beta.12
+
+### Minor Changes
+
+- eab69a2: Enabling the new inspector
+
 ## 1.50.0-beta.11
 
 ### Minor Changes
