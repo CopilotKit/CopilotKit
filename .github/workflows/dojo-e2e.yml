@@ -93,7 +93,7 @@ jobs:
         with:
           repository: ag-ui-protocol/ag-ui
           path: ag-ui
-          ref: feat/copilotkit-1-5-clean
+          ref: main
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
