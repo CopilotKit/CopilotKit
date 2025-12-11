@@ -38,10 +38,9 @@ export default function Home() {
         <div className="w-full">
           <CopilotKitProvider runtimeUrl={runtimeUrl}
                               headers={{
-                                "x-copilotcloud-public-api-key": publicApiKey!,
-                                "x-copilotkit-runtime-client-gql-version": "1.50.0"
+                                "x-copilotcloud-public-api-key": publicApiKey!
                               }} > 
-            <CopilotChat agentId="agentic_chat" />
+            <CopilotChat />
           </CopilotKitProvider>
         </div>
       </div>

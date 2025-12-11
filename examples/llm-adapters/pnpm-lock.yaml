@@ -174,6 +174,9 @@ importers:
       eslint-config-next:
         specifier: 15.5.3
         version: 15.5.3(eslint@9.35.0(jiti@2.5.1))(typescript@5.9.2)
+      shiki:
+        specifier: ^3.19.0
+        version: 3.19.0
       tailwindcss:
         specifier: ^4
         version: 4.1.13

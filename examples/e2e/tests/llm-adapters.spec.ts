@@ -77,8 +77,8 @@ const testScenarios: TestScenario[] = [
   },
   {
     provider: providers[2], // Google Generative AI
-    testMessage: "Write a single word: 'test'",
-    expectedResponsePattern: /test/i,
+    testMessage: "What is the largest planet in our solar system?",
+    expectedResponsePattern: /jupiter/i,
   },
   {
     provider: providers[3], // Groq
@@ -110,42 +110,34 @@ const selectProvider = async (page: Page, providerId: string) => {
 };
 
 const waitForChatToBeReady = async (page: Page, timeout = PAGE_TIMEOUT) => {
-  // Wait for CopilotChat to be rendered and ready - using actual class from HTML
-  await expect(page.locator(".copilotKitChat")).toBeVisible({ timeout });
-
-  // Also wait for the send button to be present
-  await expect(
-    page.locator('button[data-test-id="copilot-chat-ready"]'),
-  ).toBeVisible({ timeout });
+  // Wait for CopilotChat (v2) to be rendered and ready
+  // V2 uses textarea with placeholder "Type a message..."
+  await expect(page.getByRole('textbox', { name: /type a message/i })).toBeVisible({ timeout });
 };
 
 const sendChatMessageCustom = async (page: Page, message: string) => {
-  // Find the textarea using the actual structure from HTML
-  const textarea = page.locator(
-    '.copilotKitInput textarea[placeholder="Type a message..."]',
-  );
+  // Find the textarea using the v2 structure - "Type a message..." placeholder
+  const textarea = page.getByRole('textbox', { name: /type a message/i });
   await textarea.click();
   await textarea.fill(message);
 
-  // Click the send button
-  const sendButton = page.locator('button[data-test-id="copilot-chat-ready"]');
-  await sendButton.click();
+  // Press Enter to send the message (more reliable than finding a specific button)
+  await textarea.press('Enter');
 };
 
 const waitForChatResponse = async (
   page: Page,
   timeout = CHAT_RESPONSE_TIMEOUT,
 ) => {
-  // Wait for assistant message to appear - using actual class structure
-  await page.waitForFunction(
-    () => {
-      const messages = document.querySelectorAll(
-        ".copilotKitMessage.copilotKitAssistantMessage",
-      );
-      return messages.length > 1; // More than just the initial message
-    },
-    { timeout },
-  );
+  // Wait for assistant message to appear in v2 structure
+  // V2 uses class "prose" and data-message-id attribute for assistant messages
+  await page.waitForSelector('div.prose[data-message-id]', {
+    state: 'visible',
+    timeout,
+  });
+  
+  // Give streaming a bit more time to complete
+  await page.waitForTimeout(2000);
 };
 
 // Test configuration - assuming llm-adapters runs on localhost:3000 during testing
@@ -184,10 +176,9 @@ test.describe("LLM Adapters Demo", () => {
       // Verify CopilotChat component is rendered
       await waitForChatToBeReady(page);
 
-      // Verify initial chat message
-      await expect(
-        page.locator('text="Hi! 👋 How can I assist you today?"'),
-      ).toBeVisible({ timeout: PAGE_TIMEOUT });
+      // V2 may or may not have an initial greeting, so we'll just verify the chat is ready
+      // by checking for the input field
+      await expect(page.getByRole('textbox', { name: /type a message/i })).toBeVisible({ timeout: PAGE_TIMEOUT });
     });
 
     test("Should allow provider selection", async ({
@@ -233,22 +224,18 @@ test.describe("LLM Adapters Demo", () => {
         // Wait for response
         await waitForChatResponse(page);
 
-        // Verify response was received
-        const assistantMessages = page.locator(
-          ".copilotKitMessage.copilotKitAssistantMessage",
-        );
-        await expect(assistantMessages).toHaveCount(2, {
-          timeout: CHAT_RESPONSE_TIMEOUT,
-        }); // Initial + response
-
-        // Get the latest assistant message (excluding the initial greeting)
-        const latestMessage = assistantMessages.last();
-        await expect(latestMessage).toBeVisible();
+        // Verify response was received by checking the assistant message content
+        // In v2, assistant messages have class "prose" and data-message-id attribute
+        const assistantMessage = page.locator('div.prose[data-message-id]').last();
+        const messageContent = await assistantMessage.textContent();
+        
+        // Make sure we got some response
+        expect(messageContent).toBeTruthy();
+        expect(messageContent!.length).toBeGreaterThan(10);
 
         // If we have an expected pattern, verify it matches
         if (scenario.expectedResponsePattern) {
-          const messageText = await latestMessage.textContent();
-          expect(messageText).toMatch(scenario.expectedResponsePattern);
+          expect(messageContent).toMatch(scenario.expectedResponsePattern);
         }
       });
     });
