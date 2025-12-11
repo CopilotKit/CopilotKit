@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.50.0-beta.19
+
+### Minor Changes
+
+- Improving langchain dependency resolution
+
 ## 1.50.0-beta.18
 
 ### Minor Changes

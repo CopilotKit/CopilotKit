@@ -1,5 +1,18 @@
 # ui
 
+## 1.50.0-beta.19
+
+### Minor Changes
+
+- Improving langchain dependency resolution
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.0-beta.19
+  - @copilotkit/react-core@1.50.0-beta.19
+  - @copilotkit/shared@1.50.0-beta.19
+
 ## 1.50.0-beta.18
 
 ### Minor Changes
