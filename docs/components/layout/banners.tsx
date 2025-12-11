@@ -6,8 +6,6 @@ import { PaintbrushIcon } from "lucide-react";
 import { PiGraph } from "react-icons/pi";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
 import { Sparkles } from "lucide-react";
-import { useState } from "react";
-import { V150EarlyAccessModal } from "./v150-early-access-modal";
 
 export function Banners() {
   return (
@@ -58,37 +56,27 @@ export function AGUIBanner() {
 }
 
 export function V150Banner() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  
   return (
-    <>
-      <Banner className="w-full text-white bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-800 dark:to-purple-800 py-2 md:py-3" variant="rainbow" id="v150-banner">
-        <div className="flex flex-row items-center justify-center gap-1.5 md:gap-3 w-full px-1 md:px-4">
-          <div className="flex items-center gap-1.5 md:gap-2 flex-shrink min-w-0 text-white/80">
-            <Sparkles className="w-5 h-5 hidden md:block flex-shrink-0" />
-            {/* Short text for mobile (below 768px) */}
-            <p className="text-xs md:text-base font-normal md:hidden">
-              CopilotKit 1.50 is coming soon!
-            </p>
-            {/* Full text for desktop (768px and above) */}
-            <p className="text-sm sm:text-base font-normal hidden md:block">
-              CopilotKit v1.50 is coming soon, with brand new interfaces, streamlined internals, and no breaking changes!
-            </p>
-          </div>
-          <button 
-            onClick={() => setIsModalOpen(true)}
-            className="px-2 py-0.5 md:px-6 md:py-1 bg-white/50 text-white hover:bg-gray-100 rounded-lg text-xs md:text-base font-normal transition-colors whitespace-nowrap flex-shrink-0 shadow-md"
-          >
-            <span className="md:hidden">Get Access</span>
-            <span className="hidden md:inline">Get Early Access</span>
-          </button>
+    <Banner className="w-full text-white bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-800 dark:to-purple-800 py-2 md:py-3" variant="rainbow" id="v150-banner">
+      <div className="flex flex-row items-center justify-center gap-1.5 md:gap-3 w-full px-1 md:px-4">
+        <div className="flex items-center gap-1.5 md:gap-2 flex-shrink min-w-0 text-white/80">
+          <Sparkles className="w-5 h-5 hidden md:block flex-shrink-0" />
+          {/* Short text for mobile (below 768px) */}
+          <p className="text-xs md:text-base font-normal md:hidden">
+            CopilotKit 1.50 is available!
+          </p>
+          {/* Full text for desktop (768px and above) */}
+          <p className="text-sm sm:text-base font-normal hidden md:block">
+            CopilotKit 1.50 is available, featuring threads, no GraphQL, new interfaces, and more!
+          </p>
         </div>
-      </Banner>
-      
-      <V150EarlyAccessModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-      />
-    </>
+        <Link 
+          href="/whats-new/v1-50"
+          className="px-2 py-0.5 md:px-6 md:py-1 bg-white/50 text-white hover:bg-gray-100 rounded-lg text-xs md:text-base font-normal transition-colors whitespace-nowrap flex-shrink-0 shadow-md"
+        >
+          See What&apos;s New
+        </Link>
+      </div>
+    </Banner>
   )
 }
