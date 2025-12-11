@@ -1,5 +1,16 @@
 # @copilotkit/runtime-client-gql
 
+## 1.50.0-beta.18
+
+### Minor Changes
+
+- Improving general stability around LangChain
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@1.50.0-beta.18
+
 ## 1.50.0-beta.17
 
 ### Minor Changes

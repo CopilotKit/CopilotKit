@@ -1,5 +1,18 @@
 # ui
 
+## 1.50.0-beta.18
+
+### Minor Changes
+
+- Improving general stability around LangChain
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.0-beta.18
+  - @copilotkit/react-core@1.50.0-beta.18
+  - @copilotkit/shared@1.50.0-beta.18
+
 ## 1.50.0-beta.17
 
 ### Minor Changes

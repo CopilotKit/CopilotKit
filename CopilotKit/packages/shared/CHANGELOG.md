@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.50.0-beta.18
+
+### Minor Changes
+
+- Improving general stability around LangChain
+
 ## 1.50.0-beta.17
 
 ### Minor Changes
