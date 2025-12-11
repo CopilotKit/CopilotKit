@@ -1,5 +1,61 @@
 # ui
 
+## 1.50.0
+
+### Minor Changes
+
+- 0fc76d7: add new runner with telemetry baked in
+- c942f9c: Minor fixes and stability improvements
+- eed6021: Updating to the latest version of vnext
+- 3b7367e: Improving general stability around LangChain
+- 7ff9ca7: Minor fixes and improvements
+- 974875e: Lint and format code to resolve Prettier errors
+- 3bd484f: Minor fixes and stability improvements
+- 5a534bf: fix telemetry in v1.50 runtime
+- 907ae5d: - feat: route CPK implementation to 2.0 copilotkitnext
+- 769a06c: Refactor suggestions to not always run
+- 788292b: Improving langchain dependency resolution
+- eab69a2: Enabling the new inspector
+- 0a7bfe0: Updating dependency versions across all packages
+
+### Patch Changes
+
+- Updated dependencies [0fc76d7]
+- Updated dependencies [c942f9c]
+- Updated dependencies [bad5f06]
+- Updated dependencies [8ce60af]
+- Updated dependencies [33f47e3]
+- Updated dependencies [04057d5]
+- Updated dependencies [6ce0edc]
+- Updated dependencies [2c93ff1]
+- Updated dependencies [b0e3652]
+- Updated dependencies [7643e71]
+- Updated dependencies [d55a8bd]
+- Updated dependencies [eed6021]
+- Updated dependencies [3b7367e]
+- Updated dependencies [c38da1c]
+- Updated dependencies [7ff9ca7]
+- Updated dependencies [3c60073]
+- Updated dependencies [962546c]
+- Updated dependencies [974875e]
+- Updated dependencies [4942f62]
+- Updated dependencies [3bd484f]
+- Updated dependencies [5a534bf]
+- Updated dependencies [ca8eb39]
+- Updated dependencies [907ae5d]
+- Updated dependencies [769a06c]
+- Updated dependencies [788292b]
+- Updated dependencies [c3d55e5]
+- Updated dependencies [eab69a2]
+- Updated dependencies [5840bab]
+- Updated dependencies [7808fac]
+- Updated dependencies [0a7bfe0]
+- Updated dependencies [c70210e]
+- Updated dependencies [d2c57a1]
+  - @copilotkit/runtime-client-gql@1.50.0
+  - @copilotkit/react-core@1.50.0
+  - @copilotkit/shared@1.50.0
+
 ## 1.50.0-beta.19
 
 ### Minor Changes

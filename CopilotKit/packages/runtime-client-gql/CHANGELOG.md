@@ -1,5 +1,42 @@
 # @copilotkit/runtime-client-gql
 
+## 1.50.0
+
+### Minor Changes
+
+- 0fc76d7: add new runner with telemetry baked in
+- c942f9c: Minor fixes and stability improvements
+- eed6021: Updating to the latest version of vnext
+- 3b7367e: Improving general stability around LangChain
+- 7ff9ca7: Minor fixes and improvements
+- 974875e: Lint and format code to resolve Prettier errors
+- 4942f62: - feat: create rerouting CopilotRuntime
+- 3bd484f: Minor fixes and stability improvements
+- 5a534bf: fix telemetry in v1.50 runtime
+- 769a06c: Refactor suggestions to not always run
+- 788292b: Improving langchain dependency resolution
+- eab69a2: Enabling the new inspector
+- 0a7bfe0: Updating dependency versions across all packages
+
+### Patch Changes
+
+- b0e3652: - chore: Update to latest of vnext
+- Updated dependencies [0fc76d7]
+- Updated dependencies [c942f9c]
+- Updated dependencies [b0e3652]
+- Updated dependencies [eed6021]
+- Updated dependencies [3b7367e]
+- Updated dependencies [7ff9ca7]
+- Updated dependencies [974875e]
+- Updated dependencies [4942f62]
+- Updated dependencies [3bd484f]
+- Updated dependencies [5a534bf]
+- Updated dependencies [769a06c]
+- Updated dependencies [788292b]
+- Updated dependencies [eab69a2]
+- Updated dependencies [0a7bfe0]
+  - @copilotkit/shared@1.50.0
+
 ## 1.50.0-beta.19
 
 ### Minor Changes
