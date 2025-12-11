@@ -8,4 +8,4 @@
 "@copilotkit/shared": minor
 ---
 
-lint and format code
+Lint and format code to resolve Prettier errors

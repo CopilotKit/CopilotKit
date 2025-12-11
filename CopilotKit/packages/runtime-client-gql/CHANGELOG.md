@@ -4,7 +4,7 @@
 
 ### Minor Changes
 
-- lint and format code
+- Lint and format code to resolve Prettier errors
 
 ### Patch Changes
 
