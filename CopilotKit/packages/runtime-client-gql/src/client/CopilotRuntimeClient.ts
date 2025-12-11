@@ -23,6 +23,7 @@ const createFetchFn =
     // @ts-expect-error -- since this is our own header, TS will not recognize
     const publicApiKey = args[1]?.headers?.["x-copilotcloud-public-api-key"];
     try {
+      console.log("fetching with args: ", args.join(","));
       const result = await fetch(args[0], { ...(args[1] ?? {}), signal });
 
       // No mismatch checking if cloud is being used
@@ -33,6 +34,7 @@ const createFetchFn =
             runtimeClientGqlVersion: packageJson.version,
           });
       if (result.status !== 200) {
+        console.log("fetching error - result status not 200", JSON.stringify(result));
         if (result.status >= 400 && result.status <= 500) {
           if (mismatch) {
             throw new CopilotKitVersionMismatchError(mismatch);
@@ -45,9 +47,10 @@ const createFetchFn =
       if (mismatch && handleGQLWarning) {
         handleGQLWarning(mismatch.message);
       }
-
+      console.log("fetch request done, result:", JSON.stringify(result));
       return result;
     } catch (error) {
+      console.log("fetching error", error);
       // Let abort error pass through. It will be suppressed later
       if (
         (error as Error).message.includes("BodyStreamBuffer was aborted") ||
