@@ -1,7 +1,7 @@
-import { ForwardedParametersInput } from "@copilotkit/runtime-client-gql";
 import { ReactNode } from "react";
 import { AuthState } from "../../context/copilot-context";
 import { CopilotErrorHandler } from "@copilotkit/shared";
+import type { ForwardedParametersSubset } from "../../types";
 /**
  * Props for CopilotKit.
  */
@@ -113,8 +113,15 @@ export interface CopilotKitProps {
 
   /**
    * The forwarded parameters to use for the task.
+   * For example:
+   * ```js
+   * forwardedParameters={{ 
+   *   temperature: 0.7,
+   *   maxTokens: 150
+   * }}
+   * ```
    */
-  forwardedParameters?: Pick<ForwardedParametersInput, "temperature">;
+  forwardedParameters?: ForwardedParametersSubset;
 
   /**
    * The auth config to use for the CopilotKit.
