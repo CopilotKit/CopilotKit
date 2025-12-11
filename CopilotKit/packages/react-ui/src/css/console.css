@@ -102,7 +102,11 @@ body[style*="color-scheme: dark"] .copilotKitDevConsole .copilotKitDebugMenuTrig
 }
 
 .copilotKitDebugMenu {
-  --copilot-kit-dev-console-border: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 80%, black);
+  --copilot-kit-dev-console-border: color-mix(
+    in srgb,
+    var(--copilot-kit-dev-console-bg) 80%,
+    black
+  );
   margin-top: 2px;
   border-radius: 6px;
   background-color: var(--copilot-kit-dev-console-bg);
@@ -157,10 +161,11 @@ body[style*="color-scheme: dark"] .copilotKitDevConsole .copilotKitDebugMenuTrig
   font-size: 0.8rem;
   border: 1px solid var(--copilot-kit-muted-color);
   color: var(--copilot-kit-dev-console-text);
-  box-shadow: 0 5px 5px 0px rgba(0,0,0,.01),0 2px 3px 0px rgba(0,0,0,.02);
+  box-shadow:
+    0 5px 5px 0px rgba(0, 0, 0, 0.01),
+    0 2px 3px 0px rgba(0, 0, 0, 0.02);
   background-color: var(--copilot-kit-dev-console-bg);
 }
 .copilotKitHelpItemButton:hover {
   background-color: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 95%, black);
 }
-

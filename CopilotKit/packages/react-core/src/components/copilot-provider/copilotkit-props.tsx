@@ -101,8 +101,9 @@ export interface CopilotKitProps {
   /**
    * Whether to show the dev console.
    *
-   * Set to `true` to show error banners and toasts, `false` to hide all error UI.
-   * Defaults to `false` for production safety.
+   * @deprecated This prop is deprecated. The Inspector is now always shown by default
+   * and can be hidden using the "Disable inspector" option in the Inspector menu.
+   * This change ensures all users see the improved Inspector UI.
    */
   showDevConsole?: boolean;
 
