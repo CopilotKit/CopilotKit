@@ -12,6 +12,9 @@ const config: CodegenConfig = {
       config: {
         useTypeImports: true,
         withHooks: false,
+        scalars: {
+          JSONObject: "unknown",
+        },
       },
       plugins: [],
     },
