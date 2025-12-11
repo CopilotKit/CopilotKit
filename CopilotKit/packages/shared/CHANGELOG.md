@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.50.0-beta.16
+
+### Minor Changes
+
+- Minor fixes and stability improvements
+
 ## 1.50.0-beta.15
 
 ### Minor Changes

@@ -1,5 +1,16 @@
 # @copilotkit/sdk-js
 
+## 1.50.0-beta.16
+
+### Minor Changes
+
+- Minor fixes and stability improvements
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@1.50.0-beta.16
+
 ## 1.50.0-beta.15
 
 ### Minor Changes
