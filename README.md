@@ -1,10 +1,10 @@
-<a href="https://go.copilotkit.ai/useagent-docs" target="_blank">
+<a href="https://go.copilotkit.ai/v150-whats-new" target="_blank">
 <img width="1595" height="284" alt="Introducing CopilotKit  v1 50!" src="https://github.com/user-attachments/assets/5d852a9b-290a-44b7-8c6a-9f75e51f1713" />
 <a /> 
 
 <br>
 
-<a href="https://go.copilotkit.ai/copilotkit-docsE" target="_blank">
+<a href="https://go.copilotkit.ai/copilotkit-docs" target="_blank">
 <img width="4096" height="1588" alt="header" src="https://github.com/user-attachments/assets/dd638592-fb74-4e22-8c55-49dfc4d0e462" />
 <a />
 
