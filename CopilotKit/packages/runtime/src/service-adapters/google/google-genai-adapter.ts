@@ -11,7 +11,7 @@
  *
  * const copilotKit = new CopilotRuntime();
  *
- * return new GoogleGenerativeAIAdapter({ model: "gemini-1.5-pro" });
+ * return new GoogleGenerativeAIAdapter({ model: "gemini-2.5-flash", apiVersion: "v1" });
  * ```
  */
 import { LangChainAdapter } from "../langchain/langchain-adapter";
@@ -22,18 +22,33 @@ interface GoogleGenerativeAIAdapterOptions {
    */
   model?: string;
   /**
+   * The API version to use (e.g. "v1" or "v1beta"). Defaults to "v1".
+   */
+  apiVersion?: "v1" | "v1beta";
+  /**
    * The API key to use.
    */
   apiKey?: string;
 }
 
-const DEFAULT_MODEL = "gemini-1.5-pro";
+const DEFAULT_MODEL = "gemini-2.5-flash";
+const DEFAULT_API_VERSION: GoogleGenerativeAIAdapterOptions["apiVersion"] = "v1";
+let hasWarnedDefaultGoogleModel = false;
 
 export class GoogleGenerativeAIAdapter extends LangChainAdapter {
   public provider = "google";
   public model: string = DEFAULT_MODEL;
 
   constructor(options?: GoogleGenerativeAIAdapterOptions) {
+    if (!hasWarnedDefaultGoogleModel && !options?.model && !options?.apiVersion) {
+      console.warn(
+        `You are using the GoogleGenerativeAIAdapter without explicitly setting a model or apiVersion. ` +
+          `CopilotKit will default to apiVersion="v1" and model="${DEFAULT_MODEL}". ` +
+          `To silence this warning, pass model and apiVersion when constructing the adapter.`,
+      );
+      hasWarnedDefaultGoogleModel = true;
+    }
+
     super({
       chainFn: async ({ messages, tools, threadId }) => {
         // Lazy require for optional peer dependencies
@@ -59,11 +74,11 @@ export class GoogleGenerativeAIAdapter extends LangChainAdapter {
           );
         });
 
-        this.model = options?.model ?? "gemini-1.5-pro";
+        this.model = options?.model ?? DEFAULT_MODEL;
         const model = new ChatGoogle({
           apiKey: options?.apiKey ?? process.env.GOOGLE_API_KEY,
           modelName: this.model,
-          apiVersion: "v1beta",
+          apiVersion: options?.apiVersion ?? DEFAULT_API_VERSION,
         }).bindTools(tools);
 
         return model.stream(filteredMessages, { metadata: { conversation_id: threadId } });
