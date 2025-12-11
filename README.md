@@ -59,6 +59,7 @@
 ## ⭐️ UseAgent
 
 The v2 hook `useAgent` is a proper superset of `useCoAgent`, which gives more control over the agent connection.
+
 Check out the [useAgent docs](https://go.copilotkit.ai/useagent-docs)
 
 https://github.com/user-attachments/assets/46b7d161-a988-4453-9ca9-c0eca4c33da6
