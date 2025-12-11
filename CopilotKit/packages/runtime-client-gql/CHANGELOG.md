@@ -1,5 +1,16 @@
 # @copilotkit/runtime-client-gql
 
+## 1.50.0-beta.17
+
+### Minor Changes
+
+- Minor fixes and improvements
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@1.50.0-beta.17
+
 ## 1.50.0-beta.16
 
 ### Minor Changes
