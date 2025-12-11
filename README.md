@@ -56,7 +56,9 @@
 
 <img width="4096" height="2341" alt="Best in class support across the ecosystem" src="https://github.com/user-attachments/assets/bf399131-2a92-49f8-8748-38ed72353f9c" />
 
-## ⭐️ UseAgent to connect to any agent
+## ⭐️ UseAgent
+
+The v2 hook `useAgent` is a proper superset of `useCoAgent`, which gives more control over the agent connection.
 
 https://github.com/user-attachments/assets/46b7d161-a988-4453-9ca9-c0eca4c33da6
 
@@ -65,7 +67,7 @@ https://github.com/user-attachments/assets/46b7d161-a988-4453-9ca9-c0eca4c33da6
 ## ✨ Why CopilotKit?
 
 - Minutes to integrate - Get started quickly with our CLI
-- Framework agnostic - Works with React, Next.js, AGUI and more
+- Framework agnostic - Works with React, Next.js, AGUI, and more
 - Production-ready UI - Use customizable components or build with headless UI
 - Built-in security - Prompt injection protection
 - Open source - Full transparency and community-driven
