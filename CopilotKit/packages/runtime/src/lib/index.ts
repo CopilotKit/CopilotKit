@@ -13,7 +13,7 @@ export * from "./runtime/telemetry-agent-runner";
 // The below re-exports "dummy" classes and types, to get a deprecation warning redirecting the users to import these from the correct, new route
 
 /**
- * @deprecated LangGraphAgent import from @copilotkit/runtime is deprecated. Please import it from @copilotkit/runtime/langgraph instead
+ * @deprecated LangGraphAgent import from `@copilotkit/runtime` is deprecated. Please import it from `@copilotkit/runtime/langgraph` instead
  */
 export class LangGraphAgent {
   constructor() {
@@ -24,7 +24,7 @@ export class LangGraphAgent {
 }
 
 /**
- * @deprecated LangGraphHttpAgent import from @copilotkit/runtime is deprecated. Please import it from @copilotkit/runtime/langgraph instead
+ * @deprecated LangGraphHttpAgent import from `@copilotkit/runtime` is deprecated. Please import it from `@copilotkit/runtime/langgraph` instead
  */
 export class LangGraphHttpAgent {
   constructor() {
@@ -35,18 +35,18 @@ export class LangGraphHttpAgent {
 }
 
 /**
- * @deprecated TextMessageEvents import from @copilotkit/runtime is deprecated. Please import it from @copilotkit/runtime/langgraph instead
+ * @deprecated TextMessageEvents import from `@copilotkit/runtime` is deprecated. Please import it from `@copilotkit/runtime/langgraph` instead
  */
 export type TextMessageEvents = any;
 /**
- * @deprecated ToolCallEvents import from @copilotkit/runtime is deprecated. Please import it from @copilotkit/runtime/langgraph instead
+ * @deprecated ToolCallEvents import from `@copilotkit/runtime` is deprecated. Please import it from `@copilotkit/runtime/langgraph` instead
  */
 export type ToolCallEvents = any;
 /**
- * @deprecated CustomEventNames import from @copilotkit/runtime is deprecated. Please import it from @copilotkit/runtime/langgraph instead
+ * @deprecated CustomEventNames import from `@copilotkit/runtime` is deprecated. Please import it from `@copilotkit/runtime/langgraph` instead
  */
 export type CustomEventNames = any;
 /**
- * @deprecated PredictStateTool import from @copilotkit/runtime is deprecated. Please import it from @copilotkit/runtime/langgraph instead
+ * @deprecated PredictStateTool import from `@copilotkit/runtime` is deprecated. Please import it from `@copilotkit/runtime/langgraph` instead
  */
 export type PredictStateTool = any;
