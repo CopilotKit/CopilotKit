@@ -1,5 +1,15 @@
 # ui
 
+## 1.50.1-next.0
+
+### Patch Changes
+
+- Updated the default model and API version for the Google GenAI adapter
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.1-next.0
+  - @copilotkit/react-core@1.50.1-next.0
+  - @copilotkit/shared@1.50.1-next.0
+
 ## 1.50.0
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.50.1-next.0
+
+### Patch Changes
+
+- Updated the default model and API version for the Google GenAI adapter
+
 ## 1.50.0
 
 ### Minor Changes
