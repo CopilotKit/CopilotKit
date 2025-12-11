@@ -68,7 +68,6 @@
     "@copilotkitnext/runtime": "0.0.31",
     "@graphql-yoga/plugin-defer-stream": "^3.3.1",
     "@hono/node-server": "^1.13.5",
-    "@langchain/core": ">=0.3.66",
     "@scarf/scarf": "^1.3.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
@@ -76,7 +75,6 @@
     "graphql-scalars": "^1.23.0",
     "graphql-yoga": "^5.3.1",
     "hono": "^4.10.3",
-    "langchain": "^0.3.3",
     "openai": "^4.85.1",
     "partial-json": "^0.1.7",
     "pino": "^9.2.0",
@@ -89,6 +87,7 @@
   "peerDependencies": {
     "@anthropic-ai/sdk": "^0.57.0",
     "@langchain/aws": ">=0.1.9",
+    "@langchain/core": ">=0.3.66",
     "@langchain/community": ">=0.3.58",
     "@langchain/google-gauth": ">=0.1.0",
     "@langchain/langgraph-sdk": ">=0.1.2",
