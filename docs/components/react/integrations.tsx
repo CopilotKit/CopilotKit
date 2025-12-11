@@ -1,128 +1,77 @@
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
-import { ADKIcon, MastraIcon, LlamaIndexIcon, AG2Icon, AgnoIcon, PydanticAIIcon } from "@/lib/icons/custom-icons";
-import { SiCrewai } from "@icons-pack/react-simple-icons";
-import { SiLangchain } from "react-icons/si";
-import { Brain } from "lucide-react";
-import { RocketIcon } from "lucide-react";
+import { IntegrationsSelectorLightDesktop } from './integrations-index-selector/integrations-selector-light-desktop';
+import { IntegrationsSelectorLightMobile } from './integrations-index-selector/integrations-selector-light-mobile';
+import { IntegrationLinkButton } from './integration-link-button/integration-link-button';
+import { ComponentType } from 'react';
+import AdkIcon from '../ui/icons/adk';
+import Ag2Icon from '../ui/icons/ag2';
+import CrewaiIcon from '../ui/icons/crewai';
+import DirectToLlmIcon from '../ui/icons/direct-to-llm';
+import LanggraphIcon from '../ui/icons/langgraph';
+import PydanticAiIcon from '../ui/icons/pydantic-ai';
+import { IntegrationsSelectorDarkDesktop } from './integrations-index-selector/integrations-selector-dark-desktop';
+import { IntegrationsSelectorDarkMobile } from './integrations-index-selector/integrations-selector-dark-mobile';
+import LlamaIndexIcon from '../ui/icons/llama-index';
+import MastraIcon from '../ui/icons/mastra';
+import AgnoIcon from '../ui/icons/agno';
 
 interface Integration {
-  title: string;
-  description?: string;
-  logo: React.ReactNode;
-  bgGradient: string;
+  label: string;
+  Icon: ComponentType<{ className?: string }>;
   href: string;
 }
 
-interface IntegrationCardProps {
-  integration: Integration;
-  className?: string;
-}
-
-const integrations: Integration[] = [
+const INTEGRATIONS: Integration[] = [
   {
-    title: "Direct to LLM",
-    description: "Use CopilotKit directly with your LLM of choice. No framework required.",
-    logo: <RocketIcon className="w-8 h-8" />,
-    bgGradient: "bg-gradient-to-b from-green-700 to-green-400 text-green-100",
-    href: "/direct-to-llm",
+    label: 'Direct to LLM',
+    Icon: DirectToLlmIcon,
+    href: '/integrations/direct-to-llm',
   },
   {
-    title: "LangGraph",
-    description: "LangGraph is a framework for building and deploying AI agents.",
-    logo: <SiLangchain className="w-8 h-8" />,
-    bgGradient: "bg-gradient-to-b from-purple-700 to-purple-400 text-purple-100",
-    href: "/coagents",
+    label: 'AG2',
+    Icon: Ag2Icon,
+    href: '/integrations/ag2',
   },
   {
-    title: "Pydantic AI",
-    description: "Pydantic AI is a framework for building and deploying AI agents.",
-    logo: <PydanticAIIcon className="w-8 h-8 text-bold" />,
-    bgGradient: "bg-[#ED2762] text-white",
-    href: "/pydantic-ai",
+    label: 'Agno',
+    Icon: AgnoIcon,
+    href: '/integrations/agno',
   },
   {
-    title: "Mastra",
-    description: "Mastra is a framework for building and deploying AI agents.",
-    logo: <MastraIcon className="w-8 h-8" />,
-    bgGradient: "bg-gradient-to-b from-black to-zinc-800 text-white",
-    href: "/mastra",
+    label: 'CrewAI Flows',
+    Icon: CrewaiIcon,
+    href: '/integrations/crewai-flows',
   },
   {
-    title: "Google ADK",
-    description: "ADK is a framework for building and deploying AI agents.",
-    logo: <ADKIcon className="w-8 h-8" />,
-    bgGradient: "bg-[#FF3C1A] text-white",
-    href: "/adk",
+    label: 'CrewAI Crews',
+    Icon: CrewaiIcon,
+    href: '/integrations/crewai-crews',
   },
   {
-    title: "Agno",
-    description: "Agno is a framework for building and deploying AI agents.",
-    logo: <AgnoIcon className="w-8 h-8" />,
-    bgGradient: "bg-[#FF3C1A] text-white",
-    href: "/agno",
+    label: 'LangGraph',
+    Icon: LanggraphIcon,
+    href: '/integrations/langgraph',
   },
   {
-    title: "LlamaIndex",
-    description: "LlamaIndex is a framework for building and deploying AI agents.",
-    logo: <LlamaIndexIcon className="w-8 h-8" />,
-    bgGradient: "bg-gradient-to-b from-pink-500 via-purple-500 to-blue-400 text-pink-100",
-    href: "/llamaindex",
+    label: 'LlamaIndex',
+    Icon: LlamaIndexIcon,
+    href: '/integrations/llamaindex',
   },
   {
-    title: "CrewAI - Crews",
-    description: "CrewAI is a framework for building and deploying AI agents.",
-    logo: <SiCrewai className="w-8 h-8" />,
-    bgGradient: "bg-gradient-to-b from-[#FA694C] to-[#FE8A71] text-white",
-    href: "/crewai-crews",
+    label: 'Mastra',
+    Icon: MastraIcon,
+    href: '/integrations/mastra',
   },
   {
-    title: "CrewAI - Flows",
-    description: "CrewAI is a framework for building and deploying AI agents.",
-    logo: <SiCrewai className="w-8 h-8" />,
-    bgGradient: "bg-gradient-to-b from-[#FA694C] to-[#FE8A71] text-white",
-    href: "/crewai-flows",
+    label: 'Pydantic AI',
+    Icon: PydanticAiIcon,
+    href: '/integrations/pydantic-ai',
   },
   {
-    title: "AutoGen2",
-    description: "AutoGen2 is a framework for building and deploying AI agents.",
-    logo: <AG2Icon className="w-8 h-8 text-bold" />,
-    bgGradient: "bg-gradient-to-b from-indigo-700 to-indigo-400 text-indigo-100",
-    href: "/ag2",
+    label: 'ADK',
+    Icon: AdkIcon,
+    href: '/integrations/adk',
   },
-  // Add more integrations here
 ];
-
-const IntegrationCard: React.FC<IntegrationCardProps> = ({
-  integration,
-  className,
-}) => {
-  const { title, logo, href } = integration;
-
-  return (
-    <Card className={cn(
-      "group transition-all duration-200 hover:shadow-lg dark:hover:shadow-black/20",
-      "bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800",
-      "hover:border-zinc-300 dark:hover:border-zinc-700",
-      "rounded-lg",
-      "flex flex-col",
-      className
-    )}>
-      <a href={href} className="block p-6 flex-1 flex flex-col no-underline">
-        <CardHeader className="p-0">
-          <CardTitle className="text-lg font-medium text-zinc-800 dark:text-zinc-200">
-            {title}
-          </CardTitle>
-        </CardHeader>
-        <div className="flex-1 flex items-center justify-center py-8">
-          <div className="text-zinc-600 dark:text-zinc-400 group-hover:text-black dark:group-hover:text-white transition-colors duration-200">
-            {logo}
-          </div>
-        </div>
-      </a>
-    </Card>
-  );
-};
 
 interface IntegrationsGridProps {
   targetPage?: string;
@@ -132,18 +81,18 @@ interface IntegrationsGridProps {
 const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppressDirectToLLM = false }) => {
   const hasTargetPage = (integration: Integration, targetPage: string): boolean => {
     // Direct to LLM special cases
-    if (integration.title === "Direct to LLM") {
-      return targetPage === "generative-ui" || targetPage === "frontend-actions";
+    if (integration.label === 'Direct to LLM') {
+      return targetPage === 'generative-ui' || targetPage === 'frontend-actions';
     }
 
     // AutoGen2 missing pages
-    if (integration.title === "AutoGen2") {
-      return targetPage !== "generative-ui" && targetPage !== "shared-state";
+    if (integration.label === 'AutoGen2') {
+      return targetPage !== 'generative-ui' && targetPage !== 'shared-state';
     }
 
     // Frameworks that don't have shared-state pages
-    if (targetPage === "shared-state") {
-      return !["LlamaIndex", "Mastra", "AutoGen2", "Agno"].includes(integration.title);
+    if (targetPage === 'shared-state') {
+      return !['LlamaIndex', 'Mastra', 'AutoGen2', 'Agno'].includes(integration.label);
     }
 
     // All other frameworks have the standard pages
@@ -156,12 +105,12 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
     }
 
     // Special cases where certain frameworks have pages in different locations
-    if (integration.title === "Direct to LLM") {
-      if (targetPage === "generative-ui") {
-        return "/direct-to-llm/guides/generative-ui";
+    if (integration.label === 'Direct to LLM') {
+      if (targetPage === 'generative-ui') {
+        return '/direct-to-llm/guides/generative-ui';
       }
-      if (targetPage === "frontend-actions") {
-        return "/direct-to-llm/guides/frontend-actions";
+      if (targetPage === 'frontend-actions') {
+        return '/direct-to-llm/guides/frontend-actions';
       }
     }
 
@@ -169,11 +118,11 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
     return `${integration.href}/${targetPage}`;
   };
 
-  let filteredIntegrations = integrations;
+  let filteredIntegrations = INTEGRATIONS;
 
   // Filter out Direct to LLM if suppressed
   if (suppressDirectToLLM) {
-    filteredIntegrations = filteredIntegrations.filter(integration => integration.title !== "Direct to LLM");
+    filteredIntegrations = filteredIntegrations.filter(integration => integration.label !== 'Direct to LLM');
   }
 
   // Filter out integrations that don't have the target page
@@ -182,24 +131,41 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
   }
 
   return (
-    <div className="flex flex-row flex-wrap justify-center items-center gap-x-6 gap-y-6 my-8">
-      {filteredIntegrations.map((integration, index) => (
-        <a
-          key={index}
-          href={getHref(integration)}
-          className="flex flex-col items-center gap-3 text-center no-underline group"
-        >
-          <div className={`w-12 h-12 flex items-center justify-center rounded-2xl transition-all duration-200 group-hover:scale-105 ${integration.bgGradient}`}>
-            {integration.logo}
-          </div>
-          <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300 group-hover:text-black dark:group-hover:text-white transition-colors duration-200">
-            {integration.title}
-          </span>
-        </a>
-      ))}
+    <div className='flex flex-row flex-wrap justify-center items-center gap-x-6 gap-y-6 my-8'>
+      <div className='hidden md:flex'>
+        <IntegrationsSelectorLightDesktop className='h-48 block dark:hidden' />
+        <IntegrationsSelectorDarkDesktop className='h-48 hidden dark:block' />
+        <div className='grid grid-cols-4 gap-2'>
+          {filteredIntegrations.map((integration, index) => (
+            <IntegrationLinkButton
+              key={index}
+              label={integration.label}
+              Icon={integration.Icon}
+              rounded={true}
+              href={getHref(integration)}
+            />
+          ))}
+        </div>
+      </div>
+      <div className='flex flex-row gap-2 md:hidden'>
+        <IntegrationsSelectorLightMobile className='h-full -ml-11 block dark:hidden' />
+        <IntegrationsSelectorDarkMobile className='h-full -ml-11 hidden dark:block' />
+        <div className='grid grid-cols-2 gap-2 -ml-5'>
+          <div className='col-span-2 h-[80px]' />
+          {filteredIntegrations.map((integration, index) => (
+            <IntegrationLinkButton
+              key={index}
+              label={integration.label}
+              Icon={integration.Icon}
+              rounded={true}
+              href={getHref(integration)}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
 
-export { IntegrationCard, IntegrationsGrid, integrations };
+export { IntegrationsGrid };
 export type { IntegrationsGridProps };
