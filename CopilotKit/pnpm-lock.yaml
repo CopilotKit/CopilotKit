@@ -337,6 +337,9 @@ importers:
 
   packages/react-core:
     dependencies:
+      '@ag-ui/client':
+        specifier: 0.0.42
+        version: 0.0.42
       '@copilotkit/runtime-client-gql':
         specifier: workspace:*
         version: link:../runtime-client-gql
@@ -359,9 +362,6 @@ importers:
         specifier: ^0.0.1
         version: 0.0.1
     devDependencies:
-      '@ag-ui/client':
-        specifier: 0.0.42
-        version: 0.0.42
       '@testing-library/react':
         specifier: ^16.3.0
         version: 16.3.0(@testing-library/dom@10.4.0)(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)

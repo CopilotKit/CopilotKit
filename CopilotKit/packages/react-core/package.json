@@ -45,7 +45,6 @@
     "zod": ">=3.0.0"
   },
   "devDependencies": {
-    "@ag-ui/client": "^0.0.42",
     "@testing-library/react": "^16.3.0",
     "@testing-library/react-hooks": "^8.0.1",
     "@types/jest": "^29.5.4",
@@ -65,6 +64,7 @@
     "zod": ">=3.0.0"
   },
   "dependencies": {
+    "@ag-ui/client": "^0.0.42",
     "@copilotkit/runtime-client-gql": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@copilotkitnext/core": "0.0.31",

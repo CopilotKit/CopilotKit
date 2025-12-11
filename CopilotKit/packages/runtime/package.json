@@ -60,6 +60,7 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
+    "@ag-ui/client": "^0.0.42",
     "@copilotkit/shared": "workspace:*",
     "@copilotkitnext/agent": "0.0.31",
     "@copilotkitnext/runtime": "0.0.31",
@@ -85,7 +86,6 @@
   },
   "peerDependencies": {
     "@anthropic-ai/sdk": "^0.57.0",
-    "@ag-ui/client": "^0.0.42",
     "@ag-ui/core": ">=0.0.42",
     "@ag-ui/encoder": ">=0.0.42",
     "@ag-ui/langgraph": ">=0.0.20",
