@@ -1,6 +1,12 @@
+<a href="https://go.copilotkit.ai/useagent-docs" target="_blank">
+<img width="1595" height="284" alt="Introducing CopilotKit  v1 50!" src="https://github.com/user-attachments/assets/5d852a9b-290a-44b7-8c6a-9f75e51f1713" />
+<a /> 
 
+<br>
+
+<a href="https://go.copilotkit.ai/copilotkit-docsE" target="_blank">
 <img width="4096" height="1588" alt="header" src="https://github.com/user-attachments/assets/dd638592-fb74-4e22-8c55-49dfc4d0e462" />
-
+<a />
 
 <br>
   <div align="start" style="display:flex;justify-content:start;gap:16px;height:20px;margin: 0;">
@@ -49,6 +55,11 @@
 <br />
 
 <img width="4096" height="2341" alt="Best in class support across the ecosystem" src="https://github.com/user-attachments/assets/bf399131-2a92-49f8-8748-38ed72353f9c" />
+
+## ⭐️ UseAgent to connect to any agent
+
+https://github.com/user-attachments/assets/46b7d161-a988-4453-9ca9-c0eca4c33da6
+
 
 
 ## ✨ Why CopilotKit?
