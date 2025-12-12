@@ -1,6 +1,6 @@
 import { IntegrationsSelectorLightDesktop } from './integrations-index-selector/integrations-selector-light-desktop';
 import { IntegrationsSelectorLightMobile } from './integrations-index-selector/integrations-selector-light-mobile';
-import { IntegrationLinkButton } from './integration-link-button/integration-link-button';
+import { IntegrationLinkRoundedButton } from './integration-link-button/integration-link-rounded-button';
 import { ComponentType } from 'react';
 import AdkIcon from '../ui/icons/adk';
 import Ag2Icon from '../ui/icons/ag2';
@@ -132,32 +132,30 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
 
   return (
     <div className='flex flex-row flex-wrap justify-center items-center gap-x-6 gap-y-6 my-8'>
-      <div className='hidden md:flex'>
+      <div className='hidden lg:flex'>
         <IntegrationsSelectorLightDesktop className='h-48 block dark:hidden' />
         <IntegrationsSelectorDarkDesktop className='h-48 hidden dark:block' />
         <div className='grid grid-cols-4 gap-2'>
           {filteredIntegrations.map((integration, index) => (
-            <IntegrationLinkButton
+            <IntegrationLinkRoundedButton
               key={index}
               label={integration.label}
               Icon={integration.Icon}
-              rounded={true}
               href={getHref(integration)}
             />
           ))}
         </div>
       </div>
-      <div className='flex flex-row gap-2 md:hidden'>
+      <div className='flex flex-row gap-2 lg:hidden'>
         <IntegrationsSelectorLightMobile className='h-full -ml-11 block dark:hidden' />
         <IntegrationsSelectorDarkMobile className='h-full -ml-11 hidden dark:block' />
         <div className='grid grid-cols-2 gap-2 -ml-5'>
           <div className='col-span-2 h-[80px]' />
           {filteredIntegrations.map((integration, index) => (
-            <IntegrationLinkButton
+            <IntegrationLinkRoundedButton
               key={index}
               label={integration.label}
               Icon={integration.Icon}
-              rounded={true}
               href={getHref(integration)}
             />
           ))}
