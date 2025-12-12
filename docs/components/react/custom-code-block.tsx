@@ -34,7 +34,7 @@ const CustomCodeBlock = ({ code,  }: CustomCodeBlockProps) => {
         </pre>
         <button
           onClick={handleCopy}
-          className="ml-4 shrink-0 rounded p-1.5 text-gray-500 transition-colors hover:bg-black/5 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-gray-200"
+          className="ml-4 shrink-0 rounded p-1.5 text-gray-500 transition-colors hover:bg-black/5 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-gray-200 cursor-pointer"
           aria-label="Copy code"
         >
           {copied ? (

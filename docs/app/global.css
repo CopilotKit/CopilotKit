@@ -260,6 +260,22 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
   display: none !important;
 }
 
+#nd-toc h3 svg {
+  display: none !important;
+}
+#nd-toc h3 {
+  font-weight: 600 !important;
+}
+#nd-toc a {
+  color: #010507 !important;
+}
+#nd-toc a[data-active="false"] {
+  opacity: 0.6;
+}
+.dark #nd-toc a {
+  color: #ffffff !important;
+}
+
 h2, h3, p {
   color: #010507 !important;
 }
