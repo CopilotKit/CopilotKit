@@ -279,6 +279,11 @@ const config = {
         destination: "/adk/vibe-coding-mcp",
         permanent: true,
       },
+      {
+        source: "/a2a/generative-ui",
+        destination: "/a2a/generative-ui/declarative-a2ui",
+        permanent: true,
+      },
     ];
   },
 };
