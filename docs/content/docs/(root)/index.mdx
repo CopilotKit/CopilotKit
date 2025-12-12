@@ -1,8 +1,7 @@
 ---
-title: Introduction to CopilotKit
+title: Introduction
 description: "The Agentic Application Framework:  Open source framework and hosted service for AI-assisted applications."
 icon: "lucide/Sparkles"
-hideTOC: true
 ---
 import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
 import { ExamplesCarousel } from "@/components/react/examples-carousel";
@@ -11,6 +10,11 @@ import { YouTubeVideo } from "@/components/react/youtube-video";
 import { MdMessage } from "react-icons/md";
 import { TbSparkles } from "react-icons/tb";
 import { SiLangchain } from "react-icons/si";
+import RocketIcon from "@/components/ui/icons/rocket";
+import CloudIcon from "@/components/ui/icons/cloud";
+import TerminalIcon from "@/components/ui/icons/console";
+import ExternalLinkIcon from "@/components/ui/icons/external-link";
+
 import { AG2Icon } from "@/lib/icons/custom-icons";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
 import { FileSpreadsheet, Banknote, Plane, BookOpen, Telescope, Play } from "lucide-react";
@@ -18,56 +22,61 @@ import { Accordions } from 'fumadocs-ui/components/accordion';
 import { Accordion } from 'fumadocs-ui/components/accordion';
 import { LinkToCopilotCloud } from "@/components/react/link-to-copilot-cloud";
 import { QuickstartDropdown } from "@/components/react/quickstart-dropdown";
+import { CustomAccordion } from "@/components/react/custom-accordion";
 import { IntegrationsGrid } from "@/components/react/integrations";
+import CustomCodeBlock from "@/components/react/custom-code-block";
 import { MaximizableVideo } from "@/components/react/maximizable-video";
 import { CopilotKitHero } from "@/components/branding/CopilotKitHero";
 
-<div className="grid grid-cols-1 2xl:grid-cols-2 2xl:gap-10">
+
+## What is CopilotKit?
+<div>
   <div>
-    ## What is CopilotKit?
     CopilotKit is the easiest way to add AI copilots - intelligent, context-aware assistants - into your app.
 
     CopilotKit connects your app's logic, state, and user context to the AI agents that deliver the animated and interactive part of your app experience — across both embedded UIs and fully headless interfaces. It gives you the tools to build, deploy, and monitor AI-assisted features that feel intuitive, helpful, and deeply integrated.
 
     By decoupling your application from any specific model or agent architecture, CopilotKit gives you the freedom to evolve your AI stack without rethinking your user experience.
   </div>
-  <video src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4" autoPlay controls loop muted playsInline className="rounded-xl shadow-lg mx-auto mt-auto" />
+  <video src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4" autoPlay controls loop muted playsInline className="rounded-xl shadow-lg mx-auto" />
 </div>
 
 
-## Get Started Now
-<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-10 gap-6 mb-12">
-  <div className="lg:col-span-3 border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
+## Get started now
+<div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+  <div className="bg-[#FFFFFF80] dark:bg-[#01050780] px-6 py-6 rounded-xl transition-colors flex flex-col gap-8 md:gap-14">
     <div>
-      <h3 className="text-xl font-bold mb-3 text-foreground">Quickstart</h3>
-      <p className="text-sm text-muted-foreground mb-8">Start with an LLM<br /> or Agent Framework</p>
+      <div className="mb-4 w-8 h-8 flex items-center justify-center">
+        <RocketIcon className="w-6 h-6" />
+      </div>
+      <h3 className="text-lg font-semibold mb-2 mt-4 leading-5">Quickstart</h3>
+      <p className="text-base leading-6 mb-0">Start with an LLM or Agent Framework.</p>
     </div>
-    <div className="h-12 flex items-center justify-center">
-      <QuickstartDropdown />
-    </div>
+    <QuickstartDropdown />
   </div>
-  <div className="lg:col-span-4 border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
+  <div className="bg-[#FFFFFF80] dark:bg-[#01050780] px-6 py-6 rounded-xl transition-colors min-h-[220px] flex flex-col justify-between">
     <div>
-      <h3 className="text-xl font-bold mb-3 text-foreground">CLI</h3>
-      <p className="text-sm text-muted-foreground mb-4">Bootstrap your NextJS<br />application with CopilotKit</p>
+     <div className="mb-4 w-8 h-8 flex items-center justify-center">
+        <CloudIcon className="w-6 h-6" />
+      </div>
+       <h3 className="text-lg font-semibold mb-2 mt-4 leading-5">Cloud</h3>
+      <p className="text-base leading-6 mb-0 w-full">Start the easiest way with our hosted service.</p>
     </div>
-    <div className="h-12 flex items-center justify-center">
-      
-```bash
-npx copilotkit@latest init
-```
-    </div>
+    
+      <LinkToCopilotCloud asButton={false} className="no-underline! decoration-none! bg-[#0105070D] dark:bg-[#FFFFFF1A] font-spline px-4 transition-all duration-100 rounded-lg w-full flex items-center justify-between text-sm h-11">
+        COPILOT CLOUD
+        <ExternalLinkIcon className="w-5 h-5" />
+      </LinkToCopilotCloud>
   </div>
-  <div className="lg:col-span-3 border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
-    <div>
-      <h3 className="text-xl font-bold mb-3 text-foreground">Cloud</h3>
-      <p className="text-sm text-muted-foreground mb-4">Start the easiest way<br /> with our hosted service</p>
-    </div>
-    <div className="h-12 flex items-center justify-center">
-      <LinkToCopilotCloud asButton={true} />
-    </div>
-  </div>
-  
+</div>
+<div className="bg-[#FFFFFF80] dark:bg-[#01050780] px-6 py-6 rounded-xl transition-colors mb-12">
+  <div className="mb-4 w-8 h-8 flex items-center justify-center">
+        <TerminalIcon className="w-6 h-6" />
+      </div>
+    <h3 className="text-lg font-semibold mb-2 mt-4 leading-5">CLI</h3>
+   <p className="text-base leading-6 mb-0 w-full">Bootstrap your NextJS application with CopilotKit</p>
+
+<CustomCodeBlock code="npx copilotkit@latest init" />
 </div>
 
 ## Integrations
@@ -76,66 +85,65 @@ CopilotKit works with any LLM or agent framework.  Choose an integration to see 
 
 <IntegrationsGrid />
 
-## Key Features
-Learn why CopilotKit is used by thousands of developers around the world.
 
-<div className="flex flex-row gap-8 my-8">
-  <div className="w-1/2">
-    <Accordions>
-      <Accordion title="Designed for Agentic Applications">
+## CopilotKit Features
+
+
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+    <Accordions className="flex flex-col gap-2 bg-transparent! border-none!">
+      <CustomAccordion title="Designed for Agentic Applications">
         Unlike general-purpose frameworks, CopilotKit is designed from the ground up to support agent-driven user experiences.
-      </Accordion>
-      <Accordion title="Context Injection">
+      </CustomAccordion>
+      <CustomAccordion title="Context Injection">
         Automatically sync app state, user input, and environmental data to give agents meaningful grounding.
-      </Accordion>
-      <Accordion title="AGUI Protocol">
+      </CustomAccordion>
+      <CustomAccordion title="AGUI Protocol">
         Maintain real-time synchronization between agent actions and user interfaces.
-      </Accordion>
-      <Accordion title="MCP Support">
+      </CustomAccordion>
+      <CustomAccordion title="MCP Support">
         Integrate with MCP servers to support secure, multi-agent coordination and external orchestration.
-      </Accordion>
-      <Accordion title="UI Integration">
+      </CustomAccordion>
+      <CustomAccordion title="UI Integration">
         Drop-in React components for chat UIs, inline assistants, and guided workflows.
-      </Accordion>
-      <Accordion title="Headless Mode">
+      </CustomAccordion>
+      <CustomAccordion title="Headless Mode">
         Use CopilotKit logic and messaging infrastructure without a proscribed visual interface—full programmatic control.
-      </Accordion>
-      <Accordion title="LLM & Agent Framework Agnostic">
+      </CustomAccordion>
+      <CustomAccordion title="LLM & Agent Framework Agnostic">
         Unlocks the power of LangGraph, CrewAI, Autogen2, and more. Swap out backends with no UI rewrite.
-      </Accordion>
-      <Accordion title="Hosted or Self-Hosted">
+      </CustomAccordion>
+      <CustomAccordion title="Hosted or Self-Hosted">
         Use the hosted cloud service for simplicity, or run the open source stack in your environment.
-      </Accordion>
-    </Accordions>
-  </div>
-  <div className="w-1/2">
-    <Accordions>
-      <Accordion title="Full Flexibility">
+      </CustomAccordion>
+      </Accordions>
+
+      <Accordions className="flex flex-col gap-2 bg-transparent! border-none!">
+      <CustomAccordion title="Full Flexibility">
         Bring your own LLMs, tools, and agents — CopilotKit doesn't lock you into a specific stack.
-      </Accordion>
-      <Accordion title="Real-Time Interaction">
+      </CustomAccordion>
+      <CustomAccordion title="Real-Time Interaction">
         Syncs seamlessly between user inputs, UI state, and AI agent responses.
-      </Accordion>
-      <Accordion title="Unified DevX">
+      </CustomAccordion>
+      <CustomAccordion title="Unified DevX">
         Declarative APIs and React-native paradigms that feel familiar and productive.
-      </Accordion>
-      <Accordion title="Production-Ready">
+      </CustomAccordion>
+      <CustomAccordion title="Production-Ready">
         Built-in observability, debugging, and extensibility to support real-world deployment and scaling.
-      </Accordion>
-      <Accordion title="Cloud or OSS">
+      </CustomAccordion>
+      <CustomAccordion title="Cloud or OSS">
         Use our hosted cloud service or run it entirely within your own infrastructure.
-      </Accordion>
-      <Accordion title="Community & Extensibility">
+      </CustomAccordion>
+      <CustomAccordion title="Community & Extensibility">
         Open source with growing integrations, patterns, and examples.
-      </Accordion>
-      <Accordion title="Observability & Debugging">
+      </CustomAccordion>
+      <CustomAccordion title="Observability & Debugging">
         Built-in tools to trace agent decisions, model responses, and message flows.
-      </Accordion>
-      <Accordion title="Composable Architecture">
+      </CustomAccordion>
+      <CustomAccordion title="Composable Architecture">
         Mix and match UI, logic, and AI components like building blocks.
-      </Accordion>
+      </CustomAccordion>
     </Accordions>
-  </div>
 </div>
 
  
