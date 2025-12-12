@@ -6,6 +6,7 @@ import {
   DocsDescription,
   DocsTitle,
 } from "fumadocs-ui/page"
+import { PageBreadcrumb } from "fumadocs-ui/layouts/docs/page"
 import { notFound } from "next/navigation"
 import defaultMdxComponents from "fumadocs-ui/mdx"
 import { Badge } from "@/components/ui/badge"
@@ -117,9 +118,11 @@ export default async function Page({
       tableOfContent={{
         style: "clerk",
       }}
+      breadcrumb={{ enabled: false }}
     >
       <div>
         <div className="overflow-y-scroll px-8 py-6 rounded-2xl xl:py-12 xl:px-16 custom-scrollbar max-sm:px-4 max-sm:py-6">
+          <PageBreadcrumb className="mb-4" />
           <div className={hideHeader ? "" : "min-h-screen"}>
             {!hideHeader && (
               <div className="gap-5 flex flex-col">
