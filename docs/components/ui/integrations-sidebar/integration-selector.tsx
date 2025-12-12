@@ -13,6 +13,8 @@ import MastraIcon from "../icons/mastra"
 import PydanticAiIcon from "../icons/pydantic-ai"
 import IntegrationPuzzleIcon from "../icons/integration-puzzle"
 import CheckIcon from "../icons/check"
+import { MicrosoftIcon } from "../icons/microsoft"
+import { AwsStrandsIcon } from "../icons/aws-strands"
 
 export type Integration =
   | "adk"
@@ -25,6 +27,8 @@ export type Integration =
   | "llamaindex"
   | "mastra"
   | "pydantic-ai"
+  | "microsoft-agent-framework"
+  | "aws-strands"
 
 interface IntegrationOption {
   label: string
@@ -42,6 +46,16 @@ const INTEGRATION_OPTIONS: Record<Integration, IntegrationOption> = {
     label: "AG2",
     Icon: Ag2Icon,
     href: "/integrations/ag2",
+  },
+  "microsoft-agent-framework": {
+    label: "Microsoft Agent Framework",
+    Icon: MicrosoftIcon,
+    href: "/integrations/microsoft-agent-framework",
+  },
+  "aws-strands": {
+    label: "AWS Strands",
+    Icon: AwsStrandsIcon,
+    href: "/integrations/aws-strands",
   },
   agno: {
     label: "Agno",

@@ -23,7 +23,6 @@ function cleanTree(tree: PageTree.Node[]): PageTree.Node[] {
 }
 
 function getIndex(tree: PageTree.Node[], page: Page): number {
-  console.log(page, tree);
 
   return tree.findIndex(node => {
     if (node.type === 'folder') {
@@ -37,7 +36,7 @@ function getIndex(tree: PageTree.Node[], page: Page): number {
 }
 
 function getPrev(tree: PageTree.Node[], pageIndex: number): { url: string; title: string } | null {
-  if (pageIndex === 0) return null;
+  if (pageIndex <= 0) return null;
 
   const prevItem = tree[pageIndex - 1];
 

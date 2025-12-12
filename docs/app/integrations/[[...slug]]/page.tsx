@@ -24,6 +24,7 @@ import { LinkToCopilotCloud } from "@/components/react/link-to-copilot-cloud"
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion"
 import { NavigationLink } from "@/components/react/subdocs-menu"
 import { getSnippetTOCForPage } from "@/lib/snippet-toc"
+import { CustomPager } from "@/components/ui/custom-pager"
 
 /**
  * TODO: This should be dynamic, but it's not working.
@@ -117,11 +118,12 @@ export default async function Page({
     <DocsPage
       toc={combinedTOC}
       full={page.data.full}
+      footer={{ component: <CustomPager tree={source.pageTree} page={page} /> }}
       tableOfContent={{
         style: "clerk",
       }}
     >
-      <div className="bg-glass-background">
+      <div>
         <div className="px-8 py-6 xl:py-12 xl:px-16 bg-linear-to-r from-foreground/[4%] to-foreground/0 dark:from-white/[3%] dark:to-white/0 rounded-2xl custom-scrollbar overflow-y-scroll">
           <div className={hideHeader ? "" : "min-h-screen"}>
             {!hideHeader && (

@@ -1,0 +1,49 @@
+import Image from "next/image"
+
+<Image 
+  src="/images/gen-ui-specs-light.png" 
+  alt="Generative UI Specs" 
+  width={4096} 
+  height={2304}
+  className="block dark:hidden mb-8"
+/>
+<Image 
+  src="/images/gen-ui-specs-dark.png" 
+  alt="Generative UI Specs" 
+  width={4096} 
+  height={2304}
+  className="hidden dark:block mb-8"
+/>
+
+## **Generative UI Specifications**
+
+Several recently released specifications enable agents to return generative UI, increasing the power and flexibility of the Agent-to-User conversation.
+
+**A2UI**, **MCP-UI**, and **Open-JSON-UI** are all generative UI specifications that allow agents to respond to users not only with text but also with dynamic UI components.
+CopilotKit now provides universal support for all major Generative UI specifications.
+
+| **Specification** | **Origin / Maintainer** | **Purpose** |
+| --- | --- | --- |
+| **A2UI** | Google | A declarative, LLM-friendly Generative UI spec. JSONL-based and streaming, designed for platform-agnostic rendering. |
+| **Open-JSON-UI** | OpenAI | An open standardization of OpenAI's internal declarative Generative UI schema. |
+| **MCP-UI** | Microsoft + Shopify | A fully open, iframe-based Generative UI standard extending MCP for user-facing experiences. |
+
+## **AG-UI vs Generative UI Specs**
+
+Despite the naming similarities, **AG-UI is not a generative UI specification** — it's a **User Interaction protocol** that provides the **bi-directional runtime connection** between the agent and the application.
+
+AG-UI natively supports all of the above generative UI specs and allows developers to define **their own custom generative UI standards** as well.
+
+## **Learn More**
+
+Explore each specification in detail:
+
+- [A2UI](/generative-ui-specs/a2ui) - Google's declarative Generative UI spec
+- [Open-JSON-UI](/generative-ui-specs/open-json-ui) - OpenAI's open Generative UI standard
+- [MCP-UI](/generative-ui-specs/mcp-ui) - Microsoft + Shopify's iframe-based Generative UI spec
+
+Or learn about related protocols:
+
+- [AG-UI Protocol](/ag-ui-protocol) - The user interaction protocol that supports all these specs
+- [Generative UI Guide](/generative-ui) - Build with Generative UI in CopilotKit
+

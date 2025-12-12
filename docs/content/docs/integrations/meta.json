@@ -3,10 +3,12 @@
   "pages": [
     "direct-to-llm",
     "langgraph",
+    "microsoft-agent-framework",
     "mastra",
     "pydantic-ai",
     "adk",
     "agno",
+    "aws-strands",
     "crewai-flows",
     "crewai-crews",
     "ag2",

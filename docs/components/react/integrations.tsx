@@ -13,6 +13,8 @@ import { IntegrationsSelectorDarkMobile } from './integrations-index-selector/in
 import LlamaIndexIcon from '../ui/icons/llama-index';
 import MastraIcon from '../ui/icons/mastra';
 import AgnoIcon from '../ui/icons/agno';
+import { MicrosoftIcon } from '../ui/icons/microsoft';
+import { AwsStrandsIcon } from '../ui/icons/aws-strands';
 
 interface Integration {
   label: string;
@@ -70,6 +72,16 @@ const INTEGRATIONS: Integration[] = [
     label: 'ADK',
     Icon: AdkIcon,
     href: '/integrations/adk',
+  },
+  {
+    label: 'Microsoft Agent Framework',
+    Icon: MicrosoftIcon,
+    href: '/integrations/microsoft-agent-framework',
+  },
+  {
+    label: 'AWS Strands',
+    Icon: AwsStrandsIcon,
+    href: '/integrations/aws-strands',
   },
 ];
 

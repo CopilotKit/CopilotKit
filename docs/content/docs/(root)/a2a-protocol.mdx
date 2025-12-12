@@ -10,11 +10,17 @@ import Image from "next/image"
 
 A2A, or the Agent2Agent protocol, is a protocol introduced by Google for AI agents to interact and collaborate securely in a framework agnostic manner.
 
-<img width="4096" height="1752" alt="Your application-AG-UI protocol" src="https://github.com/user-attachments/assets/dc58c64c-3257-490a-b827-e163475f4166" />
-
 ## How CopilotKit uses A2A agents
 
 CopilotKit uses a middleware to expose A2A agents to an AG-UI compatible coordinator. This allows you to expose your A2A agents to your users through the AG-UI protocol.
+
+<Image 
+  src="/images/cpk-with-agentic-protocols.png" 
+  alt="CopilotKit with Agentic Protocols" 
+  width={4096} 
+  height={2304}
+  className="mb-8 w-3/5 mx-auto"
+/>
 
 * __Flexibility and Interoperability__: By making a2a agents available over the AG-UI standard, any A2A agents can work seamless with CopilotKit components.
 * __Unified Communication__: While A2A agents are enabled to communicate with each other over the A2A protocol, AG-UI adds the missing tooling to expose them cleanly to the front end.

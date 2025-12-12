@@ -2,6 +2,7 @@ import { IntegrationLinkButton } from "./integration-link-button"
 import AdkIcon from "@/components/ui/icons/adk"
 import Ag2Icon from "@/components/ui/icons/ag2"
 import AgnoIcon from "@/components/ui/icons/agno"
+import { AwsStrandsIcon } from "@/components/ui/icons/aws-strands"
 import CrewaiIcon from "@/components/ui/icons/crewai"
 import DirectToLlmIcon from "@/components/ui/icons/direct-to-llm"
 import LanggraphIcon from "@/components/ui/icons/langgraph"
@@ -9,7 +10,7 @@ import LlamaIndexIcon from "@/components/ui/icons/llama-index"
 import MastraIcon from "@/components/ui/icons/mastra"
 import PydanticAiIcon from "@/components/ui/icons/pydantic-ai"
 import { ComponentType } from "react"
-
+import { MicrosoftIcon } from "@/components/ui/icons/microsoft"
 interface Integration {
   label: string
   Icon: ComponentType<{ className?: string }>
@@ -31,6 +32,16 @@ const INTEGRATIONS: Integration[] = [
     label: "Agno",
     Icon: AgnoIcon,
     href: "/integrations/agno",
+  },
+  {
+    label: "Microsoft Agent Framework",
+    Icon: MicrosoftIcon,
+    href: "/integrations/microsoft-agent-framework",
+  },
+  {
+    label: "AWS Strands",
+    Icon: AwsStrandsIcon,
+    href: "/integrations/aws-strands",
   },
   {
     label: "CrewAI Flows",
