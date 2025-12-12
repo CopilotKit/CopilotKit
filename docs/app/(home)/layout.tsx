@@ -15,6 +15,7 @@ import {
   LlamaIndexIcon,
   PydanticAIIcon,
   AwsStrandsIcon,
+  A2AIcon,
 } from "@/lib/icons/custom-icons";
 
 export default function Layout({ children }: { children: ReactNode }) {
@@ -207,6 +208,15 @@ export default function Layout({ children }: { children: ReactNode }) {
                         "bg-gradient-to-b from-indigo-700 to-indigo-400 text-indigo-100",
                       selectedStyle: "ring-indigo-500/70 ring-2 rounded-sm",
                     },
+                    {
+                      title: "A2A",
+                      description: "Documentation for CoAgents with A2A",
+                      url: "/a2a",
+                      icon: <A2AIcon className="w-4 h-4 text-bold" />,
+                      bgGradient:
+                        "bg-gradient-to-b from-orange-700 to-orange-400 text-orange-100",
+                      selectedStyle: "ring-orange-500/70 ring-2 rounded-sm",
+                    }
                   ],
                 },
               ]}

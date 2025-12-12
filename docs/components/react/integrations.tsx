@@ -98,6 +98,13 @@ const integrations: Integration[] = [
     bgGradient: "bg-gradient-to-b from-indigo-700 to-indigo-400 text-indigo-100",
     href: "/ag2",
   },
+  {
+    title: "A2A",
+    description: "A2A is a framework for allowing agents to interact with each other.",
+    logo: <AG2Icon className="w-8 h-8 text-bold" />,
+    bgGradient: "bg-gradient-to-b from-indigo-700 to-indigo-400 text-indigo-100",
+    href: "/a2a",
+  },
   // Add more integrations here
 ];
 
@@ -178,9 +185,9 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
   };
 
   let filteredIntegrations = integrations;
-  
+
   // Hide Microsoft Agent Framework from the integrations grid
-  // TODO: Remove this once Microsoft Agent Framework support is announced  
+  // TODO: Remove this once Microsoft Agent Framework support is announced
   filteredIntegrations = filteredIntegrations.filter((integration) => {
     return !integration.title.toLowerCase().includes("microsoft");
   });

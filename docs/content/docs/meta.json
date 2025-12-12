@@ -16,6 +16,7 @@
     "crewai-flows",
     "crewai-crews",
     "ag2",
-    "llamaindex"
+    "llamaindex",
+    "a2a"
   ]
 }

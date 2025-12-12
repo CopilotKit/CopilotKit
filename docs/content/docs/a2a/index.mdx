@@ -1,0 +1,28 @@
+---
+title: Overview
+icon: "custom/a2a"
+description: Bring your A2A agents to your users with CopilotKit via AG-UI.
+hideHeader: true
+---
+import { customIcons } from "@/lib/icons/custom-icons";
+import { FrameworkOverview } from "@/components/content/landing-pages/framework-overview";
+
+<FrameworkOverview
+  frameworkName="A2A"
+  frameworkIcon={<customIcons.a2a className="h-10 w-10 text-foreground" />}
+  header="Bring your A2A agents to your users"
+  subheader="Give your A2A agents real user-interactivity using CopilotKit and AG-UI. Build rich, interactive, agent-powered applications."
+  guideLink="/a2a/quickstart"
+  initCommand="git clone https://github.com/copilotkit-ai/with-a2a-a2ui.git"
+  featuresLink="https://feature-viewer.copilotkit.ai/a2a/feature/a2ui"
+  supportedFeatures={[
+    {
+      title: "Declarative UI (A2UI)",
+      description: "Render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. Bridges the gap between AI agents and user interfaces.",
+      documentationLink: "/a2a/generative-ui",
+      demoLink: "https://feature-viewer.copilotkit.ai/a2a/feature/a2ui",
+    }
+  ]}
+  architectureImage="https://cdn.copilotkit.ai/docs/copilotkit/images/generic-agui-architecture.png"
+  liveDemos={[]}
+/>
