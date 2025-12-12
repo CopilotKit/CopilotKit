@@ -1,0 +1,6 @@
+{
+  "title": "Shared State",
+  "icon": "lucide/Repeat",
+  "defaultOpen": true,
+  "pages": ["in-app-agent-read", "in-app-agent-write"]
+}
