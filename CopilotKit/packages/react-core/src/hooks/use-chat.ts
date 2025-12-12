@@ -1043,8 +1043,15 @@ function constructFinalMessages(
         if (index !== -1) {
           finalMessages.splice(index + 1, 0, message);
         }
+      } else if (message.isTextMessage()) {
+        // Check if the message already exists in the final messages
+        const existIndex = finalMessages.findIndex((msg) => msg.id === message.id);
+        if (existIndex === -1) {
+          // Find the index where action execution messages have this message as parent
+          const index = finalMessages.findIndex((msg) => msg.isActionExecutionMessage() && msg.parentMessageId === message.id);
+          finalMessages.splice(index, 0, message);
+        }
       }
-
       previousMessageId = message.id;
     }
   }
