@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useEffect } from "react";
 import { ActionRenderProps, FrontendAction } from "../types/frontend-action";
 import { Parameter, getZodParameters, MappedParameterTypes } from "@copilotkit/shared";
 import { parseJson } from "@copilotkit/shared";
@@ -74,11 +74,22 @@ export function useFrontendTool<const T extends Parameter[] = []>(
     }) as FrontendToolOptions<T>["render"];
   })();
 
+  // Handler ref to avoid stale closures
+  const handlerRef = useRef<typeof tool.handler>(tool.handler);
+
+  useEffect(() => {
+    handlerRef.current = tool.handler;
+  }, [tool.handler, ...(dependencies ?? [])]);
+
+  const normalizedHandler = tool.handler
+    ? (args: MappedParameterTypes<T>) => handlerRef.current?.(args)
+    : undefined;
+
   useFrontendToolVNext<MappedParameterTypes<T>>({
     name,
     description,
     parameters: zodParameters,
-    handler: tool.handler,
+    handler: normalizedHandler,
     followUp,
     render: normalizedRender,
   });
