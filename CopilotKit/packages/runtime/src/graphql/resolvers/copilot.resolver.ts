@@ -59,6 +59,7 @@ import {
   CopilotKitLowLevelError,
   isStructuredCopilotKitError,
 } from "@copilotkit/shared";
+import { CopilotRuntime } from "../../lib";
 
 const invokeGuardrails = async ({
   baseUrl,
@@ -128,7 +129,7 @@ export class CopilotResolver {
     let logger = ctx.logger.child({ component: "CopilotResolver.availableAgents" });
 
     logger.debug("Processing");
-    const agentsWithEndpoints = await ctx._copilotkit.runtime.discoverAgentsFromEndpoints(ctx);
+    const agentsWithEndpoints = [];
 
     logger.debug("Event source created, creating response");
 
@@ -172,7 +173,7 @@ export class CopilotResolver {
       ctx.properties = { ...ctx.properties, ...properties };
     }
 
-    const copilotRuntime = ctx._copilotkit.runtime;
+    const copilotRuntime = ctx._copilotkit.runtime as unknown as CopilotRuntime;
     const serviceAdapter = ctx._copilotkit.serviceAdapter;
 
     let copilotCloudPublicApiKey: string | null = null;
@@ -191,19 +192,6 @@ export class CopilotResolver {
 
       if (!copilotCloudPublicApiKey) {
         logger.error("Public API key not found in headers");
-
-        await copilotRuntime.errorGraphQLError(
-          {
-            message: "X-CopilotCloud-Public-API-Key header is required",
-            code: "MISSING_PUBLIC_API_KEY",
-            type: "GraphQLError",
-          },
-          {
-            operation: "generateCopilotResponse",
-            cloudConfigPresent: Boolean(data.cloud),
-            guardrailsEnabled: Boolean(data.cloud?.guardrails),
-          },
-        );
 
         throw new GraphQLError("X-CopilotCloud-Public-API-Key header is required");
       }
@@ -239,39 +227,6 @@ export class CopilotResolver {
 
     logger.debug("Processing");
     let runtimeResponse;
-    try {
-      runtimeResponse = await copilotRuntime.processRuntimeRequest({
-        serviceAdapter,
-        messages: data.messages,
-        actions: data.frontend.actions.filter(
-          (action) => action.available !== ActionInputAvailability.disabled,
-        ),
-        threadId: data.threadId,
-        runId: data.runId,
-        publicApiKey: copilotCloudPublicApiKey,
-        outputMessagesPromise,
-        graphqlContext: ctx,
-        forwardedParameters: data.forwardedParameters,
-        agentSession: data.agentSession,
-        agentStates: data.agentStates,
-        url: data.frontend.url,
-        extensions: data.extensions,
-        metaEvents: data.metaEvents,
-        context: data.context,
-      });
-    } catch (error) {
-      // Catch structured CopilotKit errors at the main mutation level and re-throw as GraphQL errors
-      if (isStructuredCopilotKitError(error) || (error as any)?.extensions?.visibility) {
-        throw new GraphQLError(error.message || "Agent error occurred", {
-          extensions: {
-            ...(error as any).extensions,
-            code: (error as any).code || (error as any).extensions?.code || "AGENT_ERROR",
-            originalError: error,
-          },
-        });
-      }
-      throw error; // Re-throw non-CopilotKit errors as-is
-    }
 
     const {
       eventSource,
