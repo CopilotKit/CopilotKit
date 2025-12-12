@@ -77,6 +77,10 @@ jobs:
             test_path: tests/serverStarterAllFeaturesTests
             services: ["dojo", "server-starter-all"]
             wait_on: http://localhost:9999,tcp:localhost:8001
+          - suite: aws-strands
+            test_path: tests/awsStrandsTests
+            services: ["dojo", "aws-strands"]
+            wait_on: http://localhost:9999,tcp:localhost:8017
 
     steps:
       - name: Checkout CPK

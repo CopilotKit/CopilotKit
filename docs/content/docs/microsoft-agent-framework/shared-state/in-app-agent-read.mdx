@@ -41,12 +41,27 @@ state updates, you can reflect these updates natively in your application.
     ### Define the Agent State
     Decide which parts of agent state you want to reflect in the UI.
 
-    ```csharp title="agent/Program.cs (excerpt)"
-    public class AgentStateSnapshot
-    {
-        public string Language { get; set; } = "spanish";
-    }
-    ```
+    <Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']} persist>
+      <Tab value=".NET">
+        ```csharp title="agent/Program.cs (excerpt)"
+        public class AgentStateSnapshot
+        {
+            public string Language { get; set; } = "english";
+        }
+        ```
+      </Tab>
+      <Tab value="Python">
+        ```python title="agent/src/agent.py (excerpt)"
+        STATE_SCHEMA: dict[str, object] = {
+            "language": {
+                "type": "string",
+                "enum": ["english", "spanish"],
+                "description": "Preferred language."
+            }
+        }
+        ```
+      </Tab>
+    </Tabs>
 
     ```ts title="ui/app/page.tsx"
     type AgentState = {
@@ -71,7 +86,7 @@ state updates, you can reflect these updates natively in your application.
       // [!code highlight:4]
       const { state } = useCoAgent<AgentState>({
         name: "sample_agent",
-        initialState: { language: "spanish" }  // optionally provide an initial state
+        initialState: { language: "english" }  // optionally provide an initial state
       });
 
       // ...
@@ -80,7 +95,8 @@ state updates, you can reflect these updates natively in your application.
         // style excluded for brevity
         <div>
           <h1>Your main content</h1>
-          <p>Language: {state.language}</p> // [!code highlight]
+          {/* [!code highlight:1] */}
+          <p>Language: {state.language}</p>
         </div>
       );
     }
@@ -92,7 +108,7 @@ state updates, you can reflect these updates natively in your application.
   <Step>
     ### Give it a try!
     As the agent state updates, your `state` variable will automatically update with it! In this case, you'll see the
-    language set to "spanish" as that's the initial state we set.
+    language set to "english" as that's the initial state we set.
 
     <Frame>
       <ImageZoom src="https://cdn.copilotkit.ai/docs/copilotkit/images/microsoft-agent-framework/read-agent-state.png" alt="read agent state" width={1000} height={1000} className="my-0"/>

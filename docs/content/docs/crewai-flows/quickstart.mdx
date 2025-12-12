@@ -121,7 +121,7 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
         <Step>
             ### Install CopilotKit
             First, install the latest packages for CopilotKit into your frontend.
-            ```package-install
+            ```npm
             npm install @copilotkit/react-ui @copilotkit/react-core
             ```
         </Step>
@@ -132,10 +132,6 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
             it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
 
             <CloudCopilotKitProvider components={props.components} />
-
-            <Callout type="info">
-                Looking for a way to run multiple CrewAI Flows? Check out our [Multi-Agent](/crewai-flows/multi-agent-flows) guide.
-            </Callout>
         </Step>
         <Step>
             ### Choose a Copilot UI

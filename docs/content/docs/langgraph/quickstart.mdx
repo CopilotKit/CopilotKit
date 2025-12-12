@@ -80,7 +80,7 @@ Before you begin, you'll need the following:
 
                 First, we'll use our CLI to create a new project for us. Choose between Python or JavaScript:
 
-                <Tabs groupId="language" items={['Python', 'JavaScript']}>
+                <Tabs groupId="language_langgraph_agent" items={['Python', 'JavaScript']} persist>
                     <Tab value="Python">
                         ```bash
                         npx copilotkit@latest create -f langgraph-py
@@ -96,7 +96,7 @@ Before you begin, you'll need the following:
             <Step>
                 ### Install dependencies
 
-                ```package-install
+                ```npm
                 ```
             </Step>
             <Step>
@@ -158,7 +158,7 @@ Before you begin, you'll need the following:
             <Step>
                 ### Install CopilotKit packages
 
-                ```package-install
+                ```npm
                 @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime
                 ```
             </Step>
@@ -214,7 +214,8 @@ Before you begin, you'll need the following:
                 return (
                   <main>
                     <h1>Your App</h1>
-                    <CopilotSidebar /> // [!code highlight]
+                    {/* [!code highlight:1] */}
+                    <CopilotSidebar />
                   </main>
                 );
               }

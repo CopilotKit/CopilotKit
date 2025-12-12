@@ -13,13 +13,23 @@ const config = {
   },
 
   images: {
-    domains: [
-      "github-production-user-asset-6210df.s3.amazonaws.com",
-      "fonts.gstatic.com",
-      "docs.copilotkit.ai",
-      "cdn.copilotkit.ai",
-    ],
     remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "github-production-user-asset-6210df.s3.amazonaws.com",
+      },
+      {
+        protocol: "https",
+        hostname: "fonts.gstatic.com",
+      },
+      {
+        protocol: "https",
+        hostname: "docs.copilotkit.ai",
+      },
+      {
+        protocol: "https",
+        hostname: "cdn.copilotkit.ai",
+      },
       {
         protocol: "https",
         hostname: "**",
@@ -28,7 +38,7 @@ const config = {
   },
 
   skipTrailingSlashRedirect: true,
-  skipMiddlewareUrlNormalize: true,
+  skipProxyUrlNormalize: true,
 
   turbopack: true,
 
@@ -91,7 +101,7 @@ const config = {
       },
       {
         source: "/coagents/advanced/router-mode-agent-lock",
-        destination: "/coagents/multi-agent-flows",
+        destination: "/coagents",
         permanent: true,
       },
       {
@@ -146,7 +156,27 @@ const config = {
       },
       {
         source: "/coagents/concepts/multi-agent-flows",
-        destination: "/coagents/multi-agent-flows",
+        destination: "/coagents",
+        permanent: true,
+      },
+      {
+        source: "/llamaindex/multi-agent-flows",
+        destination: "/llamaindex",
+        permanent: true,
+      },
+      {
+        source: "/crewai-crews/multi-agent-flows",
+        destination: "/crewai-crews",
+        permanent: true,
+      },
+      {
+        source: "/crewai-flows/multi-agent-flows",
+        destination: "/crewai-flows",
+        permanent: true,
+      },
+      {
+        source: "/langgraph/advanced/multi-agent-flows",
+        destination: "/langgraph",
         permanent: true,
       },
       {
@@ -232,6 +262,11 @@ const config = {
       {
         source: "/pydantic-ai/mcp",
         destination: "/pydantic-ai/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/pydantic-ai/quickstart/pydantic-ai",
+        destination: "/pydantic-ai/quickstart",
         permanent: true,
       },
       {

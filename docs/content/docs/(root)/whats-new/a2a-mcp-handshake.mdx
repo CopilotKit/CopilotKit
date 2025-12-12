@@ -1,0 +1,38 @@
+---
+title: "A2A and MCP Handshake"
+icon: "lucide/Handshake"
+description: "AG-UI handshakes enable seamless protocol interoperability"
+---
+
+# A2A and MCP Handshake
+
+AG-UI now includes **handshakes** with both **MCP** and **A2A** protocols, ensuring smooth interoperability across the full agentic stack.
+
+## What Are Protocol Handshakes?
+
+Protocol handshakes allow AG-UI to seamlessly communicate with agents using different interaction protocols. This means you can connect your frontend to agents that internally use MCP or A2A without any additional configuration.
+
+## Benefits
+
+### Full Interoperability
+If your host agent connects to subagents using **MCP** or **A2A**, their UI properties can be propagated all the way through to the user-facing application.
+
+### Security and Control
+Handshakes preserve **full security, policy, and observability controls** throughout the communication chain.
+
+### Simplified Architecture
+No need to choose between protocols—use them all together in a single application.
+
+## How It Works
+
+1. **Frontend connects via AG-UI** - Your application uses AG-UI to connect to the host agent
+2. **Host agent uses MCP/A2A** - The host agent can communicate with subagents using MCP or A2A
+3. **UI properties propagate** - Generative UI and other properties flow back to your frontend automatically
+
+## Learn More
+
+- [AG-UI Protocol](/ag-ui-protocol)
+- [MCP Integration](/connect-mcp-servers)
+- [A2A Protocol](/a2a-protocol)
+- [Agentic Protocols](/agent-interaction-protocols)
+
