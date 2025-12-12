@@ -11,9 +11,10 @@ type Node = DocsLayoutProps["tree"]["children"][number] & { url: string }
 
 interface FolderProps {
   node: Node & { index?: { url: string } }
+  onNavigate?: () => void
 }
 
-const Folder = ({ node }: FolderProps) => {
+const Folder = ({ node, onNavigate }: FolderProps) => {
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
   const isActive = node?.index?.url === pathname
@@ -40,7 +41,7 @@ const Folder = ({ node }: FolderProps) => {
     <div className="w-full">
       <li
         className={cn(
-          "w-full shrink-0 opacity-60 transition-opacity duration-300 hover:opacity-100 rounded-lg",
+          "w-full shrink-0 opacity-60 transition-all duration-300 hover:opacity-100 hover:bg-white dark:hover:bg-white/10 rounded-lg",
           isActive && "opacity-100 bg-white dark:bg-white/10"
         )}
       >
@@ -57,7 +58,7 @@ const Folder = ({ node }: FolderProps) => {
           <div className="absolute top-1/2 -translate-y-1/2 -left-2 w-px h-[calc(100%-8px)] bg-foreground/10" />
 
           {(node as { children: Node[] }).children.map((page) => (
-            <Page key={crypto.randomUUID()} node={page} />
+            <Page key={crypto.randomUUID()} node={page} onNavigate={onNavigate} />
           ))}
         </ul>
       )}

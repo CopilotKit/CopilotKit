@@ -8,7 +8,11 @@ import {
 } from "@/components/layout/navbar"
 import ChevronDownIcon from "@/components/ui/icons/chevron"
 
-const Dropdown = () => {
+interface DropdownProps {
+  onSelect?: () => void
+}
+
+const Dropdown = ({ onSelect }: DropdownProps) => {
   const [isOpen, setIsOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<NavbarLink | null>(
     DROPDOWN_ITEMS[0]
@@ -99,7 +103,10 @@ const Dropdown = () => {
             {DROPDOWN_ITEMS.map((item) => (
               <div
                 key={item.href}
-                onClick={() => setIsOpen(false)}
+                onClick={() => {
+                  setIsOpen(false)
+                  onSelect?.()
+                }}
                 className="flex justify-start items-center pl-2 h-12 rounded-xl"
               >
                 <Link

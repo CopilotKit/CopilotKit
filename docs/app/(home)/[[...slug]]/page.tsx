@@ -119,12 +119,12 @@ export default async function Page({
       }}
     >
       <div>
-        <div className="overflow-y-scroll px-8 py-6 rounded-2xl xl:py-12 xl:px-16 custom-scrollbar">
+        <div className="overflow-y-scroll px-8 py-6 rounded-2xl xl:py-12 xl:px-16 custom-scrollbar max-sm:px-4 max-sm:py-6">
           <div className={hideHeader ? "" : "min-h-screen"}>
             {!hideHeader && (
-              <>
+              <div className="gap-5 flex flex-col">
                 <div className="flex gap-3 items-center">
-                  <DocsTitle className="flex items-center mb-2">
+                  <DocsTitle className="flex items-center text-[32px] font-medium text-[#010507] dark:text-white md:text-[40px] leading-12">
                     {page.data.title}
                     {cloudOnly && (
                       <Badge
@@ -154,8 +154,10 @@ export default async function Page({
                     )}
                   </DocsTitle>
                 </div>
-                <DocsDescription>{page.data.description}</DocsDescription>
-              </>
+                <DocsDescription className="text-[#010507] text-lg font-normal dark:text-white mb-14 max-sm:mb-10 max-lg:mb-12">
+                  {page.data.description}
+                </DocsDescription>
+              </div>
             )}
             <DocsBody>
               <MDX components={mdxComponents} />
