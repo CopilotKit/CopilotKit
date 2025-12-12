@@ -41,9 +41,9 @@ is a situation where a user and an agent are working together to solve a problem
 
     For the sake of this guide, let's say our state looks like this in our agent.
 
-    <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+    <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
         <Tab value="Python">
-          ```python title="agent-py/sample_agent/agent.py"
+          ```python title="agent.py"
           from copilotkit import CopilotKitState # extends MessagesState
 
           # This is the state of the agent, we inherit from CopilotKitState to bind in
@@ -72,9 +72,9 @@ is a situation where a user and an agent are working together to solve a problem
     ### Simulate state updates
     Next, let's write some logic into our agent that will simulate state updates occurring.
 
-    <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+    <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
       <Tab value="Python">
-        ```python title="agent-py/sample_agent/agent.py"
+        ```python title="agent.py"
         import asyncio
         from typing import TypedDict
         from langchain_core.runnables import RunnableConfig

@@ -1,0 +1,201 @@
+---
+title: "useAgent Hook"
+description: "Access and interact with your LangGraph agent directly from React components"
+icon: "lucide/Cpu"
+---
+
+import {
+  MessageCircle,
+  Database,
+  Zap,
+  AlertCircle,
+  BookOpen,
+} from "lucide-react"
+
+## Overview
+
+The `useAgent` hook provides direct access to your LangGraph agent from any React component. It gives you real-time access to the agent's state, messages, execution status, and allows you to subscribe to custom events like interrupts.
+
+This enables you to build custom agent dashboards, monitoring tools, and interactive features that respond to your agent's behavior.
+
+## Navigation
+
+This page covers everything you need to know about using `useAgent` with LangGraph. Select where you'd like to get started below.
+
+<Cards className="gap-6">
+  <Card
+    icon={<MessageCircle className="text-primary" />}
+    className="p-6 rounded-xl text-base md:col-span-2"
+    title="Getting started"
+    description="Learn the basics of accessing your agent and displaying its properties."
+    href="#getting-started"
+  />
+  <Card
+    icon={<Database className="text-primary" />}
+    className="p-6 rounded-xl text-base"
+    title="Working with State"
+    description="Access and update shared state between your app and agent."
+    href="#working-with-state"
+  />
+  <Card
+    icon={<Zap className="text-primary" />}
+    className="p-6 rounded-xl text-base"
+    title="Agent Events"
+    description="Subscribe to agent lifecycle events and custom events."
+    href="#subscribing-to-agent-events"
+  />
+  <Card
+    icon={<AlertCircle className="text-primary" />}
+    className="p-6 rounded-xl text-base"
+    title="LangGraph Interrupts"
+    description="Handle interrupt() calls from your LangGraph agent."
+    href="#handling-langgraph-interrupts"
+  />
+  <Card
+    icon={<BookOpen className="text-primary" />}
+    className="p-6 rounded-xl text-base"
+    title="Reference"
+    description="Complete API reference documentation for useAgent."
+    href="/reference/hooks/useAgent"
+  />
+</Cards>
+
+## Getting started
+
+Let's start by building a simple component that displays agent information.
+
+import UseAgentSnippet from "@/snippets/use-agent.mdx";
+
+<UseAgentSnippet components={props.components} />
+
+### Node-Specific State
+
+If your LangGraph agent tracks which node it's in, you can show contextual UI:
+
+```tsx title="page.tsx"
+export function NodeStatus() {
+  const { agent } = useAgent();
+
+  // [!code highlight:1]
+  const currentNode = agent.state.currentNode;
+
+  return (
+    <div>
+      {/* [!code highlight:6] */}
+      {currentNode === "research_node" && (
+        <div className="alert">Agent is researching your query...</div>
+      )}
+      {currentNode === "summarize_node" && (
+        <div className="alert">Agent is summarizing findings...</div>
+      )}
+    </div>
+  );
+}
+```
+
+## Handling LangGraph Interrupts
+
+LangGraph's `interrupt()` function emits custom events that you can capture and respond to.
+
+### Simple Interrupt Handler
+
+```tsx title="page.tsx"
+import { useEffect } from "react";
+import { useAgent } from "@copilotkit/react-core/v2";
+import type { AgentSubscriber } from "@ag-ui/client";
+
+export function InterruptHandler() {
+  const { agent } = useAgent();
+
+  useEffect(() => {
+    const subscriber: AgentSubscriber = {
+      // [!code highlight:12]
+      onCustomEvent: ({ event }) => {
+        if (event.name === "on_interrupt") {
+          // LangGraph interrupt() was called
+          const response = prompt(event.value);
+
+          if (response) {
+            // Resume the agent with the user's response
+            agent.runAgent({
+              forwardedProps: {
+                command: { resume: response },
+              },
+            });
+          }
+        }
+      },
+    };
+
+    const { unsubscribe } = agent.subscribe(subscriber);
+    return () => unsubscribe();
+  }, []);
+
+  return null;
+}
+```
+
+### Custom Interrupt UI
+
+For a more sophisticated UI, you can render a custom component:
+
+```tsx title="page.tsx"
+import { useEffect, useState } from "react";
+import { useAgent } from "@copilotkit/react-core/v2";
+import type { AgentSubscriber } from "@ag-ui/client";
+
+export function CustomInterruptHandler() {
+  const { agent } = useAgent();
+  const [interrupt, setInterrupt] = useState<{ message: string } | null>(null);
+
+  useEffect(() => {
+    const subscriber: AgentSubscriber = {
+      onCustomEvent: ({ event }) => {
+        // [!code highlight:3]
+        if (event.name === "on_interrupt") {
+          setInterrupt({ message: event.value });
+        }
+      },
+    };
+
+    const { unsubscribe } = agent.subscribe(subscriber);
+    return () => unsubscribe();
+  }, []);
+
+  const handleResponse = (response: string) => {
+    // [!code highlight:5]
+    agent.runAgent({
+      forwardedProps: {
+        command: { resume: response },
+      },
+    });
+    setInterrupt(null);
+  };
+
+  if (!interrupt) return null;
+
+  return (
+    <div className="interrupt-modal">
+      <h3>Agent Needs Your Input</h3>
+      <p>{interrupt.message}</p>
+      <form onSubmit={(e) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
+        handleResponse(formData.get("response") as string);
+      }}>
+        <input type="text" name="response" placeholder="Your response" />
+        <button type="submit">Submit</button>
+      </form>
+    </div>
+  );
+}
+```
+
+For a more declarative approach, see [useLangGraphInterrupt](/reference/hooks/useLangGraphInterrupt).
+
+## See Also
+
+- [Shared State](/langgraph/shared-state) - Deep dive into state management
+- [Human-in-the-Loop](/langgraph/human-in-the-loop) - Approval workflows
+- [Agent App Context](/langgraph/agent-app-context) - Pass context to your agent
+- [useAgent API Reference](/reference/hooks/useAgent) - Complete API documentation

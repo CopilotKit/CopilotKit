@@ -26,7 +26,7 @@ You can easily use the realtime agent state not only in the chat UI, but also in
 
 ## When should I use this?
 
-You can use this when you want to provide the user with feedback about your agent's state. As your agent's 
+You can use this when you want to provide the user with feedback about your agent's state. As your agent's
 state updates, you can reflect these updates natively in your application.
 
 ## Implementation
@@ -41,19 +41,19 @@ state updates, you can reflect these updates natively in your application.
     LangGraph is stateful. As you transition between nodes, that state is updated and passed to the next node. For this example,
     let's assume that our agent state looks something like this.
 
-    <Tabs groupId="language" items={["Python", "TypeScript"]}>
+    <Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]} persist>
       <Tab value="Python">
-        ```python title="agent-py/sample_agent/agent.py"
+        ```python title="agent.py"
         from copilotkit import CopilotKitState
         from typing import Literal
 
         class AgentState(CopilotKitState):
-            language: Literal["english", "spanish"] = "spanish"
+            language: Literal["english", "spanish"] = "english"
 
         def chat_node(state: AgentState, config: RunnableConfig):
           # If language is not defined, set a value.
           # this is because a default value in a state class is not read on runtime
-          language = state.get("language", "spanish")
+          language = state.get("language", "english")
 
           # ... add the rest of the node implementation and use the language variable
 
@@ -77,7 +77,7 @@ state updates, you can reflect these updates natively in your application.
 
         async function chat_node(state: AgentState, config: RunnableConfig) {
           // If language is not defined, use a default value.
-          const language = state.language ?? 'spanish'
+          const language = state.language ?? 'english'
 
           // ... add the rest of the node implementation and use the language variable
 
@@ -108,7 +108,7 @@ state updates, you can reflect these updates natively in your application.
       // [!code highlight:4]
       const { state } = useCoAgent<AgentState>({
         name: "sample_agent",
-        initialState: { language: "spanish" }  // optionally provide an initial state
+        initialState: { language: "english" }  // optionally provide an initial state
       });
 
       // ...
@@ -117,7 +117,8 @@ state updates, you can reflect these updates natively in your application.
         // style excluded for brevity
         <div>
           <h1>Your main content</h1>
-          <p>Language: {state.language}</p> // [!code highlight]
+          {/* [!code highlight:1] */}
+          <p>Language: {state.language}</p>
         </div>
       );
     }
@@ -129,7 +130,7 @@ state updates, you can reflect these updates natively in your application.
   <Step>
     ### Give it a try!
     As the agent state updates, your `state` variable will automatically update with it! In this case, you'll see the
-    language set to "spanish" as that's the initial state we set.
+    language set to "english" as that's the initial state we set.
 
     <Frame>
       <ImageZoom src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/read-agent-state.png" alt="read agent state" width={1000} height={1000} className="my-0"/>
@@ -144,7 +145,7 @@ state updates, you can reflect these updates natively in your application.
 
 ## Rendering agent state in the chat
 
-You can also render the agent's state in the chat UI. This is useful for informing the user about the agent's state in a 
+You can also render the agent's state in the chat UI. This is useful for informing the user about the agent's state in a
 more in-context way. To do this, you can use the [useCoAgentStateRender](/reference/hooks/useCoAgentStateRender) hook.
 
 ```tsx title="ui/app/page.tsx"

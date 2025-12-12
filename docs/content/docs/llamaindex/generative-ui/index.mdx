@@ -3,8 +3,7 @@ title: Generative UI
 icon: "lucide/Paintbrush"
 description: Render your agent's behavior with custom UI components.
 ---
-
-import { CTACards } from "@/components/react/cta-cards";
+import { ServerIcon, SquareMousePointerIcon, BotIcon } from "lucide-react";
 
 <Frame>
   <img
@@ -31,16 +30,26 @@ agents and user interfaces. As your agent processes information and makes decisi
 
 ## How can I use this?
 
-With the CopilotKit &lt;&gt; LlamaIndex integration, you can use tool calls to render your agent's behavior with custom UI components.
+To get started, you first need to decide what is going to be backing your generative UI. There are three main variants of Generative UI with CopilotKit for LlamaIndex.
 
-<CTACards
-  columns={2}
-  cards={[
-    {
-      iconKey: "wrenchicon",
-      title: "Tool-based",
-      description: "Render your agent's tool calls with custom UI components.",
-      href: "/llamaindex/generative-ui/tool-based",
-    },
-  ]}
-/> 
+<Cards>
+  <Card
+    icon={<ServerIcon className="text-primary" />}
+    title="Backend Tools"
+    description="Render your agent's tool calls with custom UI components"
+    href="/llamaindex/generative-ui/backend-tools"
+  />
+  <Card
+    icon={<SquareMousePointerIcon className="text-primary"/>}
+    title="Frontend Tools"
+    description="Provide your agent with client-side tools to show custom components and drive the UI."
+    href="/llamaindex/generative-ui/frontend-tools"
+  />
+  <Card
+    className="col-span-2"
+    icon={<BotIcon className="text-primary"/>}
+    title="Agent State"
+    description="Render your agent's state, progress, and outputs with custom UI components."
+    href="/llamaindex/generative-ui/agentic"
+  />
+</Cards>

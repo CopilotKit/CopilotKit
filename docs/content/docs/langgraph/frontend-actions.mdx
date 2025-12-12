@@ -75,11 +75,10 @@ Use frontend tools when you need your agent to interact with client-side primiti
         ```
     </Step>
     <Step>
-        ###  Modify your agent
-        Now, we'll need to modify the agent to access these frontend actions. Open up your agent's folder and continue from there!
-    </Step>
-    <Step>
         ### Install the CopilotKit SDK
+        
+        Now, we'll need to modify the agent to access these frontend tools. In your terminal, navigate to your agent's folder and continue from there!
+
         <InstallSDKSnippet components={props.components}/>
     </Step>
     <Step>
@@ -87,9 +86,9 @@ Use frontend tools when you need your agent to interact with client-side primiti
 
         To access the frontend tools provided by CopilotKit, you can inherit from CopilotKitState in your agent's state definition:
 
-        <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+        <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
             <Tab value="Python">
-                ```python title="agent-py/sample_agent/agent.py"
+                ```python title="agent.py"
                 from copilotkit import CopilotKitState # [!code highlight]
 
                 class YourAgentState(CopilotKitState): # [!code highlight]
@@ -119,9 +118,9 @@ Use frontend tools when you need your agent to interact with client-side primiti
 
         Here's how you can call a frontend tool from your agent:
 
-        <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+        <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
             <Tab value="Python">
-                ```python title="agent-py/sample_agent/agent.py"
+                ```python title="agent.py"
                 async def agent_node(state: YourAgentState, config: RunnableConfig):
                     # Access the tools from the copilotkit property
 

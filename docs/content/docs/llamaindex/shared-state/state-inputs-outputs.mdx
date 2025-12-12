@@ -1,0 +1,255 @@
+---
+title: Agent state inputs and outputs
+icon: "lucide/ArrowRightLeft"
+description: Decide which state properties are received and returned to the frontend.
+---
+
+## What is this?
+
+Not all state properties are relevant for frontend-backend sharing.
+This guide shows how to ensure only the right portion of state is communicated back and forth.
+
+## When should I use this?
+
+Depending on your implementation, some properties are meant to be processed internally, while some others are the way for the UI to communicate user input.
+In addition, some state properties contain a lot of information. Syncing them back and forth between the agent and UI can be costly, while it might not have any practical benefit.
+
+## Implementation
+
+<Steps>
+  <Step>
+    ### Examine your state structure
+    LlamaIndex agents using the AG-UI workflow router are stateful. As you execute tools and process messages, that state is updated and available throughout the session. For this example,
+    let's assume that the state our agent should be using can be described like this:
+
+    ```python title="agent.py"
+    # Full state structure for the agent
+    initial_state = {
+        "question": "",         # Input from user
+        "answer": "",           # Output to user
+        "resources": []         # Internal use only
+    }
+    ```
+  </Step>
+  <Step>
+    ### Organize state by purpose
+    Our example case lists several state properties, each with its own purpose:
+      - The **question** is being asked by the user, expecting the LLM to answer
+      - The **answer** is what the LLM returns
+      - The **resources** list will be used by the LLM to answer the question, and should not be communicated to the user, or set by them
+
+    Here's a complete example showing how to structure your agent with these considerations:
+
+    ```python title="agent.py"
+    from typing import Annotated, List
+    from fastapi import FastAPI
+    from llama_index.llms.openai import OpenAI
+    from llama_index.core.workflow import Context
+    from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
+    from llama_index.protocols.ag_ui.events import StateSnapshotWorkflowEvent
+
+    async def answerQuestion(
+        ctx: Context,
+        answer: Annotated[str, "The answer to store in state."]
+    ) -> str:
+        """Stores the answer to the user's question in shared state.
+
+        Args:
+            ctx: The workflow context for state management.
+            answer: The answer to store in state.
+
+        Returns:
+            str: A message indicating the answer was stored.
+        """
+        async with ctx.store.edit_state() as global_state:
+            state = global_state.get("state", {})
+            if state is None:
+                state = {}
+            
+            state["answer"] = answer
+            
+            # Emit state update to frontend
+            ctx.write_event_to_stream(
+                StateSnapshotWorkflowEvent(snapshot=state)
+            )
+            
+            global_state["state"] = state
+        
+        return f"Answer stored: {answer}"
+
+    async def addResource(
+        ctx: Context,
+        resource: Annotated[str, "The resource URL or reference to add."]
+    ) -> str:
+        """Adds a resource to the internal resources list in shared state.
+
+        Args:
+            ctx: The workflow context for state management.
+            resource: The resource URL or reference to add.
+
+        Returns:
+            str: A message indicating the resource was added.
+        """
+        async with ctx.store.edit_state() as global_state:
+            state = global_state.get("state", {})
+            if state is None:
+                state = {}
+            
+            resources = state.get("resources", [])
+            resources.append(resource)
+            state["resources"] = resources
+            
+            global_state["state"] = state
+        
+        return f"Resource added: {resource}"
+
+    # Initialize the LLM
+    llm = OpenAI(model="gpt-4o")
+
+    # Create the AG-UI workflow router
+    agentic_chat_router = get_ag_ui_workflow_router(
+        llm=llm,
+        system_prompt="""
+        You are a helpful assistant. When the user asks a question:
+        1. Think through your answer
+        2. Optionally use addResource to track any sources you reference
+        3. Use answerQuestion to provide your final answer - this stores it in state for the user to see
+        
+        Always use the answerQuestion tool to provide your response so it appears in the UI.
+        """,
+        backend_tools=[answerQuestion, addResource],
+        initial_state={
+            "question": "",       # Input: received from frontend
+            "answer": "",         # Output: sent to frontend
+            "resources": []       # Internal: tracking resources
+        },
+    )
+
+    # Create FastAPI app
+    app = FastAPI(
+        title="LlamaIndex Agent",
+        description="A LlamaIndex agent integrated with CopilotKit",
+        version="1.0.0"
+    )
+
+    # Include the router
+    app.include_router(agentic_chat_router)
+
+    # Health check endpoint
+    @app.get("/health")
+    async def health_check():
+        return {"status": "healthy", "agent": "llamaindex"}
+
+    if __name__ == "__main__":
+        import uvicorn
+        uvicorn.run(app, host="localhost", port=8000)
+    ```
+  </Step>
+  <Step>
+    ### Use the state in your frontend
+    Now that we know which state properties our agent uses, we can work with them in the UI:
+    - **question**: Set by the UI to ask the agent something
+    - **answer**: Read from the agent's response
+    - **resources**: Not accessible to the UI (internal agent use only)
+
+    ```tsx title="ui/app/page.tsx"
+    "use client";
+
+    import { useState } from "react";
+    import { useCoAgent } from "@copilotkit/react-core";
+
+    // Define the agent state type, should match the actual state of your agent
+    type AgentState = {
+      question: string;
+      answer: string;
+    }
+
+    /* Example usage in a pseudo React component */
+    function YourMainContent() { // [!code highlight]
+      const [inputQuestion, setInputQuestion] = useState("What's the capital of France?");
+      const [isLoading, setIsLoading] = useState(false);
+      
+      const { state, setState, run } = useCoAgent<AgentState>({
+        name: "my_agent",
+        initialState: {
+          question: "",
+          answer: "",
+        }
+      });
+
+      const askQuestion = async (newQuestion: string) => {
+        setIsLoading(true);
+        
+        // Update the state with the new question
+        setState({ ...state, question: newQuestion, answer: "" });
+        
+        try {
+          // Trigger the agent to run with a hint message that includes the question
+          await run(() => ({
+            id: crypto.randomUUID(),
+            role: "user" as const,
+            content: newQuestion,
+          }));
+        } catch (error) {
+          console.error("Error running agent:", error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      return (
+        <div style={{ padding: "2rem", fontFamily: "system-ui, sans-serif" }}>
+          <h1>Q&A Assistant</h1>
+          
+          <div style={{ marginBottom: "1rem" }}>
+            <input
+              type="text"
+              value={inputQuestion}
+              onChange={(e) => setInputQuestion(e.target.value)}
+              placeholder="Enter your question..."
+              style={{ 
+                padding: "0.5rem", 
+                width: "300px", 
+                marginRight: "0.5rem",
+                borderRadius: "4px",
+                border: "1px solid #ccc"
+              }}
+            />
+            <button 
+              onClick={() => askQuestion(inputQuestion)}
+              disabled={isLoading || !inputQuestion.trim()}
+              style={{
+                padding: "0.5rem 1rem",
+                borderRadius: "4px",
+                border: "none",
+                backgroundColor: isLoading ? "#ccc" : "#0070f3",
+                color: "white",
+                cursor: isLoading ? "not-allowed" : "pointer"
+              }}
+            >
+              {isLoading ? "Thinking..." : "Ask Question"}
+            </button>
+          </div>
+
+          <div style={{ marginTop: "1.5rem" }}>
+            <p><strong>Question:</strong> {state.question || "(none yet)"}</p>
+            <p><strong>Answer:</strong> {state.answer || (isLoading ? "Thinking..." : "Waiting for question...")}</p>
+          </div>
+        </div>
+      );
+    }
+    ```
+
+    <Callout type="warn" title="Important">
+      The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+    </Callout>
+  </Step>
+  <Step>
+    ### Give it a try!
+    Now that we've organized state by purpose:
+    - The UI can set `question` and read `answer`
+    - The agent uses `resources` internally without exposing it to the frontend
+    - State updates flow efficiently between frontend and backend
+  </Step>
+</Steps>
+
