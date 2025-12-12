@@ -95,7 +95,7 @@ const Navbar = ({ pageTree }: NavbarProps) => {
             <Logo className="pl-6" />
             <ul className="hidden gap-6 items-center h-full xl:flex">
               {LEFT_LINKS.map((link) => (
-                <li key={link.href} className="relative h-full">
+                <li key={link.href} className="group relative h-full">
                   <Link
                     href={link.href}
                     target={link.target}
@@ -111,9 +111,13 @@ const Navbar = ({ pageTree }: NavbarProps) => {
                       {link.showExternalLinkIcon && <ExternalLinkIcon />}
                     </span>
                   </Link>
-                  {activeRoute === link.href && (
-                    <div className="absolute bottom-0 left-0 w-full h-[3px] bg-[#7076D5]" />
-                  )}
+                  <div
+                    className={`absolute bottom-0 left-0 w-full h-[3px] bg-[#7076D5] transition-opacity duration-300 ${
+                      activeRoute === link.href
+                        ? "opacity-100"
+                        : "opacity-0 group-hover:opacity-100"
+                    }`}
+                  />
                 </li>
               ))}
             </ul>

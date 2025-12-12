@@ -36,7 +36,7 @@ const LEFT_LINKS: NavbarLink[] = [
 
 const NODE_COMPONENTS: Record<
   Node["type"],
-  React.ComponentType<{ node: Node }>
+  React.ComponentType<{ node: Node; onNavigate?: () => void }>
 > = {
   separator: Separator,
   page: Page,
@@ -93,12 +93,18 @@ const MobileSidebar = ({
           </button>
         </div>
 
-        <Dropdown />
+        <Dropdown onSelect={() => setIsOpen(false)} />
 
         <ul className="flex overflow-y-auto flex-col mt-6 max-h-full custom-scrollbar [&>*:first-child]:mt-0">
           {pages.map((page) => {
             const Component = NODE_COMPONENTS[page.type]
-            return <Component key={crypto.randomUUID()} node={page as Node} />
+            return (
+              <Component
+                key={crypto.randomUUID()}
+                node={page as Node}
+                onNavigate={() => setIsOpen(false)}
+              />
+            )
           })}
         </ul>
       </aside>
