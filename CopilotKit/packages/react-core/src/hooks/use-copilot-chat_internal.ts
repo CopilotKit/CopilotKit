@@ -236,10 +236,19 @@ export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotC
     langGraphInterruptAction,
     setLangGraphInterruptAction,
     chatSuggestionConfiguration,
+    initialMessagesRef,
 
     runtimeClient,
   } = useCopilotContext();
   const { messages, setMessages, suggestions, setSuggestions } = useCopilotMessagesContext();
+
+  // Store initialMessages in context ref (persists across remounts)
+  useEffect(() => {
+    if (options.initialMessages && options.initialMessages.length > 0 && !initialMessagesRef.current) {
+      const converted = aguiToGQL(options.initialMessages);
+      initialMessagesRef.current = converted;
+    }
+  }, []); // Empty dependency array - only run once on mount
 
   // Simple state for MCP servers (keep for interface compatibility)
   const [mcpServers, setLocalMcpServers] = useState<MCPServerConfig[]>([]);
@@ -372,7 +381,7 @@ export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotC
     ...options,
     actions: Object.values(actions),
     copilotConfig: copilotApiConfig,
-    initialMessages: aguiToGQL(options.initialMessages || []),
+    initialMessages: initialMessagesRef.current || [],
     onFunctionCall: getFunctionCallHandler(),
     onCoAgentStateRender,
     messages,

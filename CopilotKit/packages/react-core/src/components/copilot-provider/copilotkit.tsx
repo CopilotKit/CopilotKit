@@ -421,6 +421,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   const [runId, setRunId] = useState<string | null>(null);
 
   const chatAbortControllerRef = useRef<AbortController | null>(null);
+  const initialMessagesRef = useRef<any[] | undefined>(undefined);
 
   const showDevConsole = shouldShowDevConsole(props.showDevConsole);
 
@@ -537,6 +538,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         runId,
         setRunId,
         chatAbortControllerRef,
+        initialMessagesRef,
         availableAgents,
         authConfig_c: props.authConfig_c,
         authStates_c: authStates,
