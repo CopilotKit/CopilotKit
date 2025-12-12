@@ -5,6 +5,8 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --font-spline: var(--font-spline-sans-mono);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -199,7 +201,7 @@
 
 figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-auto.max-h-\[600px\].fd-scroll-container {
   background-color: var(--background) !important;
-} 
+}
 
 /* Override fumadocs Banner sticky positioning to relative */
 #agui-banner {
@@ -256,4 +258,18 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
 
 #nd-tocnav {
   display: none !important;
+}
+
+h2, h3, p {
+  color: #010507 !important;
+}
+
+.dark h2, .dark h3, .dark p {
+  color: #ffffff !important;
+}
+
+.accordion-icon-right button {
+  flex-direction: row-reverse !important;
+  justify-content: space-between;
+  cursor: pointer !important;
 }
