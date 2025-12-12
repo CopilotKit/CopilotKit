@@ -1,6 +1,6 @@
 import { CreateCopilotRuntimeServerOptions, getCommonConfig } from "../shared";
 import telemetry, { getRuntimeInstanceTelemetryInfo } from "../../telemetry-client";
-import { createCopilotEndpointSingleRoute } from "@copilotkitnext/runtime";
+import { createCopilotEndpoint } from "@copilotkitnext/runtime";
 import { IncomingMessage, ServerResponse } from "http";
 import { Readable } from "node:stream";
 
@@ -119,9 +119,9 @@ export function copilotRuntimeNodeHttpEndpoint(options: CreateCopilotRuntimeServ
     options.runtime.handleServiceAdapter(serviceAdapter);
   }
 
-  const honoApp = createCopilotEndpointSingleRoute({
+  const honoApp = createCopilotEndpoint({
     runtime: options.runtime.instance,
-    basePath: options.baseUrl ?? options.endpoint,
+    basePath: options.endpoint,
   });
 
   return async function handler(req: IncomingWithBody, res: ServerResponse) {

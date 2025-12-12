@@ -11,6 +11,10 @@ import telemetry from "../telemetry-client";
 import { StateResolver } from "../../graphql/resolvers/state.resolver";
 import * as packageJson from "../../../package.json";
 import { CopilotKitError, CopilotKitErrorCode } from "@copilotkit/shared";
+import * as semver from "semver";
+
+// Version threshold for REST API (>= 1.50.0 uses REST, < 1.50.0 uses GraphQL)
+const REST_API_VERSION_THRESHOLD = "1.50.0";
 
 const logger = createLogger();
 
@@ -41,6 +45,7 @@ export interface CreateCopilotRuntimeServerOptions {
   cloud?: CopilotCloudOptions;
   properties?: CopilotRequestContextProperties;
   logLevel?: LogLevel;
+  runtimeVersion?: string;
 }
 
 export async function createContext(
@@ -75,7 +80,7 @@ export function buildSchema(
   return schema;
 }
 
-export type CommonConfig = {
+export type GraphQLConfig = {
   logging: typeof logger;
   schema: ReturnType<typeof buildSchema>;
   plugins: Parameters<typeof createYoga>[0]["plugins"];
@@ -85,12 +90,70 @@ export type CommonConfig = {
   };
 };
 
-export function getCommonConfig(options: CreateCopilotRuntimeServerOptions): CommonConfig {
-  const logLevel = (process.env.LOG_LEVEL as LogLevel) || (options.logLevel as LogLevel) || "error";
-  const logger = createLogger({ level: logLevel, component: "getCommonConfig" });
+export type RESTAPIConfig = {
+  logging: typeof logger;
+  maskedErrors: {
+    maskError: (error: any, message: string, isDev?: boolean) => any;
+  };
+};
 
-  const contextLogger = createLogger({ level: logLevel });
+export type CommonConfig = GraphQLConfig | RESTAPIConfig;
 
+/**
+ * Checks if the runtime version should use REST API (>= 1.50.0) or GraphQL (< 1.50.0)
+ */
+export function isRESTAPIVersion(version?: string): boolean {
+  if (!version) return false;
+  const cleanVersion = semver.valid(semver.coerce(version));
+  if (!cleanVersion) return false;
+  return semver.gte(cleanVersion, REST_API_VERSION_THRESHOLD);
+}
+
+/**
+ * Creates common error handling configuration
+ */
+function createMaskedErrorsConfig() {
+  // User error codes that should not be logged as server errors
+  const userErrorCodes = [
+    CopilotKitErrorCode.AGENT_NOT_FOUND,
+    CopilotKitErrorCode.API_NOT_FOUND,
+    CopilotKitErrorCode.REMOTE_ENDPOINT_NOT_FOUND,
+    CopilotKitErrorCode.CONFIGURATION_ERROR,
+    CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR,
+  ];
+
+  return {
+    maskError: (error: any, message: string, isDev?: boolean) => {
+      // Check if this is a user configuration error (could be wrapped in GraphQLError)
+      const originalError = error.originalError || error;
+      const extensions = error.extensions;
+      const errorCode = extensions?.code;
+
+      // Suppress logging for user errors based on error code
+      if (errorCode && userErrorCodes.includes(errorCode)) {
+        // Log user configuration errors at debug level instead
+        console.debug("User configuration error:", error.message);
+        return error;
+      }
+
+      // Check if the original error is a user error
+      if (originalError instanceof CopilotKitError && userErrorCodes.includes(originalError.code)) {
+        // Log user configuration errors at debug level instead
+        console.debug("User configuration error:", error.message);
+        return error;
+      }
+
+      // For application errors, log normally and mask if needed
+      console.error("Application error:", error);
+      return error;
+    },
+  };
+}
+
+/**
+ * Sets up common telemetry configuration
+ */
+function setupTelemetry(options: CreateCopilotRuntimeServerOptions) {
   if (options.cloud) {
     telemetry.setCloudConfiguration({
       publicApiKey: options.cloud.publicApiKey,
@@ -106,20 +169,37 @@ export function getCommonConfig(options: CreateCopilotRuntimeServerOptions): Com
     });
   }
 
-  telemetry.setGlobalProperties({
-    runtime: {
-      serviceAdapter: options.serviceAdapter.constructor.name,
-    },
-  });
+  if (options.serviceAdapter) {
+    telemetry.setGlobalProperties({
+      runtime: {
+        serviceAdapter: options.serviceAdapter.constructor.name,
+      },
+    });
+  }
+}
 
-  // User error codes that should not be logged as server errors
-  const userErrorCodes = [
-    CopilotKitErrorCode.AGENT_NOT_FOUND,
-    CopilotKitErrorCode.API_NOT_FOUND,
-    CopilotKitErrorCode.REMOTE_ENDPOINT_NOT_FOUND,
-    CopilotKitErrorCode.CONFIGURATION_ERROR,
-    CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR,
-  ];
+/**
+ * Returns REST API configuration for runtime versions >= 1.50.0
+ */
+export function getRESTAPIConfig(options: CreateCopilotRuntimeServerOptions): RESTAPIConfig {
+  const logLevel = (process.env.LOG_LEVEL as LogLevel) || (options.logLevel as LogLevel) || "error";
+
+  setupTelemetry(options);
+
+  return {
+    logging: createLogger({ component: "CopilotKit REST", level: logLevel }),
+    maskedErrors: createMaskedErrorsConfig(),
+  };
+}
+
+/**
+ * Returns GraphQL configuration for runtime versions < 1.50.0
+ */
+export function getGraphQLConfig(options: CreateCopilotRuntimeServerOptions): GraphQLConfig {
+  const logLevel = (process.env.LOG_LEVEL as LogLevel) || (options.logLevel as LogLevel) || "error";
+  const contextLogger = createLogger({ level: logLevel });
+
+  setupTelemetry(options);
 
   return {
     logging: createLogger({ component: "Yoga GraphQL", level: logLevel }),
@@ -127,35 +207,18 @@ export function getCommonConfig(options: CreateCopilotRuntimeServerOptions): Com
     plugins: [useDeferStream(), addCustomHeaderPlugin],
     context: (ctx: YogaInitialContext): Promise<Partial<GraphQLContext>> =>
       createContext(ctx, options, contextLogger, options.properties),
-    // Suppress logging for user configuration errors
-    maskedErrors: {
-      maskError: (error: any, message: string, isDev?: boolean) => {
-        // Check if this is a user configuration error (could be wrapped in GraphQLError)
-        const originalError = error.originalError || error;
-        const extensions = error.extensions;
-        const errorCode = extensions?.code;
-
-        // Suppress logging for user errors based on error code
-        if (errorCode && userErrorCodes.includes(errorCode)) {
-          // Log user configuration errors at debug level instead
-          console.debug("User configuration error:", error.message);
-          return error;
-        }
-
-        // Check if the original error is a user error
-        if (
-          originalError instanceof CopilotKitError &&
-          userErrorCodes.includes(originalError.code)
-        ) {
-          // Log user configuration errors at debug level instead
-          console.debug("User configuration error:", error.message);
-          return error;
-        }
-
-        // For application errors, log normally and mask if needed
-        console.error("Application error:", error);
-        return error;
-      },
-    },
+    maskedErrors: createMaskedErrorsConfig(),
   };
+}
+
+/**
+ * Returns appropriate configuration based on runtime version.
+ * - For versions >= 1.50.0: Returns REST API config
+ * - For versions < 1.50.0: Returns GraphQL config
+ */
+export function getCommonConfig(options: CreateCopilotRuntimeServerOptions): CommonConfig {
+  if (isRESTAPIVersion(options.runtimeVersion)) {
+    return getRESTAPIConfig(options);
+  }
+  return getGraphQLConfig(options);
 }

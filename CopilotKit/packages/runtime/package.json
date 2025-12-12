@@ -81,6 +81,7 @@
     "pino-pretty": "^11.2.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "7.8.1",
+    "semver": "^7.7.3",
     "type-graphql": "2.0.0-rc.1",
     "zod": "^3.23.3"
   },
