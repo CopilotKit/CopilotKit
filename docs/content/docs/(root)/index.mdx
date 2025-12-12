@@ -15,6 +15,23 @@ import CloudIcon from "@/components/ui/icons/cloud";
 import TerminalIcon from "@/components/ui/icons/console";
 import ExternalLinkIcon from "@/components/ui/icons/external-link";
 
+import RefreshIcon from "@/components/ui/icons/refresh";
+import MessageIcon from "@/components/ui/icons/message";
+import PencilIcon from "@/components/ui/icons/pencil";
+import MessageCircleIcon from "@/components/ui/icons/message-circle";
+import MessageCodeIcon from "@/components/ui/icons/message-code";
+import PuzzleIcon from "@/components/ui/icons/puzzle";
+import UserIcon from "@/components/ui/icons/user";
+import SpannerIcon from "@/components/ui/icons/spanner";
+import LampIcon from "@/components/ui/icons/lamp";
+import ServerIcon from "@/components/ui/icons/server";
+import SettingsIcon from "@/components/ui/icons/settings";
+import SparkIcon from "@/components/ui/icons/spark";
+import InspectorIcon from "@/components/ui/icons/inspector"; 
+import PulseIcon from "@/components/ui/icons/pulse";
+import StarIcon from "@/components/ui/icons/star";
+
+
 import { AG2Icon } from "@/lib/icons/custom-icons";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
 import { FileSpreadsheet, Banknote, Plane, BookOpen, Telescope, Play } from "lucide-react";
@@ -91,56 +108,88 @@ CopilotKit works with any LLM or agent framework.  Choose an integration to see 
 
 
 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-    <Accordions className="flex flex-col gap-2 bg-transparent! border-none!">
-      <CustomAccordion title="Designed for Agentic Applications">
+    <Accordions type="multiple" className="flex flex-col gap-2 bg-transparent! border-none!">
+      <CustomAccordion title="Designed for Agentic Applications"
+      icon={<MessageIcon className="w-6 h-6" />}
+      >
         Unlike general-purpose frameworks, CopilotKit is designed from the ground up to support agent-driven user experiences.
       </CustomAccordion>
-      <CustomAccordion title="Context Injection">
+      <CustomAccordion title="Context Injection" 
+      icon={<PencilIcon className="w-6 h-6" />}
+      >
         Automatically sync app state, user input, and environmental data to give agents meaningful grounding.
       </CustomAccordion>
-      <CustomAccordion title="AGUI Protocol">
+      <CustomAccordion title="AGUI Protocol"
+      icon={<SettingsIcon className="w-6 h-6" />}
+      >
         Maintain real-time synchronization between agent actions and user interfaces.
       </CustomAccordion>
-      <CustomAccordion title="MCP Support">
+      <CustomAccordion title="MCP Support"
+      icon={<LampIcon className="w-6 h-6" />}
+      >
         Integrate with MCP servers to support secure, multi-agent coordination and external orchestration.
       </CustomAccordion>
-      <CustomAccordion title="UI Integration">
+      <CustomAccordion title="UI Integration"
+      icon={<SparkIcon className="w-6 h-6" />}
+      >
         Drop-in React components for chat UIs, inline assistants, and guided workflows.
       </CustomAccordion>
-      <CustomAccordion title="Headless Mode">
+      <CustomAccordion title="Headless Mode"
+      icon={<ServerIcon className="w-6 h-6" />}
+      >
         Use CopilotKit logic and messaging infrastructure without a proscribed visual interface—full programmatic control.
       </CustomAccordion>
-      <CustomAccordion title="LLM & Agent Framework Agnostic">
+      <CustomAccordion title="LLM & Agent Framework Agnostic"
+      icon={<MessageCircleIcon className="w-6 h-6" />}
+      >
         Unlocks the power of LangGraph, CrewAI, Autogen2, and more. Swap out backends with no UI rewrite.
       </CustomAccordion>
-      <CustomAccordion title="Hosted or Self-Hosted">
+      <CustomAccordion title="Hosted or Self-Hosted"
+      icon={<PuzzleIcon className="w-6 h-6" />}
+      >
         Use the hosted cloud service for simplicity, or run the open source stack in your environment.
       </CustomAccordion>
       </Accordions>
 
-      <Accordions className="flex flex-col gap-2 bg-transparent! border-none!">
-      <CustomAccordion title="Full Flexibility">
+      <Accordions type="multiple" className="flex flex-col gap-2 bg-transparent! border-none!">
+      <CustomAccordion title="Full Flexibility"
+      icon={<MessageCodeIcon className="w-6 h-6" />}
+      >
         Bring your own LLMs, tools, and agents — CopilotKit doesn't lock you into a specific stack.
       </CustomAccordion>
-      <CustomAccordion title="Real-Time Interaction">
+      <CustomAccordion title="Real-Time Interaction"
+      icon={<UserIcon className="w-6 h-6" />}
+      >
         Syncs seamlessly between user inputs, UI state, and AI agent responses.
       </CustomAccordion>
-      <CustomAccordion title="Unified DevX">
+      <CustomAccordion title="Unified DevX"
+      icon={<SpannerIcon className="w-6 h-6" />}
+      >
         Declarative APIs and React-native paradigms that feel familiar and productive.
       </CustomAccordion>
-      <CustomAccordion title="Production-Ready">
+      <CustomAccordion title="Production-Ready"
+      icon={<RefreshIcon className="w-6 h-6" />}
+      >
         Built-in observability, debugging, and extensibility to support real-world deployment and scaling.
       </CustomAccordion>
-      <CustomAccordion title="Cloud or OSS">
+      <CustomAccordion title="Cloud or OSS"
+      icon={<StarIcon className="w-6 h-6" />}
+      >
         Use our hosted cloud service or run it entirely within your own infrastructure.
       </CustomAccordion>
-      <CustomAccordion title="Community & Extensibility">
+      <CustomAccordion title="Community & Extensibility"
+      icon={<InspectorIcon className="w-6 h-6" />}
+      >
         Open source with growing integrations, patterns, and examples.
       </CustomAccordion>
-      <CustomAccordion title="Observability & Debugging">
+      <CustomAccordion title="Observability & Debugging" 
+      icon={<PulseIcon className="w-6 h-6" />}
+      >
         Built-in tools to trace agent decisions, model responses, and message flows.
       </CustomAccordion>
-      <CustomAccordion title="Composable Architecture">
+      <CustomAccordion title="Composable Architecture"
+      icon={<SettingsIcon className="w-6 h-6" />}
+      >
         Mix and match UI, logic, and AI components like building blocks.
       </CustomAccordion>
     </Accordions>
