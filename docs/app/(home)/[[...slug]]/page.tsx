@@ -25,6 +25,7 @@ import { LinkToCopilotCloud } from "@/components/react/link-to-copilot-cloud"
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion"
 import { NavigationLink } from "@/components/react/subdocs-menu"
 import { getSnippetTOCForPage } from "@/lib/snippet-toc"
+import { CustomPager } from "@/components/ui/custom-pager"
 
 /**
  * TODO: This should be dynamic, but it's not working.
@@ -115,6 +116,7 @@ export default async function Page({
     <DocsPage
       toc={combinedTOC}
       full={page.data.full}
+      footer={{ component: <CustomPager tree={source.pageTree} page={page} /> }}
       tableOfContent={{
         style: "clerk",
       }}
