@@ -1,0 +1,78 @@
+---
+title: Agentic Copilots
+description: Agentic copilots provide you with advanced control and orchestration over your agents.
+icon: lucide/Bot
+---
+
+import {
+  TailoredContent,
+  TailoredContentOption,
+} from "@/components/react/tailored-content";
+import { BsFillCloudHaze2Fill as CloudIcon } from "react-icons/bs";
+import { FaServer as SelfHostIcon } from "react-icons/fa6";
+import { SiLangchain } from "react-icons/si";
+import { LinkIcon } from "lucide-react";
+import {
+  RocketIcon,
+  GraduationCapIcon,
+  CodeIcon,
+  VideoIcon,
+} from "lucide-react";
+
+### What are Agents?
+AI agents are intelligent systems that interact with their environment to achieve specific goals. Think of them as 'virtual colleagues' that can handle tasks ranging from
+simple queries like "find the cheapest flight to Paris" to complex challenges like "design a new product layout."
+
+As these AI-driven experiences (or 'Agentic Experiences') become more sophisticated, developers need finer control over how agents make decisions. This is where specialized
+frameworks like AG2 become essential.
+
+### What is AG2?
+AG2 is a framework that gives you precise control over AI agents. AG2 agents allow developers to combine and coordinate coding tasks efficiently,
+providing a robust framework for building sophisticated AI automations.
+
+### What are Agentic Copilots?
+Agentic copilots are how CopilotKit brings AG2 agents into your application. If you're familiar with CopilotKit, you know that copilots are AI assistants that
+understand your app's context and can take actions within it. While CopilotKit's standard copilots use a simplified [ReAct pattern](https://www.perplexity.ai/search/what-s-a-react-agent-5hu7ZOaKSAuY7YdFjQLCNQ)
+for quick implementation, Agentic copilots give you AG2's full orchestration capabilities when you need more control over your agent's behavior.
+
+### What are CoAgents?
+CoAgents are what we call CopilotKit's approach to building agentic experiences! They're interchangeable with agentic copilots being a more descriptive term for the overall concept.
+
+### When should I use CopilotKit's CoAgents?
+You should use CoAgents when you require tight control over the Agentic runloop, as facilitated by an Agentic Orchestration framework like [AG2](https://ag2.ai/).
+With CoAgents, you can carry all of your existing CopilotKit-enabled Copilot capabilities into a customized agentic runloop.
+
+We suggest beginning with a basic Copilot and gradually transitioning specific components to CoAgents.
+
+The need for CoAgents spans a broad spectrum across different applications. At one end, their advanced capabilities might not be required at all, or only for a minimal 10% of the application's
+functionality. Progressing further, there are scenarios where they become increasingly vital, managing 60-70% of operations. Ultimately, in some cases, CoAgents are indispensable, orchestrating
+up to 100% of the Copilot's tasks (see [agent-lock mode](/ag2/multi-agent-flows) for the 100% case).
+
+### Examples
+An excellent example of the type of experiences you can accomplish with CoAgents applications can be found in our [Research Canvas](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-research-canvas).
+
+More specifically, it demonstrates how CoAgents allow for AI driven experiences with:
+- Precise state management across agent interactions
+- Sophisticated multi-step reasoning capabilities
+- Seamless orchestration of multiple AI tools
+- Interactive human-AI collaboration features
+- Real-time state updates and progress streaming
+
+## Next Steps
+
+Want to get started? You have some options!
+
+<Cards>
+    <Card
+        title="Build your first CoAgent"
+        description="Follow a step-by-step tutorial to build a travel app supercharged with CoAgents."
+        href="/ag2/quickstart/ag2"
+        icon={<RocketIcon />}
+    />
+    <Card
+        title="Learn more CoAgent concepts"
+        description="Learn more about the concepts used to talk about CoAgents and how to use them."
+        href="/ag2/concepts/terminology"
+        icon={<GraduationCapIcon />}
+    />
+</Cards>
