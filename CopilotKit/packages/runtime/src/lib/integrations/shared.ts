@@ -35,7 +35,7 @@ export type GraphQLContext = YogaInitialContext & {
 
 export interface CreateCopilotRuntimeServerOptions {
   runtime: CopilotRuntime<any>;
-  serviceAdapter: CopilotServiceAdapter;
+  serviceAdapter?: CopilotServiceAdapter;
   endpoint: string;
   baseUrl?: string;
   cloud?: CopilotCloudOptions;

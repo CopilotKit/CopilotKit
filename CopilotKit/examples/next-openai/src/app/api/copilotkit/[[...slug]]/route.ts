@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { CopilotRuntime, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
-import { getServiceAdapter } from "../../../lib/dynamic-service-adapter";
+import { getServiceAdapter } from "../../../../lib/dynamic-service-adapter";
 
 const UNSPLASH_ACCESS_KEY_ENV = "UNSPLASH_ACCESS_KEY";
 const UNSPLASH_ACCESS_KEY = process.env[UNSPLASH_ACCESS_KEY_ENV];
@@ -14,6 +14,7 @@ const runtime = new CopilotRuntime({
         {
           name: "topic",
           description: "The topic of the image",
+          type: "string",
         },
       ],
       handler: async ({ topic }) => {

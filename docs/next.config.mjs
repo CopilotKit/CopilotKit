@@ -13,13 +13,23 @@ const config = {
   },
 
   images: {
-    domains: [
-      "github-production-user-asset-6210df.s3.amazonaws.com",
-      "fonts.gstatic.com",
-      "docs.copilotkit.ai",
-      "cdn.copilotkit.ai",
-    ],
     remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "github-production-user-asset-6210df.s3.amazonaws.com",
+      },
+      {
+        protocol: "https",
+        hostname: "fonts.gstatic.com",
+      },
+      {
+        protocol: "https",
+        hostname: "docs.copilotkit.ai",
+      },
+      {
+        protocol: "https",
+        hostname: "cdn.copilotkit.ai",
+      },
       {
         protocol: "https",
         hostname: "**",
@@ -28,7 +38,7 @@ const config = {
   },
 
   skipTrailingSlashRedirect: true,
-  skipMiddlewareUrlNormalize: true,
+  skipProxyUrlNormalize: true,
 
   turbopack: true,
 
