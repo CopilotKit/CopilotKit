@@ -1,5 +1,6 @@
 language: "en-US"
 early_access: false
+
 reviews:
   profile: "chill"
   request_changes_workflow: false
@@ -7,8 +8,76 @@ reviews:
   poem: false
   review_status: true
   collapse_walkthrough: false
+
+  path_instructions:
+    # Core CopilotKit library
+    - path: "CopilotKit/**/*"
+      instructions: |
+        Confirm that the code adheres to the following:
+        - Public API stability and backward compatibility.
+        - Clear separation between core logic, hooks, and UI components.
+        - Strong TypeScript typing with minimal use of `any`.
+        - Performance considerations for real-time and streaming interactions.
+        - Proper error handling and edge-case coverage.
+
+    # Example applications
+    - path: "examples/**/*"
+      instructions: |
+        Confirm that the code adheres to the following:
+        - Demonstrates best practices for using CopilotKit APIs.
+        - Clear, readable example code optimized for learning.
+        - Avoids unnecessary complexity or production-only patterns.
+        - Proper environment variable usage and setup instructions.
+
+    # Python SDK
+    - path: "sdk-python/**/*"
+      instructions: |
+        Confirm that the code adheres to the following:
+        - Python SDK best practices and idiomatic Python style.
+        - Clear API surface consistent with the JavaScript SDK where applicable.
+        - Proper packaging, versioning, and dependency management.
+        - Adequate inline documentation and usage examples.
+
+    # Registry (agents, components, or metadata)
+    - path: "registry/**/*"
+      instructions: |
+        Confirm that the code adheres to the following:
+        - Clear data models and schema validation.
+        - Consistent naming and versioning strategies.
+        - Ease of extensibility for new agents or components.
+        - Documentation for contributors adding new registry entries.
+
+    # Infrastructure
+    - path: "infra/**/*"
+      instructions: |
+        Confirm that the code adheres to the following:
+        - Infrastructure-as-code best practices.
+        - Clear separation of environments and configurations.
+        - Security-conscious defaults and secrets handling.
+        - Documentation explaining how the infrastructure is used.
+
+    # Documentation
+    - path: "docs/**/*"
+      instructions: |
+        Confirm that the documentation:
+        - Accurately reflects current APIs and behavior.
+        - Includes clear examples and explanations.
+        - Avoids outdated or misleading information.
+        - Maintains consistent terminology across sections.
+
+    # Community & meta files
+    - path: "community/**/*"
+      instructions: |
+        Confirm that the content:
+        - Is clear, welcoming, and contributor-friendly.
+        - Follows the project's tone and contribution standards.
+        - Does not conflict with existing governance documents.
+        
   auto_review:
     enabled: true
     drafts: false
+    base_branches:
+      - "main"
+      
 chat:
   auto_reply: false
