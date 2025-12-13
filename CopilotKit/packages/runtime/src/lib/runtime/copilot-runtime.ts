@@ -455,8 +455,8 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
       // Capture telemetry for copilot request creation
       const publicApiKey = request.headers.get("x-copilotcloud-public-api-key");
-      const body = (await readBody(request)) as RunAgentInput;
-      const forwardedProps = body.forwardedProps as
+      const body = (await readBody(request)) as RunAgentInput | undefined;
+      const forwardedProps = body?.forwardedProps as
         | {
             cloud?: { guardrails?: unknown };
             metadata?: { requestType?: string };
@@ -482,7 +482,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       // TODO: replace hooksParams top argument type with BeforeRequestMiddlewareParameters when exported
       params?.beforeRequestMiddleware?.(hookParams);
 
-      if (params?.middleware?.onBeforeRequest) {
+      if (params?.middleware?.onBeforeRequest && body) {
         const { request, runtime, path } = hookParams;
         const gqlMessages = (aguiToGQL(body.messages) as Message[]).reduce(
           (acc, msg) => {
