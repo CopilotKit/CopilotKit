@@ -44,10 +44,10 @@
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",
-    "@swc/core": "1.5.28",
+    "@swc/core": "1.15.4",
     "@types/jest": "^29.5.12",
     "@types/node": "^18.11.17",
-    "@whatwg-node/server": "^0.9.34",
+    "@whatwg-node/server": "^0.10.0",
     "eslint": "^8.56.0",
     "eslint-config-custom": "workspace:*",
     "jest": "^29.6.4",
@@ -80,12 +80,12 @@
     "pino": "^9.2.0",
     "pino-pretty": "^11.2.1",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "7.8.1",
-    "type-graphql": "2.0.0-rc.1",
+    "rxjs": "7.8.2",
+    "type-graphql": "2.0.0-rc.2",
     "zod": "^3.23.3"
   },
   "peerDependencies": {
-    "@anthropic-ai/sdk": "^0.57.0",
+    "@anthropic-ai/sdk": "^0.57.0 || ^0.71.0",
     "@langchain/aws": ">=0.1.9",
     "@langchain/core": ">=0.3.66",
     "@langchain/community": ">=0.3.58",
