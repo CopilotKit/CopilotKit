@@ -4,6 +4,25 @@
   "homepage": "https://copilotkit.ai",
   "items": [
     {
+      "name": "agent-spec",
+      "type": "registry:block",
+      "title": "Agent Spec Starter",
+      "description": "A starter for CopilotKit with an Agent Spec backend.",
+      "dependencies": ["@copilotkit/runtime", "@copilotkit/react-core"],
+      "files": [
+        {
+          "path": "registry/layout/agent-layout.tsx",
+          "type": "registry:page",
+          "target": "app/copilotkit/layout.tsx"
+        },
+        {
+          "path": "registry/runtime/remote-endpoint.ts",
+          "type": "registry:lib",
+          "target": "app/api/copilotkit/route.ts"
+        }
+      ]
+    },
+    {
       "name": "langgraph-platform-starter",
       "type": "registry:block",
       "title": "LangGraph Platform Starter",
