@@ -100,7 +100,7 @@ copilotkit.runAgent({ agent })
 />
 ```
 
-<h3>Deeply integrate agents from any LLM or agent framework into your application</h3>
+<h3>Deeply integrate LLMs or agents into your application</h3>
 
 ```ts
 // Programmatically access and control your agents
