@@ -31,7 +31,7 @@
 
 ## ⚡️ Quick Install
 ```
-  npx copilotkit@latest init
+  npx copilotkit@latest create
 ```
 
 <br/>
@@ -56,15 +56,13 @@
 
 <img width="4096" height="2341" alt="Best in class support across the ecosystem" src="https://github.com/user-attachments/assets/bf399131-2a92-49f8-8748-38ed72353f9c" />
 
-## ⭐️ UseAgent
+## ⭐️ useAgent
 
 The v2 hook `useAgent` is a proper superset of `useCoAgent`, which gives more control over the agent connection.
 
-Check out the [useAgent docs](https://go.copilotkit.ai/useagent-docs)
+Check out the [useAgent docs](https://go.copilotkit.ai/useagent-docs) to learn more.
 
 https://github.com/user-attachments/assets/46b7d161-a988-4453-9ca9-c0eca4c33da6
-
-
 
 ## ✨ Why CopilotKit?
 
@@ -89,18 +87,45 @@ https://github.com/user-attachments/assets/46b7d161-a988-4453-9ca9-c0eca4c33da6
 
 ```ts
 // Headless UI with full control
-const { visibleMessages, appendMessage, setMessages, ... } = useCopilotChat();
+const { copilotkit } = useCopilotKit();
+const { agent } = useAgent({ agentId: "my_agent" });
+const { messages, addMessage, setMessages, state, ... } = agent;
+
+copilotkit.runAgent({ agent })
 
 // Pre-built components with deep customization options (CSS + pass custom sub-components)
-<CopilotPopup 
+<CopilotSidebar 
   instructions={"You are assisting the user as best as you can. Answer in the best way possible given the data you have."} 
-  labels={{ title: "Popup Assistant", initial: "Need any help?" }} 
+  labels={{ title: "Sidebar Assistant", initial: "Need any help?" }} 
 />
+```
+
+<h3>Deeply integrate agents from any LLM or agent framework into your application</h3>
+
+```ts
+// Programmatically access and control your agents
+const { agent } = useAgent({ agentId: "my_agent" });
+
+// Render and update your agent's state
+return <div>
+  <h1>{agent.state.city}</h1> 
+  <button onClick={() => agent.setState({ city: "NYC" })}>
+    Set City
+  </button>
+</div>
+```
+
+```ts
+// Build generative UI based on your agent's state
+useCoAgentStateRender({
+  name: "my_agent",
+  render: ({ state }) => <WeatherDisplay {...state.final_response} />,
+});
 ```
 
 ```ts
 // Frontend actions + generative UI, with full streaming support
-useCopilotAction({
+useFrontendTool({
   name: "appendToSpreadsheet",
   description: "Append rows to the current spreadsheet",
   parameters: [
@@ -111,23 +136,9 @@ useCopilotAction({
 });
 ```
 
-<h3>Integrate In-App CoAgents with LangGraph</h3>
-
 ```ts
-// Share state between app and agent
-const { agentState } = useCoAgent({ 
-  name: "basic_agent", 
-  initialState: { input: "NYC" } 
-});
-
-// agentic generative UI
-useCoAgentStateRender({
-  name: "basic_agent",
-  render: ({ state }) => <WeatherDisplay {...state.final_response} />,
-});
-
 // Human in the Loop (Approval)
-useCopilotAction({
+useHumanInTheLoop({
   name: "email_tool",
   parameters: [
     {
@@ -137,7 +148,7 @@ useCopilotAction({
       required: true,
     },
   ],
-  renderAndWaitForResponse: ({ args, status, respond }) => {
+  render: ({ args, status, respond }) => {
     return (
       <EmailConfirmation
         emailContent={args.email_draft || ""}
@@ -154,20 +165,26 @@ useCopilotAction({
   },
 });
 ```
-
 ```ts
-// intermediate agent state streaming (supports both LangGraph.js + LangGraph python)
-const modifiedConfig = copilotKitCustomizeConfig(config, {
-  emitIntermediateState: [{ 
-    stateKey: "outline", 
-    tool: "set_outline", 
-    toolArgument: "outline" 
+// Build generative UI on-top of your agent's tool calls
+useRenderToolCall({
+  name: "get_weather", // tool defined in your agent
+  args: [{
+    name: "city",
+    type: "string",
+    required: true,
   }],
-});
-const response = await ChatOpenAI({ model: "gpt-4o" }).invoke(messages, modifiedConfig);
-```
-## 🏆 Featured Examples
+  render: ({ args, result }) => {
+    <WeatherCard  
+      city={args.city}
+      temperature={result.temperature}
+      description={result.description}
+    />
+  }
+})
+````
 
+## 🏆 Featured Examples
 
 <p align="center">
   <a href="https://www.copilotkit.ai/examples/form-filling-copilot">
