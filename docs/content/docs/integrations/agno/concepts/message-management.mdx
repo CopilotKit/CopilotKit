@@ -1,0 +1,48 @@
+---
+title: Message flow
+icon: lucide/MessageCircle
+---
+
+Message management in CoAgents operates with CopilotKit as the "ground truth" for the full chat session.
+When an CoAgent session begins, it receives the existing CopilotKit chat history to maintain conversational
+continuity across different agents.
+
+<Callout>
+  While all of this information is great to know, in most cases you won't need
+  to worry about these details to build rich agentic applications. Use the
+  information here as a reference when getting really deep into the CoAgent
+  internals.
+</Callout>
+
+### Can I modify the message history?
+
+With Agno, the message history is related to the session of your Agents. To run the agent with a clean message history, just provide a new session_id:
+
+```python
+agent.run(session_id="new_session_id", ...)
+```
+
+### Can I persist chat history?
+
+Yes! You can persist the full state of an Agno Agent using the storage feature. You can read more in the [Agno docs](https://docs.agno.com/examples/concepts/state/03-session-state-storage#persistant-state-with-storage).
+
+## Types of LLM Messages
+
+Modern LLM interactions produce two distinct types of messages:
+
+1. **Communication Messages**: Direct responses and interactions with users
+2. **Internal Messages**: Agent "thoughts" and reasoning processes
+
+A well known example of this pattern is OpenAI's o1 model, which has sophisticated reasoning capabilities and thoughts. Its internal
+thought processes are presented distinctly from 'communication messages' which are clearly visible to the end-user.
+
+Agno agents can operate similarly. An LLM call's output can be considered either a communication message, or an internal message.
+
+## Message Flow
+
+Messages flow between CopilotKit and Agno in a specific way:
+
+- All messages from Agno are forwarded to CopilotKit
+- On a fresh agent invocation, the full CopilotKit chat history is provided to the Agno agent as its pre-existing chat history.
+
+When a CoAgent completes its execution, its relevant messages become part of CopilotKit's persistent chat history. This allows for all future agent invocations to get context from the full chat history.
