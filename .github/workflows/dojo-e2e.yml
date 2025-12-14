@@ -84,12 +84,12 @@ jobs:
 
     steps:
       - name: Checkout CPK
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: CopilotKit
 
       - name: Checkout AGUI
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ag-ui-protocol/ag-ui
           path: ag-ui

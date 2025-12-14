@@ -25,7 +25,7 @@ jobs:
       actions: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: Install AWS CDK
         run: npm install -g aws-cdk

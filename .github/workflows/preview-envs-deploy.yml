@@ -75,7 +75,7 @@ jobs:
           - { project: "next-openai", type: "next-openai" }
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -210,7 +210,7 @@ jobs:
       e2e-urls: ${{ steps.export-e2e-urls.outputs.e2e-urls }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
