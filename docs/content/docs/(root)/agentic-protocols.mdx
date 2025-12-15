@@ -28,34 +28,31 @@ Learn about these protocols and how to connect your app to agents which support 
 <table style={{width: "100%", borderCollapse: "collapse"}}>
   <thead>
     <tr>
-      <th style={{textAlign: "left", padding: "12px", borderBottom: "2px solid #e5e7eb"}}>Protocol</th>
-      <th style={{textAlign: "left", padding: "12px", borderBottom: "2px solid #e5e7eb"}}>Description</th>
+      <th style={{width: "25%", textAlign: "left", padding: "12px", borderBottom: "2px solid #e5e7eb"}}>Connection</th>
+      <th style={{width: "25%", textAlign: "left", padding: "12px", borderBottom: "2px solid #e5e7eb"}}>Protocol</th>
+      <th style={{width: "50%", textAlign: "left", padding: "12px", borderBottom: "2px solid #e5e7eb"}}>Purpose</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td style={{padding: "12px", borderBottom: "1px solid #e5e7eb", verticalAlign: "top"}}>
-        <a href="./ag-ui-protocol"><strong>AG-UI</strong></a><br/>(Agent–User Interaction)
-      </td>
-      <td style={{padding: "12px", borderBottom: "1px solid #e5e7eb"}}>
-        An open protocol created by CopilotKit and the agent ecosystem. It serves as the <strong>general-purpose, bi-directional connection</strong> between a user-facing application and any agentic backend.<br/><br/>You can think of AG-UI as the <strong>"kitchen sink" protocol</strong> — informed by bottom-up, real-world needs for building best-in-class agentic applications.
-      </td>
+      <td style={{padding: "12px", borderBottom: "1px solid #e5e7eb", verticalAlign: "top"}}><strong>Agent ↔ User Interaction</strong></td>
+      <td style={{padding: "12px", borderBottom: "1px solid #e5e7eb", verticalAlign: "top"}}><a href="./ag-ui-protocol"><strong>AG-UI</strong></a><br/>(Agent–User Interaction Protocol)</td>
+      <td style={{padding: "12px", borderBottom: "1px solid #e5e7eb"}}>The open, event-based standard that connects agents to user-facing applications — enabling real-time, multimodal, interactive experiences.</td>
     </tr>
     <tr>
-      <td style={{padding: "12px", borderBottom: "1px solid #e5e7eb", verticalAlign: "top"}}>
-        <a href="./connect-mcp-servers"><strong>MCP</strong></a><br/>(Model Context Protocol)
-      </td>
-      <td style={{padding: "12px", borderBottom: "1px solid #e5e7eb"}}>
-        Originally created to connect agents to tools — but those tools are themselves becoming agentic.
-      </td>
+      <td style={{padding: "12px", borderBottom: "1px solid #e5e7eb", verticalAlign: "top"}}><strong>Agent ↔ Tools & Data</strong></td>
+      <td style={{padding: "12px", borderBottom: "1px solid #e5e7eb", verticalAlign: "top"}}><a href="./connect-mcp-servers"><strong>MCP</strong></a><br/>(Model Context Protocol)</td>
+      <td style={{padding: "12px", borderBottom: "1px solid #e5e7eb"}}>Open standard that lets agents securely connect to external systems — tools, workflows, and data sources.</td>
     </tr>
     <tr>
-      <td style={{padding: "12px", verticalAlign: "top"}}>
-        <a href="./a2a-protocol"><strong>A2A</strong></a><br/>(Agent to Agent)
-      </td>
-      <td style={{padding: "12px"}}>
-        Created to connect agents to other agents.
-      </td>
+      <td style={{padding: "12px", borderBottom: "1px solid #e5e7eb", verticalAlign: "top"}}><strong>Agent ↔ Agent</strong></td>
+      <td style={{padding: "12px", borderBottom: "1px solid #e5e7eb", verticalAlign: "top"}}><a href="./a2a-protocol"><strong>A2A</strong></a><br/>(Agent to Agent)</td>
+      <td style={{padding: "12px", borderBottom: "1px solid #e5e7eb"}}>Defines how agents coordinate and share work across distributed agentic systems.</td>
+    </tr>
+    <tr>
+      <td style={{padding: "12px", verticalAlign: "top"}}><strong>Agent ↔ Generative UI </strong></td>
+      <td style={{padding: "12px", verticalAlign: "top"}}><strong>[A2UI](./generative-ui-specs/a2ui)</strong> (Google)<br/><strong>[MCP UI](./generative-ui-specs/mcp-ui)</strong> (Anthropic)<br/><strong>[Open-JSON-UI](./generative-ui-specs/open-json-ui)</strong> (OpenAI)</td>
+      <td style={{padding: "12px"}}>Declarative, LLM-friendly [generative UI specs](./generative-ui-specs) that define <em>what</em> to render and how to structure agent responses visually.  CopilotKit fully supports all of these.</td>
     </tr>
   </tbody>
 </table>
