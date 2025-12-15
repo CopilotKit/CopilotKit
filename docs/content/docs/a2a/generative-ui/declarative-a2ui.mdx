@@ -3,6 +3,16 @@ title: Declarative (A2UI)
 icon: "lucide/Bot"
 description: Use A2UI to declaratively generate user interfaces.
 ---
+import Image from "next/image"
+
+Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate widgets, and render them in your CopilotKit powered app.
+  <div>
+    <video src="https://cdn.copilotkit.ai/a2ui/demo.mp4" autoPlay controls loop muted playsInline className="rounded-xl shadow-lg mx-auto mt-auto w-5/6" />
+    <div className="text-center text-sm text-muted-foreground mt-4">
+      Demo of the <a href="https://a2ui-editor.ag-ui.com">A2UI Composer</a> - powered by CopilotKit<br />
+    </div>
+  </div>
+
 ## Getting started
 
 <Steps>
@@ -112,7 +122,15 @@ description: Use A2UI to declaratively generate user interfaces.
     If you want an easy way to generate components, you can use the A2UI Composer.
     Go to https://a2ui-editor.copilotkit.ai/ to create your own components.
     The composer will generate the json spec for you, all you have to do is copy and paste it into your agent's prompt.
-
+    <a href="https://a2ui-editor.ag-ui.com/gallery" target="_blank" rel="noopener noreferrer">
+      <Image 
+        src="/images/a2ui-composer.png" 
+        alt="Agentic Backend to Agentic Application" 
+        width={4096} 
+        height={2304}
+        className="mx-auto w-1/2"
+      />
+    </a>
   </Step>
   <Step>
     ### Configuring your application to render A2UI
