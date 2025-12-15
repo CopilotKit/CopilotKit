@@ -23,7 +23,7 @@ import { DefaultResponseRenderer } from "@/components/DefaultResponseRenderer";
 import { DefaultStateRenderer } from "@/components/DefaultStateRenderer";
 import { MessageRole, TextMessage } from "@copilotkit/runtime-client-gql";
 import { useEffect, useState } from "react";
-import ReactMarkdown from "react-markdown";
+import { Streamdown } from "streamdown";
 // TODO: Replace with `react-core post 1.8.x update
 import {
   AgentState,
@@ -186,7 +186,7 @@ export default function Home() {
           status={status}
           ContentRenderer={({ content }: { content: string }) => (
             <div className="text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 rounded-md shadow-sm p-4 h-full overflow-y-auto whitespace-pre-line text-left">
-              <ReactMarkdown>{content}</ReactMarkdown>
+              <Streamdown>{content}</Streamdown>
             </div>
           )}
         />

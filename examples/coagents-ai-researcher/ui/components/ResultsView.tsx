@@ -6,7 +6,7 @@ import { BookOpenIcon, LoaderCircleIcon, SparkleIcon } from "lucide-react";
 import { SkeletonLoader } from "./SkeletonLoader";
 import { useCoAgent } from "@copilotkit/react-core";
 import { Progress } from "./Progress";
-import { AnswerMarkdown } from "./AnswerMarkdown";
+import { Streamdown } from "streamdown";
 import { AgentState } from "@/lib/types";
 import { useModelSelectorContext } from "@/lib/model-selector-provider";
 
@@ -61,7 +61,7 @@ export function ResultsView() {
               {isLoading ? (
                 null
               ) : (
-                <AnswerMarkdown markdown={agentState?.answer?.markdown} />
+                <Streamdown>{agentState?.answer?.markdown}</Streamdown>
               )}
             </div>
           </div>

@@ -1,10 +1,10 @@
 import React from 'react';
 import { MDXComponents } from '@/components/ui/mdx-components';
 import { MDXProvider } from '@mdx-js/react';
-import ReactMarkdown from 'react-markdown';
+import { Streamdown } from 'streamdown';
 
 /**
- * Enhanced MDX content renderer component 
+ * Enhanced MDX content renderer component
  */
 export const MDXRenderer: React.FC<{
   content: string;
@@ -43,9 +43,9 @@ export const MDXRenderer: React.FC<{
     <MDXProvider components={MDXComponents}>
       <div className="mdx-content">
         {/* Render the markdown content with proper formatting */}
-        <ReactMarkdown components={MDXComponents}>
+        <Streamdown>
           {content}
-        </ReactMarkdown>
+        </Streamdown>
         
         {/* Insert processed video elements if any */}
         {processedVideos && (
