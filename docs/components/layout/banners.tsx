@@ -151,11 +151,11 @@ export function A2UILaunchBanner() {
           <Rocket className="w-5 h-5 hidden md:block flex-shrink-0" />
           {/* Short text for mobile (below 768px) */}
           <p className="text-xs md:text-base font-normal md:hidden">
-            A2UI Launch: Zero day Google partnership!
+            A2UI Launch: Full CopilotKit support at launch!
           </p>
           {/* Full text for desktop (768px and above) */}
           <p className="text-sm sm:text-base font-normal hidden md:block">
-            A2UI Launch: CopilotKit has partnered with Google to deliver zero day support in both CopilotKit and AG-UI!
+            A2UI Launch: CopilotKit has partnered with Google to deliver full support at launch in both CopilotKit and AG-UI!
           </p>
         </div>
         <Link 
