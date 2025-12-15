@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@source "../../../node_modules/streamdown/dist/*.js";
+@source "../../node_modules/streamdown/dist/*.js";
 
 @plugin "tailwindcss-animate";
 
