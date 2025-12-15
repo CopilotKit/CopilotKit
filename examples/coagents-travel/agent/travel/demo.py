@@ -21,6 +21,15 @@ sdk = CopilotKitRemoteEndpoint(
         )
     ],
 )
+add_langgraph_fastapi_endpoint(
+    app=app,
+    agent=LangGraphAGUIAgent(
+        name="travel",
+        description="Manages a user's trips.",
+        graph=graph
+    ),
+    path="/"
+)
 
 add_fastapi_endpoint(app, sdk, "/copilotkit")
 

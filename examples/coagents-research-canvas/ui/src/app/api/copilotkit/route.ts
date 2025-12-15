@@ -7,6 +7,7 @@ import {
 } from "@copilotkit/runtime";
 import { LangGraphHttpAgent, LangGraphAgent } from '@copilotkit/runtime/langgraph'
 import { NextRequest } from "next/server";
+import { CrewAIAgent } from "@ag-ui/crewai";
 
 // const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 // const llmAdapter = new OpenAIAdapter({ openai } as any);
@@ -20,7 +21,7 @@ export const POST = async (req: NextRequest) => {
 
   const isCrewAi = searchParams.get("coAgentsModel") === "crewai";
 
-  const baseUrl = process.env.REMOTE_ACTION_URL || "http://localhost:8000/copilotkit";
+  const baseUrl = process.env.REMOTE_ACTION_URL || "http://localhost:8000";
   let runtime = new CopilotRuntime({
     agents: {
       'research_agent': new LangGraphHttpAgent({
@@ -34,11 +35,11 @@ export const POST = async (req: NextRequest) => {
 
   if (isCrewAi) {
     runtime = new CopilotRuntime({
-      remoteEndpoints: [
-        copilotKitEndpoint({
-          url: process.env.REMOTE_ACTION_URL || "http://localhost:8000/copilotkit",
-        })
-      ]
+        agents: {
+            'research_agent_crewai': new CrewAIAgent({
+                url: `${baseUrl}/agents/crewai/research_agent_crewai`,
+            }),
+        }
     })
   }
 
