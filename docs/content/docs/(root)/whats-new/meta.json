@@ -1,6 +1,7 @@
 {
-  "title": "Updates - Dec 8, 2025",
+  "title": "Updates - Dec 15, 2025",
   "pages": [
+    "a2ui-launch",
     "v1-50",
     "generative-ui-spec-support",
     "a2a-mcp-handshake"
