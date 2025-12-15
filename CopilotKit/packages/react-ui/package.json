@@ -58,7 +58,7 @@
     "@copilotkit/runtime-client-gql": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@headlessui/react": "^2.2.9",
-    "streamdown": "^1.6.7"
+    "streamdown": "^1.6.10"
   },
   "keywords": [
     "copilotkit",
