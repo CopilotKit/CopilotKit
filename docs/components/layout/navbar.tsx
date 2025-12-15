@@ -95,7 +95,7 @@ const Navbar = ({ pageTree }: NavbarProps) => {
             <Logo className="pl-6" />
             <ul className="hidden gap-6 items-center h-full xl:flex">
               {LEFT_LINKS.map((link) => (
-                <li key={link.href} className="group relative h-full">
+                <li key={link.href} className="relative h-full group">
                   <Link
                     href={link.href}
                     target={link.target}
