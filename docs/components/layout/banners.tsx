@@ -9,8 +9,6 @@ import { Sparkles, Rocket } from "lucide-react";
 import { useState, useEffect } from "react";
 
 export function Banners() {
-  // TODO: Uncomment to enable rotating A2UI + V1.50 banners
-  /*
   const [currentBanner, setCurrentBanner] = useState(0);
 
   const bannerContent = [
@@ -77,10 +75,6 @@ export function Banners() {
       `}</style>
     </Banner>
   )
-  */
-  
-  // Just V1.50 banner for now
-  return <V150Banner />
 }
 
 export function NewLookAndFeelBanner() {
