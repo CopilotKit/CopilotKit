@@ -1,5 +1,13 @@
 # ui
 
+## 1.50.1-next.1
+
+### Patch Changes
+
+- cfa4185: - fix: fix stale state in handler
+  - @copilotkit/runtime-client-gql@1.50.1-next.1
+  - @copilotkit/shared@1.50.1-next.1
+
 ## 1.50.1-next.0
 
 ### Patch Changes
