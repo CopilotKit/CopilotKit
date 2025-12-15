@@ -155,7 +155,7 @@ export function A2UILaunchBanner() {
           </p>
           {/* Full text for desktop (768px and above) */}
           <p className="text-sm sm:text-base font-normal hidden md:block">
-            A2UI Launch: CopilotKit has partnered with Google to deliver zero day support in both CopilotKit and AG-UI.
+            A2UI Launch: CopilotKit has partnered with Google to deliver zero day support in both CopilotKit and AG-UI!
           </p>
         </div>
         <Link 
