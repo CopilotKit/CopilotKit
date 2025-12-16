@@ -17,17 +17,11 @@
 "use client";
 
 import React, { useCallback, useEffect, useId, useMemo, useRef } from "react";
-import { v0_8 } from "@a2ui/web-lib";
+import { v0_8 } from "@a2ui/lit";
 import type { ThemedA2UISurfaceActionCallback } from "./themed-surface.js";
-import { componentStyles } from "./styles/components.js";
-
 import { theme as viewerTheme } from "./theme/viewer-theme.js";
 
-
-// Track if component styles have been registered
-let componentStylesRegistered = false;
-
-type A2UIProcessor = InstanceType<typeof v0_8.Data.A2UIModelProcessor>;
+type A2UIProcessor = InstanceType<typeof v0_8.Data.A2uiMessageProcessor>;
 
 type ThemedSurfaceElement = HTMLElement & {
   processor?: A2UIProcessor | null;
@@ -78,17 +72,14 @@ export function A2UIViewer({
     let hash = 0;
     for (let i = 0; i < definitionKey.length; i++) {
       const char = definitionKey.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash; // Convert to 32bit integer
     }
     return `${baseId}-${hash}`;
   }, [baseId, root, components]);
 
   // Create signal-based processor for reactive updates - new one when surfaceId changes
-  const processor = useMemo(
-    () => v0_8.Data.createSignalA2UIModelProcessor(),
-    [surfaceId]
-  );
+  const processor = useMemo(() => v0_8.Data.createSignalA2uiMessageProcessor(), [surfaceId]);
 
   // Build and process messages, returning the surface
   const surface = useMemo(() => {
@@ -142,14 +133,11 @@ export function A2UIViewer({
           // Handle path-based values
           const path = valueDescriptor.path;
           if (path && processorInstance && typeof path === "string") {
-            const resolvedPath = processorInstance.resolvePath(
-              path,
-              event.detail.dataContextPath
-            );
+            const resolvedPath = processorInstance.resolvePath(path, event.detail.dataContextPath);
             const value = processorInstance.getData(
               event.detail.sourceComponent,
               resolvedPath,
-              surfaceId
+              surfaceId,
             );
             if (value !== undefined) {
               resolvedContext[item.key] = value;
@@ -165,16 +153,8 @@ export function A2UIViewer({
         context: resolvedContext,
       });
     },
-    [onAction, surfaceId]
+    [onAction, surfaceId],
   );
-
-  // Register component styles via ThemeManager (once globally)
-  useEffect(() => {
-    if (!componentStylesRegistered) {
-      v0_8.UI.ThemeManager.register(componentStyles);
-      componentStylesRegistered = true;
-    }
-  }, []);
 
   // Set properties on the custom element
   useEffect(() => {
@@ -197,10 +177,7 @@ export function A2UIViewer({
   // Show placeholder if no content
   if (!surface?.componentTree) {
     return (
-      <div
-        className={className}
-        style={{ padding: 16, color: "#666", fontFamily: "system-ui" }}
-      >
+      <div className={className} style={{ padding: 16, color: "#666", fontFamily: "system-ui" }}>
         No content to display
       </div>
     );
@@ -217,9 +194,7 @@ export function A2UIViewer({
  * Converts a nested JavaScript object to the ValueMap[] format
  * expected by A2UI's dataModelUpdate message.
  */
-function objectToValueMaps(
-  obj: Record<string, unknown>
-): v0_8.Types.ValueMap[] {
+function objectToValueMaps(obj: Record<string, unknown>): v0_8.Types.ValueMap[] {
   return Object.entries(obj).map(([key, value]) => valueToValueMap(key, value));
 }
 
@@ -241,9 +216,7 @@ function valueToValueMap(key: string, value: unknown): v0_8.Types.ValueMap {
   }
   if (Array.isArray(value)) {
     // Convert array items with index as key
-    const valueMap = value.map((item, index) =>
-      valueToValueMap(String(index), item)
-    );
+    const valueMap = value.map((item, index) => valueToValueMap(String(index), item));
     return { key, valueMap };
   }
   if (typeof value === "object") {

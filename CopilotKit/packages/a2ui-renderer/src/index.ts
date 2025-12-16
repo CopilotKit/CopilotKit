@@ -23,7 +23,7 @@ export { A2UIViewer } from "./A2UIViewer.js";
 export type { A2UIViewerProps } from "./A2UIViewer.js";
 
 // Re-export v0_8 types namespace for consumers
-import { v0_8 } from "@a2ui/web-lib";
+import { v0_8 } from "@a2ui/lit";
 export type ComponentInstance = v0_8.Types.ComponentInstance;
 export type UserAction = v0_8.Types.UserAction;
 export type Action = v0_8.Types.Action;

@@ -19,19 +19,19 @@ import { provide } from "@lit/context";
 import { html, LitElement } from "lit";
 import { customElement, property } from "lit/decorators.js";
 
-import { v0_8 } from "@a2ui/web-lib";
-import * as UI from "@a2ui/web-lib/ui";
+import { v0_8 } from "@a2ui/lit";
+import * as UI from "@a2ui/lit/ui";
 import { globalStyles } from "./styles/global.js";
 
 export type ThemedA2UISurfaceActionCallback = (
   event: v0_8.Events.StateEvent<"a2ui.action">,
-  context: ThemedA2UISurfaceContext
+  context: ThemedA2UISurfaceContext,
 ) => void;
 
 export type ThemedA2UISurfaceContext = {
   surfaceId: v0_8.Types.SurfaceID | null;
   surface: v0_8.Types.Surface | null;
-  processor: InstanceType<typeof v0_8.Data.A2UIModelProcessor> | null;
+  processor: InstanceType<typeof v0_8.Data.A2uiMessageProcessor> | null;
 };
 
 @customElement("themed-a2ui-surface")
@@ -47,7 +47,7 @@ export class ThemedA2UISurface extends SignalWatcher(LitElement) {
   accessor surface: v0_8.Types.Surface | null = null;
 
   @property({ attribute: false })
-  accessor processor: InstanceType<typeof v0_8.Data.A2UIModelProcessor> | null = null;
+  accessor processor: InstanceType<typeof v0_8.Data.A2uiMessageProcessor> | null = null;
 
   @property({ attribute: false })
   accessor onAction: ThemedA2UISurfaceActionCallback | null = null;
@@ -65,10 +65,10 @@ export class ThemedA2UISurface extends SignalWatcher(LitElement) {
         ${globalStyles}
       </style>
       <a2ui-surface
-      @a2uiaction=${this.#handleAction}
-      .surfaceId=${this.surfaceId}
-      .surface=${this.surface}
-      .processor=${this.processor}
-    ></a2ui-surface>`;
+        @a2uiaction=${this.#handleAction}
+        .surfaceId=${this.surfaceId}
+        .surface=${this.surface}
+        .processor=${this.processor}
+      ></a2ui-surface>`;
   }
 }

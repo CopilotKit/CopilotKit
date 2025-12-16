@@ -14,7 +14,7 @@
  limitations under the License.
  */
 
-import { v0_8 } from "@a2ui/web-lib";
+import { v0_8 } from "@a2ui/lit";
 
 /** Elements */
 
@@ -385,6 +385,8 @@ export const theme: v0_8.Types.Theme = {
     h1: h1Light,
     h2: h2Light,
     h3: h3Light,
+    h4: {},
+    h5: {},
     iframe,
     input: inputLight,
     p: pLight,
@@ -399,7 +401,6 @@ export const theme: v0_8.Types.Theme = {
     h3: [...Object.keys(h3Light)],
     h4: [],
     h5: [],
-    h6: [],
     ul: [...Object.keys(unorderedListLight)],
     ol: [...Object.keys(orderedListLight)],
     li: [...Object.keys(listItemLight)],

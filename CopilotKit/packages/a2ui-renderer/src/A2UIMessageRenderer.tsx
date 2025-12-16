@@ -1,10 +1,9 @@
-
-import {
-  useCopilotKit,
-  type ReactActivityMessageRenderer,
-} from "@copilotkitnext/react";
-import { v0_8 } from "@a2ui/web-lib";
-import type { ThemedA2UISurfaceActionCallback, ThemedA2UISurfaceContext } from "./themed-surface.js";
+import { useCopilotKit, type ReactActivityMessageRenderer } from "@copilotkitnext/react";
+import { v0_8 } from "@a2ui/lit";
+import type {
+  ThemedA2UISurfaceActionCallback,
+  ThemedA2UISurfaceContext,
+} from "./themed-surface.js";
 import React, {
   useCallback,
   useEffect,
@@ -16,7 +15,7 @@ import React, {
 } from "react";
 import { z } from "zod";
 
-type A2UIProcessor = InstanceType<typeof v0_8.Data.A2UIModelProcessor>;
+type A2UIProcessor = InstanceType<typeof v0_8.Data.A2uiMessageProcessor>;
 
 type ThemedSurfaceElement = HTMLElement & {
   processor?: A2UIProcessor | null;
@@ -31,7 +30,7 @@ export type A2UIMessageRendererOptions = {
 };
 
 export function createA2UIMessageRenderer(
-  options: A2UIMessageRendererOptions
+  options: A2UIMessageRendererOptions,
 ): ReactActivityMessageRenderer<any> {
   const { theme } = options;
 
@@ -39,193 +38,191 @@ export function createA2UIMessageRenderer(
     activityType: "a2ui-surface",
     content: z.any(),
     render: ({ content, agent }) => {
-    const [operations, setOperations] = useState<any[]>([]);
-    const lastSignatureRef = useRef<string | null>(null);
-    const processorsRef = useRef(new Map<string, A2UIProcessor>());
-    const { copilotkit } = useCopilotKit();
-    const actionLogger = useCallback<ThemedA2UISurfaceActionCallback>(
-      async (event: v0_8.Events.StateEvent<"a2ui.action">, context: ThemedA2UISurfaceContext) => {
-        if (!agent) {
-          return;
-        }
+      const [operations, setOperations] = useState<any[]>([]);
+      const lastSignatureRef = useRef<string | null>(null);
+      const processorsRef = useRef(new Map<string, A2UIProcessor>());
+      const { copilotkit } = useCopilotKit();
+      const actionLogger = useCallback<ThemedA2UISurfaceActionCallback>(
+        async (event: v0_8.Events.StateEvent<"a2ui.action">, context: ThemedA2UISurfaceContext) => {
+          if (!agent) {
+            return;
+          }
 
-        const resolvedContext: Record<string, unknown> = {};
-        const processorInstance = context.processor;
-        const surfaceKey =
-          context.surfaceId ?? v0_8.Data.A2UIModelProcessor.DEFAULT_SURFACE_ID;
-        const actionContext = event.detail.action?.context;
+          const resolvedContext: Record<string, unknown> = {};
+          const processorInstance = context.processor;
+          const surfaceKey = context.surfaceId ?? v0_8.Data.A2uiMessageProcessor.DEFAULT_SURFACE_ID;
+          const actionContext = event.detail.action?.context;
 
-        if (Array.isArray(actionContext) && actionContext.length > 0) {
-          for (const item of actionContext) {
-            if (!item?.key) {
-              continue;
-            }
+          if (Array.isArray(actionContext) && actionContext.length > 0) {
+            for (const item of actionContext) {
+              if (!item?.key) {
+                continue;
+              }
 
-            const valueDescriptor = item.value;
-            if (!valueDescriptor) {
-              continue;
-            }
+              const valueDescriptor = item.value;
+              if (!valueDescriptor) {
+                continue;
+              }
 
-            if (
-              typeof valueDescriptor.literalBoolean === "boolean" ||
-              typeof valueDescriptor.literalNumber === "number" ||
-              typeof valueDescriptor.literalString === "string"
-            ) {
-              resolvedContext[item.key] =
-                valueDescriptor.literalBoolean ??
-                valueDescriptor.literalNumber ??
-                valueDescriptor.literalString;
-              continue;
-            }
+              if (
+                typeof valueDescriptor.literalBoolean === "boolean" ||
+                typeof valueDescriptor.literalNumber === "number" ||
+                typeof valueDescriptor.literalString === "string"
+              ) {
+                resolvedContext[item.key] =
+                  valueDescriptor.literalBoolean ??
+                  valueDescriptor.literalNumber ??
+                  valueDescriptor.literalString;
+                continue;
+              }
 
-            const path = valueDescriptor.path;
-            if (path && processorInstance && typeof path === "string") {
-              const resolvedPath = processorInstance.resolvePath(
-                path,
-                event.detail.dataContextPath,
-              );
-              const value = processorInstance.getData(
-                event.detail.sourceComponent,
-                resolvedPath,
-                surfaceKey,
-              );
-              if (value !== undefined) {
-                resolvedContext[item.key] = value;
+              const path = valueDescriptor.path;
+              if (path && processorInstance && typeof path === "string") {
+                const resolvedPath = processorInstance.resolvePath(
+                  path,
+                  event.detail.dataContextPath,
+                );
+                const value = processorInstance.getData(
+                  event.detail.sourceComponent,
+                  resolvedPath,
+                  surfaceKey,
+                );
+                if (value !== undefined) {
+                  resolvedContext[item.key] = value;
+                }
               }
             }
           }
-        }
 
-        const userAction: v0_8.Types.A2UIClientEventMessage = {
-          userAction: {
-            name: event.detail.action.name ?? "",
-            surfaceId: context.surfaceId ?? surfaceKey,
-            sourceComponentId: event.detail.sourceComponentId,
-            timestamp: new Date().toISOString(),
-            context: {
-              ...resolvedContext,
+          const userAction: v0_8.Types.A2UIClientEventMessage = {
+            userAction: {
+              name: event.detail.action.name ?? "",
               surfaceId: context.surfaceId ?? surfaceKey,
+              sourceComponentId: event.detail.sourceComponentId,
+              timestamp: new Date().toISOString(),
+              context: {
+                ...resolvedContext,
+                surfaceId: context.surfaceId ?? surfaceKey,
+              },
             },
-          },
-        };
+          };
 
-        try {
-          console.info('[A2UI] Action dispatched', userAction.userAction)
+          try {
+            console.info("[A2UI] Action dispatched", userAction.userAction);
 
-          copilotkit.setProperties({
-            ...(copilotkit.properties ?? {}),
-            a2uiAction: userAction,
-          });
+            copilotkit.setProperties({
+              ...(copilotkit.properties ?? {}),
+              a2uiAction: userAction,
+            });
 
-          await copilotkit.runAgent({ agent });
-        } finally {
-          if (copilotkit.properties) {
-            const { a2uiAction, ...rest } = copilotkit.properties;
-            copilotkit.setProperties(rest);
+            await copilotkit.runAgent({ agent });
+          } finally {
+            if (copilotkit.properties) {
+              const { a2uiAction, ...rest } = copilotkit.properties;
+              copilotkit.setProperties(rest);
+            }
           }
-        }
-      },
-      [agent, copilotkit],
-    );
+        },
+        [agent, copilotkit],
+      );
 
-    useEffect(() => {
-      if (!content || !Array.isArray(content.operations)) {
-        processorsRef.current.forEach((processor) => processor.clearSurfaces());
-        processorsRef.current.clear();
-        lastSignatureRef.current = null;
-        setOperations([]);
-        return;
-      }
-
-      const processors = processorsRef.current;
-      const incoming = content.operations as any[];
-      const signature = stringifyOperations(incoming);
-
-      if (signature && signature === lastSignatureRef.current) {
-        return;
-      }
-
-      const groupedOperations = new Map<string, any[]>();
-
-      for (const operation of incoming) {
-        const surfaceId =
-          getOperationSurfaceId(operation) ??
-          v0_8.Data.A2UIModelProcessor.DEFAULT_SURFACE_ID;
-
-        if (!groupedOperations.has(surfaceId)) {
-          groupedOperations.set(surfaceId, []);
-        }
-        groupedOperations.get(surfaceId)!.push(operation);
-      }
-
-      groupedOperations.forEach((operationsForSurfaceId, surfaceId) => {
-        let processor = processors.get(surfaceId);
-        if (!processor) {
-          processor = new v0_8.Data.A2UIModelProcessor();
-          processors.set(surfaceId, processor);
+      useEffect(() => {
+        if (!content || !Array.isArray(content.operations)) {
+          processorsRef.current.forEach((processor) => processor.clearSurfaces());
+          processorsRef.current.clear();
+          lastSignatureRef.current = null;
+          setOperations([]);
+          return;
         }
 
-        try {
-          processor.processMessages(operationsForSurfaceId);
-        } catch (error) {
-          processors.delete(surfaceId);
+        const processors = processorsRef.current;
+        const incoming = content.operations as any[];
+        const signature = stringifyOperations(incoming);
+
+        if (signature && signature === lastSignatureRef.current) {
+          return;
         }
-      });
 
-      const emptyProcessors: string[] = [];
-      processors.forEach((processor, surfaceId) => {
-        if (processor.getSurfaces().size === 0) {
-          emptyProcessors.push(surfaceId);
+        const groupedOperations = new Map<string, any[]>();
+
+        for (const operation of incoming) {
+          const surfaceId =
+            getOperationSurfaceId(operation) ?? v0_8.Data.A2uiMessageProcessor.DEFAULT_SURFACE_ID;
+
+          if (!groupedOperations.has(surfaceId)) {
+            groupedOperations.set(surfaceId, []);
+          }
+          groupedOperations.get(surfaceId)!.push(operation);
         }
-      });
-      if (emptyProcessors.length > 0) {
-        for (const surfaceId of emptyProcessors) {
-          processors.delete(surfaceId);
-        }
-      }
 
-      lastSignatureRef.current = signature;
-      setOperations(incoming);
-    }, [content]);
+        groupedOperations.forEach((operationsForSurfaceId, surfaceId) => {
+          let processor = processors.get(surfaceId);
+          if (!processor) {
+            processor = new v0_8.Data.A2uiMessageProcessor();
+            processors.set(surfaceId, processor);
+          }
 
-    const surfaceEntries = useMemo(() => {
-      const entries: Array<{
-        id: string;
-        surface: v0_8.Types.Surface;
-        processor: A2UIProcessor;
-      }> = [];
-
-      processorsRef.current.forEach((processor) => {
-        processor.getSurfaces().forEach((surface, surfaceId) => {
-          const typedSurface = surface as v0_8.Types.Surface | undefined;
-          if (typedSurface?.componentTree) {
-            entries.push({ id: surfaceId, surface: typedSurface, processor });
+          try {
+            processor.processMessages(operationsForSurfaceId);
+          } catch (error) {
+            processors.delete(surfaceId);
           }
         });
-      });
 
-      return entries;
-    }, [operations]);
+        const emptyProcessors: string[] = [];
+        processors.forEach((processor, surfaceId) => {
+          if (processor.getSurfaces().size === 0) {
+            emptyProcessors.push(surfaceId);
+          }
+        });
+        if (emptyProcessors.length > 0) {
+          for (const surfaceId of emptyProcessors) {
+            processors.delete(surfaceId);
+          }
+        }
 
-    if (!surfaceEntries.length) {
-      return null;
-    }
+        lastSignatureRef.current = signature;
+        setOperations(incoming);
+      }, [content]);
 
-    return (
-      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-auto py-6">
-        {surfaceEntries.map(({ id, surface, processor }) => (
-          <SurfaceHost
-            key={id}
-            actionLogger={actionLogger}
-            processor={processor}
-            surface={surface}
-            surfaceId={id}
-            theme={theme}
-          />
-        ))}
-      </div>
-    );
-  },
+      const surfaceEntries = useMemo(() => {
+        const entries: Array<{
+          id: string;
+          surface: v0_8.Types.Surface;
+          processor: A2UIProcessor;
+        }> = [];
+
+        processorsRef.current.forEach((processor) => {
+          processor.getSurfaces().forEach((surface, surfaceId) => {
+            const typedSurface = surface as v0_8.Types.Surface | undefined;
+            if (typedSurface?.componentTree) {
+              entries.push({ id: surfaceId, surface: typedSurface, processor });
+            }
+          });
+        });
+
+        return entries;
+      }, [operations]);
+
+      if (!surfaceEntries.length) {
+        return null;
+      }
+
+      return (
+        <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-auto py-6">
+          {surfaceEntries.map(({ id, surface, processor }) => (
+            <SurfaceHost
+              key={id}
+              actionLogger={actionLogger}
+              processor={processor}
+              surface={surface}
+              surfaceId={id}
+              theme={theme}
+            />
+          ))}
+        </div>
+      );
+    },
   };
 }
 
@@ -264,13 +261,7 @@ type SurfaceHostProps = {
   key?: string;
 };
 
-function SurfaceHost({
-  actionLogger,
-  processor,
-  surface,
-  surfaceId,
-  theme,
-}: SurfaceHostProps) {
+function SurfaceHost({ actionLogger, processor, surface, surfaceId, theme }: SurfaceHostProps) {
   const elementRef = useRef<ThemedSurfaceElement | null>(null);
 
   useEffect(() => {
