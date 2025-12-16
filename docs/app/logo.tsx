@@ -1,4 +1,5 @@
 import Image from "next/image"
+import Link from "fumadocs-core/link"
 import { cn } from "@/lib/utils"
 
 interface LogoProps {
@@ -18,7 +19,10 @@ export function Logo({
   height = DESKTOP_HEIGHT,
 }: LogoProps) {
   return (
-    <div className={cn("flex justify-center items-center", className)}>
+    <Link
+      href="/"
+      className={cn("flex justify-center items-center", className)}
+    >
       <Image
         src="/images/logo-light.svg"
         width={width}
@@ -33,6 +37,6 @@ export function Logo({
         alt="Logo"
         className={cn("hidden dark:block", COMMON_CLASSNAMES)}
       />
-    </div>
+    </Link>
   )
 }

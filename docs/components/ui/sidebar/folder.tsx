@@ -27,7 +27,6 @@ const Folder = ({ node, onNavigate }: FolderProps) => {
   }, [node.index?.url])
 
   useEffect(() => {
-    console.log({ isActive, pathname, nodeIndexUrl: node.index?.url })
     if (!isActive && !pathname.includes(node.index?.url ?? "")) setIsOpen(false)
   }, [isActive, pathname])
 
@@ -58,7 +57,11 @@ const Folder = ({ node, onNavigate }: FolderProps) => {
           <div className="absolute top-1/2 -translate-y-1/2 -left-2 w-px h-[calc(100%-8px)] bg-foreground/10" />
 
           {(node as { children: Node[] }).children.map((page) => (
-            <Page key={crypto.randomUUID()} node={page} onNavigate={onNavigate} />
+            <Page
+              key={crypto.randomUUID()}
+              node={page}
+              onNavigate={onNavigate}
+            />
           ))}
         </ul>
       )}
