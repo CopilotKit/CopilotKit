@@ -22,7 +22,7 @@
  * });
  * ```
  */
-import Anthropic from "@anthropic-ai/sdk";
+import type Anthropic from "@anthropic-ai/sdk";
 import {
   CopilotServiceAdapter,
   CopilotRuntimeChatCompletionRequest,
@@ -84,11 +84,23 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
   }
 
   constructor(params?: AnthropicAdapterParams) {
-    this._anthropic = params?.anthropic || new Anthropic({});
+    if (params?.anthropic) {
+      this._anthropic = params.anthropic;
+    }
+    // If no instance provided, we'll lazy-load in ensureAnthropic()
     if (params?.model) {
       this.model = params.model;
     }
     this.promptCaching = params?.promptCaching || { enabled: false };
+  }
+
+  private ensureAnthropic(): Anthropic {
+    if (!this._anthropic) {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const Anthropic = require("@anthropic-ai/sdk").default;
+      this._anthropic = new Anthropic({});
+    }
+    return this._anthropic;
   }
 
   /**
@@ -306,7 +318,8 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
         stream: true,
       };
 
-      const stream = await this.anthropic.messages.create(createParams);
+      const anthropic = this.ensureAnthropic();
+      const stream = await anthropic.messages.create(createParams);
 
       eventSource.stream(async (eventStream$) => {
         let mode: "function" | "message" | null = null;

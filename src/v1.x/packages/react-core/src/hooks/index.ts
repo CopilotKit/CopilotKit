@@ -24,6 +24,6 @@ export { useRenderToolCall } from "./use-render-tool-call";
 export { useDefaultTool } from "./use-default-tool";
 export { useLazyToolRenderer } from "./use-lazy-tool-renderer";
 export {
-  useConfigureChatSuggestions,
+  useCopilotChatSuggestions,
   type UseCopilotChatSuggestionsConfiguration,
-} from "./use-configure-chat-suggestions";
+} from "./use-copilot-chat-suggestions";

@@ -1,5 +1,290 @@
 # ui
 
+## 1.50.1-next.1
+
+### Patch Changes
+
+- Updated dependencies [cfa4185]
+  - @copilotkit/react-core@1.50.1-next.1
+  - @copilotkit/runtime-client-gql@1.50.1-next.1
+  - @copilotkit/shared@1.50.1-next.1
+
+## 1.50.1-next.0
+
+### Patch Changes
+
+- Updated the default model and API version for the Google GenAI adapter
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.1-next.0
+  - @copilotkit/react-core@1.50.1-next.0
+  - @copilotkit/shared@1.50.1-next.0
+
+## 1.50.0
+
+### Minor Changes
+
+- 0fc76d7: add new runner with telemetry baked in
+- c942f9c: Minor fixes and stability improvements
+- eed6021: Updating to the latest version of vnext
+- 3b7367e: Improving general stability around LangChain
+- 7ff9ca7: Minor fixes and improvements
+- 974875e: Lint and format code to resolve Prettier errors
+- 3bd484f: Minor fixes and stability improvements
+- 5a534bf: fix telemetry in v1.50 runtime
+- 769a06c: Refactor suggestions to not always run
+- 788292b: Improving langchain dependency resolution
+- eab69a2: Enabling the new inspector
+- 0a7bfe0: Updating dependency versions across all packages
+
+### Patch Changes
+
+- 2c93ff1: - fix: re-enable repeatable interrupt renders
+- b0e3652: - chore: Update to latest of vnext
+- c38da1c: - feat: add suggestions support to 1.5
+- fcc52cb: - fix: use `--copilot-kit-primary-color` as default `Messages` font color
+- 5840bab: - fix: adjust dependencies
+- 7808fac: - feat: add spinner indicator to show chat readiness for conversation
+- Updated dependencies [0fc76d7]
+- Updated dependencies [c942f9c]
+- Updated dependencies [bad5f06]
+- Updated dependencies [8ce60af]
+- Updated dependencies [33f47e3]
+- Updated dependencies [04057d5]
+- Updated dependencies [6ce0edc]
+- Updated dependencies [2c93ff1]
+- Updated dependencies [b0e3652]
+- Updated dependencies [7643e71]
+- Updated dependencies [d55a8bd]
+- Updated dependencies [eed6021]
+- Updated dependencies [3b7367e]
+- Updated dependencies [c38da1c]
+- Updated dependencies [7ff9ca7]
+- Updated dependencies [3c60073]
+- Updated dependencies [962546c]
+- Updated dependencies [974875e]
+- Updated dependencies [4942f62]
+- Updated dependencies [3bd484f]
+- Updated dependencies [5a534bf]
+- Updated dependencies [ca8eb39]
+- Updated dependencies [907ae5d]
+- Updated dependencies [769a06c]
+- Updated dependencies [788292b]
+- Updated dependencies [c3d55e5]
+- Updated dependencies [eab69a2]
+- Updated dependencies [5840bab]
+- Updated dependencies [7808fac]
+- Updated dependencies [0a7bfe0]
+- Updated dependencies [c70210e]
+- Updated dependencies [d2c57a1]
+  - @copilotkit/runtime-client-gql@1.50.0
+  - @copilotkit/react-core@1.50.0
+  - @copilotkit/shared@1.50.0
+
+## 1.50.0-beta.19
+
+### Minor Changes
+
+- Improving langchain dependency resolution
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.0-beta.19
+  - @copilotkit/react-core@1.50.0-beta.19
+  - @copilotkit/shared@1.50.0-beta.19
+
+## 1.50.0-beta.18
+
+### Minor Changes
+
+- Improving general stability around LangChain
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.0-beta.18
+  - @copilotkit/react-core@1.50.0-beta.18
+  - @copilotkit/shared@1.50.0-beta.18
+
+## 1.50.0-beta.17
+
+### Minor Changes
+
+- Minor fixes and improvements
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.0-beta.17
+  - @copilotkit/react-core@1.50.0-beta.17
+  - @copilotkit/shared@1.50.0-beta.17
+
+## 1.50.0-beta.16
+
+### Minor Changes
+
+- Minor fixes and stability improvements
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.0-beta.16
+  - @copilotkit/react-core@1.50.0-beta.16
+  - @copilotkit/shared@1.50.0-beta.16
+
+## 1.50.0-beta.15
+
+### Minor Changes
+
+- Lint and format code to resolve Prettier errors
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.0-beta.15
+  - @copilotkit/react-core@1.50.0-beta.15
+  - @copilotkit/shared@1.50.0-beta.15
+
+## 1.50.0-beta.14
+
+### Minor Changes
+
+- Minor fixes and stability improvements
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.0-beta.14
+  - @copilotkit/react-core@1.50.0-beta.14
+  - @copilotkit/shared@1.50.0-beta.14
+
+## 1.50.0-beta.13
+
+### Minor Changes
+
+- Updating to the latest version of vnext
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.0-beta.13
+  - @copilotkit/react-core@1.50.0-beta.13
+  - @copilotkit/shared@1.50.0-beta.13
+
+## 1.50.0-beta.12
+
+### Minor Changes
+
+- eab69a2: Enabling the new inspector
+
+### Patch Changes
+
+- Updated dependencies [eab69a2]
+  - @copilotkit/runtime-client-gql@1.50.0-beta.12
+  - @copilotkit/react-core@1.50.0-beta.12
+  - @copilotkit/shared@1.50.0-beta.12
+
+## 1.50.0-beta.11
+
+### Minor Changes
+
+- fix telemetry in v1.50 runtime
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.0-beta.11
+  - @copilotkit/react-core@1.50.0-beta.11
+  - @copilotkit/shared@1.50.0-beta.11
+
+## 1.50.0-beta.10
+
+### Minor Changes
+
+- add new runner with telemetry baked in
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.0-beta.10
+  - @copilotkit/react-core@1.50.0-beta.10
+  - @copilotkit/shared@1.50.0-beta.10
+
+## 1.50.0-beta.9
+
+### Minor Changes
+
+- Refactor suggestions to not always run
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.0-beta.9
+  - @copilotkit/react-core@1.50.0-beta.9
+  - @copilotkit/shared@1.50.0-beta.9
+
+## 1.50.0-beta.8
+
+### Patch Changes
+
+- @copilotkit/react-core@1.50.0-beta.8
+- @copilotkit/runtime-client-gql@1.50.0-beta.8
+- @copilotkit/shared@1.50.0-beta.8
+
+## 1.50.0-beta.7
+
+### Patch Changes
+
+- Updated dependencies [6ce0edc]
+  - @copilotkit/react-core@1.50.0-beta.7
+  - @copilotkit/runtime-client-gql@1.50.0-beta.7
+  - @copilotkit/shared@1.50.0-beta.7
+
+## 1.50.0-beta.6
+
+### Minor Changes
+
+- Updating dependency versions across all packages
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.0-beta.6
+  - @copilotkit/react-core@1.50.0-beta.6
+  - @copilotkit/shared@1.50.0-beta.6
+
+## 1.50.0-beta.4
+
+### Patch Changes
+
+- 2c93ff1: - fix: re-enable repeatable interrupt renders
+- b0e3652: - chore: Update to latest of vnext
+- c38da1c: - feat: add suggestions support to 1.5
+- 5840bab: - fix: adjust dependencies
+- 7808fac: - feat: add spinner indicator to show chat readiness for conversation
+- Updated dependencies [bad5f06]
+- Updated dependencies [8ce60af]
+- Updated dependencies [33f47e3]
+- Updated dependencies [04057d5]
+- Updated dependencies [2c93ff1]
+- Updated dependencies [b0e3652]
+- Updated dependencies [7643e71]
+- Updated dependencies [d55a8bd]
+- Updated dependencies [c38da1c]
+- Updated dependencies [3c60073]
+- Updated dependencies [962546c]
+- Updated dependencies [4942f62]
+- Updated dependencies [ca8eb39]
+- Updated dependencies [907ae5d]
+- Updated dependencies [c3d55e5]
+- Updated dependencies [5840bab]
+- Updated dependencies [7808fac]
+- Updated dependencies [c70210e]
+- Updated dependencies [d2c57a1]
+  - @copilotkit/react-core@1.50.0-beta.4
+  - @copilotkit/runtime-client-gql@1.50.0-beta.4
+  - @copilotkit/shared@1.50.0-beta.4
+
 ## 1.10.7-next.0
 
 ### Patch Changes

@@ -21,6 +21,7 @@ export function QuickstartDropdown() {
     { label: "AG2", url: "/ag2/quickstart" },
     { label: "Pydantic AI", url: "/pydantic-ai/quickstart" },
     { label: "ADK", url: "/adk/quickstart" },
+    { label: "A2A", url: "/a2a/quickstart" },
   ];
 
   const handleSelectChange = (event: ChangeEvent<HTMLSelectElement>) => {

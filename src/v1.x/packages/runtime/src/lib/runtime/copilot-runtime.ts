@@ -13,65 +13,50 @@
  */
 
 import {
-  Action,
-  CopilotErrorHandler,
+  type Action,
+  type CopilotErrorHandler,
   CopilotKitMisuseError,
-  MaybePromise,
-  NonEmptyRecord,
-  Parameter,
+  type MaybePromise,
+  type NonEmptyRecord,
+  type Parameter,
   readBody,
   getZodParameters,
-  PartialBy,
+  type PartialBy,
+  isTelemetryDisabled,
 } from "@copilotkit/shared";
-import { type RunAgentInput } from "@ag-ui/core";
+import type { RunAgentInput } from "@ag-ui/core";
 import { aguiToGQL } from "../../graphql/message-conversion/agui-to-gql";
-import { CopilotServiceAdapter, RemoteChainParameters } from "../../service-adapters";
+import type { CopilotServiceAdapter, RemoteChainParameters } from "../../service-adapters";
 import {
   CopilotRuntime as CopilotRuntimeVNext,
-  CopilotRuntimeOptions,
-  CopilotRuntimeOptions as CopilotRuntimeOptionsVNext,
-  InMemoryAgentRunner as InMemoryAgentRunnerVNext,
+  type CopilotRuntimeOptions,
+  type CopilotRuntimeOptions as CopilotRuntimeOptionsVNext,
+  InMemoryAgentRunner,
 } from "@copilotkitnext/runtime";
+import { TelemetryAgentRunner } from "./telemetry-agent-runner";
+import telemetry from "../telemetry-client";
 
-import { MessageInput } from "../../graphql/inputs/message.input";
-import { ActionInput } from "../../graphql/inputs/action.input";
-import { RuntimeEventSource } from "../../service-adapters/events";
-import { Message } from "../../graphql/types/converted";
-import { ForwardedParametersInput } from "../../graphql/inputs/forwarded-parameters.input";
+import type { MessageInput } from "../../graphql/inputs/message.input";
+import type { Message } from "../../graphql/types/converted";
 
 import {
   EndpointType,
-  EndpointDefinition,
-  CopilotKitEndpoint,
-  LangGraphPlatformEndpoint,
+  type EndpointDefinition,
+  type CopilotKitEndpoint,
+  type LangGraphPlatformEndpoint,
 } from "./types";
 
-import { GraphQLContext } from "../integrations/shared";
-import { AgentSessionInput } from "../../graphql/inputs/agent-session.input";
-import { AgentStateInput } from "../../graphql/inputs/agent-state.input";
-import { Agent } from "../../graphql/types/agents-response.type";
-import { ExtensionsInput } from "../../graphql/inputs/extensions.input";
-import { ExtensionsResponse } from "../../graphql/types/extensions-response.type";
-import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
-import {
-  CopilotObservabilityConfig,
-  LLMRequestData,
-  LLMResponseData,
-  LLMErrorData,
-} from "../observability";
-import { AbstractAgent } from "@ag-ui/client";
+import type { CopilotObservabilityConfig, LLMRequestData, LLMResponseData } from "../observability";
+import type { AbstractAgent } from "@ag-ui/client";
 
 // +++ MCP Imports +++
 import {
-  MCPClient,
-  MCPEndpointConfig,
-  MCPTool,
+  type MCPClient,
+  type MCPEndpointConfig,
+  type MCPTool,
   extractParametersFromSchema,
-  convertMCPToolsToActions,
-  generateMcpToolInstructions,
 } from "./mcp-tools-utils";
-import { LangGraphAgent } from "./agent-integrations/langgraph.agent";
-import { BasicAgent, BasicAgentConfiguration } from "@copilotkitnext/agent";
+import { BasicAgent, type BasicAgentConfiguration } from "@copilotkitnext/agent";
 // Define the function type alias here or import if defined elsewhere
 type CreateMCPClientFunction = (config: MCPEndpointConfig) => Promise<MCPClient>;
 
@@ -324,9 +309,21 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     params?: CopilotRuntimeConstructorParams<T> & PartialBy<CopilotRuntimeOptions, "agents">,
   ) {
     const agents = params?.agents ?? {};
+    const endpointAgents = this.assignEndpointsToAgents(params?.remoteEndpoints ?? []);
+
+    // Determine the base runner (user-provided or default)
+    const baseRunner = params?.runner ?? new InMemoryAgentRunner();
+
+    // Wrap with TelemetryAgentRunner unless telemetry is disabled
+    // This ensures we always capture agent execution telemetry when enabled,
+    // even if the user provides their own custom runner
+    const runner = isTelemetryDisabled()
+      ? baseRunner
+      : new TelemetryAgentRunner({ runner: baseRunner });
+
     this.runtimeArgs = {
-      agents: { ...this.assignEndpointsToAgents(params?.remoteEndpoints ?? []), ...agents },
-      runner: params?.runner ?? new InMemoryAgentRunnerVNext(),
+      agents: { ...endpointAgents, ...agents },
+      runner,
       // TODO: add support for transcriptionService from CopilotRuntimeOptionsVNext once it is ready
       // transcriptionService: params?.transcriptionService,
 
@@ -347,28 +344,21 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
   private assignEndpointsToAgents(
     endpoints: CopilotRuntimeConstructorParams<T>["remoteEndpoints"],
-  ) {
-    return endpoints.reduce((acc, endpoint) => {
-      if (resolveEndpointType(endpoint) == EndpointType.LangGraphPlatform) {
-        let lgAgents = {};
-        const lgEndpoint = endpoint as LangGraphPlatformEndpoint;
-        lgEndpoint.agents.forEach((agent) => {
-          const graphId = agent.assistantId ?? agent.name;
-          lgAgents[graphId] = new LangGraphAgent({
-            deploymentUrl: lgEndpoint.deploymentUrl,
-            langsmithApiKey: lgEndpoint.langsmithApiKey,
-            graphId,
-          });
-        });
+  ): Record<string, AbstractAgent> {
+    let result: Record<string, AbstractAgent> = {};
 
-        return {
-          ...acc,
-          ...lgAgents,
-        };
-      }
+    if (
+      endpoints.some((endpoint) => resolveEndpointType(endpoint) == EndpointType.LangGraphPlatform)
+    ) {
+      throw new CopilotKitMisuseError({
+        message:
+          "LangGraphPlatformEndpoint in remoteEndpoints is deprecated. " +
+          'Please use the "agents" option instead with LangGraphAgent from "@copilotkit/runtime/langgraph". ' +
+          'Example: agents: { myAgent: new LangGraphAgent({ deploymentUrl: "...", graphId: "..." }) }',
+      });
+    }
 
-      return acc;
-    }, {});
+    return result;
   }
 
   handleServiceAdapter(serviceAdapter: CopilotServiceAdapter) {
@@ -395,10 +385,11 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
           });
         }
 
-        if (this.params.actions) {
+        const actions = this.params?.actions;
+        if (actions) {
           const mcpTools = await this.getToolsFromMCP();
           agentsList = this.assignToolsToAgents(agents, [
-            ...this.getToolsFromActions(this.params.actions),
+            ...this.getToolsFromActions(actions),
             ...mcpTools,
           ]);
         }
@@ -425,6 +416,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         name: action.name,
         description: action.description || "",
         parameters: zodSchema,
+        execute: () => Promise.resolve(),
       };
     });
   }
@@ -459,6 +451,29 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     params?: CopilotRuntimeConstructorParams<T> & PartialBy<CopilotRuntimeOptions, "agents">,
   ) {
     return async (hookParams: BeforeRequestMiddlewareFnParameters[0]) => {
+      const { request } = hookParams;
+
+      // Capture telemetry for copilot request creation
+      const publicApiKey = request.headers.get("x-copilotcloud-public-api-key");
+      const body = (await readBody(request)) as RunAgentInput;
+      const forwardedProps = body.forwardedProps as
+        | {
+            cloud?: { guardrails?: unknown };
+            metadata?: { requestType?: string };
+          }
+        | undefined;
+
+      // Get cloud base URL from environment or default
+      const cloudBaseUrl = process.env.COPILOT_CLOUD_BASE_URL || "https://api.cloud.copilotkit.ai";
+
+      telemetry.capture("oss.runtime.copilot_request_created", {
+        "cloud.guardrails.enabled": forwardedProps?.cloud?.guardrails !== undefined,
+        requestType: forwardedProps?.metadata?.requestType ?? "unknown",
+        "cloud.api_key_provided": !!publicApiKey,
+        ...(publicApiKey ? { "cloud.public_api_key": publicApiKey } : {}),
+        "cloud.base_url": cloudBaseUrl,
+      });
+
       // TODO: get public api key and run with expected data
       // if (this.observability?.enabled && this.params.publicApiKey) {
       //   this.logObservabilityBeforeRequest()
@@ -469,7 +484,6 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
       if (params?.middleware?.onBeforeRequest) {
         const { request, runtime, path } = hookParams;
-        const body = (await readBody(request)) as RunAgentInput;
         const gqlMessages = (aguiToGQL(body.messages) as Message[]).reduce(
           (acc, msg) => {
             if ("role" in msg && msg.role === "user") {
@@ -638,6 +652,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
               name: toolName,
               description: tool.description || `MCP tool: ${toolName} (from ${endpointUrl})`,
               parameters: zodSchema,
+              execute: () => Promise.resolve(),
             };
           },
         );

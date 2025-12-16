@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.50.0-beta.2",
+  "version": "1.50.1-next.1",
   "sideEffects": [
     "**/*.css"
   ],
@@ -36,7 +36,6 @@
     "unlink:global": "pnpm unlink --global"
   },
   "peerDependencies": {
-    "@copilotkitnext/core": "0.0.23",
     "react": "^18 || ^19 || ^19.0.0-rc"
   },
   "devDependencies": {

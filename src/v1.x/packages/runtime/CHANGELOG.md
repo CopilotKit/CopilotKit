@@ -1,5 +1,233 @@
 # @copilotkit/runtime
 
+## 1.50.1-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.50.1-next.1
+
+## 1.50.1-next.0
+
+### Patch Changes
+
+- Updated the default model and API version for the Google GenAI adapter
+- Updated dependencies
+  - @copilotkit/shared@1.50.1-next.0
+
+## 1.50.0
+
+### Minor Changes
+
+- 0fc76d7: add new runner with telemetry baked in
+- c942f9c: Minor fixes and stability improvements
+- bad5f06: - feat: port old endpoint creators to 2.0
+- eed6021: Updating to the latest version of vnext
+- 3b7367e: Improving general stability around LangChain
+- 7ff9ca7: Minor fixes and improvements
+- 5a6029e: - fix(runtime): Update method for merging tools in assignToolsToAgent
+  - feat(runtime): Export v2 of the runtime as a subpackage
+- 974875e: Lint and format code to resolve Prettier errors
+- 4942f62: - feat: create rerouting CopilotRuntime
+- 3bd484f: Minor fixes and stability improvements
+- 5a534bf: fix telemetry in v1.50 runtime
+- 769a06c: Refactor suggestions to not always run
+- 788292b: Improving langchain dependency resolution
+- eab69a2: Enabling the new inspector
+- 0a7bfe0: Updating dependency versions across all packages
+
+### Patch Changes
+
+- b780092: - fix: treeshake and make providers optional
+- b0e3652: - chore: Update to latest of vnext
+- d55a8bd: - feat(runtime): export v2 of the runtime as a subpackage
+  - fix(runtime): update method for merging tools in assignToolsToAgent
+  - fix: remove redundant agent instantiation code
+- aee1e42: - fix: use hono node directly instead of express for the node http integration
+- 18ba908: - fix: unpack and set agents as promise, to avoid delaying runtime instantiation
+- c70210e: - feat: use copilotnext's single endpoint
+- Updated dependencies [0fc76d7]
+- Updated dependencies [c942f9c]
+- Updated dependencies [b0e3652]
+- Updated dependencies [eed6021]
+- Updated dependencies [3b7367e]
+- Updated dependencies [7ff9ca7]
+- Updated dependencies [974875e]
+- Updated dependencies [4942f62]
+- Updated dependencies [3bd484f]
+- Updated dependencies [5a534bf]
+- Updated dependencies [769a06c]
+- Updated dependencies [788292b]
+- Updated dependencies [eab69a2]
+- Updated dependencies [0a7bfe0]
+  - @copilotkit/shared@1.50.0
+
+## 1.50.0-beta.19
+
+### Minor Changes
+
+- Improving langchain dependency resolution
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@1.50.0-beta.19
+
+## 1.50.0-beta.18
+
+### Minor Changes
+
+- Improving general stability around LangChain
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@1.50.0-beta.18
+
+## 1.50.0-beta.17
+
+### Minor Changes
+
+- Minor fixes and improvements
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@1.50.0-beta.17
+
+## 1.50.0-beta.16
+
+### Minor Changes
+
+- Minor fixes and stability improvements
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@1.50.0-beta.16
+
+## 1.50.0-beta.15
+
+### Minor Changes
+
+- Lint and format code to resolve Prettier errors
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@1.50.0-beta.15
+
+## 1.50.0-beta.14
+
+### Minor Changes
+
+- Minor fixes and stability improvements
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@1.50.0-beta.14
+
+## 1.50.0-beta.13
+
+### Minor Changes
+
+- Updating to the latest version of vnext
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@1.50.0-beta.13
+
+## 1.50.0-beta.12
+
+### Minor Changes
+
+- eab69a2: Enabling the new inspector
+
+### Patch Changes
+
+- Updated dependencies [eab69a2]
+  - @copilotkit/shared@1.50.0-beta.12
+
+## 1.50.0-beta.11
+
+### Minor Changes
+
+- fix telemetry in v1.50 runtime
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@1.50.0-beta.11
+
+## 1.50.0-beta.10
+
+### Minor Changes
+
+- add new runner with telemetry baked in
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@1.50.0-beta.10
+
+## 1.50.0-beta.9
+
+### Minor Changes
+
+- Refactor suggestions to not always run
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@1.50.0-beta.9
+
+## 1.50.0-beta.8
+
+### Patch Changes
+
+- @copilotkit/shared@1.50.0-beta.8
+
+## 1.50.0-beta.7
+
+### Patch Changes
+
+- @copilotkit/shared@1.50.0-beta.7
+
+## 1.50.0-beta.6
+
+### Minor Changes
+
+- Updating dependency versions across all packages
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@1.50.0-beta.6
+
+## 1.50.0-beta.4
+
+### Minor Changes
+
+- bad5f06: - feat: port old endpoint creators to 2.0
+- 5a6029e: - fix(runtime): Update method for merging tools in assignToolsToAgent
+  - feat(runtime): Export v2 of the runtime as a subpackage
+- 4942f62: - feat: create rerouting CopilotRuntime
+
+### Patch Changes
+
+- b780092: - fix: treeshake and make providers optional
+- b0e3652: - chore: Update to latest of vnext
+- d55a8bd: - feat(runtime): export v2 of the runtime as a subpackage
+  - fix(runtime): update method for merging tools in assignToolsToAgent
+  - fix: remove redundant agent instantiation code
+- aee1e42: - fix: use hono node directly instead of express for the node http integration
+- 18ba908: - fix: unpack and set agents as promise, to avoid delaying runtime instantiation
+- c70210e: - feat: use copilotnext's single endpoint
+- Updated dependencies [b0e3652]
+- Updated dependencies [4942f62]
+  - @copilotkit/shared@1.50.0-beta.4
+
 ## 1.10.7-next.0
 
 ### Patch Changes

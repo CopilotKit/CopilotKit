@@ -59,7 +59,7 @@
  * removes it on unmount, ensuring a clean and efficient lifecycle management.
  */
 import {
-  useConfigureChatSuggestions,
+  useCopilotChatSuggestions as useCoreCopilotChatSuggestions,
   type UseCopilotChatSuggestionsConfiguration,
 } from "@copilotkit/react-core";
 
@@ -67,5 +67,5 @@ export function useCopilotChatSuggestions(
   config: UseCopilotChatSuggestionsConfiguration,
   dependencies: any[] = [],
 ) {
-  useConfigureChatSuggestions(config, dependencies);
+  useCoreCopilotChatSuggestions(config, dependencies);
 }

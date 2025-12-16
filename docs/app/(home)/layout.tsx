@@ -15,6 +15,7 @@ import {
   LlamaIndexIcon,
   PydanticAIIcon,
   AwsStrandsIcon,
+  A2AIcon,
 } from "@/lib/icons/custom-icons";
 
 export default function Layout({ children }: { children: ReactNode }) {
@@ -71,6 +72,51 @@ export default function Layout({ children }: { children: ReactNode }) {
                   title: "Select an integration...",
                   options: [
                     {
+                      title: "Google ADK",
+                      description: "Documentation for CoAgents with ADK",
+                      url: "/adk",
+                      icon: <ADKIcon className="w-4 h-4 text-bold" />,
+                      bgGradient: "bg-black text-white",
+                      selectedStyle: "ring-gray-500 ring-2 rounded-sm",
+                    },
+                    {
+                      title: "A2A",
+                      description: "Documentation for CoAgents with A2A",
+                      url: "/a2a",
+                      icon: <A2AIcon className="w-4 h-4 text-bold" />,
+                      bgGradient:
+                        "bg-gradient-to-b from-orange-700 to-orange-400 text-orange-100",
+                      selectedStyle: "ring-orange-500/70 ring-2 rounded-sm",
+                    },
+                    {
+                      title: "Microsoft Agent Framework",
+                      description:
+                        "Documentation for CoAgents with Microsoft Agent Framework",
+                      url: "/microsoft-agent-framework",
+                      icon: (
+                        <FaMicrosoft
+                          className="w-4 h-4"
+                          style={{
+                            fontSize: "16px",
+                            width: "16px",
+                            height: "16px",
+                          }}
+                        />
+                      ),
+                      bgGradient:
+                        "bg-gradient-to-b from-blue-700 to-blue-400 text-blue-100",
+                      selectedStyle: "ring-blue-500/70 ring-2 rounded-sm",
+                    },
+                    {
+                      title: "AWS Strands",
+                      description:
+                        "Documentation for CoAgents with AWS Strands",
+                      url: "/aws-strands",
+                      icon: <AwsStrandsIcon className="w-4 h-4 text-bold" />,
+                      bgGradient: "bg-black text-white",
+                      selectedStyle: "ring-gray-500 ring-2 rounded-sm",
+                    },
+                    {
                       title: "Direct to LLM",
                       description: "Get started with CopilotKit quickly",
                       url: "/direct-to-llm",
@@ -107,6 +153,52 @@ export default function Layout({ children }: { children: ReactNode }) {
                       selectedStyle: "ring-purple-500/70 ring-2 rounded-sm",
                     },
                     {
+                      title: "AutoGen2",
+                      description: "Documentation for CoAgents with AG2",
+                      url: "/ag2",
+                      icon: <AG2Icon className="w-4 h-4 text-bold" />,
+                      bgGradient:
+                        "bg-gradient-to-b from-indigo-700 to-indigo-400 text-indigo-100",
+                      selectedStyle: "ring-indigo-500/70 ring-2 rounded-sm",
+                    },
+                    {
+                      title: "Agno",
+                      description: "Documentation for CoAgents with Agno",
+                      url: "/agno",
+                      icon: <AgnoIcon className="w-4 h-4 text-bold" />,
+                      bgGradient: "bg-[#FF3C1A] text-white",
+                      selectedStyle: "ring-[#FF3C1A] ring-2 rounded-sm",
+                    },
+                    {
+                      title: "CrewAI Crews",
+                      description:
+                        "Documentation for CoAgents with CrewAI Crews",
+                      url: "/crewai-crews",
+                      icon: <SiCrewai className="w-4 h-4 text-bold" />,
+                      bgGradient:
+                        "bg-gradient-to-b from-[#FA694C] to-[#FE8A71] text-white",
+                      selectedStyle: "ring-[#FA694C]/70 ring-2 rounded-sm",
+                    },
+                    {
+                      title: "CrewAI Flows",
+                      description:
+                        "Documentation for CoAgents with CrewAI Flows",
+                      url: "/crewai-flows",
+                      icon: <SiCrewai className="w-4 h-4 text-bold" />,
+                      bgGradient:
+                        "bg-gradient-to-b from-[#FA694C] to-[#FE8A71] text-white",
+                      selectedStyle: "ring-[#FA694C]/70 ring-2 rounded-sm",
+                    },
+                    {
+                      title: "LlamaIndex",
+                      description: "Documentation for CoAgents with LlamaIndex",
+                      url: "/llamaindex",
+                      icon: <LlamaIndexIcon className="w-4 h-4 text-bold" />,
+                      bgGradient:
+                        "bg-gradient-to-b from-pink-500 via-purple-500 to-blue-400 text-pink-100",
+                      selectedStyle: "ring-pink-500/70 ring-2 rounded-sm",
+                    },
+                    {
                       title: "Mastra",
                       description: "Documentation for CoAgents with Mastra",
                       url: "/mastra",
@@ -124,88 +216,6 @@ export default function Layout({ children }: { children: ReactNode }) {
                       icon: <PydanticAIIcon className="w-4 h-4 text-bold" />,
                       bgGradient: "bg-black text-white",
                       selectedStyle: "ring-gray-500 ring-2 rounded-sm",
-                    },
-                    {
-                      title: "Google ADK",
-                      description: "Documentation for CoAgents with ADK",
-                      url: "/adk",
-                      icon: <ADKIcon className="w-4 h-4 text-bold" />,
-                      bgGradient: "bg-black text-white",
-                      selectedStyle: "ring-gray-500 ring-2 rounded-sm",
-                    },
-                    {
-                      title: "AWS Strands",
-                      description:
-                        "Documentation for CoAgents with AWS Strands",
-                      url: "/aws-strands",
-                      icon: <AwsStrandsIcon className="w-4 h-4 text-bold" />,
-                      bgGradient: "bg-black text-white",
-                      selectedStyle: "ring-gray-500 ring-2 rounded-sm",
-                    },
-                    {
-                      title: "Microsoft Agent Framework",
-                      description:
-                        "Documentation for CoAgents with Microsoft Agent Framework",
-                      url: "/microsoft-agent-framework",
-                      icon: (
-                        <FaMicrosoft
-                          className="w-4 h-4"
-                          style={{
-                            fontSize: "16px",
-                            width: "16px",
-                            height: "16px",
-                          }}
-                        />
-                      ),
-                      bgGradient:
-                        "bg-gradient-to-b from-blue-700 to-blue-400 text-blue-100",
-                      selectedStyle: "ring-blue-500/70 ring-2 rounded-sm",
-                    },
-                    {
-                      title: "Agno",
-                      description: "Documentation for CoAgents with Agno",
-                      url: "/agno",
-                      icon: <AgnoIcon className="w-4 h-4 text-bold" />,
-                      bgGradient: "bg-[#FF3C1A] text-white",
-                      selectedStyle: "ring-[#FF3C1A] ring-2 rounded-sm",
-                    },
-                    {
-                      title: "LlamaIndex",
-                      description: "Documentation for CoAgents with LlamaIndex",
-                      url: "/llamaindex",
-                      icon: <LlamaIndexIcon className="w-4 h-4 text-bold" />,
-                      bgGradient:
-                        "bg-gradient-to-b from-pink-500 via-purple-500 to-blue-400 text-pink-100",
-                      selectedStyle: "ring-pink-500/70 ring-2 rounded-sm",
-                    },
-                    {
-                      title: "CrewAI Flows",
-                      description:
-                        "Documentation for CoAgents with CrewAI Flows",
-                      url: "/crewai-flows",
-                      icon: <SiCrewai className="w-4 h-4 text-bold" />,
-                      bgGradient:
-                        "bg-gradient-to-b from-[#FA694C] to-[#FE8A71] text-white",
-                      selectedStyle: "ring-[#FA694C]/70 ring-2 rounded-sm",
-                    },
-                    {
-                      title: "CrewAI Crews",
-                      description:
-                        "Documentation for CoAgents with CrewAI Crews",
-                      url: "/crewai-crews",
-                      icon: <SiCrewai className="w-4 h-4 text-bold" />,
-                      bgGradient:
-                        "bg-gradient-to-b from-[#FA694C] to-[#FE8A71] text-white",
-                      selectedStyle: "ring-[#FA694C]/70 ring-2 rounded-sm",
-                    },
-                    {
-                      title: "AutoGen2",
-                      description: "Documentation for CoAgents with AG2",
-                      url: "/ag2",
-                      icon: <AG2Icon className="w-4 h-4 text-bold" />,
-                      bgGradient:
-                        "bg-gradient-to-b from-indigo-700 to-indigo-400 text-indigo-100",
-                      selectedStyle: "ring-indigo-500/70 ring-2 rounded-sm",
                     },
                   ],
                 },

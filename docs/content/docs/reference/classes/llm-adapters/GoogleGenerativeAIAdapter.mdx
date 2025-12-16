@@ -22,13 +22,17 @@ const genAI = new GoogleGenerativeAI(process.env["GOOGLE_API_KEY"]);
  
 const copilotKit = new CopilotRuntime();
  
-return new GoogleGenerativeAIAdapter({ model: "gemini-1.5-pro" });
+return new GoogleGenerativeAIAdapter({ model: "gemini-2.5-flash", apiVersion: "v1" });
 ```
 
 ## Constructor Parameters
 
 <PropertyReference name="model" type="string"  > 
 A custom Google Generative AI model to use.
+</PropertyReference>
+
+<PropertyReference name="apiVersion" type="'v1' | 'v1beta'"  > 
+The API version to use (e.g. "v1" or "v1beta"). Defaults to "v1".
 </PropertyReference>
 
 <PropertyReference name="apiKey" type="string"  > 

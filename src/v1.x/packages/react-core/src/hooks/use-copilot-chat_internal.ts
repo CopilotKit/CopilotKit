@@ -14,10 +14,6 @@ import {
 } from "@copilotkitnext/react";
 import { Suggestion } from "@copilotkitnext/core";
 import { useLazyToolRenderer } from "./use-lazy-tool-renderer";
-import {
-  useConfigureChatSuggestions,
-  UseCopilotChatSuggestionsConfiguration,
-} from "./use-configure-chat-suggestions";
 import { AbstractAgent, AGUIConnectNotImplementedError } from "@ag-ui/client";
 import {
   CoAgentStateRenderBridge,
@@ -71,7 +67,23 @@ export interface UseCopilotChatOptions {
    * Disables inclusion of CopilotKit’s default system message. When true, no system message is sent (this also suppresses any custom message from <code>makeSystemMessage</code>).
    */
   disableSystemMessage?: boolean;
-
+  /**
+   * Controls the behavior of suggestions in the chat interface.
+   *
+   * `auto` (default) - Suggestions are generated automatically:
+   *   - When the chat is first opened (empty state)
+   *   - After each message exchange completes
+   *   - Uses configuration from `useCopilotChatSuggestions` hooks
+   *
+   * `manual` - Suggestions are controlled programmatically:
+   *   - Use `setSuggestions()` to set custom suggestions
+   *   - Use `generateSuggestions()` to trigger AI generation
+   *   - Access via `useCopilotChat` hook
+   *
+   * `SuggestionItem[]` - Static suggestions array:
+   *   - Always shows the same suggestions
+   *   - No AI generation involved
+   */
   suggestions?: ChatSuggestions;
 }
 
@@ -258,27 +270,6 @@ export interface UseCopilotChatReturn {
   threadId?: string;
 }
 
-function useConfigureSuggestions(suggestions?: UseCopilotChatOptions["suggestions"]) {
-  let suggestionsConfig: UseCopilotChatSuggestionsConfiguration;
-
-  if (Array.isArray(suggestions)) {
-    suggestionsConfig = {
-      suggestions,
-      available: "always",
-    };
-  } else if (suggestions === "auto") {
-    suggestionsConfig = {
-      available: suggestions === "auto" ? "always" : "disabled",
-      instructions:
-        "Suggest what the user could say next. Provide clear, highly relevant suggestions. Do not literally suggest function calls.",
-    };
-  } else {
-    suggestionsConfig = { available: "disabled" } as UseCopilotChatSuggestionsConfiguration;
-  }
-
-  useConfigureChatSuggestions(suggestionsConfig);
-}
-
 export function useCopilotChatInternal({
   suggestions,
 }: UseCopilotChatOptions = {}): UseCopilotChatReturn {
@@ -286,7 +277,6 @@ export function useCopilotChatInternal({
   const { threadId, agentSession } = useCopilotContext();
   const existingConfig = useCopilotChatConfiguration();
   const [agentAvailable, setAgentAvailable] = useState(false);
-  useConfigureSuggestions(suggestions);
 
   // Apply priority: props > existing config > defaults
   const resolvedAgentId = existingConfig?.agentId ?? "default";
@@ -419,15 +409,14 @@ export function useCopilotChatInternal({
     [latestSendMessageFunc],
   );
 
-  const latestSetMessages = useUpdatedRef(agent?.setMessages);
   const latestSetMessagesFunc = useCallback(
     (messages: Message[] | DeprecatedGqlMessage[]) => {
       if (messages.every((message) => message instanceof DeprecatedGqlMessage)) {
-        return latestSetMessages.current?.(gqlToAGUI(messages));
+        return agent?.setMessages?.(gqlToAGUI(messages));
       }
-      return latestSetMessages.current?.(messages);
+      return agent?.setMessages?.(messages);
     },
-    [latestSetMessages, agent],
+    [agent?.setMessages, agent],
   );
 
   const latestReload = useUpdatedRef(reload);
@@ -438,10 +427,9 @@ export function useCopilotChatInternal({
     [latestReload],
   );
 
-  const latestStop = useUpdatedRef(agent?.abortRun);
   const latestStopFunc = useCallback(() => {
-    return latestStop.current?.();
-  }, [latestStop]);
+    return agent?.abortRun?.();
+  }, [agent?.abortRun]);
 
   const latestReset = useUpdatedRef(reset);
   const latestResetFunc = useCallback(() => {
@@ -525,6 +513,16 @@ export function useCopilotChatInternal({
     resolvedAgentId,
   ]);
 
+  const renderedSuggestions = useMemo(() => {
+    if (Array.isArray(suggestions)) {
+      return {
+        suggestions: suggestions.map((s) => ({ ...s, isLoading: false })),
+        isLoading: false,
+      };
+    }
+    return currentSuggestions;
+  }, [suggestions, currentSuggestions]);
+
   // @ts-ignore
   return {
     messages: resolvedMessages,
@@ -539,12 +537,12 @@ export function useCopilotChatInternal({
     isLoading: Boolean(agent?.isRunning),
     // mcpServers,
     // setMcpServers,
-    suggestions: currentSuggestions.suggestions,
+    suggestions: renderedSuggestions.suggestions,
     setSuggestions: (suggestions: Omit<Suggestion, "isLoading">[]) =>
       copilotkit.addSuggestionsConfig({ suggestions }),
     generateSuggestions: async () => copilotkit.reloadSuggestions(resolvedAgentId),
     resetSuggestions: () => copilotkit.clearSuggestions(resolvedAgentId),
-    isLoadingSuggestions: currentSuggestions.isLoading,
+    isLoadingSuggestions: renderedSuggestions.isLoading,
     interrupt,
     agent,
     threadId,

@@ -106,3 +106,21 @@ A function to generate the system message. Defaults to `defaultSystemMessage`.
 Disables inclusion of CopilotKit’s default system message. When true, no system message is sent (this also suppresses any custom message from <code>makeSystemMessage</code>).
 </PropertyReference>
 
+<PropertyReference name="suggestions" type="ChatSuggestions"  > 
+Controls the behavior of suggestions in the chat interface.
+ 
+  `auto` (default) - Suggestions are generated automatically:
+    - When the chat is first opened (empty state)
+    - After each message exchange completes
+    - Uses configuration from `useCopilotChatSuggestions` hooks
+ 
+  `manual` - Suggestions are controlled programmatically:
+    - Use `setSuggestions()` to set custom suggestions
+    - Use `generateSuggestions()` to trigger AI generation
+    - Access via `useCopilotChat` hook
+ 
+  `SuggestionItem[]` - Static suggestions array:
+    - Always shows the same suggestions
+    - No AI generation involved
+</PropertyReference>
+

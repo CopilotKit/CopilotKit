@@ -61,9 +61,8 @@
  * }
  * ```
  */
+import { useCopilotKit } from "@copilotkitnext/react";
 import { useEffect, useRef } from "react";
-import { useCopilotContext } from "../context/copilot-context";
-import { useAgentContext } from "@copilotkitnext/react";
 
 /**
  * Options for the useCopilotReadable hook.
@@ -99,20 +98,38 @@ export interface UseCopilotReadableOptions {
   convert?: (description: string, value: any) => string;
 }
 
-function convertToJSON(description: string, value: any): string {
-  return `${description}: ${typeof value === "string" ? value : JSON.stringify(value)}`;
-}
-
 /**
  * Adds the given information to the Copilot context to make it readable by Copilot.
  */
 export function useCopilotReadable(
-  { description, value }: UseCopilotReadableOptions,
+  { description, value, convert, available }: UseCopilotReadableOptions,
   dependencies?: any[],
-): undefined {
-  useAgentContext({
-    description,
-    value,
-  });
-  return;
+): string | undefined {
+  const { copilotkit } = useCopilotKit();
+  const ctxIdRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!copilotkit) return;
+
+    const found = Object.entries(copilotkit.context).find(([id, ctxItem]) => {
+      return JSON.stringify({ description, value }) == JSON.stringify(ctxItem);
+    });
+    if (found) {
+      ctxIdRef.current = found[0];
+      if (available === "disabled") copilotkit.removeContext(ctxIdRef.current);
+      return;
+    }
+    if (!found && available === "disabled") return;
+
+    ctxIdRef.current = copilotkit.addContext({
+      description,
+      value: (convert ?? JSON.stringify)(value),
+    });
+
+    return () => {
+      if (!ctxIdRef.current) return;
+      copilotkit.removeContext(ctxIdRef.current);
+    };
+  }, [description, value, convert]);
+
+  return ctxIdRef.current;
 }

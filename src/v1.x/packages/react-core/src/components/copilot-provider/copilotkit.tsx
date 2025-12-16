@@ -15,7 +15,11 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, SetStateAction } from "react";
-import { CopilotChatConfigurationProvider, CopilotKitProvider } from "@copilotkitnext/react";
+import {
+  CopilotChatConfigurationProvider,
+  CopilotKitInspector,
+  CopilotKitProvider as CopilotKitNextProvider,
+} from "@copilotkitnext/react";
 import {
   CopilotContext,
   CopilotApiConfig,
@@ -53,7 +57,6 @@ import {
   LangGraphInterruptActionSetterArgs,
   QueuedInterruptEvent,
 } from "../../types/interrupt-action";
-import { ConsoleTrigger } from "../dev-console/console-trigger";
 import { CoAgentStateRendersProvider } from "../../context/coagent-state-renders-context";
 import { CoAgentStateRenderBridge } from "../../hooks/use-coagent-state-render-bridge";
 import { ThreadsProvider, useThreads } from "../../context/threads-context";
@@ -61,6 +64,7 @@ import { CopilotListeners } from "../CopilotListeners";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const enabled = shouldShowDevConsole(props.showDevConsole);
+  const showInspector = shouldShowDevConsole(props.enableInspector);
 
   // Use API key if provided, otherwise use the license key
   const publicApiKey = props.publicApiKey || props.publicLicenseKey;
@@ -71,9 +75,14 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     <ToastProvider enabled={enabled}>
       <CopilotErrorBoundary publicApiKey={publicApiKey} showUsageBanner={enabled}>
         <ThreadsProvider threadId={props.threadId}>
-          <CopilotKitProvider {...props} renderCustomMessages={renderArr} useSingleEndpoint={true}>
+          <CopilotKitNextProvider
+            {...props}
+            showDevConsole={showInspector}
+            renderCustomMessages={renderArr}
+            useSingleEndpoint={true}
+          >
             <CopilotKitInternal {...props}>{children}</CopilotKitInternal>
-          </CopilotKitProvider>
+          </CopilotKitNextProvider>
         </ThreadsProvider>
       </CopilotErrorBoundary>
     </ToastProvider>
@@ -587,7 +596,6 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
           <MessagesTapProvider>
             <CopilotMessages>
               {memoizedChildren}
-              {showDevConsole && <ConsoleTrigger />}
               <RegisteredActionsRenderer />
             </CopilotMessages>
           </MessagesTapProvider>

@@ -7,7 +7,7 @@ description: "Copilot Runtime is the back-end component of CopilotKit, enabling 
  /*
   * ATTENTION! DO NOT MODIFY THIS FILE!
   * This page is auto-generated. If you want to make any changes to this page, changes must be made at:
-  * src/v1.x/packages/runtime/src/lib/runtime/copilot-runtime.ts
+  * CopilotKit/packages/runtime/src/lib/runtime/copilot-runtime.ts
   */
 }
 <Callout type="info">
@@ -22,20 +22,11 @@ import { CopilotRuntime } from "@copilotkit/runtime";
 const copilotKit = new CopilotRuntime();
 ```
 
-## constructor(params?: CopilotRuntimeConstructorParams & PartialBy&lt;CopilotRuntimeOptions, "agents"&gt;)
+## constructor(params?: CopilotRuntimeConstructorParams&lt;T&gt; & PartialBy&lt;CopilotRuntimeOptions, "agents"&gt;)
 
 
 
-<PropertyReference name="params" type="CopilotRuntimeConstructorParams & PartialBy<CopilotRuntimeOptions, 'agents'>" >
-
-</PropertyReference>
-
-<PropertyReference name="handleServiceAdapter" type="serviceAdapter: CopilotServiceAdapter">
-
-
-  <PropertyReference name="serviceAdapter" type="CopilotServiceAdapter" required>
-  
-  </PropertyReference>
+<PropertyReference name="params" type="CopilotRuntimeConstructorParams<T> & PartialBy<CopilotRuntimeOptions, 'agents'>" >
 
 </PropertyReference>
 
