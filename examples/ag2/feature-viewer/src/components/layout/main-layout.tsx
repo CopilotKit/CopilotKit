@@ -9,8 +9,7 @@ import { CodeEditor } from "@/components/code-editor/code-editor";
 import { useFs } from "@/hooks/use-fs";
 import { usePathname } from "next/navigation";
 import config from "@/config";
-import ReactMarkdown from "react-markdown";
-import { MarkdownComponents } from "@/components/ui/markdown-components";
+import { Streamdown } from "streamdown";
 import { MDXContent } from "@/components/ui/mdx-components";
 import { MDXRenderer, SafeComponent } from "@/utils/mdx-utils";
 
@@ -120,17 +119,17 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                           <div className="p-4 border rounded bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300">
                             Could not render MDX content. Displaying markdown
                             instead.
-                            <ReactMarkdown components={MarkdownComponents}>
+                            <Streamdown>
                               {readmeContent || ""}
-                            </ReactMarkdown>
+                            </Streamdown>
                           </div>
                         }
                       />
                     </MDXContent>
                   ) : (
-                    <ReactMarkdown components={MarkdownComponents}>
+                    <Streamdown>
                       {readmeContent}
-                    </ReactMarkdown>
+                    </Streamdown>
                   )}
                 </div>
               </div>

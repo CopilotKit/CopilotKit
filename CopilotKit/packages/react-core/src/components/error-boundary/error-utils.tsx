@@ -2,7 +2,7 @@ import React, { useCallback } from "react";
 import { GraphQLError } from "@copilotkit/runtime-client-gql";
 import { useToast } from "../toast/toast-provider";
 import { ExclamationMarkIcon } from "../toast/exclamation-mark-icon";
-import ReactMarkdown from "react-markdown";
+import { Streamdown } from "streamdown";
 
 interface OriginalError {
   message?: string;
@@ -37,7 +37,7 @@ export function ErrorToast({ errors }: { errors: (Error | GraphQLError)[] }) {
             <span style={{ fontFamily: "monospace", fontWeight: "normal" }}>{code}</span>
           </div>
         )}
-        <ReactMarkdown>{message}</ReactMarkdown>
+        <Streamdown>{message}</Streamdown>
       </div>
     );
   });
