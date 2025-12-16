@@ -28,5 +28,13 @@ def main():
     uvicorn.run(
         "travel.demo:app",
         host="localhost",
-        port=port
+        port=port,
+        reload=True,
+        reload_dirs=(
+            ["."] +
+            (["../../../sdk-python/copilotkit"]
+             if os.path.exists("../../../sdk-python/copilotkit")
+             else []
+             )
+        )
     )
