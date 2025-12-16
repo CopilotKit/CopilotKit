@@ -8,24 +8,13 @@ os.environ["LANGGRAPH_FASTAPI"] = "true"
 # pylint: disable=wrong-import-position
 from fastapi import FastAPI
 import uvicorn
-from copilotkit.integrations.fastapi import add_fastapi_endpoint
-from copilotkit import CopilotKitRemoteEndpoint, add_langgraph_fastapi_endpoint, LangGraphAGUIAgent
+from copilotkit import add_langgraph_fastapi_endpoint, LangGraphAGUIAgent
 from copilotkit.crewai import CrewAIAgent
 from research_canvas.crewai.agent import ResearchCanvasFlow
 from research_canvas.langgraph.agent import graph
 from ag_ui_crewai.endpoint import add_crewai_flow_fastapi_endpoint
 
 app = FastAPI()
-
-sdk = CopilotKitRemoteEndpoint(
-    agents=[
-        CrewAIAgent(
-            name="research_agent_crewai",
-            description="Research agent.",
-            flow=ResearchCanvasFlow(),
-        ),
-    ],
-)
 
 add_crewai_flow_fastapi_endpoint(
     app=app,
