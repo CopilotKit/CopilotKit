@@ -81,7 +81,7 @@ export function TailoredContent({ children, className, defaultOptionIndex = 0, i
             >
               <div className="my-0">
                 {React.isValidElement(option.props.icon)
-                  ? React.cloneElement(option.props.icon as React.ReactElement, {
+                  ? React.cloneElement(option.props.icon as React.ReactElement<any>, {
                       className: cn(iconCn, selectedIndex === index, "my-0"),
                     })
                   : (

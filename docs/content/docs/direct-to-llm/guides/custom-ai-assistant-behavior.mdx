@@ -82,7 +82,7 @@ It can be customized for **Copilot UI** as well as **programmatically**:
     import { useCopilotContext } from "@copilotkit/react-core";
 
     const Home: React.FC = () => {
-      // [!code highlight:6]
+      // [!code highlight:5]
       const { setChatInstructions } = useCopilotContext();
 
       useEffect(() => {
@@ -128,7 +128,7 @@ This approach is **not recommended** as it may interfere with more advanced opti
     import { useCopilotChat } from "@copilotkit/react-core";
 
     const CustomCopilotHeadless: React.FC = () => {
-      // [!code highlight:5]
+      // [!code highlight:4]
       const chat = useCopilotChat({
         // ...
         makeSystemMessage: myCustomMakeSystemMessage,
