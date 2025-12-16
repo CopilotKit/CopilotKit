@@ -2,10 +2,10 @@
   "title": "Guides",
   "pages": [
     "quickstart",
-    "mcp",
-    "---Custom Look and Feel---",
-    "...custom-look-and-feel",
+    "vibe-coding-mcp",
     "---Guides---",
+    "use-agent-hook",
+    "custom-look-and-feel",
     "human-in-the-loop",
     "custom-ai-assistant-behavior",
     "copilot-suggestions",

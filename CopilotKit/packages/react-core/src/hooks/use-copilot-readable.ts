@@ -61,8 +61,8 @@
  * }
  * ```
  */
+import { useCopilotKit } from "@copilotkitnext/react";
 import { useEffect, useRef } from "react";
-import { useCopilotContext } from "../context/copilot-context";
 
 /**
  * Options for the useCopilotReadable hook.
@@ -98,40 +98,38 @@ export interface UseCopilotReadableOptions {
   convert?: (description: string, value: any) => string;
 }
 
-function convertToJSON(description: string, value: any): string {
-  return `${description}: ${typeof value === "string" ? value : JSON.stringify(value)}`;
-}
-
 /**
  * Adds the given information to the Copilot context to make it readable by Copilot.
  */
 export function useCopilotReadable(
-  {
-    description,
-    value,
-    parentId,
-    categories,
-    convert,
-    available = "enabled",
-  }: UseCopilotReadableOptions,
+  { description, value, convert, available }: UseCopilotReadableOptions,
   dependencies?: any[],
 ): string | undefined {
-  const { addContext, removeContext } = useCopilotContext();
-  const idRef = useRef<string>();
-  convert = convert || convertToJSON;
-
-  const information = convert(description, value);
-
+  const { copilotkit } = useCopilotKit();
+  const ctxIdRef = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (available === "disabled") return;
+    if (!copilotkit) return;
 
-    const id = addContext(information, parentId, categories);
-    idRef.current = id;
+    const found = Object.entries(copilotkit.context).find(([id, ctxItem]) => {
+      return JSON.stringify({ description, value }) == JSON.stringify(ctxItem);
+    });
+    if (found) {
+      ctxIdRef.current = found[0];
+      if (available === "disabled") copilotkit.removeContext(ctxIdRef.current);
+      return;
+    }
+    if (!found && available === "disabled") return;
+
+    ctxIdRef.current = copilotkit.addContext({
+      description,
+      value: (convert ?? JSON.stringify)(value),
+    });
 
     return () => {
-      removeContext(id);
+      if (!ctxIdRef.current) return;
+      copilotkit.removeContext(ctxIdRef.current);
     };
-  }, [available, information, parentId, addContext, removeContext, ...(dependencies || [])]);
+  }, [description, value, convert]);
 
-  return idRef.current;
+  return ctxIdRef.current;
 }

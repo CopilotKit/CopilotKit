@@ -42,8 +42,12 @@ export async function getSnippetTOCForPage(slug?: string[]): Promise<any[]> {
   if (!slug) return [];
   
   const possiblePaths = [
+    // Standard locations
     path.join(process.cwd(), 'content/docs', ...slug, 'index.mdx'),
     path.join(process.cwd(), 'content/docs', ...slug) + '.mdx',
+    // Root-collection locations (e.g. content/docs/(root)/page.mdx)
+    path.join(process.cwd(), 'content/docs', '(root)', ...slug, 'index.mdx'),
+    path.join(process.cwd(), 'content/docs', '(root)', ...slug) + '.mdx',
   ];
   
   for (const filePath of possiblePaths) {

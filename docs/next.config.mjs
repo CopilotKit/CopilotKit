@@ -13,13 +13,23 @@ const config = {
   },
 
   images: {
-    domains: [
-      "github-production-user-asset-6210df.s3.amazonaws.com",
-      "fonts.gstatic.com",
-      "docs.copilotkit.ai",
-      "cdn.copilotkit.ai",
-    ],
     remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "github-production-user-asset-6210df.s3.amazonaws.com",
+      },
+      {
+        protocol: "https",
+        hostname: "fonts.gstatic.com",
+      },
+      {
+        protocol: "https",
+        hostname: "docs.copilotkit.ai",
+      },
+      {
+        protocol: "https",
+        hostname: "cdn.copilotkit.ai",
+      },
       {
         protocol: "https",
         hostname: "**",
@@ -28,7 +38,7 @@ const config = {
   },
 
   skipTrailingSlashRedirect: true,
-  skipMiddlewareUrlNormalize: true,
+  skipProxyUrlNormalize: true,
 
   turbopack: true,
 
@@ -91,11 +101,16 @@ const config = {
       },
       {
         source: "/coagents/advanced/router-mode-agent-lock",
-        destination: "/coagents/multi-agent-flows",
+        destination: "/coagents",
         permanent: true,
       },
       {
         source: "/coagents/advanced/intermediate-state-streaming",
+        destination: "/coagents/shared-state/predictive-state-updates",
+        permanent: true,
+      },
+      {
+        source: "/coagents/shared-state/intermediate-state-streaming",
         destination: "/coagents/shared-state/predictive-state-updates",
         permanent: true,
       },
@@ -141,7 +156,27 @@ const config = {
       },
       {
         source: "/coagents/concepts/multi-agent-flows",
-        destination: "/coagents/multi-agent-flows",
+        destination: "/coagents",
+        permanent: true,
+      },
+      {
+        source: "/llamaindex/multi-agent-flows",
+        destination: "/llamaindex",
+        permanent: true,
+      },
+      {
+        source: "/crewai-crews/multi-agent-flows",
+        destination: "/crewai-crews",
+        permanent: true,
+      },
+      {
+        source: "/crewai-flows/multi-agent-flows",
+        destination: "/crewai-flows",
+        permanent: true,
+      },
+      {
+        source: "/langgraph/advanced/multi-agent-flows",
+        destination: "/langgraph",
         permanent: true,
       },
       {
@@ -177,6 +212,96 @@ const config = {
       {
         source: "/agno/quickstart/agno",
         destination: "/agno/quickstart",
+        permanent: true,
+      },
+      {
+        source: "/mcp",
+        destination: "/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/ag2/mcp",
+        destination: "/ag2/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/agno/mcp",
+        destination: "/agno/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/crewai-crews/mcp",
+        destination: "/crewai-crews/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/crewai-flows/mcp",
+        destination: "/crewai-flows/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/direct-to-llm/guides/mcp",
+        destination: "/direct-to-llm/guides/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/langgraph/mcp",
+        destination: "/langgraph/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/llamaindex/mcp",
+        destination: "/llamaindex/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/mastra/mcp",
+        destination: "/mastra/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/pydantic-ai/mcp",
+        destination: "/pydantic-ai/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/pydantic-ai/quickstart/pydantic-ai",
+        destination: "/pydantic-ai/quickstart",
+        permanent: true,
+      },
+      {
+        source: "/adk/quickstart/adk",
+        destination: "/adk/quickstart",
+        permanent: true,
+      },
+      {
+        source: "/adk/mcp",
+        destination: "/adk/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/a2a/generative-ui",
+        destination: "/a2a/generative-ui/declarative-a2ui",
+        permanent: true,
+      },
+      {
+        source: "/adk/shared-state/state-inputs-outputs",
+        destination: "/adk/shared-state/workflow-execution",
+        permanent: true,
+      },
+      {
+        source: "/langgraph/shared-state/state-inputs-outputs",
+        destination: "/langgraph/shared-state/workflow-execution",
+        permanent: true,
+      },
+      {
+        source: "/llamaindex/shared-state/state-inputs-outputs",
+        destination: "/llamaindex/shared-state/workflow-execution",
+        permanent: true,
+      },
+      {
+        source: "/coagents/shared-state/state-inputs-outputs",
+        destination: "/langgraph/shared-state/workflow-execution",
         permanent: true,
       },
     ];
