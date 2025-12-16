@@ -16,6 +16,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, SetStateAction } from "react";
 import {
+  CopilotChatConfigurationProvider,
+  CopilotKitInspector,
+  CopilotKitProvider as CopilotKitNextProvider,
+} from "@copilotkitnext/react";
+import {
   CopilotContext,
   CopilotApiConfig,
   ChatComponentsCache,
@@ -34,35 +39,51 @@ import {
   ConfigurationError,
   MissingPublicApiKeyError,
   CopilotKitError,
+  CopilotErrorEvent,
+  CopilotErrorHandler,
 } from "@copilotkit/shared";
 import { FrontendAction } from "../../types/frontend-action";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { CopilotKitProps } from "./copilotkit-props";
-import { CoAgentStateRender } from "../../types/coagent-action";
 import { CoagentState } from "../../types/coagent-state";
 import { CopilotMessages, MessagesTapProvider } from "./copilot-messages";
 import { ToastProvider } from "../toast/toast-provider";
 import { getErrorActions, UsageBanner } from "../usage-banner";
-import { useCopilotRuntimeClient } from "../../hooks/use-copilot-runtime-client";
 import { shouldShowDevConsole } from "../../utils";
 import { CopilotErrorBoundary } from "../error-boundary/error-boundary";
 import { Agent, ExtensionsInput } from "@copilotkit/runtime-client-gql";
 import {
-  LangGraphInterruptAction,
+  LangGraphInterruptRender,
   LangGraphInterruptActionSetterArgs,
+  QueuedInterruptEvent,
 } from "../../types/interrupt-action";
-import { ConsoleTrigger } from "../dev-console/console-trigger";
+import { CoAgentStateRendersProvider } from "../../context/coagent-state-renders-context";
+import { CoAgentStateRenderBridge } from "../../hooks/use-coagent-state-render-bridge";
+import { ThreadsProvider, useThreads } from "../../context/threads-context";
+import { CopilotListeners } from "../CopilotListeners";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const enabled = shouldShowDevConsole(props.showDevConsole);
+  const showInspector = shouldShowDevConsole(props.enableInspector);
 
   // Use API key if provided, otherwise use the license key
   const publicApiKey = props.publicApiKey || props.publicLicenseKey;
 
+  const renderArr = useMemo(() => [{ render: CoAgentStateRenderBridge }], []);
+
   return (
     <ToastProvider enabled={enabled}>
       <CopilotErrorBoundary publicApiKey={publicApiKey} showUsageBanner={enabled}>
-        <CopilotKitInternal {...props}>{children}</CopilotKitInternal>
+        <ThreadsProvider threadId={props.threadId}>
+          <CopilotKitNextProvider
+            {...props}
+            showDevConsole={showInspector}
+            renderCustomMessages={renderArr}
+            useSingleEndpoint={true}
+          >
+            <CopilotKitInternal {...props}>{children}</CopilotKitInternal>
+          </CopilotKitNextProvider>
+        </ThreadsProvider>
       </CopilotErrorBoundary>
     </ToastProvider>
   );
@@ -82,9 +103,11 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   const chatApiEndpoint = props.runtimeUrl || COPILOT_CLOUD_CHAT_URL;
 
   const [actions, setActions] = useState<Record<string, FrontendAction<any>>>({});
-  const [coAgentStateRenders, setCoAgentStateRenders] = useState<
-    Record<string, CoAgentStateRender<any>>
-  >({});
+
+  // State for registered actions from useCopilotAction
+  const [registeredActionConfigs, setRegisteredActionConfigs] = useState<
+    Map<string, { type: string; action: any; component: any }>
+  >(new Map());
 
   const chatComponentsCache = useRef<ChatComponentsCache>({
     actions: {},
@@ -116,23 +139,6 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
 
   const removeAction = useCallback((id: string) => {
     setActions((prevPoints) => {
-      const newPoints = { ...prevPoints };
-      delete newPoints[id];
-      return newPoints;
-    });
-  }, []);
-
-  const setCoAgentStateRender = useCallback((id: string, stateRender: CoAgentStateRender<any>) => {
-    setCoAgentStateRenders((prevPoints) => {
-      return {
-        ...prevPoints,
-        [id]: stateRender,
-      };
-    });
-  }, []);
-
-  const removeCoAgentStateRender = useCallback((id: string) => {
-    setCoAgentStateRenders((prevPoints) => {
       const newPoints = { ...prevPoints };
       delete newPoints[id];
       return newPoints;
@@ -268,14 +274,53 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     };
   }, [copilotApiConfig.headers, copilotApiConfig.publicApiKey, authStates]);
 
-  const runtimeClient = useCopilotRuntimeClient({
-    url: copilotApiConfig.chatApiEndpoint,
-    publicApiKey: publicApiKey,
-    headers,
-    credentials: copilotApiConfig.credentials,
-    showDevConsole: shouldShowDevConsole(props.showDevConsole),
-    onError: props.onError,
-  });
+  const [internalErrorHandlers, _setInternalErrorHandler] = useState<
+    Record<string, CopilotErrorHandler>
+  >({});
+  const setInternalErrorHandler = useCallback((handler: Record<string, CopilotErrorHandler>) => {
+    _setInternalErrorHandler((prev: Record<string, CopilotErrorHandler>) => ({
+      ...prev,
+      ...handler,
+    }));
+  }, []);
+  const removeInternalErrorHandler = useCallback((key: string) => {
+    _setInternalErrorHandler((prev) => {
+      const { [key]: _removed, ...rest } = prev;
+      return rest;
+    });
+  }, []);
+
+  // Keep latest values in refs
+  const onErrorRef = useRef<CopilotErrorHandler | undefined>(props.onError);
+  useEffect(() => {
+    onErrorRef.current = props.onError;
+  }, [props.onError]);
+
+  const internalHandlersRef = useRef<Record<string, CopilotErrorHandler>>({});
+  useEffect(() => {
+    internalHandlersRef.current = internalErrorHandlers;
+  }, [internalErrorHandlers]);
+
+  const handleErrors = useCallback(
+    async (error: CopilotErrorEvent) => {
+      if (copilotApiConfig.publicApiKey && onErrorRef.current) {
+        try {
+          await onErrorRef.current(error);
+        } catch (e) {
+          console.error("Error in public onError handler:", e);
+        }
+      }
+      const handlers = Object.values(internalHandlersRef.current);
+      await Promise.all(
+        handlers.map((h) =>
+          Promise.resolve(h(error)).catch((e) =>
+            console.error("Error in internal error handler:", e),
+          ),
+        ),
+      );
+    },
+    [copilotApiConfig.publicApiKey],
+  );
 
   const [chatSuggestionConfiguration, setChatSuggestionConfiguration] = useState<{
     [key: string]: CopilotChatSuggestionConfiguration;
@@ -315,20 +360,6 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     },
     [],
   );
-  const hasLoadedAgents = useRef(false);
-
-  useEffect(() => {
-    if (hasLoadedAgents.current) return;
-
-    const fetchData = async () => {
-      const result = await runtimeClient.availableAgents();
-      if (result.data?.availableAgents) {
-        setAvailableAgents(result.data.availableAgents.agents);
-      }
-      hasLoadedAgents.current = true;
-    };
-    void fetchData();
-  }, []);
 
   let initialAgentSession: AgentSession | null = null;
   if (props.agent) {
@@ -350,7 +381,8 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     }
   }, [props.agent]);
 
-  const [internalThreadId, setInternalThreadId] = useState<string>(props.threadId || randomUUID());
+  const { threadId, setThreadId: setInternalThreadId } = useThreads();
+
   const setThreadId = useCallback(
     (value: SetStateAction<string>) => {
       if (props.threadId) {
@@ -361,36 +393,64 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     [props.threadId],
   );
 
-  // update the internal threadId if the props.threadId changes
-  useEffect(() => {
-    if (props.threadId !== undefined) {
-      setInternalThreadId(props.threadId);
-    }
-  }, [props.threadId]);
-
   const [runId, setRunId] = useState<string | null>(null);
 
   const chatAbortControllerRef = useRef<AbortController | null>(null);
 
   const showDevConsole = shouldShowDevConsole(props.showDevConsole);
 
-  const [langGraphInterruptAction, _setLangGraphInterruptAction] =
-    useState<LangGraphInterruptAction | null>(null);
-  const setLangGraphInterruptAction = useCallback((action: LangGraphInterruptActionSetterArgs) => {
-    _setLangGraphInterruptAction((prev) => {
-      if (prev == null) return action as LangGraphInterruptAction;
-      if (action == null) return null;
-      let event = prev.event;
-      if (action.event) {
-        // @ts-ignore
-        event = { ...prev.event, ...action.event };
+  const [interruptActions, _setInterruptActions] = useState<
+    Record<string, LangGraphInterruptRender>
+  >({});
+  const setInterruptAction = useCallback((action: LangGraphInterruptActionSetterArgs) => {
+    _setInterruptActions((prev) => {
+      if (action == null || !action.id) {
+        // Cannot set action without id
+        return prev;
       }
-      return { ...prev, ...action, event };
+      return {
+        ...prev,
+        [action.id]: { ...(prev[action.id] ?? {}), ...action } as LangGraphInterruptRender,
+      };
     });
   }, []);
-  const removeLangGraphInterruptAction = useCallback((): void => {
-    setLangGraphInterruptAction(null);
+  const removeInterruptAction = useCallback((actionId: string): void => {
+    _setInterruptActions((prev) => {
+      const { [actionId]: _, ...rest } = prev;
+      return rest;
+    });
   }, []);
+
+  const [interruptEventQueue, setInterruptEventQueue] = useState<
+    Record<string, QueuedInterruptEvent[]>
+  >({});
+
+  const addInterruptEvent = useCallback((queuedEvent: QueuedInterruptEvent) => {
+    setInterruptEventQueue((prev) => {
+      const threadQueue = prev[queuedEvent.threadId] || [];
+      return {
+        ...prev,
+        [queuedEvent.threadId]: [...threadQueue, queuedEvent],
+      };
+    });
+  }, []);
+
+  const resolveInterruptEvent = useCallback(
+    (threadId: string, eventId: string, response: string) => {
+      setInterruptEventQueue((prev) => {
+        const threadQueue = prev[threadId] || [];
+        return {
+          ...prev,
+          [threadId]: threadQueue.map((queuedEvent) =>
+            queuedEvent.eventId === eventId
+              ? { ...queuedEvent, event: { ...queuedEvent.event, response } }
+              : queuedEvent,
+          ),
+        };
+      });
+    },
+    [],
+  );
 
   const memoizedChildren = useMemo(() => children, [children]);
   const [bannerError, setBannerError] = useState<CopilotKitError | null>(null);
@@ -434,78 +494,122 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     [setAuthStates],
   );
 
+  const handleSetRegisteredActions = useCallback((actionConfig: any): string => {
+    const key = actionConfig.action.name || randomUUID();
+    setRegisteredActionConfigs((prev) => {
+      const newMap = new Map(prev);
+      newMap.set(key, actionConfig);
+      return newMap;
+    });
+    return key;
+  }, []);
+
+  const handleRemoveRegisteredAction = useCallback((actionKey: string) => {
+    setRegisteredActionConfigs((prev) => {
+      const newMap = new Map(prev);
+      newMap.delete(actionKey);
+      return newMap;
+    });
+  }, []);
+
+  // Component to render all registered actions
+  const RegisteredActionsRenderer = useMemo(() => {
+    return () => (
+      <>
+        {Array.from(registeredActionConfigs.entries()).map(([key, config]) => {
+          const Component = config.component;
+          return <Component key={key} action={config.action} />;
+        })}
+      </>
+    );
+  }, [registeredActionConfigs]);
+
   return (
-    <CopilotContext.Provider
-      value={{
-        actions,
-        chatComponentsCache,
-        getFunctionCallHandler,
-        setAction,
-        removeAction,
-        coAgentStateRenders,
-        setCoAgentStateRender,
-        removeCoAgentStateRender,
-        getContextString,
-        addContext,
-        removeContext,
-        getAllContext,
-        getDocumentsContext,
-        addDocumentContext,
-        removeDocumentContext,
-        copilotApiConfig: copilotApiConfig,
-        isLoading,
-        setIsLoading,
-        chatSuggestionConfiguration,
-        addChatSuggestionConfiguration,
-        removeChatSuggestionConfiguration,
-        chatInstructions,
-        setChatInstructions,
-        additionalInstructions,
-        setAdditionalInstructions,
-        showDevConsole,
-        coagentStates,
-        setCoagentStates,
-        coagentStatesRef,
-        setCoagentStatesWithRef,
-        agentSession,
-        setAgentSession,
-        runtimeClient,
-        forwardedParameters,
-        agentLock,
-        threadId: internalThreadId,
-        setThreadId,
-        runId,
-        setRunId,
-        chatAbortControllerRef,
-        availableAgents,
-        authConfig_c: props.authConfig_c,
-        authStates_c: authStates,
-        setAuthStates_c: updateAuthStates,
-        extensions,
-        setExtensions: updateExtensions,
-        langGraphInterruptAction,
-        setLangGraphInterruptAction,
-        removeLangGraphInterruptAction,
-        onError: props.onError,
-        bannerError,
-        setBannerError,
-      }}
+    <CopilotChatConfigurationProvider
+      // labels={labels}
+      // isModalDefaultOpen={isModalDefaultOpen}
+      agentId={props.agent ?? "default"}
+      threadId={threadId}
     >
-      <MessagesTapProvider>
-        <CopilotMessages>
-          {memoizedChildren}
-          {showDevConsole && <ConsoleTrigger />}
-        </CopilotMessages>
-      </MessagesTapProvider>
-      {bannerError && showDevConsole && (
-        <UsageBanner
-          severity={bannerError.severity}
-          message={bannerError.message}
-          onClose={() => setBannerError(null)}
-          actions={getErrorActions(bannerError)}
-        />
-      )}
-    </CopilotContext.Provider>
+      <CopilotContext.Provider
+        value={{
+          actions,
+          chatComponentsCache,
+          getFunctionCallHandler,
+          setAction,
+          removeAction,
+          setRegisteredActions: handleSetRegisteredActions,
+          removeRegisteredAction: handleRemoveRegisteredAction,
+          getContextString,
+          addContext,
+          removeContext,
+          getAllContext,
+          getDocumentsContext,
+          addDocumentContext,
+          removeDocumentContext,
+          copilotApiConfig: copilotApiConfig,
+          isLoading,
+          setIsLoading,
+          chatSuggestionConfiguration,
+          addChatSuggestionConfiguration,
+          removeChatSuggestionConfiguration,
+          chatInstructions,
+          setChatInstructions,
+          additionalInstructions,
+          setAdditionalInstructions,
+          showDevConsole,
+          coagentStates,
+          setCoagentStates,
+          coagentStatesRef,
+          setCoagentStatesWithRef,
+          agentSession,
+          setAgentSession,
+          forwardedParameters,
+          agentLock,
+          threadId,
+          setThreadId,
+          runId,
+          setRunId,
+          chatAbortControllerRef,
+          availableAgents,
+          authConfig_c: props.authConfig_c,
+          authStates_c: authStates,
+          setAuthStates_c: updateAuthStates,
+          extensions,
+          setExtensions: updateExtensions,
+          interruptActions,
+          setInterruptAction,
+          removeInterruptAction,
+          interruptEventQueue,
+          addInterruptEvent,
+          resolveInterruptEvent,
+          bannerError,
+          setBannerError,
+          onError: handleErrors,
+          internalErrorHandlers,
+          setInternalErrorHandler,
+          removeInternalErrorHandler,
+        }}
+      >
+        <CopilotListeners />
+        <CoAgentStateRendersProvider>
+          <MessagesTapProvider>
+            <CopilotMessages>
+              {memoizedChildren}
+              <RegisteredActionsRenderer />
+            </CopilotMessages>
+          </MessagesTapProvider>
+          {bannerError && showDevConsole && (
+            <UsageBanner
+              severity={bannerError.severity}
+              message={bannerError.message}
+              onClose={() => setBannerError(null)}
+              actions={getErrorActions(bannerError)}
+            />
+          )}
+        </CoAgentStateRendersProvider>
+      </CopilotContext.Provider>
+    </CopilotChatConfigurationProvider>
   );
 }
 

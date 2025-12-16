@@ -3,6 +3,16 @@ title: "useCopilotAction"
 description: "The useCopilotAction hook allows your copilot to take action in the app."
 ---
 
+<Callout type="warning">
+  **Deprecation Notice**: `useCopilotAction` is being deprecated in favor of more specialized hooks:
+  
+  - Use [`useFrontendTool`](/reference/hooks/useFrontendTool) for frontend tools with handlers
+  - Use [`useHumanInTheLoop`](/reference/hooks/useHumanInTheLoop) for interactive workflows requiring user input
+  - Use [`useRenderToolCall`](/reference/hooks/useRenderToolCall) for rendering backend tool calls
+  
+  While `useCopilotAction` continues to work for backwards compatibility, we recommend migrating to the new hooks for better type safety and clearer intent.
+</Callout>
+
 <br />
 <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/use-copilot-action/useCopilotAction.gif" width="500" />
 

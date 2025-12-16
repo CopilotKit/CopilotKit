@@ -35,7 +35,7 @@ workflow.add_edge("search_node", "download")
 compile_kwargs = {"interrupt_after": ["delete_node"]}
 
 # Check if we're running in LangGraph API mode
-if os.environ.get("LANGGRAPH_API", "false").lower() == "true":
+if os.environ.get("LANGGRAPH_FASTAPI", "false").lower() == "false":
     # When running in LangGraph API, don't use a custom checkpointer
     graph = workflow.compile(**compile_kwargs)
 else:

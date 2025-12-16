@@ -1,4 +1,4 @@
-import { useCopilotAction } from "@copilotkit/react-core";
+import { useFrontendTool } from "@copilotkit/react-core";
 import { SlideModel } from "../types";
 import { SlidePreview } from "../components/misc/SlidePreview";
 
@@ -7,7 +7,7 @@ interface UpdateSlideParams {
 }
 
 export default function useUpdateSlide({ partialUpdateSlide }: UpdateSlideParams) {
-  useCopilotAction({
+  useFrontendTool({
     name: "updateSlide",
     description: "Update the current slide.",
     parameters: [

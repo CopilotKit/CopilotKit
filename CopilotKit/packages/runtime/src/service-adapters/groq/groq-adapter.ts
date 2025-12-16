@@ -14,7 +14,7 @@
  * return new GroqAdapter({ groq, model: "<model-name>" });
  * ```
  */
-import { Groq } from "groq-sdk";
+import type { Groq } from "groq-sdk";
 import type { ChatCompletionMessageParam } from "groq-sdk/resources/chat";
 import {
   CopilotServiceAdapter,
@@ -54,20 +54,36 @@ export interface GroqAdapterParams {
 }
 
 export class GroqAdapter implements CopilotServiceAdapter {
-  private model: string = DEFAULT_MODEL;
+  public model: string = DEFAULT_MODEL;
+  public provider = "groq";
 
   private disableParallelToolCalls: boolean = false;
   private _groq: Groq;
   public get groq(): Groq {
     return this._groq;
   }
+  public get name() {
+    return "GroqAdapter";
+  }
 
   constructor(params?: GroqAdapterParams) {
-    this._groq = params?.groq || new Groq({});
+    if (params?.groq) {
+      this._groq = params.groq;
+    }
+    // If no instance provided, we'll lazy-load in ensureGroq()
     if (params?.model) {
       this.model = params.model;
     }
     this.disableParallelToolCalls = params?.disableParallelToolCalls || false;
+  }
+
+  private ensureGroq(): Groq {
+    if (!this._groq) {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { Groq } = require("groq-sdk");
+      this._groq = new Groq({});
+    }
+    return this._groq;
   }
 
   async process(
@@ -97,7 +113,8 @@ export class GroqAdapter implements CopilotServiceAdapter {
     }
     let stream;
     try {
-      stream = await this.groq.chat.completions.create({
+      const groq = this.ensureGroq();
+      stream = await groq.chat.completions.create({
         model: model,
         stream: true,
         messages: openaiMessages as unknown as ChatCompletionMessageParam[],
