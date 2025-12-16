@@ -1,5 +1,191 @@
 # @copilotkit/shared
 
+## 1.50.1-next.1
+
+## 1.50.1-next.0
+
+### Patch Changes
+
+- Updated the default model and API version for the Google GenAI adapter
+
+## 1.50.0
+
+### Minor Changes
+
+- 0fc76d7: add new runner with telemetry baked in
+- c942f9c: Minor fixes and stability improvements
+- eed6021: Updating to the latest version of vnext
+- 3b7367e: Improving general stability around LangChain
+- 7ff9ca7: Minor fixes and improvements
+- 974875e: Lint and format code to resolve Prettier errors
+- 4942f62: - feat: create rerouting CopilotRuntime
+- 3bd484f: Minor fixes and stability improvements
+- 5a534bf: fix telemetry in v1.50 runtime
+- 769a06c: Refactor suggestions to not always run
+- 788292b: Improving langchain dependency resolution
+- eab69a2: Enabling the new inspector
+- 0a7bfe0: Updating dependency versions across all packages
+
+### Patch Changes
+
+- b0e3652: - chore: Update to latest of vnext
+
+## 1.50.0-beta.19
+
+### Minor Changes
+
+- Improving langchain dependency resolution
+
+## 1.50.0-beta.18
+
+### Minor Changes
+
+- Improving general stability around LangChain
+
+## 1.50.0-beta.17
+
+### Minor Changes
+
+- Minor fixes and improvements
+
+## 1.50.0-beta.16
+
+### Minor Changes
+
+- Minor fixes and stability improvements
+
+## 1.50.0-beta.15
+
+### Minor Changes
+
+- Lint and format code to resolve Prettier errors
+
+## 1.50.0-beta.14
+
+### Minor Changes
+
+- Minor fixes and stability improvements
+
+## 1.50.0-beta.13
+
+### Minor Changes
+
+- Updating to the latest version of vnext
+
+## 1.50.0-beta.12
+
+### Minor Changes
+
+- eab69a2: Enabling the new inspector
+
+## 1.50.0-beta.11
+
+### Minor Changes
+
+- fix telemetry in v1.50 runtime
+
+## 1.50.0-beta.10
+
+### Minor Changes
+
+- add new runner with telemetry baked in
+
+## 1.50.0-beta.9
+
+### Minor Changes
+
+- Refactor suggestions to not always run
+
+## 1.50.0-beta.8
+
+## 1.50.0-beta.7
+
+## 1.50.0-beta.6
+
+### Minor Changes
+
+- Updating dependency versions across all packages
+
+## 1.50.0-beta.4
+
+### Minor Changes
+
+- 4942f62: - feat: create rerouting CopilotRuntime
+
+### Patch Changes
+
+- b0e3652: - chore: Update to latest of vnext
+
+## 1.10.7-next.0
+
+## 1.10.6
+
+### Patch Changes
+
+- e0dd5d5: - feat: allow additional config in direct to llm actions
+
+## 1.10.6-next.6
+
+## 1.10.6-next.5
+
+### Patch Changes
+
+- e0dd5d5: - feat: allow additional config in direct to llm actions
+
+## 1.10.6-next.4
+
+## 1.10.6-next.3
+
+## 1.10.6-next.2
+
+## 1.10.6-next.1
+
+## 1.10.6-next.0
+
+## 1.10.5
+
+## 1.10.5-next.10
+
+## 1.10.5-next.9
+
+## 1.10.5-next.8
+
+## 1.10.5-next.7
+
+## 1.10.5-next.6
+
+## 1.10.5-next.5
+
+## 1.10.5-next.4
+
+## 1.10.5-next.3
+
+## 1.10.5-next.2
+
+## 1.10.5-next.1
+
+## 1.10.5-next.0
+
+## 1.10.4
+
+### Patch Changes
+
+- a640d8e: - feat: update latest agui langgraph for subgraphs support
+  - feat: update latest agui core packages
+
+## 1.10.4-next.3
+
+## 1.10.4-next.2
+
+## 1.10.4-next.1
+
+### Patch Changes
+
+- a640d8e: - feat: update latest agui langgraph for subgraphs support
+  - feat: update latest agui core packages
+
+## 1.10.4-next.0
+
 ## 1.10.3
 
 ### Patch Changes

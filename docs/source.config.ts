@@ -45,9 +45,9 @@ export default defineConfig({
         rehypeCode,
         {
           transformers: [
-            transformerNotationDiff(),
-            transformerNotationHighlight(),
-            transformerNotationWordHighlight(),
+            transformerNotationDiff({ matchAlgorithm: "v3" }),
+            transformerNotationHighlight({ matchAlgorithm: "v3" }),
+            transformerNotationWordHighlight({ matchAlgorithm: "v3" }),
           ],
         },
       ],
@@ -57,5 +57,8 @@ export default defineConfig({
       [remarkInstall, { persist: { id: "package-manager" } }],
       [remarkDocGen, { generators: [typescriptGenerator(), fileGenerator()] }],
     ],
+    remarkNpmOptions: {
+      persist: { id: "package-manager" },
+    },
   },
 });

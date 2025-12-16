@@ -1,0 +1,259 @@
+---
+title: Agent State
+icon: "lucide/Bot"
+description: Render the state of your agent with custom UI components.
+---
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/llamaindex/run-and-connect.mdx"
+
+<IframeSwitcher
+  id="agent-state-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/llama-index/feature/agentic_generative_ui?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/llama-index/feature/agentic_generative_ui?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+## What is this?
+
+LlamaIndex Agents using the AG-UI workflow router are stateful. This means that as your agent progresses through its workflow, a state object is maintained throughout
+the session. CopilotKit allows you to render this state in your application with custom UI components, which we call **Agentic Generative UI**.
+
+## When should I use this?
+
+Rendering the state of your agent in the UI is useful when you want to provide the user with feedback about the overall state of a session. A great example of this
+is a situation where a user and an agent are working together to solve a problem. The agent can store a draft in its state which is then rendered in the UI.
+
+## Implementation
+
+<Steps>
+  <Step>
+    ### Run and connect your agent
+    <RunAndConnect components={props.components} />
+  </Step>
+  <Step>
+    ### Set up your agent with state
+
+    Create your LlamaIndex agent with a stateful structure using `initial_state`. Here's a complete example that tracks searches:
+
+    ```python title="agent.py"
+    import asyncio
+    from typing import Annotated
+    from fastapi import FastAPI
+    from llama_index.llms.openai import OpenAI
+    from llama_index.core.workflow import Context
+    from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
+    from llama_index.protocols.ag_ui.events import StateSnapshotWorkflowEvent
+
+    async def addSearch(
+        ctx: Context,
+        query: Annotated[str, "The search query to add."]
+    ) -> str:
+        """Add a search to the agent's list of searches."""
+        async with ctx.store.edit_state() as global_state:
+            state = global_state.get("state", {})
+            if state is None:
+                state = {}
+            
+            if "searches" not in state:
+                state["searches"] = []
+            
+            # Add new search
+            new_search = {"query": query, "done": False}
+            state["searches"].append(new_search)
+            
+            # Emit state snapshot to frontend
+            ctx.write_event_to_stream(
+                StateSnapshotWorkflowEvent(
+                    snapshot=state
+                )
+            )
+            
+            global_state["state"] = state
+        
+        return f"Added search: {query}"
+
+    async def runSearches(ctx: Context) -> str:
+        """Run all the searches that have been added."""
+        async with ctx.store.edit_state() as global_state:
+            state = global_state.get("state", {})
+            if state is None:
+                state = {}
+            
+            if "searches" not in state:
+                state["searches"] = []
+            
+            # Update each search to done
+            for search in state["searches"]:
+                if not search.get("done", False):
+                    await asyncio.sleep(1)  # Simulate search execution
+                    search["done"] = True
+                    
+                    # Emit state update as each search completes
+                    ctx.write_event_to_stream(
+                        StateSnapshotWorkflowEvent(
+                            snapshot=state
+                        )
+                    )
+            
+            global_state["state"] = state
+        
+        return "All searches completed!"
+
+    # Initialize the LLM
+    llm = OpenAI(model="gpt-4o")
+
+    # Create the AG-UI workflow router
+    agentic_chat_router = get_ag_ui_workflow_router(
+        llm=llm,
+        system_prompt="""
+        You are a helpful assistant for storing searches.
+
+        IMPORTANT:
+        - Use the addSearch tool to add a search to the agent's state
+        - After using the addSearch tool, YOU MUST ALWAYS use the runSearches tool to run the searches
+        - ONLY USE THE addSearch TOOL ONCE FOR A GIVEN QUERY
+        
+        When adding searches, update the state to track:
+        - query: the search query
+        - done: whether the search is complete (false initially, true after running)
+        """,
+        backend_tools=[addSearch, runSearches],
+        initial_state={
+            "searches": []
+        },
+    )
+
+    # Create FastAPI app
+    app = FastAPI(
+        title="LlamaIndex Agent",
+        description="A LlamaIndex agent integrated with CopilotKit",
+        version="1.0.0"
+    )
+
+    # Include the router
+    app.include_router(agentic_chat_router)
+
+    # Health check endpoint
+    @app.get("/health")
+    async def health_check():
+        return {"status": "healthy", "agent": "llamaindex"}
+
+    if __name__ == "__main__":
+        import uvicorn
+        uvicorn.run(app, host="localhost", port=8000)
+    ```
+
+  </Step>
+  <Step>
+    ### Render state of the agent in the chat
+    Now we can utilize `useCoAgentStateRender` to render the state of our agent **in the chat**.
+
+    ```tsx title="app/page.tsx"
+    // ...
+    import { useCoAgentStateRender } from "@copilotkit/react-core";
+    // ...
+
+    // Define the state of the agent, should match the state of your LlamaIndex Agent.
+    type AgentState = {
+      searches: {
+        query: string;
+        done: boolean;
+      }[];
+    };
+
+    function YourMainContent() {
+      // ...
+
+      // [!code highlight:13]
+      // styles omitted for brevity
+      useCoAgentStateRender<AgentState>({
+        name: "my_agent", // MUST match the agent name in CopilotRuntime
+        render: ({ state }) => (
+          <div>
+            {state.searches?.map((search, index) => (
+              <div key={index}>
+                {search.done ? "✅" : "❌"} {search.query}{search.done ? "" : "..."}
+              </div>
+            ))}
+          </div>
+        ),
+      });
+
+      // ...
+
+      return <div>...</div>;
+    }
+    ```
+
+    <Callout type="warn" title="Important">
+      The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+    </Callout>
+
+  </Step>
+  <Step>
+    ### Render state outside of the chat
+    You can also render the state of your agent **outside of the chat**. This is useful when you want to render the state of your agent anywhere
+    other than the chat.
+
+    ```tsx title="app/page.tsx"
+    import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
+    // ...
+
+    // Define the state of the agent, should match the state of your LlamaIndex Agent.
+    type AgentState = {
+      searches: {
+        query: string;
+        done: boolean;
+      }[];
+    };
+
+    function YourMainContent() {
+      // ...
+
+      // [!code highlight:3]
+      const { state } = useCoAgent<AgentState>({
+        name: "my_agent", // MUST match the agent name in CopilotRuntime
+      })
+
+      // ...
+
+      return (
+        <div>
+          {/* ... */}
+          <div className="flex flex-col gap-2 mt-4">
+            {/* [!code highlight:5] */}
+            {state.searches?.map((search, index) => (
+              <div key={index} className="flex flex-row">
+                {search.done ? "✅" : "❌"} {search.query}
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+    ```
+
+    <Callout type="warn" title="Important">
+      The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+    </Callout>
+
+  </Step>
+  <Step>
+    ### Give it a try!
+
+    You've now created a component that will render the agent's state in the chat.
+
+    <video
+      src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/agentic-generative-ui.mp4"
+      className="rounded-lg shadow-xl"
+      loop
+      playsInline
+      controls
+      autoPlay
+      muted
+    />
+  </Step>
+</Steps>
