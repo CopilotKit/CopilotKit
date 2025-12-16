@@ -30,6 +30,9 @@ export class EmptyAdapter implements CopilotServiceAdapter {
       threadId: request.threadId || randomUUID(),
     };
   }
+  public get name() {
+    return "EmptyAdapter";
+  }
 }
 
 export const ExperimentalEmptyAdapter = EmptyAdapter;

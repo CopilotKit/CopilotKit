@@ -1,0 +1,339 @@
+<Steps>
+  <Step>
+    ### Import the hook
+
+    First, import `useAgent` from the v2 package:
+
+    ```tsx title="page.tsx"
+    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+    ```
+  </Step>
+
+  <Step>
+    ### Access your agent
+
+    Call the hook to get a reference to your agent:
+
+    ```tsx title="page.tsx"
+    export function AgentInfo() {
+      const { agent } = useAgent(); // [!code highlight]
+
+      return (
+        <div>
+          {/* [!code highlight:4] */}
+          <p>Agent ID: {agent.id}</p>
+          <p>Thread ID: {agent.threadId}</p>
+          <p>Status: {agent.isRunning ? "Running" : "Idle"}</p>
+          <p>Messages: {agent.messages.length}</p>
+        </div>
+      );
+    }
+    ```
+
+    The hook will throw an error if no agent is configured, so you can safely use `agent` without null checks.
+  </Step>
+
+  <Step>
+    ### Display messages
+
+    Access the agent's conversation history:
+
+    ```tsx title="page.tsx"
+    export function MessageList() {
+      const { agent } = useAgent();
+
+      return (
+        <div>
+          {/* [!code highlight:6] */}
+          {agent.messages.map((msg) => (
+            <div key={msg.id}>
+              <strong>{msg.role}:</strong>
+              <span>{msg.content}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    ```
+  </Step>
+
+  <Step>
+    ### Show running status
+
+    Add a loading indicator when the agent is processing:
+
+    ```tsx title="page.tsx"
+    export function AgentStatus() {
+      const { agent } = useAgent();
+
+      return (
+        <div>
+          {/* [!code highlight:8] */}
+          {agent.isRunning ? (
+            <div>
+              <div className="spinner" />
+              <span>Agent is processing...</span>
+            </div>
+          ) : (
+            <span>Ready</span>
+          )}
+        </div>
+      );
+    }
+    ```
+  </Step>
+</Steps>
+
+## Working with State
+
+Agents expose their state through the `agent.state` property. This state is shared between your application and the agent - both can read and modify it.
+
+### Reading State
+
+Access your agent's current state:
+
+```tsx title="page.tsx"
+export function StateDisplay() {
+  const { agent } = useAgent();
+
+  return (
+    <div>
+      <h3>Agent State</h3>
+      {/* [!code highlight:1] */}
+      <pre>{JSON.stringify(agent.state, null, 2)}</pre>
+
+      {/* Access specific properties */}
+      {/* [!code highlight:2] */}
+      {agent.state.user_name && <p>User: {agent.state.user_name}</p>}
+      {agent.state.preferences && <p>Preferences: {JSON.stringify(agent.state.preferences)}</p>}
+    </div>
+  );
+}
+```
+
+Your component automatically re-renders when the agent's state changes.
+
+### Updating State
+
+Update state that your agent can access:
+
+```tsx title="page.tsx"
+export function ThemeSelector() {
+  const { agent } = useAgent();
+
+  const updateTheme = (theme: string) => {
+    // [!code highlight:4]
+    agent.setState({
+      ...agent.state,
+      user_theme: theme,
+    });
+  };
+
+  return (
+    <div>
+      {/* [!code highlight:2] */}
+      <button onClick={() => updateTheme("dark")}>Dark Mode</button>
+      <button onClick={() => updateTheme("light")}>Light Mode</button>
+      <p>Current: {agent.state.user_theme || "default"}</p>
+    </div>
+  );
+}
+```
+
+State updates are immediately available to your agent in its next execution.
+
+## Subscribing to Agent Events
+
+You can subscribe to agent events using the `subscribe()` method. This is useful for logging, monitoring, or responding to specific agent behaviors.
+
+### Basic Event Subscription
+
+```tsx title="page.tsx"
+import { useEffect } from "react";
+import { useAgent } from "@copilotkit/react-core/v2";
+import type { AgentSubscriber } from "@ag-ui/client";
+
+export function EventLogger() {
+  const { agent } = useAgent();
+
+  useEffect(() => {
+    // [!code highlight:15]
+    const subscriber: AgentSubscriber = {
+      onCustomEvent: ({ event }) => {
+        console.log("Custom event:", event.name, event.value);
+      },
+      onRunStartedEvent: () => {
+        console.log("Agent started running");
+      },
+      onRunFinalized: () => {
+        console.log("Agent finished running");
+      },
+      onStateChanged: (state) => {
+        console.log("State changed:", state);
+      },
+    };
+
+    // [!code highlight:2]
+    const { unsubscribe } = agent.subscribe(subscriber);
+    return () => unsubscribe();
+  }, []);
+
+  return null;
+}
+```
+
+### Available Events
+
+The `AgentSubscriber` interface provides:
+
+- **`onCustomEvent`** - Custom events emitted by the agent
+- **`onRunStartedEvent`** - Agent starts executing
+- **`onRunFinalized`** - Agent completes execution
+- **`onStateChanged`** - Agent's state changes
+- **`onMessagesChanged`** - Messages are added or modified
+
+## Rendering Tool Calls
+
+You can customize how agent tool calls are displayed in your UI. First, define your tool renderers:
+
+```tsx title="components/weather-tool.tsx"
+import { defineToolCallRenderer } from "@copilotkit/react-core/v2";
+
+// [!code highlight:6]
+export const weatherToolRender = defineToolCallRenderer({
+  name: "get_weather",
+  render: ({ args, status }) => {
+    return <WeatherCard location={args.location} status={status} />;
+  },
+});
+
+function WeatherCard({ location, status }: { location?: string; status: string }) {
+  return (
+    <div className="rounded-lg border p-6 shadow-sm">
+      <h3 className="text-xl font-semibold">Weather in {location}</h3>
+      <div className="mt-4">
+        <span className="text-5xl font-light">70°F</span>
+      </div>
+      {status === "executing" && <div className="spinner">Loading...</div>}
+    </div>
+  );
+}
+```
+
+Register your tool renderers with CopilotKit:
+
+```tsx title="layout.tsx"
+import { CopilotKit } from "@copilotkit/react-core";
+import { weatherToolRender } from "./components/weather-tool";
+
+export default function RootLayout({ children }) {
+  return (
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      {/* [!code highlight:1] */}
+      renderToolCalls={[weatherToolRender]}
+    >
+      {children}
+    </CopilotKit>
+  );
+}
+```
+
+Then use `useRenderToolCall` to render tool calls from agent messages:
+
+```tsx title="components/message-list.tsx"
+import { useAgent, useRenderToolCall } from "@copilotkit/react-core/v2";
+
+export function MessageList() {
+  const { agent } = useAgent();
+  const renderToolCall = useRenderToolCall();
+
+  return (
+    <div className="messages">
+      {agent.messages.map((message) => (
+        <div key={message.id}>
+          {/* Display message content */}
+          {message.content && <p>{message.content}</p>}
+
+          {/* Render tool calls if present */}
+          {/* [!code highlight:9] */}
+          {message.role === "assistant" && message.toolCalls?.map((toolCall) => {
+            const toolMessage = agent.messages.find(
+              (m) => m.role === "tool" && m.toolCallId === toolCall.id
+            );
+            return (
+              <div key={toolCall.id}>
+                {renderToolCall({ toolCall, toolMessage })}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+## Building a Complete Dashboard
+
+Here's a full example combining all concepts into an interactive agent dashboard:
+
+```tsx title="page.tsx"
+"use client";
+
+import { useAgent } from "@copilotkit/react-core/v2";
+
+export default function AgentDashboard() {
+  const { agent } = useAgent();
+
+  return (
+    <div className="p-8 max-w-4xl mx-auto space-y-6">
+      {/* Status */}
+      <div className="p-6 bg-white rounded-lg shadow">
+        <h2 className="text-xl font-bold mb-4">Agent Status</h2>
+        <div className="space-y-2">
+          {/* [!code highlight:6] */}
+          <div className="flex items-center gap-2">
+            <div className={`w-3 h-3 rounded-full ${
+              agent.isRunning ? "bg-yellow-500 animate-pulse" : "bg-green-500"
+            }`} />
+            <span>{agent.isRunning ? "Running" : "Idle"}</span>
+          </div>
+          <div>Thread: {agent.threadId}</div>
+          <div>Messages: {agent.messages.length}</div>
+        </div>
+      </div>
+
+      {/* State */}
+      <div className="p-6 bg-white rounded-lg shadow">
+        <h2 className="text-xl font-bold mb-4">Agent State</h2>
+        {/* [!code highlight:3] */}
+        <pre className="bg-gray-50 p-4 rounded text-sm overflow-auto">
+          {JSON.stringify(agent.state, null, 2)}
+        </pre>
+      </div>
+
+      {/* Messages */}
+      <div className="p-6 bg-white rounded-lg shadow">
+        <h2 className="text-xl font-bold mb-4">Conversation</h2>
+        <div className="space-y-3">
+          {/* [!code highlight:11] */}
+          {agent.messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`p-3 rounded-lg ${
+                msg.role === "user" ? "bg-blue-50 ml-8" : "bg-gray-50 mr-8"
+              }`}
+            >
+              <div className="font-semibold text-sm mb-1">
+                {msg.role === "user" ? "You" : "Agent"}
+              </div>
+              <div>{msg.content}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+```

@@ -1,40 +1,48 @@
-# Welcome to CopilotKit 🪁
+## 🚀 **Project Title**
 
-## 1. Project Title 
-(Rename this Markdown file with the name of your project and remove line #1)
+(Note): Make a copy of this file
 
-## 2. Use Case 
-(What problem does this solve?)
+### 📝 **Name of Issue/Topic**
 
-## 3. Technologies Used 
-(List the technologies and frameworks you used (e.g., CopilotKit, Next.js))
+Briefly describe the issue or challenge that your demo/project addresses.
 
-**Replace this text with your technologies**
-- Next.js
-- CopilotKit
-- Shadcn-UI Component Styling
-- MongoDB Vector Database
+---
 
+### 🛠️ **Technologies Used**
 
-## 4. GitHub + YouTube
+List all technologies, tools, and frameworks you are utilizing for the project:
 
-- [ ] GitHub Repo:
-https://github.com/NathanTarbert/my-cool-project
+Example 👇
+- **Frameworks**: (e.g., Next.js, Mastra)
+- **Styling**: v0 Styling, Shadcn-UI Component Styling
+- **Developer Tools**: CopilotKit
+- **Database**: MongoDB
 
-- [ ] Deployed Demo:
-https://github.com/NathanTarbert/my-even-cooler-deployed-project
+---
 
-- [ ] YouTube: 
-https://my-cooler-youtube-vid
+### 🌐 **App Link**
 
-Note: Include a screenshot of your demo in action
+If your app is live, include the link here:  
+[Live Demo](http://google.com)
+
+Deploy your app on [Vercel](https://vercel.com/new)
+
+---
+
+### 🎯 **Twitter Post**
+
+Link to your Twitter/X post.
+
+---
+
+### 📸 **Screenshot**
+
+Include a screenshot of your demo in action:  
 ![image](https://github.com/user-attachments/assets/5d2a020c-dc8f-4b27-85db-ba1413bdc8f6)
 
+---
 
+### 🙋‍♂️ **List your project repo here**
 
-## 6. Who Are You?
+Please list your GitHub repo project link.
 
-Please list your **Twitter** & **LinkedIn** profile 
-
-## ⭐️ Project README with installation and getting started steps ⭐️👇
-Place the full detailed README here:

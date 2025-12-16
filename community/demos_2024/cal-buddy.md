@@ -23,7 +23,7 @@ Event Planner ( Hacktoberfest Demo )
 
 ## Content
 
-- [Dev.to - Copilotkit: Your AI Wingman for Coding Adventures](https://dev.to/chiragagg5k/copilotkit-your-ai-wingman-for-coding-adventures-28gl)
+- [Dev.to - CopilotKit: Your AI Wingman for Coding Adventures](https://dev.to/chiragagg5k/copilotkit-your-ai-wingman-for-coding-adventures-28gl)
 - [Quira - Quest 20 Submission](https://quira.sh/repo/ChiragAgg5k-cal-buddy-863122206)
 - [Twitter - Sharing Progress](https://x.com/ChiragAgg5k/status/1839259454216323135)
 

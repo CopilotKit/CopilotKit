@@ -77,7 +77,8 @@ import { CopilotRuntime, LangGraphAgent } from '@copilotkit/runtime'; // [!code 
 const runtime = new CopilotRuntime();// [!code --]
 // [!code ++:10]
 const runtime = new CopilotRuntime({
-  agents: { // [!code highlight:8]
+  // [!code highlight:7]
+  agents: {
     'travel': new LangGraphAgent({
       deploymentUrl: "http://localhost:<port_number>",
       graphId: 'travel',
@@ -106,10 +107,6 @@ you to have multiple agents and actions and not have to worry about manually rou
 
 In our case however, we only have a single agent and its ideal to lock all requests to that agent. We can do this
 by updating the props of our `CopilotKit` provider.
-
-<Callout>
-Want to learn more about multi-agent routing? Checkout out the [multi-agent concept guide](/coagents/multi-agent-flows).
-</Callout>
 
 ```tsx title="ui/app/page.tsx"
 // ...

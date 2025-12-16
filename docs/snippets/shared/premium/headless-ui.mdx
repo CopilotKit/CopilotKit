@@ -97,7 +97,7 @@ To get there, let's start by building a simple chat interface.
   </Step>
 
   <Step>
-    ### Setup your CopilotKit provider
+    ### Set up your CopilotKit provider
     You will need to provide your public license key to the `CopilotKit` provider component. Get yours on [Copilot Cloud](https://cloud.copilotkit.ai) or read more about [premium features](/premium).
   
     ```tsx title="src/app/layout.tsx"
@@ -124,7 +124,8 @@ To get there, let's start by building a simple chat interface.
 
       const handleSend = () => {
         if (input.trim()) {
-          sendMessage({ // [!code highlight:5]
+          // [!code highlight:5]
+          sendMessage({
             id: Date.now().toString(),
             role: "user",
             content: input,
@@ -139,13 +140,15 @@ To get there, let's start by building a simple chat interface.
           
           {/* Messages */}
           <div>
-            {messages.map((message) => ( // [!code highlight:5]
+            {/* [!code highlight:6] */}
+            {messages.map((message) => (
               <div key={message.id}>
                 <strong>{message.role === "user" ? "You" : "Assistant"}:</strong>
                 <p>{message.content}</p>
               </div>
             ))}
-            {/* [!code highlight:2] */}
+
+            {/* [!code highlight:1] */}
             {isLoading && <p>Assistant is typing...</p>}
           </div>
 
@@ -155,11 +158,11 @@ To get there, let's start by building a simple chat interface.
               type="text" 
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              // [!code highlight:2]
+              // [!code highlight:1]
               onKeyDown={(e) => e.key === "Enter" && handleSend()}
               placeholder="Type your message here..."
             />
-            {/* [!code highlight:2] */}
+            {/* [!code highlight:1] */}
             <button onClick={handleSend} disabled={isLoading}>
               Send
             </button>
@@ -198,7 +201,7 @@ export const Chat = () => {
   useCopilotAction({
     name: "showCustomComponent",
     // Handle the tool on the frontend
-    // [!code highlight:4]
+    // [!code highlight:3]
     handler: () => {
       return "Foo, Bar, Baz";
     },
@@ -226,7 +229,7 @@ export const Chat = () => {
         {message.role === "user" ? "User: " : "Assistant: "}
         {message.content}
         {/* Render the generative UI if it exists */}
-        {/* [!code highlight:2] */}
+        {/* [!code highlight:1] */}
         {message.role === "assistant" && message.generativeUI?.()}
       </p>
     ))}
@@ -245,7 +248,7 @@ export const Chat = () => {
     {messages.map((message) => (
       <p key={message.id}>
         {/* Render the tool calls if they exist */}
-        {/* [!code highlight:6] */}
+        {/* [!code highlight:5] */}
         {message.role === "assistant" && message.toolCalls?.map((toolCall) => (
           <p key={toolCall.id}>
             {toolCall.function.name}: {toolCall.function.arguments}
@@ -279,7 +282,7 @@ import { useCopilotChatHeadless_c, useCopilotChatSuggestions } from "@copilotkit
 
 export const Chat = () => {
   // Specify what suggestions should be generated
-  // [!code highlight:6]
+  // [!code highlight:5]
   useCopilotChatSuggestions({
     instructions:
       "Suggest 5 interesting activities for programmers to do on their next vacation",
@@ -287,13 +290,11 @@ export const Chat = () => {
   });
 
   // Grab relevant state from the headless hook
-  // [!code highlight:2]
-  const { suggestions, generateSuggestions, sendMessage } = useCopilotChatHeadless_c();
+  const { suggestions, generateSuggestions, sendMessage } = useCopilotChatHeadless_c(); // [!code highlight]
 
   // Generate suggestions when the component mounts
   useEffect(() => {
-    // [!code highlight:2]
-    generateSuggestions();
+    generateSuggestions(); // [!code highlight]
   }, []);
 
   // ...
@@ -324,7 +325,7 @@ import { useCopilotChatHeadless_c } from "@copilotkit/react-core";
 
 export const Chat = () => {
   // Grab relevant state from the headless hook
-  // [!code highlight:2]
+  // [!code highlight:1]
   const { suggestions, setSuggestions } = useCopilotChatHeadless_c();
 
   // Set the suggestions when the component mounts
@@ -412,7 +413,7 @@ export const Chat = () => {
           placeholder="Enter your name" 
         />
         {/* Respond with the name */}
-        // [!code highlight:2]
+        {/* [!code highlight:1] */}
         <button onClick={() => respond?.(args.name)}>Submit</button>
       </div>;
     }
@@ -423,7 +424,7 @@ export const Chat = () => {
       <p key={message.id}>
         {message.role === "user" ? "User: " : "Assistant: "}
         {message.content}
-        {/* [!code highlight:3] */}
+        {/* [!code highlight:2] */}
         {/* This will render the tool-based HITL if it exists */}
         {message.role === "assistant" && message.generativeUI?.()}
       </p>

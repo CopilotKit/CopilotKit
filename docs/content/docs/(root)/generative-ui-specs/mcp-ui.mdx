@@ -1,0 +1,121 @@
+---
+title: "MCP-UI"
+icon: "lucide/Monitor"
+description: "Microsoft + Shopify's iframe-based Generative UI standard extending MCP"
+---
+
+# MCP-UI - Iframe-Based Generative UI
+
+**MCP-UI** is a fully open, iframe-based Generative UI standard developed by Microsoft and Shopify that extends the Model Context Protocol (MCP) for user-facing experiences.
+
+## What is MCP-UI?
+
+MCP-UI is an extension of the Model Context Protocol (MCP) that enables rich, interactive user interfaces. It provides:
+
+- **Iframe-based rendering** - Secure, sandboxed UI components
+- **HTML/CSS/JS support** - Full web technology stack
+- **MCP integration** - Extends the existing MCP protocol
+- **Security-first** - Built-in sandboxing and isolation
+
+## Why MCP-UI?
+
+### Full Web Stack Support
+Unlike declarative specs, MCP-UI allows agents to return complete HTML, CSS, and JavaScript, enabling rich, interactive experiences with full control over styling and behavior.
+
+### Security and Isolation
+Using iframes provides natural security boundaries, isolating agent-generated content from the host application while still enabling safe communication.
+
+### MCP Ecosystem
+By extending the Model Context Protocol, MCP-UI leverages the growing MCP ecosystem and tooling, making it easy to integrate with existing MCP-based agents.
+
+## Using MCP-UI with CopilotKit
+
+CopilotKit's AG-UI protocol natively supports MCP-UI alongside other generative UI specifications.
+
+```typescript
+// Example: Agent returns MCP-UI specification
+{
+  type: "mcp-ui",
+  spec: {
+    html: "<div class='widget'>...</div>",
+    css: ".widget { ... }",
+    javascript: "// Interactive logic"
+  }
+}
+```
+
+## Key Features
+
+### 1. Rich Interactive Components
+MCP-UI enables complex, interactive components with full JavaScript support:
+
+```html
+<!-- Example MCP-UI Component -->
+<div class="data-dashboard">
+  <h2>Real-time Analytics</h2>
+  <canvas id="chart"></canvas>
+  <script>
+    // Chart rendering logic
+    const ctx = document.getElementById('chart').getContext('2d');
+    // ... chart implementation
+  </script>
+</div>
+```
+
+### 2. Iframe Sandboxing
+Components are rendered in isolated iframes for security:
+
+```typescript
+{
+  type: "mcp-ui",
+  spec: {
+    html: "...",
+    sandbox: {
+      allowScripts: true,
+      allowForms: false,
+      permissions: ["camera", "microphone"]
+    }
+  }
+}
+```
+
+### 3. MCP Protocol Integration
+MCP-UI extends the Model Context Protocol, enabling seamless communication between UI and agent:
+
+```javascript
+// Inside MCP-UI component
+window.parent.postMessage({
+  type: 'mcp-action',
+  action: 'updateData',
+  payload: { ... }
+}, '*');
+```
+
+## Security Considerations
+
+MCP-UI's iframe-based approach provides strong security guarantees:
+
+- **Content isolation** - Agent-generated content runs in a sandboxed iframe
+- **CSP enforcement** - Content Security Policies prevent malicious code
+- **Permission control** - Fine-grained control over browser APIs
+- **Message validation** - Strict validation of cross-frame communication
+
+## Comparison with Other Specs
+
+| Feature | MCP-UI | A2UI | Open-JSON-UI |
+| --- | --- | --- | --- |
+| **Format** | HTML/Iframe | JSONL | JSON |
+| **Interactivity** | Full JS Support | Declarative | Declarative |
+| **Security** | Iframe Sandbox | App-level | App-level |
+| **Flexibility** | Very High | Moderate | Moderate |
+| **MCP Integration** | Native | N/A | N/A |
+
+## Learn More
+
+- [Generative UI Specs Overview](/generative-ui-specs) - Compare all supported specifications
+- [Model Context Protocol](/connect-mcp-servers) - Learn about MCP integration
+- [Generative UI Guide](/generative-ui) - Build with Generative UI in CopilotKit
+- [AG-UI Protocol](/ag-ui-protocol) - Learn about the protocol that supports MCP-UI
+- [A2UI](/generative-ui-specs/a2ui) - Google's declarative alternative
+- [Open-JSON-UI](/generative-ui-specs/open-json-ui) - OpenAI's JSON-based spec
+
