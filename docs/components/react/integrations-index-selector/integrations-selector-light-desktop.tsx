@@ -14,18 +14,18 @@ export function IntegrationsSelectorLightDesktop({ className }: { className?: st
         d='M67.3848 52.5046C71.9665 55.0038 77.2619 56.1263 84.2866 56.7178C84.3298 56.7216 84.3453 56.7807 84.3056 56.8012C83.4072 57.263 78.2605 59.882 74.4388 61.2846C73.4143 61.6604 72.3846 62.0091 71.3705 62.3307C71.348 62.3377 71.3239 62.3267 71.3152 62.3052L67.2794 52.5992C67.2517 52.5339 67.3226 52.4707 67.3848 52.5046Z'
         fill='url(#paint2_linear_6481_42424)'
       />
-      <path d='M67.3035 52.6521L79.5976 81.9802' stroke='#513C9F' stroke-width='0.183881' stroke-linecap='round' />
+      <path d='M67.3035 52.6521L79.5976 81.9802' stroke='#513C9F' strokeWidth='0.183881' strokeLinecap='round' />
       <path
         d='M59.9263 65.1902C59.9263 65.1902 66.7161 63.9715 73.0981 61.7702C79.4784 59.5689 84.2295 56.8734 84.2295 56.8734'
         stroke='#513C9F'
-        stroke-width='0.183881'
-        stroke-linecap='round'
+        strokeWidth='0.183881'
+        strokeLinecap='round'
       />
       <path
         d='M68.9897 56.3575L64.4356 71.512M64.4356 71.512H75.2594M64.4356 71.512L47.3333 91.6529'
         stroke='#ABABAB'
-        stroke-width='0.321797'
-        stroke-linecap='round'
+        strokeWidth='0.321797'
+        strokeLinecap='round'
       />
       <path
         d='M59.2007 87.5065L57.1845 87.79C58.2298 90.5542 60.3738 91.7617 62.9325 91.7617C69.204 91.7617 67.2897 84.6698 70.923 84.6698C73.5594 84.6698 72.4883 90.4179 78.1602 90.4179C81.6225 90.4179 81.968 86.9301 81.3771 85.4296C81.3737 85.4205 81.3702 85.4122 81.365 85.4039L80.4373 83.9832C80.3768 83.8887 80.23 83.9243 80.2196 84.0366L80.0468 85.7586C80.0348 85.8783 80.0382 85.9977 80.052 86.1172C80.1937 87.3069 80.2853 90.194 78.1602 90.194C75.9194 90.194 75.3804 84.5204 70.923 84.5204C65.6951 84.5204 66.3671 91.5378 63.1571 91.5378C61.039 91.5378 59.4236 89.149 59.2007 87.5065Z'
@@ -37,16 +37,16 @@ export function IntegrationsSelectorLightDesktop({ className }: { className?: st
         stroke='url(#paint4_radial_6481_42424)'
       />
       <circle opacity='0.3' cx='72' cy='72' r='71.5' stroke='url(#paint5_radial_6481_42424)' />
-      <path d='M119 72H202' stroke='url(#paint6_linear_6481_42424)' stroke-width='2' />
+      <path d='M119 72H202' stroke='url(#paint6_linear_6481_42424)' strokeWidth='2' />
       <path
         d='M119 71.5L128.092 71.5C142.183 71.5 155.117 63.703 161.696 51.2426L175.596 24.9174C180.765 15.1265 190.928 8.99995 202 8.99995'
         stroke='url(#paint7_linear_6481_42424)'
-        stroke-width='2'
+        strokeWidth='2'
       />
       <path
         d='M119 71.9998H140.699C158.427 71.9998 173.799 84.2575 177.745 101.54L181.827 119.414C183.976 128.825 192.347 135.5 202 135.5'
         stroke='url(#paint8_linear_6481_42424)'
-        stroke-width='2'
+        strokeWidth='2'
       />
       <defs>
         <linearGradient
@@ -56,8 +56,8 @@ export function IntegrationsSelectorLightDesktop({ className }: { className?: st
           x2='69.6618'
           y2='71.2135'
           gradientUnits='userSpaceOnUse'>
-          <stop stop-color='#6430AB' />
-          <stop offset='1' stop-color='#AA89D8' />
+          <stop stopColor='#6430AB' />
+          <stop offset='1' stopColor='#AA89D8' />
         </linearGradient>
         <linearGradient
           id='paint1_linear_6481_42424'
@@ -66,8 +66,8 @@ export function IntegrationsSelectorLightDesktop({ className }: { className?: st
           x2='63.3177'
           y2='78.9026'
           gradientUnits='userSpaceOnUse'>
-          <stop stop-color='#005DBB' />
-          <stop offset='1' stop-color='#3D92E8' />
+          <stop stopColor='#005DBB' />
+          <stop offset='1' stopColor='#3D92E8' />
         </linearGradient>
         <linearGradient
           id='paint2_linear_6481_42424'
@@ -76,8 +76,8 @@ export function IntegrationsSelectorLightDesktop({ className }: { className?: st
           x2='72.1238'
           y2='62.0312'
           gradientUnits='userSpaceOnUse'>
-          <stop stop-color='#1B70C4' />
-          <stop offset='1' stop-color='#54A4F2' />
+          <stop stopColor='#1B70C4' />
+          <stop offset='1' stopColor='#54A4F2' />
         </linearGradient>
         <linearGradient
           id='paint3_linear_6481_42424'
@@ -86,11 +86,11 @@ export function IntegrationsSelectorLightDesktop({ className }: { className?: st
           x2='81.6104'
           y2='87.9918'
           gradientUnits='userSpaceOnUse'>
-          <stop stop-color='#4497EA' />
-          <stop offset='0.254755' stop-color='#1463B2' />
-          <stop offset='0.498725' stop-color='#0A437D' />
-          <stop offset='0.666667' stop-color='#2476C8' />
-          <stop offset='0.972542' stop-color='#0C549A' />
+          <stop stopColor='#4497EA' />
+          <stop offset='0.254755' stopColor='#1463B2' />
+          <stop offset='0.498725' stopColor='#0A437D' />
+          <stop offset='0.666667' stopColor='#2476C8' />
+          <stop offset='0.972542' stopColor='#0C549A' />
         </linearGradient>
         <radialGradient
           id='paint4_radial_6481_42424'
@@ -99,8 +99,8 @@ export function IntegrationsSelectorLightDesktop({ className }: { className?: st
           r='1'
           gradientUnits='userSpaceOnUse'
           gradientTransform='translate(36.8494 116) rotate(-45.8275) scale(111.974 93.3487)'>
-          <stop stop-color='#BEC2FF' />
-          <stop offset='1' stop-color='#BEC2FF' stop-opacity='0.3' />
+          <stop stopColor='#BEC2FF' />
+          <stop offset='1' stopColor='#BEC2FF' stopOpacity='0.3' />
         </radialGradient>
         <radialGradient
           id='paint5_radial_6481_42424'
@@ -109,8 +109,8 @@ export function IntegrationsSelectorLightDesktop({ className }: { className?: st
           r='1'
           gradientUnits='userSpaceOnUse'
           gradientTransform='translate(15.4286 26.8064) rotate(31.8516) scale(141.946 118.336)'>
-          <stop stop-color='#BEC2FF' />
-          <stop offset='1' stop-color='#BEC2FF' stop-opacity='0.3' />
+          <stop stopColor='#BEC2FF' />
+          <stop offset='1' stopColor='#BEC2FF' stopOpacity='0.3' />
         </radialGradient>
         <linearGradient
           id='paint6_linear_6481_42424'
@@ -119,9 +119,9 @@ export function IntegrationsSelectorLightDesktop({ className }: { className?: st
           x2='202'
           y2='72.1037'
           gradientUnits='userSpaceOnUse'>
-          <stop stop-color='#BEC2FF' stop-opacity='0' />
-          <stop offset='0.397198' stop-color='#BEC2FF' />
-          <stop offset='1' stop-color='#BEC2FF' />
+          <stop stopColor='#BEC2FF' stopOpacity='0' />
+          <stop offset='0.397198' stopColor='#BEC2FF' />
+          <stop offset='1' stopColor='#BEC2FF' />
         </linearGradient>
         <linearGradient
           id='paint7_linear_6481_42424'
@@ -130,9 +130,9 @@ export function IntegrationsSelectorLightDesktop({ className }: { className?: st
           x2='202'
           y2='5.10374'
           gradientUnits='userSpaceOnUse'>
-          <stop offset='0.0910802' stop-color='#BEC2FF' stop-opacity='0' />
-          <stop offset='0.550682' stop-color='#BEC2FF' />
-          <stop offset='1' stop-color='#BEC2FF' stop-opacity='0' />
+          <stop offset='0.0910802' stopColor='#BEC2FF' stopOpacity='0' />
+          <stop offset='0.550682' stopColor='#BEC2FF' />
+          <stop offset='1' stopColor='#BEC2FF' stopOpacity='0' />
         </linearGradient>
         <linearGradient
           id='paint8_linear_6481_42424'
@@ -141,9 +141,9 @@ export function IntegrationsSelectorLightDesktop({ className }: { className?: st
           x2='202'
           y2='139.103'
           gradientUnits='userSpaceOnUse'>
-          <stop stop-color='#BEC2FF' stop-opacity='0' />
-          <stop offset='0.457132' stop-color='#BEC2FF' />
-          <stop offset='1' stop-color='#BEC2FF' stop-opacity='0' />
+          <stop stopColor='#BEC2FF' stopOpacity='0' />
+          <stop offset='0.457132' stopColor='#BEC2FF' />
+          <stop offset='1' stopColor='#BEC2FF' stopOpacity='0' />
         </linearGradient>
       </defs>
     </svg>

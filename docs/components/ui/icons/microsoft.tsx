@@ -14,7 +14,7 @@ export const MicrosoftIcon = ({ className, width = 20, height = 20 }: MicrosoftI
     <svg
       stroke='currentColor'
       fill='currentColor'
-      stroke-width='0'
+      strokeWidth='0'
       viewBox='0 0 448 512'
       height='200px'
       className={cn(DEFAULT_CLASSNAME, className)}

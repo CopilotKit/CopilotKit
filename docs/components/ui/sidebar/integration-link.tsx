@@ -15,6 +15,8 @@ import LlamaIndexIcon from "../icons/llama-index"
 import MastraIcon from "../icons/mastra"
 import PydanticAiIcon from "../icons/pydantic-ai"
 import ChevronRightIcon from "../icons/chevron"
+import { MicrosoftIcon } from "../icons/microsoft"
+import { AwsStrandsIcon } from "../icons/aws-strands"
 
 type Node = DocsLayoutProps["tree"]["children"][number] & {
   url: string
@@ -38,6 +40,8 @@ const INTEGRATION_ICONS: Record<string, ComponentType<IntegrationIconProps>> = {
   "crewai-flows": CrewaiIcon,
   "crewai-crews": CrewaiIcon,
   "direct-to-llm": DirectToLlmIcon,
+  "microsoft-agent-framework": MicrosoftIcon,
+  "aws-strands": AwsStrandsIcon,
   langgraph: LanggraphIcon,
   llamaindex: LlamaIndexIcon,
   mastra: MastraIcon,
