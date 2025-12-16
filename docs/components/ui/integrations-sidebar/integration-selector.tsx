@@ -40,62 +40,62 @@ const INTEGRATION_OPTIONS: Record<Integration, IntegrationOption> = {
   adk: {
     label: "ADK",
     Icon: AdkIcon,
-    href: "/integrations/adk",
+    href: "/adk",
   },
   ag2: {
     label: "AG2",
     Icon: Ag2Icon,
-    href: "/integrations/ag2",
+    href: "/ag2",
   },
   "microsoft-agent-framework": {
     label: "Microsoft Agent Framework",
     Icon: MicrosoftIcon,
-    href: "/integrations/microsoft-agent-framework",
+    href: "/microsoft-agent-framework",
   },
   "aws-strands": {
     label: "AWS Strands",
     Icon: AwsStrandsIcon,
-    href: "/integrations/aws-strands",
+    href: "/aws-strands",
   },
   agno: {
     label: "Agno",
     Icon: AgnoIcon,
-    href: "/integrations/agno",
+    href: "/agno",
   },
   "crewai-flows": {
     label: "CrewAI Flows",
     Icon: CrewaiIcon,
-    href: "/integrations/crewai-flows",
+    href: "/crewai-flows",
   },
   "crewai-crews": {
     label: "CrewAI Crews",
     Icon: CrewaiIcon,
-    href: "/integrations/crewai-crews",
+    href: "/crewai-crews",
   },
   "direct-to-llm": {
     label: "Direct to LLM",
     Icon: DirectToLlmIcon,
-    href: "/integrations/direct-to-llm",
+    href: "/direct-to-llm",
   },
   langgraph: {
     label: "LangGraph",
     Icon: LanggraphIcon,
-    href: "/integrations/langgraph",
+    href: "/langgraph",
   },
   llamaindex: {
     label: "LlamaIndex",
     Icon: LlamaIndexIcon,
-    href: "/integrations/llamaindex",
+    href: "/llamaindex",
   },
   mastra: {
     label: "Mastra",
     Icon: MastraIcon,
-    href: "/integrations/mastra",
+    href: "/mastra",
   },
   "pydantic-ai": {
     label: "Pydantic AI",
     Icon: PydanticAiIcon,
-    href: "/integrations/pydantic-ai",
+    href: "/pydantic-ai",
   },
 }
 
@@ -132,7 +132,7 @@ const IntegrationSelector = ({
     const isRootIntegration = pathname === "/integrations"
 
     if (!isRootIntegration) {
-      const integrationId = pathname.split("/")[2]
+      const integrationId = pathname.split("/")[1]
       setSelectedIntegration(integrationId as Integration)
       return
     }

@@ -42,68 +42,32 @@ const config = {
 
   turbopack: true,
 
+  async rewrites() {
+    const integrations = [
+      'adk',
+      'ag2',
+      'agno',
+      'crewai-flows',
+      'crewai-crews',
+      'direct-to-llm',
+      'langgraph',
+      'llamaindex',
+      'mastra',
+      'pydantic-ai',
+      'microsoft-agent-framework',
+      'aws-strands',
+    ];
+
+    return {
+      beforeFiles: integrations.map((integration) => ({
+        source: `/${integration}/:path*`,
+        destination: `/integrations/${integration}/:path*`,
+      })),
+    };
+  },
+
   async redirects() {
     return [
-      {
-        source: '/microsoft-agent-framework/:path*',
-        destination: '/integrations/microsoft-agent-framework/:path*',
-        permanent: true,
-      },
-      {
-        source: '/adk/:path*',
-        destination: '/integrations/adk/:path*',
-        permanent: true,
-      },
-      {
-        source: '/aws-strands/:path*',
-        destination: '/integrations/aws-strands/:path*',
-        permanent: true,
-      },
-      {
-        source: '/ag2/:path*',
-        destination: '/integrations/ag2/:path*',
-        permanent: true,
-      },
-      {
-        source: '/agno/:path*',
-        destination: '/integrations/agno/:path*',
-        permanent: true,
-      },
-      {
-        source: '/crewai-crews/:path*',
-        destination: '/integrations/crewai-crews/:path*',
-        permanent: true,
-      },
-      {
-        source: '/crewai-flows/:path*',
-        destination: '/integrations/crewai-flows/:path*',
-        permanent: true,
-      },
-      {
-        source: '/direct-to-llm/:path*',
-        destination: '/integrations/direct-to-llm/:path*',
-        permanent: true,
-      },
-      {
-        source: '/langgraph/:path*',
-        destination: '/integrations/langgraph/:path*',
-        permanent: true,
-      },
-      {
-        source: '/llamaindex/:path*',
-        destination: '/integrations/llamaindex/:path*',
-        permanent: true,
-      },
-      {
-        source: '/mastra/:path*',
-        destination: '/integrations/mastra/:path*',
-        permanent: true,
-      },
-      {
-        source: '/pydantic-ai/:path*',
-        destination: '/integrations/pydantic-ai/:path*',
-        permanent: true,
-      },
       {
         source: '/coagents/:path*',
         destination: '/langgraph/:path*',

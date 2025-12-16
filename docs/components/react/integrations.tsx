@@ -26,62 +26,62 @@ const INTEGRATIONS: Integration[] = [
   {
     label: 'Direct to LLM',
     Icon: DirectToLlmIcon,
-    href: '/integrations/direct-to-llm',
+    href: '/direct-to-llm',
   },
   {
     label: 'AG2',
     Icon: Ag2Icon,
-    href: '/integrations/ag2',
+    href: '/ag2',
   },
   {
     label: 'Agno',
     Icon: AgnoIcon,
-    href: '/integrations/agno',
+    href: '/agno',
   },
   {
     label: 'CrewAI Flows',
     Icon: CrewaiIcon,
-    href: '/integrations/crewai-flows',
+    href: '/crewai-flows',
   },
   {
     label: 'CrewAI Crews',
     Icon: CrewaiIcon,
-    href: '/integrations/crewai-crews',
+    href: '/crewai-crews',
   },
   {
     label: 'LangGraph',
     Icon: LanggraphIcon,
-    href: '/integrations/langgraph',
+    href: '/langgraph',
   },
   {
     label: 'LlamaIndex',
     Icon: LlamaIndexIcon,
-    href: '/integrations/llamaindex',
+    href: '/llamaindex',
   },
   {
     label: 'Mastra',
     Icon: MastraIcon,
-    href: '/integrations/mastra',
+    href: '/mastra',
   },
   {
     label: 'Pydantic AI',
     Icon: PydanticAiIcon,
-    href: '/integrations/pydantic-ai',
+    href: '/pydantic-ai',
   },
   {
     label: 'ADK',
     Icon: AdkIcon,
-    href: '/integrations/adk',
+    href: '/adk',
   },
   {
     label: 'Microsoft Agent Framework',
     Icon: MicrosoftIcon,
-    href: '/integrations/microsoft-agent-framework',
+    href: '/microsoft-agent-framework',
   },
   {
     label: 'AWS Strands',
     Icon: AwsStrandsIcon,
-    href: '/integrations/aws-strands',
+    href: '/aws-strands',
   },
 ];
 
