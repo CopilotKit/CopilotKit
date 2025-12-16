@@ -1,5 +1,485 @@
 # ui
 
+## 1.50.1-next.1
+
+### Patch Changes
+
+- cfa4185: - fix: fix stale state in handler
+  - @copilotkit/runtime-client-gql@1.50.1-next.1
+  - @copilotkit/shared@1.50.1-next.1
+
+## 1.50.1-next.0
+
+### Patch Changes
+
+- Updated the default model and API version for the Google GenAI adapter
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.1-next.0
+  - @copilotkit/shared@1.50.1-next.0
+
+## 1.50.0
+
+### Minor Changes
+
+- 0fc76d7: add new runner with telemetry baked in
+- c942f9c: Minor fixes and stability improvements
+- bad5f06: - feat: port old endpoint creators to 2.0
+- 33f47e3: - fix: fix predictive state update
+  - fix: fix state setters
+- eed6021: Updating to the latest version of vnext
+- 3b7367e: Improving general stability around LangChain
+- 7ff9ca7: Minor fixes and improvements
+- 974875e: Lint and format code to resolve Prettier errors
+- 3bd484f: Minor fixes and stability improvements
+- 5a534bf: fix telemetry in v1.50 runtime
+- 907ae5d: - feat: route CPK implementation to 2.0 copilotkitnext
+- 769a06c: Refactor suggestions to not always run
+- 788292b: Improving langchain dependency resolution
+- eab69a2: Enabling the new inspector
+- 0a7bfe0: Updating dependency versions across all packages
+
+### Patch Changes
+
+- 8ce60af: - feat: enable coagent state renders
+- 04057d5: - fix: refrain from adding placeholder message
+- 6ce0edc: - fix: refrain from re-setting context infinitely if it hasnt changed
+  - fix: pass only strings to context value
+  - fix: allow custom convert and availability setup
+- 2c93ff1: - fix: re-enable repeatable interrupt renders
+- b0e3652: - chore: Update to latest of vnext
+- 7643e71: - fix: make suggestions available
+- d55a8bd: - feat(runtime): export v2 of the runtime as a subpackage
+  - fix(runtime): update method for merging tools in assignToolsToAgent
+  - fix: remove redundant agent instantiation code
+- c38da1c: - feat: add suggestions support to 1.5
+- 3c60073: - fix: better sync back-and-forth state, including initial state
+- 962546c: - fix: resolve agent name directly from provider props
+- ca8eb39: - fix: fix result arguments passed to tool calls
+- c3d55e5: - fix: refactor interrupts mechanism to use a queue
+- 5840bab: - fix: adjust dependencies
+- 7808fac: - feat: add spinner indicator to show chat readiness for conversation
+- c70210e: - feat: use copilotnext's single endpoint
+- d2c57a1: - fix: export v2 styles
+- Updated dependencies [0fc76d7]
+- Updated dependencies [c942f9c]
+- Updated dependencies [b0e3652]
+- Updated dependencies [eed6021]
+- Updated dependencies [3b7367e]
+- Updated dependencies [7ff9ca7]
+- Updated dependencies [974875e]
+- Updated dependencies [4942f62]
+- Updated dependencies [3bd484f]
+- Updated dependencies [5a534bf]
+- Updated dependencies [769a06c]
+- Updated dependencies [788292b]
+- Updated dependencies [eab69a2]
+- Updated dependencies [0a7bfe0]
+  - @copilotkit/runtime-client-gql@1.50.0
+  - @copilotkit/shared@1.50.0
+
+## 1.50.0-beta.19
+
+### Minor Changes
+
+- Improving langchain dependency resolution
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.0-beta.19
+  - @copilotkit/shared@1.50.0-beta.19
+
+## 1.50.0-beta.18
+
+### Minor Changes
+
+- Improving general stability around LangChain
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.0-beta.18
+  - @copilotkit/shared@1.50.0-beta.18
+
+## 1.50.0-beta.17
+
+### Minor Changes
+
+- Minor fixes and improvements
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.0-beta.17
+  - @copilotkit/shared@1.50.0-beta.17
+
+## 1.50.0-beta.16
+
+### Minor Changes
+
+- Minor fixes and stability improvements
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.0-beta.16
+  - @copilotkit/shared@1.50.0-beta.16
+
+## 1.50.0-beta.15
+
+### Minor Changes
+
+- Lint and format code to resolve Prettier errors
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.0-beta.15
+  - @copilotkit/shared@1.50.0-beta.15
+
+## 1.50.0-beta.14
+
+### Minor Changes
+
+- Minor fixes and stability improvements
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.0-beta.14
+  - @copilotkit/shared@1.50.0-beta.14
+
+## 1.50.0-beta.13
+
+### Minor Changes
+
+- Updating to the latest version of vnext
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.0-beta.13
+  - @copilotkit/shared@1.50.0-beta.13
+
+## 1.50.0-beta.12
+
+### Minor Changes
+
+- eab69a2: Enabling the new inspector
+
+### Patch Changes
+
+- Updated dependencies [eab69a2]
+  - @copilotkit/runtime-client-gql@1.50.0-beta.12
+  - @copilotkit/shared@1.50.0-beta.12
+
+## 1.50.0-beta.11
+
+### Minor Changes
+
+- fix telemetry in v1.50 runtime
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.0-beta.11
+  - @copilotkit/shared@1.50.0-beta.11
+
+## 1.50.0-beta.10
+
+### Minor Changes
+
+- add new runner with telemetry baked in
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.0-beta.10
+  - @copilotkit/shared@1.50.0-beta.10
+
+## 1.50.0-beta.9
+
+### Minor Changes
+
+- Refactor suggestions to not always run
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.0-beta.9
+  - @copilotkit/shared@1.50.0-beta.9
+
+## 1.50.0-beta.8
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.50.0-beta.8
+- @copilotkit/shared@1.50.0-beta.8
+
+## 1.50.0-beta.7
+
+### Patch Changes
+
+- 6ce0edc: - fix: refrain from re-setting context infinitely if it hasnt changed
+  - fix: pass only strings to context value
+  - fix: allow custom convert and availability setup
+  - @copilotkit/runtime-client-gql@1.50.0-beta.7
+  - @copilotkit/shared@1.50.0-beta.7
+
+## 1.50.0-beta.6
+
+### Minor Changes
+
+- Updating dependency versions across all packages
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.50.0-beta.6
+  - @copilotkit/shared@1.50.0-beta.6
+
+## 1.50.0-beta.4
+
+### Minor Changes
+
+- bad5f06: - feat: port old endpoint creators to 2.0
+- 33f47e3: - fix: fix predictive state update
+  - fix: fix state setters
+- 907ae5d: - feat: route CPK implementation to 2.0 copilotkitnext
+
+### Patch Changes
+
+- 8ce60af: - feat: enable coagent state renders
+- 04057d5: - fix: refrain from adding placeholder message
+- 2c93ff1: - fix: re-enable repeatable interrupt renders
+- b0e3652: - chore: Update to latest of vnext
+- 7643e71: - fix: make suggestions available
+- d55a8bd: - feat(runtime): export v2 of the runtime as a subpackage
+  - fix(runtime): update method for merging tools in assignToolsToAgent
+  - fix: remove redundant agent instantiation code
+- c38da1c: - feat: add suggestions support to 1.5
+- 3c60073: - fix: better sync back-and-forth state, including initial state
+- 962546c: - fix: resolve agent name directly from provider props
+- ca8eb39: - fix: fix result arguments passed to tool calls
+- c3d55e5: - fix: refactor interrupts mechanism to use a queue
+- 5840bab: - fix: adjust dependencies
+- 7808fac: - feat: add spinner indicator to show chat readiness for conversation
+- c70210e: - feat: use copilotnext's single endpoint
+- d2c57a1: - fix: export v2 styles
+- Updated dependencies [b0e3652]
+- Updated dependencies [4942f62]
+  - @copilotkit/runtime-client-gql@1.50.0-beta.4
+  - @copilotkit/shared@1.50.0-beta.4
+
+## 1.10.7-next.0
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.7-next.0
+- @copilotkit/shared@1.10.7-next.0
+
+## 1.10.6
+
+### Patch Changes
+
+- 3ac64bf: - fix: allow disabling actions in the new action hooks
+- c9e499f: - feat: create targeted convenience wrappers around copilot action
+- 8626c5a: - fix: surface errors also in production
+- Updated dependencies [8626c5a]
+- Updated dependencies [e0dd5d5]
+  - @copilotkit/runtime-client-gql@1.10.6
+  - @copilotkit/shared@1.10.6
+
+## 1.10.6-next.6
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.6-next.6
+- @copilotkit/shared@1.10.6-next.6
+
+## 1.10.6-next.5
+
+### Patch Changes
+
+- Updated dependencies [e0dd5d5]
+  - @copilotkit/shared@1.10.6-next.5
+  - @copilotkit/runtime-client-gql@1.10.6-next.5
+
+## 1.10.6-next.4
+
+### Patch Changes
+
+- 8626c5a: - fix: surface errors also in production
+- Updated dependencies [8626c5a]
+  - @copilotkit/runtime-client-gql@1.10.6-next.4
+  - @copilotkit/shared@1.10.6-next.4
+
+## 1.10.6-next.3
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.6-next.3
+- @copilotkit/shared@1.10.6-next.3
+
+## 1.10.6-next.2
+
+### Patch Changes
+
+- 3ac64bf: - fix: allow disabling actions in the new action hooks
+  - @copilotkit/runtime-client-gql@1.10.6-next.2
+  - @copilotkit/shared@1.10.6-next.2
+
+## 1.10.6-next.1
+
+### Patch Changes
+
+- c9e499f: - feat: create targeted convenience wrappers around copilot action
+  - @copilotkit/runtime-client-gql@1.10.6-next.1
+  - @copilotkit/shared@1.10.6-next.1
+
+## 1.10.6-next.0
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.6-next.0
+- @copilotkit/shared@1.10.6-next.0
+
+## 1.10.5
+
+### Patch Changes
+
+- b7bc3a0: - feat: pass copilot readable context to agui agents
+- f3fdd7a: - fix: stop chat from contacting agent that has errored
+- 32c163e: - inspector visibility toggle in ConsoleTrigger component
+- 6112a67: - fix: consider edge cases when regenerate button is used
+  - @copilotkit/runtime-client-gql@1.10.5
+  - @copilotkit/shared@1.10.5
+
+## 1.10.5-next.10
+
+### Patch Changes
+
+- b79ed5c: - fix: prevent double action calls on none render copilot actions
+  - @copilotkit/runtime-client-gql@1.10.5-next.10
+  - @copilotkit/shared@1.10.5-next.10
+
+## 1.10.5-next.9
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.5-next.9
+- @copilotkit/shared@1.10.5-next.9
+
+## 1.10.5-next.8
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.5-next.8
+- @copilotkit/shared@1.10.5-next.8
+
+## 1.10.5-next.7
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.5-next.7
+- @copilotkit/shared@1.10.5-next.7
+
+## 1.10.5-next.6
+
+### Patch Changes
+
+- f3fdd7a: - fix: stop chat from contacting agent that has errored
+  - @copilotkit/runtime-client-gql@1.10.5-next.6
+  - @copilotkit/shared@1.10.5-next.6
+
+## 1.10.5-next.5
+
+### Patch Changes
+
+- 6112a67: - fix: consider edge cases when regenerate button is used
+  - @copilotkit/runtime-client-gql@1.10.5-next.5
+  - @copilotkit/shared@1.10.5-next.5
+
+## 1.10.5-next.4
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.5-next.4
+- @copilotkit/shared@1.10.5-next.4
+
+## 1.10.5-next.3
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.5-next.3
+- @copilotkit/shared@1.10.5-next.3
+
+## 1.10.5-next.2
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.5-next.2
+- @copilotkit/shared@1.10.5-next.2
+
+## 1.10.5-next.1
+
+### Patch Changes
+
+- b7bc3a0: - feat: pass copilot readable context to agui agents
+  - @copilotkit/runtime-client-gql@1.10.5-next.1
+  - @copilotkit/shared@1.10.5-next.1
+
+## 1.10.5-next.0
+
+### Patch Changes
+
+- 32c163e: - inspector visibility toggle in ConsoleTrigger component
+  - @copilotkit/runtime-client-gql@1.10.5-next.0
+  - @copilotkit/shared@1.10.5-next.0
+
+## 1.10.4
+
+### Patch Changes
+
+- ef98963: - feat: add platform-wide error surfacing for custom error rendering
+  - feat: add error as a message option and a component level onError
+- 052d54d: - fix: enable erasing chat state on new thread creation
+- Updated dependencies [a640d8e]
+  - @copilotkit/shared@1.10.4
+  - @copilotkit/runtime-client-gql@1.10.4
+
+## 1.10.4-next.3
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.10.4-next.3
+- @copilotkit/shared@1.10.4-next.3
+
+## 1.10.4-next.2
+
+### Patch Changes
+
+- ef98963: - feat: add platform-wide error surfacing for custom error rendering
+  - feat: add error as a message option and a component level onError
+  - @copilotkit/runtime-client-gql@1.10.4-next.2
+  - @copilotkit/shared@1.10.4-next.2
+
+## 1.10.4-next.1
+
+### Patch Changes
+
+- Updated dependencies [a640d8e]
+  - @copilotkit/shared@1.10.4-next.1
+  - @copilotkit/runtime-client-gql@1.10.4-next.1
+
+## 1.10.4-next.0
+
+### Patch Changes
+
+- 052d54d: - fix: enable erasing chat state on new thread creation
+  - @copilotkit/runtime-client-gql@1.10.4-next.0
+  - @copilotkit/shared@1.10.4-next.0
+
 ## 1.10.3
 
 ### Patch Changes

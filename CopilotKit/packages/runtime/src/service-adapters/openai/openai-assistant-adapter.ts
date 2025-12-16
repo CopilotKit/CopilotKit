@@ -22,7 +22,10 @@
  * });
  * ```
  */
-import OpenAI from "openai";
+import type OpenAI from "openai";
+import type { RunSubmitToolOutputsStreamParams } from "openai/resources/beta/threads/runs/runs";
+import type { AssistantStream } from "openai/lib/AssistantStream";
+import type { AssistantStreamEvent, AssistantTool } from "openai/resources/beta/assistants";
 import {
   CopilotServiceAdapter,
   CopilotRuntimeChatCompletionRequest,
@@ -34,11 +37,8 @@ import {
   convertMessageToOpenAIMessage,
   convertSystemMessageToAssistantAPI,
 } from "./utils";
-import { RunSubmitToolOutputsStreamParams } from "openai/resources/beta/threads/runs/runs";
-import { AssistantStream } from "openai/lib/AssistantStream";
 import { RuntimeEventSource } from "../events";
 import { ActionInput } from "../../graphql/inputs/action.input";
-import { AssistantStreamEvent, AssistantTool } from "openai/resources/beta/assistants";
 import { ForwardedParametersInput } from "../../graphql/inputs/forwarded-parameters.input";
 
 export interface OpenAIAssistantAdapterParams {
@@ -84,20 +84,36 @@ export interface OpenAIAssistantAdapterParams {
 }
 
 export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
-  private openai: OpenAI;
+  private _openai: OpenAI;
   private codeInterpreterEnabled: boolean;
   private assistantId: string;
   private fileSearchEnabled: boolean;
   private disableParallelToolCalls: boolean;
   private keepSystemRole: boolean = false;
 
+  public get name() {
+    return "OpenAIAssistantAdapter";
+  }
+
   constructor(params: OpenAIAssistantAdapterParams) {
-    this.openai = params.openai || new OpenAI({});
+    if (params.openai) {
+      this._openai = params.openai;
+    }
+    // If no instance provided, we'll lazy-load in ensureOpenAI()
     this.codeInterpreterEnabled = params.codeInterpreterEnabled === false || true;
     this.fileSearchEnabled = params.fileSearchEnabled === false || true;
     this.assistantId = params.assistantId;
     this.disableParallelToolCalls = params?.disableParallelToolCalls || false;
     this.keepSystemRole = params?.keepSystemRole ?? false;
+  }
+
+  private ensureOpenAI(): OpenAI {
+    if (!this._openai) {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const OpenAI = require("openai").default;
+      this._openai = new OpenAI({});
+    }
+    return this._openai;
   }
 
   async process(
@@ -107,9 +123,10 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
 
     // if we don't have a threadId, create a new thread
     let threadId = request.extensions?.openaiAssistantAPI?.threadId;
+    const openai = this.ensureOpenAI();
 
     if (!threadId) {
-      threadId = (await this.openai.beta.threads.create()).id;
+      threadId = (await openai.beta.threads.create()).id;
     }
 
     const lastMessage = messages.at(-1);
@@ -154,7 +171,8 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
     messages: Message[],
     eventSource: RuntimeEventSource,
   ) {
-    let run = await this.openai.beta.threads.runs.retrieve(threadId, runId);
+    const openai = this.ensureOpenAI();
+    let run = await openai.beta.threads.runs.retrieve(threadId, runId);
 
     if (!run.required_action) {
       throw new Error("No tool outputs required");
@@ -184,7 +202,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
       },
     );
 
-    const stream = this.openai.beta.threads.runs.submitToolOutputsStream(threadId, runId, {
+    const stream = openai.beta.threads.runs.submitToolOutputsStream(threadId, runId, {
       tool_outputs: toolOutputs,
       ...(this.disableParallelToolCalls && { parallel_tool_calls: false }),
     });
@@ -200,6 +218,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
     eventSource: RuntimeEventSource,
     forwardedParameters: ForwardedParametersInput,
   ) {
+    const openai = this.ensureOpenAI();
     messages = [...messages];
 
     // get the instruction message
@@ -216,7 +235,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
       throw new Error("No user message found");
     }
 
-    await this.openai.beta.threads.messages.create(threadId, {
+    await openai.beta.threads.messages.create(threadId, {
       role: "user",
       content: userMessage.content,
     });
@@ -229,7 +248,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
       ...(this.fileSearchEnabled ? [{ type: "file_search" } as AssistantTool] : []),
     ];
 
-    let stream = this.openai.beta.threads.runs.stream(threadId, {
+    let stream = openai.beta.threads.runs.stream(threadId, {
       assistant_id: this.assistantId,
       instructions,
       tools: tools,

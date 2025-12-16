@@ -22,10 +22,10 @@ import {
 } from "@copilotkit/runtime-client-gql";
 import { Agent } from "@copilotkit/runtime-client-gql";
 import {
-  LangGraphInterruptAction,
+  LangGraphInterruptRender,
   LangGraphInterruptActionSetter,
+  QueuedInterruptEvent,
 } from "../types/interrupt-action";
-import { SuggestionItem } from "../utils/suggestions";
 
 /**
  * Interface for the configuration of the Copilot API.
@@ -95,10 +95,10 @@ export interface CopilotApiConfig {
 }
 
 export type InChatRenderFunction<TProps = ActionRenderProps<any> | CatchAllActionRenderProps<any>> =
-  (props: TProps) => string | JSX.Element;
+  (props: TProps) => string | React.JSX.Element;
 export type CoagentInChatRenderFunction = (
   props: CoAgentStateRenderProps<any>,
-) => string | JSX.Element | undefined | null;
+) => string | React.JSX.Element | undefined | null;
 
 export interface ChatComponentsCache {
   actions: Record<string, InChatRenderFunction | string>;
@@ -127,10 +127,9 @@ export interface CopilotContextParams {
   setAction: (id: string, action: FrontendAction<any>) => void;
   removeAction: (id: string) => void;
 
-  // coagent actions
-  coAgentStateRenders: Record<string, CoAgentStateRender<any>>;
-  setCoAgentStateRender: (id: string, stateRender: CoAgentStateRender<any>) => void;
-  removeCoAgentStateRender: (id: string) => void;
+  // registered actions for component-based rendering
+  setRegisteredActions: (actionConfig: any) => string;
+  removeRegisteredAction: (actionKey: string) => void;
 
   chatComponentsCache: React.RefObject<ChatComponentsCache>;
 
@@ -195,9 +194,6 @@ export interface CopilotContextParams {
   // i.e. when using `stop()` from `useChat`
   chatAbortControllerRef: React.MutableRefObject<AbortController | null>;
 
-  // runtime
-  runtimeClient: CopilotRuntimeClient;
-
   /**
    * The forwarded parameters to use for the task.
    */
@@ -221,18 +217,27 @@ export interface CopilotContextParams {
 
   extensions: ExtensionsInput;
   setExtensions: React.Dispatch<React.SetStateAction<ExtensionsInput>>;
-  langGraphInterruptAction: LangGraphInterruptAction | null;
-  setLangGraphInterruptAction: LangGraphInterruptActionSetter;
-  removeLangGraphInterruptAction: () => void;
+  interruptActions: Record<string, LangGraphInterruptRender>;
+  setInterruptAction: LangGraphInterruptActionSetter;
+  removeInterruptAction: (actionId: string) => void;
+  interruptEventQueue: Record<string, QueuedInterruptEvent[]>;
+  addInterruptEvent: (queuedEvent: QueuedInterruptEvent) => void;
+  resolveInterruptEvent: (threadId: string, eventId: string, response: string) => void;
 
   /**
    * Optional trace handler for comprehensive debugging and observability.
    */
-  onError?: CopilotErrorHandler;
+  onError: CopilotErrorHandler;
 
   // banner error state
   bannerError: CopilotKitError | null;
   setBannerError: React.Dispatch<React.SetStateAction<CopilotKitError | null>>;
+  // Internal error handlers
+  // These are used to handle errors that occur during the execution of the chat.
+  // They are not intended for use by the developer. A component can register itself an error listener to be activated somewhere else as needed
+  internalErrorHandlers: Record<string, CopilotErrorHandler>;
+  setInternalErrorHandler: (handler: Record<string, CopilotErrorHandler>) => void;
+  removeInternalErrorHandler: (id: string) => void;
 }
 
 const emptyCopilotContext: CopilotContextParams = {
@@ -240,9 +245,8 @@ const emptyCopilotContext: CopilotContextParams = {
   setAction: () => {},
   removeAction: () => {},
 
-  coAgentStateRenders: {},
-  setCoAgentStateRender: () => {},
-  removeCoAgentStateRender: () => {},
+  setRegisteredActions: () => "",
+  removeRegisteredAction: () => {},
 
   chatComponentsCache: { current: { actions: {}, coAgentStateRenders: {} } },
   getContextString: (documents: DocumentPointer[], categories: string[]) =>
@@ -265,7 +269,6 @@ const emptyCopilotContext: CopilotContextParams = {
   getDocumentsContext: (categories: string[]) => returnAndThrowInDebug([]),
   addDocumentContext: () => returnAndThrowInDebug(""),
   removeDocumentContext: () => {},
-  runtimeClient: {} as any,
 
   copilotApiConfig: new (class implements CopilotApiConfig {
     get chatApiEndpoint(): string {
@@ -300,12 +303,18 @@ const emptyCopilotContext: CopilotContextParams = {
   availableAgents: [],
   extensions: {},
   setExtensions: () => {},
-  langGraphInterruptAction: null,
-  setLangGraphInterruptAction: () => null,
-  removeLangGraphInterruptAction: () => null,
-  onError: undefined,
+  interruptActions: {},
+  setInterruptAction: () => {},
+  removeInterruptAction: () => {},
+  interruptEventQueue: {},
+  addInterruptEvent: () => {},
+  resolveInterruptEvent: () => {},
+  onError: () => {},
   bannerError: null,
   setBannerError: () => {},
+  internalErrorHandlers: {},
+  setInternalErrorHandler: () => {},
+  removeInternalErrorHandler: () => {},
 };
 
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);

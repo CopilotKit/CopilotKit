@@ -155,12 +155,12 @@ export const LandingExamples: CarouselExample[] = [
     description: "Interactive travel planning assistant that helps users discover destinations, create itineraries, and manage trip details with natural language.",
     media: {
       type: "video",
-      src: "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tutorials/ai-travel-app/demo.mp4"
+      src: "https://cdn.copilotkit.ai/docs/copilotkit/images/langgraph/tutorials/ai-travel-app/demo.mp4"
     },
     links: {
       source: "https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-travel?ref=travel-tutorial",
       demo: "https://examples-coagents-ai-travel-app.vercel.app/",
-      tutorial: "/coagents/tutorials/ai-travel-app"
+      tutorial: "/langgraph/tutorials/ai-travel-app"
     }
   },
   {
@@ -174,7 +174,7 @@ export const LandingExamples: CarouselExample[] = [
     links: {
       source: "https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-research-canvas/readme.md",
       demo: "https://examples-coagents-research-canvas-ui.vercel.app/",
-      tutorial: "/coagents/videos/research-canvas"
+      tutorial: "/langgraph/videos/research-canvas"
     }
   }
 ];
@@ -198,12 +198,12 @@ export const CoAgentsExamples: CarouselExample[] = [
     description: "Interactive travel planning assistant that helps users discover destinations, create itineraries, and manage trip details with natural language.",
     media: {
       type: "video",
-      src: "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tutorials/ai-travel-app/demo.mp4"
+      src: "https://cdn.copilotkit.ai/docs/copilotkit/images/langgraph/tutorials/ai-travel-app/demo.mp4"
     },
     links: {
       source: "https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-travel?ref=travel-tutorial",
       demo: "https://examples-coagents-ai-travel-app.vercel.app/",
-      tutorial: "/coagents/tutorials/ai-travel-app"
+      tutorial: "/langgraph/tutorials/ai-travel-app"
     }
   },
   {
@@ -217,7 +217,7 @@ export const CoAgentsExamples: CarouselExample[] = [
     links: {
       source: "https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-research-canvas/readme.md",
       demo: "https://examples-coagents-research-canvas-ui.vercel.app/",
-      tutorial: "/coagents/videos/research-canvas"
+      tutorial: "/langgraph/videos/research-canvas"
     }
   }
 ]

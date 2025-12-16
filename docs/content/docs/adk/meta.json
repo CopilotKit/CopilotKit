@@ -1,0 +1,21 @@
+{
+  "title": "ADK",
+  "root": true,
+  "pages": [
+    "---Getting Started---",
+    "index",
+    "quickstart",
+    "vibe-coding-mcp",
+    "---Guides---",
+    "agentic-chat-ui",
+    "custom-look-and-feel",
+    "frontend-actions",
+    "generative-ui",
+    "human-in-the-loop",
+    "shared-state",
+    "---Premium Features---",
+    "...premium",
+    "---Troubleshooting---",
+    "...troubleshooting"
+  ]
+}

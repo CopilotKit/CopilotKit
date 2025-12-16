@@ -1,3 +1,4 @@
+import { randomId } from "@copilotkit/shared";
 import {
   ActionExecutionMessageInput,
   ResultMessageInput,
@@ -6,7 +7,9 @@ import {
   ImageMessageInput,
 } from "../../inputs/message.input";
 import { BaseMessageInput } from "../base";
+import { BaseMessageOutput } from "../copilot-response.type";
 import { MessageRole } from "../enums";
+import { MessageStatus, MessageStatusCode } from "../message-status.type";
 
 export type MessageType =
   | "TextMessage"
@@ -15,8 +18,18 @@ export type MessageType =
   | "AgentStateMessage"
   | "ImageMessage";
 
-export class Message extends BaseMessageInput {
+export class Message {
   type: MessageType;
+  id: BaseMessageOutput["id"];
+  createdAt: BaseMessageOutput["createdAt"];
+  status: MessageStatus;
+
+  constructor(props: any) {
+    props.id ??= randomId();
+    props.status ??= { code: MessageStatusCode.Success };
+    props.createdAt ??= new Date();
+    Object.assign(this, props);
+  }
 
   isTextMessage(): this is TextMessage {
     return this.type === "TextMessage";
@@ -39,11 +52,24 @@ export class Message extends BaseMessageInput {
   }
 }
 
-export class TextMessage extends Message implements TextMessageInput {
-  type: MessageType = "TextMessage";
-  content: string;
-  role: MessageRole;
-  parentMessageId?: string;
+// alias Role to MessageRole
+export const Role = MessageRole;
+
+// when constructing any message, the base fields are optional
+type MessageConstructorOptions = Partial<Message>;
+
+type TextMessageConstructorOptions = MessageConstructorOptions & TextMessageInput;
+
+export class TextMessage extends Message implements TextMessageConstructorOptions {
+  content: TextMessageInput["content"];
+  parentMessageId: TextMessageInput["parentMessageId"];
+  role: TextMessageInput["role"];
+  type = "TextMessage" as const;
+
+  constructor(props: TextMessageConstructorOptions) {
+    super(props);
+    this.type = "TextMessage";
+  }
 }
 
 export class ActionExecutionMessage

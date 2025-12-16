@@ -1,0 +1,35 @@
+`useDefaultTool` provides a catch-all renderer for **any tool** that doesn't have a specific `useRenderToolCall` defined. This is useful for:
+
+- Displaying all tool calls during development
+- Rendering MCP (Model Context Protocol) tools
+- Providing a generic fallback UI for unexpected tools
+
+```tsx title="app/page.tsx"
+import { useDefaultTool } from "@copilotkit/react-core"; // [!code highlight]
+// ...
+
+const YourMainContent = () => {
+  // ...
+  // [!code highlight:15]
+  useDefaultTool({
+    render: ({ name, args, status, result }) => {
+      return (
+        <div style={{ color: "black" }}>
+          <span>
+            {status === "complete" ? "✓" : "⏳"}
+            {name}
+          </span>
+          {status === "complete" && result && (
+            <pre>{JSON.stringify(result, null, 2)}</pre>
+          )}
+        </div>
+      );
+    },
+  });
+  // ...
+}
+```
+
+<Callout type="info">
+  Unlike `useRenderToolCall`, which targets a specific tool by name, `useDefaultTool` catches **all** tools that don't have a dedicated renderer.
+</Callout>

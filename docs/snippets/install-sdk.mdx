@@ -1,19 +1,16 @@
 import InstallPythonSDKSnippet from "@/snippets/install-python-sdk.mdx";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
-Any LangGraph agent can be used with CopilotKit. However, creating deep agentic 
+Any LangGraph agent can be used with CopilotKit. However, creating deep agentic
 experiences with CopilotKit requires our LangGraph SDK.
 
-<Tabs groupId="language" items={["Python", "TypeScript"]}>
-  <Tab value="Python">
-    <div className="py-6">
-      <InstallPythonSDKSnippet components={props.components} />
-    </div>
+<Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]} className="p-0 m-0" persist>
+  <Tab value="Python" className="p-0 m-0">
+    <InstallPythonSDKSnippet components={props.components} />
   </Tab>
-  <Tab value="TypeScript" className="py-6">
-    <div className="py-6">
-      ```package-install
-      npm install @copilotkit/sdk-js
-      ```
-    </div>
+  <Tab value="TypeScript" className="p-0 m-0">
+    ```npm
+    npm install @copilotkit/sdk-js
+    ```
   </Tab>
 </Tabs>
