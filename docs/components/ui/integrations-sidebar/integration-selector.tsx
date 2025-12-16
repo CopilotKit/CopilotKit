@@ -132,9 +132,14 @@ const IntegrationSelector = ({
     const isRootIntegration = pathname === "/integrations"
 
     if (!isRootIntegration) {
-      const integrationId = pathname.split("/")[1]
-      setSelectedIntegration(integrationId as Integration)
-      return
+      const pathnameParts = pathname.split("/");
+      const integrationKey = Object.keys(INTEGRATION_OPTIONS).find((key) =>
+        pathnameParts.includes(key)
+      ) as Integration | undefined;
+      if (integrationKey) {
+        setSelectedIntegration(integrationKey)
+        return
+      }
     }
 
     if (isRootIntegration && selectedIntegration) setSelectedIntegration(null)
