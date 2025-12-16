@@ -82,8 +82,10 @@ export interface MessagesProps {
   messages: Message[];
   inProgress: boolean;
   children?: React.ReactNode;
+  chatError?: ChatError | null;
   AssistantMessage: React.ComponentType<AssistantMessageProps>;
   UserMessage: React.ComponentType<UserMessageProps>;
+  ErrorMessage?: React.ComponentType<ErrorMessageProps>;
   RenderMessage: React.ComponentType<RenderMessageProps>;
   ImageRenderer: React.ComponentType<ImageRendererProps>;
 
@@ -106,6 +108,11 @@ export interface MessagesProps {
    * Callback function for thumbs down feedback
    */
   onThumbsDown?: (message: Message) => void;
+
+  /**
+   * Map of message IDs to their feedback state
+   */
+  messageFeedback?: Record<string, "thumbsUp" | "thumbsDown">;
 
   /**
    * A list of markdown components to render in assistant message.
@@ -161,6 +168,7 @@ export interface AssistantMessageProps {
    */
 
   message?: AIMessage;
+  messages?: Message[];
 
   /**
    * Indicates if this is the last message
@@ -196,6 +204,11 @@ export interface AssistantMessageProps {
    * Callback function for thumbs down feedback
    */
   onThumbsDown?: (message: Message) => void;
+
+  /**
+   * The feedback state for this message ("thumbsUp" or "thumbsDown")
+   */
+  feedback?: "thumbsUp" | "thumbsDown" | null;
 
   /**
    * A list of markdown components to render in assistant message.
@@ -234,8 +247,32 @@ export interface AssistantMessageProps {
   subComponent?: React.JSX.Element;
 }
 
+export interface ErrorMessageProps {
+  /**
+   * The message content from the assistant
+   */
+
+  error: ChatError;
+
+  /**
+   * Indicates if this is the last message
+   */
+  isCurrentMessage?: boolean;
+
+  /**
+   * Callback function to regenerate the assistant's response
+   */
+  onRegenerate?: () => void;
+
+  /**
+   * Callback function when the message is copied
+   */
+  onCopy?: (message: string) => void;
+}
+
 export interface RenderMessageProps {
   message: Message;
+  messages: Message[];
   inProgress: boolean;
   index: number;
   isCurrentMessage: boolean;
@@ -265,6 +302,11 @@ export interface RenderMessageProps {
   onThumbsDown?: (message: Message) => void;
 
   /**
+   * Map of message IDs to their feedback state
+   */
+  messageFeedback?: Record<string, "thumbsUp" | "thumbsDown">;
+
+  /**
    * A list of markdown components to render in assistant message.
    * Useful when you want to render custom elements in the message (e.g a reference tag element)
    */
@@ -278,11 +320,13 @@ export interface InputProps {
   onStop?: () => void;
   onUpload?: () => void;
   hideStopButton?: boolean;
+  chatReady?: boolean;
 }
 
 export interface RenderSuggestionsListProps {
   suggestions: CopilotChatSuggestion[];
   onSuggestionClick: (message: string) => void;
+  isLoading: boolean;
 }
 
 export interface ImageRendererProps {
@@ -300,4 +344,10 @@ export interface ImageRendererProps {
    * Additional CSS class name for styling
    */
   className?: string;
+}
+
+export interface ChatError {
+  message: string;
+  operation?: string;
+  timestamp: number;
 }
