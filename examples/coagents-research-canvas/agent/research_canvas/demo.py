@@ -3,6 +3,7 @@
 import os
 from dotenv import load_dotenv
 load_dotenv()
+os.environ["LANGGRAPH_FASTAPI"] = "true"
 
 # pylint: disable=wrong-import-position
 from fastapi import FastAPI

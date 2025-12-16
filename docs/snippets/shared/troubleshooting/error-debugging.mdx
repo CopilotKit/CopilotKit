@@ -1,0 +1,39 @@
+# How to Debug Errors
+
+CopilotKit provides visual error display for local development and debugging. This feature is completely free and requires no API keys.
+
+## Quick Setup
+
+```tsx
+import { CopilotKit } from "@copilotkit/react-core";
+
+export default function App() {
+  return (
+    <CopilotKit
+      runtimeUrl="<your-runtime-url>"
+      showDevConsole={true} // [!code highlight]
+    >
+      {/* Your app */}
+    </CopilotKit>
+  );
+}
+```
+
+<Callout type="warning">
+  Avoid showing the dev console in production as it exposes internal error details to end users.
+</Callout>
+
+## When to Use Development Debugging
+
+- **Local development** - See errors immediately in your UI
+- **Quick debugging** - No setup required, works out of the box
+- **Testing** - Verify error handling during development
+
+## Troubleshooting
+
+### Development Debugging Issues
+
+- **Dev console not showing:**
+  - Confirm `showDevConsole={true}`
+  - Check for JavaScript errors in the browser console
+  - Ensure no CSS is hiding the error banner
