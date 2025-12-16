@@ -13,7 +13,7 @@ from copilotkit import CopilotKitRemoteEndpoint, add_langgraph_fastapi_endpoint,
 from copilotkit.crewai import CrewAIAgent
 from research_canvas.crewai.agent import ResearchCanvasFlow
 from research_canvas.langgraph.agent import graph
-# from ag_ui_crewai.endpoint import add_crewai_flow_fastapi_endpoint
+from ag_ui_crewai.endpoint import add_crewai_flow_fastapi_endpoint
 
 app = FastAPI()
 
@@ -26,11 +26,12 @@ sdk = CopilotKitRemoteEndpoint(
         ),
     ],
 )
-# add_crewai_flow_fastapi_endpoint(
-#     app=app,
-#     flow=ResearchCanvasFlow(),
-#     path="/agents/crewai/research_agent_crewai",
-# )
+
+add_crewai_flow_fastapi_endpoint(
+    app=app,
+    flow=ResearchCanvasFlow(),
+    path="/agents/crewai/research_agent",
+)
 
 add_langgraph_fastapi_endpoint(
     app=app,
@@ -50,9 +51,6 @@ add_langgraph_fastapi_endpoint(
     ),
     path="/agents/research_agent_google_genai"
 )
-
-add_fastapi_endpoint(app, sdk, "/copilotkit")
-
 
 @app.get("/health")
 def health():
