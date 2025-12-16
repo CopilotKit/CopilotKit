@@ -10,7 +10,7 @@ name = "research_canvas"
 version = "0.0.1"
 dependencies = [
     "ag-ui-crewai>=0.1.5",
-    "copilotkit>=0.1.72",
+    "copilotkit>=0.1.73",
     "crewai==0.130.0",
     "langchain-openai>=0.2.3",
     "langchain-community>=0.3.1",
@@ -38,7 +38,7 @@ build-backend = "setuptools.build_meta"
 [tool.poetry.dependencies]
 ag-ui-crewai = ">=0.1.5"
 python = ">=3.12,<3.13"
-copilotkit = "^0.1.72"
+copilotkit = "^0.1.73"
 crewai = "0.130.0"
 langchain-openai = "0.2.3"
 langchain-community = "^0.3.1"
