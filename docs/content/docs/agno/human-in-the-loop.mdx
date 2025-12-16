@@ -1,0 +1,139 @@
+---
+title: Human-in-the-Loop
+icon: "lucide/Users"
+description: Create frontend tools and use them within your Agno agent for human-in-the-loop interactions.
+---
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
+import RunAndConnect from "@/snippets/integrations/agno/run-and-connect.mdx"
+import { IframeSwitcher } from "@/components/content"
+
+<IframeSwitcher
+  id="frontend-tools-based-hitl-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/agno/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/agno/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+## What is this?
+
+Frontend tools enable you to define client-side functions that your Agno agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
+the logic runs on the client side, giving you direct access to the frontend environment.
+
+This can be utilized to let [your agent control the UI](/agno/frontend-tools), [generative UI](/agno/generative-ui/frontend-tools), or for Human-in-the-loop interactions.
+
+In this guide, we cover the use of frontend tools for Human-in-the-loop.
+
+## When should I use this?
+
+Use frontend tools when you need your agent to interact with client-side primitives such as:
+- Reading or modifying React component state
+- Accessing browser APIs like localStorage, sessionStorage, or cookies
+- Triggering UI updates or animations
+- Interacting with third-party frontend libraries
+- Performing actions that require the user's immediate browser context
+
+## Implementation
+
+<Steps>
+    <Step>
+        ### Define the frontend tool in your Agno agent
+
+        In your Agno agent, define a tool with the `@tool(external_execution=True)` decorator:
+
+        ```python title="tools/frontend.py"
+        from agno.tools import tool
+
+        @tool(external_execution=True)
+        def offerOptions(option_1: str, option_2: str):
+            """
+            Give the user a choice between two options and have them select one.
+
+            Args:
+                option_1: str: The first option
+                option_2: str: The second option
+            """
+        ```
+
+        Register the tool with your agent:
+
+        ```python title="agent.py"
+        from agno.agent import Agent
+        from agno.models.openai import OpenAIChat
+        from agno.os import AgentOS
+        from agno.os.interfaces.agui import AGUI
+        from tools.frontend import offerOptions
+
+        agent = Agent(
+            model=OpenAIChat(id="gpt-4o"),
+            tools=[offerOptions],
+            description="A helpful assistant that can answer questions and provide information.",
+            instructions="Be helpful and friendly. Format your responses using markdown where appropriate.",
+        )
+
+        agent_os = AgentOS(agents=[agent], interfaces=[AGUI(agent=agent)])
+        app = agent_os.get_app()
+
+        if __name__ == "__main__":
+            agent_os.serve(app="main:app", port=8000, reload=True)
+        ```
+    </Step>
+    <Step>
+        ### Create a frontend human-in-the-loop tool
+
+        Frontend tools can be leveraged in a variety of ways. One of those ways is to have a human-in-the-loop flow where the response
+        of the tool is gated by a user's decision.
+
+        In this example we will simulate an "approval" flow for executing a command. Use the `useHumanInTheLoop` hook to create a tool that
+        prompts the user for approval.
+
+        ```tsx title="page.tsx"
+        import { useHumanInTheLoop } from "@copilotkit/react-core" // [!code highlight]
+
+        export function Page() {
+          // ...
+
+          useHumanInTheLoop({
+            name: "offerOptions",
+            description: "Give the user a choice between two options and have them select one.",
+            parameters: [
+              {
+                name: "option_1",
+                type: "string",
+                description: "The first option",
+                required: true,
+              },
+              {
+                name: "option_2",
+                type: "string",
+                description: "The second option",
+                required: true,
+              },
+            ],
+            render: ({ args, respond }) => {
+              if (!respond) return <></>;
+              return (
+                <div>
+                  {/* [!code highlight:2] */}
+                  <button onClick={() => respond(`${args.option_1} was selected`)}>{args.option_1}</button>
+                  <button onClick={() => respond(`${args.option_2} was selected`)}>{args.option_2}</button>
+                </div>
+              );
+            },
+          });
+
+          // ...
+        }
+        ```
+    </Step>
+    <Step>
+        ### Try it out!
+
+        You've now given your agent the ability to show the user two options and have them select one. The agent will then be aware of the user's choice and can use it in subsequent steps.
+
+        ```
+        Can you show me two good options for a restaurant name?
+        ````
+    </Step>
+</Steps>
