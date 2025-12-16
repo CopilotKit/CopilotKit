@@ -6,7 +6,12 @@ export {
   type UseCopilotChatOptions_c,
   useCopilotChatHeadless_c,
 } from "./use-copilot-chat-headless_c";
-export { useCopilotChatInternal, type ChatSuggestions } from "./use-copilot-chat_internal";
+export {
+  useCopilotChatInternal,
+  type ChatSuggestions,
+  type OnReloadMessages,
+  type OnStopGeneration,
+} from "./use-copilot-chat_internal";
 export { useCopilotAction } from "./use-copilot-action";
 export { useCoAgentStateRender } from "./use-coagent-state-render";
 export { useMakeCopilotDocumentReadable } from "./use-make-copilot-document-readable";

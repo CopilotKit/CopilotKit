@@ -40,6 +40,29 @@ export interface AppendMessageOptions {
   clearSuggestions?: boolean;
 }
 
+export interface OnStopGenerationArguments {
+  /**
+   * The name of the currently executing agent.
+   */
+  currentAgentName: string | undefined;
+
+  /**
+   * The messages in the chat.
+   */
+  messages: Message[];
+}
+
+export type OnReloadMessagesArguments = OnStopGenerationArguments & {
+  /**
+   * The message on which "regenerate" was pressed
+   */
+  messageId: string;
+};
+
+export type OnStopGeneration = (args: OnStopGenerationArguments) => void;
+
+export type OnReloadMessages = (args: OnReloadMessagesArguments) => void;
+
 export interface UseCopilotChatOptions {
   /**
    * A unique identifier for the chat. If not provided, a random one will be
@@ -85,6 +108,11 @@ export interface UseCopilotChatOptions {
    *   - No AI generation involved
    */
   suggestions?: ChatSuggestions;
+
+  onInProgress?: (isLoading: boolean) => void;
+  onSubmitMessage?: (messageContent: string) => Promise<void> | void;
+  onStopGeneration?: OnStopGeneration;
+  onReloadMessages?: OnReloadMessages;
 }
 
 export interface MCPServerConfig {
@@ -272,6 +300,10 @@ export interface UseCopilotChatReturn {
 
 export function useCopilotChatInternal({
   suggestions,
+  onInProgress,
+  onSubmitMessage,
+  onStopGeneration,
+  onReloadMessages,
 }: UseCopilotChatOptions = {}): UseCopilotChatReturn {
   const { copilotkit } = useCopilotKit();
   const { threadId, agentSession } = useCopilotContext();
@@ -398,8 +430,19 @@ export function useCopilotChatInternal({
           console.error("CopilotChat: runAgent failed", error);
         }
       }
+      if (onSubmitMessage) {
+        const content =
+          typeof message.content === "string"
+            ? message.content
+            : message.content && "text" in message.content
+              ? message.content.text
+              : message.content && "filename" in message.content
+                ? message.content.filename
+                : "";
+        onSubmitMessage(content);
+      }
     },
-    [agent, copilotkit, resolvedAgentId],
+    [agent, copilotkit, resolvedAgentId, onSubmitMessage],
   );
 
   const latestAppendFunc = useAsyncCallback(
@@ -422,14 +465,23 @@ export function useCopilotChatInternal({
   const latestReload = useUpdatedRef(reload);
   const latestReloadFunc = useAsyncCallback(
     async (messageId: string) => {
+      onReloadMessages?.({
+        messageId,
+        currentAgentName: agent?.agentId,
+        messages: agent?.messages ?? [],
+      });
       return await latestReload.current(messageId);
     },
-    [latestReload],
+    [latestReload, agent, onReloadMessages],
   );
 
   const latestStopFunc = useCallback(() => {
+    onStopGeneration?.({
+      currentAgentName: agent?.agentId,
+      messages: agent?.messages ?? [],
+    });
     return agent?.abortRun?.();
-  }, [agent?.abortRun]);
+  }, [onStopGeneration, agent]);
 
   const latestReset = useUpdatedRef(reset);
   const latestResetFunc = useCallback(() => {
