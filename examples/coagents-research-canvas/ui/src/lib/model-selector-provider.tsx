@@ -46,6 +46,13 @@ export const ModelSelectorProvider = ({
     agent = "research_agent_crewai";
   }
 
+  if (lgcDeploymentUrl) {
+      agent = "research_agent_lgp";
+      if (model === "google_genai") {
+          agent = "research_agent_google_genai_lgp";
+      }
+  }
+
   return (
     <ModelSelectorContext.Provider
       value={{
