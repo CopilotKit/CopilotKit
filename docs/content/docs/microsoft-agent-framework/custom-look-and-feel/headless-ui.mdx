@@ -1,0 +1,49 @@
+---
+title: "Fully Headless UI"
+description: "Fully customize your Copilot's UI from the ground up using headless UI"
+icon: "lucide/Settings"
+---
+import HeadlessUI from "@/snippets/shared/guides/custom-look-and-feel/headless-ui.mdx";
+
+<HeadlessUI components={props.components} />
+
+### Human-in-the-Loop with Headless UI
+
+For human-in-the-loop interactions with custom UI, use `useHumanInTheLoop` to create approval workflows:
+
+```tsx title="src/app/components/chat.tsx"
+import { useHumanInTheLoop, useCopilotChatHeadless_c } from "@copilotkit/react-core";
+
+export const Chat = () => {
+  const { messages, sendMessage } = useCopilotChatHeadless_c();
+
+  useHumanInTheLoop({
+    name: "approvalRequired",
+    description: "Request user approval for an operation",
+    parameters: [
+      { name: "operation", type: "string", description: "The operation to approve", required: true }
+    ],
+    render: ({ args, respond }) => {
+      if (!respond) return null;
+      
+      return (
+        <div>
+          <p>Approval Required</p>
+          <p>Operation: {args.operation}</p>
+          <button onClick={() => respond("APPROVED")}>Approve</button>
+          <button onClick={() => respond("REJECTED")}>Reject</button>
+        </div>
+      );
+    },
+  });
+
+  return (
+    <div>
+      {/* Your custom chat UI */}
+    </div>
+  )
+};
+```
+
+See [Human-in-the-Loop](/microsoft-agent-framework/human-in-the-loop) for more details on approval workflows.
+

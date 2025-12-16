@@ -14,7 +14,7 @@
     "@copilotkit/react-ui": "^1.8.8",
     "@copilotkit/runtime": "^1.8.8",
     "@copilotkit/runtime-client-gql": "^1.8.8",
-    "@modelcontextprotocol/sdk": "^1.10.2",
+    "@modelcontextprotocol/sdk": "^1.24.0",
     "@radix-ui/react-label": "^2.1.1",
     "@radix-ui/react-slot": "^1.1.1",
     "@radix-ui/react-tooltip": "^1.2.0",
@@ -22,12 +22,16 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.471.1",
+<<<<<<< snyk-fix-5d4a5563be27d71b3590f89550663be6
     "next": "15.4.2",
+=======
+    "next": "15.1.9",
+>>>>>>> main
     "next-themes": "^0.4.4",
     "openai": "^4.87.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "shadcn": "2.4.0-canary.12",
+    "shadcn": "2.4.0",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "tooltip": "^1.6.1",
