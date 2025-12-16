@@ -3,7 +3,7 @@ import { InputProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import AutoResizingTextarea from "./Textarea";
 import { usePushToTalk } from "../../hooks/use-push-to-talk";
-import { useCopilotContext } from "@copilotkit/react-core";
+import { useCopilotContext, useCopilotChatInternal } from "@copilotkit/react-core";
 import { PoweredByTag } from "./PoweredByTag";
 
 const MAX_NEWLINES = 6;
@@ -11,7 +11,7 @@ const MAX_NEWLINES = 6;
 export const Input = ({
   inProgress,
   onSend,
-  isVisible = false,
+  chatReady = false,
   onStop,
   onUpload,
   hideStopButton = false,
@@ -71,22 +71,22 @@ export const Input = ({
   });
 
   const isInProgress = inProgress || pushToTalkState === "transcribing";
-  const buttonIcon =
-    isInProgress && !hideStopButton ? context.icons.stopIcon : context.icons.sendIcon;
+  const { buttonIcon, buttonAlt } = useMemo(() => {
+    if (!chatReady) return { buttonIcon: context.icons.spinnerIcon, buttonAlt: "Loading" };
+    return isInProgress && !hideStopButton && chatReady
+      ? { buttonIcon: context.icons.stopIcon, buttonAlt: "Stop" }
+      : { buttonIcon: context.icons.sendIcon, buttonAlt: "Send" };
+  }, [isInProgress, chatReady, hideStopButton, context.icons.stopIcon, context.icons.sendIcon]);
   const showPushToTalk =
     pushToTalkConfigured &&
     (pushToTalkState === "idle" || pushToTalkState === "recording") &&
     !inProgress;
 
-  const canSend = useMemo(() => {
-    const interruptEvent = copilotContext.langGraphInterruptAction?.event;
-    const interruptInProgress =
-      interruptEvent?.name === "LangGraphInterruptEvent" && !interruptEvent?.response;
+  const { interrupt } = useCopilotChatInternal();
 
-    return (
-      !isInProgress && text.trim().length > 0 && pushToTalkState === "idle" && !interruptInProgress
-    );
-  }, [copilotContext.langGraphInterruptAction?.event, isInProgress, text, pushToTalkState]);
+  const canSend = useMemo(() => {
+    return !isInProgress && text.trim().length > 0 && pushToTalkState === "idle" && !interrupt;
+  }, [interrupt, isInProgress, text, pushToTalkState]);
 
   const canStop = useMemo(() => {
     return isInProgress && !hideStopButton;
@@ -144,6 +144,7 @@ export const Input = ({
             data-copilotkit-in-progress={inProgress}
             data-test-id={inProgress ? "copilot-chat-request-in-progress" : "copilot-chat-ready"}
             className="copilotKitInputControlButton"
+            aria-label={buttonAlt}
           >
             {buttonIcon}
           </button>

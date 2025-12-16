@@ -1,0 +1,103 @@
+---
+title: "A2UI"
+icon: "lucide/Sparkles"
+description: "Google's declarative, LLM-friendly Generative UI specification"
+---
+import Image from "next/image"
+
+# A2UI - Google's Generative UI Spec
+
+**A2UI** is Google's declarative, LLM-friendly Generative UI specification that enables agents to generate dynamic user interfaces.
+
+<Image 
+  src="/images/gen-ui-specs-light.png" 
+  alt="Generative UI Specs" 
+  width={4096} 
+  height={2304}
+  className="block dark:hidden mb-8"
+/>
+<Image 
+  src="/images/gen-ui-specs-dark.png" 
+  alt="Generative UI Specs" 
+  width={4096} 
+  height={2304}
+  className="hidden dark:block mb-8"
+/>
+
+## What is A2UI?
+
+A2UI is a declarative generative UI specification launched by Google. It's designed to be:
+
+- **JSONL-based** - Uses JSON Lines format for streaming
+- **LLM-friendly** - Easy for language models to generate
+- **Platform-agnostic** - Can be rendered on any platform
+- **Streaming-first** - Built for real-time, progressive rendering
+
+## Why A2UI?
+
+### Declarative Approach
+A2UI allows agents to describe UI components declaratively, making it easier for LLMs to generate dynamic interfaces without needing to understand implementation details.
+
+### Streaming Support
+Built with streaming in mind, A2UI enables progressive rendering as the agent generates responses, providing a better user experience.
+
+### Platform Agnostic
+A2UI specifications can be rendered on web, mobile, or any other platform, making your agent's UI truly universal.
+
+
+## Using A2UI with CopilotKit
+
+[Get started with A2UI](/a2a/generative-ui/declarative-a2ui) and A2A with CopilotKit
+
+Check out the [A2UI Composer](https://a2ui-editor.ag-ui.com/gallery) to create and find widgets
+
+{/*
+CopilotKit's AG-UI protocol natively supports A2UI alongside other generative UI specifications like MCP-UI and Open-JSON-UI.
+
+```typescript
+// Example: Agent returns A2UI specification
+{
+  type: "a2ui",
+  spec: {
+    // A2UI JSONL specification
+  }
+}
+```
+
+## Key Features
+
+### 1. Declarative Component Definition
+Define UI components using a simple, declarative syntax that LLMs can easily generate:
+
+```json
+{
+  "type": "card",
+  "properties": {
+    "title": "Weather Update",
+    "content": "Sunny, 72°F"
+  }
+}
+```
+
+### 2. Streaming Support
+A2UI uses JSONL (JSON Lines) format, enabling progressive rendering as components are generated:
+
+```jsonl
+{"type": "container", "id": "weather-widget"}
+{"type": "text", "parent": "weather-widget", "content": "Current Weather:"}
+{"type": "card", "parent": "weather-widget", "properties": {...}}
+```
+
+### 3. Cross-Platform Rendering
+The same A2UI specification can be rendered consistently across different platforms - web, mobile, desktop, or custom environments.
+*/}
+
+## Learn More
+
+- [Generative UI Specs Overview](/generative-ui-specs) - Compare all supported specifications
+- [Generative UI Guide](/generative-ui) - Build with Generative UI in CopilotKit
+- [A2UI Site](https://a2ui.org/) - Visit the A2UI site
+- [AG-UI Protocol](/ag-ui-protocol) - Learn about the protocol that supports A2UI
+- [Open-JSON-UI](/generative-ui-specs/open-json-ui) - OpenAI's alternative approach
+- [MCP-UI](/generative-ui-specs/mcp-ui) - Microsoft + Shopify's iframe-based spec
+

@@ -19,7 +19,7 @@ import { shouldShowDevConsole } from "../utils/dev-console";
 
 export interface CopilotRuntimeClientHookOptions extends CopilotRuntimeClientOptions {
   showDevConsole?: boolean;
-  onError?: CopilotErrorHandler;
+  onError: CopilotErrorHandler;
 }
 
 export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions) => {
@@ -31,9 +31,6 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
 
   // Helper function to trace UI errors
   const traceUIError = async (error: CopilotKitError, originalError?: any) => {
-    // Just check if onError and publicApiKey are defined
-    if (!onError || !runtimeOptions.publicApiKey) return;
-
     try {
       const errorEvent: CopilotErrorEvent = {
         type: "error",
@@ -70,16 +67,10 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
           const routeError = (gqlError: GraphQLError) => {
             const extensions = gqlError.extensions;
             const visibility = extensions?.visibility as ErrorVisibility;
-            const isDev = shouldShowDevConsole(showDevConsole ?? false);
 
             // Silent errors - just log
             if (visibility === ErrorVisibility.SILENT) {
               console.error("CopilotKit Silent Error:", gqlError.message);
-              return;
-            }
-
-            if (!isDev) {
-              console.error("CopilotKit Error (hidden in production):", gqlError.message);
               return;
             }
 
@@ -101,6 +92,7 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
               setBannerError(ckError);
               // Trace the error
               traceUIError(ckError, gqlError);
+              // TODO: if onError & renderError should work without key, insert here
             } else {
               // Fallback for unstructured errors
               const fallbackError = new CopilotKitError({
@@ -110,25 +102,22 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
               setBannerError(fallbackError);
               // Trace the fallback error
               traceUIError(fallbackError, gqlError);
+              // TODO: if onError & renderError should work without key, insert here
             }
           };
 
           // Process all errors as banners
           graphQLErrors.forEach(routeError);
         } else {
-          const isDev = shouldShowDevConsole(showDevConsole ?? false);
-          if (!isDev) {
-            console.error("CopilotKit Error (hidden in production):", error);
-          } else {
-            // Route non-GraphQL errors to banner as well
-            const fallbackError = new CopilotKitError({
-              message: error?.message || String(error),
-              code: CopilotKitErrorCode.UNKNOWN,
-            });
-            setBannerError(fallbackError);
-            // Trace the non-GraphQL error
-            traceUIError(fallbackError, error);
-          }
+          // Route non-GraphQL errors to banner as well
+          const fallbackError = new CopilotKitError({
+            message: error?.message || String(error),
+            code: CopilotKitErrorCode.UNKNOWN,
+          });
+          setBannerError(fallbackError);
+          // Trace the non-GraphQL error
+          traceUIError(fallbackError, error);
+          // TODO: if onError & renderError should work without key, insert here
         }
       },
       handleGQLWarning: (message: string) => {
@@ -141,7 +130,7 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
         setBannerError(warningError);
       },
     });
-  }, [runtimeOptions, setBannerError, showDevConsole, onError]);
+  }, [runtimeOptions, setBannerError, onError]);
 
   return runtimeClient;
 };

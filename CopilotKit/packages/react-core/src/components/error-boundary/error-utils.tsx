@@ -60,8 +60,8 @@ export function useErrorToast() {
   const { addToast } = useToast();
 
   return useCallback(
-    (error: (Error | GraphQLError)[]) => {
-      const errorId = error
+    (errors: (Error | GraphQLError)[]) => {
+      const errorId = errors
         .map((err) => {
           const message =
             "extensions" in err
@@ -75,7 +75,7 @@ export function useErrorToast() {
       addToast({
         type: "error",
         id: errorId, // Toast libraries typically dedupe by id
-        message: <ErrorToast errors={error} />,
+        message: <ErrorToast errors={errors} />,
       });
     },
     [addToast],
