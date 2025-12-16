@@ -4,7 +4,7 @@ import { MDXProvider } from '@mdx-js/react';
 import { Streamdown } from 'streamdown';
 
 /**
- * Enhanced MDX content renderer component
+ * Enhanced MDX content renderer component 
  */
 export const MDXRenderer: React.FC<{
   content: string;
