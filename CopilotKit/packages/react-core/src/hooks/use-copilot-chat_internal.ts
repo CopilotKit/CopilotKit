@@ -335,6 +335,10 @@ export function useCopilotChatInternal({
     return () => {};
   }, [existingConfig?.threadId, agent, copilotkit, resolvedAgentId]);
 
+  useEffect(() => {
+    onInProgress?.(Boolean(agent?.isRunning));
+  }, [agent?.isRunning, onInProgress]);
+
   const interrupt = useLangGraphInterruptRender(agent);
 
   const reset = () => {
