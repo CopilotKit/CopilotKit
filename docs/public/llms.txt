@@ -48,7 +48,7 @@
 - [Multi-Agent Flows](https://docs.copilotkit.ai/coagents/multi-agent-flows): Learn to orchestrate complex flows with multiple agents.
 - [Copilot Sidebar Component](https://docs.copilotkit.ai/reference/components/chat/CopilotSidebar): Customizable sidebar component for chatbot interactions in CopilotKit.
 - [CrewAI Quickstart Guide](https://docs.copilotkit.ai/crewai-flows/quickstart/crewai): Quickly set up CrewAI Flows with CopilotKit integration.
-- [Copilotkit Configuration Guide](https://docs.copilotkit.ai/coagents/concepts/copilotkit-config): Learn to configure message streaming and tool calls in Copilotkit.
+- [CopilotKit Configuration Guide](https://docs.copilotkit.ai/coagents/concepts/copilotkit-config): Learn to configure message streaming and tool calls in CopilotKit.
 - [Agentic Chat UI](https://docs.copilotkit.ai/coagents/agentic-chat-ui): Explore CopilotKit's agentic chat UI components for user interaction.
 - [CrewAIAgent Overview](https://docs.copilotkit.ai/reference/sdk/python/CrewAIAgent): Define and serve agents using CrewAIAgent in Python.
 - [CrewAI Quickstart Guide](https://docs.copilotkit.ai/crewai-crews/quickstart/crewai): Quickly set up CrewAI Crews with CopilotKit integration.
@@ -73,7 +73,7 @@
 - [CopilotKit Documentation](https://docs.copilotkit.ai/?ref=github_readme): Explore tools for building AI copilots and agents.
 - [Google Generative AI](https://docs.copilotkit.ai/reference/classes/llm-adapters/GoogleGenerativeAIAdapter): Adapter for Google Generative AI in Copilot Runtime.
 - [CrewAI Documentation](https://docs.copilotkit.ai/crewai-crews?ref=blog.crewai.com): Explore Copilot Infrastructure for building Agent-Native Applications.
-- [Agent State Management](https://docs.copilotkit.ai/coagents/shared-state/state-inputs-outputs): Guide on managing agent state inputs and outputs effectively.
+- [Agent State Management](https://docs.copilotkit.ai/coagents/shared-state/workflow-execution): Guide on managing agent state inputs and outputs effectively.
 - [Predictive State Updates](https://docs.copilotkit.ai/coagents/shared-state/predictive-state-updates): Learn to implement predictive state updates for agents.
 - [CopilotKit Migration Guide](https://docs.copilotkit.ai/troubleshooting/migrate-to-1.8.2): Migration guide for CopilotKit version 1.8.2 features.
 - [Generative UI Guide](https://docs.copilotkit.ai/guides/generative-ui?ref=hackernoon.com): Learn to embed custom UI components in chat interfaces.

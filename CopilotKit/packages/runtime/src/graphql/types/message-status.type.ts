@@ -11,7 +11,7 @@ registerEnumType(MessageStatusCode, {
 });
 
 @ObjectType()
-class BaseMessageStatus {
+export class BaseMessageStatus {
   @Field(() => MessageStatusCode)
   code: MessageStatusCode;
 }
@@ -38,3 +38,5 @@ export const MessageStatusUnion = createUnionType({
   name: "MessageStatus",
   types: () => [PendingMessageStatus, SuccessMessageStatus, FailedMessageStatus] as const,
 });
+
+export type MessageStatus = typeof MessageStatusUnion;
