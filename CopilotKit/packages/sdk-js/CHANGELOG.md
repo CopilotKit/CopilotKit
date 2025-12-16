@@ -1,5 +1,368 @@
 # @copilotkit/sdk-js
 
+## 1.50.1-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.50.1-next.1
+
+## 1.50.1-next.0
+
+### Patch Changes
+
+- Updated the default model and API version for the Google GenAI adapter
+- Updated dependencies
+  - @copilotkit/shared@1.50.1-next.0
+
+## 1.50.0
+
+### Minor Changes
+
+- 0fc76d7: add new runner with telemetry baked in
+- c942f9c: Minor fixes and stability improvements
+- eed6021: Updating to the latest version of vnext
+- 3b7367e: Improving general stability around LangChain
+- 7ff9ca7: Minor fixes and improvements
+- 974875e: Lint and format code to resolve Prettier errors
+- 3bd484f: Minor fixes and stability improvements
+- 5a534bf: fix telemetry in v1.50 runtime
+- 769a06c: Refactor suggestions to not always run
+- 788292b: Improving langchain dependency resolution
+- eab69a2: Enabling the new inspector
+- 0a7bfe0: Updating dependency versions across all packages
+
+### Patch Changes
+
+- d1089a7: - fix: allow langgraph 1.0
+- Updated dependencies [0fc76d7]
+- Updated dependencies [c942f9c]
+- Updated dependencies [b0e3652]
+- Updated dependencies [eed6021]
+- Updated dependencies [3b7367e]
+- Updated dependencies [7ff9ca7]
+- Updated dependencies [974875e]
+- Updated dependencies [4942f62]
+- Updated dependencies [3bd484f]
+- Updated dependencies [5a534bf]
+- Updated dependencies [769a06c]
+- Updated dependencies [788292b]
+- Updated dependencies [eab69a2]
+- Updated dependencies [0a7bfe0]
+  - @copilotkit/shared@1.50.0
+
+## 1.50.0-beta.19
+
+### Minor Changes
+
+- Improving langchain dependency resolution
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@1.50.0-beta.19
+
+## 1.50.0-beta.18
+
+### Minor Changes
+
+- Improving general stability around LangChain
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@1.50.0-beta.18
+
+## 1.50.0-beta.17
+
+### Minor Changes
+
+- Minor fixes and improvements
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@1.50.0-beta.17
+
+## 1.50.0-beta.16
+
+### Minor Changes
+
+- Minor fixes and stability improvements
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@1.50.0-beta.16
+
+## 1.50.0-beta.15
+
+### Minor Changes
+
+- Lint and format code to resolve Prettier errors
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@1.50.0-beta.15
+
+## 1.50.0-beta.14
+
+### Minor Changes
+
+- Minor fixes and stability improvements
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@1.50.0-beta.14
+
+## 1.50.0-beta.13
+
+### Minor Changes
+
+- Updating to the latest version of vnext
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@1.50.0-beta.13
+
+## 1.50.0-beta.12
+
+### Minor Changes
+
+- eab69a2: Enabling the new inspector
+
+### Patch Changes
+
+- Updated dependencies [eab69a2]
+  - @copilotkit/shared@1.50.0-beta.12
+
+## 1.50.0-beta.11
+
+### Minor Changes
+
+- fix telemetry in v1.50 runtime
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@1.50.0-beta.11
+
+## 1.50.0-beta.10
+
+### Minor Changes
+
+- add new runner with telemetry baked in
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@1.50.0-beta.10
+
+## 1.50.0-beta.9
+
+### Minor Changes
+
+- Refactor suggestions to not always run
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@1.50.0-beta.9
+
+## 1.50.0-beta.8
+
+### Patch Changes
+
+- d1089a7: - fix: allow langgraph 1.0
+  - @copilotkit/shared@1.50.0-beta.8
+
+## 1.50.0-beta.7
+
+### Patch Changes
+
+- @copilotkit/shared@1.50.0-beta.7
+
+## 1.50.0-beta.6
+
+### Minor Changes
+
+- Updating dependency versions across all packages
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@1.50.0-beta.6
+
+## 1.50.0-beta.4
+
+### Patch Changes
+
+- Updated dependencies [b0e3652]
+- Updated dependencies [4942f62]
+  - @copilotkit/shared@1.50.0-beta.4
+
+## 1.10.7-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.7-next.0
+
+## 1.10.6
+
+### Patch Changes
+
+- Updated dependencies [e0dd5d5]
+  - @copilotkit/shared@1.10.6
+
+## 1.10.6-next.6
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.6-next.6
+
+## 1.10.6-next.5
+
+### Patch Changes
+
+- Updated dependencies [e0dd5d5]
+  - @copilotkit/shared@1.10.6-next.5
+
+## 1.10.6-next.4
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.6-next.4
+
+## 1.10.6-next.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.6-next.3
+
+## 1.10.6-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.6-next.2
+
+## 1.10.6-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.6-next.1
+
+## 1.10.6-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.6-next.0
+
+## 1.10.5
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.5
+
+## 1.10.5-next.10
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.5-next.10
+
+## 1.10.5-next.9
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.5-next.9
+
+## 1.10.5-next.8
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.5-next.8
+
+## 1.10.5-next.7
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.5-next.7
+
+## 1.10.5-next.6
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.5-next.6
+
+## 1.10.5-next.5
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.5-next.5
+
+## 1.10.5-next.4
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.5-next.4
+
+## 1.10.5-next.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.5-next.3
+
+## 1.10.5-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.5-next.2
+
+## 1.10.5-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.5-next.1
+
+## 1.10.5-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.5-next.0
+
+## 1.10.4
+
+### Patch Changes
+
+- Updated dependencies [a640d8e]
+  - @copilotkit/shared@1.10.4
+
+## 1.10.4-next.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.4-next.3
+
+## 1.10.4-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.4-next.2
+
+## 1.10.4-next.1
+
+### Patch Changes
+
+- Updated dependencies [a640d8e]
+  - @copilotkit/shared@1.10.4-next.1
+
+## 1.10.4-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.10.4-next.0
+
 ## 1.10.3
 
 ### Patch Changes

@@ -1,0 +1,152 @@
+---
+title: Frontend Tools
+icon: "lucide/Wrench"
+description: Create frontend tools and use them within your AWS Strands agent.
+---
+import { IframeSwitcher } from "@/components/content"
+import { Tabs, Tab } from "fumadocs-ui/components/tabs"
+import RunAndConnect from "@/snippets/integrations/aws-strands/run-and-connect.mdx"
+
+<IframeSwitcher
+  id="frontend-tools-generative-ui-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/aws-strands/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/aws-strands/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+## What is this?
+Frontend tools enable you to define client-side functions that your AWS Strands agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
+the logic runs on the client side, giving you direct access to the frontend environment.
+
+This can be utilized to let [your agent control the UI](/aws-strands/frontend-actions), [generative UI](/aws-strands/generative-ui/frontend-tools), or for Human-in-the-loop interactions.
+
+In this guide, we cover the use of frontend tools for generative UI.
+
+## When should I use this?
+Use frontend tools when you need your agent to interact with client-side primitives such as:
+- Reading or modifying React component state
+- Accessing browser APIs like localStorage, sessionStorage, or cookies
+- Triggering UI updates or animations
+- Interacting with third-party frontend libraries
+- Performing actions that require the user's immediate browser context
+
+## Implementation
+
+<Steps>
+    <Step>
+      ### Run and connect your agent
+      <RunAndConnect components={props.components} />
+    </Step>
+
+    <Step>
+        ### Create a frontend tool
+
+        Create a frontend tool using the [useFrontendTool](/reference/hooks/useFrontendTool) hook. Here's a simple example
+        that says hello to the user.
+
+        ```tsx title="page.tsx"
+        import { useFrontendTool } from "@copilotkit/react-core" // [!code highlight]
+
+        export function Page() {
+          // ...
+
+          // [!code highlight:25]
+          useFrontendTool({
+            name: "sayHello",
+            description: "Say hello to the user",
+            parameters: [
+              {
+                name: "name",
+                type: "string",
+                description: "The name of the user to say hello to",
+                required: true,
+              },
+            ],
+            handler({ name }) {
+              // Handler returns the result of the tool call
+              return { currentURLPath: window.location.href, userName: name };
+            },
+            render: ({ args }) => {
+              // Renders UI based on the data of the tool call
+              return (
+                <div>
+                  <h1>Hello, {args.name}!</h1>
+                  <h1>You're currently on {window.location.href}</h1>
+                </div>
+              );
+            },
+          });
+
+          // ...
+        }
+        ```
+    </Step>
+    <Step>
+        ### Register the frontend tool in your agent
+
+        In your Strands agent, define a tool that returns `None`. This registers the tool with the LLM so it knows about it,
+        but the actual execution will happen on the frontend.
+
+        ```python title="main.py"
+        import os
+        from strands import Agent, tool
+        from strands.models.openai import OpenAIModel
+        from ag_ui_strands import StrandsAgent, create_strands_app
+
+        @tool
+        def sayHello(name: str):
+            """
+            Say hello to the user.
+
+            Args:
+                name: The name of the user to say hello to
+
+            Returns:
+                None - execution happens on the frontend
+            """
+            # Return None - frontend will handle execution
+            return None  # [!code highlight]
+
+        api_key = os.getenv("OPENAI_API_KEY", "")
+        model = OpenAIModel(
+            client_args={"api_key": api_key},
+            model_id="gpt-4o",
+        )
+
+        agent = Agent(
+            model=model,
+            tools=[sayHello],  # [!code highlight]
+            system_prompt="You are a helpful assistant.",
+        )
+
+        agui_agent = StrandsAgent(
+            agent=agent,
+            name="my_agent",
+            description="A helpful assistant",
+        )
+
+        app = create_strands_app(agui_agent, "/")
+        ```
+
+        <Callout type="info">
+          Frontend tools in Strands require explicit tool registration on both agent and frontend sides. This gives you full control over what the agent can do.
+        </Callout>
+    </Step>
+    <Step>
+        ### Give it a try!
+
+        You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
+
+        <video
+          src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tool-based-gen-ui.mp4"
+          className="rounded-lg shadow-xl"
+          loop
+          playsInline
+          controls
+          autoPlay
+          muted
+        />
+    </Step>
+</Steps>

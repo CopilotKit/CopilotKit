@@ -32,9 +32,12 @@ export function MultiProviderContent({ children, defaultProvider = 'openai', pro
         setSelectedProvider(value);
     }
 
+    // Ensure we always have a valid provider value
+    const currentProvider = selectedProvider || defaultProvider;
+
     return (
         <div>
-            <Select defaultValue={selectedProvider as string} onValueChange={handleSelectChange}>
+            <Select value={currentProvider} onValueChange={handleSelectChange}>
                 <div className="flex items-center w-full flex-col sm:flex-row">
                     <h5 className="mb-2 sm:mb-0 sm:mr-2">Choose your provider:</h5>
                     <SelectTrigger className="w-full sm:w-[280px]">
@@ -102,8 +105,9 @@ export function Interpolate({ children }: { children: React.ReactNode; }) {
 
             // Handle React elements
             if (isValidElement(element)) {
-                const processedChildren = React.Children.map(element.props.children, processElement);
-                return React.cloneElement(element, { ...element.props, children: processedChildren });
+                const reactElement = element as React.ReactElement<any>;
+                const processedChildren = React.Children.map(reactElement.props.children, processElement);
+                return React.cloneElement(reactElement, { ...reactElement.props, children: processedChildren });
             }
 
             // Handle arrays
