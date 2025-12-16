@@ -11,7 +11,7 @@ import {
   TailoredContentOption,
 } from "@/components/react/tailored-content.tsx";
 import CopilotCloudConfigureRemoteEndpointLangGraphSnippet from "@/snippets/copilot-cloud-configure-remote-endpoint-langgraph.mdx";
-import CopilotCloudConfigureCopilotkitProviderSnippet from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
+import CopilotCloudConfigureCopilotKitProviderSnippet from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
 import LangGraphPlatformDeploymentTabs from "@/snippets/langgraph-platform-deployment-tabs.mdx";
 import { FaCloud, FaServer } from "react-icons/fa";
 
@@ -34,7 +34,7 @@ import { FaCloud, FaServer } from "react-icons/fa";
     </Step>
 
     <Step>
-    ### Setup your Copilot Runtime
+    ### Set up your Copilot Runtime
 
     <TailoredContent id="hosting">
         <TailoredContentOption
@@ -49,7 +49,7 @@ import { FaCloud, FaServer } from "react-icons/fa";
             <Accordions className="my-4">
                 <Accordion title="Haven't setup Copilot Cloud yet? Click here!" >
                     Copilot Cloud hooks into your CopilotKit provider, so you'll need to set it up first if you haven't already.
-                    <CopilotCloudConfigureCopilotkitProviderSnippet components={props.components} />
+                    <CopilotCloudConfigureCopilotKitProviderSnippet components={props.components} />
                 </Accordion>
             </Accordions>
             <CopilotCloudConfigureRemoteEndpointLangGraphSnippet components={props.components} />
@@ -76,7 +76,8 @@ import { FaCloud, FaServer } from "react-icons/fa";
 
                     const runtime = new CopilotRuntime({
                         // ...existing configuration
-                        agents: { // [!code highlight:8]
+                        // [!code highlight:8]
+                        agents: {
                             // New agent entry per agent you wish to use
                             'my-agent': new LangGraphAgent({
                                 deploymentUrl: '<your-api-url>',

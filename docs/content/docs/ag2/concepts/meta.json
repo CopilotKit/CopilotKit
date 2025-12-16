@@ -1,9 +1,0 @@
-{
-  "title": "Concepts",
-  "root": true,
-  "pages": [
-    "terminology",
-    "agentic-copilots",
-    "ag2"
-  ]
-}
