@@ -43,7 +43,7 @@ export const MDXRenderer: React.FC<{
     <MDXProvider components={MDXComponents}>
       <div className="mdx-content">
         {/* Render the markdown content with proper formatting */}
-        <Streamdown>
+        <Streamdown components={MDXComponents}>
           {content}
         </Streamdown>
         
