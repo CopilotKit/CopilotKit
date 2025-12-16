@@ -23,7 +23,7 @@ suggest changes to the text, for example providing a summary or rephrasing the t
 <Step>
 ### Install `@copilotkit/react-textarea`
     
-```package-install
+```npm
 npm install @copilotkit/react-textarea
 ```
 </Step>
@@ -53,7 +53,7 @@ Below you can find several examples showing how to use the `CopilotTextarea` com
           className="w-full p-4 border border-gray-300 rounded-md"
           value={text}
           onValueChange={setText}
-          // [!code highlight:5]
+          // [!code highlight:4]
           autosuggestionsConfig={{
             textareaPurpose: "the body of an email message",
             chatApiConfigs: {},
@@ -80,7 +80,7 @@ Below you can find several examples showing how to use the `CopilotTextarea` com
           placeholder="Start typing..."
 
           // ai-specific configs
-          // [!code highlight:10]
+          // [!code highlight:9]
           autosuggestionsConfig={{
             textareaPurpose: "Write your message here",
             chatApiConfigs: {
