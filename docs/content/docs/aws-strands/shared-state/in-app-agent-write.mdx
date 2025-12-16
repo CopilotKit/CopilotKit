@@ -1,0 +1,115 @@
+---
+title: Writing agent state
+icon: "lucide/ArrowRight"
+description: Write to agent's state from your application.
+---
+import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
+import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/aws-strands/run-and-connect.mdx"
+
+<IframeSwitcher
+  id="shared-state-write-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/aws-strands/feature/shared_state?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/aws-strands/feature/shared_state?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+<Callout type="info">
+  This example demonstrates writing to shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/aws-strands/feature/shared_state).
+</Callout>
+
+## What is this?
+
+You can easily write to your agent's state from your native application, allowing you to update the agent's state from your UI.
+
+## When should I use this?
+
+You can use this when you want to provide user input or control to your agent's state. As your application state changes, you can update the agent state to reflect these changes.
+
+## Implementation
+
+<Steps>
+  <Step>
+    ### Run and connect your agent
+    <RunAndConnect components={props.components} />
+  </Step>
+  <Step>
+    ### Setup your agent with state
+
+    Define your agent's state schema. AWS Strands maintains state throughout execution.
+
+    ```python title="agent/my_agent.py"
+    from strands import Agent
+    from typing import TypedDict
+
+    # 1. Define the agent state schema
+    class AgentState(TypedDict):
+        language: str  # "english" or "spanish"
+
+    # 2. Create the agent with state
+    agent = Agent(
+        name="languageAgent",
+        description="Always communicate in the preferred language of the user as defined in the state",
+        state_schema=AgentState,
+        initial_state={"language": "english"},
+        instructions="Always communicate in the preferred language of the user as defined in your state. Do not communicate in any other language."
+    )
+    ```
+  </Step>
+
+  <Step>
+    ### Use the `useCoAgent` Hook
+
+    With your agent connected and running, call the [useCoAgent](/reference/hooks/useCoAgent) hook, pass the agent's name, and
+    use the `setState` function to update the agent state.
+
+    ```tsx title="ui/app/page.tsx"
+    import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
+
+    // Define the agent state type to match your Strands agent
+    type AgentState = {
+      language: "english" | "spanish";
+    };
+
+    function YourMainContent() {
+      // [!code highlight:5]
+      const { state, setState } = useCoAgent<AgentState>({
+        name: "languageAgent",
+        // optionally provide a type-safe initial state
+        initialState: { language: "spanish" }
+      });
+
+      const toggleLanguage = () => {
+        setState({ language: state.language === "english" ? "spanish" : "english" }); // [!code highlight]
+      };
+
+      return (
+        // style excluded for brevity
+        <div>
+          <h1>Your main content</h1>
+          {/* [!code highlight:2] */}
+          <p>Language: {state.language}</p>
+          <button onClick={toggleLanguage}>Toggle Language</button>
+        </div>
+      );
+    }
+    ```
+    <Callout type="info">
+      The `setState` function in `useCoAgent` will update the agent state and trigger a rerender when the state changes.
+    </Callout>
+  </Step>
+
+  <Step>
+    ### Give it a try!
+
+    You can now use the `setState` function to update the agent state and `state` to read it. Try toggling the language button
+    and talking to your agent. You'll see the language change to match the agent's state.
+
+    <Callout type="info" title="Important">
+      Shared-state in AWS Strands is prompt-driven. This means that your Agent's awareness of the shared state will be augmented
+      by the instructions you provide to your agent.
+    </Callout>
+  </Step>
+</Steps>
