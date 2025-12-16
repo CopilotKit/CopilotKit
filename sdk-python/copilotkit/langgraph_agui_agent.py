@@ -1,3 +1,4 @@
+import json
 from typing import Dict, Any, List, Optional, Union, AsyncGenerator
 from enum import Enum
 from ag_ui_langgraph import LangGraphAgent
@@ -14,7 +15,12 @@ from ag_ui.core import (
 )
 from langgraph.graph.state import CompiledStateGraph
 from langchain_core.runnables import RunnableConfig
-from langchain.schema import BaseMessage
+
+try:
+    from langchain.schema import BaseMessage
+except ImportError:
+    # Langchain >= 1.0.0
+    from langchain_core.messages import BaseMessage
 
 
 class CustomEventNames(Enum):
@@ -96,7 +102,8 @@ class LangGraphAGUIAgent(LangGraphAgent):
                     ToolCallArgsEvent(
                         type=EventType.TOOL_CALL_ARGS,
                         tool_call_id=custom_event.value["id"],
-                        delta=custom_event.value["args"],
+                        delta=custom_event.value["args"] if isinstance(custom_event.value["args"], str) else json.dumps(
+                            custom_event.value["args"]),
                         raw_event=event,
                     )
                 )
@@ -167,15 +174,16 @@ class LangGraphAGUIAgent(LangGraphAgent):
         async for event_str in super()._handle_single_event(event, state):
             yield event_str
 
-    def langgraph_default_merge_state(self, state: State, messages: List[BaseMessage], tools: Any) -> State:
+    def langgraph_default_merge_state(self, state: State, messages: List[BaseMessage], input: Any) -> State:
         """Override to add CopilotKit actions to the state"""
-        merged_state = super().langgraph_default_merge_state(state, messages, tools)
+        merged_state = super().langgraph_default_merge_state(state, messages, input)
         # Extract tools from the merged state and add them as CopilotKit actions
-        tools_in_state = merged_state.get('tools', [])
-        
+        agui_properties = merged_state.get('ag-ui', {}) or merged_state
+
         return {
             **merged_state,
             'copilotkit': {
-                'actions': tools_in_state,
+                'actions': agui_properties.get('tools', []),
+                'context': agui_properties.get('context', [])
             },
         }

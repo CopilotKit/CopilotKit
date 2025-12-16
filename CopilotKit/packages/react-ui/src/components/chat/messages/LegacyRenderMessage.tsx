@@ -27,6 +27,7 @@ export interface LegacyRenderMessageProps extends RenderMessageProps {
  */
 export const LegacyRenderMessage: React.FC<LegacyRenderMessageProps> = ({
   message,
+  messages,
   inProgress,
   index,
   isCurrentMessage,
@@ -56,6 +57,7 @@ export const LegacyRenderMessage: React.FC<LegacyRenderMessageProps> = ({
     return (
       <RenderTextMessage
         message={message}
+        messages={messages}
         inProgress={inProgress}
         index={index}
         isCurrentMessage={isCurrentMessage}
@@ -73,6 +75,7 @@ export const LegacyRenderMessage: React.FC<LegacyRenderMessageProps> = ({
   if (deprecatedMessage.isActionExecutionMessage() && RenderActionExecutionMessage) {
     return (
       <RenderActionExecutionMessage
+        messages={messages}
         message={message}
         inProgress={inProgress}
         index={index}
@@ -87,6 +90,7 @@ export const LegacyRenderMessage: React.FC<LegacyRenderMessageProps> = ({
   if (deprecatedMessage.isAgentStateMessage() && RenderAgentStateMessage) {
     return (
       <RenderAgentStateMessage
+        messages={messages}
         message={message}
         inProgress={inProgress}
         index={index}
@@ -100,6 +104,7 @@ export const LegacyRenderMessage: React.FC<LegacyRenderMessageProps> = ({
   if (deprecatedMessage.isResultMessage() && RenderResultMessage) {
     return (
       <RenderResultMessage
+        messages={messages}
         message={message}
         inProgress={inProgress}
         index={index}
@@ -113,6 +118,7 @@ export const LegacyRenderMessage: React.FC<LegacyRenderMessageProps> = ({
   if (deprecatedMessage.isImageMessage() && RenderImageMessage) {
     return (
       <RenderImageMessage
+        messages={messages}
         message={message}
         inProgress={inProgress}
         index={index}
@@ -126,6 +132,7 @@ export const LegacyRenderMessage: React.FC<LegacyRenderMessageProps> = ({
   // Fallback to default RenderMessage for any unhandled cases
   return (
     <DefaultRenderMessage
+      messages={messages}
       message={message}
       inProgress={inProgress}
       index={index}

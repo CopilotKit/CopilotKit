@@ -18,7 +18,7 @@
     "@pinecone-database/pinecone": "^4.0.0",
     "axios": "^1.7.9",
     "lucide-react": "^0.466.0",
-    "next": "14.2.20",
+    "next": "14.2.32",
     "react": "^18",
     "react-dom": "^18"
   },
