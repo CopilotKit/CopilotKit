@@ -4,6 +4,21 @@ import { flattenObject } from "./utils";
 import { v4 as uuidv4 } from "uuid";
 import scarfClient from "./scarf-client";
 
+/**
+ * Checks if telemetry is disabled via environment variables.
+ * Users can opt out by setting:
+ * - COPILOTKIT_TELEMETRY_DISABLED=true or COPILOTKIT_TELEMETRY_DISABLED=1
+ * - DO_NOT_TRACK=true or DO_NOT_TRACK=1
+ */
+export function isTelemetryDisabled(): boolean {
+  return (
+    (process.env as Record<string, string | undefined>).COPILOTKIT_TELEMETRY_DISABLED === "true" ||
+    (process.env as Record<string, string | undefined>).COPILOTKIT_TELEMETRY_DISABLED === "1" ||
+    (process.env as Record<string, string | undefined>).DO_NOT_TRACK === "true" ||
+    (process.env as Record<string, string | undefined>).DO_NOT_TRACK === "1"
+  );
+}
+
 export class TelemetryClient {
   segment: Analytics | undefined;
   globalProperties: Record<string, any> = {};
@@ -29,12 +44,7 @@ export class TelemetryClient {
   }) {
     this.packageName = packageName;
     this.packageVersion = packageVersion;
-    this.telemetryDisabled =
-      telemetryDisabled ||
-      (process.env as any).COPILOTKIT_TELEMETRY_DISABLED === "true" ||
-      (process.env as any).COPILOTKIT_TELEMETRY_DISABLED === "1" ||
-      (process.env as any).DO_NOT_TRACK === "true" ||
-      (process.env as any).DO_NOT_TRACK === "1";
+    this.telemetryDisabled = telemetryDisabled || isTelemetryDisabled();
 
     if (this.telemetryDisabled) {
       return;

@@ -7,8 +7,12 @@ export function QuickstartDropdown() {
   const router = useRouter();
 
   const options = [
-    { label: "Direct to LLM", url: "/direct-to-llm/guides/quickstart",  },
-    { label: "LangGraph", url: "/coagents/quickstart/langgraph" },
+    { label: "Direct to LLM", url: "/direct-to-llm/guides/quickstart" },
+    { label: "LangGraph", url: "/langgraph/quickstart" },
+    {
+      label: "Microsoft Agent Framework",
+      url: "/microsoft-agent-framework/quickstart",
+    },
     { label: "Mastra", url: "/mastra/quickstart" },
     { label: "LlamaIndex", url: "/llamaindex/quickstart" },
     { label: "Agno", url: "/agno/quickstart" },
@@ -16,6 +20,8 @@ export function QuickstartDropdown() {
     { label: "CrewAI Crews", url: "/crewai-crews/quickstart/crewai" },
     { label: "AG2", url: "/ag2/quickstart" },
     { label: "Pydantic AI", url: "/pydantic-ai/quickstart" },
+    { label: "ADK", url: "/adk/quickstart" },
+    { label: "A2A", url: "/a2a/quickstart" },
   ];
 
   const handleSelectChange = (event: ChangeEvent<HTMLSelectElement>) => {
@@ -41,4 +47,4 @@ export function QuickstartDropdown() {
       ))}
     </select>
   );
-} 
+}

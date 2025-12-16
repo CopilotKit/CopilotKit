@@ -31,7 +31,7 @@ function YourMainContent() {
 
   useCoAgent<AgentState>({
     name: "sample_agent",
-    // [!code highlight:7]
+    // [!code highlight:6]
     config: {
       configurable: {
         authToken: 'example-token'
@@ -50,7 +50,7 @@ function YourMainContent() {
 ### Use configurables in agent
 Now you can simply pull the values from the provided config argument in any agent node
 
-<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+<Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
     <Tab value="Python">
         ```python
         async def agent_node(state: AgentState, config: RunnableConfig):
@@ -77,7 +77,7 @@ Now you can simply pull the values from the provided config argument in any agen
     Any item passed to "configurables" which is not included in the schema, will be filtered out.
 
     You can read more about this (here)[https://langchain-ai.github.io/langgraph/how-tos/configuration/#define-graph]
-    <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+    <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
         <Tab value="Python">
             ```python
             from typing import TypedDict
