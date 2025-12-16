@@ -16,7 +16,7 @@
     "@mantine/core": "^7.14.3",
     "@mantine/hooks": "^7.14.3",
     "@pinecone-database/pinecone": "^4.0.0",
-    "axios": "^1.7.9",
+    "axios": "^1.12.0",
     "lucide-react": "^0.466.0",
     "next": "14.2.32",
     "react": "^18",
