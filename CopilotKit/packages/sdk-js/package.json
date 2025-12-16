@@ -63,7 +63,7 @@
     "@copilotkit/shared": "workspace:*"
   },
   "peerDependencies": {
-    "@langchain/community": "^0.0.53",
+    "@langchain/community": "^1.0.2",
     "@langchain/core": "^0.3.13 || ^0.4.0",
     "@langchain/langgraph": "^0.2.44 || ^0.3.0 || ^0.4.0",
     "langchain": "^0.3.3",
