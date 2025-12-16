@@ -14,8 +14,8 @@ export function Banners() {
   const bannerContent = [
     {
       icon: <Rocket className="w-5 h-5 hidden md:block flex-shrink-0" />,
-      mobileText: "A2UI Launch: Full CopilotKit support at launch!",
-      desktopText: "A2UI Launch: CopilotKit has partnered with Google to deliver full support at launch in both CopilotKit and AG-UI.",
+      mobileText: "A2UI Launched: Full CopilotKit support at launch!",
+      desktopText: "A2UI Launched: CopilotKit has partnered with Google to deliver full support in both CopilotKit and AG-UI!",
       buttonText: "Check it out",
       href: "/whats-new/a2ui-launch"
     },
