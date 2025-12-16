@@ -18,7 +18,7 @@ import { ImageZoom } from "fumadocs-ui/components/image-zoom";
 
 <Callout type="info">
   Pictured above is the [coagent
-  starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter)
+  starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter-crewai-flows)
   with the [implementation](#implementation) section applied!
 </Callout>
 
@@ -28,8 +28,8 @@ You can easily use the realtime agent state not only in the chat UI, but also in
 
 ## When should I use this?
 
-You can use this when you want to provide the user with feedback about what your agent's state. As your agent's
-state update you can reflect these updates natively in your application.
+You can use this when you want to provide the user with feedback about your agent's state. As your agent's
+state updates, you can reflect these updates natively in your application.
 
 ## Implementation
 
@@ -38,9 +38,9 @@ state update you can reflect these updates natively in your application.
     ### Run and Connect Your Agent to CopilotKit
 
     You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
-    you can follow the instructions in the [Getting Started](/getting-started) guide.
+    you can follow the instructions in the [Getting Started](/crewai-flows/quickstart) guide.
 
-    If you don't already have an agent, you can use the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter) as a starting point
+    If you don't already have an agent, you can use the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter-crewai-flows) as a starting point
     as this guide uses it as a starting point.
 
   </Step>
@@ -49,9 +49,9 @@ state update you can reflect these updates natively in your application.
     CrewAI Flows are stateful. As you transition through the flow, that state is updated and available to the next function. For this example,
     let's assume that our agent state looks something like this.
 
-    <Tabs groupId="language" items={["Python"]}>
+    <Tabs groupId="language_crewai-flows_agent" items={["Python"]} persist>
       <Tab value="Python">
-        ```python title="agent-py/sample_agent/agent.py"
+        ```python title="agent.py"
         from copilotkit.crewai import CopilotKitState
         from typing import Literal
 
@@ -76,9 +76,10 @@ state update you can reflect these updates natively in your application.
     }
 
     function YourMainContent() {
-      const { state } = useCoAgent<AgentState>({ // [!code highlight:4]
+      // [!code highlight:4]
+      const { state } = useCoAgent<AgentState>({
         name: "sample_agent",
-        initialState: { language: "spanish" }  // optionally provide an initial state
+        initialState: { language: "english" }  // optionally provide an initial state
       });
 
       // ...
@@ -87,7 +88,8 @@ state update you can reflect these updates natively in your application.
         // style excluded for brevity
         <div>
           <h1>Your main content</h1>
-          <p>Language: {state.language}</p> // [!code highlight]
+          {/* [!code highlight:1] */}
+          <p>Language: {state.language}</p>
         </div>
       );
     }
@@ -100,7 +102,7 @@ state update you can reflect these updates natively in your application.
   <Step>
     ### Give it a try!
     As the agent state updates, your `state` variable will automatically update with it! In this case, you'll see the
-    language set to "spanish" as that's the initial state we set.
+    language set to "english" as that's the initial state we set.
   </Step>
 </Steps>
 
@@ -119,7 +121,7 @@ type AgentState = {
 
 function YourMainContent() {
   // ...
-  // [!code highlight:8]
+  // [!code highlight:7]
   useCoAgentStateRender({
     name: "sample_agent",
     render: ({ state }) => {

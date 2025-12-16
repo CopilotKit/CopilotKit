@@ -10,26 +10,23 @@ import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/sel
 import CopilotCloudConfigureCopilotKitProvider from "@/snippets/cloud/cloud-copilotkit-provider.mdx";
 import ComponentExamples from "@/snippets/component-examples.mdx";
 import { UserIcon, PaintbrushIcon, WrenchIcon, RepeatIcon } from "lucide-react";
+import { IframeSwitcher } from "@/components/content"
 
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/agentic-chat-ui.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
+<IframeSwitcher
+  id="agentic-chat-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/llama-index/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/llama-index/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
 />
-<Callout>
-  This video shows the result of `npx copilotkit@latest init` with the [implementation](#implementation) section applied to it!
-</Callout>
 
 ## What is this?
 
 Agentic chat UIs are ways for your users to interact with your agent. CopilotKit provides a variety of different components to choose from, each
 with their own unique use cases.
 
-If you've gone through the [getting started guide](/llamaindex/quickstart/llamaindex) **you already have a agentic chat UI setup**! Nothing else is needed
+If you've gone through the [getting started guide](/llamaindex/quickstart) **you already have a agentic chat UI setup**! Nothing else is needed
 to get started.
 
 ## When should I use this?
@@ -37,4 +34,4 @@ to get started.
 CopilotKit provides a variety of different batteries-included components to choose from to create agent native applications. They scale
 from simple chat UIs to completely custom applications.
 
-<ComponentExamples components={props.components} /> 
+<ComponentExamples components={props.components} />
