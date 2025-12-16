@@ -8147,21 +8147,21 @@ On this pageWhat is this?
 
 Decide which state properties are received and returned to the frontend
 
-## [What is this?](https://docs.copilotkit.ai/coagents/shared-state/state-inputs-outputs\#what-is-this)
+## [What is this?](https://docs.copilotkit.ai/coagents/shared-state/workflow-execution\#what-is-this)
 
 Not all state properties are relevant for frontend-backend sharing.
 This guide shows how to ensure only the right portion of state is communicated back and forth.
 
 This guide is based on [LangGraph's Input/Output Schema feature](https://langchain-ai.github.io/langgraph/how-tos/input_output_schema/)
 
-## [When should I use this?](https://docs.copilotkit.ai/coagents/shared-state/state-inputs-outputs\#when-should-i-use-this)
+## [When should I use this?](https://docs.copilotkit.ai/coagents/shared-state/workflow-execution\#when-should-i-use-this)
 
 Depending on your implementation, some properties are meant to be processed internally, while some others are the way for the UI to communicate user input.
 In addition, some state properties contain a lot of information. Syncing them back and forth between the agent and UI can be costly, while it might not have any practical benefit.
 
-## [Implementation](https://docs.copilotkit.ai/coagents/shared-state/state-inputs-outputs\#implementation)
+## [Implementation](https://docs.copilotkit.ai/coagents/shared-state/workflow-execution\#implementation)
 
-### [Examine our old state](https://docs.copilotkit.ai/coagents/shared-state/state-inputs-outputs\#examine-our-old-state)
+### [Examine our old state](https://docs.copilotkit.ai/coagents/shared-state/workflow-execution\#examine-our-old-state)
 
 LangGraph is stateful. As you transition between nodes, that state is updated and passed to the next node. For this example,
 let's assume that the state our agent should be using, can be described like this:
@@ -8180,7 +8180,7 @@ class AgentState(CopilotKitState):
     resources: List[str]
 ```
 
-### [Divide state to Input and Output](https://docs.copilotkit.ai/coagents/shared-state/state-inputs-outputs\#divide-state-to-input-and-output)
+### [Divide state to Input and Output](https://docs.copilotkit.ai/coagents/shared-state/workflow-execution\#divide-state-to-input-and-output)
 
 Our example case lists several state properties, which with its own purpose:
 
@@ -8249,7 +8249,7 @@ builder.add_edge("answer_node", END)
 graph = builder.compile()
 ```
 
-### [Give it a try!](https://docs.copilotkit.ai/coagents/shared-state/state-inputs-outputs\#give-it-a-try)
+### [Give it a try!](https://docs.copilotkit.ai/coagents/shared-state/workflow-execution\#give-it-a-try)
 
 Now that we know which state properties our agent emits, we can inspect the state and expect the following to happen:
 
@@ -8283,9 +8283,9 @@ Predictive state updates](https://docs.copilotkit.ai/coagents/shared-state/predi
 
 ### On this page
 
-[What is this?](https://docs.copilotkit.ai/coagents/shared-state/state-inputs-outputs#what-is-this) [When should I use this?](https://docs.copilotkit.ai/coagents/shared-state/state-inputs-outputs#when-should-i-use-this) [Implementation](https://docs.copilotkit.ai/coagents/shared-state/state-inputs-outputs#implementation) [Examine our old state](https://docs.copilotkit.ai/coagents/shared-state/state-inputs-outputs#examine-our-old-state) [Divide state to Input and Output](https://docs.copilotkit.ai/coagents/shared-state/state-inputs-outputs#divide-state-to-input-and-output) [Give it a try!](https://docs.copilotkit.ai/coagents/shared-state/state-inputs-outputs#give-it-a-try)
+[What is this?](https://docs.copilotkit.ai/coagents/shared-state/workflow-execution#what-is-this) [When should I use this?](https://docs.copilotkit.ai/coagents/shared-state/workflow-execution#when-should-i-use-this) [Implementation](https://docs.copilotkit.ai/coagents/shared-state/workflow-execution#implementation) [Examine our old state](https://docs.copilotkit.ai/coagents/shared-state/workflow-execution#examine-our-old-state) [Divide state to Input and Output](https://docs.copilotkit.ai/coagents/shared-state/workflow-execution#divide-state-to-input-and-output) [Give it a try!](https://docs.copilotkit.ai/coagents/shared-state/workflow-execution#give-it-a-try)
 
-[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/coagents/shared-state/state-inputs-outputs.mdx)
+[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/coagents/shared-state/workflow-execution.mdx)
 
 ![](https://static.scarf.sh/a.png?x-pxid=ffc9f65d-0186-4575-b065-61d62ea9d7d3)
 
@@ -8463,7 +8463,7 @@ You can apply this pattern to any long-running task in your agent.
 
 [Previous\\
 \\
-Agent state inputs and outputs](https://docs.copilotkit.ai/coagents/shared-state/state-inputs-outputs) [Next\\
+Agent state inputs and outputs](https://docs.copilotkit.ai/coagents/shared-state/workflow-execution) [Next\\
 \\
 Frontend Actions](https://docs.copilotkit.ai/coagents/frontend-actions)
 
@@ -10276,7 +10276,7 @@ See **[predictive state updates](https://docs.copilotkit.ai/coagents/shared-stat
 \\
 Reading agent state](https://docs.copilotkit.ai/coagents/shared-state/in-app-agent-read) [Next\\
 \\
-Agent state inputs and outputs](https://docs.copilotkit.ai/coagents/shared-state/state-inputs-outputs)
+Agent state inputs and outputs](https://docs.copilotkit.ai/coagents/shared-state/workflow-execution)
 
 ### On this page
 
@@ -11104,7 +11104,7 @@ See **[predictive state updates](https://docs.copilotkit.ai/coagents/shared-stat
 \\
 Reading agent state](https://docs.copilotkit.ai/coagents/shared-state/in-app-agent-read) [Next\\
 \\
-Agent state inputs and outputs](https://docs.copilotkit.ai/coagents/shared-state/state-inputs-outputs)
+Agent state inputs and outputs](https://docs.copilotkit.ai/coagents/shared-state/workflow-execution)
 
 ### On this page
 
