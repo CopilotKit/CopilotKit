@@ -44,6 +44,7 @@ const config = {
 
   async rewrites() {
     const integrations = [
+      'a2a',
       'adk',
       'ag2',
       'agno',
