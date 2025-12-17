@@ -5,10 +5,8 @@ import { BaseCopilotTextareaApiConfig } from "./autosuggestions-bare-function";
 /**
  * `BaseCopilotTextareaProps` defines the properties for the `BaseCopilotTextarea` component.
  */
-export interface BaseCopilotTextareaProps extends Omit<
-  TextareaHTMLAttributes<HTMLDivElement>,
-  "onChange"
-> {
+export interface BaseCopilotTextareaProps
+  extends Omit<TextareaHTMLAttributes<HTMLDivElement>, "onChange"> {
   /**
    * Determines whether the CopilotKit branding should be disabled. Default is `false`.
    */

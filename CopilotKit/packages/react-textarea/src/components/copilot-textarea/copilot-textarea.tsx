@@ -101,10 +101,8 @@ import { AutosuggestionsConfigUserSpecified } from "../../types/autosuggestions-
 
 // Like the base copilot textarea props,
 // but with baseAutosuggestionsConfig replaced with autosuggestionsConfig.
-export interface CopilotTextareaProps extends Omit<
-  BaseCopilotTextareaProps,
-  "baseAutosuggestionsConfig"
-> {
+export interface CopilotTextareaProps
+  extends Omit<BaseCopilotTextareaProps, "baseAutosuggestionsConfig"> {
   /**
    * Configuration settings for the autosuggestions feature.
    * For full reference, [check the interface on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/packages/react-textarea/src/types/base/base-copilot-textarea-props.tsx#L8).

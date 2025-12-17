@@ -281,8 +281,7 @@ type AfterRequestMiddlewareFn = Exclude<AfterRequestMiddleware, string>;
 type AfterRequestMiddlewareFnParameters = Parameters<AfterRequestMiddlewareFn>;
 
 interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []>
-  extends
-    Omit<CopilotRuntimeConstructorParams_BASE<T>, "agents">,
+  extends Omit<CopilotRuntimeConstructorParams_BASE<T>, "agents">,
     Omit<CopilotRuntimeOptionsVNext, "agents" | "transcriptionService"> {
   /**
    * TODO: un-omit `transcriptionService` above once it's supported
