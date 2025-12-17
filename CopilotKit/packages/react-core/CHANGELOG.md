@@ -1,5 +1,13 @@
 # ui
 
+## 1.50.1-next.2
+
+### Patch Changes
+
+- bdc7a8f: - fix: restore message callbacks
+  - @copilotkit/runtime-client-gql@1.50.1-next.2
+  - @copilotkit/shared@1.50.1-next.2
+
 ## 1.50.1-next.1
 
 ### Patch Changes
