@@ -13,13 +13,23 @@ const config = {
   },
 
   images: {
-    domains: [
-      "github-production-user-asset-6210df.s3.amazonaws.com",
-      "fonts.gstatic.com",
-      "docs.copilotkit.ai",
-      "cdn.copilotkit.ai",
-    ],
     remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "github-production-user-asset-6210df.s3.amazonaws.com",
+      },
+      {
+        protocol: "https",
+        hostname: "fonts.gstatic.com",
+      },
+      {
+        protocol: "https",
+        hostname: "docs.copilotkit.ai",
+      },
+      {
+        protocol: "https",
+        hostname: "cdn.copilotkit.ai",
+      },
       {
         protocol: "https",
         hostname: "**",
@@ -28,7 +38,7 @@ const config = {
   },
 
   skipTrailingSlashRedirect: true,
-  skipMiddlewareUrlNormalize: true,
+  skipProxyUrlNormalize: true,
 
   turbopack: true,
 
@@ -267,6 +277,31 @@ const config = {
       {
         source: "/adk/mcp",
         destination: "/adk/vibe-coding-mcp",
+        permanent: true,
+      },
+      {
+        source: "/a2a/generative-ui",
+        destination: "/a2a/generative-ui/declarative-a2ui",
+        permanent: true,
+      },
+      {
+        source: "/adk/shared-state/state-inputs-outputs",
+        destination: "/adk/shared-state/workflow-execution",
+        permanent: true,
+      },
+      {
+        source: "/langgraph/shared-state/state-inputs-outputs",
+        destination: "/langgraph/shared-state/workflow-execution",
+        permanent: true,
+      },
+      {
+        source: "/llamaindex/shared-state/state-inputs-outputs",
+        destination: "/llamaindex/shared-state/workflow-execution",
+        permanent: true,
+      },
+      {
+        source: "/coagents/shared-state/state-inputs-outputs",
+        destination: "/langgraph/shared-state/workflow-execution",
         permanent: true,
       },
     ];

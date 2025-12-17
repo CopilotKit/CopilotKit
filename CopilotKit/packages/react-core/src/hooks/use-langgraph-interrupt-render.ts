@@ -1,6 +1,10 @@
 import { useCopilotContext } from "../context";
-import React, { useCallback } from "react";
-import { executeConditions } from "@copilotkit/shared";
+import React, { useCallback, useEffect, useMemo } from "react";
+import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
+import { MetaEventName } from "@copilotkit/runtime-client-gql";
+import { dataToUUID, parseJson } from "@copilotkit/shared";
+import { useAgentNodeName } from "./use-agent-nodename";
+import { useCopilotChatConfiguration } from "@copilotkitnext/react";
 
 type InterruptProps = {
   event: any;
@@ -17,52 +21,116 @@ const InterruptRenderer: React.FC<InterruptProps> = ({ event, result, render, re
   return render({ event, result, resolve });
 };
 
-export function useLangGraphInterruptRender(): string | React.ReactElement | null {
-  const { langGraphInterruptAction, setLangGraphInterruptAction, agentSession, threadId } =
-    useCopilotContext();
+export function useLangGraphInterruptRender(
+  agent: AbstractAgent,
+): string | React.ReactElement | null {
+  const {
+    interruptActions,
+    agentSession,
+    threadId,
+    interruptEventQueue,
+    addInterruptEvent,
+    resolveInterruptEvent,
+  } = useCopilotContext();
+  const existingConfig = useCopilotChatConfiguration();
+  const resolvedAgentId = existingConfig?.agentId ?? "default";
+  const nodeName = useAgentNodeName(resolvedAgentId);
 
-  const responseRef = React.useRef<string>();
-  const resolveInterrupt = useCallback(
-    (response: string) => {
-      responseRef.current = response;
-      // Use setTimeout to defer the state update to next tick
-      setTimeout(() => {
-        setLangGraphInterruptAction(threadId, { event: { response } });
-      }, 0);
+  useEffect(() => {
+    if (!agent) return;
+    let localInterrupt: any = null;
+    const subscriber: AgentSubscriber = {
+      onCustomEvent: ({ event }) => {
+        if (event.name === "on_interrupt") {
+          const eventData = {
+            name: MetaEventName.LangGraphInterruptEvent,
+            type: event.type,
+            value: parseJson(event.value, event.value),
+          };
+          const eventId = dataToUUID(eventData, "interruptEvents");
+          localInterrupt = {
+            eventId,
+            threadId,
+            event: eventData,
+          };
+        }
+      },
+      onRunStartedEvent: () => {
+        localInterrupt = null;
+      },
+      onRunFinalized: () => {
+        if (localInterrupt) {
+          addInterruptEvent(localInterrupt);
+          localInterrupt = null;
+        }
+      },
+    };
+
+    const { unsubscribe } = agent.subscribe(subscriber);
+    return () => {
+      unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agent, threadId]);
+
+  const handleResolve = useCallback(
+    (eventId: string, response?: string) => {
+      agent?.runAgent({
+        forwardedProps: {
+          command: {
+            resume: response,
+          },
+        },
+      });
+      resolveInterruptEvent(threadId, eventId, response ?? "");
     },
-    [setLangGraphInterruptAction, threadId],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [agent, threadId],
   );
 
-  if (
-    !langGraphInterruptAction ||
-    !langGraphInterruptAction.event ||
-    !langGraphInterruptAction.render
-  )
-    return null;
+  return useMemo(() => {
+    // Get the queue for this thread and find the first unresponded event
+    const eventQueue = interruptEventQueue[threadId] || [];
+    const currentQueuedEvent = eventQueue.find((qe) => !qe.event.response);
 
-  const { render, handler, event, enabled } = langGraphInterruptAction;
+    if (!currentQueuedEvent || !agentSession) return null;
 
-  const conditionsMet =
-    !agentSession || !enabled
-      ? true
-      : enabled({ eventValue: event.value, agentMetadata: agentSession });
+    // Find the first matching action from all registered actions
+    const allActions = Object.values(interruptActions);
+    const matchingAction = allActions.find((action) => {
+      if (!action.enabled) return true; // No filter = match all
+      return action.enabled({
+        eventValue: currentQueuedEvent.event.value,
+        agentMetadata: {
+          ...agentSession,
+          nodeName,
+        },
+      });
+    });
 
-  if (!conditionsMet) {
-    return null;
-  }
+    if (!matchingAction) return null;
 
-  let result = null;
-  if (handler) {
-    result = handler({
-      event,
+    const { render, handler } = matchingAction;
+
+    const resolveInterrupt = (response: string) => {
+      handleResolve(currentQueuedEvent.eventId, response);
+    };
+
+    let result = null;
+    if (handler) {
+      result = handler({
+        event: currentQueuedEvent.event,
+        resolve: resolveInterrupt,
+      });
+    }
+
+    if (!render) return null;
+
+    return React.createElement(InterruptRenderer, {
+      event: currentQueuedEvent.event,
+      result,
+      render,
       resolve: resolveInterrupt,
     });
-  }
-
-  return React.createElement(InterruptRenderer, {
-    event,
-    result,
-    render,
-    resolve: resolveInterrupt,
-  });
+  }, [interruptActions, interruptEventQueue, threadId, agentSession, handleResolve]);
 }
