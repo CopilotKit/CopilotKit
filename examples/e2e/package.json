@@ -19,6 +19,7 @@
     "@playwright/test": "^1.48.2",
     "@types/json2md": "^1.5.4",
     "@types/node": "^22.8.4",
+    "concurrently": "^9.2.0",
     "dotenv": "^16.4.5",
     "json2md": "^2.0.1",
     "@aws-sdk/client-s3": "^3.738.0"
