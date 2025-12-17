@@ -2,11 +2,12 @@
   "$schema": "https://ui.shadcn.com/schema/registry-item.json",
   "name": "agent-spec",
   "type": "registry:block",
-  "title": "Agent Spec Starter",
+  "title": "Open Agent Spec Starter",
   "description": "A starter for CopilotKit with an Agent Spec backend.",
   "dependencies": [
     "@copilotkit/runtime",
-    "@copilotkit/react-core"
+    "@copilotkit/react-core",
+    "@copilotkit/react-ui"
   ],
   "files": [
     {

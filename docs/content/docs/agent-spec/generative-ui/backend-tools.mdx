@@ -53,6 +53,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
         from pyagentspec.llms import OpenAiCompatibleConfig
         from pyagentspec.property import StringProperty
         from pyagentspec.tools import ServerTool
+        from pyagentspec.serialization import AgentSpecSerializer
 
         llm = OpenAiCompatibleConfig(
             name="my_llm",
@@ -68,7 +69,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
         agent = Agent(
             name="my_agent",
             llm_config=llm,
-            system_prompt="Based on the weather forecaset result and the user input, write a response to the user",
+            system_prompt="Based on the weather forecast result and the user input, write a response to the user",
             tools=[weather_tool],
             human_in_the_loop=True,
         )
