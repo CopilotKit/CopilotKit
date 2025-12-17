@@ -37,7 +37,6 @@
 
 <img src="https://github.com/user-attachments/assets/3b810240-e9f8-43ae-acec-31a58095e223" alt="headless-ui" style="border-radius: 12px; border: 2px solid #d6d4fa;">
 
-
 ## 🏆 Featured Examples
 
 <p align="center">
@@ -55,7 +54,6 @@
 ## Documentation
 
 To get started with CopilotKit, please check out the [documentation](https://docs.copilotkit.ai).
-
 
 ## Analytics & Privacy
 

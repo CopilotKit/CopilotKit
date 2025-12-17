@@ -170,7 +170,7 @@ export const DefaultStateRenderer: React.FC<StateRendererProps> = ({
           ...(state.tasks || []),
         ].sort(
           (a, b) =>
-            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
         )
       : [];
   }, [state]);

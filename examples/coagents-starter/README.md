@@ -168,7 +168,6 @@ A few things to try if you are running into trouble:
 2. **Network issues:** Under `/agent-py/sample_agent/demo.py`, change `0.0.0.0` to `127.0.0.1` or to `localhost`
 
 3. **"No checkpointer set" error:** This happens when the agent can't determine which environment it's running in. The agent code automatically detects this, but if you encounter this error:
-
    - When using `langgraph dev`: Set `LANGGRAPH_API=true` before running: `LANGGRAPH_API=true langgraph dev ...`
    - When using `poetry run demo`: The agent should automatically use MemorySaver
 

@@ -39,7 +39,7 @@ export async function email_node(state: AgentState, config: RunnableConfig) {
 
   const response = await email_model.invoke(
     [...state.messages, new HumanMessage({ content: instructions })],
-    modifiedConfig
+    modifiedConfig,
   );
 
   const tool_calls = response.tool_calls;
@@ -54,7 +54,7 @@ export async function email_node(state: AgentState, config: RunnableConfig) {
 
 export async function send_email_node(
   state: AgentState,
-  config: RunnableConfig
+  config: RunnableConfig,
 ) {
   /**
    * Send an email.

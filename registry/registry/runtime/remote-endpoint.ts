@@ -9,7 +9,11 @@ const serviceAdapter = new ExperimentalEmptyAdapter();
 
 const runtime = new CopilotRuntime({
   remoteEndpoints: [
-    { url: process.env.COPILOTKIT_REMOTE_ENDPOINT || "http://localhost:8000/copilotkit" },
+    {
+      url:
+        process.env.COPILOTKIT_REMOTE_ENDPOINT ||
+        "http://localhost:8000/copilotkit",
+    },
   ],
 });
 

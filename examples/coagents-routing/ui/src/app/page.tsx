@@ -131,15 +131,13 @@ function RunPirateMode() {
   return (
     <button
       onClick={() =>
-        run(
-          () => {
-            return {
-              id: randomId(),
-              role: "user",
-              content: "Run pirate mode",
-            };
-          }
-        )
+        run(() => {
+          return {
+            id: randomId(),
+            role: "user",
+            content: "Run pirate mode",
+          };
+        })
       }
       className="bg-white text-black border border-gray-300 rounded px-4 py-2 shadow hover:bg-gray-100"
     >

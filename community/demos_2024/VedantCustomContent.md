@@ -1,5 +1,5 @@
 GitHub profile username - vedant-z <br>
-Below are links to your content about CopilotKit, such as Tweets, blog posts, and  other public content.
+Below are links to your content about CopilotKit, such as Tweets, blog posts, and other public content.
 
 Here are the contribution links: <br>
 Twitter : https://x.com/VedantBorkar17/status/1852019301303361596 <br>

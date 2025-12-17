@@ -28,7 +28,13 @@ export function Translator() {
   console.log("state", translateAgentState);
 
   const handleTranslate = () => {
-    runTranslateAgent(() => new TextMessage({ role: MessageRole.User, content: "Translate to all languages" }));
+    runTranslateAgent(
+      () =>
+        new TextMessage({
+          role: MessageRole.User,
+          content: "Translate to all languages",
+        }),
+    );
   };
 
   return (

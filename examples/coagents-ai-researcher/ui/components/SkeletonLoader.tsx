@@ -23,5 +23,5 @@ export function SkeletonLoader() {
       <Skeleton className="h-4 col-span-3" />
       <Skeleton className="h-4 col-span-1" />
     </div>
-  )
+  );
 }

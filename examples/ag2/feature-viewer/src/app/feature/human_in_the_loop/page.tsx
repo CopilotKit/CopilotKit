@@ -94,8 +94,8 @@ const StepsFeedback = ({
               ...step,
               status: step.status === "enabled" ? "disabled" : "enabled",
             }
-          : step
-      )
+          : step,
+      ),
     );
   };
 
@@ -131,7 +131,7 @@ const StepsFeedback = ({
                 .map((step) => step.description);
               respond(
                 "The user selected the following steps: " +
-                  selectedSteps.join(", ")
+                  selectedSteps.join(", "),
               );
             }}
           >

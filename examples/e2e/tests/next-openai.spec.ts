@@ -84,17 +84,17 @@ const variants: Variant[] = [
 
 const getDestinationCheckbox = (
   page: Page,
-  { destination, isChecked }: DestinationProps
+  { destination, isChecked }: DestinationProps,
 ): Locator =>
   page.locator(
     `[data-test-id="checkbox-${destination}-${
       isChecked ? "checked" : "unchecked"
-    }"]`
+    }"]`,
   );
 
 const waitForDestinationState = async (
   page: Page,
-  { destination, isChecked, timeout = 30000 }: WaitDestinationProps
+  { destination, isChecked, timeout = 30000 }: WaitDestinationProps,
 ) => {
   const checkbox = getDestinationCheckbox(page, { destination, isChecked });
   await expect(checkbox).toBeVisible({ timeout });
@@ -105,7 +105,7 @@ const waitForDestinationState = async (
 const allConfigs = getConfigs();
 const researchCanvasConfigs = filterConfigsByProject(
   allConfigs,
-  PROJECT_NAMES.COPILOTKIT_NEXT_OPENAI
+  PROJECT_NAMES.COPILOTKIT_NEXT_OPENAI,
 );
 const groupedConfigs = groupConfigsByDescription(researchCanvasConfigs);
 
@@ -130,14 +130,14 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               // Verify initial welcome message added using appendMessage in useEffect
               // with followUp: false
               const welcomeMessage = page.locator(
-                ".copilotKitMessage.copilotKitAssistantMessage"
+                ".copilotKitMessage.copilotKitAssistantMessage",
               );
               await expect(welcomeMessage).toBeVisible();
               const messageText = await welcomeMessage
                 .locator(".copilotKitMarkdown p")
                 .innerText();
               expect(messageText).toBe(
-                "Hi you! 👋 Let's book your next vacation. Ask me anything."
+                "Hi you! 👋 Let's book your next vacation. Ask me anything.",
               );
 
               // Wait for suggestion box and verify suggestions
@@ -162,7 +162,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               // Test destination selection
               await sendChatMessage(
                 page,
-                "Select New York City and Tokyo as destinations."
+                "Select New York City and Tokyo as destinations.",
               );
               await waitForResponse(page);
               await page.waitForTimeout(2000);
@@ -219,20 +219,20 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
                 .first()
                 .click();
               await expect(
-                page.getByRole("button", { name: "Continue" }).first()
+                page.getByRole("button", { name: "Continue" }).first(),
               ).toBeVisible({ timeout: PAGE_TIMEOUT });
               await expect(
-                page.getByRole("button", { name: "Continue" }).first()
+                page.getByRole("button", { name: "Continue" }).first(),
               ).toBeEnabled({ timeout: PAGE_TIMEOUT });
               await page
                 .getByRole("button", { name: "Continue" })
                 .first()
                 .click();
               await expect(
-                page.getByRole("button", { name: "Continue" }).first()
+                page.getByRole("button", { name: "Continue" }).first(),
               ).toBeVisible({ timeout: PAGE_TIMEOUT });
               await expect(
-                page.getByRole("button", { name: "Continue" }).first()
+                page.getByRole("button", { name: "Continue" }).first(),
               ).toBeEnabled({ timeout: PAGE_TIMEOUT });
               await page
                 .getByRole("button", { name: "Continue" })
@@ -257,10 +257,10 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
                 .first()
                 .click({ timeout: PAGE_TIMEOUT });
               await expect(
-                page.getByRole("button", { name: "Continue" }).first()
+                page.getByRole("button", { name: "Continue" }).first(),
               ).toBeVisible({ timeout: PAGE_TIMEOUT });
               await expect(
-                page.getByRole("button", { name: "Continue" }).first()
+                page.getByRole("button", { name: "Continue" }).first(),
               ).toBeEnabled({ timeout: PAGE_TIMEOUT });
               await page
                 .getByRole("button", { name: "Continue" })
@@ -281,7 +281,11 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
             }) => {
               page.setDefaultTimeout(PAGE_TIMEOUT);
               await page.goto(`${config.url}multi${variant.queryParams}`);
-              await expect(page.getByText("Hi you! 👋 Let's book your next vacation. Ask me anything.")).toBeVisible({
+              await expect(
+                page.getByText(
+                  "Hi you! 👋 Let's book your next vacation. Ask me anything.",
+                ),
+              ).toBeVisible({
                 timeout: PAGE_TIMEOUT,
               });
             });
@@ -301,23 +305,23 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
                 .first()
                 .click();
               await expect(
-                page.getByRole("button", { name: "Continue" }).first()
+                page.getByRole("button", { name: "Continue" }).first(),
               ).toBeVisible({ timeout: PAGE_TIMEOUT });
               await expect(
-                page.getByRole("button", { name: "Continue" }).first()
+                page.getByRole("button", { name: "Continue" }).first(),
               ).toBeEnabled({ timeout: PAGE_TIMEOUT });
               await page
                 .getByRole("button", { name: "Continue" })
                 .first()
                 .click();
               await expect(
-                page.getByText("Flight", { exact: true })
+                page.getByText("Flight", { exact: true }),
               ).toBeVisible({ timeout: PAGE_TIMEOUT });
               // This data-test-id seems specific to CopilotChat, ensure it's relevant for /multi page's readiness
               // await expect(page.locator('[data-test-id="copilot-chat-ready"]')).toBeVisible({ timeout: PAGE_TIMEOUT });
               // Consider a more specific assertion for readiness after actions, like no loading indicators.
               const loadingIndicator = page.locator(
-                'div[aria-label="CopilotKit loading"]'
+                'div[aria-label="CopilotKit loading"]',
               );
               await expect(loadingIndicator).not.toBeVisible();
             });
@@ -332,12 +336,12 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
                 timeout: PAGE_TIMEOUT,
               });
               await expect(
-                page.getByText("What is the weather in San Francisco")
+                page.getByText("What is the weather in San Francisco"),
               ).toBeVisible({ timeout: PAGE_TIMEOUT });
 
               // Add a check for no follow-up (e.g., count messages or check for loading indicator)
               const assistantMessages = page.locator(
-                ".copilotKitMessage[data-message-role='assistant']"
+                ".copilotKitMessage[data-message-role='assistant']",
               );
               const initialAssistantMessageCount =
                 await assistantMessages.count();
@@ -345,11 +349,11 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               const finalAssistantMessageCount =
                 await assistantMessages.count();
               expect(finalAssistantMessageCount).toBe(
-                initialAssistantMessageCount
+                initialAssistantMessageCount,
               );
 
               const loadingIndicator = page.locator(
-                'div[aria-label="CopilotKit loading"]'
+                'div[aria-label="CopilotKit loading"]',
               );
               await expect(loadingIndicator).not.toBeVisible();
             });

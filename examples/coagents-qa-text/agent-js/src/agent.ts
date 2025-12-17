@@ -38,7 +38,7 @@ export async function ask_name_node(state: AgentState, config: RunnableConfig) {
 
 export async function extract_name_node(
   state: AgentState,
-  config: RunnableConfig
+  config: RunnableConfig,
 ) {
   const lastMessage = state.messages[state.messages.length - 1] as HumanMessage;
   const instructions = `Figure out the user's name if possible from this response they gave you: ${lastMessage.content}`;
@@ -48,7 +48,7 @@ export async function extract_name_node(
 
   const response = await model.invoke(
     [...state.messages, new HumanMessage({ content: instructions })],
-    copilotkitCustomizeConfig(config, { emitToolCalls: false })
+    copilotkitCustomizeConfig(config, { emitToolCalls: false }),
   );
 
   const toolCalls = response.tool_calls;

@@ -49,7 +49,7 @@ const videosToUpload: VideoToUpload[] = [];
   const rows = input.rows
     .map(
       (row: string[]) =>
-        `| ${row.map((cell: string) => cell.padEnd(8)).join(" | ")} |`
+        `| ${row.map((cell: string) => cell.padEnd(8)).join(" | ")} |`,
     )
     .join("\n");
 
@@ -184,13 +184,13 @@ export default class StructuredReporter implements Reporter {
     if (testCase.results.length === (test.retries ?? 0) + 1) {
       const lastResult = testCase.results[testCase.results.length - 1];
       const hadFailures = testCase.results.some(
-        (r) => r.status === "failed" || r.status === "timedOut"
+        (r) => r.status === "failed" || r.status === "timedOut",
       );
 
       // Add video logging here
       if (lastResult.status === "failed" || lastResult.status === "timedOut") {
         const videoAttachment = lastResult.attachments.find(
-          (a) => a.name === "video"
+          (a) => a.name === "video",
         );
         if (videoAttachment?.path) {
           const split = videoAttachment.path.split("/");
@@ -222,7 +222,7 @@ export default class StructuredReporter implements Reporter {
   }
 
   private determineTestStatus(
-    results: TestResult[]
+    results: TestResult[],
   ): "passed" | "failed" | "flaky" | "skipped" {
     if (results.length === 0) return "skipped";
 
@@ -272,7 +272,7 @@ export default class StructuredReporter implements Reporter {
               totals.affectedAreas.add(description);
               totals.failingModels.set(
                 variant,
-                (totals.failingModels.get(variant) || 0) + 1
+                (totals.failingModels.get(variant) || 0) + 1,
               );
             }
           });
@@ -319,14 +319,14 @@ export default class StructuredReporter implements Reporter {
               if (this.determineTestStatus(testCase.results) === "failed") {
                 const location = this.formatTestLocation(
                   testCase.file,
-                  testCase.line
+                  testCase.line,
                 );
                 failedTests.push(
                   `- [${
                     testCase.title
                   }](${location})\n  - Variant: ${variant}\n  - Browser: ${browser}\n  - Error: ${this.getLastError(
-                    testCase.results
-                  )}`
+                    testCase.results,
+                  )}`,
                 );
               }
             });
@@ -389,7 +389,7 @@ export default class StructuredReporter implements Reporter {
     if (stats.totalFailed > 0) {
       mdContent.push(
         { h2: "❌ Failed Tests" },
-        this.generateFailedTestsSection()
+        this.generateFailedTestsSection(),
       );
     }
 
@@ -414,18 +414,18 @@ export default class StructuredReporter implements Reporter {
 
                     // Collect video URLs from failed tests
                     const videoLinks = Array.from(stats.testCases.values())
-                      .filter(tc => tc.videoPath)
-                      .map(tc => `[Video](${tc.videoPath})`)
+                      .filter((tc) => tc.videoPath)
+                      .map((tc) => `[Video](${tc.videoPath})`)
                       .join(", ");
 
                     return [variant, browser, status, videoLinks || "-"];
-                  })
+                  }),
                 ),
               },
-            }
+            },
           );
         });
-      }
+      },
     );
 
     // Write the report

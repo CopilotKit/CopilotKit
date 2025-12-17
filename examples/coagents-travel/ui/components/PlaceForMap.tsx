@@ -17,7 +17,7 @@ export type PlaceProps = {
   place: Place;
   number: number;
   map?: Map;
-}
+};
 
 export function PlaceForMap({ place, number, map }: PlaceProps) {
   const { selectedTrip, deletePlace } = useTrips();
@@ -37,14 +37,8 @@ export function PlaceForMap({ place, number, map }: PlaceProps) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <EditPlace 
-          place={place} 
-          onOpenChange={setDropdownOpen} 
-        />
-        <DropdownMenuItem 
-          onClick={handleDelete}
-          className="text-destructive"
-        >
+        <EditPlace place={place} onOpenChange={setDropdownOpen} />
+        <DropdownMenuItem onClick={handleDelete} className="text-destructive">
           <Trash className="w-4 h-4 mr-2" />
           Delete
         </DropdownMenuItem>
@@ -53,7 +47,7 @@ export function PlaceForMap({ place, number, map }: PlaceProps) {
   );
 
   return (
-    <PlaceCard 
+    <PlaceCard
       shouldShowCheckbox={false}
       place={place}
       number={number}

@@ -26,8 +26,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <CopilotKit 
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        <CopilotKit
           publicApiKey={process.env.NEXT_PUBLIC_COPILOT_PUBLIC_API_KEY}
           showDevConsole={false}
         >

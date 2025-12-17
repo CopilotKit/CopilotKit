@@ -2,7 +2,10 @@ import { useGlobalState } from "@/lib/stages";
 import { Order } from "@/lib/types";
 import { ConfirmOrder } from "@/components/generative-ui/confirm-order";
 
-import { useCopilotAction, useCopilotAdditionalInstructions } from "@copilotkit/react-core";
+import {
+  useCopilotAction,
+  useCopilotAdditionalInstructions,
+} from "@copilotkit/react-core";
 
 /**
   useStageConfirmOrder is a hook that will add this stage to the state machine. It is responsible for:

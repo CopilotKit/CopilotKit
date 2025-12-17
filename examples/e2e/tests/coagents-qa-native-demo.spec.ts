@@ -17,7 +17,7 @@ const variants: TestVariants = [
 const allConfigs = getConfigs();
 const qaConfigs = filterConfigsByProject(
   allConfigs,
-  PROJECT_NAMES.COAGENTS_QA_NATIVE
+  PROJECT_NAMES.COAGENTS_QA_NATIVE,
 );
 const groupedConfigs = groupConfigsByDescription(qaConfigs);
 
@@ -37,7 +37,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
                 ...config,
               },
               nonCloudVariants,
-              true
+              true,
             ),
             ...cloudVariants,
           ].forEach((variant) => {
@@ -61,7 +61,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               // First attempt - Cancel
               await sendChatMessage(
                 page,
-                "write an email to the CEO of OpenAI asking for a meeting"
+                "write an email to the CEO of OpenAI asking for a meeting",
               );
 
               // First interaction will bring up interrupt interface
@@ -71,22 +71,22 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               await page.locator('button:has-text("Submit")').click();
 
               await page.locator(
-                'p:has-text("Ah, forgot to ask, which company are you working for?")'
+                'p:has-text("Ah, forgot to ask, which company are you working for?")',
               );
               await sendChatMessage(page, "CopilotKit");
 
               const cancelMessage = page.locator(
-                '[data-test-id="email-cancel-message"]'
+                '[data-test-id="email-cancel-message"]',
               );
               await expect(cancelMessage).toHaveText(
-                "❌ Cancelled sending email."
+                "❌ Cancelled sending email.",
               );
 
               // Second attempt - Send
               await sendChatMessage(page, "redo");
 
               const successMessage = page.locator(
-                '[data-test-id="email-success-message"]'
+                '[data-test-id="email-success-message"]',
               );
               await expect(successMessage).toHaveText("✅ Sent email.");
             });

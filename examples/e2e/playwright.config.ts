@@ -40,7 +40,7 @@ export default defineConfig({
     trace: "on-first-retry",
     video: {
       mode: "retain-on-failure",
-    }
+    },
   },
 
   /* Configure projects for major browsers */

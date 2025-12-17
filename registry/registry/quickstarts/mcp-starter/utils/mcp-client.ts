@@ -79,7 +79,7 @@ export class MCPClient implements MCPClientInterface {
       this.onError(
         error instanceof Error
           ? error
-          : new Error(`Failed to handle message: ${error}`)
+          : new Error(`Failed to handle message: ${error}`),
       );
     }
   }
@@ -161,14 +161,14 @@ export class MCPClient implements MCPClientInterface {
               // Add parameter information to the description
               if (requiredParams.length > 0) {
                 enhancedDescription += `\nRequired parameters: ${requiredParams.join(
-                  ", "
+                  ", ",
                 )}`;
               }
 
               // Add example structure if we can derive it from schema
               const exampleInput = this.deriveExampleInput(
                 tool.inputSchema,
-                tool.name
+                tool.name,
               );
               if (exampleInput) {
                 enhancedDescription += `\nExample usage: ${exampleInput}`;
@@ -206,14 +206,14 @@ export class MCPClient implements MCPClientInterface {
               // Add parameter information to the description
               if (requiredParams.length > 0) {
                 enhancedDescription += `\nRequired parameters: ${requiredParams.join(
-                  ", "
+                  ", ",
                 )}`;
               }
 
               // Add example structure if we can derive it from schema
               const exampleInput = this.deriveExampleInput(
                 tool.inputSchema,
-                tool.name
+                tool.name,
               );
               if (exampleInput) {
                 enhancedDescription += `\nExample usage: ${exampleInput}`;
@@ -277,12 +277,12 @@ export class MCPClient implements MCPClientInterface {
    */
   public async callTool(
     name: string,
-    args: Record<string, unknown>
+    args: Record<string, unknown>,
   ): Promise<any> {
     try {
       console.log(
         `Calling tool: ${name} with args:`,
-        JSON.stringify(args, null, 2)
+        JSON.stringify(args, null, 2),
       );
 
       // Generic handler for double-nested params structure
@@ -294,7 +294,7 @@ export class MCPClient implements MCPClientInterface {
       // Log the processed arguments
       console.log(
         `Processed args for ${name}:`,
-        JSON.stringify(processedArgs, null, 2)
+        JSON.stringify(processedArgs, null, 2),
       );
 
       // Call the tool with processed arguments
@@ -313,7 +313,7 @@ export class MCPClient implements MCPClientInterface {
    * like double-nested params objects
    */
   private normalizeToolArgs(
-    args: Record<string, unknown>
+    args: Record<string, unknown>,
   ): Record<string, unknown> {
     // Handle double-nested params: { params: { params: { actual data } } }
     if (
@@ -335,7 +335,7 @@ export class MCPClient implements MCPClientInterface {
    * Process arguments to handle cases where JSON strings might be passed instead of objects
    */
   private processStringifiedJsonArgs(
-    args: Record<string, unknown>
+    args: Record<string, unknown>,
   ): Record<string, unknown> {
     const result: Record<string, unknown> = {};
 
@@ -355,12 +355,12 @@ export class MCPClient implements MCPClientInterface {
         result[key] = value.map((item) =>
           typeof item === "object" && item !== null
             ? this.processStringifiedJsonArgs(item as Record<string, unknown>)
-            : item
+            : item,
         );
       } else if (value !== null && typeof value === "object") {
         // Recursively process nested objects
         result[key] = this.processStringifiedJsonArgs(
-          value as Record<string, unknown>
+          value as Record<string, unknown>,
         );
       } else {
         // Keep other types as-is
@@ -377,7 +377,7 @@ export class MCPClient implements MCPClientInterface {
    */
   private deriveExampleInput(
     inputSchema: any,
-    toolName: string
+    toolName: string,
   ): string | null {
     if (!inputSchema) return null;
 

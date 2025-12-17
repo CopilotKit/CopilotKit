@@ -9,7 +9,11 @@ export const metadata: Metadata = {
   description: "CoAgents Starter",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <CopilotKit
       agent={process.env.NEXT_PUBLIC_COPILOTKIT_AGENT_NAME}

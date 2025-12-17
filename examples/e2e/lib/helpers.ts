@@ -15,7 +15,7 @@ export async function waitForStepsAndEnsureStreaming(page: Page) {
   const streamingResult = (await page.evaluate(() => {
     return new Promise((resolve) => {
       const progressContainer = document.querySelector(
-        '[data-test-id="progress-steps"]'
+        '[data-test-id="progress-steps"]',
       );
       let doneTransitions = 0;
       let transitionTimestamps: number[] = [];
@@ -23,18 +23,18 @@ export async function waitForStepsAndEnsureStreaming(page: Page) {
 
       const checkTransitions = () => {
         const currentDoneSteps = document.querySelectorAll(
-          '[data-test-id="progress-step-item_done"]'
+          '[data-test-id="progress-step-item_done"]',
         );
         const currentDoneCount = currentDoneSteps.length;
         const totalSteps = document.querySelectorAll(
-          '[data-test-id="progress-step-item"]'
+          '[data-test-id="progress-step-item"]',
         ).length;
 
         if (currentDoneCount > previousDoneCount) {
           doneTransitions++;
           transitionTimestamps.push(Date.now());
           console.log(
-            `🔄 STATE TRANSITION: ${previousDoneCount} → ${currentDoneCount} done steps (transition #${doneTransitions})`
+            `🔄 STATE TRANSITION: ${previousDoneCount} → ${currentDoneCount} done steps (transition #${doneTransitions})`,
           );
           previousDoneCount = currentDoneCount;
         }
@@ -62,7 +62,7 @@ export async function waitForStepsAndEnsureStreaming(page: Page) {
           doneTransitions,
           transitionTimestamps,
           totalSteps: document.querySelectorAll(
-            '[data-test-id="progress-step-item"]'
+            '[data-test-id="progress-step-item"]',
           ).length,
         });
       }, 30000);
@@ -74,21 +74,21 @@ export async function waitForStepsAndEnsureStreaming(page: Page) {
   };
 
   console.log(
-    `🎯 Streaming result: ${streamingResult.doneTransitions} done transitions`
+    `🎯 Streaming result: ${streamingResult.doneTransitions} done transitions`,
   );
   console.log(
     `📅 Transition times: ${streamingResult.transitionTimestamps
       .map((t) => new Date(t).toISOString())
-      .join(", ")}`
+      .join(", ")}`,
   );
 
   if (streamingResult.doneTransitions <= 1) {
     console.log(
-      `❌ STREAMING FAILED: Only ${streamingResult.doneTransitions} state transition detected`
+      `❌ STREAMING FAILED: Only ${streamingResult.doneTransitions} state transition detected`,
     );
   } else {
     console.log(
-      `✅ STREAMING SUCCESS: ${streamingResult.doneTransitions} separate state transitions detected`
+      `✅ STREAMING SUCCESS: ${streamingResult.doneTransitions} separate state transitions detected`,
     );
   }
 
@@ -104,13 +104,13 @@ export async function waitForSuggestions(page: Page) {
   await page.waitForFunction(
     () => {
       const suggestions = document.querySelectorAll(
-        '[data-test-id="suggestion"]'
+        '[data-test-id="suggestion"]',
       );
       return (
         suggestions.length > 0 &&
         Array.from(suggestions).every((el) => el.isConnected)
       );
     },
-    { timeout: 20000 }
+    { timeout: 20000 },
   );
 }

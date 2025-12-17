@@ -93,7 +93,7 @@ export function createAgentProjectStack({
         LangGraphCloud: "false",
         SelfHosted: "false",
       },
-    }
+    },
   );
 
   const lgcAgentJS = new PreviewProjectStack(app, `${cdkStackName}LGCJS`, {

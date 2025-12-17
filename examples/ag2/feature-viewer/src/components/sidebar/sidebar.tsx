@@ -15,15 +15,19 @@ interface SidebarProps {
   readmeContent?: string | null;
 }
 
-export function Sidebar({ activeTab = "preview", onTabChange, readmeContent }: SidebarProps) {
+export function Sidebar({
+  activeTab = "preview",
+  onTabChange,
+  readmeContent,
+}: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [isDarkTheme, setIsDarkTheme] = useState<boolean>(false);
-  
+
   // Extract the current demo ID from the pathname
-  const pathParts = pathname.split('/');
+  const pathParts = pathname.split("/");
   const currentDemoId = pathParts[pathParts.length - 1];
-  
+
   // Handle selecting a demo
   const handleDemoSelect = (demoId: string) => {
     const demo = config.find((d) => d.id === demoId);
@@ -145,4 +149,4 @@ export function Sidebar({ activeTab = "preview", onTabChange, readmeContent }: S
       </div>
     </div>
   );
-} 
+}

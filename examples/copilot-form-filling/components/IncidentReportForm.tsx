@@ -21,9 +21,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -81,68 +91,76 @@ export function IncidentReportForm() {
     });
   }
 
-  useCopilotReadable({
-    description: "The security incident report form fields and their current values",
-    value: form,
-  }, [form]);
+  useCopilotReadable(
+    {
+      description:
+        "The security incident report form fields and their current values",
+      value: form,
+    },
+    [form],
+  );
 
   useCopilotAction({
     name: "fillIncidentReportForm",
     description: "Fill out the incident report form",
     parameters: [
       {
-        "name": "fullName",
-        "type": "string",
-        "required": true,
-        "description": "The full name of the person reporting the incident"
+        name: "fullName",
+        type: "string",
+        required: true,
+        description: "The full name of the person reporting the incident",
       },
       {
-        "name": "email",
-        "type": "string",
-        "required": true,
-        "description": "The email address of the person reporting the incident"
+        name: "email",
+        type: "string",
+        required: true,
+        description: "The email address of the person reporting the incident",
       },
       {
-        "name": "description",
-        "type": "string",
-        "required": true,
-        "description": "The description of the incident"
+        name: "description",
+        type: "string",
+        required: true,
+        description: "The description of the incident",
       },
       {
-        "name": "date",
-        "type": "string",
-        "required": true,
-        "description": "The date of the incident"
+        name: "date",
+        type: "string",
+        required: true,
+        description: "The date of the incident",
       },
       {
-        "name": "impactLevel",
-        "type": "string",
-        "required": true,
-        "description": "The impact level of the incident"
+        name: "impactLevel",
+        type: "string",
+        required: true,
+        description: "The impact level of the incident",
       },
       {
-        "name": "incidentType",
-        "type": "string",
-        "required": true,
-        "description": "The type of incident, must be one of the following: phishing, malware, data_breach, unauthorized_access, ddos, other"
+        name: "incidentType",
+        type: "string",
+        required: true,
+        description:
+          "The type of incident, must be one of the following: phishing, malware, data_breach, unauthorized_access, ddos, other",
       },
       {
-        "name": "incidentLevel",
-        "type": "string",
-        "required": true,
-        "description": "The severity of the incident, must be one of the following: low, medium, high, critical"
+        name: "incidentLevel",
+        type: "string",
+        required: true,
+        description:
+          "The severity of the incident, must be one of the following: low, medium, high, critical",
       },
-      { 
-        "name": "incidentDescription",
-        "type": "string",
-        "required": true,
-        "description": "The description of the incident, be as detailed as possible. At least 30 words."
+      {
+        name: "incidentDescription",
+        type: "string",
+        required: true,
+        description:
+          "The description of the incident, be as detailed as possible. At least 30 words.",
       },
-      { 
-        "name": "suggestedActions",
-        "type": "string",
-        "required": true,
-        "description": "The suggested actions to take based on the incident, be as detailed as possible in a bulleted list."
+      {
+        name: "suggestedActions",
+        type: "string",
+        required: true,
+        description:
+          "The suggested actions to take based on the incident, be as detailed as possible in a bulleted list.",
       },
     ],
     handler: async (action) => {
@@ -161,7 +179,8 @@ export function IncidentReportForm() {
       <CardHeader>
         <CardTitle>Cyber Security Incident Report</CardTitle>
         <CardDescription>
-          Report a security incident to our security operations team. We will respond within 24 hours.
+          Report a security incident to our security operations team. We will
+          respond within 24 hours.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -210,10 +229,14 @@ export function IncidentReportForm() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="phishing">Phishing Attack</SelectItem>
+                        <SelectItem value="phishing">
+                          Phishing Attack
+                        </SelectItem>
                         <SelectItem value="malware">Malware</SelectItem>
                         <SelectItem value="data_breach">Data Breach</SelectItem>
-                        <SelectItem value="unauthorized_access">Unauthorized Access</SelectItem>
+                        <SelectItem value="unauthorized_access">
+                          Unauthorized Access
+                        </SelectItem>
                         <SelectItem value="ddos">DDoS Attack</SelectItem>
                         <SelectItem value="other">Other</SelectItem>
                       </SelectContent>
@@ -235,7 +258,7 @@ export function IncidentReportForm() {
                             variant={"outline"}
                             className={cn(
                               "w-full pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground"
+                              !field.value && "text-muted-foreground",
                             )}
                           >
                             {field.value ? (
@@ -278,10 +301,18 @@ export function IncidentReportForm() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="critical">Critical - Severe business impact</SelectItem>
-                      <SelectItem value="high">High - Significant business impact</SelectItem>
-                      <SelectItem value="medium">Medium - Limited business impact</SelectItem>
-                      <SelectItem value="low">Low - Minimal business impact</SelectItem>
+                      <SelectItem value="critical">
+                        Critical - Severe business impact
+                      </SelectItem>
+                      <SelectItem value="high">
+                        High - Significant business impact
+                      </SelectItem>
+                      <SelectItem value="medium">
+                        Medium - Limited business impact
+                      </SelectItem>
+                      <SelectItem value="low">
+                        Low - Minimal business impact
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -325,10 +356,12 @@ export function IncidentReportForm() {
               )}
             />
 
-            <Button type="submit" className="w-full">Submit Incident Report</Button>
+            <Button type="submit" className="w-full">
+              Submit Incident Report
+            </Button>
           </form>
         </Form>
       </CardContent>
     </Card>
   );
-} 
+}

@@ -21,7 +21,7 @@ export type PirateAgentState = typeof PirateAgentStateAnnotation.State;
 
 export async function pirate_node(
   state: PirateAgentState,
-  config: RunnableConfig
+  config: RunnableConfig,
 ) {
   /**
    * Speaks like a pirate
@@ -36,7 +36,7 @@ export async function pirate_node(
 
   const response = await pirate_model.invoke(
     [new SystemMessage({ content: system_message }), ...state.messages],
-    config
+    config,
   );
 
   if (response.content === "Arrr, I'll be here if you need me!") {

@@ -15,13 +15,17 @@ interface SidebarProps {
   readmeContent?: string | null;
 }
 
-export function Sidebar({ activeTab = "preview", onTabChange, readmeContent }: SidebarProps) {
+export function Sidebar({
+  activeTab = "preview",
+  onTabChange,
+  readmeContent,
+}: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [isDarkTheme, setIsDarkTheme] = useState<boolean>(false);
 
   // Extract the current demo ID from the pathname
-  const pathParts = pathname.split('/');
+  const pathParts = pathname.split("/");
   const currentDemoId = pathParts[pathParts.length - 1];
 
   // Handle selecting a demo
@@ -90,7 +94,7 @@ export function Sidebar({ activeTab = "preview", onTabChange, readmeContent }: S
                 width={120}
                 height={24}
                 alt="Mastra.ai"
-                className={`h-6 w-auto object-contain ${!isDarkTheme ? 'filter invert brightness-200' : ''}`}
+                className={`h-6 w-auto object-contain ${!isDarkTheme ? "filter invert brightness-200" : ""}`}
               />
             </div>
 
@@ -103,8 +107,6 @@ export function Sidebar({ activeTab = "preview", onTabChange, readmeContent }: S
               <ThemeToggle />
             </div>
           </div>
-
-
         </div>
       </div>
 
@@ -157,4 +159,4 @@ export function Sidebar({ activeTab = "preview", onTabChange, readmeContent }: S
       </div>
     </div>
   );
-} 
+}

@@ -14,10 +14,10 @@ export interface CrewsFeedback extends CrewsStateItem {
 
 /**
  * Component that renders a UI for agent-requested user feedback
- * 
+ *
  * This component presents the task output from the crew and provides
  * buttons for the user to approve or reject the proposed solution.
- * 
+ *
  * @param feedback - The feedback object containing task output
  * @param respond - Callback function to send user response back to the crew
  * @param status - Current status of the feedback request
@@ -48,7 +48,9 @@ function CrewHumanFeedbackRenderer({
     return (
       <div className="mt-3 bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-3 shadow-sm">
         <div className="flex justify-between items-center mb-2 border-b border-zinc-100 dark:border-zinc-700 pb-2">
-          <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Feedback Required</h3>
+          <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            Feedback Required
+          </h3>
           <button
             className="text-xs text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors"
             onClick={() => setIsExpanded(!isExpanded)}
@@ -62,7 +64,7 @@ function CrewHumanFeedbackRenderer({
             <Markdown content={feedback.task_output || ""} />
           </div>
         )}
-        
+
         <div className="flex justify-end gap-2">
           <button
             className="px-4 py-2 cursor-pointer bg-zinc-200 hover:bg-zinc-300 active:bg-zinc-400 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:active:bg-zinc-500 text-zinc-800 dark:text-zinc-200 rounded-md text-sm font-medium transition-colors"

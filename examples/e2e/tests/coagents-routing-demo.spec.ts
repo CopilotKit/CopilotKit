@@ -18,7 +18,7 @@ const variants: TestVariants = [
 const allConfigs = getConfigs();
 const researchCanvasConfigs = filterConfigsByProject(
   allConfigs,
-  PROJECT_NAMES.COAGENTS_ROUTING
+  PROJECT_NAMES.COAGENTS_ROUTING,
 );
 const groupedConfigs = groupConfigsByDescription(researchCanvasConfigs);
 
@@ -38,7 +38,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
                 ...config,
               },
               nonCloudVariants,
-              true
+              true,
             ),
             ...cloudVariants,
           ].forEach((variant) => {
@@ -52,13 +52,13 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
                 page.locator(
                   `[data-test-id="container-joke-${
                     empty ? "empty" : "nonempty"
-                  }"]`
+                  }"]`,
                 );
               const getEmailContainer = ({ empty }: { empty: boolean }) =>
                 page.locator(
                   `[data-test-id="container-email-${
                     empty ? "empty" : "nonempty"
-                  }"]`
+                  }"]`,
                 );
               const getPirateModeContainer = ({
                 mode,
@@ -73,30 +73,30 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               await expect(getEmailContainer({ empty: true })).toBeVisible();
               await expect(getEmailContainer({ empty: false })).toHaveCount(0);
               await expect(
-                getPirateModeContainer({ mode: "off" })
+                getPirateModeContainer({ mode: "off" }),
               ).toBeVisible();
               await expect(getPirateModeContainer({ mode: "on" })).toHaveCount(
-                0
+                0,
               );
 
               // Joke agent
               await sendChatMessage(
                 page,
-                "Generate a short joke about penguins, please."
+                "Generate a short joke about penguins, please.",
               );
               await waitForResponse(page);
               const jokeContainerNonEmpty = getJokeContainer({ empty: false });
               await expect(jokeContainerNonEmpty).toBeVisible();
               const joke = (await jokeContainerNonEmpty.textContent())?.replace(
                 "Joke: ",
-                ""
+                "",
               );
               expect(joke).not.toBe("");
 
               // Email agent
               await sendChatMessage(
                 page,
-                "Write a short email to the CEO of CopilotKit about the future of AI"
+                "Write a short email to the CEO of CopilotKit about the future of AI",
               );
               await waitForResponse(page);
               const emailContainerNonEmpty = getJokeContainer({ empty: false });
@@ -111,7 +111,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               // Pirate agent
               await sendChatMessage(
                 page,
-                "Turn on pirate mode! Remember to explicitly call the tool that sets pirate mode to on."
+                "Turn on pirate mode! Remember to explicitly call the tool that sets pirate mode to on.",
               );
               await waitForResponse(page);
 
@@ -122,7 +122,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               });
               await expect(pirateModeContainerOn).toBeVisible();
               expect(await pirateModeContainerOn.textContent()).toBe(
-                "Pirate mode is on"
+                "Pirate mode is on",
               );
             });
           });

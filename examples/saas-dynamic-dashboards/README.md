@@ -5,6 +5,7 @@
 Deployed on Vercel: https://dynamic-saas-dashboard.vercel.app
 
 This project is a modern dashboard and analytics solution built with Next.js (in the `frontend` directory). It features:
+
 - Clean, responsive UI for PR and repository analytics
 - Interactive charts and tables
 - Integration with OpenAI via CopilotKit
@@ -12,6 +13,7 @@ This project is a modern dashboard and analytics solution built with Next.js (in
 ## Quick Start (Frontend)
 
 1. **Install dependencies**
+
    ```bash
    cd frontend
    pnpm install
@@ -35,6 +37,7 @@ This project is a modern dashboard and analytics solution built with Next.js (in
 ## Quick Start (Backend Agent)
 
 1. **Install dependencies**
+
    ```bash
    cd agent
    poetry install
@@ -54,7 +57,8 @@ This project is a modern dashboard and analytics solution built with Next.js (in
 
 ---
 
-To refer to the recording to the demo, Refer here : 
-```bash 
-https://www.loom.com/share/43be7bcbf1954672934e62ff8b3ee86e 
+To refer to the recording to the demo, Refer here :
+
+```bash
+https://www.loom.com/share/43be7bcbf1954672934e62ff8b3ee86e
 ```

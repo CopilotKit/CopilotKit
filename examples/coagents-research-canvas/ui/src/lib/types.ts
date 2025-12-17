@@ -10,4 +10,4 @@ export type AgentState = {
   report: string;
   resources: any[];
   logs: any[];
-}
+};

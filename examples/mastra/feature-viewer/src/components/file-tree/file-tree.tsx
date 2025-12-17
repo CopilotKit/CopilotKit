@@ -94,7 +94,7 @@ function FileTreeNode({
           depth === 2 && "ml-1",
           depth === 3 && "ml-1.5",
           depth === 4 && "ml-2",
-          depth > 4 && "ml-2.5"
+          depth > 4 && "ml-2.5",
         )}
         onClick={() => {
           if (isDirectory) {

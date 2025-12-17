@@ -35,7 +35,6 @@ With those lines of code, the `useCoAgentStateRender` hook will be able to detec
 
 For more information on agentic generative UI, checkout the [docs](/coagents/shared-state/in-app-agent-read).
 
-
 ### useCopilotAction
 
 This hook is used to add front-end functions as tool calls to an agent or LLM. This is particularly useful for human in the loop components. If you're completely new to the concept of human in the loop, checkout LangGraph's [docs](https://langchain-ai.github.io/langgraph/concepts/human_in_the_loop/?h=human) where they talk about the concept in more detail with some examples.

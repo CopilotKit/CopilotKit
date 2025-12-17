@@ -1,6 +1,21 @@
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardDescription,
+} from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { ADKIcon, MastraIcon, LlamaIndexIcon, AG2Icon, AgnoIcon, PydanticAIIcon, AwsStrandsIcon, A2AIcon } from "@/lib/icons/custom-icons";
+import {
+  ADKIcon,
+  MastraIcon,
+  LlamaIndexIcon,
+  AG2Icon,
+  AgnoIcon,
+  PydanticAIIcon,
+  AwsStrandsIcon,
+  A2AIcon,
+} from "@/lib/icons/custom-icons";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
 import { SiLangchain } from "react-icons/si";
 import { FaMicrosoft } from "react-icons/fa";
@@ -30,37 +45,44 @@ const integrations: Integration[] = [
   },
   {
     title: "A2A",
-    description: "A2A is a protocol for allowing agents to interact with each other.",
+    description:
+      "A2A is a protocol for allowing agents to interact with each other.",
     logo: <A2AIcon className="w-8 h-8 text-bold" />,
-    bgGradient: "bg-gradient-to-b from-orange-700 to-orange-400 text-orange-100",
+    bgGradient:
+      "bg-gradient-to-b from-orange-700 to-orange-400 text-orange-100",
     href: "/a2a",
   },
   {
     title: "Microsoft",
-    description: "Microsoft Agent Framework is a framework for building and deploying AI agents.",
+    description:
+      "Microsoft Agent Framework is a framework for building and deploying AI agents.",
     logo: <FaMicrosoft className="w-8 h-8" />,
     bgGradient: "bg-gradient-to-b from-blue-700 to-blue-400 text-blue-100",
     href: "/microsoft-agent-framework",
   },
   {
     title: "AWS Strands",
-    description: "AWS Strands is a framework for building and deploying AI agents.",
+    description:
+      "AWS Strands is a framework for building and deploying AI agents.",
     logo: <AwsStrandsIcon className="w-8 h-8" />,
     bgGradient: "bg-black text-white",
     href: "/aws-strands",
   },
   {
     title: "Direct to LLM",
-    description: "Use CopilotKit directly with your LLM of choice. No framework required.",
+    description:
+      "Use CopilotKit directly with your LLM of choice. No framework required.",
     logo: <RocketIcon className="w-8 h-8" />,
     bgGradient: "bg-gradient-to-b from-green-700 to-green-400 text-green-100",
     href: "/direct-to-llm",
   },
   {
     title: "LangGraph",
-    description: "LangGraph is a framework for building and deploying AI agents.",
+    description:
+      "LangGraph is a framework for building and deploying AI agents.",
     logo: <SiLangchain className="w-8 h-8" />,
-    bgGradient: "bg-gradient-to-b from-purple-700 to-purple-400 text-purple-100",
+    bgGradient:
+      "bg-gradient-to-b from-purple-700 to-purple-400 text-purple-100",
     href: "/coagents",
   },
   {
@@ -72,9 +94,11 @@ const integrations: Integration[] = [
   },
   {
     title: "AutoGen2",
-    description: "AutoGen2 is a framework for building and deploying AI agents.",
+    description:
+      "AutoGen2 is a framework for building and deploying AI agents.",
     logo: <AG2Icon className="w-8 h-8 text-bold" />,
-    bgGradient: "bg-gradient-to-b from-indigo-700 to-indigo-400 text-indigo-100",
+    bgGradient:
+      "bg-gradient-to-b from-indigo-700 to-indigo-400 text-indigo-100",
     href: "/ag2",
   },
   {
@@ -93,9 +117,11 @@ const integrations: Integration[] = [
   },
   {
     title: "LlamaIndex",
-    description: "LlamaIndex is a framework for building and deploying AI agents.",
+    description:
+      "LlamaIndex is a framework for building and deploying AI agents.",
     logo: <LlamaIndexIcon className="w-8 h-8" />,
-    bgGradient: "bg-gradient-to-b from-pink-500 via-purple-500 to-blue-400 text-pink-100",
+    bgGradient:
+      "bg-gradient-to-b from-pink-500 via-purple-500 to-blue-400 text-pink-100",
     href: "/llamaindex",
   },
   {
@@ -107,7 +133,8 @@ const integrations: Integration[] = [
   },
   {
     title: "Pydantic AI",
-    description: "Pydantic AI is a framework for building and deploying AI agents.",
+    description:
+      "Pydantic AI is a framework for building and deploying AI agents.",
     logo: <PydanticAIIcon className="w-8 h-8 text-bold" />,
     bgGradient: "bg-[#ED2762] text-white",
     href: "/pydantic-ai",
@@ -122,14 +149,16 @@ const IntegrationCard: React.FC<IntegrationCardProps> = ({
   const { title, logo, href } = integration;
 
   return (
-    <Card className={cn(
-      "group transition-all duration-200 hover:shadow-lg dark:hover:shadow-black/20",
-      "bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800",
-      "hover:border-zinc-300 dark:hover:border-zinc-700",
-      "rounded-lg",
-      "flex flex-col",
-      className
-    )}>
+    <Card
+      className={cn(
+        "group transition-all duration-200 hover:shadow-lg dark:hover:shadow-black/20",
+        "bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800",
+        "hover:border-zinc-300 dark:hover:border-zinc-700",
+        "rounded-lg",
+        "flex flex-col",
+        className,
+      )}
+    >
       <a href={href} className="block p-6 flex-1 flex flex-col no-underline">
         <CardHeader className="p-0">
           <CardTitle className="text-lg font-medium text-zinc-800 dark:text-zinc-200">
@@ -151,11 +180,19 @@ interface IntegrationsGridProps {
   suppressDirectToLLM?: boolean;
 }
 
-const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppressDirectToLLM = false }) => {
-  const hasTargetPage = (integration: Integration, targetPage: string): boolean => {
+const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({
+  targetPage,
+  suppressDirectToLLM = false,
+}) => {
+  const hasTargetPage = (
+    integration: Integration,
+    targetPage: string,
+  ): boolean => {
     // Direct to LLM special cases
     if (integration.title === "Direct to LLM") {
-      return targetPage === "generative-ui" || targetPage === "frontend-actions";
+      return (
+        targetPage === "generative-ui" || targetPage === "frontend-actions"
+      );
     }
 
     // AutoGen2 missing pages
@@ -165,7 +202,9 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
 
     // Frameworks that don't have shared-state pages
     if (targetPage === "shared-state") {
-      return !["LlamaIndex", "Mastra", "AutoGen2", "Agno"].includes(integration.title);
+      return !["LlamaIndex", "Mastra", "AutoGen2", "Agno"].includes(
+        integration.title,
+      );
     }
 
     // All other frameworks have the standard pages
@@ -201,12 +240,16 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
 
   // Filter out Direct to LLM if suppressed
   if (suppressDirectToLLM) {
-    filteredIntegrations = filteredIntegrations.filter(integration => integration.title !== "Direct to LLM");
+    filteredIntegrations = filteredIntegrations.filter(
+      (integration) => integration.title !== "Direct to LLM",
+    );
   }
 
   // Filter out integrations that don't have the target page
   if (targetPage) {
-    filteredIntegrations = filteredIntegrations.filter(integration => hasTargetPage(integration, targetPage));
+    filteredIntegrations = filteredIntegrations.filter((integration) =>
+      hasTargetPage(integration, targetPage),
+    );
   }
 
   return (
@@ -217,7 +260,9 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
           href={getHref(integration)}
           className="flex flex-col items-center gap-3 text-center no-underline group"
         >
-          <div className={`w-12 h-12 flex items-center justify-center rounded-2xl transition-all duration-200 group-hover:scale-105 ${integration.bgGradient}`}>
+          <div
+            className={`w-12 h-12 flex items-center justify-center rounded-2xl transition-all duration-200 group-hover:scale-105 ${integration.bgGradient}`}
+          >
             {integration.logo}
           </div>
           <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300 group-hover:text-black dark:group-hover:text-white transition-colors duration-200">

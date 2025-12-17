@@ -1,4 +1,10 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  ReactNode,
+  useEffect,
+} from "react";
 
 type ResearchContextType = {
   researchQuery: string;
@@ -14,14 +20,18 @@ type ResearchContextType = {
 type ResearchResult = {
   answer: string;
   sources: string[];
-}
+};
 
-const ResearchContext = createContext<ResearchContextType | undefined>(undefined);
+const ResearchContext = createContext<ResearchContextType | undefined>(
+  undefined,
+);
 
 export const ResearchProvider = ({ children }: { children: ReactNode }) => {
   const [researchQuery, setResearchQuery] = useState<string>("");
   const [researchInput, setResearchInput] = useState<string>("");
-  const [researchResult, setResearchResult] = useState<ResearchResult | null>(null);
+  const [researchResult, setResearchResult] = useState<ResearchResult | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   useEffect(() => {
@@ -52,7 +62,9 @@ export const ResearchProvider = ({ children }: { children: ReactNode }) => {
 export const useResearchContext = () => {
   const context = useContext(ResearchContext);
   if (context === undefined) {
-    throw new Error("useResearchContext must be used within a ResearchProvider");
+    throw new Error(
+      "useResearchContext must be used within a ResearchProvider",
+    );
   }
   return context;
 };

@@ -10,13 +10,13 @@ interface StarsProps {
   className?: string;
 }
 
-export function Stars({ 
-  rating, 
-  showNumber = true, 
+export function Stars({
+  rating,
+  showNumber = true,
   interactive = false,
   onHover,
   onRate,
-  className
+  className,
 }: StarsProps) {
   return (
     <div className={cn("flex items-center", className)}>
@@ -35,17 +35,17 @@ export function Stars({
                   "w-5 h-5",
                   rating >= star
                     ? "text-yellow-400 fill-yellow-400"
-                    : "text-gray-300"
+                    : "text-gray-300",
                 )}
               />
             </button>
           ) : (
             <div className="relative">
               <Star className="w-5 h-5 text-gray-300" aria-hidden="true" />
-              <div 
-                className="absolute inset-0 overflow-hidden" 
-                style={{ 
-                  width: `${Math.min(100, Math.max(0, (rating - (star - 1)) * 100))}%` 
+              <div
+                className="absolute inset-0 overflow-hidden"
+                style={{
+                  width: `${Math.min(100, Math.max(0, (rating - (star - 1)) * 100))}%`,
                 }}
               >
                 <Star
@@ -58,7 +58,9 @@ export function Stars({
         </div>
       ))}
       {showNumber && rating && (
-        <p className="text-sm text-muted-foreground ml-2">{rating.toFixed(1)}</p>
+        <p className="text-sm text-muted-foreground ml-2">
+          {rating.toFixed(1)}
+        </p>
       )}
     </div>
   );

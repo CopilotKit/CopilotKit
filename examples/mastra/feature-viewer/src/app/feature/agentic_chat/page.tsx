@@ -24,7 +24,7 @@ const AgenticChat: React.FC = () => {
 
 const Chat = () => {
   const [background, setBackground] = useState<string>(
-    "--copilot-kit-background-color"
+    "--copilot-kit-background-color",
   );
 
   useCopilotAction({

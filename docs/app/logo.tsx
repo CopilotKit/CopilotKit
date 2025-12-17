@@ -7,13 +7,27 @@ interface LogoProps {
   width?: number;
 }
 
-export function Logo({ className, height=40, width=150 }: LogoProps) {
-
+export function Logo({ className, height = 40, width = 150 }: LogoProps) {
   return (
     <div className={cn("flex md:pb-2 md:pl-1", className)}>
-      <Image src={"https://cdn.copilotkit.ai/docs/copilotkit/copilotkit-logo-light.png"} width={width} height={height} alt="Logo" className="block dark:hidden" />
-      <Image src={"https://cdn.copilotkit.ai/docs/copilotkit/copilotkit-logo-dark.png"} width={width} height={height} alt="Logo" className="hidden dark:block" />
+      <Image
+        src={
+          "https://cdn.copilotkit.ai/docs/copilotkit/copilotkit-logo-light.png"
+        }
+        width={width}
+        height={height}
+        alt="Logo"
+        className="block dark:hidden"
+      />
+      <Image
+        src={
+          "https://cdn.copilotkit.ai/docs/copilotkit/copilotkit-logo-dark.png"
+        }
+        width={width}
+        height={height}
+        alt="Logo"
+        className="hidden dark:block"
+      />
     </div>
-  )
-  
+  );
 }

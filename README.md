@@ -1,6 +1,6 @@
 <a href="https://go.copilotkit.ai/v150-whats-new" target="_blank">
 <img width="1595" height="284" alt="Introducing CopilotKit  v1 50!" src="https://github.com/user-attachments/assets/5d852a9b-290a-44b7-8c6a-9f75e51f1713" />
-<a /> 
+<a />
 
 <br>
 
@@ -30,6 +30,7 @@
   </div>
 
 ## ⚡️ Quick Install
+
 ```
   npx copilotkit@latest create
 ```
@@ -78,7 +79,6 @@ https://github.com/user-attachments/assets/46b7d161-a988-4453-9ca9-c0eca4c33da6
 
 <img width="4096" height="2725" alt="Headless UI" src="https://github.com/user-attachments/assets/4dbe1e74-8b46-4798-a658-f79ee5a66189" />
 
-
 ## 🖥️ Code Samples
 
 <span>Drop in these building blocks and tailor them to your needs.</span>
@@ -94,9 +94,9 @@ const { messages, addMessage, setMessages, state, ... } = agent;
 copilotkit.runAgent({ agent })
 
 // Pre-built components with deep customization options (CSS + pass custom sub-components)
-<CopilotSidebar 
-  instructions={"You are assisting the user as best as you can. Answer in the best way possible given the data you have."} 
-  labels={{ title: "Sidebar Assistant", initial: "Need any help?" }} 
+<CopilotSidebar
+  instructions={"You are assisting the user as best as you can. Answer in the best way possible given the data you have."}
+  labels={{ title: "Sidebar Assistant", initial: "Need any help?" }}
 />
 ```
 
@@ -108,7 +108,7 @@ const { agent } = useAgent({ agentId: "my_agent" });
 
 // Render and update your agent's state
 return <div>
-  <h1>{agent.state.city}</h1> 
+  <h1>{agent.state.city}</h1>
   <button onClick={() => agent.setState({ city: "NYC" })}>
     Set City
   </button>
@@ -165,6 +165,7 @@ useHumanInTheLoop({
   },
 });
 ```
+
 ```ts
 // Build generative UI on-top of your agent's tool calls
 useRenderToolCall({
@@ -175,14 +176,14 @@ useRenderToolCall({
     required: true,
   }],
   render: ({ args, result }) => {
-    <WeatherCard  
+    <WeatherCard
       city={args.city}
       temperature={result.temperature}
       description={result.description}
     />
   }
 })
-````
+```
 
 ## 🏆 Featured Examples
 
@@ -199,14 +200,15 @@ useRenderToolCall({
 </p>
 
 ## 🖥️ AG-UI: The Agent–User Interaction Protocol
-Connect agent workflow to user-facing apps, with deep partnerships and 1st-party integrations across the agentic stack—including LangGraph, CrewAI, and more.
 
+Connect agent workflow to user-facing apps, with deep partnerships and 1st-party integrations across the agentic stack—including LangGraph, CrewAI, and more.
 
   <a href="https://github.com/ag-ui-protocol/ag-ui" target="_blank">
    Learn more in the AG-UI README →
   </a>
 
 ## 🤝 Community
+
 <h3>Have questions or need help?</h3>
   <a href="https://discord.gg/6dffbvGU3D?ref=github_readme" target="_blank">
    Join our Discord →

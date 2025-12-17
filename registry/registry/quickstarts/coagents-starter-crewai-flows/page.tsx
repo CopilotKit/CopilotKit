@@ -38,7 +38,7 @@ export default CrewAIFlow;
 // Main Chat Component: Handles chat interface and background customization
 const Chat = () => {
   const [background, setBackground] = useState(
-    "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+    "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
   );
 
   // Tool: Allow AI to change background color dynamically

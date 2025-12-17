@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import YouTube from "react-youtube";
 

@@ -156,7 +156,7 @@ function Recipe() {
   }, [JSON.stringify(newRecipeState)]);
 
   const handleSkillLevelChange = (
-    event: React.ChangeEvent<HTMLSelectElement>
+    event: React.ChangeEvent<HTMLSelectElement>,
   ) => {
     updateRecipe({
       skill_level: event.target.value as SkillLevel,
@@ -165,7 +165,7 @@ function Recipe() {
 
   const handlePreferenceChange = (
     preference: SpecialPreferences,
-    checked: boolean
+    checked: boolean,
   ) => {
     if (checked) {
       updateRecipe({
@@ -177,14 +177,14 @@ function Recipe() {
     } else {
       updateRecipe({
         special_preferences: agentState.recipe.special_preferences.filter(
-          (p) => p !== preference
+          (p) => p !== preference,
         ),
       });
     }
   };
 
   const handleCookingTimeChange = (
-    event: React.ChangeEvent<HTMLInputElement>
+    event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     updateRecipe({
       cooking_time: cookingTimeValues[Number(event.target.value)].label,
@@ -192,7 +192,7 @@ function Recipe() {
   };
 
   const handleIngredientsChange = (
-    event: React.ChangeEvent<HTMLTextAreaElement>
+    event: React.ChangeEvent<HTMLTextAreaElement>,
   ) => {
     updateRecipe({
       ingredients: event.target.value,
@@ -200,7 +200,7 @@ function Recipe() {
   };
 
   const handleInstructionsChange = (
-    event: React.ChangeEvent<HTMLTextAreaElement>
+    event: React.ChangeEvent<HTMLTextAreaElement>,
   ) => {
     updateRecipe({
       instructions: event.target.value,
@@ -252,7 +252,7 @@ function Recipe() {
           min="0"
           max={cookingTimeValues.length - 1}
           value={cookingTimeValues.findIndex(
-            (value) => value.label === recipe.cooking_time
+            (value) => value.label === recipe.cooking_time,
           )}
           onChange={handleCookingTimeChange}
           className="w-full h-2 bg-gray-200 shadow rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -334,7 +334,7 @@ function Recipe() {
                 new TextMessage({
                   content: "Improve the recipe",
                   role: Role.User,
-                })
+                }),
               );
             }
           }}

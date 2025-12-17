@@ -1,21 +1,21 @@
-import React from 'react';
+import React from "react";
 
 interface LoaderProps {
-  size?: 'sm' | 'md' | 'lg';
+  size?: "sm" | "md" | "lg";
   className?: string;
   fullScreen?: boolean;
 }
 
 const sizeClasses = {
-  sm: 'w-4 h-4',
-  md: 'w-8 h-8',
-  lg: 'w-12 h-12',
+  sm: "w-4 h-4",
+  md: "w-8 h-8",
+  lg: "w-12 h-12",
 };
 
-export const Loader: React.FC<LoaderProps> = ({ 
-  size = 'lg',
-  className = '',
-  fullScreen = true
+export const Loader: React.FC<LoaderProps> = ({
+  size = "lg",
+  className = "",
+  fullScreen = true,
 }) => {
   if (fullScreen) {
     return (

@@ -1,5 +1,5 @@
 import type { Config } from "tailwindcss";
-const plugin = require('tailwindcss/plugin')
+const plugin = require("tailwindcss/plugin");
 const {
   default: flattenColorPalette,
 } = require("tailwindcss/lib/util/flattenColorPalette");
@@ -118,22 +118,26 @@ const config = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate"), addVariablesForColors, plugin(capitalizeFirstLetter)],
+  plugins: [
+    require("tailwindcss-animate"),
+    addVariablesForColors,
+    plugin(capitalizeFirstLetter),
+  ],
 } satisfies Config;
 
 function capitalizeFirstLetter({ addUtilities }: any) {
   const newUtilities = {
-    '.capitalize-first:first-letter': {
-      textTransform: 'uppercase',
+    ".capitalize-first:first-letter": {
+      textTransform: "uppercase",
     },
-  }
-  addUtilities(newUtilities, ['responsive', 'hover'])
+  };
+  addUtilities(newUtilities, ["responsive", "hover"]);
 }
 
 function addVariablesForColors({ addBase, theme }: any) {
   let allColors = flattenColorPalette(theme("colors"));
   let newVars = Object.fromEntries(
-    Object.entries(allColors).map(([key, val]) => [`--${key}`, val])
+    Object.entries(allColors).map(([key, val]) => [`--${key}`, val]),
   );
 
   addBase({

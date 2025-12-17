@@ -29,7 +29,7 @@ const Chat = () => {
   useCoAgentStateRender<AgentState>({
     name: "agenticChatAgent",
     render: ({ state }) => {
-      console.log(state)
+      console.log(state);
       if (!state.steps || state.steps.length === 0) {
         return null;
       }

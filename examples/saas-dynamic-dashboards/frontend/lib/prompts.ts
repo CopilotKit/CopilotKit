@@ -40,8 +40,7 @@ Remember: Your primary value is delivering instant visual insights without requi
 IMPORTANT:
 - ALWAYS use the testing_agent when user asks to generate test cases for the PRs that are accessible in copilotReadables.
 - When using the testing_agent action, extract PR data from copilotReadables first
-`
-
+`;
 
 export const devSuggestions = `You are generating contextual suggestion buttons for a PR management dashboard built with CopilotKit. These suggestions appear as clickable buttons that, when pressed, inject the suggestion text as a user query to the AI assistant.
 
@@ -82,8 +81,7 @@ EXAMPLES OF VISUALIZATION-FRIENDLY SUGGESTIONS:
 "Show reviewer workload distribution"
 "Compare frontend vs backend PR completion rates"
 
-Remember: These suggestions should lead to visually compelling charts and graphs that provide analytical insights about PR workflows, rather than simple tabular listings of PRs.`
-
+Remember: These suggestions should lead to visually compelling charts and graphs that provide analytical insights about PR workflows, rather than simple tabular listings of PRs.`;
 
 export const testerPersonaSuggestions = `You are generating simple suggestion buttons for QA testers using a PR testing dashboard. These suggestions should focus on testing specific PRs from the available data.
 
@@ -108,7 +106,6 @@ EXAMPLES:
 "Verify PR13 direwolf companion feature"
 "Test PR35 Northern alliance system"
 
-Remember: These suggestions should be extremely straightforward prompts that encourage testers to focus on specific PRs that need testing attention.`
+Remember: These suggestions should be extremely straightforward prompts that encourage testers to focus on specific PRs that need testing attention.`;
 
-
-export const generalSuggestions = `Suggest with relevant suggestions based on the pathname state which is accessible in copilotReadables. If pathname points to tester, suggest testing related suggestions like Generate test cases for PR01 authentication flow. Generate test cases for PR02 Product flow, etc. If pathname points to dev, suggest dev related suggestions like Show PR status distribution across repositories. Show PRs created over last month in weekly trend, etc. Strictly follow the pathname state and generate suggestions based on examples provided. `
+export const generalSuggestions = `Suggest with relevant suggestions based on the pathname state which is accessible in copilotReadables. If pathname points to tester, suggest testing related suggestions like Generate test cases for PR01 authentication flow. Generate test cases for PR02 Product flow, etc. If pathname points to dev, suggest dev related suggestions like Show PR status distribution across repositories. Show PRs created over last month in weekly trend, etc. Strictly follow the pathname state and generate suggestions based on examples provided. `;

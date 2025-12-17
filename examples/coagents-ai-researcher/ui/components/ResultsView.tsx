@@ -58,9 +58,7 @@ export function ResultsView() {
               Answer
             </h2>
             <div className="text-slate-500 font-light">
-              {isLoading ? (
-                null
-              ) : (
+              {isLoading ? null : (
                 <AnswerMarkdown markdown={agentState?.answer?.markdown} />
               )}
             </div>
@@ -84,7 +82,7 @@ export function ResultsView() {
                         {idx + 1}. {ref.title}
                       </a>
                     </li>
-                  )
+                  ),
                 )}
               </ul>
             </div>

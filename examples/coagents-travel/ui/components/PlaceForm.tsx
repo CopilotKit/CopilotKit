@@ -18,10 +18,10 @@ interface PlaceFormProps {
   submitLabel?: string;
 }
 
-export function PlaceForm({ 
-  onSubmit, 
-  place, 
-  submitLabel = place ? "Save Changes" : "Add Place" 
+export function PlaceForm({
+  onSubmit,
+  place,
+  submitLabel = place ? "Save Changes" : "Add Place",
 }: PlaceFormProps) {
   const [name, setName] = useState(place?.name ?? "");
   const [description, setDescription] = useState(place?.description ?? "");
@@ -54,30 +54,30 @@ export function PlaceForm({
     <div className="grid gap-4 py-4">
       <div className="grid gap-2">
         <Label htmlFor="name">Place name</Label>
-        <Input 
-          id="name" 
-          placeholder="Enter place name" 
-          value={name} 
+        <Input
+          id="name"
+          placeholder="Enter place name"
+          value={name}
           onChange={(e) => setName(e.target.value)}
           className="border-gray-200"
         />
       </div>
       <div className="grid gap-2">
         <Label htmlFor="address">Address</Label>
-        <Input 
-          id="address" 
-          placeholder="Enter address" 
-          value={address} 
+        <Input
+          id="address"
+          placeholder="Enter address"
+          value={address}
           onChange={(e) => setAddress(e.target.value)}
           className="border-gray-200"
         />
       </div>
       <div className="grid gap-2">
         <Label htmlFor="description">Description</Label>
-        <Input 
-          id="description" 
-          placeholder="Enter description" 
-          value={description} 
+        <Input
+          id="description"
+          placeholder="Enter description"
+          value={description}
           onChange={(e) => setDescription(e.target.value)}
           className="border-gray-200"
         />

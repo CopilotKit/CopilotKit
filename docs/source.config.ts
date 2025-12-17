@@ -3,8 +3,8 @@ import {
   defineDocs,
   frontmatterSchema,
   metaSchema,
-} from 'fumadocs-mdx/config';
-import { z } from 'zod';
+} from "fumadocs-mdx/config";
+import { z } from "zod";
 
 import {
   fileGenerator,
@@ -19,7 +19,7 @@ import {
   transformerNotationWordHighlight,
   // ...
 } from "@shikijs/transformers";
-import { remarkMermaid } from '@theguild/remark-mermaid'
+import { remarkMermaid } from "@theguild/remark-mermaid";
 
 // Extend the frontmatter schema to include hideHeader and hideTOC fields
 const extendedFrontmatterSchema = frontmatterSchema.extend({

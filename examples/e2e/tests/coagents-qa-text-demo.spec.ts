@@ -16,14 +16,14 @@ const variants: TestVariants = [
 const allConfigs = getConfigs();
 const qaConfigs = filterConfigsByProject(
   allConfigs,
-  PROJECT_NAMES.COAGENTS_QA_TEXT
+  PROJECT_NAMES.COAGENTS_QA_TEXT,
 );
 const groupedConfigs = groupConfigsByDescription(qaConfigs);
 
 const cloudVariants = variants.filter((variant) => variant.isCloud);
 const nonCloudVariants = variants.filter((variant) => !variant.isCloud);
 
-test.describe.configure({ mode: 'parallel' });
+test.describe.configure({ mode: "parallel" });
 
 Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
   test.describe(`${projectName}`, () => {
@@ -35,7 +35,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               {
                 ...config,
               },
-              nonCloudVariants
+              nonCloudVariants,
             ),
             ...cloudVariants,
           ].forEach((variant) => {
@@ -69,7 +69,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
 
                 // Get the send button and ensure it's enabled before clicking
                 const sendButton = page.locator(
-                  ".copilotKitInputControls button"
+                  ".copilotKitInputControls button",
                 );
                 await sendButton.waitFor({ state: "visible" });
 
@@ -91,7 +91,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
                   await expect(sendButton).toHaveAttribute(
                     "data-copilotkit-in-progress",
                     "false",
-                    { timeout: 30000 }
+                    { timeout: 30000 },
                   );
 
                   // Additional wait for the message to be fully rendered

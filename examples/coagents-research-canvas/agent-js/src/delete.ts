@@ -8,7 +8,7 @@ import { ToolMessage, AIMessage } from "@langchain/core/messages";
 
 export async function delete_node(
   state: AgentState,
-  config: RunnableConfig
+  config: RunnableConfig,
 ): Promise<AgentState> {
   /**
    * Delete Node
@@ -18,7 +18,7 @@ export async function delete_node(
 
 export async function perform_delete_node(
   state: AgentState,
-  config: RunnableConfig
+  config: RunnableConfig,
 ) {
   /**
    * Perform Delete Node
@@ -39,7 +39,7 @@ export async function perform_delete_node(
       urls = aiMessage.tool_calls[0].args.urls;
     } else {
       const parsedToolCall = JSON.parse(
-        aiMessage.additional_kwargs!.function_call!.arguments
+        aiMessage.additional_kwargs!.function_call!.arguments,
       );
       urls = parsedToolCall.urls;
     }

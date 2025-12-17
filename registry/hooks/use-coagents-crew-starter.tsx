@@ -19,9 +19,9 @@ import { CrewInChatInput } from "@/registry/crews/crew-in-chat-input";
 /**
  * Hook: useCoagentsCrewStarter
  *
- * This hook provides a simplified interface for initializing and managing 
+ * This hook provides a simplified interface for initializing and managing
  * a copilot crew in your application. It handles:
- * 
+ *
  * 1. Initialization with configured agent name from environment variables
  * 2. Collection of user inputs through a form interface
  * 3. Real-time state visualization during execution
@@ -31,7 +31,7 @@ import { CrewInChatInput } from "@/registry/crews/crew-in-chat-input";
  * @param {Object} params - Parameters for initializing the crew
  * @param {Array<string>} params.inputs - Input field names to collect from the user
  * @returns {Object} - An object containing the crew's output
- * 
+ *
  * @example
  * ```tsx
  * const { output } = useCoagentsCrewStarter({
@@ -47,9 +47,10 @@ export const useCoagentsCrewStarter = ({
   output: string;
 } => {
   const [initialMessageSent, setInitialMessageSent] = useState(false);
-  
+
   // Use the agent name from environment variables
-  const agentName = process.env.NEXT_PUBLIC_COPILOTKIT_AGENT_NAME || "DefaultAgent";
+  const agentName =
+    process.env.NEXT_PUBLIC_COPILOTKIT_AGENT_NAME || "DefaultAgent";
 
   // Initialize the crew agent with a default state
   const { state, setState, run } = useCoAgent<
@@ -80,7 +81,7 @@ export const useCoagentsCrewStarter = ({
         new TextMessage({
           content: "Hi! Please provide your inputs to get started.",
           role: MessageRole.Developer,
-        })
+        }),
       );
       setInitialMessageSent(true);
     }, 0);
@@ -93,7 +94,7 @@ export const useCoagentsCrewStarter = ({
         new TextMessage({
           role: MessageRole.Developer,
           content: "My inputs are: " + JSON.stringify(state?.inputs),
-        })
+        }),
       ).then(() => {
         setInitialMessageSent(true);
       });

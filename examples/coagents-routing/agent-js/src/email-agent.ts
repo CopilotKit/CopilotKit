@@ -34,7 +34,7 @@ const write_email = tool(() => {}, {
 
 export async function email_node(
   state: EmailAgentState,
-  config: RunnableConfig
+  config: RunnableConfig,
 ) {
   /**
    * Make a joke.
@@ -59,7 +59,7 @@ export async function email_node(
 
   const response = await email_model.invoke(
     [new SystemMessage({ content: system_message }), ...state.messages],
-    config
+    config,
   );
 
   const tool_calls = response.tool_calls;

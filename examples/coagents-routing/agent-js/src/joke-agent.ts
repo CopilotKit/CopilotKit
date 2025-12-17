@@ -55,7 +55,7 @@ export async function joke_node(state: JokeAgentState, config: RunnableConfig) {
 
   const response = await joke_model.invoke(
     [new SystemMessage({ content: system_message }), ...state.messages],
-    config
+    config,
   );
 
   const tool_calls = response.tool_calls;

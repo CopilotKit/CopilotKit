@@ -45,7 +45,7 @@ export class PreviewProjectStack extends cdk.Stack {
     const secrets = secretsmanager.Secret.fromSecretNameV2(
       this,
       "ApiKeys",
-      "previews/api-keys"
+      "previews/api-keys",
     );
 
     // Create explicit log groups
@@ -59,7 +59,7 @@ export class PreviewProjectStack extends cdk.Stack {
     let buildSecrets: Record<string, string> = {};
 
     if (props.environmentVariables) {
-      environmentVariables = {  ...props.environmentVariables };
+      environmentVariables = { ...props.environmentVariables };
     }
 
     if (props.environmentVariablesFromSecrets) {
@@ -70,13 +70,17 @@ export class PreviewProjectStack extends cdk.Stack {
       }
     }
 
-    if(props.buildSecrets) {
+    if (props.buildSecrets) {
       for (const secret of props.buildSecrets) {
         buildSecrets[secret] = `id=${secret}`;
       }
     }
 
-    const ecrRepository = ecr.Repository.fromRepositoryName(this, "ECRRepo", "coagents");
+    const ecrRepository = ecr.Repository.fromRepositoryName(
+      this,
+      "ECRRepo",
+      "coagents",
+    );
 
     const fn = new lambda.Function(this, `Function`, {
       logGroup: logGroup,

@@ -17,15 +17,19 @@ export function FinancingForm({ onSubmit, status }: FinancingFormProps) {
     value,
     className:
       "border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:outline-none rounded-md p-2 disabled:bg-white disabled:cursor-not-allowed disabled:text-gray-500",
-    onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setter(e.target.value),
+    onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
+      setter(e.target.value),
     disabled: isSubmitted,
   });
 
   return (
     <AnimatedCard status={status}>
-      <h1 className="text-2xl text-center font-semibold antialiased">Financing Information</h1>
+      <h1 className="text-2xl text-center font-semibold antialiased">
+        Financing Information
+      </h1>
       <h2 className="text-center text-base text-gray-400 antialiased">
-        Please provide your financial information to process your financing application.
+        Please provide your financial information to process your financing
+        application.
       </h2>
       <hr className="border-pink-300 mt-4 mb-4" />
 

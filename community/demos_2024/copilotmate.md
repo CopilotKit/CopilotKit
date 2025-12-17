@@ -1,7 +1,9 @@
 # 1. CopilotMate
+
 CopilotMate: An AI-powered productivity assistant with tools like to-do lists, expense tracking, StudyBuddy with coagent, ai spreadsheet and more.
 
-### 2. Technologies Being Used  
+### 2. Technologies Being Used
+
 <p align="center">
   <img src="https://img.shields.io/badge/Next.js-black?logo=next.js" alt="Next.js" />
   <img src="https://img.shields.io/badge/Tailwind_CSS-38B2AC?logo=tailwind-css&logoColor=white" alt="Tailwind CSS" />
@@ -15,14 +17,16 @@ CopilotMate: An AI-powered productivity assistant with tools like to-do lists, e
 - **Groq SDK** (for language models)
 - **Llama model** (for AI coagents)
 
-### 3. GitHub Project Link  
-GitHub Repo Link:  [Copilotmate Repo](https://github.com/AkashJana18/copilotmate)
+### 3. GitHub Project Link
 
+GitHub Repo Link: [Copilotmate Repo](https://github.com/AkashJana18/copilotmate)
 
-### 4. Deployment 
- Deploying soon....Stay tuned. Till then watch [Demo](https://www.youtube.com/watch?v=qPVRPUH8ewU&t=33s)
+### 4. Deployment
 
-### 5. Screenshot 
+Deploying soon....Stay tuned. Till then watch [Demo](https://www.youtube.com/watch?v=qPVRPUH8ewU&t=33s)
+
+### 5. Screenshot
+
 ![image](https://github.com/user-attachments/assets/68df962c-9bc2-48ae-9ffd-3c073f13e083)
 ![image](https://github.com/user-attachments/assets/5d78657c-fa78-492c-bbf8-d2dcdf6fa699)
 ![image](https://github.com/user-attachments/assets/1fe3ea5e-4a34-4755-a042-d327adc17c8e)
@@ -37,13 +41,16 @@ GitHub Repo Link:  [Copilotmate Repo](https://github.com/AkashJana18/copilotmate
 
 #### ⭐ Please watch the video to feel the true UI/UX : [Demo](https://www.youtube.com/watch?v=qPVRPUH8ewU&t=33s)
 
-### 6. Who Are You?  
-- **GitHub**: [Akash's GitHub](https://github.com/AkashJana18)  
+### 6. Who Are You?
+
+- **GitHub**: [Akash's GitHub](https://github.com/AkashJana18)
 - **Twitter**: [Akashj_01](https://x.com/Akashj_01)
 - **LinkedIn**: [Akash Jana](https://linkedin.com/u/akashjana)
 
 ### 7. Activities
-Link to any bonus activities:  
+
+Link to any bonus activities:
+
 - Solved GitHub issues related to CopilotKit :
   - Fixes #713, #645, #644, #626 (Hacktober related)
   - Fixed #726 [Link](https://github.com/CopilotKit/CopilotKit/pull/726)

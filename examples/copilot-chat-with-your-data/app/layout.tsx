@@ -16,7 +16,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Chat with your data - CopilotKit",
-  description: "AI-powered dashboard assistant for data visualization and insights",
+  description:
+    "AI-powered dashboard assistant for data visualization and insights",
 };
 
 export default function RootLayout({
@@ -26,11 +27,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <CopilotKit 
-          runtimeUrl="/api/copilotkit"
-          showDevConsole={false}
-        >
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        <CopilotKit runtimeUrl="/api/copilotkit" showDevConsole={false}>
           {children}
         </CopilotKit>
       </body>

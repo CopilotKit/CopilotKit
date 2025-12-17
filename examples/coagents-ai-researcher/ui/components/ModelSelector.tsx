@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import React from "react";
 import {
@@ -7,7 +7,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from "@/components/ui/select";
 import { useModelSelectorContext } from "@/lib/model-selector-provider";
 
 export function ModelSelector() {
@@ -15,7 +15,7 @@ export function ModelSelector() {
 
   return (
     <div className="fixed bottom-0 left-0 p-4 z-50">
-      <Select value={model} onValueChange={v => setModel(v)}>
+      <Select value={model} onValueChange={(v) => setModel(v)}>
         <SelectTrigger className="w-[180px]">
           <SelectValue placeholder="Theme" />
         </SelectTrigger>
@@ -26,5 +26,5 @@ export function ModelSelector() {
         </SelectContent>
       </Select>
     </div>
-  )
+  );
 }

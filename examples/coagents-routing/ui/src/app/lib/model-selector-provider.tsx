@@ -23,12 +23,13 @@ export const ModelSelectorProvider = ({
   const model =
     globalThis.window === undefined
       ? "openai"
-      : new URL(window.location.href).searchParams.get("coAgentsModel") ??
-        "openai";
+      : (new URL(window.location.href).searchParams.get("coAgentsModel") ??
+        "openai");
 
-  const lgcDeploymentUrl = globalThis.window === undefined
+  const lgcDeploymentUrl =
+    globalThis.window === undefined
       ? null
-      : new URL(window.location.href).searchParams.get("lgcDeploymentUrl")
+      : new URL(window.location.href).searchParams.get("lgcDeploymentUrl");
 
   const [hidden, setHidden] = useState<boolean>(false);
 
@@ -57,7 +58,7 @@ export const useModelSelectorContext = () => {
   const context = useContext(ModelSelectorContext);
   if (context === undefined) {
     throw new Error(
-      "useModelSelectorContext must be used within a ModelSelectorProvider"
+      "useModelSelectorContext must be used within a ModelSelectorProvider",
     );
   }
   return context;

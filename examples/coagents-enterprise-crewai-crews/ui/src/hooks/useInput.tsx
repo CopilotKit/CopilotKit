@@ -28,7 +28,7 @@ export function useInput({
         new TextMessage({
           content: "Hi, Please provide your location before we get started.",
           role: MessageRole.Assistant,
-        })
+        }),
       );
       console.log("Message appended");
       setInitialMessageSent(true);

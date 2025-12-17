@@ -56,18 +56,41 @@ const mdxComponents = {
   PropertyReference: PropertyReference,
   a: ({ href, children, className, ...props }: any) => {
     // Don't wrap anchor links (hash links) in NavigationLink to avoid nested <a> tags
-    if (href && typeof href === 'string' && href.startsWith('#')) {
-      return <a href={href} className={className} {...props}>{children}</a>;
+    if (href && typeof href === "string" && href.startsWith("#")) {
+      return (
+        <a href={href} className={className} {...props}>
+          {children}
+        </a>
+      );
     }
     // Don't wrap links that have data-card attribute or peer className (fumadocs heading anchors)
-    if (props && (props['data-card'] !== undefined || props['data-heading'] !== undefined)) {
-      return <a href={href} className={className} {...props}>{children}</a>;
+    if (
+      props &&
+      (props["data-card"] !== undefined || props["data-heading"] !== undefined)
+    ) {
+      return (
+        <a href={href} className={className} {...props}>
+          {children}
+        </a>
+      );
     }
     // Don't wrap links with 'peer' className (fumadocs uses this for heading anchor links)
-    if (className && typeof className === 'string' && className.includes('peer')) {
-      return <a href={href} className={className} {...props}>{children}</a>;
+    if (
+      className &&
+      typeof className === "string" &&
+      className.includes("peer")
+    ) {
+      return (
+        <a href={href} className={className} {...props}>
+          {children}
+        </a>
+      );
     }
-    return <NavigationLink href={href as string} className={className} {...props}>{children}</NavigationLink>;
+    return (
+      <NavigationLink href={href as string} className={className} {...props}>
+        {children}
+      </NavigationLink>
+    );
   },
   // HTML `ref` attribute conflicts with `forwardRef`
   pre: ({ ref: _ref, ...props }: any) => (
@@ -87,21 +110,26 @@ export default async function Page({
   if (!page) notFound();
   const MDX = page.data.body;
   const cloudOnly = cloudOnlyFeatures.includes(page.data.title);
-  
+
   // Consider a page "Premium" if its slug path contains a "premium" segment OR title matches known premium features OR frontmatter premium flag
-  const bySlugPremium = Array.isArray(page.slugs) ? page.slugs.includes("premium") : false;
+  const bySlugPremium = Array.isArray(page.slugs)
+    ? page.slugs.includes("premium")
+    : false;
   const byTitlePremium = premiumFeatureTitles.includes(page.data.title || "");
   const byFrontmatterPremium = Boolean((page as any).data?.premium);
   const isPremium = bySlugPremium || byTitlePremium || byFrontmatterPremium;
   // Compute premium overview href based on current section (first slug segment)
-  const baseSegment = Array.isArray(page.slugs) && page.slugs.length ? `/${page.slugs[0]}` : "/";
+  const baseSegment =
+    Array.isArray(page.slugs) && page.slugs.length ? `/${page.slugs[0]}` : "/";
   const premiumOverviewHref =
-    baseSegment === "/" ? "/premium/overview" : `${baseSegment}/premium/overview`;
-  
+    baseSegment === "/"
+      ? "/premium/overview"
+      : `${baseSegment}/premium/overview`;
+
   // Check if the page should hide the header or TOC
   const hideHeader = (page.data as any).hideHeader || false;
   const hideTOC = (page.data as any).hideTOC || false;
-  
+
   // Get TOC from imported snippets and merge with page TOC (only if TOC is not hidden)
   // Use try-catch to handle build-time issues gracefully
   let snippetTOC: any[] = [];
@@ -109,18 +137,18 @@ export default async function Page({
     try {
       snippetTOC = await getSnippetTOCForPage(resolvedParams.slug);
     } catch (error) {
-      console.warn('Failed to load snippet TOC:', error);
+      console.warn("Failed to load snippet TOC:", error);
       snippetTOC = [];
     }
   }
   const combinedTOC = hideTOC ? [] : [...(page.data.toc || []), ...snippetTOC];
-  
+
   return (
     <DocsPage
       toc={combinedTOC}
       full={page.data.full}
       tableOfContent={{
-        style:"clerk",
+        style: "clerk",
       }}
     >
       <div className={hideHeader ? "" : "min-h-screen"}>
@@ -149,7 +177,9 @@ export default async function Page({
                         alt="CopilotKit"
                         className="w-4 h-4"
                       />
-                      <span className="text-sm font-semibold tracking-tight">Premium</span>
+                      <span className="text-sm font-semibold tracking-tight">
+                        Premium
+                      </span>
                     </Badge>
                   </a>
                 )}
@@ -170,7 +200,11 @@ export async function generateStaticParams() {
   return source.generateParams();
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ slug?: string[] }> }) {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug?: string[] }>;
+}) {
   const resolvedParams = await params;
   const page = source.getPage(resolvedParams.slug);
   if (!page) notFound();

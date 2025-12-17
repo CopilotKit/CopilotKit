@@ -27,43 +27,40 @@ export function useFs(initialPath: string) {
     }
   }, []);
 
-  const readFile = useCallback(
-    async (relativePath: string) => {
-      const [id, ...rest] = relativePath.split("/");
-      const fileName = rest.join("/");
+  const readFile = useCallback(async (relativePath: string) => {
+    const [id, ...rest] = relativePath.split("/");
+    const fileName = rest.join("/");
 
-      const demo = config.find((d) => d.id === id);
-      if (!demo) {
-        setFileContent("");
-        setSelectedFilePath("");
-        return;
-      }
+    const demo = config.find((d) => d.id === id);
+    if (!demo) {
+      setFileContent("");
+      setSelectedFilePath("");
+      return;
+    }
 
-      const file = demo.files.find((f) => f.path === fileName);
-      if (!file) {
-        setFileContent("");
-        setSelectedFilePath("");
-        return;
-      }
+    const file = demo.files.find((f) => f.path === fileName);
+    if (!file) {
+      setFileContent("");
+      setSelectedFilePath("");
+      return;
+    }
 
-      setFileContent(file.content);
-      setSelectedFilePath(file.path);
-    },
-    []
-  );
+    setFileContent(file.content);
+    setSelectedFilePath(file.path);
+  }, []);
 
   const handleFileSelect = useCallback(
     (path: string) => {
       readFile(path);
     },
-    [readFile]
+    [readFile],
   );
 
   const handleNavigate = useCallback(
     (path: string) => {
       listFiles(path);
     },
-    [listFiles]
+    [listFiles],
   );
 
   return {

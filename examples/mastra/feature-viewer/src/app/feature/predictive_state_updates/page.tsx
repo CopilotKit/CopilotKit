@@ -235,7 +235,7 @@ function fromMarkdown(text: string) {
 function diffPartialText(
   oldText: string,
   newText: string,
-  isComplete: boolean = false
+  isComplete: boolean = false,
 ) {
   let oldTextToCompare = oldText;
   if (oldText.length > newText.length && !isComplete) {

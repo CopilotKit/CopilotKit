@@ -19,15 +19,15 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const [activeTab, setActiveTab] = useState<string>("preview");
   const [readmeContent, setReadmeContent] = useState<string | null>(null);
   const [compiledMDX, setCompiledMDX] = useState<string | null>(null);
-  
+
   // Extract the current demo ID from the pathname
-  const pathParts = pathname.split('/');
+  const pathParts = pathname.split("/");
   const currentDemoId = pathParts[pathParts.length - 1];
-  const currentDemo = config.find(d => d.id === currentDemoId);
-  
+  const currentDemo = config.find((d) => d.id === currentDemoId);
+
   // Original path format for code and readme loading
   const demoPath = currentDemo ? `agent/demo/${currentDemo.id}` : "";
-  
+
   const {
     currentPath,
     files,
@@ -37,11 +37,11 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     handleFileSelect,
     handleNavigate,
   } = useFs(demoPath);
-  
+
   // Load README content
   const loadReadmeContent = useCallback(async (demoId: string) => {
     if (!demoId) return;
-    
+
     // Process MDX if the file exists
     try {
       const mdxResponse = await fetch("/api/mdx/process", {
@@ -78,7 +78,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     if (value === "code" && files) {
       // Look for agent.py file
       const agentFile = files.find(
-        (file) => file.name === "agent.py" || file.path.endsWith("/agent.py")
+        (file) => file.name === "agent.py" || file.path.endsWith("/agent.py"),
       );
 
       if (agentFile) {
@@ -91,18 +91,16 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     <ViewerLayout showFileTree={false} showCodeEditor={false}>
       <div className="flex h-full w-full overflow-hidden">
         {/* Sidebar */}
-        <Sidebar 
-          activeTab={activeTab} 
+        <Sidebar
+          activeTab={activeTab}
           onTabChange={handleTabChange}
-          readmeContent={readmeContent} 
+          readmeContent={readmeContent}
         />
-        
+
         {/* Content */}
         <div className="flex-1 overflow-auto">
           {activeTab === "preview" ? (
-            <div className="h-full">
-              {children}
-            </div>
+            <div className="h-full">{children}</div>
           ) : activeTab === "readme" && readmeContent ? (
             <div className="flex-1 p-6 overflow-auto bg-background">
               <div className="max-w-4xl mx-auto">
@@ -166,16 +164,16 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                         language: selectedFilePath?.endsWith(".py")
                           ? "python"
                           : selectedFilePath?.endsWith(".ts") ||
-                            selectedFilePath?.endsWith(".tsx")
-                          ? "typescript"
-                          : selectedFilePath?.endsWith(".js") ||
-                            selectedFilePath?.endsWith(".jsx")
-                          ? "javascript"
-                          : selectedFilePath?.endsWith(".yaml")
-                          ? "yaml"
-                          : selectedFilePath?.endsWith(".toml")
-                          ? "toml"
-                          : "plaintext",
+                              selectedFilePath?.endsWith(".tsx")
+                            ? "typescript"
+                            : selectedFilePath?.endsWith(".js") ||
+                                selectedFilePath?.endsWith(".jsx")
+                              ? "javascript"
+                              : selectedFilePath?.endsWith(".yaml")
+                                ? "yaml"
+                                : selectedFilePath?.endsWith(".toml")
+                                  ? "toml"
+                                  : "plaintext",
                       }}
                     />
                   </div>
@@ -191,4 +189,4 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
       </div>
     </ViewerLayout>
   );
-} 
+}

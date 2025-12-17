@@ -36,7 +36,8 @@ export function Progress({
             <div className="flex-1 flex justify-center py-2 pl-2 pr-4">
               <div className="flex-1 flex items-center">{step.description}</div>
               <div className="text-slate-400">
-                {step.updates?.length > 0 && step.updates[step.updates.length - 1]}
+                {step.updates?.length > 0 &&
+                  step.updates[step.updates.length - 1]}
               </div>
             </div>
           </div>

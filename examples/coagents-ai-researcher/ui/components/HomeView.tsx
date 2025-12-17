@@ -19,9 +19,7 @@ export function HomeView() {
     useResearchContext();
   const { model } = useModelSelectorContext();
   const [isInputFocused, setIsInputFocused] = useState(false);
-  const {
-    run: runResearchAgent,
-  } = useCoAgent<AgentState>({
+  const { run: runResearchAgent } = useCoAgent<AgentState>({
     name: "ai_researcher",
     initialState: {
       model,
@@ -62,7 +60,7 @@ export function HomeView() {
           "w-full bg-slate-100/50 border shadow-sm rounded-md transition-all",
           {
             "ring-1 ring-slate-300": isInputFocused,
-          }
+          },
         )}
       >
         <Textarea

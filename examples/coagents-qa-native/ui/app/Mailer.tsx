@@ -38,7 +38,7 @@ const InterruptForm = ({
 export function Mailer() {
   const { model } = useModelSelectorContext();
   const [messageState, setMessageState] = useState<"SEND" | "CANCEL" | null>(
-    null
+    null,
   );
 
   useCopilotChatSuggestions({
@@ -51,8 +51,8 @@ export function Mailer() {
       model,
     },
     configurable: {
-      authToken: 'exampleToken'
-    }
+      authToken: "exampleToken",
+    },
   });
 
   useCopilotAction({
@@ -70,7 +70,7 @@ export function Mailer() {
 
   useCopilotAction({
     name: "DisplayEmail",
-    pairedAction: 'EmailTool',
+    pairedAction: "EmailTool",
     parameters: [
       {
         name: "emailContent",

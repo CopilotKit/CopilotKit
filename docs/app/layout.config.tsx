@@ -1,4 +1,4 @@
-import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
+import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
 import { Logo } from "./logo";
 
 /**
@@ -14,4 +14,3 @@ export const baseOptions: BaseLayoutProps = {
     title: <Logo />,
   },
 };
-

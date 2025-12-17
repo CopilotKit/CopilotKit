@@ -21,7 +21,7 @@ export async function email_node(state: AgentState, config: RunnableConfig) {
   const authToken = config.configurable?.authToken ?? null;
   if (authToken !== "exampleToken") {
     throw new Error(
-      '[AUTH ERROR]: This demo uses a dummy auth token. Make sure it is set to "exampleToken" in Mailer.tsx useCoAgent call in the configurable'
+      '[AUTH ERROR]: This demo uses a dummy auth token. Make sure it is set to "exampleToken" in Mailer.tsx useCoAgent call in the configurable',
     );
   }
 
@@ -43,7 +43,7 @@ export async function email_node(state: AgentState, config: RunnableConfig) {
     convertActionsToDynamicStructuredTools(state.copilotkit.actions),
     {
       tool_choice: "EmailTool",
-    }
+    },
   );
 
   const response = await email_model.invoke(
@@ -52,7 +52,7 @@ export async function email_node(state: AgentState, config: RunnableConfig) {
       ...interruptMessages,
       new HumanMessage({ content: instructions }),
     ],
-    config
+    config,
   );
 
   const tool_calls = response.tool_calls;
@@ -69,7 +69,7 @@ export async function email_node(state: AgentState, config: RunnableConfig) {
 
 export async function send_email_node(
   state: AgentState,
-  config: RunnableConfig
+  config: RunnableConfig,
 ) {
   /**
    * Send an email.

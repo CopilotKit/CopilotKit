@@ -7,13 +7,13 @@ export type Place = {
   rating: number;
   description?: string;
 };
-  
+
 export type Trip = {
   id: string;
   name: string;
   center_latitude: number;
   center_longitude: number;
-  zoom_level?: number | 13; 
+  zoom_level?: number | 13;
   places: Place[];
 };
 

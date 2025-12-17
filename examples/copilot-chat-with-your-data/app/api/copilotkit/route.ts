@@ -2,9 +2,9 @@ import {
   CopilotRuntime,
   OpenAIAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
-} from '@copilotkit/runtime';
-import { tavily } from '@tavily/core';
-import { NextRequest } from 'next/server';
+} from "@copilotkit/runtime";
+import { tavily } from "@tavily/core";
+import { NextRequest } from "next/server";
 
 const serviceAdapter = new OpenAIAdapter({});
 const runtime = new CopilotRuntime({
@@ -21,21 +21,21 @@ const runtime = new CopilotRuntime({
             required: true,
           },
         ],
-        handler: async ({query}: {query: string}) => {
+        handler: async ({ query }: { query: string }) => {
           // can safely reference sensitive information like environment variables
           const tvly = tavily({ apiKey: process.env.TAVILY_API_KEY });
-          return await tvly.search(query, {max_results: 5});
+          return await tvly.search(query, { max_results: 5 });
         },
       },
-    ]
-  }
+    ];
+  },
 });
 
 export const POST = async (req: NextRequest) => {
   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
     runtime,
     serviceAdapter,
-    endpoint: '/api/copilotkit',
+    endpoint: "/api/copilotkit",
   });
 
   return handleRequest(req);

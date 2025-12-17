@@ -22,12 +22,13 @@ Transform your data visualization experience with an AI-powered dashboard assist
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - npm, yarn, or pnpm
 
 ### Installation
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/CopilotKit/CopilotKit.git
    cd CopilotKit/examples/copilot-chat-with-your-data
@@ -52,6 +53,7 @@ Transform your data visualization experience with an AI-powered dashboard assist
    </details>
 
 3. Create a `.env` file in the project root and add your [OpenAI API Key](https://platform.openai.com/api-keys) and [Tavily API Key](https://tavily.com/api-key):
+
    ```
    OPENAI_API_KEY=your_openai_api_key
    TAVILY_API_KEY=your_tavily_api_key
@@ -89,18 +91,21 @@ The application supports the following optional query parameters:
 This demo showcases several powerful CopilotKit features:
 
 ### CopilotKit Provider
+
 This provides the chat context to all of the children components.
 
 <em>[app/layout.tsx](./app/layout.tsx)</em>
 
 ```tsx
-export default function RootLayout({children}: Readonly<{children: React.ReactNode}>) {
+export default function RootLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <CopilotKit runtimeUrl="/api/copilotkit">
-          {children}
-        </CopilotKit>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        <CopilotKit runtimeUrl="/api/copilotkit">{children}</CopilotKit>
       </body>
     </html>
   );
@@ -108,13 +113,15 @@ export default function RootLayout({children}: Readonly<{children: React.ReactNo
 ```
 
 ### CopilotReadable
+
 This makes your dashboard data available to the AI, allowing it to understand and analyze your metrics in real-time.
 
 <em>[components/Dashboard.tsx](./components/Dashboard.tsx)</em>
 
 ```tsx
 useCopilotReadable({
-  description: "Dashboard data including sales trends, product performance, and category distribution",
+  description:
+    "Dashboard data including sales trends, product performance, and category distribution",
   value: {
     salesData,
     productData,
@@ -127,13 +134,14 @@ useCopilotReadable({
       totalCustomers,
       conversionRate,
       averageOrderValue,
-      profitMargin
-    }
-  }
+      profitMargin,
+    },
+  },
 });
 ```
 
 ### Backend Actions
+
 Backend actions are used to handle operations that require secure server-side processing. This allows you to
 still let the LLM talk to your data, even when it needs to be secured.
 
@@ -141,7 +149,7 @@ still let the LLM talk to your data, even when it needs to be secured.
 
 ```ts
 const runtime = new CopilotRuntime({
-  actions: ({properties, url}) => {
+  actions: ({ properties, url }) => {
     return [
       {
         name: "searchInternet",
@@ -154,14 +162,14 @@ const runtime = new CopilotRuntime({
             required: true,
           },
         ],
-        handler: async ({query}: {query: string}) => {
+        handler: async ({ query }: { query: string }) => {
           // can safely reference sensitive information like environment variables
           const tvly = tavily({ apiKey: process.env.TAVILY_API_KEY });
-          return await tvly.search(query, {max_results: 5});
+          return await tvly.search(query, { max_results: 5 });
         },
       },
-    ]
-  }
+    ];
+  },
 });
 ```
 
@@ -180,15 +188,21 @@ useCopilotAction({
       type: "string",
       description: "The query to search the internet for.",
       required: true,
-    }
+    },
   ],
-  render: ({args, status}) => {
-    return <SearchResults query={args.query || 'No query provided'} status={status} />;
-  }
+  render: ({ args, status }) => {
+    return (
+      <SearchResults
+        query={args.query || "No query provided"}
+        status={status}
+      />
+    );
+  },
 });
 ```
 
 ### CopilotSidebar
+
 The CopilotSidebar component provides a chat interface for users to interact with the AI assistant. It's customized with specific labels and instructions to provide a data-focused experience.
 
 <em>[app/page.tsx](./app/page.tsx)</em>
@@ -199,13 +213,15 @@ The CopilotSidebar component provides a chat interface for users to interact wit
   AssistantMessage={CustomAssistantMessage}
   labels={{
     title: "Data Assistant",
-    initial: "Hello, I'm here to help you understand your data. How can I help?",
+    initial:
+      "Hello, I'm here to help you understand your data. How can I help?",
     placeholder: "Ask about sales, trends, or metrics...",
   }}
 />
 ```
 
 ### Custom Assistant Message
+
 The dashboard uses a custom assistant message component to style the AI responses to match the dashboard's design system.
 
 <em>[components/AssistantMessage.tsx](./components/AssistantMessage.tsx)</em>
@@ -216,7 +232,7 @@ export const CustomAssistantMessage = (props: AssistantMessageProps) => {
 
   return (
     <div className="pb-4">
-      {(message || isLoading) && 
+      {(message || isLoading) && (
         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
           <div className="text-sm text-gray-700 dark:text-gray-300">
             {message && <Markdown content={message} />}
@@ -228,8 +244,8 @@ export const CustomAssistantMessage = (props: AssistantMessageProps) => {
             )}
           </div>
         </div>
-      }
-      
+      )}
+
       {subComponent && <div className="mt-2">{subComponent}</div>}
     </div>
   );
@@ -237,6 +253,7 @@ export const CustomAssistantMessage = (props: AssistantMessageProps) => {
 ```
 
 ### CSS Customization
+
 The dashboard uses CSS variables to customize the appearance of the CopilotKit components to match the dashboard's design system.
 
 <em>[app/globals.css](./app/globals.css)</em>
@@ -259,10 +276,11 @@ The dashboard uses CSS variables to customize the appearance of the CopilotKit c
 }
 
 .copilotKitButton {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 ```
-
 
 ## 📚 Learn More
 

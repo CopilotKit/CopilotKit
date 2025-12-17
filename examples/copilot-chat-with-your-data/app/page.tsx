@@ -13,13 +13,12 @@ import { Suspense } from "react";
 
 function HomeContent() {
   const searchParams = useSearchParams();
-  const openCopilot = searchParams?.get('openCopilot') === 'true';
-
+  const openCopilot = searchParams?.get("openCopilot") === "true";
 
   useCopilotReadable({
     description: "Current time",
     value: new Date().toLocaleTimeString(),
-  })
+  });
 
   return (
     <>
@@ -36,7 +35,8 @@ function HomeContent() {
         AssistantMessage={CustomAssistantMessage}
         labels={{
           title: "Data Assistant",
-          initial: "Hello, I'm here to help you understand your data. How can I help?",
+          initial:
+            "Hello, I'm here to help you understand your data. How can I help?",
           placeholder: "Ask about sales, trends, or metrics...",
         }}
       />
@@ -46,11 +46,13 @@ function HomeContent() {
 
 export default function Home() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        </div>
+      }
+    >
       <HomeContent />
     </Suspense>
   );

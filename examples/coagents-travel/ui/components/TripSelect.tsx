@@ -3,7 +3,12 @@
 import { useTrips } from "@/lib/hooks/use-trips";
 import { Button } from "./ui/button";
 import { Plane } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 export function TripSelect() {
@@ -18,12 +23,12 @@ export function TripSelect() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {trips?.map((trip) => (
-          <DropdownMenuItem 
+          <DropdownMenuItem
             className={cn(
               "flex items-center",
               selectedTripId === trip.id
                 ? "font-bold text-gray-900"
-                : "text-muted-foreground"
+                : "text-muted-foreground",
             )}
             key={trip.id}
             onClick={() => setSelectedTripId(trip.id)}
@@ -35,4 +40,4 @@ export function TripSelect() {
       </DropdownMenuContent>
     </DropdownMenu>
   );
-} 
+}

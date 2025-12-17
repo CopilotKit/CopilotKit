@@ -2,7 +2,7 @@ import React from "react";
 
 /**
  * Props for the CrewInChatInput component
- * 
+ *
  * @property status - The current status of the crew operation
  * @property inputs - Array of input field names to render
  * @property onSubmit - Callback function triggered when form is submitted
@@ -15,11 +15,11 @@ interface CrewInChatInputProps {
 
 /**
  * A form component that renders dynamic input fields for crew interactions
- * 
+ *
  * This component creates a form with input fields based on the provided
- * input names. It's designed to collect information from users in a 
+ * input names. It's designed to collect information from users in a
  * conversational interface during crew execution.
- * 
+ *
  * @example
  * ```tsx
  * <CrewInChatInput
@@ -49,7 +49,7 @@ export const CrewInChatInput: React.FC<CrewInChatInputProps> = ({
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
         const inputValues = Object.fromEntries(
-          inputs.map((input) => [input, formData.get(input)?.toString() || ""])
+          inputs.map((input) => [input, formData.get(input)?.toString() || ""]),
         );
 
         await onSubmit(inputValues);
@@ -57,11 +57,8 @@ export const CrewInChatInput: React.FC<CrewInChatInputProps> = ({
     >
       <div className="flex flex-col gap-4">
         {inputs.map((input) => (
-          <div
-            key={input}
-            className="flex flex-col gap-2"
-          >
-            <label 
+          <div key={input} className="flex flex-col gap-2">
+            <label
               htmlFor={input}
               className="text-sm font-medium text-white capitalize"
             >

@@ -19,18 +19,18 @@ MapCanvas = dynamic(
     import("@/components/MapCanvas").then((module: any) => module.MapCanvas),
   {
     ssr: false,
-  }
+  },
 );
 
 function MainContent() {
   const { setOpen } = useChatContext();
   const isDesktop = useMediaQuery("(min-width: 900px)");
-  
+
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const copilotOpenParam = urlParams.get('copilotOpen');
+    const copilotOpenParam = urlParams.get("copilotOpen");
     if (copilotOpenParam !== null) {
-      setOpen(copilotOpenParam === 'true');
+      setOpen(copilotOpenParam === "true");
     } else {
       setOpen(isDesktop);
     }

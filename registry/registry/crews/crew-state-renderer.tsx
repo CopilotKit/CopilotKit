@@ -9,17 +9,17 @@ import { useMemo, useRef, useState } from "react";
 
 /**
  * Component that renders the crew's execution state in real-time
- * 
+ *
  * This component visualizes:
  * - Steps being executed by the crew
  * - Tasks being performed
  * - Thoughts and results during execution
- * 
+ *
  * Features:
  * - Collapsible UI to save space
  * - Auto-scrolling to newest items
  * - Highlighting of newly added items
- * 
+ *
  * @param state - The current state of the crew agent
  * @param status - The response status of the crew
  */
@@ -40,7 +40,7 @@ function CrewStateRenderer({
     if (!state) return [];
     return [...(state.steps || []), ...(state.tasks || [])].sort(
       (a, b) =>
-        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
     );
   }, [state]);
 
@@ -60,7 +60,11 @@ function CrewStateRenderer({
   }, [items, isCollapsed, state]);
 
   if (!state) {
-    return <div className="text-sm text-zinc-500 dark:text-zinc-400 italic">Loading crew state...</div>;
+    return (
+      <div className="text-sm text-zinc-500 dark:text-zinc-400 italic">
+        Loading crew state...
+      </div>
+    );
   }
 
   // Hide entirely if collapsed & empty & not in progress
@@ -74,10 +78,15 @@ function CrewStateRenderer({
       >
         <span className="text-xs">{isCollapsed ? "▶" : "▼"}</span>
         <span className="font-medium">
-          {status === "inProgress" ? 
-            <span className="text-zinc-500 dark:text-zinc-400 animate-pulse">Crew is analyzing...</span> : 
-            <span className="text-zinc-500 dark:text-zinc-400">Crew analysis</span>
-          }
+          {status === "inProgress" ? (
+            <span className="text-zinc-500 dark:text-zinc-400 animate-pulse">
+              Crew is analyzing...
+            </span>
+          ) : (
+            <span className="text-zinc-500 dark:text-zinc-400">
+              Crew analysis
+            </span>
+          )}
           {!isCollapsed && items.length > 0 && ` (${items.length} steps)`}
         </span>
       </div>
@@ -105,24 +114,31 @@ function CrewStateRenderer({
                   </div>
                   {"thought" in item && item.thought && (
                     <div className="text-xs mt-1.5 text-zinc-600 dark:text-zinc-400">
-                      <span className="font-medium text-zinc-700 dark:text-zinc-300">Thought:</span> {item.thought}
+                      <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                        Thought:
+                      </span>{" "}
+                      {item.thought}
                     </div>
                   )}
                   {"result" in item && item.result !== undefined && (
                     <pre className="text-xs mt-1.5 p-2 bg-zinc-50 dark:bg-zinc-900 rounded border border-zinc-100 dark:border-zinc-800 overflow-x-auto text-zinc-700 dark:text-zinc-300">
-                      {typeof item.result === 'object' 
+                      {typeof item.result === "object"
                         ? JSON.stringify(item.result, null, 2)
                         : item.result}
                     </pre>
                   )}
                   {"description" in item && item.description && (
-                    <div className="text-xs mt-1.5 text-zinc-600 dark:text-zinc-400">{item.description}</div>
+                    <div className="text-xs mt-1.5 text-zinc-600 dark:text-zinc-400">
+                      {item.description}
+                    </div>
                   )}
                 </div>
               );
             })
           ) : (
-            <div className="text-xs italic text-zinc-500 dark:text-zinc-400 py-2">No activity yet...</div>
+            <div className="text-xs italic text-zinc-500 dark:text-zinc-400 py-2">
+              No activity yet...
+            </div>
           )}
         </div>
       )}
@@ -130,8 +146,12 @@ function CrewStateRenderer({
       {/* Custom animation for highlighting new items */}
       <style jsx>{`
         @keyframes fadeIn {
-          0% { background-color: rgba(59, 130, 246, 0.1); }
-          100% { background-color: transparent; }
+          0% {
+            background-color: rgba(59, 130, 246, 0.1);
+          }
+          100% {
+            background-color: transparent;
+          }
         }
         .animate-fadeIn {
           animation: fadeIn 1.5s ease-out;

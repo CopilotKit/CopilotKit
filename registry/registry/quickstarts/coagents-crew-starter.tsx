@@ -4,13 +4,13 @@ import { useCoagentsCrewStarter } from "@/hooks/use-coagents-crew-starter";
 
 /**
  * Format text output from the Crew for better readability
- * 
+ *
  * This utility function:
  * - Preserves existing formatting if present
  * - Converts markdown bold (**text**) to HTML <strong> tags
  * - Adds appropriate spacing for listed items
  * - Handles both pre-formatted and unformatted text
- * 
+ *
  * @param text - The raw text output from the crew
  * @returns Formatted HTML string ready for display
  */
@@ -25,10 +25,13 @@ function formatText(text: string): string {
 
   // Convert markdown bold to HTML bold
   formatted = formatted.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-  
+
   // Convert markdown lists to proper HTML with spacing
   formatted = formatted.replace(/^- (.+)$/gm, "<li>$1</li>");
-  formatted = formatted.replace(/(<li>.+<\/li>\n)+/g, "<ul class='list-disc pl-5 my-2'>$&</ul>");
+  formatted = formatted.replace(
+    /(<li>.+<\/li>\n)+/g,
+    "<ul class='list-disc pl-5 my-2'>$&</ul>",
+  );
 
   if (hasFormatting) {
     // Just convert newlines to <br> tags for pre-formatted text
@@ -47,7 +50,7 @@ function formatText(text: string): string {
 
 /**
  * Main component for the Copilot Crew interface
- * 
+ *
  * This component:
  * 1. Initializes the crew with required input fields
  * 2. Renders the formatted output from the crew
@@ -67,7 +70,7 @@ export default function CoagentsCrewStarter() {
       <h2 className="text-xl font-semibold mb-4 text-zinc-800 dark:text-zinc-100 border-b border-zinc-200 dark:border-zinc-700 pb-2">
         Crew Results
       </h2>
-      
+
       {!output || output === "Crew result will appear here..." ? (
         <div className="flex flex-col items-center justify-center h-[calc(100%-3rem)] text-center p-6 bg-zinc-50 dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
           <div className="text-zinc-400 dark:text-zinc-500 text-sm italic mb-2">
@@ -79,9 +82,9 @@ export default function CoagentsCrewStarter() {
         </div>
       ) : (
         <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4 shadow-sm">
-          <div 
+          <div
             className="prose prose-sm dark:prose-invert max-w-none text-zinc-800 dark:text-zinc-200 whitespace-pre-line"
-            dangerouslySetInnerHTML={{ __html: formatText(output) }} 
+            dangerouslySetInnerHTML={{ __html: formatText(output) }}
           />
         </div>
       )}

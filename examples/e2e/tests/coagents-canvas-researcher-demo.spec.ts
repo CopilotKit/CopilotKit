@@ -23,7 +23,7 @@ const variants: TestVariants = [
 const allConfigs = getConfigs();
 const researchCanvasConfigs = filterConfigsByProject(
   allConfigs,
-  PROJECT_NAMES.COAGENTS_RESEARCH_CANVAS
+  PROJECT_NAMES.COAGENTS_RESEARCH_CANVAS,
 );
 const groupedConfigs = groupConfigsByDescription(researchCanvasConfigs);
 
@@ -78,7 +78,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
 
                   await sendChatMessage(
                     page,
-                    "Conduct research based on my research question, please. DO NOT FORGET TO PRODUCE THE DRAFT AT THE END!"
+                    "Conduct research based on my research question, please. DO NOT FORGET TO PRODUCE THE DRAFT AT THE END!",
                   );
 
                   await waitForStepsAndEnsureStreaming(page);
@@ -87,7 +87,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
 
                   // Ensure research draft
                   const researchDraft = await page.locator(
-                    '[data-test-id="research-draft"]'
+                    '[data-test-id="research-draft"]',
                   );
                   const draftContent = await researchDraft.textContent();
 
@@ -97,7 +97,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
                     // Sometimes the LLM does not fill the draft. We will attempt a retry at filling it.
                     await sendChatMessage(
                       page,
-                      "The draft seems to be empty, please fill it in."
+                      "The draft seems to be empty, please fill it in.",
                     );
                     await waitForStepsAndEnsureStreaming(page);
                     await waitForResponse(page);
@@ -114,11 +114,11 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
 
                   await sendChatMessage(
                     page,
-                    `Delete the first resource, please`
+                    `Delete the first resource, please`,
                   );
 
                   const deleteContainer = await page.locator(
-                    '[data-test-id="delete-resource-generative-ui-container"]'
+                    '[data-test-id="delete-resource-generative-ui-container"]',
                   );
                   expect(deleteContainer).toBeTruthy();
 

@@ -5,4 +5,4 @@ export type AgentState = {
     markdown: string;
     references: any[];
   };
-}
+};

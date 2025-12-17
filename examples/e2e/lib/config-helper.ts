@@ -44,23 +44,26 @@ export const getConfigs = (): ConfigMap => {
  * Groups configuration items by project name and description
  */
 export const groupConfigsByDescription = (
-  configs: ConfigMap
+  configs: ConfigMap,
 ): Record<ProjectName, Record<string, ConfigItem[]>> => {
-  return Object.entries(configs).reduce((acc, [key, value]) => {
-    const { projectName, description } = value;
+  return Object.entries(configs).reduce(
+    (acc, [key, value]) => {
+      const { projectName, description } = value;
 
-    if (!acc[projectName]) {
-      acc[projectName] = {};
-    }
+      if (!acc[projectName]) {
+        acc[projectName] = {};
+      }
 
-    if (!acc[projectName][description]) {
-      acc[projectName][description] = [];
-    }
+      if (!acc[projectName][description]) {
+        acc[projectName][description] = [];
+      }
 
-    acc[projectName][description].push({ ...value, key });
+      acc[projectName][description].push({ ...value, key });
 
-    return acc;
-  }, {} as Record<ProjectName, Record<string, ConfigItem[]>>);
+      return acc;
+    },
+    {} as Record<ProjectName, Record<string, ConfigItem[]>>,
+  );
 };
 
 /**
@@ -68,7 +71,7 @@ export const groupConfigsByDescription = (
  */
 export const filterConfigsByProject = (
   configs: ConfigMap,
-  projectName: ProjectName
+  projectName: ProjectName,
 ): ConfigMap => {
   return Object.entries(configs).reduce((acc, [key, value]) => {
     if (value.projectName === projectName) {
@@ -81,7 +84,7 @@ export const filterConfigsByProject = (
 export const appendLGCVariants = (
   config: ConfigItem,
   variants: any[],
-  skipLGC: boolean = false
+  skipLGC: boolean = false,
 ) => {
   let appendedVariants = [...variants];
 

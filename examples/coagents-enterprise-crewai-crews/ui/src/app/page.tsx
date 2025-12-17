@@ -65,7 +65,7 @@ export default function Home() {
   const { appendMessage } = useCopilotChat();
   const { isMobile } = useWindowSize();
   const [direction, setDirection] = useState<"horizontal" | "vertical">(
-    "horizontal"
+    "horizontal",
   );
 
   useEffect(() => {
@@ -101,7 +101,7 @@ export default function Home() {
         new TextMessage({
           content: `My ${String(key)} is ${value}`,
           role: MessageRole.Developer,
-        })
+        }),
       );
     }, 1000);
   };

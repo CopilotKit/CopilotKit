@@ -29,8 +29,12 @@ export function Progress({
           >
             <div className="w-8">
               <div
-                  className="w-4 h-4 bg-slate-700 flex items-center justify-center rounded-full mt-[10px] ml-[12px]"
-                  data-test-id={log.done ? 'progress-step-item_done' : 'progress-step-item_loading'}
+                className="w-4 h-4 bg-slate-700 flex items-center justify-center rounded-full mt-[10px] ml-[12px]"
+                data-test-id={
+                  log.done
+                    ? "progress-step-item_done"
+                    : "progress-step-item_loading"
+                }
               >
                 {log.done ? (
                   <CheckIcon className="w-3 h-3 text-white" />
@@ -48,7 +52,7 @@ export function Progress({
               <div className="flex-1 flex items-center text-xs">
                 {log.message.replace(
                   /https?:\/\/[^\s]+/g, // Regex to match URLs
-                  (url) => truncateUrl(url) // Replace with truncated URL
+                  (url) => truncateUrl(url), // Replace with truncated URL
                 )}
               </div>
             </div>

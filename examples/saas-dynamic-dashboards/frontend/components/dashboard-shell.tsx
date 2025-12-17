@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { usePathname } from "next/navigation"
+import { usePathname } from "next/navigation";
 import {
   Sidebar,
   SidebarContent,
@@ -11,22 +11,34 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
-import { ModeToggle } from "@/components/mode-toggle"
-import { Code2, FlaskConical, LayoutDashboard, LogOut, Settings, TestTube2, TrendingUp } from "lucide-react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import Link from "next/link"
-import { useCopilotChat, useCopilotReadable } from "@copilotkit/react-core"
-import { devSuggestions, generalSuggestions, testerPersonaSuggestions } from "@/lib/prompts"
-import { useSharedContext } from "@/lib/shared-context"
-import { useCopilotChatSuggestions } from "@copilotkit/react-ui"
-import { useSharedTestsContext } from "@/lib/shared-tests-context"
-import { useEffect } from "react"
+} from "@/components/ui/sidebar";
+import { ModeToggle } from "@/components/mode-toggle";
+import {
+  Code2,
+  FlaskConical,
+  LayoutDashboard,
+  LogOut,
+  Settings,
+  TestTube2,
+  TrendingUp,
+} from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import Link from "next/link";
+import { useCopilotChat, useCopilotReadable } from "@copilotkit/react-core";
+import {
+  devSuggestions,
+  generalSuggestions,
+  testerPersonaSuggestions,
+} from "@/lib/prompts";
+import { useSharedContext } from "@/lib/shared-context";
+import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
+import { useSharedTestsContext } from "@/lib/shared-tests-context";
+import { useEffect } from "react";
 export function DashboardShell({ children }: { children: React.ReactNode }) {
-  const { prData } = useSharedContext()
-  const { testsData } = useSharedTestsContext()
-  const pathname = usePathname()
-  const { setMessages } = useCopilotChat()
+  const { prData } = useSharedContext();
+  const { testsData } = useSharedTestsContext();
+  const pathname = usePathname();
+  const { setMessages } = useCopilotChat();
   const routes = [
     {
       title: "Developer",
@@ -52,19 +64,20 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       icon: TrendingUp,
       isActive: pathname === "/executive",
     },
-  ]
+  ];
 
-  useCopilotChatSuggestions({
-    instructions: devSuggestions,
-    maxSuggestions: 3,
-  },
-    [pathname]
-  )
+  useCopilotChatSuggestions(
+    {
+      instructions: devSuggestions,
+      maxSuggestions: 3,
+    },
+    [pathname],
+  );
 
   useCopilotReadable({
     description: "Current pathname",
     value: pathname,
-  })
+  });
 
   return (
     <div className="flex h-full flex-1">
@@ -72,13 +85,15 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         <SidebarHeader className="flex justify-between px-4 py-2">
           <div className="flex items-center gap-2">
             <LayoutDashboard className="h-6 w-6" />
-            <h1 className="text-xl font-semibold tracking-tight">EnterpriseX</h1>
+            <h1 className="text-xl font-semibold tracking-tight">
+              EnterpriseX
+            </h1>
           </div>
         </SidebarHeader>
         <SidebarContent>
           <SidebarMenu>
             {routes.map((route) => (
-              <SidebarMenuItem key={route.href} className="p-3 px-6" >
+              <SidebarMenuItem key={route.href} className="p-3 px-6">
                 <SidebarMenuButton asChild isActive={route.isActive}>
                   <Link onClick={() => setMessages([])} href={route.href}>
                     <route.icon className="mr-2 h-5 w-5" />
@@ -123,5 +138,5 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         <main className="flex-1 overflow-auto p-6">{children}</main>
       </div>
     </div>
-  )
+  );
 }

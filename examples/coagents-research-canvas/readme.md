@@ -8,7 +8,6 @@ Tutorial Video:
 
 [![IMAGE ALT TEXT](http://img.youtube.com/vi/0b6BVqPwqA0/0.jpg)](http://www.youtube.com/watch?v=0b6BVqPwqA0 "Build Agent-Native Apps with LangGraph & CoAgents (tutorial)")
 
-
 ---
 
 ## Running the Agent
@@ -74,26 +73,28 @@ pnpm run dev
 ```
 
 ⚠️ IMPORTANT:
-If you're using the JS agent, follow the steps and uncomment the code inside the `app/api/copilotkit/route.ts`, `remoteEndpoints` action: 
+If you're using the JS agent, follow the steps and uncomment the code inside the `app/api/copilotkit/route.ts`, `remoteEndpoints` action:
 
 ```ts
 //const runtime = new CopilotRuntime({
- // remoteEndpoints: [
-    // Uncomment this if you want to use LangGraph JS, make sure to
-    // remove the remote action url below too.
-    //
-    // langGraphPlatformEndpoint({
-    //   deploymentUrl: "http://localhost:8123",
-    //   langsmithApiKey: process.env.LANGSMITH_API_KEY || "", // only used in LangGraph Platform deployments
-    //   agents: [{
-    //       name: "research_agentt",
-    //       description: "Research agent"
-    //   }]
-    // }),
- // ],
+// remoteEndpoints: [
+// Uncomment this if you want to use LangGraph JS, make sure to
+// remove the remote action url below too.
+//
+// langGraphPlatformEndpoint({
+//   deploymentUrl: "http://localhost:8123",
+//   langsmithApiKey: process.env.LANGSMITH_API_KEY || "", // only used in LangGraph Platform deployments
+//   agents: [{
+//       name: "research_agentt",
+//       description: "Research agent"
+//   }]
+// }),
+// ],
 //});
 ```
+
 **Next for JS run these commands:**
+
 - Run this command to start your LangGraph server `npx @langchain/langgraph-cli dev --host localhost --port 8123`
 - Run this command to connect your Copilot Cloud Tunnel to the LangGraph server `npx copilotkit@latest dev --port 8123`
 
