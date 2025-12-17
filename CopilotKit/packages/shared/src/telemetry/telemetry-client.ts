@@ -99,6 +99,24 @@ export class TelemetryClient {
     await scarfClient.logEvent({
       event,
     });
+
+    const reoUrl = "https://ingest.reo.dev/api/product/usage"
+    await fetch(reoUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-KEY": process.env.NEXT_PUBLIC_REO_KEY || "",
+      },
+      body: JSON.stringify({
+        payload: {
+          source: "TELEMETRY",
+          activity_type: "COPILOTKIT_EVENT",
+          event,
+          properties: orderedPropertiesWithGlobal,
+        }
+      })
+    });
+
   }
 
   setGlobalProperties(properties: Record<string, any>) {
