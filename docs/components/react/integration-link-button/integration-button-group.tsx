@@ -1,4 +1,5 @@
 import { IntegrationLinkButton } from "./integration-link-button"
+import A2AIcon from "@/components/ui/icons/a2a"
 import AdkIcon from "@/components/ui/icons/adk"
 import Ag2Icon from "@/components/ui/icons/ag2"
 import AgnoIcon from "@/components/ui/icons/agno"
@@ -18,6 +19,11 @@ interface Integration {
 }
 
 const INTEGRATIONS: Integration[] = [
+  {
+    label: "A2A",
+    Icon: A2AIcon,
+    href: "/a2a",
+  },
   {
     label: "ADK",
     Icon: AdkIcon,
