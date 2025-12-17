@@ -2,6 +2,7 @@ import { useState, useEffect, ComponentType } from "react"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
 import ChevronDownIcon from "../icons/chevron"
+import A2AIcon from "../icons/a2a"
 import AdkIcon from "../icons/adk"
 import Ag2Icon from "../icons/ag2"
 import AgnoIcon from "../icons/agno"
@@ -17,6 +18,7 @@ import { MicrosoftIcon } from "../icons/microsoft"
 import { AwsStrandsIcon } from "../icons/aws-strands"
 
 export type Integration =
+  | "a2a"
   | "adk"
   | "ag2"
   | "agno"
@@ -37,6 +39,11 @@ interface IntegrationOption {
 }
 
 const INTEGRATION_OPTIONS: Record<Integration, IntegrationOption> = {
+  a2a: {
+    label: "A2A",
+    Icon: A2AIcon,
+    href: "/a2a",
+  },
   adk: {
     label: "ADK",
     Icon: AdkIcon,
