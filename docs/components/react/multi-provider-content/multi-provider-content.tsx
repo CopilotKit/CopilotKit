@@ -16,10 +16,10 @@ type Props = {
   defaultProvider?: string;
 };
 
-// @ts-expect-error -- initiating this with null is fine
 const ProviderContext = React.createContext<{
   provider: ProviderDefinition;
   providerName: string;
+// @ts-expect-error -- initiating this with null is fine
 }>(null);
 
 const LOCALSTORAGE_KEY = "preferredProvider";

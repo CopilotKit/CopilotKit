@@ -75,7 +75,7 @@ export function CopilotListeners() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [copilotkit?.subscribe]);
+  }, [copilotkit?.subscribe, setBannerError]);
 
   return null;
 }
