@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "next lint"
   },
@@ -30,8 +30,8 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "@types/react": "19.0.1",
-    "@types/react-dom": "19.0.2",
+    "@types/react": "19.1.0",
+    "@types/react-dom": "19.2.0",
     "eslint": "^9.0.0",
     "eslint-config-next": "15.1.0",
     "postcss": "^8",
@@ -40,8 +40,8 @@
   },
   "pnpm": {
     "overrides": {
-      "@types/react": "19.0.1",
-      "@types/react-dom": "19.0.2"
+      "@types/react": "19.1.0",
+      "@types/react-dom": "19.2.0"
     }
   }
 }

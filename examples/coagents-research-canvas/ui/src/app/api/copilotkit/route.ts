@@ -42,7 +42,7 @@ export const POST = async (req: NextRequest) => {
               url: `${baseUrl}/agents/research_agent_google_genai`,
           }),
           'research_agent_crewai': new CrewAIAgent({
-              url: `${baseUrl}/agents/crewai/research_agent_crewai`,
+              url: `${baseUrl}/agents/research_agent_crewai`,
           }),
       }
   })

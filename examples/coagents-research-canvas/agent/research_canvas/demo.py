@@ -19,7 +19,7 @@ app = FastAPI()
 add_crewai_flow_fastapi_endpoint(
     app=app,
     flow=ResearchCanvasFlow(),
-    path="/agents/crewai/research_agent",
+    path="/agents/research_agent_crewai",
 )
 
 add_langgraph_fastapi_endpoint(
