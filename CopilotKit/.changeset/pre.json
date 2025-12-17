@@ -19,7 +19,9 @@
     "@copilotkit/a2ui-renderer": "0.0.1"
   },
   "changesets": [
+    "eleven-ties-grin",
     "giant-toes-laugh",
-    "spotty-pillows-listen"
+    "spotty-pillows-listen",
+    "witty-bottles-crash"
   ]
 }

@@ -79,7 +79,8 @@ import {
   SystemMessageFunction,
   useCopilotContext,
   useCopilotChatInternal,
-  HintFunction,
+  type OnStopGeneration,
+  type OnReloadMessages,
   type ChatSuggestions,
 } from "@copilotkit/react-core";
 import {
@@ -329,59 +330,6 @@ export interface CopilotChatProps {
   onError?: CopilotErrorHandler;
 }
 
-interface OnStopGenerationArguments {
-  /**
-   * The name of the currently executing agent.
-   */
-  currentAgentName: string | undefined;
-
-  /**
-   * The messages in the chat.
-   */
-  messages: Message[];
-
-  /**
-   * Set the messages in the chat.
-   */
-  setMessages: (messages: Message[]) => void;
-
-  /**
-   * Stop chat generation.
-   */
-  stopGeneration: () => void;
-
-  /**
-   * Restart the currently executing agent.
-   */
-  restartCurrentAgent: () => void;
-
-  /**
-   * Stop the currently executing agent.
-   */
-  stopCurrentAgent: () => void;
-
-  /**
-   * Run the currently executing agent.
-   */
-  runCurrentAgent: (hint?: HintFunction) => Promise<void>;
-
-  /**
-   * Set the state of the currently executing agent.
-   */
-  setCurrentAgentState: (state: any) => void;
-}
-
-export type OnReloadMessagesArguments = OnStopGenerationArguments & {
-  /**
-   * The message on which "regenerate" was pressed
-   */
-  messageId: string;
-};
-
-export type OnStopGeneration = (args: OnStopGenerationArguments) => void;
-
-export type OnReloadMessages = (args: OnReloadMessagesArguments) => void;
-
 export type ImageUpload = {
   contentType: string;
   bytes: string;
@@ -619,13 +567,13 @@ export function CopilotChat({
     agent,
   } = useCopilotChatInternal({
     suggestions,
+    onInProgress,
+    onSubmitMessage,
+    onStopGeneration,
+    onReloadMessages,
   });
   // makeSystemMessage,
   // disableSystemMessage,
-  // onInProgress,
-  // onSubmitMessage,
-  // onStopGeneration,
-  // onReloadMessages,
 
   // Track loading state changes for chat start/stop events
   const prevIsLoading = useRef(isLoading);
