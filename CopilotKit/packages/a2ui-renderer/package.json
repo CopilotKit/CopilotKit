@@ -52,7 +52,7 @@
     "react-dom": "^18 || ^19 || ^19.0.0-rc"
   },
   "devDependencies": {
-    "@copilotkitnext/react": "^0.0.31",
+    "@copilotkitnext/react": "^0.0.33",
     "@types/react": "^19.2.3",
     "@types/react-dom": "^19.2.3",
     "typescript": "5.9.2"

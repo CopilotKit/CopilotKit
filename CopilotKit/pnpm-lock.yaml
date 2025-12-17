@@ -341,8 +341,8 @@ importers:
         specifier: ^0.8.1
         version: 0.8.1(signal-polyfill@0.2.2)
       '@copilotkit/react-core':
-        specifier: ^1.50.0
-        version: 1.50.0(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(graphql@16.12.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(zod@3.25.76)
+        specifier: ^1.50.1-next.2
+        version: 1.50.1-next.2(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(zod@3.25.76)
       '@lit-labs/signals':
         specifier: ^0.1.3
         version: 0.1.3
@@ -363,8 +363,8 @@ importers:
         version: 3.25.76
     devDependencies:
       '@copilotkitnext/react':
-        specifier: ^0.0.31
-        version: 0.0.31(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: ^0.0.33
+        version: 0.0.33(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@types/react':
         specifier: ^19.1.0
         version: 19.2.2
@@ -387,11 +387,11 @@ importers:
         specifier: workspace:*
         version: link:../shared
       '@copilotkitnext/core':
-        specifier: 0.0.31
-        version: 0.0.31
+        specifier: 0.0.33
+        version: 0.0.33
       '@copilotkitnext/react':
-        specifier: 0.0.31
-        version: 0.0.31(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+        specifier: 0.0.33
+        version: 0.0.33(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       '@scarf/scarf':
         specifier: ^1.3.0
         version: 1.3.0
@@ -440,7 +440,7 @@ importers:
         version: 19.2.0(react@19.2.0)
       ts-jest:
         specifier: ^29.1.1
-        version: 29.2.3(@babel/core@7.28.5)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.28.5))(jest@29.7.0(@types/node@20.14.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.5.28(@swc/helpers@0.5.17))(@types/node@20.14.12)(typescript@5.5.4)))(typescript@5.5.4)
+        version: 29.2.3(@babel/core@7.24.9)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.24.9))(esbuild@0.17.19)(jest@29.7.0(@types/node@20.14.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.5.28(@swc/helpers@0.5.17))(@types/node@20.14.12)(typescript@5.5.4)))(typescript@5.5.4)
       tsconfig:
         specifier: workspace:*
         version: link:../../utilities/tsconfig
@@ -666,11 +666,11 @@ importers:
         specifier: workspace:*
         version: link:../shared
       '@copilotkitnext/agent':
-        specifier: 0.0.31
-        version: 0.0.31
+        specifier: 0.0.33
+        version: 0.0.33
       '@copilotkitnext/runtime':
-        specifier: 0.0.31
-        version: 0.0.31(openai@4.85.2(encoding@0.1.13)(ws@8.18.3)(zod@3.23.8))
+        specifier: 0.0.33
+        version: 0.0.33(openai@4.85.2(encoding@0.1.13)(ws@8.18.3)(zod@3.23.8))
       '@graphql-yoga/plugin-defer-stream':
         specifier: ^3.3.1
         version: 3.6.1(graphql-yoga@5.6.1(graphql@16.9.0))(graphql@16.9.0)
@@ -974,7 +974,7 @@ importers:
         version: 29.7.0(@types/node@20.14.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.5.28(@swc/helpers@0.5.17))(@types/node@20.14.12)(typescript@5.5.4))
       ts-jest:
         specifier: ^29.1.1
-        version: 29.2.3(@babel/core@7.24.9)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.24.9))(esbuild@0.17.19)(jest@29.7.0(@types/node@20.14.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.5.28(@swc/helpers@0.5.17))(@types/node@20.14.12)(typescript@5.5.4)))(typescript@5.5.4)
+        version: 29.2.3(@babel/core@7.28.5)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.28.5))(jest@29.7.0(@types/node@20.14.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.5.28(@swc/helpers@0.5.17))(@types/node@20.14.12)(typescript@5.5.4)))(typescript@5.5.4)
       tsconfig:
         specifier: workspace:*
         version: link:../../utilities/tsconfig
@@ -1861,27 +1861,31 @@ packages:
   '@chevrotain/utils@11.0.3':
     resolution: {integrity: sha512-YslZMgtJUyuMbZ+aKvfF3x1f5liK4mWNxghFRv7jqRR9C3R3fAOGTTKvxXDa2Y1s9zSbcpuO0cAxDYsc9SrXoQ==}
 
-  '@copilotkit/react-core@1.50.0':
-    resolution: {integrity: sha512-JfUEvmgXgPz7wIQq9EFXWGDMtYLIVKSNqPdJROEomZXLhREDlxpg+jr5KHvoOPUlSnVLzuPObRKSdeJTwVOGsQ==}
+  '@copilotkit/react-core@1.50.1-next.2':
+    resolution: {integrity: sha512-kUoSGz8b4I4yfvEbTWxaHZaImnivnaQd8QRrfyG3qCKlnPA5kFIeK3J25oBj8kj0xUT8p5/bCNFCgEf4cHzsNQ==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
       react-dom: ^18 || ^19 || ^19.0.0-rc
       zod: '>=3.0.0'
 
-  '@copilotkit/runtime-client-gql@1.50.0':
-    resolution: {integrity: sha512-qgXGd18UXsERsUWUZ8gJkI0iR5GRNbZWCBs1DElik7E3TMTtZ1nkBnt3xOUBtea5dIuAtvjaiFrctTHUanfL3w==}
+  '@copilotkit/runtime-client-gql@1.50.1-next.2':
+    resolution: {integrity: sha512-bxVL5u0GYPdaplSB4+GdYNO/RWr0ZWHyLu4Jc1qluF3DeEIUW3EmAU6wzmO5Igu7/tvlGWZdZLRSokHTEu8Xeg==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/shared@1.50.0':
-    resolution: {integrity: sha512-N7cBAXRqIwIN05dMDJBDoPF6WY9VEOLiIm9aoUTu3begtMpdjY895uhrGyphHB4hg9UdDrvGAR1cYyLGHnfpVA==}
+  '@copilotkit/shared@1.50.1-next.2':
+    resolution: {integrity: sha512-qJ5ftnJ+srRcOOHOJCUGxyYDpXTILzZ35o5eMFmaefSxxiuxBmSkkqHfI8/1jF9gL6osjZFkR/gegITJx/j5xQ==}
 
-  '@copilotkitnext/agent@0.0.31':
-    resolution: {integrity: sha512-9EijIWxTPMnDwZKoktOgRQ+b00eVJA+Ph2d296RuKZlwwvq6feOZctaz3Gt26wknX1ySQC7cMy/7H1eDiMRjSw==}
+  '@copilotkitnext/agent@0.0.33':
+    resolution: {integrity: sha512-Q9J/GnG6HtLT2RP9aCHl8u3Nzv7/AKrbo+3cO4jv25VwFtlIGiSBEDS+g1Pru+vev0hSo/moEsswZTBkoN3WwA==}
     engines: {node: '>=18'}
 
   '@copilotkitnext/core@0.0.31':
     resolution: {integrity: sha512-nlXZ9bDR4rMSJcLiNk2W83JcRRwDOQCON1G0tP2dhs/TtpQTbuTvQj8Lm29M8ibulfhiFU3EBNKPNnkbANJANQ==}
+    engines: {node: '>=18'}
+
+  '@copilotkitnext/core@0.0.33':
+    resolution: {integrity: sha512-uD+hYatV9JeDS0BMVL1YyFuFiISYjTKfYk4Mfc9Zmb7DfN2RD9ASvpWG/zQ2WJrrdQtj/pCfjPKil07Pv7cRMg==}
     engines: {node: '>=18'}
 
   '@copilotkitnext/react@0.0.31':
@@ -1891,8 +1895,15 @@ packages:
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
 
-  '@copilotkitnext/runtime@0.0.31':
-    resolution: {integrity: sha512-LzmujyZWDmaI2llrQhoKFfaZLqxlnV5JLRvxN0I3onm/zHkog3/vtv+sTOLVkcz/Cj9f/0zjITtJ4rwOwmx4MQ==}
+  '@copilotkitnext/react@0.0.33':
+    resolution: {integrity: sha512-7opH+B9SLmN6fv8b5w0OCdk3xIQmNjhPM6lcgU5kWlqCSbAwCe4HPxyT5Xhc6KzvX1zj/+ec2yQkh09A9BlsWQ==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+
+  '@copilotkitnext/runtime@0.0.33':
+    resolution: {integrity: sha512-DVkaM+/ZyuVqCU86JdalLq8hQrymoOt4GfSMKLpyBLcLh3OIX9N8fU/u4ENJ85W+xgYQauFsbeGx/mjZaeSa0w==}
     engines: {node: '>=18'}
     peerDependencies:
       openai: ^5.9.0
@@ -1901,8 +1912,16 @@ packages:
     resolution: {integrity: sha512-YjrTV6hGnmD9IGau0bCjw5KwqvBuGU//kQOUeKyEEK2/C6PaZclpNiTwiFV9yPDRuS3p3CEQMwj/dc5enZ5pag==}
     engines: {node: '>=18'}
 
+  '@copilotkitnext/shared@0.0.33':
+    resolution: {integrity: sha512-tcWCk0izP+rr6eLKXP+z3j6A8+VcA09uGwgy+TS1yRd6eRdvR5SISqAOOQM8t4WBXGg0z+QWbJNXiVq6cPtukQ==}
+    engines: {node: '>=18'}
+
   '@copilotkitnext/web-inspector@0.0.31':
     resolution: {integrity: sha512-C3+eM0jGVGrGXA4nJMtW6FhKiV7XQWtuZkWB1xlfYpbYcHCi//7T8qAY0v+XkxMrSawoEc4BZw+pNsoC9PHimQ==}
+    engines: {node: '>=18'}
+
+  '@copilotkitnext/web-inspector@0.0.33':
+    resolution: {integrity: sha512-6XkkigbkhSkcFrzWEqiW6P98y9rCv4+Q/YGlvS9KNfeYOoyt1Z9Ug1VVy7BC6qIhytbrraJizo24g8v3nCWVqQ==}
     engines: {node: '>=18'}
 
   '@cspotcode/source-map-support@0.8.1':
@@ -12275,10 +12294,6 @@ packages:
 
 snapshots:
 
-  '@0no-co/graphql.web@1.0.7(graphql@16.12.0)':
-    optionalDependencies:
-      graphql: 16.12.0
-
   '@0no-co/graphql.web@1.0.7(graphql@16.9.0)':
     optionalDependencies:
       graphql: 16.9.0
@@ -14028,11 +14043,11 @@ snapshots:
 
   '@chevrotain/utils@11.0.3': {}
 
-  '@copilotkit/react-core@1.50.0(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(graphql@16.12.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(zod@3.25.76)':
+  '@copilotkit/react-core@1.50.1-next.2(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(zod@3.25.76)':
     dependencies:
       '@ag-ui/client': 0.0.42
-      '@copilotkit/runtime-client-gql': 1.50.0(graphql@16.12.0)(react@18.3.1)
-      '@copilotkit/shared': 1.50.0
+      '@copilotkit/runtime-client-gql': 1.50.1-next.2(react@18.3.1)
+      '@copilotkit/shared': 1.50.1-next.2
       '@copilotkitnext/core': 0.0.31
       '@copilotkitnext/react': 0.0.31(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@scarf/scarf': 1.3.0
@@ -14048,18 +14063,18 @@ snapshots:
       - graphql
       - supports-color
 
-  '@copilotkit/runtime-client-gql@1.50.0(graphql@16.12.0)(react@18.3.1)':
+  '@copilotkit/runtime-client-gql@1.50.1-next.2(react@18.3.1)':
     dependencies:
-      '@copilotkit/shared': 1.50.0
-      '@urql/core': 5.0.4(graphql@16.12.0)
+      '@copilotkit/shared': 1.50.1-next.2
+      '@urql/core': 5.0.4(graphql@16.9.0)
       react: 18.3.1
       untruncate-json: 0.0.1
-      urql: 4.1.0(@urql/core@5.0.4(graphql@16.12.0))(react@18.3.1)
+      urql: 4.1.0(@urql/core@5.0.4(graphql@16.9.0))(react@18.3.1)
     transitivePeerDependencies:
       - encoding
       - graphql
 
-  '@copilotkit/shared@1.50.0':
+  '@copilotkit/shared@1.50.1-next.2':
     dependencies:
       '@ag-ui/core': 0.0.42
       '@segment/analytics-node': 2.1.2(encoding@0.1.13)
@@ -14070,7 +14085,7 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  '@copilotkitnext/agent@0.0.31':
+  '@copilotkitnext/agent@0.0.33':
     dependencies:
       '@ag-ui/client': 0.0.42
       '@ai-sdk/anthropic': 2.0.33(zod@3.25.76)
@@ -14090,7 +14105,15 @@ snapshots:
       '@copilotkitnext/shared': 0.0.31
       rxjs: 7.8.1
       zod: 3.25.76
-      zod-to-json-schema: 3.24.6(zod@3.25.76)
+      zod-to-json-schema: 3.25.0(zod@3.25.76)
+
+  '@copilotkitnext/core@0.0.33':
+    dependencies:
+      '@ag-ui/client': 0.0.42
+      '@copilotkitnext/shared': 0.0.33
+      rxjs: 7.8.1
+      zod: 3.25.76
+      zod-to-json-schema: 3.25.0(zod@3.25.76)
 
   '@copilotkitnext/react@0.0.31(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
@@ -14120,13 +14143,41 @@ snapshots:
       - '@types/react-dom'
       - supports-color
 
-  '@copilotkitnext/react@0.0.31(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)':
+  '@copilotkitnext/react@0.0.33(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@ag-ui/client': 0.0.42
       '@ag-ui/core': 0.0.42
-      '@copilotkitnext/core': 0.0.31
-      '@copilotkitnext/shared': 0.0.31
-      '@copilotkitnext/web-inspector': 0.0.31
+      '@copilotkitnext/core': 0.0.33
+      '@copilotkitnext/shared': 0.0.33
+      '@copilotkitnext/web-inspector': 0.0.33
+      '@lit-labs/react': 2.1.3(@types/react@19.2.2)
+      '@radix-ui/react-dropdown-menu': 2.1.16(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@radix-ui/react-slot': 1.2.3(@types/react@19.2.2)(react@18.3.1)
+      '@radix-ui/react-tooltip': 1.2.8(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      class-variance-authority: 0.7.1
+      clsx: 2.1.1
+      katex: 0.16.25
+      lucide-react: 0.525.0(react@18.3.1)
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+      streamdown: 1.4.0(@types/react@19.2.2)(react@18.3.1)
+      tailwind-merge: 3.3.1
+      ts-deepmerge: 7.0.3
+      tw-animate-css: 1.4.0
+      use-stick-to-bottom: 1.1.1(react@18.3.1)
+      zod: 3.25.76
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - supports-color
+
+  '@copilotkitnext/react@0.0.33(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)':
+    dependencies:
+      '@ag-ui/client': 0.0.42
+      '@ag-ui/core': 0.0.42
+      '@copilotkitnext/core': 0.0.33
+      '@copilotkitnext/shared': 0.0.33
+      '@copilotkitnext/web-inspector': 0.0.33
       '@lit-labs/react': 2.1.3(@types/react@19.2.2)
       '@radix-ui/react-dropdown-menu': 2.1.16(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       '@radix-ui/react-slot': 1.2.3(@types/react@19.2.2)(react@19.2.0)
@@ -14148,12 +14199,12 @@ snapshots:
       - '@types/react-dom'
       - supports-color
 
-  '@copilotkitnext/runtime@0.0.31(openai@4.85.2(encoding@0.1.13)(ws@8.18.3)(zod@3.23.8))':
+  '@copilotkitnext/runtime@0.0.33(openai@4.85.2(encoding@0.1.13)(ws@8.18.3)(zod@3.23.8))':
     dependencies:
       '@ag-ui/client': 0.0.42
       '@ag-ui/core': 0.0.42
       '@ag-ui/encoder': 0.0.42
-      '@copilotkitnext/shared': 0.0.31
+      '@copilotkitnext/shared': 0.0.33
       cors: 2.8.5
       express: 4.21.2
       hono: 4.10.4
@@ -14168,10 +14219,24 @@ snapshots:
       partial-json: 0.1.7
       uuid: 11.1.0
 
+  '@copilotkitnext/shared@0.0.33':
+    dependencies:
+      '@ag-ui/client': 0.0.42
+      partial-json: 0.1.7
+      uuid: 11.1.0
+
   '@copilotkitnext/web-inspector@0.0.31':
     dependencies:
       '@ag-ui/client': 0.0.42
       '@copilotkitnext/core': 0.0.31
+      lit: 3.3.1
+      lucide: 0.525.0
+      marked: 12.0.2
+
+  '@copilotkitnext/web-inspector@0.0.33':
+    dependencies:
+      '@ag-ui/client': 0.0.42
+      '@copilotkitnext/core': 0.0.33
       lit: 3.3.1
       lucide: 0.525.0
       marked: 12.0.2
@@ -15258,7 +15323,7 @@ snapshots:
       '@antfu/install-pkg': 1.1.0
       '@antfu/utils': 9.3.0
       '@iconify/types': 2.0.0
-      debug: 4.4.1
+      debug: 4.4.3
       globals: 15.15.0
       kolorist: 1.8.0
       local-pkg: 1.1.2
@@ -16224,7 +16289,7 @@ snapshots:
       pkce-challenge: 5.0.0
       raw-body: 3.0.1
       zod: 3.25.76
-      zod-to-json-schema: 3.24.6(zod@3.25.76)
+      zod-to-json-schema: 3.25.0(zod@3.25.76)
     transitivePeerDependencies:
       - supports-color
 
@@ -18166,7 +18231,7 @@ snapshots:
 
   '@types/node-fetch@2.6.13':
     dependencies:
-      '@types/node': 18.19.130
+      '@types/node': 20.14.12
       form-data: 4.0.5
 
   '@types/node@10.14.22': {}
@@ -18408,13 +18473,6 @@ snapshots:
       eslint-visitor-keys: 3.4.3
 
   '@ungap/structured-clone@1.2.0': {}
-
-  '@urql/core@5.0.4(graphql@16.12.0)':
-    dependencies:
-      '@0no-co/graphql.web': 1.0.7(graphql@16.12.0)
-      wonka: 6.3.4
-    transitivePeerDependencies:
-      - graphql
 
   '@urql/core@5.0.4(graphql@16.9.0)':
     dependencies:
@@ -18760,7 +18818,7 @@ snapshots:
   axios@1.7.9(debug@4.4.3):
     dependencies:
       follow-redirects: 1.15.11(debug@4.4.3)
-      form-data: 4.0.0
+      form-data: 4.0.5
       proxy-from-env: 1.1.0
     transitivePeerDependencies:
       - debug
@@ -18967,7 +19025,7 @@ snapshots:
     dependencies:
       bytes: 3.1.2
       content-type: 1.0.5
-      debug: 4.4.1
+      debug: 4.4.3
       http-errors: 2.0.0
       iconv-lite: 0.6.3
       on-finished: 2.4.1
@@ -20772,7 +20830,7 @@ snapshots:
       content-type: 1.0.5
       cookie: 0.7.2
       cookie-signature: 1.2.2
-      debug: 4.4.1
+      debug: 4.4.3
       encodeurl: 2.0.0
       escape-html: 1.0.3
       etag: 1.8.1
@@ -20946,7 +21004,7 @@ snapshots:
 
   finalhandler@2.1.0:
     dependencies:
-      debug: 4.4.1
+      debug: 4.4.3
       encodeurl: 2.0.0
       escape-html: 1.0.3
       on-finished: 2.4.1
@@ -21582,7 +21640,7 @@ snapshots:
       isstream: 0.1.2
       jsonwebtoken: 9.0.3
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.7.9)
+      retry-axios: 2.6.0(axios@1.7.9(debug@4.4.3))
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -24954,7 +25012,7 @@ snapshots:
       onetime: 5.1.2
       signal-exit: 3.0.7
 
-  retry-axios@2.6.0(axios@1.7.9):
+  retry-axios@2.6.0(axios@1.7.9(debug@4.4.3)):
     dependencies:
       axios: 1.7.9(debug@4.4.3)
 
@@ -25009,7 +25067,7 @@ snapshots:
 
   router@2.2.0:
     dependencies:
-      debug: 4.4.1
+      debug: 4.4.3
       depd: 2.0.0
       is-promise: 4.0.0
       parseurl: 1.3.3
@@ -25120,7 +25178,7 @@ snapshots:
 
   send@1.2.0:
     dependencies:
-      debug: 4.4.1
+      debug: 4.4.3
       encodeurl: 2.0.0
       escape-html: 1.0.3
       etag: 1.8.1
@@ -26280,12 +26338,6 @@ snapshots:
 
   urlpattern-polyfill@8.0.2: {}
 
-  urql@4.1.0(@urql/core@5.0.4(graphql@16.12.0))(react@18.3.1):
-    dependencies:
-      '@urql/core': 5.0.4(graphql@16.12.0)
-      react: 18.3.1
-      wonka: 6.3.4
-
   urql@4.1.0(@urql/core@5.0.4(graphql@16.9.0))(react@18.3.1):
     dependencies:
       '@urql/core': 5.0.4(graphql@16.9.0)
@@ -26798,7 +26850,6 @@ snapshots:
   zod-to-json-schema@3.25.0(zod@3.25.76):
     dependencies:
       zod: 3.25.76
-    optional: true
 
   zod@3.23.8: {}
 
