@@ -5,6 +5,7 @@ import Link from "fumadocs-core/link"
 import { DocsLayoutProps } from "fumadocs-ui/layouts/docs"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
+import A2AIcon from "../icons/a2a"
 import AdkIcon from "../icons/adk"
 import Ag2Icon from "../icons/ag2"
 import AgnoIcon from "../icons/agno"
@@ -34,6 +35,7 @@ type IntegrationIconProps = {
 }
 
 const INTEGRATION_ICONS: Record<string, ComponentType<IntegrationIconProps>> = {
+  a2a: A2AIcon,
   adk: AdkIcon,
   ag2: Ag2Icon,
   agno: AgnoIcon,
