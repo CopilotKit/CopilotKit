@@ -3,9 +3,7 @@ title: Generative UI
 icon: "lucide/Paintbrush"
 description: Render your agent's behavior with custom UI components.
 ---
-
-import { CTACards } from "@/components/react/cta-cards";
-import { UserIcon, PaintbrushIcon, WrenchIcon, RepeatIcon } from "lucide-react";
+import { ServerIcon, SquareMousePointerIcon, BotIcon } from "lucide-react";
 
 <Frame>
   <img
@@ -16,8 +14,7 @@ import { UserIcon, PaintbrushIcon, WrenchIcon, RepeatIcon } from "lucide-react";
 </Frame>
 
 <Callout>
-  This example shows our [Research Canvas](/agno/videos/research-canvas)
-  making use of Generative UI!
+    This example shows our [Research Canvas](/agno/videos/research-canvas) making use of Generative UI!
 </Callout>
 
 ## What is Generative UI?
@@ -30,14 +27,21 @@ agents and user interfaces. As your agent processes information and makes decisi
 - Create interactive elements for user input
 - Animate transitions between different states
 
----
+## How can I use this?
 
-<Cards className="gap-6">
+To get started, you first need to decide what is going to be backing your generative UI. There are two main variants of Generative UI with CopilotKit.
+
+<Cards>
   <Card
-    className="p-6 rounded-xl text-base"
-    icon={<WrenchIcon className="text-[#FF3C1A]" />}
-    title="Tool-based"
-    description="Render your agent's tool calls with custom UI components."
-    href="/agno/generative-ui/tool-based"
+    icon={<ServerIcon className="text-primary" />}
+    title="Backend Tools"
+    description="Render your agent's tool calls with custom UI components"
+    href="/agno/generative-ui/backend-tools"
+  />
+  <Card
+    icon={<SquareMousePointerIcon className="text-primary"/>}
+    title="Frontend Tools"
+    description="Provide your agent with client-side tools to show custom components and drive the UI."
+    href="/agno/generative-ui/frontend-tools"
   />
 </Cards>

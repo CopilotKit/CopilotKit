@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.10.6",
+  "version": "1.50.1-next.3",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -56,16 +56,15 @@
     "ts-node": "^10.9.2",
     "tsconfig": "workspace:*",
     "tsup": "^6.7.0",
-    "typescript": "^5.2.3",
-    "zod-to-json-schema": "^3.23.5"
+    "typescript": "^5.2.3"
   },
   "dependencies": {
     "@copilotkit/shared": "workspace:*"
   },
   "peerDependencies": {
     "@langchain/community": "^1.0.2",
-    "@langchain/core": "^0.3.13 || ^0.4.0",
-    "@langchain/langgraph": "^0.2.44 || ^0.3.0 || ^0.4.0",
+    "@langchain/core": ">=0.4.0 <2.0.0",
+    "@langchain/langgraph": ">=0.4.0 <2.0.0",
     "langchain": "^0.3.3",
     "typescript": "^5.2.3",
     "zod": "^3.23.3 || ^3.24.0 || ^3.25.0"
