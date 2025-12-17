@@ -20,7 +20,7 @@ importers:
         version: 1.8.13(@types/react@19.0.1)(graphql@16.11.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@copilotkit/runtime':
         specifier: 1.8.13
-        version: 1.8.13(@ag-ui/client@0.0.38)(@ag-ui/core@0.0.38)(@ag-ui/encoder@0.0.38)(@ag-ui/proto@0.0.38)(@browserbasehq/sdk@2.6.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.55.1)(deepmerge@4.3.1)(dotenv@16.6.1)(openai@4.104.0(ws@8.18.3)(zod@3.25.76))(zod@3.25.76))(@ibm-cloud/watsonx-ai@1.6.13)(axios@1.12.2)(google-auth-library@8.9.0)(ibm-cloud-sdk-core@5.4.3)(ignore@5.3.2)(jsonwebtoken@9.0.2)(playwright@1.55.1)(react@19.0.0)(weaviate-client@3.8.1)(ws@8.18.3)
+        version: 1.8.13(@ag-ui/client@0.0.38)(@ag-ui/core@0.0.38)(@ag-ui/encoder@0.0.38)(@ag-ui/proto@0.0.38)(@browserbasehq/sdk@2.6.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.55.1)(deepmerge@4.3.1)(dotenv@16.6.1)(openai@4.104.0(ws@8.18.3)(zod@3.25.76))(zod@3.25.76))(@ibm-cloud/watsonx-ai@1.6.13)(axios@1.13.2)(google-auth-library@8.9.0)(ibm-cloud-sdk-core@5.4.3)(ignore@5.3.2)(jsonwebtoken@9.0.3)(playwright@1.55.1)(react@19.0.0)(weaviate-client@3.8.1)(ws@8.18.3)
       '@copilotkit/runtime-client-gql':
         specifier: 1.8.13
         version: 1.8.13(graphql@16.11.0)(react@19.0.0)
@@ -46,8 +46,8 @@ importers:
         specifier: ^0.436.0
         version: 0.436.0(react@19.0.0)
       next:
-        specifier: 15.4.2
-        version: 15.4.2(@playwright/test@1.55.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+        specifier: 15.4.10
+        version: 15.4.10(@playwright/test@1.55.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       openai:
         specifier: ^4.85.1
         version: 4.104.0(ws@8.18.3)(zod@3.25.76)
@@ -137,8 +137,8 @@ packages:
       openai: ^4.62.1
       zod: ^3.23.8
 
-  '@bufbuild/protobuf@2.9.0':
-    resolution: {integrity: sha512-rnJenoStJ8nvmt9Gzye8nkYd6V22xUAnu4086ER7h1zJ508vStko4pMvDeQ446ilDTFpV5wnoc5YS7XvMwwMqA==}
+  '@bufbuild/protobuf@2.10.2':
+    resolution: {integrity: sha512-uFsRXwIGyu+r6AMdz+XijIIZJYpoWeYzILt5yZ2d3mCjQrWUTVpVD9WL/jZAbvp+Ed04rOhrsk7FiTcEDseB5A==}
 
   '@cfworker/json-schema@4.1.1':
     resolution: {integrity: sha512-gAmrUZSGtKc3AiBL71iNWxDsyUC5uMaKKGdvzYsBoTW/xi42JQHl7eKV2OYzCUqvc+D2RCcf7EXY2iCyFIk6og==}
@@ -933,56 +933,56 @@ packages:
   '@napi-rs/wasm-runtime@0.2.12':
     resolution: {integrity: sha512-ZVWUcfwY4E/yPitQJl481FjFo3K22D6qF0DuFH6Y/nbnE11GY5uguDxZMGXPQ8WQ0128MXQD7TnfHyK4oWoIJQ==}
 
-  '@next/env@15.4.2':
-    resolution: {integrity: sha512-kd7MvW3pAP7tmk1NaiX4yG15xb2l4gNhteKQxt3f+NGR22qwPymn9RBuv26QKfIKmfo6z2NpgU8W2RT0s0jlvg==}
+  '@next/env@15.4.10':
+    resolution: {integrity: sha512-knhmoJ0Vv7VRf6pZEPSnciUG1S4bIhWx+qTYBW/AjxEtlzsiNORPk8sFDCEvqLfmKuey56UB9FL1UdHEV3uBrg==}
 
   '@next/eslint-plugin-next@15.1.0':
     resolution: {integrity: sha512-+jPT0h+nelBT6HC9ZCHGc7DgGVy04cv4shYdAe6tKlEbjQUtwU3LzQhzbDHQyY2m6g39m6B0kOFVuLGBrxxbGg==}
 
-  '@next/swc-darwin-arm64@15.4.2':
-    resolution: {integrity: sha512-ovqjR8NjCBdBf1U+R/Gvn0RazTtXS9n6wqs84iFaCS1NHbw9ksVE4dfmsYcLoyUVd9BWE0bjkphOWrrz8uz/uw==}
+  '@next/swc-darwin-arm64@15.4.8':
+    resolution: {integrity: sha512-Pf6zXp7yyQEn7sqMxur6+kYcywx5up1J849psyET7/8pG2gQTVMjU3NzgIt8SeEP5to3If/SaWmaA6H6ysBr1A==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [darwin]
 
-  '@next/swc-darwin-x64@15.4.2':
-    resolution: {integrity: sha512-I8d4W7tPqbdbHRI4z1iBfaoJIBrEG4fnWKIe+Rj1vIucNZ5cEinfwkBt3RcDF00bFRZRDpvKuDjgMFD3OyRBnw==}
+  '@next/swc-darwin-x64@15.4.8':
+    resolution: {integrity: sha512-xla6AOfz68a6kq3gRQccWEvFC/VRGJmA/QuSLENSO7CZX5WIEkSz7r1FdXUjtGCQ1c2M+ndUAH7opdfLK1PQbw==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [darwin]
 
-  '@next/swc-linux-arm64-gnu@15.4.2':
-    resolution: {integrity: sha512-lvhz02dU3Ec5thzfQ2RCUeOFADjNkS/px1W7MBt7HMhf0/amMfT8Z/aXOwEA+cVWN7HSDRSUc8hHILoHmvajsg==}
+  '@next/swc-linux-arm64-gnu@15.4.8':
+    resolution: {integrity: sha512-y3fmp+1Px/SJD+5ntve5QLZnGLycsxsVPkTzAc3zUiXYSOlTPqT8ynfmt6tt4fSo1tAhDPmryXpYKEAcoAPDJw==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
 
-  '@next/swc-linux-arm64-musl@15.4.2':
-    resolution: {integrity: sha512-v+5PPfL8UP+KKHS3Mox7QMoeFdMlaV0zeNMIF7eLC4qTiVSO0RPNnK0nkBZSD5BEkkf//c+vI9s/iHxddCZchA==}
+  '@next/swc-linux-arm64-musl@15.4.8':
+    resolution: {integrity: sha512-DX/L8VHzrr1CfwaVjBQr3GWCqNNFgyWJbeQ10Lx/phzbQo3JNAxUok1DZ8JHRGcL6PgMRgj6HylnLNndxn4Z6A==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
 
-  '@next/swc-linux-x64-gnu@15.4.2':
-    resolution: {integrity: sha512-PHLYOC9W2cu6I/JEKo77+LW4uPNvyEQiSkVRUQPsOIsf01PRr8PtPhwtz3XNnC9At8CrzPkzqQ9/kYDg4R4Inw==}
+  '@next/swc-linux-x64-gnu@15.4.8':
+    resolution: {integrity: sha512-9fLAAXKAL3xEIFdKdzG5rUSvSiZTLLTCc6JKq1z04DR4zY7DbAPcRvNm3K1inVhTiQCs19ZRAgUerHiVKMZZIA==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
 
-  '@next/swc-linux-x64-musl@15.4.2':
-    resolution: {integrity: sha512-lpmUF9FfLFns4JbTu+5aJGA8aR9dXaA12eoNe9CJbVkGib0FDiPa4kBGTwy0xDxKNGlv3bLDViyx1U+qafmuJQ==}
+  '@next/swc-linux-x64-musl@15.4.8':
+    resolution: {integrity: sha512-s45V7nfb5g7dbS7JK6XZDcapicVrMMvX2uYgOHP16QuKH/JA285oy6HcxlKqwUNaFY/UC6EvQ8QZUOo19cBKSA==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
 
-  '@next/swc-win32-arm64-msvc@15.4.2':
-    resolution: {integrity: sha512-aMjogoGnRepas0LQ/PBPsvvUzj+IoXw2IoDSEShEtrsu2toBiaxEWzOQuPZ8nie8+1iF7TA63S7rlp3YWAjNEg==}
+  '@next/swc-win32-arm64-msvc@15.4.8':
+    resolution: {integrity: sha512-KjgeQyOAq7t/HzAJcWPGA8X+4WY03uSCZ2Ekk98S9OgCFsb6lfBE3dbUzUuEQAN2THbwYgFfxX2yFTCMm8Kehw==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [win32]
 
-  '@next/swc-win32-x64-msvc@15.4.2':
-    resolution: {integrity: sha512-FxwauyexSFu78wEqR/+NB9MnqXVj6SxJKwcVs2CRjeSX/jBagDCgtR2W36PZUYm0WPgY1pQ3C1+nn7zSnwROuw==}
+  '@next/swc-win32-x64-msvc@15.4.8':
+    resolution: {integrity: sha512-Exsmf/+42fWVnLMaZHzshukTBxZrSwuuLKFvqhGHJ+mC1AokqieLY/XzAl3jc/CqhXLqLY3RRjkKJ9YnLPcRWg==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [win32]
@@ -1309,6 +1309,9 @@ packages:
 
   '@types/node@18.19.127':
     resolution: {integrity: sha512-gSjxjrnKXML/yo0BO099uPixMqfpJU0TKYjpfLU7TrtA2WWDki412Np/RSTPRil1saKBhvVVKzVx/p/6p94nVA==}
+
+  '@types/node@18.19.130':
+    resolution: {integrity: sha512-GRaXQx6jGfL8sKfaIDD6OupbIHBr9jv7Jnaml9tB7l4v068PAOXqfcujMMo5PhbIs6ggR1XODELqahT2R8v0fg==}
 
   '@types/node@22.18.6':
     resolution: {integrity: sha512-r8uszLPpeIWbNKtvWRt/DbVi5zbqZyj1PTmhRMqBMvDnaz1QpmSKujUtJLrqGZeoM8v72MfYggDceY4K1itzWQ==}
@@ -1659,8 +1662,8 @@ packages:
     resolution: {integrity: sha512-Xm7bpRXnDSX2YE2YFfBk2FnF0ep6tmG7xPh8iHee8MIcrgq762Nkce856dYtJYLkuIoYZvGfTs/PbZhideTcEg==}
     engines: {node: '>=4'}
 
-  axios@1.12.2:
-    resolution: {integrity: sha512-vMJzPewAlRyOgxV2dU0Cuz2O8zzzx9VYtbJOaBgXFeLc4IV/Eg50n4LowmehOOR61S8ZMpc2K5Sa7g6A4jfkUw==}
+  axios@1.13.2:
+    resolution: {integrity: sha512-VPk9ebNqPcy5lRGuSlKx752IlDatOjT9paPlm8A7yOuW2Fbvp4X3JznJtT4f0GzGLLiWE9W8onz51SqLYwzGaA==}
 
   axobject-query@4.1.0:
     resolution: {integrity: sha512-qIj0G9wZbMGNLjLmg1PT6v2mE9AH2zlnADJD/2tC6E00hgmhUOfEB6greHPAfLRSufHqROIUTkw6E+M3lH0PTQ==}
@@ -1730,8 +1733,8 @@ packages:
     resolution: {integrity: sha512-Gmy6FhYlCY7uOElZUSbxo2UCDH8owEk996gkbrpsgGtrJLM3J7jGxl9Ic7Qwwj4ivOE5AWZWRMecDdF7hqGjFA==}
     engines: {node: '>=10'}
 
-  caniuse-lite@1.0.30001743:
-    resolution: {integrity: sha512-e6Ojr7RV14Un7dz6ASD0aZDmQPT/A+eZU+nuTNfjqmRrmkmQlnTNWH0SKmqagx9PeW87UVqapSurtAXifmtdmw==}
+  caniuse-lite@1.0.30001760:
+    resolution: {integrity: sha512-7AAMPcueWELt1p3mi13HR/LHH0TJLT11cnwDJEs3xA4+CK/PLKeO9Kl1oru24htkyUKtkGCvAx4ohB0Ttry8Dw==}
 
   ccount@2.0.1:
     resolution: {integrity: sha512-eyrF0jiFpY+3drT6383f1qhkbGsLSifNAjA61IUjZjmLCWjItY6LB9ft9YhoDgwfmclB2zhu51Lc7+95b8NRAg==}
@@ -2291,6 +2294,10 @@ packages:
     resolution: {integrity: sha512-KrGhL9Q4zjj0kiUt5OO4Mr/A/jlI2jDYs5eHBpYHPcBEVSiipAvn2Ko2HnPe20rmcuuvMHNdZFp+4IlGTMF0Ow==}
     engines: {node: '>= 6'}
 
+  form-data@4.0.5:
+    resolution: {integrity: sha512-8RipRLol37bNs2bhoV67fiTEvdTrbMUYcFTiy3+wuuOnUog2QBHCZWXDRijWQfAkhBj2Uf5UnVaiWwA5vdd82w==}
+    engines: {node: '>= 6'}
+
   format@0.2.2:
     resolution: {integrity: sha512-wzsgA6WOq+09wrU1tsJ09udeR/YZRaeArL9e1wPbFg3GG2yDnC2ldKpxs4xunpFF9DgqCqOIra3bc1HWrJ37Ww==}
     engines: {node: '>=0.4.x'}
@@ -2769,25 +2776,22 @@ packages:
     resolution: {integrity: sha512-p/nXbhSEcu3pZRdkW1OfJhpsVtW1gd4Wa1fnQc9YLiTfAjn0312eMKimbdIQzuZl9aa9xUGaRlP9T/CJE/ditQ==}
     engines: {node: '>=0.10.0'}
 
-  jsonwebtoken@9.0.2:
-    resolution: {integrity: sha512-PRp66vJ865SSqOlgqS8hujT5U4AOgMfhrwYIuIhfKaoSCZcirrmASQr8CX7cUg+RMih+hgznrjp99o+W4pJLHQ==}
+  jsonwebtoken@9.0.3:
+    resolution: {integrity: sha512-MT/xP0CrubFRNLNKvxJ2BYfy53Zkm++5bX9dtuPbqAeQpTVe0MQTFhao8+Cp//EmJp244xt6Drw/GVEGCUj40g==}
     engines: {node: '>=12', npm: '>=6'}
 
   jsx-ast-utils@3.3.5:
     resolution: {integrity: sha512-ZZow9HBI5O6EPgSJLUb8n2NKgmVWTwCvHGwFuJlMjvLFqlGG6pjirPhtdsseaLZjSibD8eegzmYpUZwoIlj2cQ==}
     engines: {node: '>=4.0'}
 
-  jwa@1.4.2:
-    resolution: {integrity: sha512-eeH5JO+21J78qMvTIDdBXidBd6nG2kZjg5Ohz/1fpa28Z4CcsWUzJ1ZZyFq/3z3N17aZy+ZuBoHljASbL1WfOw==}
-
   jwa@2.0.1:
     resolution: {integrity: sha512-hRF04fqJIP8Abbkq5NKGN0Bbr3JxlQ+qhZufXVr0DvujKy93ZCbXZMHDL4EOtodSbCWxOqR8MS1tXA5hwqCXDg==}
 
-  jws@3.2.2:
-    resolution: {integrity: sha512-YHlZCB6lMTllWDtSPHz/ZXTsi8S00usEV6v1tjq8tOUZzw7DpSDWVXjXDre6ed1w/pd495ODpHZYSdkRTsa0HA==}
-
   jws@4.0.0:
     resolution: {integrity: sha512-KDncfTmOZoOMTFG4mBlG0qUIOlc03fmzH+ru6RgYVZhPkyiy/92Owlt/8UEN+a4TXR1FQetfIpJE8ApdvdVxTg==}
+
+  jws@4.0.1:
+    resolution: {integrity: sha512-EKI/M/yqPncGUUh44xz0PxSidXFr/+r0pA70+gIYhjv+et7yxM+s29Y+VGDkovRofQem0fs7Uvf4+YmAdyRduA==}
 
   katex@0.16.22:
     resolution: {integrity: sha512-XCHRdUw4lf3SKBaJe4EvgqIuWwkPSo9XoeO8GjQW94Bp7TWv9hNhzZjZ+OH9yf1UmLygb7DIT5GSFQiyt16zYg==}
@@ -3259,10 +3263,9 @@ packages:
     resolution: {integrity: sha512-+EUsqGPLsM+j/zdChZjsnX51g4XrHFOIXwfnCVPGlQk/k5giakcKsuxCObBRu6DSm9opw/O6slWbJdghQM4bBg==}
     engines: {node: '>= 0.6'}
 
-  next@15.4.2:
-    resolution: {integrity: sha512-oH1rmFso+84NIkocfuxaGKcXIjMUTmnzV2x0m8qsYtB4gD6iflLMESXt5XJ8cFgWMBei4v88rNr/j+peNg72XA==}
+  next@15.4.10:
+    resolution: {integrity: sha512-itVlc79QjpKMFMRhP+kbGKaSG/gZM6RCvwhEbwmCNF06CdDiNaoHcbeg0PqkEa2GOcn8KJ0nnc7+yL7EjoYLHQ==}
     engines: {node: ^18.18.0 || ^19.8.0 || >= 20.0.0}
-    deprecated: This version has a security vulnerability. Please upgrade to a patched version. See https://nextjs.org/blog/CVE-2025-66478 for more details.
     hasBin: true
     peerDependencies:
       '@opentelemetry/api': ^1.1.0
@@ -4332,6 +4335,11 @@ packages:
     peerDependencies:
       zod: ^3.24.1
 
+  zod-to-json-schema@3.25.0:
+    resolution: {integrity: sha512-HvWtU2UG41LALjajJrML6uQejQhNJx+JBO9IflpSja4R03iNWfKXrj6W2h7ljuLyc1nKS+9yDyL/9tD1U/yBnQ==}
+    peerDependencies:
+      zod: ^3.25 || ^4
+
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
@@ -4369,7 +4377,7 @@ snapshots:
   '@ag-ui/proto@0.0.38':
     dependencies:
       '@ag-ui/core': 0.0.38
-      '@bufbuild/protobuf': 2.9.0
+      '@bufbuild/protobuf': 2.10.2
       '@protobuf-ts/protoc': 2.11.1
 
   '@alloc/quick-lru@5.2.0': {}
@@ -4390,7 +4398,7 @@ snapshots:
 
   '@browserbasehq/sdk@2.6.0':
     dependencies:
-      '@types/node': 18.19.127
+      '@types/node': 18.19.130
       '@types/node-fetch': 2.6.13
       abort-controller: 3.0.0
       agentkeepalive: 4.6.0
@@ -4410,13 +4418,13 @@ snapshots:
       openai: 4.104.0(ws@8.18.3)(zod@3.25.76)
       ws: 8.18.3
       zod: 3.25.76
-      zod-to-json-schema: 3.24.6(zod@3.25.76)
+      zod-to-json-schema: 3.25.0(zod@3.25.76)
     transitivePeerDependencies:
       - bufferutil
       - encoding
       - utf-8-validate
 
-  '@bufbuild/protobuf@2.9.0': {}
+  '@bufbuild/protobuf@2.10.2': {}
 
   '@cfworker/json-schema@4.1.1': {}
 
@@ -4465,7 +4473,7 @@ snapshots:
       - encoding
       - graphql
 
-  '@copilotkit/runtime@1.8.13(@ag-ui/client@0.0.38)(@ag-ui/core@0.0.38)(@ag-ui/encoder@0.0.38)(@ag-ui/proto@0.0.38)(@browserbasehq/sdk@2.6.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.55.1)(deepmerge@4.3.1)(dotenv@16.6.1)(openai@4.104.0(ws@8.18.3)(zod@3.25.76))(zod@3.25.76))(@ibm-cloud/watsonx-ai@1.6.13)(axios@1.12.2)(google-auth-library@8.9.0)(ibm-cloud-sdk-core@5.4.3)(ignore@5.3.2)(jsonwebtoken@9.0.2)(playwright@1.55.1)(react@19.0.0)(weaviate-client@3.8.1)(ws@8.18.3)':
+  '@copilotkit/runtime@1.8.13(@ag-ui/client@0.0.38)(@ag-ui/core@0.0.38)(@ag-ui/encoder@0.0.38)(@ag-ui/proto@0.0.38)(@browserbasehq/sdk@2.6.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.55.1)(deepmerge@4.3.1)(dotenv@16.6.1)(openai@4.104.0(ws@8.18.3)(zod@3.25.76))(zod@3.25.76))(@ibm-cloud/watsonx-ai@1.6.13)(axios@1.13.2)(google-auth-library@8.9.0)(ibm-cloud-sdk-core@5.4.3)(ignore@5.3.2)(jsonwebtoken@9.0.3)(playwright@1.55.1)(react@19.0.0)(weaviate-client@3.8.1)(ws@8.18.3)':
     dependencies:
       '@ag-ui/client': 0.0.38
       '@ag-ui/core': 0.0.38
@@ -4474,7 +4482,7 @@ snapshots:
       '@anthropic-ai/sdk': 0.27.3
       '@copilotkit/shared': 1.8.13
       '@graphql-yoga/plugin-defer-stream': 3.16.0(graphql-yoga@5.16.0(graphql@16.11.0))(graphql@16.11.0)
-      '@langchain/community': 0.3.56(@browserbasehq/sdk@2.6.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.55.1)(deepmerge@4.3.1)(dotenv@16.6.1)(openai@4.104.0(ws@8.18.3)(zod@3.25.76))(zod@3.25.76))(@ibm-cloud/watsonx-ai@1.6.13)(@langchain/core@0.3.77(openai@4.104.0(ws@8.18.3)(zod@3.25.76)))(axios@1.12.2)(google-auth-library@8.9.0)(ibm-cloud-sdk-core@5.4.3)(ignore@5.3.2)(jsonwebtoken@9.0.2)(openai@4.104.0(ws@8.18.3)(zod@3.25.76))(playwright@1.55.1)(weaviate-client@3.8.1)(ws@8.18.3)
+      '@langchain/community': 0.3.56(@browserbasehq/sdk@2.6.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.55.1)(deepmerge@4.3.1)(dotenv@16.6.1)(openai@4.104.0(ws@8.18.3)(zod@3.25.76))(zod@3.25.76))(@ibm-cloud/watsonx-ai@1.6.13)(@langchain/core@0.3.77(openai@4.104.0(ws@8.18.3)(zod@3.25.76)))(axios@1.13.2)(google-auth-library@8.9.0)(ibm-cloud-sdk-core@5.4.3)(ignore@5.3.2)(jsonwebtoken@9.0.3)(openai@4.104.0(ws@8.18.3)(zod@3.25.76))(playwright@1.55.1)(weaviate-client@3.8.1)(ws@8.18.3)
       '@langchain/core': 0.3.77(openai@4.104.0(ws@8.18.3)(zod@3.25.76))
       '@langchain/google-gauth': 0.1.8(@langchain/core@0.3.77(openai@4.104.0(ws@8.18.3)(zod@3.25.76)))(zod@3.25.76)
       '@langchain/langgraph-sdk': 0.0.70(@langchain/core@0.3.77(openai@4.104.0(ws@8.18.3)(zod@3.25.76)))(react@19.0.0)
@@ -4486,7 +4494,7 @@ snapshots:
       graphql-scalars: 1.24.2(graphql@16.11.0)
       graphql-yoga: 5.16.0(graphql@16.11.0)
       groq-sdk: 0.5.0
-      langchain: 0.3.34(@langchain/core@0.3.77(openai@4.104.0(ws@8.18.3)(zod@3.25.76)))(axios@1.12.2)(openai@4.104.0(ws@8.18.3)(zod@3.25.76))(ws@8.18.3)
+      langchain: 0.3.34(@langchain/core@0.3.77(openai@4.104.0(ws@8.18.3)(zod@3.25.76)))(axios@1.13.2)(openai@4.104.0(ws@8.18.3)(zod@3.25.76))(ws@8.18.3)
       openai: 4.104.0(ws@8.18.3)(zod@3.25.76)
       partial-json: 0.1.7
       pino: 9.11.0
@@ -4857,9 +4865,9 @@ snapshots:
 
   '@ibm-cloud/watsonx-ai@1.6.13':
     dependencies:
-      '@types/node': 18.19.127
+      '@types/node': 18.19.130
       extend: 3.0.2
-      form-data: 4.0.4
+      form-data: 4.0.5
       ibm-cloud-sdk-core: 5.4.3
     transitivePeerDependencies:
       - supports-color
@@ -4986,7 +4994,7 @@ snapshots:
 
   '@js-sdsl/ordered-map@4.4.2': {}
 
-  '@langchain/community@0.3.56(@browserbasehq/sdk@2.6.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.55.1)(deepmerge@4.3.1)(dotenv@16.6.1)(openai@4.104.0(ws@8.18.3)(zod@3.25.76))(zod@3.25.76))(@ibm-cloud/watsonx-ai@1.6.13)(@langchain/core@0.3.77(openai@4.104.0(ws@8.18.3)(zod@3.25.76)))(axios@1.12.2)(google-auth-library@8.9.0)(ibm-cloud-sdk-core@5.4.3)(ignore@5.3.2)(jsonwebtoken@9.0.2)(openai@4.104.0(ws@8.18.3)(zod@3.25.76))(playwright@1.55.1)(weaviate-client@3.8.1)(ws@8.18.3)':
+  '@langchain/community@0.3.56(@browserbasehq/sdk@2.6.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.55.1)(deepmerge@4.3.1)(dotenv@16.6.1)(openai@4.104.0(ws@8.18.3)(zod@3.25.76))(zod@3.25.76))(@ibm-cloud/watsonx-ai@1.6.13)(@langchain/core@0.3.77(openai@4.104.0(ws@8.18.3)(zod@3.25.76)))(axios@1.13.2)(google-auth-library@8.9.0)(ibm-cloud-sdk-core@5.4.3)(ignore@5.3.2)(jsonwebtoken@9.0.3)(openai@4.104.0(ws@8.18.3)(zod@3.25.76))(playwright@1.55.1)(weaviate-client@3.8.1)(ws@8.18.3)':
     dependencies:
       '@browserbasehq/stagehand': 1.14.0(@playwright/test@1.55.1)(deepmerge@4.3.1)(dotenv@16.6.1)(openai@4.104.0(ws@8.18.3)(zod@3.25.76))(zod@3.25.76)
       '@ibm-cloud/watsonx-ai': 1.6.13
@@ -4998,7 +5006,7 @@ snapshots:
       flat: 5.0.2
       ibm-cloud-sdk-core: 5.4.3
       js-yaml: 4.1.0
-      langchain: 0.3.34(@langchain/core@0.3.77(openai@4.104.0(ws@8.18.3)(zod@3.25.76)))(axios@1.12.2)(openai@4.104.0(ws@8.18.3)(zod@3.25.76))(ws@8.18.3)
+      langchain: 0.3.34(@langchain/core@0.3.77(openai@4.104.0(ws@8.18.3)(zod@3.25.76)))(axios@1.13.2)(openai@4.104.0(ws@8.18.3)(zod@3.25.76))(ws@8.18.3)
       langsmith: 0.3.69(openai@4.104.0(ws@8.18.3)(zod@3.25.76))
       openai: 4.104.0(ws@8.18.3)(zod@3.25.76)
       uuid: 10.0.0
@@ -5007,7 +5015,7 @@ snapshots:
       '@browserbasehq/sdk': 2.6.0
       google-auth-library: 8.9.0
       ignore: 5.3.2
-      jsonwebtoken: 9.0.2
+      jsonwebtoken: 9.0.3
       playwright: 1.55.1
       weaviate-client: 3.8.1
       ws: 8.18.3
@@ -5117,34 +5125,34 @@ snapshots:
       '@tybys/wasm-util': 0.10.1
     optional: true
 
-  '@next/env@15.4.2': {}
+  '@next/env@15.4.10': {}
 
   '@next/eslint-plugin-next@15.1.0':
     dependencies:
       fast-glob: 3.3.1
 
-  '@next/swc-darwin-arm64@15.4.2':
+  '@next/swc-darwin-arm64@15.4.8':
     optional: true
 
-  '@next/swc-darwin-x64@15.4.2':
+  '@next/swc-darwin-x64@15.4.8':
     optional: true
 
-  '@next/swc-linux-arm64-gnu@15.4.2':
+  '@next/swc-linux-arm64-gnu@15.4.8':
     optional: true
 
-  '@next/swc-linux-arm64-musl@15.4.2':
+  '@next/swc-linux-arm64-musl@15.4.8':
     optional: true
 
-  '@next/swc-linux-x64-gnu@15.4.2':
+  '@next/swc-linux-x64-gnu@15.4.8':
     optional: true
 
-  '@next/swc-linux-x64-musl@15.4.2':
+  '@next/swc-linux-x64-musl@15.4.8':
     optional: true
 
-  '@next/swc-win32-arm64-msvc@15.4.2':
+  '@next/swc-win32-arm64-msvc@15.4.8':
     optional: true
 
-  '@next/swc-win32-x64-msvc@15.4.2':
+  '@next/swc-win32-x64-msvc@15.4.8':
     optional: true
 
   '@nodelib/fs.scandir@2.1.5':
@@ -5459,6 +5467,10 @@ snapshots:
       form-data: 4.0.4
 
   '@types/node@18.19.127':
+    dependencies:
+      undici-types: 5.26.5
+
+  '@types/node@18.19.130':
     dependencies:
       undici-types: 5.26.5
 
@@ -5828,10 +5840,10 @@ snapshots:
 
   axe-core@4.10.3: {}
 
-  axios@1.12.2(debug@4.4.3):
+  axios@1.13.2(debug@4.4.3):
     dependencies:
       follow-redirects: 1.15.11(debug@4.4.3)
-      form-data: 4.0.4
+      form-data: 4.0.5
       proxy-from-env: 1.1.0
     transitivePeerDependencies:
       - debug
@@ -5910,7 +5922,7 @@ snapshots:
 
   camelcase@6.3.0: {}
 
-  caniuse-lite@1.0.30001743: {}
+  caniuse-lite@1.0.30001760: {}
 
   ccount@2.0.1: {}
 
@@ -6599,6 +6611,14 @@ snapshots:
       hasown: 2.0.2
       mime-types: 2.1.35
 
+  form-data@4.0.5:
+    dependencies:
+      asynckit: 0.4.0
+      combined-stream: 1.0.8
+      es-set-tostringtag: 2.1.0
+      hasown: 2.0.2
+      mime-types: 2.1.35
+
   format@0.2.2: {}
 
   formdata-node@4.4.1:
@@ -6931,19 +6951,19 @@ snapshots:
   ibm-cloud-sdk-core@5.4.3:
     dependencies:
       '@types/debug': 4.1.12
-      '@types/node': 18.19.127
+      '@types/node': 18.19.130
       '@types/tough-cookie': 4.0.5
-      axios: 1.12.2(debug@4.4.3)
+      axios: 1.13.2(debug@4.4.3)
       camelcase: 6.3.0
       debug: 4.4.3
       dotenv: 16.6.1
       extend: 3.0.2
       file-type: 16.5.4
-      form-data: 4.0.4
+      form-data: 4.0.5
       isstream: 0.1.2
-      jsonwebtoken: 9.0.2
+      jsonwebtoken: 9.0.3
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.12.2)
+      retry-axios: 2.6.0(axios@1.13.2)
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -7177,9 +7197,9 @@ snapshots:
 
   jsonpointer@5.0.1: {}
 
-  jsonwebtoken@9.0.2:
+  jsonwebtoken@9.0.3:
     dependencies:
-      jws: 3.2.2
+      jws: 4.0.1
       lodash.includes: 4.3.0
       lodash.isboolean: 3.0.3
       lodash.isinteger: 4.0.4
@@ -7188,7 +7208,7 @@ snapshots:
       lodash.isstring: 4.0.1
       lodash.once: 4.1.1
       ms: 2.1.3
-      semver: 7.7.2
+      semver: 7.7.3
 
   jsx-ast-utils@3.3.5:
     dependencies:
@@ -7197,24 +7217,18 @@ snapshots:
       object.assign: 4.1.7
       object.values: 1.2.1
 
-  jwa@1.4.2:
-    dependencies:
-      buffer-equal-constant-time: 1.0.1
-      ecdsa-sig-formatter: 1.0.11
-      safe-buffer: 5.2.1
-
   jwa@2.0.1:
     dependencies:
       buffer-equal-constant-time: 1.0.1
       ecdsa-sig-formatter: 1.0.11
       safe-buffer: 5.2.1
 
-  jws@3.2.2:
+  jws@4.0.0:
     dependencies:
-      jwa: 1.4.2
+      jwa: 2.0.1
       safe-buffer: 5.2.1
 
-  jws@4.0.0:
+  jws@4.0.1:
     dependencies:
       jwa: 2.0.1
       safe-buffer: 5.2.1
@@ -7229,7 +7243,7 @@ snapshots:
 
   kleur@4.1.5: {}
 
-  langchain@0.3.34(@langchain/core@0.3.77(openai@4.104.0(ws@8.18.3)(zod@3.25.76)))(axios@1.12.2)(openai@4.104.0(ws@8.18.3)(zod@3.25.76))(ws@8.18.3):
+  langchain@0.3.34(@langchain/core@0.3.77(openai@4.104.0(ws@8.18.3)(zod@3.25.76)))(axios@1.13.2)(openai@4.104.0(ws@8.18.3)(zod@3.25.76))(ws@8.18.3):
     dependencies:
       '@langchain/core': 0.3.77(openai@4.104.0(ws@8.18.3)(zod@3.25.76))
       '@langchain/openai': 0.4.9(@langchain/core@0.3.77(openai@4.104.0(ws@8.18.3)(zod@3.25.76)))(ws@8.18.3)
@@ -7244,7 +7258,7 @@ snapshots:
       yaml: 2.8.1
       zod: 3.25.76
     optionalDependencies:
-      axios: 1.12.2(debug@4.4.3)
+      axios: 1.13.2(debug@4.4.3)
     transitivePeerDependencies:
       - '@opentelemetry/api'
       - '@opentelemetry/exporter-trace-otlp-proto'
@@ -7260,7 +7274,7 @@ snapshots:
       console-table-printer: 2.14.6
       p-queue: 6.6.2
       p-retry: 4.6.2
-      semver: 7.7.2
+      semver: 7.7.3
       uuid: 10.0.0
     optionalDependencies:
       openai: 4.104.0(ws@8.18.3)(zod@3.25.76)
@@ -7931,24 +7945,24 @@ snapshots:
 
   negotiator@0.6.3: {}
 
-  next@15.4.2(@playwright/test@1.55.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0):
+  next@15.4.10(@playwright/test@1.55.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0):
     dependencies:
-      '@next/env': 15.4.2
+      '@next/env': 15.4.10
       '@swc/helpers': 0.5.15
-      caniuse-lite: 1.0.30001743
+      caniuse-lite: 1.0.30001760
       postcss: 8.4.31
       react: 19.0.0
       react-dom: 19.0.0(react@19.0.0)
       styled-jsx: 5.1.6(react@19.0.0)
     optionalDependencies:
-      '@next/swc-darwin-arm64': 15.4.2
-      '@next/swc-darwin-x64': 15.4.2
-      '@next/swc-linux-arm64-gnu': 15.4.2
-      '@next/swc-linux-arm64-musl': 15.4.2
-      '@next/swc-linux-x64-gnu': 15.4.2
-      '@next/swc-linux-x64-musl': 15.4.2
-      '@next/swc-win32-arm64-msvc': 15.4.2
-      '@next/swc-win32-x64-msvc': 15.4.2
+      '@next/swc-darwin-arm64': 15.4.8
+      '@next/swc-darwin-x64': 15.4.8
+      '@next/swc-linux-arm64-gnu': 15.4.8
+      '@next/swc-linux-arm64-musl': 15.4.8
+      '@next/swc-linux-x64-gnu': 15.4.8
+      '@next/swc-linux-x64-musl': 15.4.8
+      '@next/swc-win32-arm64-msvc': 15.4.8
+      '@next/swc-win32-x64-msvc': 15.4.8
       '@playwright/test': 1.55.1
       sharp: 0.34.5
     transitivePeerDependencies:
@@ -8527,9 +8541,9 @@ snapshots:
       path-parse: 1.0.7
       supports-preserve-symlinks-flag: 1.0.0
 
-  retry-axios@2.6.0(axios@1.12.2):
+  retry-axios@2.6.0(axios@1.13.2):
     dependencies:
-      axios: 1.12.2(debug@4.4.3)
+      axios: 1.13.2(debug@4.4.3)
 
   retry@0.13.1: {}
 
@@ -8584,8 +8598,7 @@ snapshots:
 
   semver@7.7.2: {}
 
-  semver@7.7.3:
-    optional: true
+  semver@7.7.3: {}
 
   send@0.19.0:
     dependencies:
@@ -9297,6 +9310,10 @@ snapshots:
   yocto-queue@0.1.0: {}
 
   zod-to-json-schema@3.24.6(zod@3.25.76):
+    dependencies:
+      zod: 3.25.76
+
+  zod-to-json-schema@3.25.0(zod@3.25.76):
     dependencies:
       zod: 3.25.76
 
