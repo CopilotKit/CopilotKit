@@ -1,6 +1,7 @@
 {
   "title": "Integrations",
   "pages": [
+    "a2a",
     "direct-to-llm",
     "langgraph",
     "microsoft-agent-framework",
