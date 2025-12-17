@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.50.1-next.3
+
+### Patch Changes
+
+- eac8b20: - fix: use latest vnext
+  - @copilotkit/shared@1.50.1-next.3
+
 ## 1.50.1-next.2
 
 ### Patch Changes
