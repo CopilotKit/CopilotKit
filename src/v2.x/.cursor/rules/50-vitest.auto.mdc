@@ -1,0 +1,12 @@
+---
+description: Vitest testing conventions.
+globs:
+  - "**/vitest.config.{js,mjs,ts}"
+  - "**/*.{spec,test}.{ts,tsx}"
+  - "**/__tests__/**"
+---
+
+- Use Vitest for all testing; see `packages/react/vitest.config.mjs` and `packages/runtime/vitest.config.mjs` for examples.
+- Place tests under `__tests__/` with `.test.ts` suffix.
+- Use the Arrange-Act-Assert pattern in tests.
+- Import `vi` from 'vitest' for mocking functions (use `vi.fn()`, `vi.spyOn()`, etc.).

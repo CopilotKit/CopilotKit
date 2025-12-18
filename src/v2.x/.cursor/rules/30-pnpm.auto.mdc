@@ -1,0 +1,11 @@
+---
+description: pnpm workspace guidelines.
+globs:
+  - "**/package.json"
+  - "**/pnpm-lock.yaml"
+---
+
+- Use `pnpm -F <workspace>` to run scripts in a specific package.
+- Add dependencies with `pnpm add -w <pkg>` or `pnpm add -F <workspace> <pkg>`.
+- Do not use `npm` commands or edit `node_modules` manually.
+- Keep the lockfile committed.
