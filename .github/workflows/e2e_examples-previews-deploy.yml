@@ -1,4 +1,4 @@
-name: Preview Environments
+name: e2e / examples
 
 on:
   pull_request:
@@ -204,7 +204,6 @@ jobs:
 
   deploy:
     runs-on: ubuntu-latest
-    name: Deploy Preview Environments
     needs: build_images
     outputs:
       e2e-urls: ${{ steps.export-e2e-urls.outputs.e2e-urls }}
@@ -312,10 +311,10 @@ jobs:
               labels: ['preview']
             })
 
-  test:
+  playwright:
+    name: "playwright"
     if: github.event_name == 'pull_request'
-    name: End to End Tests
-    uses: ./.github/workflows/e2e.yml
+    uses: ./.github/workflows/e2e_examples.yml
     needs: deploy
     with:
       ref: "${{ github.event.pull_request.head.ref }}"

@@ -1,11 +1,11 @@
-name: Cleanup caches after PR close
+name: cleanup
 on:
   pull_request:
     types:
       - closed
 
 jobs:
-  cleanup:
+  pr-caches:
     runs-on: ubuntu-latest
     steps:
       - name: Cleanup
