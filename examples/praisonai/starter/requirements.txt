@@ -1,0 +1,4 @@
+praisonaiagents>=0.0.80
+fastapi>=0.100.0
+uvicorn>=0.23.0
+duckduckgo-search>=4.0.0  # Optional: for search tool example
