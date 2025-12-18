@@ -28,7 +28,7 @@
   },
   "pnpm": {
     "overrides": {
-      "@langchain/community@<0.3.3": ">=0.3.3"
+      "@langchain/community@<1.0.2": ">=1.0.2"
     }
   }
 }

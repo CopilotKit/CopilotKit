@@ -88,7 +88,7 @@
     "@anthropic-ai/sdk": "^0.57.0",
     "@langchain/aws": ">=0.1.9",
     "@langchain/core": ">=0.3.66",
-    "@langchain/community": ">=0.3.58",
+    "@langchain/community": ">=1.0.2",
     "@langchain/google-gauth": ">=0.1.0",
     "@langchain/langgraph-sdk": ">=0.1.2",
     "@langchain/openai": ">=0.4.2",
