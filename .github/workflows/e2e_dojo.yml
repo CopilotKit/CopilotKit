@@ -3,14 +3,16 @@ name: e2e / dojo
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "docs/**"
-      - "README.md"
+    paths:
+      - "src/v1.x/**"
+      - "src/v2.x/**"
+      - ".github/workflows/e2e_dojo.yml"
   pull_request:
     branches: [main]
-    paths-ignore:
-      - "docs/**"
-      - "README.md"
+    paths:
+      - "src/v1.x/**"
+      - "src/v2.x/**"
+      - ".github/workflows/e2e_dojo.yml"
 
 jobs:
   dojo:
