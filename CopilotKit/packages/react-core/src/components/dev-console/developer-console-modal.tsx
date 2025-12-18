@@ -2,74 +2,161 @@
 
 import { useCopilotContext } from "../../context/copilot-context";
 import { useCopilotMessagesContext } from "../../context/copilot-messages-context";
+import { useEffect, useState, useRef } from "react";
+import { CopilotKitIcon } from "./icons";
+import {
+  fetchNotifications,
+  countUnreadNotifications,
+  markNotificationsAsSeen,
+  type Notification,
+} from "../../utils/notifications";
+import { DisplayContext, MessagesContext, InspectorMessage } from "./types";
+import {
+  ActionsTab,
+  MessagesTab,
+  ReadablesTab,
+  AvailableAgentsTab,
+  AgentStatusTab,
+  FrontendToolsTab,
+  InspectorMessagesTab,
+} from "./tabs";
+import { ModalHeader } from "./components/modal-header";
+import { NotificationsPanel } from "./components/notifications-panel";
+import { UpdateBanner } from "./components/update-banner";
+import { SettingsMenu } from "./components/settings-menu";
 import { COPILOTKIT_VERSION } from "@copilotkit/shared";
-import { useEffect, useState } from "react";
-import { CheckIcon, CopilotKitIcon, ExclamationMarkTriangleIcon } from "./icons";
-
-// Type definitions for the developer console
-interface ActionParameter {
-  name: string;
-  required?: boolean;
-  type?: string;
-}
-
-interface Action {
-  name: string;
-  description?: string;
-  parameters?: ActionParameter[];
-  status?: string;
-}
-
-interface Readable {
-  name?: string;
-  description?: string;
-  value?: any;
-  content?: string;
-  metadata?: Record<string, any>;
-}
-
-interface AgentState {
-  status?: string;
-  state?: any;
-  running?: boolean;
-  lastUpdate?: number;
-}
-
-interface Message {
-  id?: string;
-  role?: "user" | "assistant" | "system";
-  content?: string;
-  timestamp?: number;
-  [key: string]: any; // Allow additional properties from CopilotKit
-}
-
-interface Document {
-  name?: string;
-  content?: string;
-  metadata?: Record<string, any>;
-}
-
-interface DisplayContext {
-  actions: Record<string, Action>;
-  getAllContext: () => Readable[];
-  coagentStates: Record<string, AgentState>;
-  getDocumentsContext: (args?: any[]) => Document[];
-}
-
-interface MessagesContext {
-  messages: Message[];
-}
 
 interface DeveloperConsoleModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onHideForDay: () => void;
   hasApiKey: boolean;
+  buttonPosition: { x: number; y: number } | null;
+  inspectorMessages?: InspectorMessage[];
 }
 
-export function DeveloperConsoleModal({ isOpen, onClose, hasApiKey }: DeveloperConsoleModalProps) {
+export function DeveloperConsoleModal({
+  isOpen,
+  onClose,
+  onHideForDay,
+  hasApiKey,
+  buttonPosition,
+  inspectorMessages = [],
+}: DeveloperConsoleModalProps) {
   const context = useCopilotContext();
   const messagesContext = useCopilotMessagesContext();
-  const [activeTab, setActiveTab] = useState("actions");
+
+  // UI State
+  const [activeTab, setActiveTab] = useState("messages");
+  const [showMenu, setShowMenu] = useState(false);
+  const [showNotificationsPanel, setShowNotificationsPanel] = useState(false);
+
+  // Version checking
+  const [isOutdated, setIsOutdated] = useState(false);
+  const [latestVersion, setLatestVersion] = useState<string | null>(null);
+
+  // Notifications
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Modal sizing and resizing
+  const [modalSize, setModalSize] = useState({ width: 800, height: 900 });
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeRef = useRef<{
+    edge: string;
+    startX: number;
+    startY: number;
+    startWidth: number;
+    startHeight: number;
+  } | null>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  // Handle resize
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!resizeRef.current || !modalRef.current) return;
+
+      const { edge, startX, startY, startWidth, startHeight } = resizeRef.current;
+      const deltaX = e.clientX - startX;
+      const deltaY = e.clientY - startY;
+
+      let newWidth = startWidth;
+      let newHeight = startHeight;
+
+      if (edge.includes("right")) {
+        newWidth = Math.max(400, startWidth + deltaX);
+      } else if (edge.includes("left")) {
+        newWidth = Math.max(400, startWidth - deltaX);
+      }
+
+      if (edge.includes("bottom")) {
+        newHeight = Math.max(300, startHeight + deltaY);
+      } else if (edge.includes("top")) {
+        newHeight = Math.max(300, startHeight - deltaY);
+      }
+
+      setModalSize({ width: newWidth, height: newHeight });
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      resizeRef.current = null;
+      document.body.style.cursor = "";
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isResizing]);
+
+  // Check if version is outdated
+  useEffect(() => {
+    const checkVersion = async () => {
+      try {
+        const response = await fetch("https://registry.npmjs.org/@copilotkit/react-core/latest");
+        const data = await response.json();
+        const latest = data.version;
+
+        // Compare versions (simple comparison)
+        const current = COPILOTKIT_VERSION.replace(/[^\d.]/g, "");
+        const latestClean = latest.replace(/[^\d.]/g, "");
+
+        setLatestVersion(latest);
+        setIsOutdated(current < latestClean);
+      } catch (error) {
+        // Silently fail - don't show warning if we can't check
+        console.debug("Failed to check version:", error);
+      }
+    };
+
+    if (isOpen) {
+      checkVersion();
+    }
+  }, [isOpen]);
+
+  // Fetch notifications when modal opens
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        // TODO: Accept RSS feed URL as prop and pass it here
+        const notifs = await fetchNotifications();
+        setNotifications(notifs);
+        setUnreadCount(countUnreadNotifications(notifs));
+      } catch (error) {
+        console.debug("Failed to load notifications:", error);
+      }
+    };
+
+    if (isOpen) {
+      loadNotifications();
+    }
+  }, [isOpen]);
 
   // Handle escape key
   useEffect(() => {
@@ -91,6 +178,76 @@ export function DeveloperConsoleModal({ isOpen, onClose, hasApiKey }: DeveloperC
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
+
+  // Calculate modal position based on button position
+  const calculateModalPosition = () => {
+    if (!buttonPosition) return { top: "16px", left: "16px", transformOrigin: "top left" };
+
+    const modalWidth = 800;
+    const maxModalHeight = 900;
+    const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 1920;
+    const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 1080;
+    const buttonSize = 36;
+    const margin = 16;
+
+    let position: any = {};
+    let transformOrigin = "";
+
+    // Calculate available space in each direction from button
+    const spaceRight = viewportWidth - (buttonPosition.x + buttonSize);
+    const spaceLeft = buttonPosition.x;
+    const spaceBelow = viewportHeight - (buttonPosition.y + buttonSize);
+    const spaceAbove = buttonPosition.y;
+
+    // Determine horizontal placement (prefer right if button is on left half)
+    const placeRight = buttonPosition.x < viewportWidth / 2;
+
+    // Determine vertical placement
+    // Check if modal fits below button
+    const fitsBelow = spaceBelow >= Math.min(maxModalHeight, viewportHeight - 2 * margin);
+    // Check if modal fits above button
+    const fitsAbove = spaceAbove >= Math.min(maxModalHeight, viewportHeight - 2 * margin);
+
+    if (placeRight) {
+      // Place modal to the right of button, align left edges
+      position.left = `${buttonPosition.x}px`;
+
+      if (fitsBelow) {
+        // Extend downward, align top of modal with top of button
+        position.top = `${buttonPosition.y}px`;
+        transformOrigin = "top left";
+      } else if (fitsAbove) {
+        // Extend upward, align bottom of modal with bottom of button
+        position.bottom = `${viewportHeight - buttonPosition.y - buttonSize}px`;
+        transformOrigin = "bottom left";
+      } else {
+        // Doesn't fit either direction, stick to top with margin
+        position.top = `${margin}px`;
+        transformOrigin = "top left";
+      }
+    } else {
+      // Place modal to the left of button, align right edges
+      position.right = `${viewportWidth - buttonPosition.x - buttonSize}px`;
+
+      if (fitsBelow) {
+        // Extend downward, align top of modal with top of button
+        position.top = `${buttonPosition.y}px`;
+        transformOrigin = "top right";
+      } else if (fitsAbove) {
+        // Extend upward, align bottom of modal with bottom of button
+        position.bottom = `${viewportHeight - buttonPosition.y - buttonSize}px`;
+        transformOrigin = "bottom right";
+      } else {
+        // Doesn't fit either direction, stick to top with margin
+        position.top = `${margin}px`;
+        transformOrigin = "top right";
+      }
+    }
+
+    return { ...position, transformOrigin };
+  };
+
+  const modalPosition = calculateModalPosition();
 
   // Create mock data for preview when no API key
   const displayContext: DisplayContext = hasApiKey
@@ -174,6 +331,15 @@ export function DeveloperConsoleModal({ isOpen, onClose, hasApiKey }: DeveloperC
         ],
       };
 
+  const handleToggleNotifications = () => {
+    setShowNotificationsPanel(!showNotificationsPanel);
+    if (!showNotificationsPanel) {
+      // Mark as seen when opening
+      markNotificationsAsSeen();
+      setUnreadCount(0);
+    }
+  };
+
   return (
     <div
       style={{
@@ -184,683 +350,482 @@ export function DeveloperConsoleModal({ isOpen, onClose, hasApiKey }: DeveloperC
         bottom: 0,
         zIndex: 9999,
         backgroundColor: "rgba(0, 0, 0, 0.3)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "16px",
       }}
       onClick={onClose}
     >
       <div
+        ref={modalRef}
         style={{
-          width: "1152px",
-          maxWidth: "95vw",
-          height: "80vh",
+          position: "fixed",
+          ...modalPosition,
+          width: `${modalSize.width}px`,
+          maxWidth: "90vw",
+          height: `${modalSize.height}px`,
+          maxHeight: "calc(100vh - 100px)",
           backgroundColor: "white",
           borderRadius: "12px",
           boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
           display: "flex",
-          flexDirection: "column",
+          flexDirection: "row",
           overflow: "hidden",
-          position: "relative",
+          animation: "slideIn 0.2s ease-out",
+          transformOrigin: modalPosition.transformOrigin,
+          margin: "8px",
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "24px",
-            borderBottom: "1px solid #e5e7eb",
-            minHeight: "73px",
-            flexShrink: 0,
-            filter: !hasApiKey ? "blur(0.3px)" : "none",
-            opacity: !hasApiKey ? 0.95 : 1,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <CopilotKitIcon />
-            <h1
-              style={{
-                fontWeight: "bold",
-                fontSize: "20px",
-                color: "#1f2937",
-                margin: 0,
-              }}
-            >
-              Inspector
-            </h1>
-            <span
-              style={{
-                fontSize: "14px",
-                color: "#6b7280",
-                backgroundColor: "#f3f4f6",
-                padding: "4px 8px",
-                borderRadius: "4px",
-              }}
-            >
-              v{COPILOTKIT_VERSION}
-            </span>
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              color: "#9ca3af",
-              fontSize: "24px",
-              fontWeight: "300",
-              border: "none",
-              background: "none",
-              cursor: "pointer",
-              padding: "4px",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "#4b5563")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "#9ca3af")}
-          >
-            ×
-          </button>
-        </div>
-
-        {/* Tab Navigation */}
-        <div
-          style={{
-            display: "flex",
-            borderBottom: "1px solid #e5e7eb",
-            backgroundColor: "#f9fafb",
-            minHeight: "50px",
-            flexShrink: 0,
-            filter: !hasApiKey ? "blur(0.3px)" : "none",
-            opacity: !hasApiKey ? 0.9 : 1,
-          }}
-        >
-          {[
-            { id: "actions", label: "Actions", count: Object.keys(displayContext.actions).length },
-            { id: "readables", label: "Readables", count: displayContext.getAllContext().length },
-            {
-              id: "agent",
-              label: "Agent Status",
-              count: Object.keys(displayContext.coagentStates).length,
-            },
-            { id: "messages", label: "Messages", count: displayMessagesContext.messages.length },
-            {
-              id: "context",
-              label: "Context",
-              count: displayContext.getDocumentsContext([]).length,
-            },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              style={{
-                padding: "12px 24px",
-                fontSize: "14px",
-                fontWeight: "500",
-                border: "none",
-                cursor: "pointer",
-                backgroundColor: activeTab === tab.id ? "white" : "transparent",
-                color: activeTab === tab.id ? "#2563eb" : "#6b7280",
-                borderBottom: activeTab === tab.id ? "2px solid #2563eb" : "none",
-                transition: "all 0.2s",
-              }}
-              onMouseEnter={(e) => {
-                if (activeTab !== tab.id) {
-                  e.currentTarget.style.color = "#1f2937";
-                  e.currentTarget.style.backgroundColor = "#f3f4f6";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (activeTab !== tab.id) {
-                  e.currentTarget.style.color = "#6b7280";
-                  e.currentTarget.style.backgroundColor = "transparent";
-                }
-              }}
-            >
-              {tab.label}
-              {tab.count > 0 && (
-                <span
-                  style={{
-                    marginLeft: "8px",
-                    backgroundColor: "#e5e7eb",
-                    color: "#374151",
-                    padding: "2px 8px",
-                    borderRadius: "9999px",
-                    fontSize: "12px",
-                  }}
-                >
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* Content */}
-        <div
-          style={{
-            height: "calc(100% - 142px)",
-            overflow: "auto",
-            padding: "24px",
-            backgroundColor: "#f9fafb",
-            filter: !hasApiKey ? "blur(0.3px)" : "none",
-            opacity: !hasApiKey ? 0.85 : 1,
-          }}
-        >
-          {activeTab === "actions" && <ActionsTab context={displayContext} />}
-          {activeTab === "readables" && <ReadablesTab context={displayContext} />}
-          {activeTab === "agent" && <AgentStatusTab context={displayContext} />}
-          {activeTab === "messages" && <MessagesTab messagesContext={displayMessagesContext} />}
-          {activeTab === "context" && <ContextTab context={displayContext} />}
-        </div>
-
-        {/* Footer */}
-        <div
-          style={{
-            padding: "16px 24px",
-            borderTop: "1px solid #e5e7eb",
-            backgroundColor: "white",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            minHeight: "57px",
-            flexShrink: 0,
-            filter: !hasApiKey ? "blur(0.3px)" : "none",
-            opacity: !hasApiKey ? 0.9 : 1,
-          }}
-        >
-          <div style={{ fontSize: "14px", color: "#6b7280" }}>
-            <a
-              href="https://github.com/CopilotKit/CopilotKit/issues"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: "#2563eb", textDecoration: "none" }}
-              onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
-              onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
-            >
-              Report an issue
-            </a>
-          </div>
-          <div style={{ fontSize: "14px", color: "#6b7280" }}>
-            <a
-              href="https://mcp.copilotkit.ai/"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: "#2563eb", textDecoration: "none" }}
-              onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
-              onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
-            >
-              Add MCP Server →
-            </a>
-          </div>
-        </div>
-
-        {/* Enhanced CTA Overlay */}
-        {!hasApiKey && (
+        {/* Resize handles */}
+        {[
+          "top",
+          "right",
+          "bottom",
+          "left",
+          "top-right",
+          "top-left",
+          "bottom-right",
+          "bottom-left",
+        ].map((edge) => (
           <div
+            key={edge}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              resizeRef.current = {
+                edge,
+                startX: e.clientX,
+                startY: e.clientY,
+                startWidth: modalSize.width,
+                startHeight: modalSize.height,
+              };
+              setIsResizing(true);
+              document.body.style.cursor =
+                edge.includes("top") || edge.includes("bottom")
+                  ? edge.includes("left") || edge.includes("right")
+                    ? edge === "top-left" || edge === "bottom-right"
+                      ? "nwse-resize"
+                      : "nesw-resize"
+                    : "ns-resize"
+                  : "ew-resize";
+            }}
             style={{
               position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: "rgba(255, 255, 255, 0.2)",
-              backdropFilter: "blur(2px)",
-              WebkitBackdropFilter: "blur(2px)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: "12px",
+              ...(edge === "top" && {
+                top: 0,
+                left: "8px",
+                right: "8px",
+                height: "4px",
+                cursor: "ns-resize",
+              }),
+              ...(edge === "right" && {
+                right: 0,
+                top: "8px",
+                bottom: "8px",
+                width: "4px",
+                cursor: "ew-resize",
+              }),
+              ...(edge === "bottom" && {
+                bottom: 0,
+                left: "8px",
+                right: "8px",
+                height: "4px",
+                cursor: "ns-resize",
+              }),
+              ...(edge === "left" && {
+                left: 0,
+                top: "8px",
+                bottom: "8px",
+                width: "4px",
+                cursor: "ew-resize",
+              }),
+              ...(edge === "top-right" && {
+                top: 0,
+                right: 0,
+                width: "12px",
+                height: "12px",
+                cursor: "nesw-resize",
+              }),
+              ...(edge === "top-left" && {
+                top: 0,
+                left: 0,
+                width: "12px",
+                height: "12px",
+                cursor: "nwse-resize",
+              }),
+              ...(edge === "bottom-right" && {
+                bottom: 0,
+                right: 0,
+                width: "12px",
+                height: "12px",
+                cursor: "nwse-resize",
+              }),
+              ...(edge === "bottom-left" && {
+                bottom: 0,
+                left: 0,
+                width: "12px",
+                height: "12px",
+                cursor: "nesw-resize",
+              }),
               zIndex: 10,
             }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => window.open("https://cloud.copilotkit.ai/sign-in", "_blank")}
-              style={{
-                // Following button system specifications
-                height: "48px",
-                padding: "12px 24px",
-                backgroundColor: "#030507", // textPrimary token
-                color: "#FFFFFF",
-                borderRadius: "12px", // Medium radius token
-                border: "none",
-                cursor: "pointer",
-                fontSize: "14px", // Medium Semi Bold typography
-                fontWeight: "600",
-                fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif",
-                lineHeight: "22px",
-                boxShadow: "0 4px 16px rgba(3, 5, 7, 0.2), 0 1px 3px rgba(3, 5, 7, 0.1)",
-                transition: "all 200ms ease", // 200ms ease as per specs
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "8px",
-                textTransform: "uppercase",
-                letterSpacing: "0.5px",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = "#575758"; // textSecondary token for hover
-                e.currentTarget.style.transform = "translateY(-1px)";
-                e.currentTarget.style.boxShadow =
-                  "0 6px 20px rgba(3, 5, 7, 0.25), 0 2px 4px rgba(3, 5, 7, 0.15)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = "#030507";
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow =
-                  "0 4px 16px rgba(3, 5, 7, 0.2), 0 1px 3px rgba(3, 5, 7, 0.1)";
-              }}
-              onMouseDown={(e) => {
-                e.currentTarget.style.backgroundColor = "#858589"; // textDisabled token for pressed
-                e.currentTarget.style.transform = "translateY(0)";
-              }}
-              onMouseUp={(e) => {
-                e.currentTarget.style.backgroundColor = "#575758";
-                e.currentTarget.style.transform = "translateY(-1px)";
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.outline = "2px solid #BEC9FF";
-                e.currentTarget.style.outlineOffset = "2px";
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.outline = "none";
-              }}
-            >
-              Get License Key
-              <span style={{ fontSize: "16px", marginLeft: "-4px" }}>→</span>
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+          />
+        ))}
+        <style>{`
+          @keyframes slideIn {
+            from {
+              opacity: 0;
+              transform: scale(0.95);
+            }
+            to {
+              opacity: 1;
+              transform: scale(1);
+            }
+          }
+        `}</style>
 
-// Tab Components
-function ActionsTab({ context }: { context: DisplayContext }) {
-  const actions = Object.values(context.actions);
-
-  if (actions.length === 0) {
-    return (
-      <div style={{ textAlign: "center", padding: "48px 0", color: "#6b7280" }}>
-        <p style={{ fontSize: "18px", margin: "0 0 8px 0" }}>No actions available</p>
-        <p style={{ fontSize: "14px", margin: 0 }}>Actions will appear here when registered</p>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-      {actions.map((action: Action, index: number) => (
+        {/* Sidebar */}
         <div
-          key={index}
           style={{
-            backgroundColor: "white",
-            padding: "16px",
-            borderRadius: "8px",
-            boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)",
-            border: "1px solid #e5e7eb",
+            width: "200px",
+            backgroundColor: "#f9fafb",
+            borderRight: "1px solid #e5e7eb",
+            display: "flex",
+            flexDirection: "column",
+            flexShrink: 0,
           }}
         >
-          <div
-            style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}
-          >
-            <div style={{ flex: 1 }}>
-              <h3 style={{ fontWeight: "600", color: "#1f2937", margin: "0 0 4px 0" }}>
-                {action.name}
-              </h3>
-              {action.description && (
-                <p style={{ fontSize: "14px", color: "#4b5563", margin: "0 0 12px 0" }}>
-                  {action.description}
-                </p>
-              )}
-              {action.parameters && action.parameters.length > 0 && (
-                <div style={{ marginTop: "12px" }}>
-                  <p
-                    style={{
-                      fontSize: "12px",
-                      fontWeight: "500",
-                      color: "#6b7280",
-                      textTransform: "uppercase",
-                      margin: "0 0 4px 0",
-                    }}
-                  >
-                    Parameters:
-                  </p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                    {action.parameters.map((param: ActionParameter, pIndex: number) => (
-                      <div key={pIndex} style={{ fontSize: "14px" }}>
-                        <span style={{ fontFamily: "monospace", color: "#374151" }}>
-                          {param.name}
-                        </span>
-                        {param.required && (
-                          <span style={{ marginLeft: "4px", fontSize: "12px", color: "#ef4444" }}>
-                            *required
-                          </span>
-                        )}
-                        {param.type && (
-                          <span style={{ marginLeft: "8px", fontSize: "12px", color: "#6b7280" }}>
-                            ({param.type})
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-            <div style={{ marginLeft: "16px" }}>
-              {action.status === "available" ? <CheckIcon /> : <ExclamationMarkTriangleIcon />}
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ReadablesTab({ context }: { context: DisplayContext }) {
-  const readables = context.getAllContext();
-
-  if (readables.length === 0) {
-    return (
-      <div style={{ textAlign: "center", padding: "48px 0", color: "#6b7280" }}>
-        <p style={{ fontSize: "18px", margin: "0 0 8px 0" }}>No readable context available</p>
-        <p style={{ fontSize: "14px", margin: 0 }}>
-          Readable context will appear here when provided
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-      {readables.map((readable: Readable, index: number) => (
-        <div
-          key={index}
-          style={{
-            backgroundColor: "white",
-            padding: "16px",
-            borderRadius: "8px",
-            boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)",
-            border: "1px solid #e5e7eb",
-          }}
-        >
-          <div
-            style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}
-          >
-            <div style={{ flex: 1 }}>
-              <h3 style={{ fontWeight: "600", color: "#1f2937", margin: "0 0 4px 0" }}>
-                {readable.name || `Readable ${index + 1}`}
-              </h3>
-              {readable.description && (
-                <p style={{ fontSize: "14px", color: "#4b5563", margin: "0 0 12px 0" }}>
-                  {readable.description}
-                </p>
-              )}
-              {readable.value && (
-                <pre
-                  style={{
-                    marginTop: "12px",
-                    padding: "8px",
-                    backgroundColor: "#f9fafb",
-                    borderRadius: "4px",
-                    fontSize: "12px",
-                    overflowX: "auto",
-                    margin: "12px 0 0 0",
-                  }}
-                >
-                  {JSON.stringify(readable.value, null, 2)}
-                </pre>
-              )}
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function AgentStatusTab({ context }: { context: DisplayContext }) {
-  const agentStates = context.coagentStates || {};
-  const agentStateEntries = Object.entries(agentStates);
-
-  if (agentStateEntries.length === 0) {
-    return (
-      <div style={{ textAlign: "center", padding: "48px 0", color: "#6b7280" }}>
-        <p style={{ fontSize: "18px", margin: "0 0 8px 0" }}>No agent states available</p>
-        <p style={{ fontSize: "14px", margin: 0 }}>
-          Agent states will appear here when agents are active
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-      {agentStateEntries.map(([agentName, state]: [string, AgentState]) => (
-        <div
-          key={agentName}
-          style={{
-            backgroundColor: "white",
-            padding: "24px",
-            borderRadius: "8px",
-            boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)",
-            border: "1px solid #e5e7eb",
-          }}
-        >
+          {/* Sidebar Header with CopilotKit branding */}
           <div
             style={{
+              padding: "16px",
+              borderBottom: "1px solid #e5e7eb",
               display: "flex",
               alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: "16px",
+              gap: "8px",
             }}
           >
-            <h3 style={{ fontWeight: "600", fontSize: "18px", color: "#1f2937", margin: 0 }}>
-              {agentName}
-            </h3>
+            <CopilotKitIcon />
             <span
               style={{
-                padding: "4px 12px",
-                borderRadius: "9999px",
-                fontSize: "12px",
-                fontWeight: "500",
-                backgroundColor:
-                  state.status === "running"
-                    ? "#dcfce7"
-                    : state.status === "complete"
-                      ? "#dbeafe"
-                      : "#f3f4f6",
-                color:
-                  state.status === "running"
-                    ? "#166534"
-                    : state.status === "complete"
-                      ? "#1e40af"
-                      : "#1f2937",
+                fontSize: "18px",
+                fontWeight: "600",
+                color: "#030507",
               }}
             >
-              {state.status || "idle"}
+              CopilotKit
             </span>
           </div>
 
-          {state.state && (
-            <div style={{ marginBottom: "12px" }}>
-              <p
-                style={{
-                  fontSize: "12px",
-                  fontWeight: "500",
-                  color: "#6b7280",
-                  textTransform: "uppercase",
-                  margin: "0 0 4px 0",
-                }}
-              >
-                Current State:
-              </p>
-              <pre
-                style={{
-                  padding: "12px",
-                  backgroundColor: "#f9fafb",
-                  borderRadius: "4px",
-                  fontSize: "12px",
-                  overflowX: "auto",
-                  margin: 0,
-                }}
-              >
-                {JSON.stringify(state.state, null, 2)}
-              </pre>
-            </div>
-          )}
-
-          {state.running && (
-            <div
-              style={{
-                marginTop: "16px",
-                display: "flex",
-                alignItems: "center",
-                fontSize: "14px",
-                color: "#4b5563",
-              }}
-            >
-              <div style={{ marginRight: "8px" }}>
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 16 16"
-                  style={{ animation: "spin 1s linear infinite" }}
-                >
-                  <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-                  <circle
-                    cx="8"
-                    cy="8"
-                    r="6"
-                    fill="none"
-                    stroke="#4b5563"
-                    strokeWidth="2"
-                    strokeDasharray="9 3"
-                  />
-                </svg>
-              </div>
-              <span>Agent is currently running...</span>
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function MessagesTab({ messagesContext }: { messagesContext: MessagesContext }) {
-  const messages = messagesContext.messages || [];
-
-  if (messages.length === 0) {
-    return (
-      <div style={{ textAlign: "center", padding: "48px 0", color: "#6b7280" }}>
-        <p style={{ fontSize: "18px", margin: "0 0 8px 0" }}>No messages yet</p>
-        <p style={{ fontSize: "14px", margin: 0 }}>
-          Messages will appear here as the conversation progresses
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-      {messages.map((message: Message, index: number) => (
-        <div
-          key={index}
-          style={{
-            padding: "16px",
-            borderRadius: "8px",
-            backgroundColor:
-              message.role === "user"
-                ? "#eff6ff"
-                : message.role === "assistant"
-                  ? "#f9fafb"
-                  : "#fefce8",
-            border: `1px solid ${message.role === "user" ? "#c7d2fe" : message.role === "assistant" ? "#e5e7eb" : "#fde047"}`,
-            marginLeft: message.role === "user" ? "48px" : "0",
-            marginRight: message.role === "assistant" ? "48px" : "0",
-          }}
-        >
+          {/* Tabs */}
           <div
             style={{
               display: "flex",
-              alignItems: "flex-start",
-              justifyContent: "space-between",
-              marginBottom: "8px",
+              flexDirection: "column",
+              gap: "4px",
+              padding: "12px",
+              flex: 1,
             }}
           >
-            <span
-              style={{
-                fontWeight: "500",
-                fontSize: "14px",
-                color: "#374151",
-                textTransform: "capitalize",
-              }}
-            >
-              {message.role || "system"}
-            </span>
-            {message.timestamp && (
-              <span style={{ fontSize: "12px", color: "#6b7280" }}>
-                {new Date(message.timestamp).toLocaleTimeString()}
-              </span>
-            )}
-          </div>
-          <div style={{ fontSize: "14px", color: "#1f2937", whiteSpace: "pre-wrap" }}>
-            {message.content || ""}
+            {[
+              { id: "messages", label: "Messages" },
+              {
+                id: "inspector-messages",
+                label: "Inspector Messages",
+                badge: inspectorMessages.length,
+              },
+              { id: "actions", label: "Actions" },
+              { id: "readables", label: "Readables" },
+              { id: "agents", label: "Available Agents" },
+              { id: "agent-state", label: "Agent State" },
+              { id: "tools", label: "Frontend Tools" },
+              { id: "errors", label: "Errors" },
+              { id: "events", label: "Events" },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                style={{
+                  padding: "8px 12px",
+                  fontSize: "14px",
+                  fontWeight: "400",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  backgroundColor: activeTab === tab.id ? "white" : "transparent",
+                  color: activeTab === tab.id ? "#030507" : "#6b7280",
+                  textAlign: "left",
+                  transition: "all 0.15s",
+                  boxShadow: activeTab === tab.id ? "0 1px 3px rgba(0, 0, 0, 0.1)" : "none",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "8px",
+                }}
+                onMouseEnter={(e) => {
+                  if (activeTab !== tab.id) {
+                    e.currentTarget.style.backgroundColor = "#ffffff";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (activeTab !== tab.id) {
+                    e.currentTarget.style.backgroundColor = "transparent";
+                  }
+                }}
+              >
+                <span>{tab.label}</span>
+                {tab.badge !== undefined && tab.badge > 0 && (
+                  <span
+                    style={{
+                      backgroundColor: "#ef4444",
+                      color: "white",
+                      fontSize: "11px",
+                      fontWeight: "600",
+                      padding: "2px 6px",
+                      borderRadius: "10px",
+                      minWidth: "18px",
+                      textAlign: "center",
+                    }}
+                  >
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
         </div>
-      ))}
-    </div>
-  );
-}
 
-function ContextTab({ context }: { context: DisplayContext }) {
-  const documents = context.getDocumentsContext([]);
-
-  if (documents.length === 0) {
-    return (
-      <div style={{ textAlign: "center", padding: "48px 0", color: "#6b7280" }}>
-        <p style={{ fontSize: "18px", margin: "0 0 8px 0" }}>No document context available</p>
-        <p style={{ fontSize: "14px", margin: 0 }}>
-          Document context will appear here when provided
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-      {documents.map((doc: Document, index: number) => (
+        {/* Main Content Area */}
         <div
-          key={index}
           style={{
-            backgroundColor: "white",
-            padding: "16px",
-            borderRadius: "8px",
-            boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)",
-            border: "1px solid #e5e7eb",
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
           }}
         >
-          <h3 style={{ fontWeight: "600", color: "#1f2937", margin: "0 0 8px 0" }}>
-            {doc.name || `Document ${index + 1}`}
-          </h3>
-          {doc.content && (
-            <pre
-              style={{
-                padding: "12px",
-                backgroundColor: "#f9fafb",
-                borderRadius: "4px",
-                fontSize: "12px",
-                overflowX: "auto",
-                margin: 0,
-              }}
-            >
-              {doc.content}
-            </pre>
+          {/* Header */}
+          <ModalHeader
+            isOutdated={isOutdated}
+            unreadCount={unreadCount}
+            showNotificationsPanel={showNotificationsPanel}
+            showMenu={showMenu}
+            onToggleNotifications={handleToggleNotifications}
+            onClose={onClose}
+            onToggleMenu={() => setShowMenu(!showMenu)}
+          />
+
+          {/* Notifications Panel */}
+          {showNotificationsPanel && <NotificationsPanel notifications={notifications} />}
+
+          {/* Settings Menu */}
+          {showMenu && (
+            <SettingsMenu onHideForDay={onHideForDay} onClose={() => setShowMenu(false)} />
           )}
+
+          {/* Update Available Banner */}
+          {isOutdated && latestVersion && (
+            <UpdateBanner latestVersion={latestVersion} onDismiss={() => setIsOutdated(false)} />
+          )}
+
+          {/* Content */}
+          <div
+            style={{
+              flex: 1,
+              overflow: "auto",
+              padding: "20px",
+              backgroundColor: "#f9fafb",
+              position: "relative",
+            }}
+          >
+            {activeTab === "messages" && <MessagesTab messagesContext={displayMessagesContext} />}
+            {activeTab === "inspector-messages" && (
+              <InspectorMessagesTab inspectorMessages={inspectorMessages} />
+            )}
+            {activeTab === "actions" && <ActionsTab context={displayContext} />}
+            {activeTab === "readables" && <ReadablesTab context={displayContext} />}
+            {activeTab === "agents" && <AvailableAgentsTab context={displayContext} />}
+            {activeTab === "agent-state" && <AgentStatusTab context={displayContext} />}
+            {activeTab === "tools" && <FrontendToolsTab context={displayContext} />}
+            {activeTab === "errors" && (
+              <div style={{ textAlign: "center", padding: "48px 0", color: "#6b7280" }}>
+                <p style={{ fontSize: "16px", margin: "0 0 8px 0" }}>No errors</p>
+                <p style={{ fontSize: "14px", margin: 0 }}>
+                  Errors will appear here when they occur
+                </p>
+              </div>
+            )}
+            {activeTab === "events" && (
+              <div style={{ textAlign: "center", padding: "48px 0", color: "#6b7280" }}>
+                <p style={{ fontSize: "16px", margin: "0 0 8px 0" }}>No events</p>
+                <p style={{ fontSize: "14px", margin: 0 }}>Events will be logged here</p>
+              </div>
+            )}
+
+            {/* CTA Overlay on content area only */}
+            {!hasApiKey && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: "rgba(255, 255, 255, 0.96)",
+                  backdropFilter: "none",
+                  WebkitBackdropFilter: "none",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: "0",
+                  zIndex: 10,
+                  gap: "24px",
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div style={{ textAlign: "center", maxWidth: "560px", padding: "0 32px" }}>
+                  <h2
+                    style={{
+                      fontSize: "32px",
+                      fontWeight: "600",
+                      color: "#030507",
+                      margin: "0 0 16px 0",
+                      letterSpacing: "-0.5px",
+                    }}
+                  >
+                    CopilotKit Inspector
+                  </h2>
+                  <p
+                    style={{
+                      fontSize: "16px",
+                      color: "#4b5563",
+                      lineHeight: "1.7",
+                      margin: "0 0 16px 0",
+                    }}
+                  >
+                    Debug and monitor your AI application in real-time. Track actions, agent state,
+                    messages, context, and errors—all in one powerful tool.
+                  </p>
+                  <div
+                    style={{
+                      backgroundColor: "#f0f9ff",
+                      border: "1px solid #bae6fd",
+                      borderRadius: "8px",
+                      padding: "16px",
+                      margin: "0 0 24px 0",
+                      textAlign: "left",
+                    }}
+                  >
+                    <p
+                      style={{
+                        fontSize: "14px",
+                        color: "#0c4a6e",
+                        lineHeight: "1.6",
+                        margin: "0 0 12px 0",
+                        fontWeight: "500",
+                      }}
+                    >
+                      ✓ Works with CopilotKit Cloud, self-hosted, or local license keys
+                    </p>
+                    <p
+                      style={{
+                        fontSize: "13px",
+                        color: "#0369a1",
+                        lineHeight: "1.5",
+                        margin: "0",
+                      }}
+                    >
+                      When using a local license key, all data stays on your machine—no external
+                      requests are made.
+                    </p>
+                  </div>
+                  <a
+                    href="https://docs.copilotkit.ai/premium/inspector"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      fontSize: "14px",
+                      color: "#6366f1",
+                      textDecoration: "none",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+                    onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
+                  >
+                    Learn more about the Inspector
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                      <path
+                        d="M6 4L10 8L6 12"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </a>
+                </div>
+                <button
+                  onClick={() => window.open("https://cloud.copilotkit.ai/sign-in", "_blank")}
+                  style={{
+                    height: "48px",
+                    padding: "12px 24px",
+                    backgroundColor: "#030507",
+                    color: "#FFFFFF",
+                    borderRadius: "12px",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    fontFamily:
+                      "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif",
+                    lineHeight: "22px",
+                    boxShadow: "0 4px 16px rgba(3, 5, 7, 0.2), 0 1px 3px rgba(3, 5, 7, 0.1)",
+                    transition: "all 200ms ease",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = "#575758";
+                    e.currentTarget.style.transform = "translateY(-1px)";
+                    e.currentTarget.style.boxShadow =
+                      "0 6px 20px rgba(3, 5, 7, 0.25), 0 2px 4px rgba(3, 5, 7, 0.15)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "#030507";
+                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.boxShadow =
+                      "0 4px 16px rgba(3, 5, 7, 0.2), 0 1px 3px rgba(3, 5, 7, 0.1)";
+                  }}
+                  onMouseDown={(e) => {
+                    e.currentTarget.style.backgroundColor = "#858589";
+                    e.currentTarget.style.transform = "translateY(0)";
+                  }}
+                  onMouseUp={(e) => {
+                    e.currentTarget.style.backgroundColor = "#575758";
+                    e.currentTarget.style.transform = "translateY(-1px)";
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.outline = "2px solid #BEC9FF";
+                    e.currentTarget.style.outlineOffset = "2px";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.outline = "none";
+                  }}
+                >
+                  Setup free license
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      ))}
+      </div>
     </div>
   );
 }
+
+// Re-export the InspectorMessage type for use in other components
+export type { InspectorMessage } from "./types";
