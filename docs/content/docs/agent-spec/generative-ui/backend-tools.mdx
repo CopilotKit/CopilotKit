@@ -85,7 +85,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
         from ag_ui_agentspec.endpoint import add_agentspec_fastapi_endpoint
 
 
-        runtime = "langgraph" # you can also choose "crewai" or "wayflow"
+        runtime = "langgraph" # you can also choose "wayflow"
         router = APIRouter()
         add_agentspec_fastapi_endpoint(
             app=router,
@@ -94,7 +94,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
                 runtime=runtime,
                 tool_registry={"get_weather": get_weather},
             ),
-            path=f"/{runtime}/backend_tool_rendering",
+            path=f"/{runtime}/path_to_my_agent",
         )
         app = FastAPI(title="Agent-Spec x AG-UI Examples - Backend Tool")
         app.include_router(router)

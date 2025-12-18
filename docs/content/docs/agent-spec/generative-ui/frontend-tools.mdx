@@ -124,7 +124,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
         from ag_ui_agentspec.endpoint import add_agentspec_fastapi_endpoint
 
 
-        runtime = "langgraph" # you can also choose "crewai" or "wayflow"
+        runtime = "langgraph" # you can also choose "wayflow"
         router = APIRouter()
         add_agentspec_fastapi_endpoint(
             app=router,
@@ -132,7 +132,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
                 agentspec_json_config,
                 runtime=runtime,
             ),
-            path=f"/{runtime}/backend_tool_rendering",
+            path=f"/{runtime}/path_to_my_agent",
         )
         app = FastAPI(title="Agent-Spec x AG-UI Examples - Frontend Tool")
         app.include_router(router)
