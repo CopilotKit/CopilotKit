@@ -75,7 +75,8 @@ export function CopilotListeners() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [copilotkit?.subscribe, setBannerError]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [copilotkit?.subscribe]);
 
   return null;
 }
