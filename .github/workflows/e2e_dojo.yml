@@ -1,4 +1,4 @@
-name: e2e
+name: e2e / dojo
 
 on:
   push:
@@ -14,7 +14,7 @@ on:
 
 jobs:
   dojo:
-    name: dojo / ${{ matrix.suite }}
+    name: ${{ matrix.suite }}
     runs-on: depot-ubuntu-24.04
     timeout-minutes: 20
     strategy:

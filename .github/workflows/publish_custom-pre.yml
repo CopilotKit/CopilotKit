@@ -1,4 +1,4 @@
-name: Custom Tag Pre-Release
+name: publish
 
 on:
   workflow_dispatch:
@@ -6,8 +6,7 @@ on:
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 jobs:
-  release:
-    name: Pre-release
+  custom-pre:
     runs-on: ubuntu-latest
     defaults:
       run:
