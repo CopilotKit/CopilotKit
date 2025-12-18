@@ -1,0 +1,10 @@
+---
+description: Repository conventions and scripts. Always applied.
+globs: "*"
+alwaysApply: true
+---
+
+- Use `pnpm` for all package management. Never run `npm`.
+- Keep scripts standardized: `build`, `dev`, `lint`, `check-types`, `test`, and `test:watch`.
+- All packages publish within the workspace using `pnpm` workspaces.
+- Do not commit build outputs in `dist/` or `.next/`.

@@ -1,0 +1,18 @@
+/* Import the pre-built Tailwind CSS */
+@import '../../../../packages/angular/dist/styles.css';
+
+/* Storybook dark mode custom background */
+html.dark {
+  background-color: #212121;
+}
+
+html.dark body {
+  background-color: #212121;
+}
+
+/* Ensure the story canvas also uses the dark background */
+html.dark .docs-story,
+html.dark .sb-show-main,
+html.dark .sb-main-padded {
+  background-color: #212121;
+}
