@@ -19,17 +19,18 @@ on:
       - "README.md"
       - "examples/**"
 jobs:
-  unit:
+  v1:
+    name: "unit / v1.x"
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: "src/v1.x"
     strategy:
       matrix:
-        node-version: [20.x, 18.x]
+        node-version: [20.x, 22.x, 24.x]
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -37,7 +38,7 @@ jobs:
           version: "9.5"
 
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
 
