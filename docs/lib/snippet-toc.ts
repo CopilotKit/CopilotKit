@@ -1,4 +1,5 @@
-import { getTableOfContents } from "fumadocs-core/server";
+import { getTableOfContents } from "fumadocs-core/content/toc";
+import type { TOCItemType } from "fumadocs-core/toc";
 import fs from 'fs';
 import path from 'path';
 
@@ -6,8 +7,8 @@ import path from 'path';
  * Extracts table of contents from snippet files referenced in page content
  * Handles nested imports and excludes frontmatter
  */
-async function extractSnippetTOC(content: string, processed = new Set<string>()): Promise<any[]> {
-  const toc: any[] = [];
+async function extractSnippetTOC(content: string, processed = new Set<string>()): Promise<TOCItemType[]> {
+  const toc: TOCItemType[] = [];
   const importPattern = /import\s+\w+\s+from\s+["']@\/snippets\/([^"']+)\.mdx["']/g;
   
   for (const match of content.matchAll(importPattern)) {
@@ -38,7 +39,7 @@ async function extractSnippetTOC(content: string, processed = new Set<string>())
 /**
  * Gets snippet TOC for a specific page by reading its source file
  */
-export async function getSnippetTOCForPage(slug?: string[]): Promise<any[]> {
+export async function getSnippetTOCForPage(slug?: string[]): Promise<TOCItemType[]> {
   if (!slug) return [];
   
   const possiblePaths = [

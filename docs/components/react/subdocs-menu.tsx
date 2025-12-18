@@ -7,7 +7,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { useSidebar } from "fumadocs-ui/provider";
+import { useSidebar } from 'fumadocs-ui/components/sidebar/base';
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
