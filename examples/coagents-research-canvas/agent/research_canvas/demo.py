@@ -8,56 +8,18 @@ os.environ["LANGGRAPH_FASTAPI"] = "true"
 # pylint: disable=wrong-import-position
 from fastapi import FastAPI
 import uvicorn
-from copilotkit.integrations.fastapi import add_fastapi_endpoint
-from copilotkit import CopilotKitRemoteEndpoint, LangGraphAGUIAgent
+from copilotkit import add_langgraph_fastapi_endpoint, LangGraphAGUIAgent
 from copilotkit.crewai import CrewAIAgent
 from research_canvas.crewai.agent import ResearchCanvasFlow
 from research_canvas.langgraph.agent import graph
-from ag_ui_langgraph import add_langgraph_fastapi_endpoint
-
-# from contextlib import asynccontextmanager
-# from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
-# @asynccontextmanager
-# async def lifespan(fastapi_app: FastAPI):
-#     """Lifespan for the FastAPI app."""
-#     async with AsyncSqliteSaver.from_conn_string(
-#         ":memory:"
-#     ) as checkpointer:
-#         # Create an async graph
-#         graph = workflow.compile(checkpointer=checkpointer)
-
-#         # Create SDK with the graph
-#         sdk = CopilotKitRemoteEndpoint(
-#             agents=[
-#                 LangGraphAgent(
-#                     name="research_agent",
-#                     description="Research agent.",
-#                     graph=graph,
-#                 ),
-#                 LangGraphAgent(
-#                     name="research_agent_google_genai",
-#                     description="Research agent.",
-#                     graph=graph
-#                 ),
-#             ],
-#         )
-
-#         # Add the CopilotKit FastAPI endpoint
-#         add_fastapi_endpoint(fastapi_app, sdk, "/copilotkit")
-#         yield
-
-# app = FastAPI(lifespan=lifespan)
-
+from ag_ui_crewai.endpoint import add_crewai_flow_fastapi_endpoint
 
 app = FastAPI()
-sdk = CopilotKitRemoteEndpoint(
-    agents=[
-        CrewAIAgent(
-            name="research_agent_crewai",
-            description="Research agent.",
-            flow=ResearchCanvasFlow(),
-        ),
-    ],
+
+add_crewai_flow_fastapi_endpoint(
+    app=app,
+    flow=ResearchCanvasFlow(),
+    path="/agents/research_agent_crewai",
 )
 
 add_langgraph_fastapi_endpoint(
@@ -67,7 +29,7 @@ add_langgraph_fastapi_endpoint(
         description="Research agent.",
         graph=graph
     ),
-    path="/copilotkit/agents/research_agent"
+    path="/agents/research_agent"
 )
 add_langgraph_fastapi_endpoint(
     app=app,
@@ -76,11 +38,8 @@ add_langgraph_fastapi_endpoint(
         description="Research agent.",
         graph=graph
     ),
-    path="/copilotkit/agents/research_agent_google_genai"
+    path="/agents/research_agent_google_genai"
 )
-
-add_fastapi_endpoint(app, sdk, "/copilotkit")
-
 
 @app.get("/health")
 def health():

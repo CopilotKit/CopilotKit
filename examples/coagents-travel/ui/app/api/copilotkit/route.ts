@@ -6,6 +6,10 @@ import {
   langGraphPlatformEndpoint,
   copilotKitEndpoint,
 } from "@copilotkit/runtime";
+import {
+    LangGraphAgent,
+    LangGraphHttpAgent,
+} from "@copilotkit/runtime/langgraph"
 import OpenAI from "openai";
 
 const openai = new OpenAI();
@@ -33,8 +37,18 @@ export const POST = async (req: NextRequest) => {
           process.env.REMOTE_ACTION_URL || "http://localhost:8000/copilotkit",
       });
 
+  const agents = {
+      travel: deploymentUrl ? new LangGraphAgent({
+          deploymentUrl,
+          langsmithApiKey,
+          graphId: 'travel'
+      }) : new LangGraphHttpAgent({
+          url: process.env.REMOTE_ACTION_URL || "http://localhost:8000",
+      })
+  }
+
   const runtime = new CopilotRuntime({
-    remoteEndpoints: [remoteEndpoint],
+      agents
   });
 
   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({

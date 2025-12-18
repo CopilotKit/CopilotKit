@@ -7,6 +7,7 @@ import {
 } from "@copilotkit/runtime";
 import { LangGraphHttpAgent, LangGraphAgent } from '@copilotkit/runtime/langgraph'
 import { NextRequest } from "next/server";
+import { CrewAIAgent } from "@ag-ui/crewai";
 
 // const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 // const llmAdapter = new OpenAIAdapter({ openai } as any);
@@ -20,44 +21,31 @@ export const POST = async (req: NextRequest) => {
 
   const isCrewAi = searchParams.get("coAgentsModel") === "crewai";
 
-  const baseUrl = process.env.REMOTE_ACTION_URL || "http://localhost:8000/copilotkit";
-  let runtime = new CopilotRuntime({
-    agents: {
-      'research_agent': new LangGraphHttpAgent({
-        url: `${baseUrl}/agents/research_agent`,
-      }),
-      'research_agent_google_genai': new LangGraphHttpAgent({
-        url: `${baseUrl}/agents/research_agent_google_genai`,
-      })
-    }
-  })
+  const baseUrl = process.env.REMOTE_ACTION_URL || "http://localhost:8000";
 
-  if (isCrewAi) {
-    runtime = new CopilotRuntime({
-      remoteEndpoints: [
-        copilotKitEndpoint({
-          url: process.env.REMOTE_ACTION_URL || "http://localhost:8000/copilotkit",
-        })
-      ]
-    })
-  }
-
-  if (deploymentUrl && !isCrewAi) {
-    runtime = new CopilotRuntime({
+  const runtime = new CopilotRuntime({
       agents: {
-        'research_agent': new LangGraphAgent({
-          deploymentUrl,
-          langsmithApiKey,
-          graphId: 'research_agent',
-        }),
-        'research_agent_google_genai': new LangGraphAgent({
-          deploymentUrl,
-          langsmithApiKey,
-          graphId: 'research_agent_google_genai',
-        })
+          'research_agent_lgp': new LangGraphAgent({
+              deploymentUrl: deploymentUrl ?? '',
+              langsmithApiKey,
+              graphId: 'research_agent_lgp',
+          }),
+          'research_agent_google_genai_lgp': new LangGraphAgent({
+              deploymentUrl: deploymentUrl ?? '',
+              langsmithApiKey,
+              graphId: 'research_agent_google_genai_lgp',
+          }),
+          'research_agent': new LangGraphHttpAgent({
+              url: `${baseUrl}/agents/research_agent`,
+          }),
+          'research_agent_google_genai': new LangGraphHttpAgent({
+              url: `${baseUrl}/agents/research_agent_google_genai`,
+          }),
+          'research_agent_crewai': new CrewAIAgent({
+              url: `${baseUrl}/agents/research_agent_crewai`,
+          }),
       }
-    })
-  }
+  })
 
   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
     runtime,
