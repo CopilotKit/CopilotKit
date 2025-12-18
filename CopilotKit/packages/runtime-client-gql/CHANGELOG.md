@@ -1,5 +1,19 @@
 # @copilotkit/runtime-client-gql
 
+## 1.50.1
+
+### Patch Changes
+
+- 80dffec: Updated the default model and API version for the Google GenAI adapter
+- Updated dependencies [80dffec]
+  - @copilotkit/shared@1.50.1
+
+## 1.50.1-next.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.50.1-next.3
+
 ## 1.50.1-next.2
 
 ### Patch Changes
