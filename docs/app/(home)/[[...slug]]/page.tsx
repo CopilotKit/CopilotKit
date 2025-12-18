@@ -58,18 +58,41 @@ const mdxComponents = {
   PropertyReference: PropertyReference,
   a: ({ href, children, className, ...props }: any) => {
     // Don't wrap anchor links (hash links) in NavigationLink to avoid nested <a> tags
-    if (href && typeof href === 'string' && href.startsWith('#')) {
-      return <a href={href} className={className} {...props}>{children}</a>;
+    if (href && typeof href === "string" && href.startsWith("#")) {
+      return (
+        <a href={href} className={className} {...props}>
+          {children}
+        </a>
+      )
     }
     // Don't wrap links that have data-card attribute or peer className (fumadocs heading anchors)
-    if (props && (props['data-card'] !== undefined || props['data-heading'] !== undefined)) {
-      return <a href={href} className={className} {...props}>{children}</a>;
+    if (
+      props &&
+      (props["data-card"] !== undefined || props["data-heading"] !== undefined)
+    ) {
+      return (
+        <a href={href} className={className} {...props}>
+          {children}
+        </a>
+      )
     }
     // Don't wrap links with 'peer' className (fumadocs uses this for heading anchor links)
-    if (className && typeof className === 'string' && className.includes('peer')) {
-      return <a href={href} className={className} {...props}>{children}</a>;
+    if (
+      className &&
+      typeof className === "string" &&
+      className.includes("peer")
+    ) {
+      return (
+        <a href={href} className={className} {...props}>
+          {children}
+        </a>
+      )
     }
-    return <NavigationLink href={href as string} className={className} {...props}>{children}</NavigationLink>;
+    return (
+      <NavigationLink href={href as string} className={className} {...props}>
+        {children}
+      </NavigationLink>
+    )
   },
   // HTML `ref` attribute conflicts with `forwardRef`
   pre: ({ ref: _ref, ...props }: any) => (
@@ -137,9 +160,9 @@ export default async function Page({
           <PageBreadcrumb className="mb-4" />
           <div className={hideHeader ? "" : "min-h-screen"}>
             {!hideHeader && (
-              <div className="gap-5 flex flex-col">
+              <div className="flex flex-col gap-5">
                 <div className="flex gap-3 items-center">
-                  <DocsTitle className="flex items-center text-[32px] font-medium text-[#010507] dark:text-white md:text-[40px] leading-12">
+                  <DocsTitle className="flex flex-col md:flex-row items-start md:items-center text-[32px] font-medium text-[#010507] dark:text-white md:text-[40px] leading-12">
                     {page.data.title}
                     {cloudOnly && (
                       <Badge
@@ -151,7 +174,10 @@ export default async function Page({
                       </Badge>
                     )}
                     {isPremium && (
-                      <a href={premiumOverviewHref} className="ml-3">
+                      <a
+                        href={premiumOverviewHref}
+                        className="lg:ml-3 shrink-0"
+                      >
                         <Badge
                           variant="secondary"
                           className="inline-flex items-center gap-2 py-2 px-3.5 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200 hover:bg-indigo-200 border-0 rounded-md transition-colors"

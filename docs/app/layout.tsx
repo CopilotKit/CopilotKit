@@ -15,9 +15,11 @@ const splineSansMono = Spline_Sans_Mono({
   subsets: ["latin"],
   variable: "--font-spline-sans-mono",
 })
+
 export default async function Layout({ children }: { children: ReactNode }) {
   const REB2B_KEY = process.env.NEXT_PUBLIC_REB2B_KEY
   const REO_KEY = process.env.NEXT_PUBLIC_REO_KEY
+
   return (
     <html
       lang="en"
@@ -63,7 +65,10 @@ export default async function Layout({ children }: { children: ReactNode }) {
       <body>
         <ProvidersWrapper>
           <Banners />
-          <RootProvider theme={{ enabled: true, defaultTheme: "dark" }} search={{ SearchDialog: SearchDialog }}>
+          <RootProvider
+            theme={{ enabled: true, defaultTheme: "dark" }}
+            search={{ SearchDialog: SearchDialog }}
+          >
             {children}
           </RootProvider>
         </ProvidersWrapper>
