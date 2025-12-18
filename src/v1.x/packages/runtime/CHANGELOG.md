@@ -1,5 +1,27 @@
 # @copilotkit/runtime
 
+## 1.50.1
+
+### Patch Changes
+
+- 80dffec: Updated the default model and API version for the Google GenAI adapter
+- eac8b20: - fix: use latest vnext
+- Updated dependencies [80dffec]
+  - @copilotkit/shared@1.50.1
+
+## 1.50.1-next.3
+
+### Patch Changes
+
+- eac8b20: - fix: use latest vnext
+  - @copilotkit/shared@1.50.1-next.3
+
+## 1.50.1-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.50.1-next.2
+
 ## 1.50.1-next.1
 
 ### Patch Changes

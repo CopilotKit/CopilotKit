@@ -1,5 +1,33 @@
 # ui
 
+## 1.50.1
+
+### Patch Changes
+
+- bdc7a8f: - fix: restore message callbacks
+- 80dffec: Updated the default model and API version for the Google GenAI adapter
+- cfa4185: - fix: fix stale state in handler
+- eac8b20: - fix: use latest vnext
+- Updated dependencies [80dffec]
+  - @copilotkit/runtime-client-gql@1.50.1
+  - @copilotkit/shared@1.50.1
+
+## 1.50.1-next.3
+
+### Patch Changes
+
+- eac8b20: - fix: use latest vnext
+  - @copilotkit/runtime-client-gql@1.50.1-next.3
+  - @copilotkit/shared@1.50.1-next.3
+
+## 1.50.1-next.2
+
+### Patch Changes
+
+- bdc7a8f: - fix: restore message callbacks
+  - @copilotkit/runtime-client-gql@1.50.1-next.2
+  - @copilotkit/shared@1.50.1-next.2
+
 ## 1.50.1-next.1
 
 ### Patch Changes

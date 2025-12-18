@@ -1,5 +1,38 @@
 # ui
 
+## 1.50.1
+
+### Patch Changes
+
+- bdc7a8f: - fix: restore message callbacks
+- 80dffec: Updated the default model and API version for the Google GenAI adapter
+- Updated dependencies [bdc7a8f]
+- Updated dependencies [80dffec]
+- Updated dependencies [cfa4185]
+- Updated dependencies [eac8b20]
+  - @copilotkit/react-core@1.50.1
+  - @copilotkit/runtime-client-gql@1.50.1
+  - @copilotkit/shared@1.50.1
+
+## 1.50.1-next.3
+
+### Patch Changes
+
+- Updated dependencies [eac8b20]
+  - @copilotkit/react-core@1.50.1-next.3
+  - @copilotkit/runtime-client-gql@1.50.1-next.3
+  - @copilotkit/shared@1.50.1-next.3
+
+## 1.50.1-next.2
+
+### Patch Changes
+
+- bdc7a8f: - fix: restore message callbacks
+- Updated dependencies [bdc7a8f]
+  - @copilotkit/react-core@1.50.1-next.2
+  - @copilotkit/runtime-client-gql@1.50.1-next.2
+  - @copilotkit/shared@1.50.1-next.2
+
 ## 1.50.1-next.1
 
 ### Patch Changes
