@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState, useMemo } from "react"
 import { DocsLayoutProps } from "fumadocs-ui/layouts/docs"
 import { usePathname, useRouter } from "next/navigation"
 import Page from "./page"
@@ -15,25 +15,24 @@ interface FolderProps {
 }
 
 const Folder = ({ node, onNavigate }: FolderProps) => {
-  const [isOpen, setIsOpen] = useState(false)
+  const [isOpen, setIsOpen] = useState<boolean | null>(null)
   const pathname = usePathname()
   const isActive = node?.index?.url === pathname
   const router = useRouter()
-
-  useEffect(() => {
-    if (!node.index?.url) return
-    const isFolderAlreadyOpen = pathname.includes(node.index?.url)
-    setIsOpen(isFolderAlreadyOpen)
-  }, [node.index?.url])
-
-  useEffect(() => {
-    if (!isActive && !pathname.includes(node.index?.url ?? "")) setIsOpen(false)
-  }, [isActive, pathname])
+  const folderUrl = node.index?.url
+  
+  const shouldBeOpenFromPath = useMemo(() => {
+    if (!folderUrl) return false
+    return pathname.includes(folderUrl)
+  }, [pathname, folderUrl])
+  
+  const isFolderOpen = isOpen !== null ? isOpen : shouldBeOpenFromPath
 
   const handleLinkClick = () => {
     if (isActive) return
-    setIsOpen(!isOpen)
-    router.push(node.index?.url ?? "")
+    const newOpenState = !isOpen
+    setIsOpen(newOpenState)
+    router.push(folderUrl ?? "")
   }
 
   return (
@@ -49,10 +48,10 @@ const Folder = ({ node, onNavigate }: FolderProps) => {
           className="flex gap-2 justify-between items-center px-3 w-full h-10 cursor-pointer"
         >
           <span className="w-max text-sm shrink-0">{node.name}</span>
-          <ChevronDownIcon className={cn(isOpen ? "rotate-180" : "")} />
+          <ChevronDownIcon className={cn(isFolderOpen ? "rotate-180" : "")} />
         </button>
       </li>
-      {isOpen && (
+      {isFolderOpen && (
         <ul className="flex relative flex-col gap-2 ml-4">
           <div className="absolute top-1/2 -translate-y-1/2 -left-2 w-px h-[calc(100%-8px)] bg-foreground/10" />
 
