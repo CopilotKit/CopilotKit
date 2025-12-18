@@ -1,0 +1,83 @@
+{
+  "name": "@copilotkitnext/react",
+  "version": "0.0.33",
+  "description": "React components for CopilotKit2",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./styles.css": "./dist/styles.css"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "dev:css": "npx @tailwindcss/cli -i ./src/styles/globals.css -o ./dist/styles.css --watch --minify",
+    "build:css": "npx @tailwindcss/cli -i ./src/styles/globals.css -o ./dist/styles.css -m",
+    "dev": "concurrently \"npm:dev:css\" \"tsup --watch\"",
+    "build": "tsup && npm run build:css",
+    "prepublishOnly": "pnpm run build",
+    "lint": "eslint . --max-warnings 0",
+    "check-types": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@copilotkitnext/eslint-config": "workspace:*",
+    "@copilotkitnext/typescript-config": "workspace:*",
+    "@tailwindcss/cli": "^4.1.11",
+    "@tailwindcss/postcss": "^4.1.11",
+    "@tailwindcss/typography": "^0.5.16",
+    "@testing-library/jest-dom": "^6.0.0",
+    "@testing-library/react": "^16.0.0",
+    "@testing-library/user-event": "^14.0.0",
+    "@types/node": "^22.15.3",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.0.2",
+    "@vitest/ui": "^3.2.4",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.1.0",
+    "eslint": "^9.30.0",
+    "jsdom": "^26.1.0",
+    "tailwindcss": "^4.0.8",
+    "rxjs": "^7.8.1",
+    "tsup": "^8.5.0",
+    "typescript": "5.8.2",
+    "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "@ag-ui/client": "0.0.42",
+    "@ag-ui/core": "0.0.42",
+    "@copilotkitnext/core": "workspace:*",
+    "@copilotkitnext/shared": "workspace:*",
+    "@copilotkitnext/web-inspector": "workspace:*",
+    "@lit-labs/react": "^2.0.2",
+    "@radix-ui/react-dropdown-menu": "^2.1.15",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-tooltip": "^1.2.7",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "katex": "^0.16.22",
+    "lucide-react": "^0.525.0",
+    "streamdown": "^1.3.0",
+    "tailwind-merge": "^3.3.1",
+    "ts-deepmerge": "^7.0.3",
+    "tw-animate-css": "^1.3.5",
+    "use-stick-to-bottom": "^1.1.1",
+    "zod": "^3.25.75"
+  },
+  "peerDependencies": {
+    "react": ">=16.8.0",
+    "react-dom": ">=16.8.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
