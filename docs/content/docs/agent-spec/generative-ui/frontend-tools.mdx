@@ -104,7 +104,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
             model_id="gpt-4o-mini",
             url="https://api.openai.com/v1",
         )
-        sayhello_tool = ClientTool( # ClientTool are used as frontend tools
+        sayhello_tool = ClientTool( # ClientTool is used for frontend tools
             name="sayHello",
             description="Say hello to the user.",
             inputs=[StringProperty(title="name", description="The name of the user to say hello to")],
