@@ -14,10 +14,7 @@ interface CustomPagerProps {
 function cleanTree(tree: PageTree.Node[]): PageTree.Node[] {
   return tree.flatMap((node: PageTree.Node) => {
     if (node.type === "folder") {
-      if ((node as PageTree.Folder).index) {
-        return [node, ...cleanTree(node.children as PageTree.Node[])]
-      }
-      return cleanTree(node.children as PageTree.Node[])
+      return [node, ...cleanTree(node.children as PageTree.Node[])]
     }
     if (node.type === "page") {
       return [node]
@@ -46,8 +43,6 @@ function getPrev(
 
   const prevItem = tree[pageIndex - 1]
 
-  if (!prevItem) return null
-
   if (prevItem.type === "folder") {
     return {
       url: (prevItem as PageTree.Folder).index?.url as string,
@@ -66,10 +61,7 @@ function getNext(
   pageIndex: number
 ): { url: string; title: string } | null {
   if (pageIndex === tree.length - 1) return null
-
   const nextItem = tree[pageIndex + 1]
-
-  if (!nextItem) return null
 
   if (nextItem.type === "folder") {
     return {
