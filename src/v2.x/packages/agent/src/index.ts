@@ -29,7 +29,9 @@ import {
   ToolChoice,
   ToolSet,
   stepCountIs,
+  TypeValidationError,
 } from "ai";
+import { Schema, jsonSchema } from "@ai-sdk/provider-utils";
 import { experimental_createMCPClient as createMCPClient } from "@ai-sdk/mcp";
 import { Observable } from "rxjs";
 import { createOpenAI } from "@ai-sdk/openai";
@@ -42,6 +44,8 @@ import {
   StreamableHTTPClientTransportOptions,
 } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+import { StandardSchemaWithJSON, isStandardSchemaWithJSON } from "@copilotkitnext/core";
+import { StandardTypedV1 } from "@standard-schema/spec";
 
 /**
  * Properties that can be overridden by forwardedProps
@@ -207,11 +211,11 @@ export function resolveModel(spec: ModelSpecifier): LanguageModel {
 /**
  * Tool definition for BuiltInAgent
  */
-export interface ToolDefinition<TParameters extends z.ZodTypeAny = z.ZodTypeAny> {
+export interface ToolDefinition<Args> {
   name: string;
   description: string;
-  parameters: TParameters;
-  execute: (args: z.infer<TParameters>) => Promise<unknown>;
+  parameters: StandardSchemaWithJSON<Args> | z.ZodType<Args>;
+  execute: (args: Args) => Promise<unknown>;
 }
 
 /**
@@ -404,17 +408,45 @@ export function convertToolsToVercelAITools(tools: RunAgentInput["tools"]): Tool
   return result;
 }
 
+/*
+ * supported in "@ai-sdk/provider-utils@"4.0.0-beta.53" by `asSchema`, copied here for now
+ */
+function standardSchema<OBJECT>(standardSchema: StandardSchemaWithJSON<OBJECT>): Schema<OBJECT> {
+  return jsonSchema(
+    () =>
+      standardSchema["~standard"].jsonSchema.input({
+        target: "draft-07",
+      }),
+    {
+      validate: async (value: any) => {
+        const result = await standardSchema["~standard"].validate(value);
+        return "value" in result
+          ? { success: true, value: result.value }
+          : {
+              success: false,
+              error: new TypeValidationError({
+                value,
+                cause: result.issues,
+              }),
+            };
+      },
+    },
+  );
+}
+
 /**
  * Converts ToolDefinition array to Vercel AI SDK ToolSet
  */
-export function convertToolDefinitionsToVercelAITools(tools: ToolDefinition[]): ToolSet {
+export function convertToolDefinitionsToVercelAITools(tools: ToolDefinition<any>[]): ToolSet {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result: Record<string, any> = {};
 
   for (const tool of tools) {
     result[tool.name] = createVercelAISDKTool({
       description: tool.description,
-      inputSchema: tool.parameters,
+      inputSchema: isStandardSchemaWithJSON(tool.parameters)
+        ? standardSchema(tool.parameters)
+        : (tool.parameters as any as z.ZodTypeAny),
       execute: tool.execute,
     });
   }
@@ -489,7 +521,7 @@ export interface BuiltInAgentConfiguration {
   /**
    * Optional tools available to the agent
    */
-  tools?: ToolDefinition[];
+  tools?: ToolDefinition<any>[];
 }
 
 export class BuiltInAgent extends AbstractAgent {
@@ -715,7 +747,10 @@ export class BuiltInAgent extends AbstractAgent {
 
                 // Get tools from this MCP server and merge with existing tools
                 const mcpTools = await mcpClient.tools();
-                streamTextParams.tools = { ...streamTextParams.tools, ...mcpTools };
+                streamTextParams.tools = {
+                  ...streamTextParams.tools,
+                  ...(mcpTools satisfies ToolSet as ToolSet),
+                };
               }
             }
           }
@@ -747,7 +782,7 @@ export class BuiltInAgent extends AbstractAgent {
           // Process fullStream events
           for await (const part of response.fullStream) {
             switch (part.type) {
-              case 'abort':
+              case "abort":
                 const abortEndEvent: RunFinishedEvent = {
                   type: EventType.RUN_FINISHED,
                   threadId: input.threadId,
