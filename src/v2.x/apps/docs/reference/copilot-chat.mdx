@@ -1,0 +1,116 @@
+---
+title: CopilotChat
+description: "CopilotChat Component API Reference"
+---
+
+`CopilotChat` is a React component that provides a complete chat interface for interacting with AI agents. It handles
+message display, user input, tool execution rendering, and agent communication automatically.
+
+## What is CopilotChat?
+
+The CopilotChat component:
+
+- Provides a complete chat UI out of the box
+- Manages conversation threads and message history
+- Automatically connects to agents and handles message routing
+- Renders tool executions with visual feedback
+- Supports customization through props and slots
+- Handles auto-scrolling and responsive layouts
+
+## Basic Usage
+
+```tsx
+import { CopilotChat, CopilotKitProvider } from "@copilotkitnext/react";
+
+function App() {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit">
+      <CopilotChat />
+    </CopilotKitProvider>
+  );
+}
+```
+
+## Props
+
+### agentId
+
+`string` **(optional)**
+
+The ID of the agent to connect to. Defaults to `"default"`.
+
+```tsx
+<CopilotChat agentId="assistant" />
+```
+
+### threadId
+
+`string` **(optional)**
+
+The conversation thread ID. If not provided, a new thread ID is automatically generated.
+
+```tsx
+<CopilotChat threadId="thread-123" />
+```
+
+### labels
+
+`Partial<CopilotChatLabels>` **(optional)**
+
+Customize the text labels used throughout the chat interface.
+
+```tsx
+<CopilotChat
+  labels={{
+    chatInputPlaceholder: "Ask me anything...",
+    chatDisclaimerText: "AI assistant - verify important info",
+    // ...
+  }}
+/>
+```
+
+### autoScroll
+
+`boolean` **(optional, default: true)**
+
+Automatically scroll to the bottom when new messages appear.
+
+```tsx
+<CopilotChat autoScroll={false} />
+```
+
+### className
+
+`string` **(optional)**
+
+CSS class name for the root container.
+
+```tsx
+<CopilotChat className="h-screen bg-white" />
+```
+
+### Component Slots
+
+CopilotChat supports slot customization for various parts of the UI:
+
+```tsx
+<CopilotChat
+  messageView={CustomMessageView}
+  input={CustomInput}
+  scrollView={CustomScrollView}
+  scrollToBottomButton={CustomScrollButton}
+  inputContainer={CustomInputContainer}
+  feather={CustomFeather}
+  disclaimer={CustomDisclaimer}
+/>
+```
+
+## Auto-scrolling Behavior
+
+CopilotChat automatically scrolls to the bottom when:
+
+- New messages are added
+- The user is already near the bottom
+- `autoScroll` prop is true (default)
+
+The scroll-to-bottom button appears when the user scrolls up and new content is available.

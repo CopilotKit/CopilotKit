@@ -1,0 +1,21 @@
+{
+  "$schema": "../../node_modules/ng-packagr/ng-package.schema.json",
+  "dest": "dist",
+  "lib": {
+    "entryFile": "src/index.ts"
+  },
+  "allowedNonPeerDependencies": [
+    "@ag-ui/client",
+    "@ag-ui/core",
+    "@copilotkitnext/shared",
+    "@copilotkitnext/core",
+    "rxjs",
+    "zod",
+    "lucide-angular",
+    "highlight.js",
+    "katex",
+    "marked",
+    "clsx",
+    "tailwind-merge"
+  ]
+}
