@@ -12,6 +12,7 @@ import {
 } from "@ag-ui/langgraph";
 import { Message as LangGraphMessage } from "@langchain/langgraph-sdk/dist/types.messages";
 import { ThreadState } from "@langchain/langgraph-sdk";
+import { randomUUID } from "@copilotkit/shared";
 
 interface CopilotKitStateEnrichment {
   copilotkit: {
@@ -38,13 +39,7 @@ export class LangGraphAgent extends AGUILangGraphAgent {
   }
 
   private _newToolCallId(): string {
-    // Prefer Web Crypto UUID when available (works in Node 20+/modern runtimes),
-    // otherwise fall back to a stable-enough unique string.
-    const g: any = globalThis as any;
-    const uuid = g?.crypto?.randomUUID?.();
-    return typeof uuid === "string" && uuid.length > 0
-      ? uuid
-      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    return randomUUID();
   }
 
   private _getToolCallChunk(rawEvent: any): any | null {
