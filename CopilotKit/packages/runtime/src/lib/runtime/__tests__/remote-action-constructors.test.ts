@@ -109,6 +109,61 @@ describe("remote action constructors", () => {
         }),
       );
     });
+
+    it("should pass assistantSearchLimit to execute when provided", async () => {
+      // Arrange: simulate execute returning a dummy ReadableStream
+      const dummyEncodedEvent = new TextEncoder().encode(JSON.stringify({ event: "test" }) + "\n");
+      const readerMock = {
+        read: jest
+          .fn()
+          .mockResolvedValueOnce({ done: false, value: dummyEncodedEvent })
+          .mockResolvedValueOnce({ done: true, value: new Uint8Array() }),
+      };
+
+      const dummyResponse = {
+        getReader: () => readerMock,
+      };
+
+      (execute as jest.Mock).mockResolvedValue(dummyResponse);
+
+      // Mock RemoteLangGraphEventSource to return a dummy processed result
+      const processLangGraphEventsMock = jest.fn(() => "processed events");
+      (RemoteLangGraphEventSource as jest.Mock).mockImplementation(() => ({
+        eventStream$: { next: jest.fn(), complete: jest.fn(), error: jest.fn() },
+        processLangGraphEvents: processLangGraphEventsMock,
+      }));
+
+      // Create endpoint with assistantSearchLimit
+      const endpointWithLimit = {
+        ...endpoint,
+        assistantSearchLimit: 500,
+      };
+
+      // Act: build the action and call remoteAgentHandler
+      const actions = constructLGCRemoteAction({
+        endpoint: endpointWithLimit,
+        graphqlContext,
+        logger,
+        messages: [],
+        agentStates,
+      });
+
+      await actions[0].remoteAgentHandler({
+        name: dummyAgent.name,
+        actionInputsWithoutAgents: [],
+        threadId: "thread1",
+        nodeName: "node1",
+        additionalMessages: [],
+        metaEvents: [],
+      });
+
+      // Assert: execute was called with assistantSearchLimit
+      expect(execute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          assistantSearchLimit: 500,
+        }),
+      );
+    });
   });
 
   describe("constructRemoteActions", () => {
