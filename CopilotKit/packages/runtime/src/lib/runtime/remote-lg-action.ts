@@ -271,10 +271,18 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
 
   // Determine the assistant search limit: property takes precedence over env var, default to 1000
   const DEFAULT_ASSISTANT_SEARCH_LIMIT = 1000;
-  const envLimit = process.env.COPILOTKIT_LANGGRAPH_ASSISTANT_SEARCH_LIMIT
+  const envLimitRaw = process.env.COPILOTKIT_LANGGRAPH_ASSISTANT_SEARCH_LIMIT
     ? parseInt(process.env.COPILOTKIT_LANGGRAPH_ASSISTANT_SEARCH_LIMIT, 10)
     : undefined;
-  const searchLimit = assistantSearchLimit ?? envLimit ?? DEFAULT_ASSISTANT_SEARCH_LIMIT;
+  // Validate that envLimit is a valid positive integer
+  const envLimit = envLimitRaw !== undefined && Number.isInteger(envLimitRaw) && envLimitRaw > 0
+    ? envLimitRaw
+    : undefined;
+  // Validate that assistantSearchLimit is a valid positive integer if provided
+  const validatedPropertyLimit = assistantSearchLimit !== undefined && Number.isInteger(assistantSearchLimit) && assistantSearchLimit > 0
+    ? assistantSearchLimit
+    : undefined;
+  const searchLimit = validatedPropertyLimit ?? envLimit ?? DEFAULT_ASSISTANT_SEARCH_LIMIT;
 
   const assistants = await client.assistants.search({ limit: searchLimit });
   const retrievedAssistant = assistants.find(
