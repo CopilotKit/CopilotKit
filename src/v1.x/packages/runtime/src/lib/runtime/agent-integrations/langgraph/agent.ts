@@ -76,6 +76,11 @@ export class LangGraphAgent extends AGUILangGraphAgent {
     }
   }
 
+  private _resetToolCallState(): void {
+    this._lastToolCallId = null;
+    this._toolCallNameById.clear();
+  }
+
   // @ts-ignore
   public clone() {
     return new LangGraphAgent(this.config);
@@ -219,6 +224,9 @@ export class LangGraphAgent extends AGUILangGraphAgent {
 
   // @ts-ignore
   run(input: RunAgentInput) {
+    // Reset tool call tracking state at the start of each run to prevent memory leaks
+    this._resetToolCallState();
+
     return super.run(input).pipe(
       map((processedEvent) => {
         // Turn raw event into emit state snapshot from tool call event
