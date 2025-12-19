@@ -281,7 +281,11 @@ describe("handleTranscribe", () => {
 
     expect(response.status).toBe(200);
     expect(mockService.lastOptions).toEqual({
-      audioFile,
+      audioFile: expect.objectContaining({
+        name: "my-recording.wav",
+        type: "audio/wav",
+        size: 2048,
+      }),
       mimeType: "audio/wav",
       size: 2048,
     });

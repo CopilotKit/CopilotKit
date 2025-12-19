@@ -1,4 +1,4 @@
-name: Release
+name: publish
 
 on:
   workflow_dispatch:
@@ -10,7 +10,6 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 jobs:
   release:
-    name: Release
     runs-on: ubuntu-latest
     defaults:
       run:

@@ -1,20 +1,22 @@
-name: e2e
+name: e2e / dojo
 
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "docs/**"
-      - "README.md"
+    paths:
+      - "src/v1.x/**"
+      - "src/v2.x/**"
+      - ".github/workflows/e2e_dojo.yml"
   pull_request:
     branches: [main]
-    paths-ignore:
-      - "docs/**"
-      - "README.md"
+    paths:
+      - "src/v1.x/**"
+      - "src/v2.x/**"
+      - ".github/workflows/e2e_dojo.yml"
 
 jobs:
   dojo:
-    name: dojo / ${{ matrix.suite }}
+    name: ${{ matrix.suite }}
     runs-on: depot-ubuntu-24.04
     timeout-minutes: 20
     strategy:
