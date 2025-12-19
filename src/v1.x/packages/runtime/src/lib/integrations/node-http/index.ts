@@ -124,7 +124,7 @@ export function copilotRuntimeNodeHttpEndpoint(options: CreateCopilotRuntimeServ
     basePath: options.baseUrl ?? options.endpoint,
   });
 
-  return async function handler(req: IncomingWithBody, res: ServerResponse) {
+  async function handle(req: IncomingWithBody, res: ServerResponse) {
     const url = getFullUrl(req);
     const hasBody = req.method !== "GET" && req.method !== "HEAD";
 
@@ -208,4 +208,6 @@ export function copilotRuntimeNodeHttpEndpoint(options: CreateCopilotRuntimeServ
       res.end();
     }
   };
+
+  return { handle }
 }
