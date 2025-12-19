@@ -48,6 +48,12 @@ export interface LangGraphPlatformEndpoint
   deploymentUrl: string;
   langsmithApiKey?: string | null;
   agents: LangGraphPlatformAgent[];
+  /**
+   * The maximum number of assistants to search for. Defaults to 1000.
+   * Can also be configured via the COPILOTKIT_LANGGRAPH_ASSISTANT_SEARCH_LIMIT environment variable.
+   * If both are set, this property takes precedence.
+   */
+  assistantSearchLimit?: number;
 }
 
 export type RemoteActionInfoResponse = {

@@ -77,6 +77,7 @@ export function constructLGCRemoteAction({
           logger: logger.child({ component: "remote-actions.remote-lg-action.streamEvents" }),
           deploymentUrl: endpoint.deploymentUrl,
           langsmithApiKey: endpoint.langsmithApiKey,
+          assistantSearchLimit: endpoint.assistantSearchLimit,
           agent,
           threadId,
           nodeName,

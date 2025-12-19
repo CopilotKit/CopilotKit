@@ -171,6 +171,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   const {
     deploymentUrl,
     langsmithApiKey,
+    assistantSearchLimit,
     threadId: argsInitialThreadId,
     agent,
     nodeName: initialNodeName,
@@ -268,7 +269,22 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       : null,
   };
 
-  const assistants = await client.assistants.search({ limit: 1000 });
+  // Determine the assistant search limit: property takes precedence over env var, default to 1000
+  const DEFAULT_ASSISTANT_SEARCH_LIMIT = 1000;
+  const envLimitRaw = process.env.COPILOTKIT_LANGGRAPH_ASSISTANT_SEARCH_LIMIT
+    ? parseInt(process.env.COPILOTKIT_LANGGRAPH_ASSISTANT_SEARCH_LIMIT, 10)
+    : undefined;
+  // Validate that envLimit is a valid positive integer
+  const envLimit = envLimitRaw !== undefined && Number.isInteger(envLimitRaw) && envLimitRaw > 0
+    ? envLimitRaw
+    : undefined;
+  // Validate that assistantSearchLimit is a valid positive integer if provided
+  const validatedPropertyLimit = assistantSearchLimit !== undefined && Number.isInteger(assistantSearchLimit) && assistantSearchLimit > 0
+    ? assistantSearchLimit
+    : undefined;
+  const searchLimit = validatedPropertyLimit ?? envLimit ?? DEFAULT_ASSISTANT_SEARCH_LIMIT;
+
+  const assistants = await client.assistants.search({ limit: searchLimit });
   const retrievedAssistant = assistants.find(
     (a) => a.name === name || a.assistant_id === initialAssistantId,
   );
