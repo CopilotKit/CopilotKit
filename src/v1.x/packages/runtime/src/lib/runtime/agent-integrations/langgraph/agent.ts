@@ -27,8 +27,58 @@ import { CustomEventNames, TextMessageEvents, ToolCallEvents, PredictStateTool }
 export { CustomEventNames };
 
 export class LangGraphAgent extends AGUILangGraphAgent {
+  // Some event sources (especially streaming tool call chunks / custom events) may omit
+  // tool call identifiers or names on subsequent deltas. We normalize them here so
+  // downstream schema validation never sees `undefined`.
+  private _lastToolCallId: string | null = null;
+  private _toolCallNameById = new Map<string, string>();
+
   constructor(config: LangGraphAgentConfig) {
     super(config);
+  }
+
+  private _newToolCallId(): string {
+    // Prefer Web Crypto UUID when available (works in Node 20+/modern runtimes),
+    // otherwise fall back to a stable-enough unique string.
+    const g: any = globalThis as any;
+    const uuid = g?.crypto?.randomUUID?.();
+    return typeof uuid === "string" && uuid.length > 0
+      ? uuid
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+
+  private _getToolCallChunk(rawEvent: any): any | null {
+    // @ag-ui/core RawEvent can wrap the original event in different keys depending on source.
+    const ev = rawEvent?.event ?? rawEvent?.rawEvent ?? rawEvent;
+    return ev?.data?.chunk?.tool_call_chunks?.[0] ?? null;
+  }
+
+  private _ensureToolCallId(candidate: any, rawEvent: any): string {
+    const chunk = this._getToolCallChunk(rawEvent);
+    const id = candidate ?? chunk?.id ?? this._lastToolCallId ?? this._newToolCallId();
+    const idStr = String(id);
+    this._lastToolCallId = idStr;
+    return idStr;
+  }
+
+  private _ensureToolCallName(candidate: any, toolCallId: string, rawEvent: any): string {
+    const chunk = this._getToolCallChunk(rawEvent);
+    const name = candidate ?? chunk?.name ?? this._toolCallNameById.get(toolCallId) ?? "tool";
+    const nameStr = String(name);
+    if (nameStr) {
+      this._toolCallNameById.set(toolCallId, nameStr);
+    }
+    return nameStr;
+  }
+
+  private _ensureArgsDelta(value: any): string {
+    if (typeof value === "string") return value;
+    if (value === undefined || value === null) return "";
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
   }
 
   // @ts-ignore
@@ -63,22 +113,39 @@ export class LangGraphAgent extends AGUILangGraphAgent {
       }
 
       if (customEvent.name === CustomEventNames.CopilotKitManuallyEmitToolCall) {
+        const toolCallId = this._ensureToolCallId(
+          customEvent.value?.id ?? customEvent.value?.toolCallId ?? customEvent.value?.tool_call_id,
+          event,
+        );
+        const toolCallName = this._ensureToolCallName(
+          customEvent.value?.name ??
+            customEvent.value?.toolCallName ??
+            customEvent.value?.tool_call_name ??
+            customEvent.value?.actionName,
+          toolCallId,
+          event,
+        );
+        const delta = this._ensureArgsDelta(
+          customEvent.value?.args ?? customEvent.value?.arguments,
+        );
+        const parentMessageId = (customEvent.value?.parentMessageId ?? toolCallId) as string;
+
         this.subscriber.next({
           type: EventType.TOOL_CALL_START,
-          toolCallId: customEvent.value.id,
-          toolCallName: customEvent.value.name,
-          parentMessageId: customEvent.value.id,
+          toolCallId,
+          toolCallName,
+          parentMessageId,
           rawEvent: event,
         });
         this.subscriber.next({
           type: EventType.TOOL_CALL_ARGS,
-          toolCallId: customEvent.value.id,
-          delta: customEvent.value.args,
+          toolCallId,
+          delta,
           rawEvent: event,
         });
         this.subscriber.next({
           type: EventType.TOOL_CALL_END,
-          toolCallId: customEvent.value.id,
+          toolCallId,
           rawEvent: event,
         });
         return true;
@@ -130,6 +197,25 @@ export class LangGraphAgent extends AGUILangGraphAgent {
       if (rawEvent.metadata["copilotkit:emit-messages"] === false && isMessageEvent) {
         return false;
       }
+    }
+
+    if (isToolEvent) {
+      // Normalize tool call events coming from upstream (@ag-ui/langgraph) to avoid
+      // `toolCallId/toolCallName` being undefined in streaming scenarios.
+      const e: any = { ...(event as any) };
+      e.toolCallId = this._ensureToolCallId(e.toolCallId, rawEvent);
+
+      if (e.type === EventType.TOOL_CALL_START) {
+        e.toolCallName = this._ensureToolCallName(e.toolCallName, e.toolCallId, rawEvent);
+        e.parentMessageId = e.parentMessageId ?? e.toolCallId;
+      }
+
+      if (e.type === EventType.TOOL_CALL_ARGS) {
+        e.delta = this._ensureArgsDelta(e.delta);
+      }
+
+      this.subscriber.next(e);
+      return true;
     }
 
     this.subscriber.next(event);
