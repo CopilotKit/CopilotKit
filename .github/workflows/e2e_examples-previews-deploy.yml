@@ -16,7 +16,7 @@ jobs:
   build_images:
     if: ${{ !contains(github.event.pull_request.labels.*.name, 'automated-version-pr') }}
     runs-on: ubuntu-latest
-    name: Build Images
+    name: build
     strategy:
       matrix:
         app:
@@ -314,7 +314,7 @@ jobs:
   playwright:
     name: "playwright"
     if: github.event_name == 'pull_request'
-    uses: ./.github/workflows/e2e_examples.yml
+    uses: ./.github/workflows/e2e_examples-test.yml
     needs: deploy
     with:
       ref: "${{ github.event.pull_request.head.ref }}"
