@@ -11,8 +11,9 @@ import RunAndConnect from "@/snippets/integrations/agent-spec/run-and-connect.md
 
 <IframeSwitcher
   id="backend-tools-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/agent-spec-langgraph/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/agent-spec-langgraph/feature/backend_tool_rendering?view=code&sidebar=false&codeLayout=tabs"
+  urlProps={{ integration: ['langgraph', 'wayflow'] as const }}
+  exampleUrl={({ integration }) => `https://feature-viewer.copilotkit.ai/agent-spec-${integration}/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false`}
+  codeUrl={({ integration }) => `https://feature-viewer.copilotkit.ai/agent-spec-${integration}/feature/backend_tool_rendering?view=code&sidebar=false&codeLayout=tabs`}
   exampleLabel="Demo"
   codeLabel="Code"
   height="700px"

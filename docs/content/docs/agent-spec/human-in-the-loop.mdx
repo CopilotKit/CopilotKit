@@ -9,8 +9,9 @@ import { IframeSwitcher } from "@/components/content"
 
 <IframeSwitcher
   id="hitl-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/agent-spec-langgraph/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/agent-spec-langgraph/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
+  urlProps={{ integration: ['langgraph', 'wayflow'] as const }}
+  exampleUrl={({ integration }) => `https://feature-viewer.copilotkit.ai/agent-spec-${integration}/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false`}
+  codeUrl={({ integration }) => `https://feature-viewer.copilotkit.ai/agent-spec-${integration}/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs`}
   exampleLabel="Demo"
   codeLabel="Code"
   height="700px"
