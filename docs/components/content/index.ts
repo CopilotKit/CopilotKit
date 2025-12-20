@@ -1,1 +1,1 @@
-export { IframeSwitcher } from "./iframe-switcher";
+export { IframeSwitcher, IframeSwitcherGroup } from "./iframe-switcher";
