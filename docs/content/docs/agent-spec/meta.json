@@ -1,0 +1,22 @@
+{
+  "title": "Open Agent Spec",
+  "root": true,
+  "pages": [
+    "---Getting Started---",
+    "index",
+    "quickstart",
+    "vibe-coding-mcp",
+    "---Guides---",
+    "agentic-chat-ui",
+    "langgraph",
+    "wayflow",
+    "custom-look-and-feel",
+    "frontend-actions",
+    "generative-ui",
+    "human-in-the-loop",
+    "---Premium Features---",
+    "...premium",
+    "---Troubleshooting---",
+    "...troubleshooting"
+  ]
+}
