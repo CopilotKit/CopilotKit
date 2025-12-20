@@ -1,0 +1,52 @@
+---
+title: Chat with an Agent
+icon: "lucide/SendHorizontal"
+description: Chat with your Agent Spec agent using CopilotKit's UI components.
+---
+
+import ConnectCopilotUI from "@/snippets/copilot-ui.mdx";
+import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
+import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/self-hosting-copilot-runtime-configure-copilotkit-provider.mdx";
+import CopilotCloudConfigureCopilotKitProvider from "@/snippets/cloud/cloud-copilotkit-provider.mdx";
+import ComponentExamples from "@/snippets/component-examples.mdx";
+import { UserIcon, PaintbrushIcon, WrenchIcon, RepeatIcon } from "lucide-react";
+import { IframeSwitcherGroup } from "@/components/content"
+
+<IframeSwitcherGroup
+  id="agentic-chat-example"
+  variants={[
+    {
+      label: "LangGraph",
+      exampleUrl: "https://feature-viewer.copilotkit.ai/agent-spec-langgraph/feature/agentic_chat?sidebar=false&chatDefaultOpen=false",
+      codeUrl: "https://feature-viewer.copilotkit.ai/agent-spec-langgraph/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs",
+    },
+    {
+      label: "WayFlow",
+      exampleUrl: "https://feature-viewer.copilotkit.ai/agent-spec-wayflow/feature/agentic_chat?sidebar=false&chatDefaultOpen=false",
+      codeUrl: "https://feature-viewer.copilotkit.ai/agent-spec-wayflow/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs",
+    },
+  ]}
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+## What is this?
+
+Agentic chat UIs let your users interact with your agent. CopilotKit provides prebuilt components (like `CopilotChat` and `CopilotSidebar`) as well as headless hooks — you can start simple and grow to a fully custom app.
+
+If you've gone through the [quickstart](/agent-spec/quickstart), you already have an agentic chat UI set up — nothing else is required to begin chatting.
+
+## When should I use this?
+
+Use the agentic chat UI when you want a turnkey chat experience that:
+- streams assistant text and tool calls/results,
+- supports stateful conversations (thread/run lifecycle),
+- can evolve into generative UI with custom renders.
+
+<ComponentExamples components={props.components} />
+
+## Learn more
+
+- Agent Spec docs home: https://oracle.github.io/agent-spec/development/docs_home.html
+- Reference sheet (formats): https://oracle.github.io/agent-spec/development/misc/reference_sheet.html

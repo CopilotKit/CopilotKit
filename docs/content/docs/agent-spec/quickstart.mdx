@@ -1,0 +1,55 @@
+---
+title: Quickstart
+description: Turn your Agent Spec agent into an agent‑native application in minutes.
+icon: "lucide/Play"
+hideTOC: true
+---
+
+## Prerequisites
+
+- Node.js 20+
+- Python 3.9+
+
+## 1) Scaffold the UI
+
+Start from our starter template:
+
+```bash
+npx copilotkit@latest create -f agent-spec
+```
+
+## 2) Run your Agent‑Spec server
+
+Use the FastAPI example or your own server with the Agent‑Spec endpoint mounted at `/copilotkit`:
+
+```bash title="ag-ui/integrations/agent-spec/python/examples/server.py"
+python server.py
+# Requires AGENT_SPEC_PATH pointing to an Agent‑Spec JSON/YAML file
+```
+
+## 3) Connect the UI to your server
+
+Set the endpoint in your Next.js app:
+
+```dotenv title=".env.local"
+COPILOTKIT_REMOTE_ENDPOINT=http://localhost:8000/copilotkit
+```
+
+## 4) Run Next.js
+
+```bash
+pnpm dev
+# or npm run dev / yarn dev / bun dev
+```
+
+Open http://localhost:3000 and start chatting with your agent.
+
+## Notes
+
+- The template uses CopilotKit Runtime to proxy to your FastAPI endpoint.
+- AG‑UI streaming covers text, tool calls, tool results, and run lifecycle.
+
+## Learn more
+
+- Agent Spec docs home: https://oracle.github.io/agent-spec/development/docs_home.html
+- Specification overview: https://oracle.github.io/agent-spec/development/agentspec/index.html
