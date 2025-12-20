@@ -4,16 +4,25 @@ icon: "lucide/Server"
 description: Render your agent's tool calls with custom UI components.
 ---
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
-import { IframeSwitcher } from "@/components/content"
+import { IframeSwitcherGroup } from "@/components/content"
 import { Tabs, Tab } from "fumadocs-ui/components/tabs"
 import DefaultToolRendering from "@/snippets/shared/guides/default-tool-rendering.mdx"
 import RunAndConnect from "@/snippets/integrations/agent-spec/run-and-connect.mdx"
 
-<IframeSwitcher
+<IframeSwitcherGroup
   id="backend-tools-example"
-  urlProps={{ integration: ['langgraph', 'wayflow'] as const }}
-  exampleUrl={({ integration }) => `https://feature-viewer.copilotkit.ai/agent-spec-${integration}/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false`}
-  codeUrl={({ integration }) => `https://feature-viewer.copilotkit.ai/agent-spec-${integration}/feature/backend_tool_rendering?view=code&sidebar=false&codeLayout=tabs`}
+  variants={[
+    {
+      label: "LangGraph",
+      exampleUrl: "https://feature-viewer.copilotkit.ai/agent-spec-langgraph/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false",
+      codeUrl: "https://feature-viewer.copilotkit.ai/agent-spec-langgraph/feature/backend_tool_rendering?view=code&sidebar=false&codeLayout=tabs",
+    },
+    {
+      label: "WayFlow",
+      exampleUrl: "https://feature-viewer.copilotkit.ai/agent-spec-wayflow/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false",
+      codeUrl: "https://feature-viewer.copilotkit.ai/agent-spec-wayflow/feature/backend_tool_rendering?view=code&sidebar=false&codeLayout=tabs",
+    },
+  ]}
   exampleLabel="Demo"
   codeLabel="Code"
   height="700px"
