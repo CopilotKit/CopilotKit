@@ -1,16 +1,32 @@
 ---
 title: "A2UI"
 icon: "lucide/Sparkles"
-description: "Google's upcoming declarative, LLM-friendly Generative UI specification"
+description: "Google's declarative, LLM-friendly Generative UI specification"
 ---
+import Image from "next/image"
 
 # A2UI - Google's Generative UI Spec
 
-**A2UI** is Google's upcoming declarative, LLM-friendly Generative UI specification that enables agents to generate dynamic user interfaces.
+**A2UI** is Google's declarative, LLM-friendly Generative UI specification that enables agents to generate dynamic user interfaces.
+
+<Image 
+  src="/images/gen-ui-specs-light.png" 
+  alt="Generative UI Specs" 
+  width={4096} 
+  height={2304}
+  className="block dark:hidden mb-8"
+/>
+<Image 
+  src="/images/gen-ui-specs-dark.png" 
+  alt="Generative UI Specs" 
+  width={4096} 
+  height={2304}
+  className="hidden dark:block mb-8"
+/>
 
 ## What is A2UI?
 
-A2UI is a declarative generative UI specification pre-announced, but not yet launched, by Google. It's designed to be:
+A2UI is a declarative generative UI specification launched by Google. It's designed to be:
 
 - **JSONL-based** - Uses JSON Lines format for streaming
 - **LLM-friendly** - Easy for language models to generate
@@ -30,9 +46,11 @@ A2UI specifications can be rendered on web, mobile, or any other platform, makin
 
 
 ## Using A2UI with CopilotKit
-<Callout>
-Once A2UI is launched, we'll update this page with documentation of CopilotKit and AG-UI's full support for A2UI.
-</Callout>
+
+[Get started with A2UI](/a2a/generative-ui/declarative-a2ui) and A2A with CopilotKit
+
+Check out the [A2UI Composer](https://a2ui-editor.ag-ui.com/gallery) to create and find widgets
+
 {/*
 CopilotKit's AG-UI protocol natively supports A2UI alongside other generative UI specifications like MCP-UI and Open-JSON-UI.
 
@@ -78,7 +96,7 @@ The same A2UI specification can be rendered consistently across different platfo
 
 - [Generative UI Specs Overview](/generative-ui-specs) - Compare all supported specifications
 - [Generative UI Guide](/generative-ui) - Build with Generative UI in CopilotKit
-- [A2UI Pre-release](https://a2ui.org/) - Join the A2UI waitlist
+- [A2UI Site](https://a2ui.org/) - Visit the A2UI site
 - [AG-UI Protocol](/ag-ui-protocol) - Learn about the protocol that supports A2UI
 - [Open-JSON-UI](/generative-ui-specs/open-json-ui) - OpenAI's alternative approach
 - [MCP-UI](/generative-ui-specs/mcp-ui) - Microsoft + Shopify's iframe-based spec

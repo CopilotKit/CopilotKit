@@ -1,0 +1,26 @@
+{
+  "name": "mcp-apps-demo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "NODE_ENV=development npm run build && npm run server",
+    "build": "INPUT=ui-raw.html vite build",
+    "server": "npx tsx server.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.22.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.0",
+    "vite-plugin-singlefile": "^2.3.0"
+  }
+}

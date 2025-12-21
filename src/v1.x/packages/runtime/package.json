@@ -1,0 +1,140 @@
+{
+  "name": "@copilotkit/runtime",
+  "private": false,
+  "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "version": "1.50.1",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./v2": {
+      "import": "./dist/v2/index.mjs",
+      "require": "./dist/v2/index.js",
+      "types": "./dist/v2/index.d.ts"
+    },
+    "./langgraph": {
+      "import": "./dist/langgraph.mjs",
+      "require": "./dist/langgraph.js",
+      "types": "./dist/langgraph.d.ts"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsup --onSuccess \"pnpm run generate-graphql-schema\"",
+    "dev": "tsup --watch --onSuccess \"pnpm run generate-graphql-schema\"",
+    "test": "jest --passWithNoTests",
+    "check-types": "tsc --noEmit",
+    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next && rm -rf __snapshots__",
+    "generate-graphql-schema": "rm -rf __snapshots__ && ts-node ./scripts/generate-gql-schema.ts",
+    "link:global": "pnpm link --global",
+    "unlink:global": "pnpm unlink --global"
+  },
+  "devDependencies": {
+    "@jest/globals": "^29.7.0",
+    "@swc/core": "1.5.28",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^18.11.17",
+    "@whatwg-node/server": "^0.9.34",
+    "eslint": "^8.56.0",
+    "eslint-config-custom": "workspace:*",
+    "jest": "^29.6.4",
+    "nodemon": "^3.1.3",
+    "ts-jest": "^29.1.1",
+    "ts-node": "^10.9.2",
+    "tsconfig": "workspace:*",
+    "tsup": "^6.7.0",
+    "typescript": "^5.2.3",
+    "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "@ag-ui/client": "^0.0.42",
+    "@ag-ui/core": "^0.0.42",
+    "@ag-ui/langgraph": "^0.0.20",
+    "@copilotkit/shared": "workspace:*",
+    "@copilotkitnext/agent": "0.0.33",
+    "@copilotkitnext/runtime": "0.0.33",
+    "@graphql-yoga/plugin-defer-stream": "^3.3.1",
+    "@hono/node-server": "^1.13.5",
+    "@scarf/scarf": "^1.3.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "graphql": "^16.8.1",
+    "graphql-scalars": "^1.23.0",
+    "graphql-yoga": "^5.3.1",
+    "hono": "^4.10.3",
+    "openai": "^4.85.1",
+    "partial-json": "^0.1.7",
+    "pino": "^9.2.0",
+    "pino-pretty": "^11.2.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "7.8.1",
+    "type-graphql": "2.0.0-rc.1",
+    "zod": "^3.23.3"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/sdk": "^0.57.0",
+    "@langchain/aws": ">=0.1.9",
+    "@langchain/core": ">=0.3.66",
+    "@langchain/community": ">=0.3.58",
+    "@langchain/google-gauth": ">=0.1.0",
+    "@langchain/langgraph-sdk": ">=0.1.2",
+    "@langchain/openai": ">=0.4.2",
+    "groq-sdk": ">=0.3.0 <1.0.0",
+    "langchain": ">=0.3.3",
+    "openai": "^4.85.1"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "@langchain/aws": {
+      "optional": true
+    },
+    "@langchain/community": {
+      "optional": true
+    },
+    "@langchain/google-gauth": {
+      "optional": true
+    },
+    "@langchain/langgraph-sdk": {
+      "optional": true
+    },
+    "@langchain/openai": {
+      "optional": true
+    },
+    "groq-sdk": {
+      "optional": true
+    },
+    "langchain": {
+      "optional": true
+    },
+    "openai": {
+      "optional": true
+    }
+  },
+  "keywords": [
+    "copilotkit",
+    "copilot",
+    "react",
+    "nextjs",
+    "nodejs",
+    "ai",
+    "assistant",
+    "javascript",
+    "automation",
+    "textarea"
+  ]
+}
