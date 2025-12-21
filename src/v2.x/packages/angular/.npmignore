@@ -1,0 +1,52 @@
+# Angular build cache
+.angular/
+
+# Turbo cache
+.turbo/
+
+# Source files (only publish dist)
+src/
+ng-package.json
+tsconfig.lib.json
+tsconfig.spec.json
+
+# Development files
+*.spec.ts
+*.spec.js
+*.test.ts
+*.test.js
+vitest.config.ts
+jest.config.js
+
+# Config files
+tailwind.config.js
+postcss.config.js
+.eslintrc.js
+.prettierrc
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Documentation
+*.md
+!README.md
+
+# Git
+.git/
+.gitignore

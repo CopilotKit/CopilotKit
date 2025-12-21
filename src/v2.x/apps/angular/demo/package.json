@@ -1,0 +1,49 @@
+{
+  "name": "@copilotkitnext/angular-demo",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "ng serve",
+    "build": "ng build",
+    "dev": "nodemon --verbose --cwd ../../../ --watch packages/angular/dist/** --watch packages/core/dist/** --watch packages/shared/dist/** --watch packages/runtime/dist/** --watch packages/angular/dist/fesm2022/copilotkit-angular.mjs --ext mjs,js,json,css --delay 800ms --signal SIGTERM --exec \"pnpm -s -C apps/angular/demo run serve:clean\"",
+    "serve:clean": "rimraf .angular/cache || true && ng serve",
+    "clean": "rimraf dist .angular"
+  },
+  "dependencies": {
+    "@angular/animations": "^18.2.0",
+    "@angular/cdk": "^18.2.0",
+    "@angular/common": "^18.2.0",
+    "@angular/compiler": "^18.2.0",
+    "@angular/core": "^18.2.0",
+    "@angular/forms": "^18.2.0",
+    "@angular/platform-browser": "^18.2.0",
+    "@angular/platform-browser-dynamic": "^18.2.0",
+    "@ag-ui/client": "0.0.42",
+    "@ag-ui/core": "0.0.42",
+    "@ag-ui/encoder": "0.0.42",
+    "@ag-ui/proto": "0.0.42",
+    "@copilotkitnext/angular": "workspace:*",
+    "@copilotkitnext/web-inspector": "workspace:*",
+    "compare-versions": "^6.1.1",
+    "fast-json-patch": "^3.1.1",
+    "lit": "^3.3.1",
+    "lucide": "^0.525.0",
+    "partial-json": "^0.1.7",
+    "untruncate-json": "^0.0.1",
+    "uuid": "^11.1.0",
+    "rxjs": "^7.8.1",
+    "tslib": "^2.8.1",
+    "zod-to-json-schema": "^3.24.6",
+    "zod": "^3.25.75",
+    "zone.js": "^0.14.0"
+  },
+  "devDependencies": {
+    "@angular-devkit/build-angular": "^18.2.0",
+    "@angular/cli": "^18.2.0",
+    "@angular/compiler-cli": "^18.2.0",
+    "nodemon": "^3.1.7",
+    "rimraf": "^6.0.1",
+    "typescript": "~5.4.5"
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "name": "@copilotkit/shared",
+  "private": false,
+  "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "version": "1.50.1",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsup --clean",
+    "dev": "tsup --watch --no-splitting",
+    "test": "jest --passWithNoTests",
+    "check-types": "tsc --noEmit",
+    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next",
+    "link:global": "pnpm link --global",
+    "unlink:global": "pnpm unlink --global"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.4",
+    "@types/uuid": "^10.0.0",
+    "eslint": "^8.56.0",
+    "eslint-config-custom": "workspace:*",
+    "jest": "^29.6.4",
+    "ts-jest": "^29.1.1",
+    "tsconfig": "workspace:*",
+    "tsup": "^6.7.0",
+    "typescript": "^5.2.3",
+    "zod-to-json-schema": "^3.23.5"
+  },
+  "dependencies": {
+    "@ag-ui/core": "^0.0.42",
+    "@segment/analytics-node": "^2.1.2",
+    "chalk": "4.1.2",
+    "graphql": "^16.8.1",
+    "uuid": "^10.0.0",
+    "zod": "^3.23.3"
+  },
+  "keywords": [
+    "copilotkit",
+    "copilot",
+    "react",
+    "nextjs",
+    "nodejs",
+    "ai",
+    "assistant",
+    "javascript",
+    "automation",
+    "textarea"
+  ]
+}

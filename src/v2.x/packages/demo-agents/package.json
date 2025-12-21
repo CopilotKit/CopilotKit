@@ -1,0 +1,33 @@
+{
+  "name": "@copilotkitnext/demo-agents",
+  "version": "0.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@ag-ui/client": "*",
+    "openai": "^4.73.1",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@copilotkitnext/eslint-config": "workspace:*",
+    "@copilotkitnext/typescript-config": "workspace:*",
+    "@types/node": "^22.10.5",
+    "eslint": "^9.17.0",
+    "tsup": "^8.0.1",
+    "typescript": "^5.8.2",
+    "vitest": "^2.1.8"
+  }
+}

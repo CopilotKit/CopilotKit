@@ -1,0 +1,150 @@
+---
+title: FrontendTool
+description: "FrontendTool API Reference"
+---
+
+`FrontendTool` is a cross-platform type that defines tools (functions) that AI agents can invoke in your frontend
+application. These tools enable agents to interact the user, retrieve data, perform actions, and integrate with your
+application's functionality.
+
+## What is a FrontendTool?
+
+A FrontendTool represents a capability you expose to AI agents, allowing them to:
+
+- Interact with the user
+- Fetch or manipulate application data
+- Trigger application workflows
+
+Frontend tools are framework-agnostic and work consistently across all frameworks through `CopilotKitCore`.
+
+## Type Definition
+
+```typescript
+type FrontendTool<T extends Record<string, unknown> = Record<string, unknown>> = {
+  name: string;
+  description?: string;
+  parameters?: z.ZodType<T>;
+  handler?: (args: T, toolCall: ToolCall) => Promise<unknown>;
+  followUp?: boolean;
+  agentId?: string;
+};
+```
+
+## Properties
+
+### name
+
+`string` **(required)**
+
+A unique identifier for the tool. This is the name agents will use to request this tool's execution. Avoid spaces and
+special characters.
+
+```typescript
+{
+  name: "searchProducts";
+}
+```
+
+A special wildcard tool is available with the name `*`. This tool will handle any unmatched tool requests.
+
+### description
+
+`string` **(optional)**
+
+A human-readable description that helps agents understand when and how to use this tool. This description is sent to the
+LLM to guide its decision-making.
+
+```typescript
+{
+  name: "searchProducts",
+  description: "Search for products in the catalog by name, category, or price range"
+}
+```
+
+### parameters
+
+`z.ZodType<T>` **(optional)**
+
+A Zod schema that defines and validates the tool's input parameters. This ensures type safety and provides automatic
+validation of agent-provided arguments.
+
+```typescript
+import { z } from "zod";
+
+{
+  name: "updateUserProfile",
+  parameters: z.object({
+    firstName: z.string().optional(),
+    lastName: z.string().optional(),
+    email: z.string().email().optional(),
+    preferences: z.object({
+      theme: z.enum(["light", "dark"]).optional(),
+      notifications: z.boolean().optional()
+    }).optional()
+  })
+}
+```
+
+### handler
+
+`(args: T, toolCall: ToolCall) => Promise<unknown>` **(optional)**
+
+The async function that executes when the agent invokes this tool. It receives the validated arguments and a ToolCall
+object containing metadata about the invocation.
+
+```typescript
+{
+  name: "addToCart",
+  parameters: z.object({
+    productId: z.string(),
+    quantity: z.number().min(1)
+  }),
+  handler: async ({productId, quantity}) => {
+    // Add product to cart
+    const result = await cartService.addItem(productId, quantity);
+
+    // Return a string or serializable object
+    return {
+      success: true,
+      cartTotal: result.total,
+      itemCount: result.itemCount
+    };
+  }
+}
+```
+
+### followUp
+
+`boolean` **(optional, default: true)**
+
+Controls whether the agent should be automatically re-run after this tool completes. When `true`, the tool's result is
+added to the conversation and the agent continues processing. Disable follow-up for final actions that complete a
+workflow.
+
+```typescript
+{
+  name: "saveDocument",
+  handler: async (args) => {
+    await documentService.save(args);
+    return "Document saved successfully";
+  },
+  followUp: false  // Don't re-run agent after saving
+}
+```
+
+### agentId
+
+`string` **(optional)**
+
+Restricts this tool to a specific agent. When set, only the specified agent can invoke this tool.
+
+```typescript
+{
+  name: "adminAction",
+  agentId: "admin-assistant",
+  handler: async (args) => {
+    // Only the admin-assistant agent can call this
+    return await performAdminAction(args);
+  }
+}
+```

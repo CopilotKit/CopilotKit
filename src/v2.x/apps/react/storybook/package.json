@@ -1,0 +1,34 @@
+{
+  "name": "storybook",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "pnpm --filter @copilotkitnext/react run build:css && sleep 1 && concurrently \"pnpm --filter @copilotkitnext/react run dev\" \"pnpm --filter @copilotkitnext/web-inspector run dev\" \"storybook dev -p 6006 --no-open\"",
+    "build": "storybook build",
+    "storybook:dev": "pnpm --filter @copilotkitnext/react run build:css && sleep 1 && concurrently \"pnpm --filter @copilotkitnext/react run dev\" \"pnpm --filter @copilotkitnext/web-inspector run dev\" \"storybook dev -p 6006 --no-open\"",
+    "storybook:build": "storybook build"
+  },
+  "dependencies": {
+    "@storybook/addon-essentials": "^8",
+    "@storybook/addon-interactions": "^8",
+    "@storybook/nextjs": "^8",
+    "@storybook/react": "^8",
+    "@storybook/test": "^8",
+    "react": "^18",
+    "react-dom": "^18",
+    "storybook": "^8"
+  },
+  "devDependencies": {
+    "@copilotkitnext/core": "workspace:*",
+    "@copilotkitnext/react": "workspace:*",
+    "@copilotkitnext/typescript-config": "workspace:*",
+    "@storybook/addon-themes": "^8",
+    "@types/node": "^22",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.0.2",
+    "concurrently": "^9.1.0",
+    "lucide-react": "^0.525.0",
+    "typescript": "5.8.2",
+    "zod": "^3.25.75"
+  }
+}

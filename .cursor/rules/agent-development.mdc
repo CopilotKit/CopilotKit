@@ -23,7 +23,7 @@ Python agents are typically in folders named `agent-py/` or `agent/` and use the
 - **[langgraph-tutorial-quickstart/agent-py/](mdc:examples/langgraph-tutorial-quickstart/agent-py/)** - LangGraph integration
 
 ### JavaScript Agents
-JavaScript agents are in folders named `agent-js/` and use the [sdk-js/](mdc:CopilotKit/packages/sdk-js/) package.
+JavaScript agents are in folders named `agent-js/` and use the [sdk-js/](mdc:src/v1.x/packages/sdk-js/) package.
 
 #### JavaScript Agent Examples
 - **[coagents-starter/agent-js/](mdc:examples/coagents-starter/agent-js/)** - Basic JavaScript agent setup

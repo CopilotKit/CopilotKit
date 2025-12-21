@@ -1,0 +1,163 @@
+---
+title: Frontend Tools
+icon: "lucide/Wrench"
+description: Create frontend tools and use them within your Agent Spec configured agent.
+---
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
+import { IframeSwitcher } from "@/components/content"
+import { Tabs, Tab } from "fumadocs-ui/components/tabs"
+import RunAndConnect from "@/snippets/integrations/agent-spec/run-and-connect.mdx"
+
+<IframeSwitcher
+  id="frontend-tools-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+## What is this?
+Frontend tools enable you to define client-side functions that your agents defined with Agent Spec can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
+the logic runs on the client side, giving you direct access to the frontend environment.
+
+This can be utilized for to let [your agent control the UI](/frontend-actions), [generative UI](/agent-spec/generative-ui/frontend-tools), or for Human-in-the-loop interactions.
+
+In this guide, we cover the use of frontend tools for generative UI.
+
+## When should I use this?
+Use frontend tools when you need your agent to interact with client-side primitives such as:
+- Reading or modifying React component state
+- Accessing browser APIs like localStorage, sessionStorage, or cookies
+- Triggering UI updates or animations
+- Interacting with third-party frontend libraries
+- Performing actions that require the user's immediate browser context
+
+## Implementation
+
+<Steps>
+    <Step>
+      ### Run and connect your agent
+      <RunAndConnect components={props.components} />
+    </Step>
+
+    <Step>
+        ### Create a frontend tool
+
+        First, you'll need to create a frontend tool using the [useFrontendTool](/reference/hooks/useFrontendTool) hook. Here's a simple one to get you started
+        that says hello to the user.
+
+        ```tsx title="page.tsx"
+        import { useFrontendTool } from "@copilotkit/react-core" // [!code highlight]
+
+        export function Page() {
+          // ...
+
+          // [!code highlight:25]
+          useFrontendTool({
+            name: "sayHello",
+            description: "Say hello to the user",
+            parameters: [
+              {
+                name: "name",
+                type: "string",
+                description: "The name of the user to say hello to",
+                required: true,
+              },
+            ],
+            handler({ name }) {
+              // Handler returns the result of the tool call
+              return { currentURLPath: window.location.href, userName: name };
+            },
+            render: ({ args }) => {
+              // Renders UI based on the data of the tool call
+              return (
+                <div>
+                  <h1>Hello, {args.name}!</h1>
+                  <h1>You're currently on {window.location.href}</h1>
+                </div>
+              );
+            },
+          });
+
+          // ...
+        }
+        ```
+
+        Now you need to indicate to the Agent that they can use this tool similarly how you defined backend tools.
+
+    </Step>
+
+    <Step>
+        ### Give the tool to the Agent
+        ```python title="agent.py"
+
+        # Create the agent
+        from pyagentspec.agent import Agent
+        from pyagentspec.llms import OpenAiCompatibleConfig
+        from pyagentspec.property import StringProperty
+        from pyagentspec.tools import ClientTool
+        from pyagentspec.serialization import AgentSpecSerializer
+
+        llm = OpenAiCompatibleConfig(
+            name="my_llm",
+            model_id="gpt-4o-mini",
+            url="https://api.openai.com/v1",
+        )
+        sayhello_tool = ClientTool( # ClientTool is used for frontend tools
+            name="sayHello",
+            description="Say hello to the user.",
+            inputs=[StringProperty(title="name", description="The name of the user to say hello to")],
+        )
+        agent = Agent(
+            name="my_agent",
+            llm_config=llm,
+            system_prompt="An helpful assistant tasked with answering the user requests.",
+            tools=[sayhello_tool],
+            human_in_the_loop=True,
+        )
+        agentspec_json_config = AgentSpecSerializer().to_json(agent)
+
+        # Start the server
+        from fastapi import APIRouter, FastAPI
+        from ag_ui_agentspec.agent import AgentSpecAgent
+        from ag_ui_agentspec.endpoint import add_agentspec_fastapi_endpoint
+
+
+        runtime = "langgraph" # you can also choose "wayflow"
+        router = APIRouter()
+        add_agentspec_fastapi_endpoint(
+            app=router,
+            agentspec_agent=AgentSpecAgent(
+                agentspec_json_config,
+                runtime=runtime,
+            ),
+            path=f"/{runtime}/path_to_my_agent",
+        )
+        app = FastAPI(title="Agent-Spec x AG-UI Examples - Frontend Tool")
+        app.include_router(router)
+
+        if __name__ == "__main__":
+            import uvicorn
+            uvicorn.run(app, host="0.0.0.0", port=8000)
+          
+        ```
+
+    </Step>
+
+    <Step>
+        ### Give it a try!
+        You've now given your agent the ability to call the frontend tool you've just defined.
+
+        <video
+          src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tool-based-gen-ui.mp4"
+          className="rounded-lg shadow-xl"
+          loop
+          playsInline
+          controls
+          autoPlay
+          muted
+        />
+    </Step>
+</Steps>
+

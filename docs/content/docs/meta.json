@@ -5,17 +5,19 @@
     "...(root)",
     "reference",
     "---Integrations---",
-    "direct-to-llm",
-    "langgraph",
-    "microsoft-agent-framework",
-    "mastra",
-    "pydantic-ai",
     "adk",
-    "agno",
+    "a2a",
+    "microsoft-agent-framework",
     "aws-strands",
-    "crewai-flows",
-    "crewai-crews",
+    "direct-to-llm",
+    "agent-spec",
+    "langgraph",
     "ag2",
-    "llamaindex"
+    "agno",
+    "crewai-crews",
+    "crewai-flows",
+    "llamaindex",
+    "mastra",
+    "pydantic-ai"
   ]
 }
