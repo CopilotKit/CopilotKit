@@ -20,7 +20,7 @@ const preview: Preview = {
       codePanel: true,
       // Configure source display
       source: {
-        type: "dynamic", // Update snippet as args/Controls change
+        type: "dynamic",
       },
     },
   },

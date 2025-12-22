@@ -7,6 +7,7 @@ const config: StorybookConfig = {
   },
   stories: ["../stories/**/*.stories.@(tsx|mdx)"],
   addons: [
+    "@storybook/addon-docs",
     "@storybook/addon-themes"
   ],
   webpackFinal: async (cfg) => {
