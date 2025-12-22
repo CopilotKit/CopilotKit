@@ -179,6 +179,9 @@ export const Default: Story = {
       description: {
         story: "Default configuration with the add menu enabled and empty input.",
       },
+      source: {
+        code: `<CopilotChatInput />`,
+      },
     },
   },
 };
@@ -211,6 +214,30 @@ export const WithMenuItems: Story = {
       description: {
         story: "Demonstrates configuring nested items inside the add menu dropdown.",
       },
+      source: {
+        code: `<CopilotChatInput
+  toolsMenu={[
+    {
+      label: "Insert template",
+      action: () => alert("Template inserted")
+    },
+    "-",
+    {
+      label: "Advanced",
+      items: [
+        {
+          label: "Summarize selection",
+          action: () => alert("Summarize action")
+        },
+        {
+          label: "Tag teammate",
+          action: () => alert("Tagging teammate")
+        }
+      ]
+    }
+  ]}
+/>`,
+      },
     },
   },
 };
@@ -223,6 +250,9 @@ export const TranscribeMode: Story = {
     docs: {
       description: {
         story: "Shows the audio recorder interface with cancel/finish controls in transcription mode.",
+      },
+      source: {
+        code: `<CopilotChatInput mode="transcribe" />`,
       },
     },
   },
@@ -248,6 +278,22 @@ export const CustomButtons: Story = {
       description: {
         story: "Overrides the send button with a custom component and tweaks the add menu button styling via slot props.",
       },
+      source: {
+        code: `<CopilotChatInput
+  sendButton={(props) => (
+    <button
+      {...props}
+      className="mr-2 flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500 text-white transition hover:bg-indigo-600 disabled:opacity-40"
+      aria-label="Send message"
+    >
+      ✈️
+    </button>
+  )}
+  addMenuButton={{
+    className: "border border-indigo-200 bg-white text-indigo-500 hover:bg-indigo-50"
+  }}
+/>`,
+      },
     },
   },
 };
@@ -260,6 +306,9 @@ export const PrefilledText: Story = {
     docs: {
       description: {
         story: "Illustrates controlled usage by supplying a preset value to the textarea.",
+      },
+      source: {
+        code: `<CopilotChatInput value="Hello, this is a prefilled message!" />`,
       },
     },
   },
@@ -277,6 +326,16 @@ export const ExpandedTextarea: Story = {
     docs: {
       description: {
         story: "Demonstrates automatic multiline layout when the message spans multiple rows.",
+      },
+      source: {
+        code: `<CopilotChatInput
+  value="This is a longer message that will cause the textarea to expand to multiple rows.
+
+The textarea remains beside the add button until a wrap occurs, then moves above the controls."
+  textArea={{
+    maxRows: 10
+  }}
+/>`,
       },
     },
   },
@@ -316,6 +375,17 @@ export const CustomStyling: Story = {
       description: {
         story: "Applies custom classes to the container and key slots to achieve a distinct visual style.",
       },
+      source: {
+        code: `<CopilotChatInput
+  className="custom-chat-input"
+  addMenuButton={{
+    className: "border border-indigo-300 bg-white text-indigo-600"
+  }}
+  sendButton={{
+    className: "bg-indigo-500 text-white hover:bg-indigo-600"
+  }}
+/>`,
+      },
     },
   },
 };
@@ -351,6 +421,24 @@ export const CustomLayout: Story = {
       description: {
         story: "Uses the render prop API to compose a custom layout while still leveraging the provided slots.",
       },
+      source: {
+        code: `<CopilotChatInput>
+  {({ textArea, sendButton, addMenuButton, isMultiline }) => (
+    <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-slate-600">
+          {isMultiline ? "Multiline message" : "Single line message"}
+        </span>
+        {addMenuButton}
+      </div>
+      <div className="flex items-end gap-2">
+        <div className="flex-1">{textArea}</div>
+        {sendButton}
+      </div>
+    </div>
+  )}
+</CopilotChatInput>`,
+      },
     },
   },
 };
@@ -375,6 +463,18 @@ export const ControlledInputExample: Story = {
     docs: {
       description: {
         story: "Showcases a controlled input pattern with external state management.",
+      },
+      source: {
+        code: `const [value, setValue] = useState("Draft message ready to send.");
+
+<CopilotChatInput
+  value={value}
+  onChange={setValue}
+  onSubmitMessage={(submitted) => {
+    alert(\`Submitted: \${submitted}\`);
+    setValue("");
+  }}
+/>`,
       },
     },
   },
