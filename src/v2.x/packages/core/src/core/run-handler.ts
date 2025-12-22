@@ -4,6 +4,8 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import type { CopilotKitCore } from "./core";
 import { CopilotKitCoreErrorCode, CopilotKitCoreFriendsAccess } from "./core";
 import { FrontendTool } from "../types";
+import z from "zod";
+import { isStandardSchemaWithJSON } from "../utils/isStandardSchemaWithJSON";
 
 export interface CopilotKitCoreRunAgentParams {
   agent: AbstractAgent;
@@ -558,9 +560,14 @@ function createToolSchema(tool: FrontendTool<any>): Record<string, unknown> {
     return { ...EMPTY_TOOL_SCHEMA };
   }
 
-  const rawSchema = zodToJsonSchema(tool.parameters, {
-    $refStrategy: "none",
-  });
+  const parameters = tool.parameters;
+  const rawSchema = isStandardSchemaWithJSON(parameters)
+    ? parameters["~standard"].jsonSchema.input({
+        target: "draft-07",
+      })
+    : zodToJsonSchema(parameters as z.ZodType, {
+        $refStrategy: "none",
+      });
 
   if (!rawSchema || typeof rawSchema !== "object") {
     return { ...EMPTY_TOOL_SCHEMA };

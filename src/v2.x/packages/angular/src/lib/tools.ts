@@ -2,6 +2,7 @@ import { DestroyRef, Injector, Signal, Type, inject } from "@angular/core";
 import { FrontendTool } from "@copilotkitnext/core";
 import { z } from "zod";
 import { CopilotKit } from "./copilotkit";
+import { StandardSchemaWithJSON } from "@copilotkitnext/core";
 
 export type AngularToolCall<Args extends Record<string, unknown> = Record<string, unknown>> =
   | {
@@ -57,7 +58,7 @@ export type ClientTool<Args extends Record<string, unknown> = Record<string, unk
 
 export interface RenderToolCallConfig<Args extends Record<string, unknown> = Record<string, unknown>> {
   name: string;
-  args: z.ZodType<Args>;
+  args: z.ZodType<Args> | StandardSchemaWithJSON<Args>;
   component: Type<ToolRenderer<Args>>;
   agentId?: string;
 }
@@ -65,7 +66,7 @@ export interface RenderToolCallConfig<Args extends Record<string, unknown> = Rec
 export interface FrontendToolConfig<Args extends Record<string, unknown> = Record<string, unknown>> {
   name: string;
   description: string;
-  parameters: z.ZodType<Args>;
+  parameters: z.ZodType<Args> | StandardSchemaWithJSON<Args>;
   component?: Type<ToolRenderer<Args>>;
   handler: (args: Args) => Promise<unknown>;
   agentId?: string;
@@ -74,7 +75,7 @@ export interface FrontendToolConfig<Args extends Record<string, unknown> = Recor
 export interface HumanInTheLoopConfig<Args extends Record<string, unknown> = Record<string, unknown>> {
   name: string;
   description: string;
-  parameters: z.ZodType<Args>;
+  parameters: z.ZodType<Args> | StandardSchemaWithJSON<Args>;
   component: Type<HumanInTheLoopToolRenderer<Args>>;
   agentId?: string;
 }

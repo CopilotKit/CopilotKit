@@ -472,17 +472,26 @@ importers:
         specifier: ^2.0.17
         version: 2.0.17(zod@3.25.75)
       '@ai-sdk/mcp':
-        specifier: ^0.0.8
-        version: 0.0.8(zod@3.25.75)
+        specifier: ^0.0.12
+        version: 0.0.12(zod@3.25.75)
       '@ai-sdk/openai':
         specifier: ^2.0.42
         version: 2.0.42(zod@3.25.75)
+      '@ai-sdk/provider-utils':
+        specifier: ^3.0.19
+        version: 3.0.19(zod@3.25.75)
+      '@copilotkitnext/core':
+        specifier: workspace:*
+        version: link:../core
       '@modelcontextprotocol/sdk':
         specifier: ^1.18.2
         version: 1.18.2
+      '@standard-schema/spec':
+        specifier: ^1.1.0
+        version: 1.1.0
       ai:
-        specifier: ^5.0.92
-        version: 5.0.92(zod@3.25.75)
+        specifier: ^5.0.115
+        version: 5.0.115(zod@3.25.75)
       rxjs:
         specifier: ^7.8.1
         version: 7.8.1
@@ -501,7 +510,7 @@ importers:
         version: 22.15.3
       '@vitest/coverage-v8':
         specifier: ^3.2.4
-        version: 3.2.4(vitest@3.2.4(@types/debug@4.1.12)(@types/node@22.15.3)(@vitest/ui@3.2.4)(jiti@2.5.1)(jsdom@26.1.0)(less@4.4.1)(lightningcss@1.30.1)(sass@1.90.0)(terser@5.43.1)(tsx@4.20.5)(yaml@2.8.0))
+        version: 3.2.4(vitest@3.2.4)
       eslint:
         specifier: ^9.30.0
         version: 9.30.0(jiti@2.5.1)
@@ -556,10 +565,10 @@ importers:
     devDependencies:
       '@analogjs/vite-plugin-angular':
         specifier: ^1.20.2
-        version: 1.20.2(@angular-devkit/build-angular@18.2.20(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(@swc/core@1.12.11)(@types/node@22.15.3)(chokidar@4.0.3)(lightningcss@1.30.1)(ng-packagr@18.2.1(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(tailwindcss@4.1.11)(tslib@2.8.1)(typescript@5.4.5))(tailwindcss@4.1.11)(typescript@5.4.5))(@angular/build@18.2.20(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(@types/node@22.15.3)(chokidar@4.0.3)(less@4.4.1)(lightningcss@1.30.1)(postcss@8.5.6)(tailwindcss@4.1.11)(terser@5.43.1)(typescript@5.4.5))
+        version: 1.20.2(@angular-devkit/build-angular@18.2.20(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(@swc/core@1.12.11)(@types/node@22.15.3)(chokidar@4.0.3)(html-webpack-plugin@5.6.3(webpack@5.100.0(@swc/core@1.12.11)(esbuild@0.25.6)))(lightningcss@1.30.1)(ng-packagr@18.2.1(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(tailwindcss@4.1.11)(tslib@2.8.1)(typescript@5.4.5))(tailwindcss@4.1.11)(typescript@5.4.5))(@angular/build@18.2.20(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(@types/node@22.15.3)(chokidar@4.0.3)(less@4.4.1)(lightningcss@1.30.1)(postcss@8.5.6)(tailwindcss@4.1.11)(terser@5.43.1)(typescript@5.4.5))
       '@analogjs/vitest-angular':
         specifier: ^1.20.2
-        version: 1.20.2(@analogjs/vite-plugin-angular@1.20.2(@angular-devkit/build-angular@18.2.20(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(@swc/core@1.12.11)(@types/node@22.15.3)(chokidar@4.0.3)(lightningcss@1.30.1)(ng-packagr@18.2.1(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(tailwindcss@4.1.11)(tslib@2.8.1)(typescript@5.4.5))(tailwindcss@4.1.11)(typescript@5.4.5))(@angular/build@18.2.20(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(@types/node@22.15.3)(chokidar@4.0.3)(less@4.4.1)(lightningcss@1.30.1)(postcss@8.5.6)(tailwindcss@4.1.11)(terser@5.43.1)(typescript@5.4.5)))(@angular-devkit/architect@0.1902.15(chokidar@4.0.3))(vitest@2.1.9(@types/node@22.15.3)(@vitest/ui@2.1.9)(jsdom@24.1.3)(less@4.4.1)(lightningcss@1.30.1)(sass@1.90.0)(terser@5.43.1))
+        version: 1.20.2(@analogjs/vite-plugin-angular@1.20.2(@angular-devkit/build-angular@18.2.20(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(@swc/core@1.12.11)(@types/node@22.15.3)(chokidar@4.0.3)(html-webpack-plugin@5.6.3(webpack@5.100.0(@swc/core@1.12.11)(esbuild@0.25.6)))(lightningcss@1.30.1)(ng-packagr@18.2.1(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(tailwindcss@4.1.11)(tslib@2.8.1)(typescript@5.4.5))(tailwindcss@4.1.11)(typescript@5.4.5))(@angular/build@18.2.20(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(@types/node@22.15.3)(chokidar@4.0.3)(less@4.4.1)(lightningcss@1.30.1)(postcss@8.5.6)(tailwindcss@4.1.11)(terser@5.43.1)(typescript@5.4.5)))(@angular-devkit/architect@0.1902.15(chokidar@4.0.3))(vitest@2.1.9)
       '@angular/cdk':
         specifier: ^18.0.0
         version: 18.2.14(@angular/common@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10))(rxjs@7.8.1))(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10))(rxjs@7.8.1)
@@ -665,6 +674,9 @@ importers:
       '@copilotkitnext/shared':
         specifier: workspace:*
         version: link:../shared
+      '@standard-schema/spec':
+        specifier: ^1.1.0
+        version: 1.1.0
       rxjs:
         specifier: 7.8.1
         version: 7.8.1
@@ -686,7 +698,7 @@ importers:
         version: 22.15.3
       '@vitest/coverage-v8':
         specifier: ^3.2.4
-        version: 3.2.4(vitest@3.2.4(@types/debug@4.1.12)(@types/node@22.15.3)(@vitest/ui@3.2.4)(jiti@2.5.1)(jsdom@26.1.0)(less@4.4.1)(lightningcss@1.30.1)(sass@1.90.0)(terser@5.43.1)(tsx@4.20.5)(yaml@2.8.0))
+        version: 3.2.4(vitest@3.2.4)
       eslint:
         specifier: ^9.30.0
         version: 9.30.0(jiti@2.5.1)
@@ -1127,8 +1139,8 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/gateway@2.0.8':
-    resolution: {integrity: sha512-cA5Sh5pjmsMOlzCxsX9B4bGB9qOn9/HRxKb8ry1OYmrXP3i1t34eZMHA7EVFoB09I41p0LPwkRBACYXm15xokw==}
+  '@ai-sdk/gateway@2.0.22':
+    resolution: {integrity: sha512-6fHjDfCbjfj4vyMExuLei7ir2///E5sNwNZaobdJsJIxJjDSsjzSLGO/aUI7p9eOnB8XctDrDSF5ilwDGpi6eg==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -1139,8 +1151,8 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/mcp@0.0.8':
-    resolution: {integrity: sha512-9y9GuGcZ9/+pMIHfpOCJgZVp+AZMv6TkjX2NVT17SQZvTF2N8LXuCXyoUPyi1PxIxzxl0n463LxxaB2O6olC+Q==}
+  '@ai-sdk/mcp@0.0.12':
+    resolution: {integrity: sha512-hyf31U2CmgGexqOLgLfno525pjbqidJLu9pU+XcEwW/PkMcfTFuRq1iD3wbqtAmURRW0qJITiKV+in1B4I23gA==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -1157,8 +1169,8 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/provider-utils@3.0.17':
-    resolution: {integrity: sha512-TR3Gs4I3Tym4Ll+EPdzRdvo/rc8Js6c4nVhFLuvGLX/Y4V9ZcQMa/HTiYsHEgmYrf1zVi6Q145UEZUfleOwOjw==}
+  '@ai-sdk/provider-utils@3.0.19':
+    resolution: {integrity: sha512-W41Wc9/jbUVXVwCN/7bWa4IKe8MtxO3EyA0Hfhx6grnmiYlCvpI8neSYWFE0zScXJkgA/YK3BRybzgyiXuu6JA==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -4615,8 +4627,8 @@ packages:
   '@socket.io/component-emitter@3.1.2':
     resolution: {integrity: sha512-9BCxFwvbGg/RsZK9tjXd8s4UcwR0MWeFQ1XEKIQVVvAGJyINdrqKMcTRyLoK8Rse1GjzLV9cwjWV1olXRWEXVA==}
 
-  '@standard-schema/spec@1.0.0':
-    resolution: {integrity: sha512-m2bOd0f2RT9k8QJx1JN85cZYyH1RqFBdlwtkSlf4tBDYLCiiZnv1fIIwacK6cqwXavOydf0NPToMQgpKq+dVlA==}
+  '@standard-schema/spec@1.1.0':
+    resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
   '@stoplight/better-ajv-errors@1.0.3':
     resolution: {integrity: sha512-0p9uXkuB22qGdNfy3VeEhxkU5uwvp/KrBTAbrLBURv6ilxIVwanKwjMc41lQfIVgPGcOkmLbTolfFrSsueu7zA==}
@@ -5722,8 +5734,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@vercel/oidc@3.0.3':
-    resolution: {integrity: sha512-yNEQvPcVrK9sIe637+I0jD6leluPxzwJKx/Haw6F4H77CdDsszUn5V3o96LPziXkSNE2B83+Z3mjqGKBK/R6Gg==}
+  '@vercel/oidc@3.0.5':
+    resolution: {integrity: sha512-fnYhv671l+eTTp48gB4zEsTW/YtRgRPnkI2nT7x6qw5rkI1Lq2hTmQIpHPgyThI0znLK+vX2n9XxKdXZ7BUbbw==}
     engines: {node: '>= 20'}
 
   '@vitejs/plugin-basic-ssl@1.1.0':
@@ -5936,8 +5948,8 @@ packages:
     resolution: {integrity: sha512-0poP0T7el6Vq3rstR8Mn4V/IQrpBLO6POkUSrN7RhyY+GF/InCFShQzsQ39T25gkHhLgSLByyAz+Kjb+c2L98w==}
     engines: {node: '>=12'}
 
-  ai@5.0.92:
-    resolution: {integrity: sha512-EnPe3QXiD06Tg7iAt/oU3JSwedI1nuhEBnTjyfn1qTXaqmJ6qI4YG8wn/eBHRVXnmljDFDNYvGBC5pALYV1rAA==}
+  ai@5.0.115:
+    resolution: {integrity: sha512-aVuHx0orGxXvhyL7oXUyW8TnWQE6Al8f3Bl6VZjz0WHMV+WaACHPkSyvQ3wje2QCUGzdl5DBF5d+OaXyghPQyg==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -12753,11 +12765,11 @@ snapshots:
       '@ai-sdk/provider-utils': 3.0.10(zod@3.25.75)
       zod: 3.25.75
 
-  '@ai-sdk/gateway@2.0.8(zod@3.25.75)':
+  '@ai-sdk/gateway@2.0.22(zod@3.25.75)':
     dependencies:
       '@ai-sdk/provider': 2.0.0
-      '@ai-sdk/provider-utils': 3.0.17(zod@3.25.75)
-      '@vercel/oidc': 3.0.3
+      '@ai-sdk/provider-utils': 3.0.19(zod@3.25.75)
+      '@vercel/oidc': 3.0.5
       zod: 3.25.75
 
   '@ai-sdk/google@2.0.17(zod@3.25.75)':
@@ -12766,10 +12778,10 @@ snapshots:
       '@ai-sdk/provider-utils': 3.0.10(zod@3.25.75)
       zod: 3.25.75
 
-  '@ai-sdk/mcp@0.0.8(zod@3.25.75)':
+  '@ai-sdk/mcp@0.0.12(zod@3.25.75)':
     dependencies:
       '@ai-sdk/provider': 2.0.0
-      '@ai-sdk/provider-utils': 3.0.17(zod@3.25.75)
+      '@ai-sdk/provider-utils': 3.0.19(zod@3.25.75)
       pkce-challenge: 5.0.0
       zod: 3.25.75
 
@@ -12782,14 +12794,14 @@ snapshots:
   '@ai-sdk/provider-utils@3.0.10(zod@3.25.75)':
     dependencies:
       '@ai-sdk/provider': 2.0.0
-      '@standard-schema/spec': 1.0.0
+      '@standard-schema/spec': 1.1.0
       eventsource-parser: 3.0.6
       zod: 3.25.75
 
-  '@ai-sdk/provider-utils@3.0.17(zod@3.25.75)':
+  '@ai-sdk/provider-utils@3.0.19(zod@3.25.75)':
     dependencies:
       '@ai-sdk/provider': 2.0.0
-      '@standard-schema/spec': 1.0.0
+      '@standard-schema/spec': 1.1.0
       eventsource-parser: 3.0.6
       zod: 3.25.75
 
@@ -12809,17 +12821,17 @@ snapshots:
       '@jridgewell/gen-mapping': 0.3.12
       '@jridgewell/trace-mapping': 0.3.30
 
-  '@analogjs/vite-plugin-angular@1.20.2(@angular-devkit/build-angular@18.2.20(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(@swc/core@1.12.11)(@types/node@22.15.3)(chokidar@4.0.3)(lightningcss@1.30.1)(ng-packagr@18.2.1(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(tailwindcss@4.1.11)(tslib@2.8.1)(typescript@5.4.5))(tailwindcss@4.1.11)(typescript@5.4.5))(@angular/build@18.2.20(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(@types/node@22.15.3)(chokidar@4.0.3)(less@4.4.1)(lightningcss@1.30.1)(postcss@8.5.6)(tailwindcss@4.1.11)(terser@5.43.1)(typescript@5.4.5))':
+  '@analogjs/vite-plugin-angular@1.20.2(@angular-devkit/build-angular@18.2.20(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(@swc/core@1.12.11)(@types/node@22.15.3)(chokidar@4.0.3)(html-webpack-plugin@5.6.3(webpack@5.100.0(@swc/core@1.12.11)(esbuild@0.25.6)))(lightningcss@1.30.1)(ng-packagr@18.2.1(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(tailwindcss@4.1.11)(tslib@2.8.1)(typescript@5.4.5))(tailwindcss@4.1.11)(typescript@5.4.5))(@angular/build@18.2.20(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(@types/node@22.15.3)(chokidar@4.0.3)(less@4.4.1)(lightningcss@1.30.1)(postcss@8.5.6)(tailwindcss@4.1.11)(terser@5.43.1)(typescript@5.4.5))':
     dependencies:
       ts-morph: 21.0.1
       vfile: 6.0.3
     optionalDependencies:
-      '@angular-devkit/build-angular': 18.2.20(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(@swc/core@1.12.11)(@types/node@22.15.3)(chokidar@4.0.3)(lightningcss@1.30.1)(ng-packagr@18.2.1(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(tailwindcss@4.1.11)(tslib@2.8.1)(typescript@5.4.5))(tailwindcss@4.1.11)(typescript@5.4.5)
+      '@angular-devkit/build-angular': 18.2.20(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(@swc/core@1.12.11)(@types/node@22.15.3)(chokidar@4.0.3)(html-webpack-plugin@5.6.3(webpack@5.100.0(@swc/core@1.12.11)(esbuild@0.25.6)))(lightningcss@1.30.1)(ng-packagr@18.2.1(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(tailwindcss@4.1.11)(tslib@2.8.1)(typescript@5.4.5))(tailwindcss@4.1.11)(typescript@5.4.5)
       '@angular/build': 18.2.20(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(@types/node@22.15.3)(chokidar@4.0.3)(less@4.4.1)(lightningcss@1.30.1)(postcss@8.5.6)(tailwindcss@4.1.11)(terser@5.43.1)(typescript@5.4.5)
 
-  '@analogjs/vitest-angular@1.20.2(@analogjs/vite-plugin-angular@1.20.2(@angular-devkit/build-angular@18.2.20(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(@swc/core@1.12.11)(@types/node@22.15.3)(chokidar@4.0.3)(lightningcss@1.30.1)(ng-packagr@18.2.1(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(tailwindcss@4.1.11)(tslib@2.8.1)(typescript@5.4.5))(tailwindcss@4.1.11)(typescript@5.4.5))(@angular/build@18.2.20(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(@types/node@22.15.3)(chokidar@4.0.3)(less@4.4.1)(lightningcss@1.30.1)(postcss@8.5.6)(tailwindcss@4.1.11)(terser@5.43.1)(typescript@5.4.5)))(@angular-devkit/architect@0.1902.15(chokidar@4.0.3))(vitest@2.1.9(@types/node@22.15.3)(@vitest/ui@2.1.9)(jsdom@24.1.3)(less@4.4.1)(lightningcss@1.30.1)(sass@1.90.0)(terser@5.43.1))':
+  '@analogjs/vitest-angular@1.20.2(@analogjs/vite-plugin-angular@1.20.2(@angular-devkit/build-angular@18.2.20(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(@swc/core@1.12.11)(@types/node@22.15.3)(chokidar@4.0.3)(html-webpack-plugin@5.6.3(webpack@5.100.0(@swc/core@1.12.11)(esbuild@0.25.6)))(lightningcss@1.30.1)(ng-packagr@18.2.1(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(tailwindcss@4.1.11)(tslib@2.8.1)(typescript@5.4.5))(tailwindcss@4.1.11)(typescript@5.4.5))(@angular/build@18.2.20(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(@types/node@22.15.3)(chokidar@4.0.3)(less@4.4.1)(lightningcss@1.30.1)(postcss@8.5.6)(tailwindcss@4.1.11)(terser@5.43.1)(typescript@5.4.5)))(@angular-devkit/architect@0.1902.15(chokidar@4.0.3))(vitest@2.1.9)':
     dependencies:
-      '@analogjs/vite-plugin-angular': 1.20.2(@angular-devkit/build-angular@18.2.20(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(@swc/core@1.12.11)(@types/node@22.15.3)(chokidar@4.0.3)(lightningcss@1.30.1)(ng-packagr@18.2.1(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(tailwindcss@4.1.11)(tslib@2.8.1)(typescript@5.4.5))(tailwindcss@4.1.11)(typescript@5.4.5))(@angular/build@18.2.20(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(@types/node@22.15.3)(chokidar@4.0.3)(less@4.4.1)(lightningcss@1.30.1)(postcss@8.5.6)(tailwindcss@4.1.11)(terser@5.43.1)(typescript@5.4.5))
+      '@analogjs/vite-plugin-angular': 1.20.2(@angular-devkit/build-angular@18.2.20(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(@swc/core@1.12.11)(@types/node@22.15.3)(chokidar@4.0.3)(html-webpack-plugin@5.6.3(webpack@5.100.0(@swc/core@1.12.11)(esbuild@0.25.6)))(lightningcss@1.30.1)(ng-packagr@18.2.1(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(tailwindcss@4.1.11)(tslib@2.8.1)(typescript@5.4.5))(tailwindcss@4.1.11)(typescript@5.4.5))(@angular/build@18.2.20(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(@types/node@22.15.3)(chokidar@4.0.3)(less@4.4.1)(lightningcss@1.30.1)(postcss@8.5.6)(tailwindcss@4.1.11)(terser@5.43.1)(typescript@5.4.5))
       '@angular-devkit/architect': 0.1902.15(chokidar@4.0.3)
       vitest: 2.1.9(@types/node@22.15.3)(@vitest/ui@2.1.9)(jsdom@24.1.3)(less@4.4.1)(lightningcss@1.30.1)(sass@1.90.0)(terser@5.43.1)
 
@@ -12930,7 +12942,7 @@ snapshots:
       - utf-8-validate
       - webpack-cli
 
-  '@angular-devkit/build-angular@18.2.20(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(@swc/core@1.12.11)(@types/node@22.15.3)(chokidar@4.0.3)(lightningcss@1.30.1)(ng-packagr@18.2.1(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(tailwindcss@4.1.11)(tslib@2.8.1)(typescript@5.4.5))(tailwindcss@4.1.11)(typescript@5.4.5)':
+  '@angular-devkit/build-angular@18.2.20(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(@swc/core@1.12.11)(@types/node@22.15.3)(chokidar@4.0.3)(html-webpack-plugin@5.6.3(webpack@5.100.0(@swc/core@1.12.11)(esbuild@0.25.6)))(lightningcss@1.30.1)(ng-packagr@18.2.1(@angular/compiler-cli@18.2.13(@angular/compiler@18.2.13(@angular/core@18.2.13(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(tailwindcss@4.1.11)(tslib@2.8.1)(typescript@5.4.5))(tailwindcss@4.1.11)(typescript@5.4.5)':
     dependencies:
       '@ampproject/remapping': 2.3.0
       '@angular-devkit/architect': 0.1802.20(chokidar@4.0.3)
@@ -17288,7 +17300,7 @@ snapshots:
 
   '@socket.io/component-emitter@3.1.2': {}
 
-  '@standard-schema/spec@1.0.0': {}
+  '@standard-schema/spec@1.1.0': {}
 
   '@stoplight/better-ajv-errors@1.0.3(ajv@8.17.1)':
     dependencies:
@@ -18792,7 +18804,7 @@ snapshots:
   '@unrs/resolver-binding-win32-x64-msvc@1.11.1':
     optional: true
 
-  '@vercel/oidc@3.0.3': {}
+  '@vercel/oidc@3.0.5': {}
 
   '@vitejs/plugin-basic-ssl@1.1.0(vite@5.4.19(@types/node@22.15.3)(less@4.2.0)(lightningcss@1.30.1)(sass@1.77.6)(terser@5.31.6))':
     dependencies:
@@ -18803,7 +18815,7 @@ snapshots:
       vite: 5.4.19(@types/node@22.15.3)(less@4.4.1)(lightningcss@1.30.1)(sass@1.77.6)(terser@5.43.1)
     optional: true
 
-  '@vitest/coverage-v8@3.2.4(vitest@3.2.4(@types/debug@4.1.12)(@types/node@22.15.3)(@vitest/ui@3.2.4)(jiti@2.5.1)(jsdom@26.1.0)(less@4.4.1)(lightningcss@1.30.1)(sass@1.90.0)(terser@5.43.1)(tsx@4.20.5)(yaml@2.8.0))':
+  '@vitest/coverage-v8@3.2.4(vitest@3.2.4)':
     dependencies:
       '@ampproject/remapping': 2.3.0
       '@bcoe/v8-coverage': 1.0.2
@@ -19091,11 +19103,11 @@ snapshots:
       clean-stack: 4.2.0
       indent-string: 5.0.0
 
-  ai@5.0.92(zod@3.25.75):
+  ai@5.0.115(zod@3.25.75):
     dependencies:
-      '@ai-sdk/gateway': 2.0.8(zod@3.25.75)
+      '@ai-sdk/gateway': 2.0.22(zod@3.25.75)
       '@ai-sdk/provider': 2.0.0
-      '@ai-sdk/provider-utils': 3.0.17(zod@3.25.75)
+      '@ai-sdk/provider-utils': 3.0.19(zod@3.25.75)
       '@opentelemetry/api': 1.9.0
       zod: 3.25.75
 
@@ -20974,7 +20986,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.12.1(@typescript-eslint/parser@8.35.0(eslint@9.30.0(jiti@2.5.1))(typescript@5.8.2))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0)(eslint@9.30.0(jiti@2.5.1)))(eslint@9.30.0(jiti@2.5.1)):
+  eslint-module-utils@2.12.1(@typescript-eslint/parser@8.35.0(eslint@9.30.0(jiti@2.5.1))(typescript@5.8.2))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1)(eslint@9.30.0(jiti@2.5.1)):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
@@ -20996,7 +21008,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 9.30.0(jiti@2.5.1)
       eslint-import-resolver-node: 0.3.9
-      eslint-module-utils: 2.12.1(@typescript-eslint/parser@8.35.0(eslint@9.30.0(jiti@2.5.1))(typescript@5.8.2))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0)(eslint@9.30.0(jiti@2.5.1)))(eslint@9.30.0(jiti@2.5.1))
+      eslint-module-utils: 2.12.1(@typescript-eslint/parser@8.35.0(eslint@9.30.0(jiti@2.5.1))(typescript@5.8.2))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1)(eslint@9.30.0(jiti@2.5.1))
       hasown: 2.0.2
       is-core-module: 2.16.1
       is-glob: 4.0.3

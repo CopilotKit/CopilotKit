@@ -1,5 +1,17 @@
 import { ToolCall } from "@ag-ui/client";
 import { z } from "zod";
+import { StandardSchemaV1, StandardJSONSchemaV1 } from "@standard-schema/spec";
+
+export interface CombinedProps<Input = unknown, Output = Input>
+  extends StandardSchemaV1.Props<Input, Output>,
+    StandardJSONSchemaV1.Props<Input, Output> {}
+
+/**
+ * An interface that combines StandardJSONSchema and StandardSchema.
+ * */
+export interface StandardSchemaWithJSON<Input = unknown, Output = Input> {
+  "~standard": CombinedProps<Input, Output>;
+}
 
 /**
  * Status of a tool call execution
@@ -15,7 +27,7 @@ export type CopilotRuntimeTransport = "rest" | "single";
 export type FrontendTool<T extends Record<string, unknown> = Record<string, unknown>> = {
   name: string;
   description?: string;
-  parameters?: z.ZodType<T>;
+  parameters?: StandardSchemaWithJSON<T> | z.ZodType<T>;
   handler?: (args: T, toolCall: ToolCall) => Promise<unknown>;
   followUp?: boolean;
   /**

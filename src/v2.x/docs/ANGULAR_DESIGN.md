@@ -347,7 +347,7 @@ interface ToolCallRendererConfig<
   Args extends Record<string, unknown> = Record<string, unknown>,
 > {
   name: string;
-  args: z.ZodType<Args>;
+  args: StandardSchemaWithJSON<Args>;
   component: Type<ClientToolRenderer<Args>>;
   agentId?: string;
 }

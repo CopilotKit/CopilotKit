@@ -23,7 +23,7 @@ Frontend tools are framework-agnostic and work consistently across all framework
 type FrontendTool<T extends Record<string, unknown> = Record<string, unknown>> = {
   name: string;
   description?: string;
-  parameters?: z.ZodType<T>;
+  parameters?: StandardSchemaWithJSON<T>;
   handler?: (args: T, toolCall: ToolCall) => Promise<unknown>;
   followUp?: boolean;
   agentId?: string;
@@ -63,10 +63,11 @@ LLM to guide its decision-making.
 
 ### parameters
 
-`z.ZodType<T>` **(optional)**
+`StandardSchemaWithJSON<T>` **(optional)**
 
-A Zod schema that defines and validates the tool's input parameters. This ensures type safety and provides automatic
-validation of agent-provided arguments.
+A schema implementing the `StandardJSONSchemaV1` interface (e.g. a zod, arktype or valibot schema) that defines and
+validates the tool's input parameters. This ensures type safety and provides automatic validation of agent-provided
+arguments.
 
 ```typescript
 import { z } from "zod";
