@@ -32,5 +32,5 @@ export function copilotRuntimeNodeHttpEndpoint(options: CreateCopilotRuntimeServ
     basePath: options.baseUrl ?? options.endpoint,
   });
 
-  return { handle: honoApp.fetch };
+  return honoApp.fetch;
 }
