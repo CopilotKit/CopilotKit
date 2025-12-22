@@ -29,11 +29,11 @@
     "publish:release": "pnpm -r --filter '@copilotkitnext/*' publish --access public"
   },
   "devDependencies": {
-    "@storybook/addon-docs": "^8",
-    "@storybook/addon-webpack5-compiler-swc": "^1.0.5",
-    "@storybook/react-webpack5": "^8",
+    "@storybook/addon-docs": "^10.1.10",
+    "@storybook/addon-webpack5-compiler-swc": "^4.0.2",
+    "@storybook/react-webpack5": "^10.1.10",
     "prettier": "^3.6.0",
-    "storybook": "^8",
+    "storybook": "^10.1.10",
     "turbo": "^2.5.4",
     "typescript": "5.8.2"
   },
