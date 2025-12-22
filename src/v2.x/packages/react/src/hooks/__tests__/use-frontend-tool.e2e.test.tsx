@@ -1028,17 +1028,21 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
       expect(handlerStarted).toBe(true);
       expect(handlerCompleted).toBe(true);
       expect(handlerResult).toEqual({ processed: "TEST" });
-      
+
+      // Wait for status to transition to Complete (React re-render cycle)
+      await waitFor(() => {
+        expect(statusHistory).toContain(ToolCallStatus.Complete);
+      }, { timeout: 3000 });
+
       // Verify we captured all three states in the correct order
       expect(statusHistory).toContain(ToolCallStatus.InProgress);
       expect(statusHistory).toContain(ToolCallStatus.Executing);
-      expect(statusHistory).toContain(ToolCallStatus.Complete);
-      
+
       // Verify the order is correct
       const inProgressIndex = statusHistory.indexOf(ToolCallStatus.InProgress);
       const executingIndex = statusHistory.indexOf(ToolCallStatus.Executing);
       const completeIndex = statusHistory.indexOf(ToolCallStatus.Complete);
-      
+
       expect(inProgressIndex).toBeGreaterThanOrEqual(0);
       expect(executingIndex).toBeGreaterThan(inProgressIndex);
       expect(completeIndex).toBeGreaterThan(executingIndex);
