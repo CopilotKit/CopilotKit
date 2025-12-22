@@ -13,6 +13,7 @@ import {
   ADKIcon,
   AgnoIcon,
   LlamaIndexIcon,
+  AgentSpecMarkIcon,
   PydanticAIIcon,
   AwsStrandsIcon,
   A2AIcon,
@@ -216,6 +217,15 @@ export default function Layout({ children }: { children: ReactNode }) {
                       icon: <PydanticAIIcon className="w-4 h-4 text-bold" />,
                       bgGradient: "bg-black text-white",
                       selectedStyle: "ring-gray-500 ring-2 rounded-sm",
+                    },
+                    {
+                      title: "Open Agent Spec",
+                      description: "Documentation for CoAgents with Open Agent Spec",
+                      url: "/agent-spec",
+                      icon: <AgentSpecMarkIcon className="w-4 h-4 text-bold" />,
+                      bgGradient:
+                        "bg-gradient-to-b from-slate-700 to-slate-400 text-slate-100",
+                      selectedStyle: "ring-slate-500/70 ring-2 rounded-sm",
                     },
                   ],
                 },
