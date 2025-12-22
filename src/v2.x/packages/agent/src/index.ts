@@ -45,7 +45,6 @@ import {
 } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StandardSchemaWithJSON, isStandardSchemaWithJSON } from "@copilotkitnext/core";
-import { StandardTypedV1 } from "@standard-schema/spec";
 
 /**
  * Properties that can be overridden by forwardedProps
@@ -749,7 +748,7 @@ export class BuiltInAgent extends AbstractAgent {
                 const mcpTools = await mcpClient.tools();
                 streamTextParams.tools = {
                   ...streamTextParams.tools,
-                  ...(mcpTools satisfies ToolSet as ToolSet),
+                  ...mcpTools,
                 };
               }
             }
