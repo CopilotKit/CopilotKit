@@ -93,7 +93,22 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Default: Story = {};
+export const Default: Story = {
+  parameters: {
+    docs: {
+      source: {
+        code: `<CopilotChatUserMessage
+  message={{
+    id: "simple-user-message",
+    content: "Hello! Can you help me build a React component?",
+    timestamp: new Date(),
+    role: "user"
+  }}
+/>`,
+      },
+    },
+  },
+};
 
 export const LongMessage: Story = {
   args: {
@@ -105,6 +120,21 @@ export const WithEditButton: Story = {
   args: {
     message: simpleMessage,
     onEditMessage: () => alert("Edit message clicked!"),
+  },
+  parameters: {
+    docs: {
+      source: {
+        code: `<CopilotChatUserMessage
+  message={{
+    id: "simple-user-message",
+    content: "Hello! Can you help me build a React component?",
+    timestamp: new Date(),
+    role: "user"
+  }}
+  onEditMessage={() => alert("Edit message clicked!")}
+/>`,
+      },
+    },
   },
 };
 
@@ -151,6 +181,39 @@ export const WithAdditionalToolbarItems: Story = {
         </button>
       </>
     ),
+  },
+  parameters: {
+    docs: {
+      source: {
+        code: `<CopilotChatUserMessage
+  message={{
+    id: "simple-user-message",
+    content: "Hello! Can you help me build a React component?",
+    timestamp: new Date(),
+    role: "user"
+  }}
+  onEditMessage={() => console.log("Edit clicked!")}
+  additionalToolbarItems={
+    <>
+      <button
+        className="h-8 w-8 p-0 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+        onClick={() => alert("Custom button 1 clicked!")}
+        title="Custom Action 1"
+      >
+        📎
+      </button>
+      <button
+        className="h-8 w-8 p-0 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+        onClick={() => alert("Custom button 2 clicked!")}
+        title="Custom Action 2"
+      >
+        🔄
+      </button>
+    </>
+  }
+/>`,
+      },
+    },
   },
 };
 
