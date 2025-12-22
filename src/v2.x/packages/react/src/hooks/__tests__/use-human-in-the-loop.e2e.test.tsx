@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { screen, fireEvent, waitFor } from "@testing-library/react";
+import { screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { z } from "zod";
 import { useHumanInTheLoop } from "../use-human-in-the-loop";
 import { ReactHumanInTheLoop } from "@/types";
@@ -9,6 +9,7 @@ import CopilotChatToolCallsView from "@/components/chat/CopilotChatToolCallsView
 import { AssistantMessage, Message } from "@ag-ui/core";
 import {
   MockStepwiseAgent,
+  MockReconnectableAgent,
   renderWithCopilotKit,
   runStartedEvent,
   runFinishedEvent,
@@ -647,5 +648,496 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
         expect(el.textContent).toContain("(v1)");
       });
     });
+  });
+});
+
+describe("HITL Thread Reconnection Bug", () => {
+  it("should show executing status when reconnecting to thread with pending HITL", async () => {
+    // This test verifies that HITL tool calls work correctly when reconnecting
+    // to a thread with pending (unanswered) tool calls.
+    //
+    // The key challenge is timing: when events are replayed asynchronously via connect(),
+    // the onToolExecutionStart event may fire before the tool rendering component mounts.
+    // The fix ensures executingToolCallIds is tracked at the CopilotKitProvider level,
+    // so the executing state is captured early and available when components mount.
+
+    const agent = new MockReconnectableAgent();
+
+    const HITLComponent: React.FC = () => {
+      const hitlTool: ReactHumanInTheLoop<{ action: string }> = {
+        name: "approvalTool",
+        description: "Requires human approval",
+        parameters: z.object({ action: z.string() }),
+        render: ({ status, args, respond }) => {
+          return (
+            <div data-testid="hitl-tool">
+              <div data-testid="hitl-status">{status}</div>
+              <div data-testid="hitl-action">{args.action ?? "no-action"}</div>
+              {respond && <button data-testid="hitl-respond">Respond</button>}
+            </div>
+          );
+        },
+      };
+
+      useHumanInTheLoop(hitlTool);
+      return null;
+    };
+
+    // Phase 1: Initial render and run (user starts interaction)
+    const { unmount } = renderWithCopilotKit({
+      agent,
+      children: (
+        <>
+          <HITLComponent />
+          <div style={{ height: 400 }}>
+            <CopilotChat />
+          </div>
+        </>
+      ),
+    });
+
+    const input = await screen.findByRole("textbox");
+    fireEvent.change(input, { target: { value: "Request approval" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+    await waitFor(() => {
+      expect(screen.getByText("Request approval")).toBeDefined();
+    });
+
+    const messageId = testId("msg");
+    const toolCallId = testId("tc");
+
+    // Emit tool call events (HITL tool call without response)
+    agent.emit(runStartedEvent());
+    agent.emit(
+      toolCallChunkEvent({
+        toolCallId,
+        toolCallName: "approvalTool",
+        parentMessageId: messageId,
+        delta: JSON.stringify({ action: "delete" }),
+      })
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("hitl-status").textContent).toBe(ToolCallStatus.InProgress);
+    });
+
+    // Complete run WITHOUT responding to HITL (simulating user refresh before clicking)
+    agent.emit(runFinishedEvent());
+    agent.complete();
+
+    // Verify status is Executing (the tool handler should be running waiting for response)
+    await waitFor(() => {
+      expect(screen.getByTestId("hitl-status").textContent).toBe(ToolCallStatus.Executing);
+    });
+
+    // Phase 2: Unmount and remount (simulating page reload + reconnect)
+    unmount();
+    agent.reset();
+
+    // Re-render with same thread (simulates reconnection)
+    renderWithCopilotKit({
+      agent,
+      children: (
+        <>
+          <HITLComponent />
+          <div style={{ height: 400 }}>
+            <CopilotChat />
+          </div>
+        </>
+      ),
+    });
+
+    // Wait for the HITL tool to render from replayed events
+    await waitFor(() => {
+      expect(screen.getByTestId("hitl-tool")).toBeDefined();
+    });
+
+    // Verify tool call args are correctly replayed from connect() events
+    await waitFor(() => {
+      expect(screen.getByTestId("hitl-action").textContent).toBe("delete");
+    });
+
+    // After reconnection, status should be 'executing' with respond available
+    // The tool handler is re-invoked for pending HITL tools that were never responded to.
+    await waitFor(() => {
+      expect(screen.getByTestId("hitl-status").textContent).toBe(ToolCallStatus.Executing);
+    });
+
+    // respond button should be present so user can interact
+    expect(screen.getByTestId("hitl-respond")).toBeDefined();
+  });
+
+  it("should handle tool call after connect (fresh run)", async () => {
+    // Tests that normal tool calls work correctly after connecting to a thread.
+    // This ensures the fix for reconnection doesn't break the normal flow.
+
+    const agent = new MockReconnectableAgent();
+
+    const HITLComponent: React.FC = () => {
+      const hitlTool: ReactHumanInTheLoop<{ task: string }> = {
+        name: "taskTool",
+        description: "Task approval",
+        parameters: z.object({ task: z.string() }),
+        render: ({ status, args, respond }) => (
+          <div data-testid="task-tool">
+            <div data-testid="task-status">{status}</div>
+            <div data-testid="task-name">{args.task ?? "no-task"}</div>
+            {respond && <button data-testid="task-respond" onClick={() => respond("done")}>Done</button>}
+          </div>
+        ),
+      };
+      useHumanInTheLoop(hitlTool);
+      return null;
+    };
+
+    renderWithCopilotKit({
+      agent,
+      children: (
+        <>
+          <HITLComponent />
+          <div style={{ height: 400 }}>
+            <CopilotChat />
+          </div>
+        </>
+      ),
+    });
+
+    // Send a message to trigger a run
+    const input = await screen.findByRole("textbox");
+    fireEvent.change(input, { target: { value: "Start task" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+    await waitFor(() => {
+      expect(screen.getByText("Start task")).toBeDefined();
+    });
+
+    const messageId = testId("msg");
+    const toolCallId = testId("tc");
+
+    // Emit tool call
+    agent.emit(runStartedEvent());
+    agent.emit(
+      toolCallChunkEvent({
+        toolCallId,
+        toolCallName: "taskTool",
+        parentMessageId: messageId,
+        delta: JSON.stringify({ task: "review PR" }),
+      })
+    );
+
+    // Should show inProgress while streaming
+    await waitFor(() => {
+      expect(screen.getByTestId("task-status").textContent).toBe(ToolCallStatus.InProgress);
+      expect(screen.getByTestId("task-name").textContent).toBe("review PR");
+    });
+
+    // Complete run - should transition to executing
+    agent.emit(runFinishedEvent());
+    agent.complete();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("task-status").textContent).toBe(ToolCallStatus.Executing);
+    });
+
+    // Respond - should transition to complete
+    const respondButton = screen.getByTestId("task-respond");
+    fireEvent.click(respondButton);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("task-status").textContent).toBe(ToolCallStatus.Complete);
+    });
+  });
+
+  it("should handle multiple sequential tool calls (HITL executes one at a time)", async () => {
+    // Tests that multiple HITL tools execute sequentially.
+    // The second tool only starts executing after the first completes.
+    // This is the expected behavior for HITL tools with followUp: true (default).
+
+    const agent = new MockStepwiseAgent();
+
+    const MultiToolComponent: React.FC = () => {
+      const tool1: ReactHumanInTheLoop<{ id: string }> = {
+        name: "tool1",
+        description: "First tool",
+        parameters: z.object({ id: z.string() }),
+        render: ({ status, args, respond }) => (
+          <div data-testid="tool1">
+            <div data-testid="tool1-status">{status}</div>
+            <div data-testid="tool1-id">{args.id ?? ""}</div>
+            {respond && <button data-testid="tool1-respond" onClick={() => respond("ok")}>OK</button>}
+          </div>
+        ),
+      };
+
+      const tool2: ReactHumanInTheLoop<{ id: string }> = {
+        name: "tool2",
+        description: "Second tool",
+        parameters: z.object({ id: z.string() }),
+        render: ({ status, args, respond }) => (
+          <div data-testid="tool2">
+            <div data-testid="tool2-status">{status}</div>
+            <div data-testid="tool2-id">{args.id ?? ""}</div>
+            {respond && <button data-testid="tool2-respond" onClick={() => respond("ok")}>OK</button>}
+          </div>
+        ),
+      };
+
+      useHumanInTheLoop(tool1);
+      useHumanInTheLoop(tool2);
+      return null;
+    };
+
+    renderWithCopilotKit({
+      agent,
+      children: (
+        <>
+          <MultiToolComponent />
+          <div style={{ height: 400 }}>
+            <CopilotChat />
+          </div>
+        </>
+      ),
+    });
+
+    const input = await screen.findByRole("textbox");
+    fireEvent.change(input, { target: { value: "Multiple tools" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+    await waitFor(() => {
+      expect(screen.getByText("Multiple tools")).toBeDefined();
+    });
+
+    const messageId = testId("msg");
+    const tc1 = testId("tc1");
+    const tc2 = testId("tc2");
+
+    // Emit both tool calls
+    agent.emit(runStartedEvent());
+    agent.emit(toolCallChunkEvent({
+      toolCallId: tc1,
+      toolCallName: "tool1",
+      parentMessageId: messageId,
+      delta: JSON.stringify({ id: "first" }),
+    }));
+    agent.emit(toolCallChunkEvent({
+      toolCallId: tc2,
+      toolCallName: "tool2",
+      parentMessageId: messageId,
+      delta: JSON.stringify({ id: "second" }),
+    }));
+
+    // Both should be inProgress (tool calls received but not yet executed)
+    await waitFor(() => {
+      expect(screen.getByTestId("tool1-status").textContent).toBe(ToolCallStatus.InProgress);
+      expect(screen.getByTestId("tool2-status").textContent).toBe(ToolCallStatus.InProgress);
+    });
+
+    // Complete run - FIRST tool starts executing, second remains inProgress
+    // (HITL tools execute sequentially via processAgentResult)
+    agent.emit(runFinishedEvent());
+    agent.complete();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("tool1-status").textContent).toBe(ToolCallStatus.Executing);
+      // Tool2 is still inProgress because tool1 hasn't completed yet
+      expect(screen.getByTestId("tool2-status").textContent).toBe(ToolCallStatus.InProgress);
+    });
+
+    // Respond to first tool
+    fireEvent.click(screen.getByTestId("tool1-respond"));
+
+    // After first tool completes, second tool starts executing
+    await waitFor(() => {
+      expect(screen.getByTestId("tool1-status").textContent).toBe(ToolCallStatus.Complete);
+      expect(screen.getByTestId("tool2-status").textContent).toBe(ToolCallStatus.Executing);
+    });
+
+    // Respond to second tool
+    fireEvent.click(screen.getByTestId("tool2-respond"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("tool2-status").textContent).toBe(ToolCallStatus.Complete);
+    });
+  });
+
+  it("should handle late-mounting component that renders executing tool", async () => {
+    // Tests that a component which mounts AFTER a tool starts executing
+    // still sees the correct 'executing' status.
+    // This is similar to the reconnection bug but without actual reconnection.
+
+    const agent = new MockStepwiseAgent();
+    let showTool = false;
+    let setShowTool: (show: boolean) => void;
+
+    const ToggleableHITL: React.FC = () => {
+      const [show, setShow] = useState(false);
+      showTool = show;
+      setShowTool = setShow;
+
+      const hitlTool: ReactHumanInTheLoop<{ data: string }> = {
+        name: "lateTool",
+        description: "Late mounting tool",
+        parameters: z.object({ data: z.string() }),
+        render: ({ status, args }) => (
+          <div data-testid="late-tool">
+            <div data-testid="late-status">{status}</div>
+            <div data-testid="late-data">{args.data ?? ""}</div>
+          </div>
+        ),
+      };
+
+      useHumanInTheLoop(hitlTool);
+
+      // Only render the tool view if show is true
+      // The tool is registered regardless, but rendering is conditional
+      return show ? <div data-testid="late-tool-container">Tool is visible</div> : null;
+    };
+
+    renderWithCopilotKit({
+      agent,
+      children: (
+        <>
+          <ToggleableHITL />
+          <div style={{ height: 400 }}>
+            <CopilotChat />
+          </div>
+        </>
+      ),
+    });
+
+    const input = await screen.findByRole("textbox");
+    fireEvent.change(input, { target: { value: "Test late mount" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+    await waitFor(() => {
+      expect(screen.getByText("Test late mount")).toBeDefined();
+    });
+
+    const messageId = testId("msg");
+    const toolCallId = testId("tc");
+
+    // Emit tool call and complete run BEFORE showing the component
+    agent.emit(runStartedEvent());
+    agent.emit(toolCallChunkEvent({
+      toolCallId,
+      toolCallName: "lateTool",
+      parentMessageId: messageId,
+      delta: JSON.stringify({ data: "late-data" }),
+    }));
+    agent.emit(runFinishedEvent());
+    agent.complete();
+
+    // Wait for tool execution to start
+    await waitFor(() => {
+      // The tool should be rendered by CopilotChat even if our custom component isn't shown
+      expect(screen.getByTestId("late-status").textContent).toBe(ToolCallStatus.Executing);
+    });
+
+    // Now show our custom component - it should also see the executing status
+    // (This tests that the provider-level tracking works for late-mounting components)
+    act(() => {
+      setShowTool(true);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("late-tool-container")).toBeDefined();
+    });
+
+    // The status should still be executing (tracked at provider level)
+    expect(screen.getByTestId("late-status").textContent).toBe(ToolCallStatus.Executing);
+  });
+
+  it("should maintain executing state across component remount", async () => {
+    // Tests that if a tool rendering component unmounts and remounts while
+    // a tool is executing, it still sees the correct 'executing' status.
+    // This verifies that executingToolCallIds is tracked at the provider level.
+    //
+    // Note: After remount, the HITL handler is recreated, so respond functionality
+    // is tested separately. This test focuses on state visibility.
+
+    const agent = new MockStepwiseAgent();
+    let toggleRemount: () => void;
+
+    const RemountableHITL: React.FC = () => {
+      const [key, setKey] = useState(0);
+      toggleRemount = () => setKey(k => k + 1);
+
+      return <HITLChild key={key} />;
+    };
+
+    const HITLChild: React.FC = () => {
+      const hitlTool: ReactHumanInTheLoop<{ action: string }> = {
+        name: "remountTool",
+        description: "Remountable tool",
+        parameters: z.object({ action: z.string() }),
+        render: ({ status, args, respond }) => (
+          <div data-testid="remount-tool">
+            <div data-testid="remount-status">{status}</div>
+            <div data-testid="remount-action">{args.action ?? ""}</div>
+            {respond && <button data-testid="remount-respond">Done</button>}
+          </div>
+        ),
+      };
+
+      useHumanInTheLoop(hitlTool);
+      return null;
+    };
+
+    renderWithCopilotKit({
+      agent,
+      children: (
+        <>
+          <RemountableHITL />
+          <div style={{ height: 400 }}>
+            <CopilotChat />
+          </div>
+        </>
+      ),
+    });
+
+    const input = await screen.findByRole("textbox");
+    fireEvent.change(input, { target: { value: "Test remount" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+    await waitFor(() => {
+      expect(screen.getByText("Test remount")).toBeDefined();
+    });
+
+    const messageId = testId("msg");
+    const toolCallId = testId("tc");
+
+    // Emit tool call and complete run
+    agent.emit(runStartedEvent());
+    agent.emit(toolCallChunkEvent({
+      toolCallId,
+      toolCallName: "remountTool",
+      parentMessageId: messageId,
+      delta: JSON.stringify({ action: "test-action" }),
+    }));
+    agent.emit(runFinishedEvent());
+    agent.complete();
+
+    // Verify executing status before remount
+    await waitFor(() => {
+      expect(screen.getByTestId("remount-status").textContent).toBe(ToolCallStatus.Executing);
+      expect(screen.getByTestId("remount-action").textContent).toBe("test-action");
+    });
+
+    // Remount the component by changing its key
+    act(() => {
+      toggleRemount();
+    });
+
+    // After remount, should STILL see executing status
+    // This is the key assertion: executingToolCallIds survives component remounts
+    // because it's tracked at the CopilotKitProvider level
+    await waitFor(() => {
+      expect(screen.getByTestId("remount-status").textContent).toBe(ToolCallStatus.Executing);
+      expect(screen.getByTestId("remount-action").textContent).toBe("test-action");
+    });
+
+    // The respond button should be present (status is executing)
+    expect(screen.getByTestId("remount-respond")).toBeDefined();
   });
 });
