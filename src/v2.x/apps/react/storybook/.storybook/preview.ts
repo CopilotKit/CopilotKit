@@ -1,4 +1,4 @@
-import type { Preview } from "@storybook/react-webpack5";
+import type { Preview } from "@storybook/nextjs";
 import { withThemeByClassName } from "@storybook/addon-themes";
 import "@copilotkitnext/react/styles.css";
 import "./preview.css";
