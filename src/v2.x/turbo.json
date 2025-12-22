@@ -88,6 +88,7 @@
       "persistent": true
     },
     "storybook:build": {
+      "dependsOn": ["^build"],
       "outputs": [
         "apps/react/storybook/storybook-static/**",
         "apps/angular/storybook/storybook-static/**"
