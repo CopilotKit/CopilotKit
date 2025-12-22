@@ -1,0 +1,91 @@
+---
+title: WayFlow Integration
+description: Connect an Agent Spec (WayFlow) backend to CopilotKit via the AG‑UI endpoint and stream agent runs to the UI.
+icon: "lucide/Gauge"
+---
+
+import RunAndConnect from "@/snippets/integrations/agent-spec/run-and-connect.mdx";
+
+## What is this?
+
+Wire an Agent Spec agent backed by WayFlow to CopilotKit’s UI via the AG‑UI event protocol. You’ll run a FastAPI endpoint that emits AG‑UI events and point your Next.js app at it.
+
+Key pieces:
+- Backend endpoint: `ag-ui/integrations/agent-spec/python/ag_ui_agentspec/endpoint.py`
+- Example server: `ag-ui/integrations/agent-spec/python/examples/server.py`
+- Template UI: `npx copilotkit@latest create -f agent-spec`
+
+## When should I use this?
+
+Use this integration when you already have a WayFlow-based agent described by an Agent Spec and want a turnkey UI that streams assistant text, tool calls/results, and run lifecycle with minimal wiring.
+
+## Prerequisites
+
+- Python 3.9+
+- Node.js 20+
+- An Agent Spec file that targets a WayFlow runtime (JSON/YAML)
+
+## Steps
+
+### 1. Start the Agent Spec FastAPI server
+
+Use the provided example server and select the WayFlow runtime.
+
+```bash title="Start FastAPI (WayFlow)"
+export AGENT_SPEC_PATH=/absolute/path/to/your-agent-spec.json
+export AGENT_SPEC_RUNTIME=wayflow
+python ag-ui/integrations/agent-spec/python/examples/server.py
+```
+
+What it does:
+- Loads your Agent Spec from `AGENT_SPEC_PATH`.
+- Constructs an `AgentSpecAgent(runtime="wayflow")`.
+- Mounts the AG‑UI endpoint at `/copilotkit` using `add_agentspec_fastapi_endpoint(...)`.
+
+Endpoint implementation reference:
+
+```python title="ag-ui/integrations/agent-spec/python/ag_ui_agentspec/endpoint.py"
+def add_agentspec_fastapi_endpoint(app, agentspec_agent, path="/"):
+    @app.post(path)
+    async def agentic_chat_endpoint(input_data: RunAgentInput, request: Request):
+        # Bridges Agent‑Spec telemetry to AG‑UI events via EVENT_QUEUE and streams SSE
+        ...
+```
+
+### 2. Scaffold and connect the UI
+
+<RunAndConnect />
+
+If you already have the starter, set your backend endpoint in `.env.local`:
+
+```dotenv title=".env.local"
+COPILOTKIT_REMOTE_ENDPOINT=http://localhost:8000/copilotkit
+```
+
+Then run the app (for example with `pnpm dev`) and open `http://localhost:3000`.
+
+## How it works
+
+- The Agent Spec adapter and processors translate WayFlow runs into AG‑UI events.
+- `AgUiSpanProcessor` enqueues events onto a per‑request queue (`EVENT_QUEUE`).
+- The FastAPI endpoint drains that queue and streams SSE to the browser. CopilotKit consumes these to render:
+  - assistant text: `TEXT_MESSAGE_START/CONTENT/END`
+  - tool call lifecycle: `TOOL_CALL_START/ARGS/END`
+  - tool results: `TOOL_CALL_RESULT`
+  - run lifecycle: `RUN_STARTED/RUN_FINISHED`
+
+## Troubleshooting
+
+- Ensure `AGENT_SPEC_RUNTIME=wayflow` is set when starting the server.
+- The endpoint path must match your UI’s `COPILOTKIT_REMOTE_ENDPOINT` (default `/copilotkit`).
+- The endpoint asserts a queue is bound. If you get queue errors, check that requests go through the provided FastAPI route.
+
+## Next steps
+
+- Build richer UIs with agentic chat and generative UI.
+- For advanced usage, see the WayFlow docs and Agent Spec telemetry notes in the repo.
+
+## Learn more
+
+- Agent Spec docs home: https://oracle.github.io/agent-spec/development/docs_home.html
+- Specification overview: https://oracle.github.io/agent-spec/development/agentspec/index.html
