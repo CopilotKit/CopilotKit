@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json.schemastore.org/angular-cli",
+  "version": 1,
+  "projects": {
+    "angular-demo": {
+      "projectType": "application",
+      "root": ".",
+      "sourceRoot": "src",
+      "architect": {
+        "build": {
+          "builder": "@angular-devkit/build-angular:application",
+          "options": {
+            "outputPath": "dist/angular-demo",
+            "index": "src/index.html",
+            "browser": "src/main.ts",
+            "tsConfig": "tsconfig.app.json",
+            "assets": ["src/favicon.ico", "src/assets"],
+            "styles": ["node_modules/@copilotkitnext/angular/dist/styles.css"],
+            "optimization": false
+          }
+        },
+        "serve": {
+          "builder": "@angular-devkit/build-angular:dev-server",
+          "options": {
+            "buildTarget": "angular-demo:build"
+          }
+        }
+      }
+    }
+  },
+  "cli": {
+    "analytics": "980356bd-241e-4f9c-91f9-6c7714a97a43"
+  }
+}

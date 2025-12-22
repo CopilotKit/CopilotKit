@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "@copilotkitnext/typescript-config/react-library.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@copilotkitnext/core": [
+        "../core/dist/index.d.ts",
+        "../core/src/index.ts"
+      ],
+      "@copilotkitnext/shared": [
+        "../shared/dist/index.d.ts",
+        "../shared/src/index.ts"
+      ],
+      "@copilotkitnext/web-inspector": [
+        "../web-inspector/dist/index.d.ts",
+        "../web-inspector/src/index.ts"
+      ]
+    },
+    "types": ["vitest/globals"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["dist", "node_modules"]
+}

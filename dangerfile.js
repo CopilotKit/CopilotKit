@@ -1,7 +1,7 @@
 import { danger, warn } from "danger";
 
 const file1 = "sdk-python/copilotkit/langgraph_agent.py";
-const file2 = "CopilotKit/packages/sdk-js/src/langgraph.ts";
+const file2 = "src/v1.x/packages/sdk-js/src/langgraph.ts";
 
 // Get the list of modified files in the PR
 const changedFiles = danger.git.modified_files;

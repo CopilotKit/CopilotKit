@@ -10,6 +10,7 @@
     "microsoft-agent-framework",
     "aws-strands",
     "direct-to-llm",
+    "agent-spec",
     "langgraph",
     "ag2",
     "agno",
