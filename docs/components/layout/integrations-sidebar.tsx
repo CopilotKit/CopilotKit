@@ -49,7 +49,7 @@ const IntegrationsSidebar = ({
   return (
     <aside
       id="nd-sidebar"
-      className="w-full flex-col max-w-[260px] h-full border backdrop-blur-lg border-r-0 border-border bg-glass-background rounded-l-2xl pl-3 pr-3 hidden md:flex"
+      className="w-full flex-col max-w-[260px] h-full border backdrop-blur-lg border-r-0 border-border bg-glass-background rounded-l-2xl pl-3 pr-3 hidden lg:flex"
     >
       <IntegrationSelector
         selectedIntegration={selectedIntegration}

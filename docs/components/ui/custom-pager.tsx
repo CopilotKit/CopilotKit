@@ -60,6 +60,7 @@ function getPrev(tree: PageTree.Node[], pageIndex: number): { url: string; title
 
 function getNext(tree: PageTree.Node[], pageIndex: number): { url: string; title: string } | null {
   if (pageIndex === tree.length - 1) return null;
+
   const nextItem = tree[pageIndex + 1];
 
   if (!nextItem) return null

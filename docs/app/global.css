@@ -262,13 +262,17 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
 #nd-tocnav {
   display: flex !important;
   flex-direction: column !important;
-  position: relative;
+  position: sticky;
   inset-inline-start: auto !important;
-  top: auto !important;
+  top: 0 !important;
 }
 
 /* Hide TOC popover on desktop since we use clerk-style inline TOC */
 @media (min-width: 1280px) {
+  #nd-page {
+    flex-direction: row !important;
+  }
+
   #nd-tocnav {
     display: none !important;
   }
