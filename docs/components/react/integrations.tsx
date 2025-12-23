@@ -3,6 +3,7 @@ import { IntegrationsSelectorLightMobile } from './integrations-index-selector/i
 import { IntegrationLinkRoundedButton } from './integration-link-button/integration-link-rounded-button';
 import { ComponentType } from 'react';
 import { INTEGRATION_ORDER, IntegrationId, getIntegration } from '@/lib/integrations';
+import { hasIntegrationFeature } from '@/lib/integration-features';
 import A2AIcon from '../ui/icons/a2a';
 import AdkIcon from '../ui/icons/adk';
 import Ag2Icon from '../ui/icons/ag2';
@@ -60,23 +61,12 @@ interface IntegrationsGridProps {
 
 const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppressDirectToLLM = false }) => {
   const hasTargetPage = (integration: Integration, targetPage: string): boolean => {
-    // Direct to LLM special cases
-    if (integration.id === 'direct-to-llm') {
-      return targetPage === 'generative-ui' || targetPage === 'frontend-actions';
+    if (!targetPage) {
+      return true;
     }
 
-    // AutoGen2 missing pages
-    if (integration.id === 'ag2') {
-      return targetPage !== 'generative-ui' && targetPage !== 'shared-state';
-    }
-
-    // Frameworks that don't have shared-state pages
-    if (targetPage === 'shared-state') {
-      return !['llamaindex', 'mastra', 'ag2', 'agno'].includes(integration.id);
-    }
-
-    // All other frameworks have the standard pages
-    return true;
+    // Use auto-generated feature mapping
+    return hasIntegrationFeature(integration.id, targetPage);
   };
 
   const getHref = (integration: Integration) => {
@@ -84,17 +74,12 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
       return integration.href;
     }
 
-    // Special cases where certain frameworks have pages in different locations
+    // Special case: direct-to-llm has pages in /guides/ subdirectory
     if (integration.id === 'direct-to-llm') {
-      if (targetPage === 'generative-ui') {
-        return '/direct-to-llm/guides/generative-ui';
-      }
-      if (targetPage === 'frontend-actions') {
-        return '/direct-to-llm/guides/frontend-actions';
-      }
+      return `${integration.href}/guides/${targetPage}`;
     }
 
-    // For other frameworks, append the target page
+    // For all other frameworks, append the target page
     return `${integration.href}/${targetPage}`;
   };
 

@@ -3,7 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "generate": "node scripts/generate-integration-features.mjs",
+    "prebuild": "npm run generate",
     "build": "next build",
+    "predev": "npm run generate",
     "dev": "next dev",
     "start": "next start",
     "postinstall": "fumadocs-mdx",
