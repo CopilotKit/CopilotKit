@@ -254,7 +254,9 @@ export async function streamLangChainResponse({
             });
           } else if (content) {
             mode = "message";
-            currentMessageId = value.lc_kwargs?.id || randomId();
+            // Use randomId() if lc_kwargs.id is falsy or "0" to prevent message merging issues
+            const lcId = value.lc_kwargs?.id;
+            currentMessageId = (lcId && lcId !== "0") ? lcId : randomId();
             eventStream$.sendTextMessageStart({ messageId: currentMessageId });
           }
         }
