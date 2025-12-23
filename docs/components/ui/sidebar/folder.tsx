@@ -38,9 +38,7 @@ const Folder = ({ node }: FolderProps) => {
     (e: React.MouseEvent<HTMLButtonElement>) => {
       e.preventDefault();
       e.stopPropagation();
-      
-      if (isActive) return;
-      
+
       if (folderId) {
         toggleFolder(folderId);
       }
@@ -49,7 +47,7 @@ const Folder = ({ node }: FolderProps) => {
         router.push(folderUrl);
       }
     },
-    [isActive, folderUrl, router, folderId, toggleFolder]
+    [folderUrl, router, folderId, toggleFolder]
   );
 
   return (
