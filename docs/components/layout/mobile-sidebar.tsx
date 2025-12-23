@@ -1,17 +1,23 @@
+"use client"
+
 import Image from "next/image"
-import { DocsLayoutProps } from "fumadocs-ui/layouts/docs"
 import Link from "fumadocs-core/link"
+import { usePathname } from "next/navigation"
+import { useMemo, useState } from "react"
 // Components
 import Separator from "@/components/ui/sidebar/separator"
 import Page from "@/components/ui/sidebar/page"
 import Folder from "@/components/ui/sidebar/folder"
 import Dropdown from "@/components/ui/mobile-sidebar/dropdown"
+import IntegrationSelector from "@/components/ui/integrations-sidebar/integration-selector"
 // Icons
 import DiscordIcon from "@/components/ui/icons/discord"
 import GithubIcon from "@/components/ui/icons/github"
 import CrossIcon from "@/components/ui/icons/cross"
 // Types
 import { NavbarLink } from "./navbar"
+import { DocsLayoutProps } from "fumadocs-ui/layouts/docs"
+import { Integration } from "../ui/integrations-sidebar/integration-selector"
 
 interface MobileSidebarProps {
   pageTree: DocsLayoutProps["tree"]
@@ -49,6 +55,9 @@ const MobileSidebar = ({
   handleToggleTheme,
 }: MobileSidebarProps) => {
   const pages = pageTree.children
+  const isIntegrationRoute = usePathname().startsWith("/integrations")
+  const [selectedIntegration, setSelectedIntegration] =
+    useState<Integration | null>(null)
 
   return (
     <div className="flex fixed top-0 left-0 z-50 justify-end p-1 w-full h-full bg-black/30">
@@ -86,7 +95,7 @@ const MobileSidebar = ({
             </button>
           </div>
           <button
-            className="flex justify-center items-center w-11 h-full cursor-pointer md:hidden"
+            className="flex justify-center items-center w-11 h-full cursor-pointer lg:hidden"
             onClick={() => setIsOpen(false)}
           >
             <CrossIcon />
@@ -94,6 +103,13 @@ const MobileSidebar = ({
         </div>
 
         <Dropdown onSelect={() => setIsOpen(false)} />
+
+        {isIntegrationRoute && (
+          <IntegrationSelector
+            selectedIntegration={selectedIntegration}
+            setSelectedIntegration={setSelectedIntegration}
+          />
+        )}
 
         <ul className="flex overflow-y-auto flex-col mt-6 max-h-full custom-scrollbar [&>*:first-child]:mt-0">
           {pages.map((page) => {
