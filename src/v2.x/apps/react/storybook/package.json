@@ -9,23 +9,21 @@
     "storybook:build": "storybook build"
   },
   "dependencies": {
-    "@storybook/addon-essentials": "^8",
-    "@storybook/addon-interactions": "^8",
-    "@storybook/nextjs": "^8",
-    "@storybook/react": "^8",
-    "@storybook/test": "^8",
-    "react": "^18",
-    "react-dom": "^18",
-    "storybook": "^8"
+    "@storybook/nextjs": "^10.1.10",
+    "@storybook/react": "^10.1.10",
+    "react": "^19",
+    "react-dom": "^19",
+    "storybook": "^10.1.10"
   },
   "devDependencies": {
     "@copilotkitnext/core": "workspace:*",
     "@copilotkitnext/react": "workspace:*",
     "@copilotkitnext/typescript-config": "workspace:*",
-    "@storybook/addon-themes": "^8",
+    "@storybook/addon-docs": "^10",
+    "@storybook/addon-themes": "^10.1.10",
     "@types/node": "^22",
-    "@types/react": "^19.1.0",
-    "@types/react-dom": "^19.0.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
     "concurrently": "^9.1.0",
     "lucide-react": "^0.525.0",
     "typescript": "5.8.2",
