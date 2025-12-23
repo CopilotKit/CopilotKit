@@ -6,7 +6,7 @@ import { ReactFrontendTool } from "@/types";
 import { CopilotChat } from "@/components/chat/CopilotChat";
 import CopilotChatToolCallsView from "@/components/chat/CopilotChatToolCallsView";
 import { AssistantMessage, Message } from "@ag-ui/core";
-import { ToolCallStatus, DEFINED_IN_MIDDLEWARE } from "@copilotkitnext/core";
+import { ToolCallStatus, DEFINED_IN_MIDDLEWARE_EXPERIMENTAL } from "@copilotkitnext/core";
 import {
   AbstractAgent,
   EventType,
@@ -2111,16 +2111,16 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
     });
   });
 
-  describe("DEFINED_IN_MIDDLEWARE Support", () => {
-    it("should accept DEFINED_IN_MIDDLEWARE as description value", async () => {
+  describe("DEFINED_IN_MIDDLEWARE_EXPERIMENTAL Support", () => {
+    it("should accept DEFINED_IN_MIDDLEWARE_EXPERIMENTAL as description value", async () => {
       const agent = new MockStepwiseAgent();
 
-      // Tool that uses DEFINED_IN_MIDDLEWARE for description
+      // Tool that uses DEFINED_IN_MIDDLEWARE_EXPERIMENTAL for description
       // The middleware would replace this with the actual description
       const MiddlewareDefinedTool: React.FC = () => {
         const tool: ReactFrontendTool<{ value: string }> = {
           name: "middlewareDefinedTool",
-          description: DEFINED_IN_MIDDLEWARE,
+          description: DEFINED_IN_MIDDLEWARE_EXPERIMENTAL,
           parameters: z.object({ value: z.string() }),
           render: ({ args }) => (
             <div data-testid="middleware-defined-tool">
@@ -2181,16 +2181,16 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
       agent.complete();
     });
 
-    it("should accept DEFINED_IN_MIDDLEWARE as parameters value", async () => {
+    it("should accept DEFINED_IN_MIDDLEWARE_EXPERIMENTAL as parameters value", async () => {
       const agent = new MockStepwiseAgent();
 
-      // Tool that uses DEFINED_IN_MIDDLEWARE for parameters
+      // Tool that uses DEFINED_IN_MIDDLEWARE_EXPERIMENTAL for parameters
       // This indicates the middleware should inject the parameter schema
       const ParametersFromMiddleware: React.FC = () => {
         const tool: ReactFrontendTool<{ message: string }> = {
           name: "parametersFromMiddleware",
           description: "A tool with parameters defined in middleware",
-          parameters: DEFINED_IN_MIDDLEWARE,
+          parameters: DEFINED_IN_MIDDLEWARE_EXPERIMENTAL,
           render: ({ args }) => (
             <div data-testid="params-middleware-tool">
               Message: {(args as { message?: string }).message || "undefined"}
@@ -2250,16 +2250,16 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
       agent.complete();
     });
 
-    it("should accept DEFINED_IN_MIDDLEWARE for both description and parameters", async () => {
+    it("should accept DEFINED_IN_MIDDLEWARE_EXPERIMENTAL for both description and parameters", async () => {
       const agent = new MockStepwiseAgent();
 
-      // Tool that uses DEFINED_IN_MIDDLEWARE for both fields
+      // Tool that uses DEFINED_IN_MIDDLEWARE_EXPERIMENTAL for both fields
       // This is the most minimal client-side definition
       const FullyMiddlewareDefined: React.FC = () => {
         const tool: ReactFrontendTool<{ action: string }> = {
           name: "fullyMiddlewareDefined",
-          description: DEFINED_IN_MIDDLEWARE,
-          parameters: DEFINED_IN_MIDDLEWARE,
+          description: DEFINED_IN_MIDDLEWARE_EXPERIMENTAL,
+          parameters: DEFINED_IN_MIDDLEWARE_EXPERIMENTAL,
           render: ({ args }) => (
             <div data-testid="fully-middleware-tool">
               Action: {(args as { action?: string }).action || "none"}
@@ -2319,10 +2319,10 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
       agent.complete();
     });
 
-    it("DEFINED_IN_MIDDLEWARE constant should be the expected sentinel string", () => {
+    it("DEFINED_IN_MIDDLEWARE_EXPERIMENTAL constant should be the expected sentinel string", () => {
       // Verify the constant value for serialization compatibility
-      expect(DEFINED_IN_MIDDLEWARE).toBe("__AG_UI_DEFINED_IN_MIDDLEWARE__");
-      expect(typeof DEFINED_IN_MIDDLEWARE).toBe("string");
+      expect(DEFINED_IN_MIDDLEWARE_EXPERIMENTAL).toBe("__AG_UI_DEFINED_IN_MIDDLEWARE__");
+      expect(typeof DEFINED_IN_MIDDLEWARE_EXPERIMENTAL).toBe("string");
     });
   });
 });

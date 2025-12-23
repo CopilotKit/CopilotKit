@@ -1,5 +1,6 @@
-export const DEFINED_IN_MIDDLEWARE = "__AG_UI_DEFINED_IN_MIDDLEWARE__";
-export type DefinedInMiddleware = typeof DEFINED_IN_MIDDLEWARE;
+export const DEFINED_IN_MIDDLEWARE_EXPERIMENTAL = "__AG_UI_DEFINED_IN_MIDDLEWARE__";
+// DefinedInMiddleware type not exported while experimental - use `typeof DEFINED_IN_MIDDLEWARE_EXPERIMENTAL` if needed
+type DefinedInMiddleware = typeof DEFINED_IN_MIDDLEWARE_EXPERIMENTAL;
 
 type TypeMap = {
   string: string;
