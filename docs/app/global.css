@@ -232,6 +232,8 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
 }
 
 #nd-page {
+  flex-direction: column;
+  padding-top: 0 !important;
   max-height: 100%;
   overflow-y: auto;
   margin: 0 !important;
@@ -256,8 +258,20 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
   padding: 0 !important;
 }
 
+/* Show TOC popover on mobile for navigation */
 #nd-tocnav {
-  display: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  position: relative;
+  inset-inline-start: auto !important;
+  top: auto !important;
+}
+
+/* Hide TOC popover on desktop since we use clerk-style inline TOC */
+@media (min-width: 1280px) {
+  #nd-tocnav {
+    display: none !important;
+  }
 }
 
 #nd-toc h3 svg {
