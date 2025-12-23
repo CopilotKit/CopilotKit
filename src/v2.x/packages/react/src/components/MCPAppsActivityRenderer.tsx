@@ -154,9 +154,10 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> = (
         // Create sandbox proxy iframe
         const iframe = document.createElement("iframe");
         iframe.style.width = "100%";
-        iframe.style.height = "300px";
+        iframe.style.height = "500px"; // Hardcoded for demo
         iframe.style.border = "none";
         iframe.style.backgroundColor = "transparent";
+        iframe.style.display = "block";
         iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms");
 
         // Wait for sandbox proxy to be ready
@@ -376,8 +377,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> = (
         minHeight: "100px",
         borderRadius: "8px",
         overflow: "hidden",
-        backgroundColor: "#f9f9f9",
-        border: "1px solid #e0e0e0",
+        backgroundColor: "transparent",
       }}
     >
       {error && (

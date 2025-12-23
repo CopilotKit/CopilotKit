@@ -251,15 +251,11 @@ function initCanvasScene() {
     margin: 0;
     padding: 0;
     width: 100%;
-    height: 100%;
+    height: 500px;
     overflow: hidden;
     background: linear-gradient(135deg, #0a0a1a 0%, #1a0a2e 50%, #0a1a2e 100%);
     font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    position: relative;
   `;
 
   // Create canvas
