@@ -93,7 +93,7 @@ const Navbar = ({ pageTree }: NavbarProps) => {
         <div className="flex w-full h-full">
           <div className="flex gap-11 items-center w-full h-full rounded-l-2xl border border-r-0 backdrop-blur-lg border-border bg-glass-background">
             <Logo className="pl-6" />
-            <ul className="hidden gap-6 items-center h-full xl:flex">
+            <ul className="hidden gap-6 items-center h-full lg:flex">
               {LEFT_LINKS.map((link) => (
                 <li key={link.href} className="relative h-full group">
                   <Link
@@ -155,20 +155,20 @@ const Navbar = ({ pageTree }: NavbarProps) => {
             className="-mr-px dark:hidden shrink-0 w-[24px] h-[60px] xl:w-[29px] xl:h-[72px] object-cover"
           />
 
-          <div className="flex gap-1 items-center pr-2 w-max h-full rounded-r-2xl border border-l-0 backdrop-blur-lg md:pr-4 shrink-0 border-border bg-glass-background">
+          <div className="flex gap-1 items-center pr-2 w-max h-full rounded-r-2xl border border-l-0 backdrop-blur-lg lg:pr-4 shrink-0 border-border bg-glass-background">
             {RIGHT_LINKS.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 target={link.target}
-                className="hidden justify-center items-center w-11 h-full md:flex"
+                className="hidden justify-center items-center w-11 h-full lg:flex"
               >
                 <span className="flex items-center h-full">{link.icon}</span>
               </Link>
             ))}
 
             <button
-              className="hidden justify-center items-center w-11 h-full cursor-pointer md:flex"
+              className="hidden justify-center items-center w-11 h-full cursor-pointer lg:flex"
               onClick={handleToggleTheme}
             >
               <Image
@@ -190,7 +190,7 @@ const Navbar = ({ pageTree }: NavbarProps) => {
             <SearchDialogButton />
 
             <button
-              className="flex justify-center items-center w-11 h-full cursor-pointer md:hidden"
+              className="flex justify-center items-center w-11 h-full cursor-pointer lg:hidden"
               onClick={() => setIsMobileSidebarOpen(true)}
             >
               <BurgerMenuIcon />

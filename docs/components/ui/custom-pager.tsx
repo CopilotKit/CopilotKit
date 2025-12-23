@@ -90,13 +90,13 @@ export function CustomPager({ tree, page }: CustomPagerProps): ReactNode {
   const next = getNext(cleanedTree, pageIndex)
 
   return (
-    <div className="box-content flex flex-col gap-3 justify-between items-center px-4 pb-12 lg:gap-0 lg:flex-row lg:px-16 lg:h-20 shrink-0">
+    <div className="box-content flex flex-col gap-3 justify-between items-center px-4 pb-12 lg:gap-0 lg:flex-row lg:px-8 lg:h-20 shrink-0">
       <div className={`flex h-full ${prev ? "w-full" : "w-max"}`}>
         {prev ? (
           <>
             <Link
               href={prev?.url}
-              className="flex flex-col gap-1 justify-center px-4 lg:px-5 w-full h-full rounded-2xl rounded-r-none border border-r-0 backdrop-blur-lg border-border bg-glass-background dark:!bg-[#01050780]"
+              className="flex flex-col gap-1 justify-center px-4 lg:px-5 w-full h-[80px] rounded-2xl rounded-r-none border border-r-0 backdrop-blur-lg border-border bg-glass-background dark:!bg-[#01050780]"
             >
               <div className="flex gap-2 justify-start items-center">
                 <ChevronLeft className="size-4 shrink-0 text-fd-muted-foreground" />
@@ -184,7 +184,7 @@ export function CustomPager({ tree, page }: CustomPagerProps): ReactNode {
         {next ? (
           <Link
             href={next.url}
-            className="flex flex-col gap-1 justify-center px-4 lg:px-5 w-full h-full rounded-2xl rounded-l-none border border-l-0 backdrop-blur-lg border-border bg-glass-background dark:!bg-[#01050780]"
+            className="flex flex-col gap-1 justify-center px-4 lg:px-5 w-full h-[80px] rounded-2xl rounded-l-none border border-l-0 backdrop-blur-lg border-border bg-glass-background dark:!bg-[#01050780]"
           >
             <div className="flex gap-2 justify-end items-center">
               <span className="text-xs font-medium text-right font-spline">

@@ -1,71 +1,84 @@
-"use client"
+'use client';
 
-import { useState, useMemo } from "react"
-import { DocsLayoutProps } from "fumadocs-ui/layouts/docs"
-import { usePathname, useRouter } from "next/navigation"
-import Page from "./page"
-import ChevronDownIcon from "../icons/chevron"
-import { cn } from "@/lib/utils"
+import { useCallback } from 'react';
+import { DocsLayoutProps } from 'fumadocs-ui/layouts/docs';
+import { usePathname, useRouter } from 'next/navigation';
+import Page from './page';
+import ChevronDownIcon from '../icons/chevron';
+import { cn } from '@/lib/utils';
+import Separator from './separator';
+import { useOpenedFolders } from '@/lib/hooks/use-opened-folders';
 
-type Node = DocsLayoutProps["tree"]["children"][number] & { url: string }
+type Node = DocsLayoutProps['tree']['children'][number] & {
+  url: string;
+  $id?: string;
+};
 
 interface FolderProps {
-  node: Node & { index?: { url: string } }
-  onNavigate?: () => void
+  node: Node & { index?: { url: string; $id?: string } };
+  onNavigate?: () => void;
 }
 
-const Folder = ({ node, onNavigate }: FolderProps) => {
-  const [isOpen, setIsOpen] = useState<boolean | null>(null)
-  const pathname = usePathname()
-  const isActive = node?.index?.url === pathname
-  const router = useRouter()
-  const folderUrl = node.index?.url
-  
-  const shouldBeOpenFromPath = useMemo(() => {
-    if (!folderUrl) return false
-    return pathname.includes(folderUrl)
-  }, [pathname, folderUrl])
-  
-  const isFolderOpen = isOpen !== null ? isOpen : shouldBeOpenFromPath
+const Folder = ({ node }: FolderProps) => {
+  const { isFolderOpen, toggleFolder } = useOpenedFolders();
+  const pathname = usePathname();
+  const isActive = node?.index?.url === pathname;
+  const router = useRouter();
+  const folderUrl = node.index?.url;
+  const folderId = node.$id;
+  const isOpen = folderId ? isFolderOpen(folderId) : false;
 
-  const handleLinkClick = () => {
-    if (isActive) return
-    const newOpenState = !isOpen
-    setIsOpen(newOpenState)
-    router.push(folderUrl ?? "")
-  }
+  const NODE_COMPONENTS = {
+    separator: Separator,
+    page: Page,
+    folder: Folder,
+  };
+
+  const handleLinkClick = useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      if (isActive) return;
+      
+      if (folderId) {
+        toggleFolder(folderId);
+      }
+      
+      if (folderUrl) {
+        router.push(folderUrl);
+      }
+    },
+    [isActive, folderUrl, router, folderId, toggleFolder]
+  );
 
   return (
-    <div className="w-full">
+    <div className='w-full'>
       <li
         className={cn(
-          "w-full shrink-0 opacity-60 transition-all duration-300 hover:opacity-100 hover:bg-white dark:hover:bg-white/10 rounded-lg",
-          isActive && "opacity-100 bg-white dark:bg-white/10"
-        )}
-      >
+          'w-full shrink-0 opacity-60 transition-all duration-300 hover:opacity-100 hover:bg-white dark:hover:bg-white/10 rounded-lg',
+          isActive && 'opacity-100 bg-white dark:bg-white/10'
+        )}>
         <button
+          type='button'
           onClick={handleLinkClick}
-          className="flex gap-2 justify-between items-center px-3 w-full h-10 cursor-pointer"
-        >
-          <span className="w-max text-sm shrink-0">{node.name}</span>
-          <ChevronDownIcon className={cn(isFolderOpen ? "rotate-180" : "")} />
+          className='flex gap-2 justify-between items-center px-3 w-full h-10 cursor-pointer'>
+          <span className='w-max text-sm shrink-0'>{node.name}</span>
+          <ChevronDownIcon className={cn(isOpen ? 'rotate-180' : '')} />
         </button>
       </li>
-      {isFolderOpen && (
-        <ul className="flex relative flex-col gap-2 ml-4">
-          <div className="absolute top-1/2 -translate-y-1/2 -left-2 w-px h-[calc(100%-8px)] bg-foreground/10" />
+      {isOpen && (
+        <ul className='flex relative flex-col gap-2 ml-4'>
+          <div className='absolute top-1/2 -translate-y-1/2 -left-2 w-px h-[calc(100%-8px)] bg-foreground/10' />
 
-          {(node as { children: Node[] }).children.map((page) => (
-            <Page
-              key={crypto.randomUUID()}
-              node={page}
-              onNavigate={onNavigate}
-            />
-          ))}
+          {(node as { children: Node[] }).children.map(page => {
+            const Component = NODE_COMPONENTS[page.type as keyof typeof NODE_COMPONENTS];
+            return <Component key={crypto.randomUUID()} node={page as Node} minimal={true} />;
+          })}
         </ul>
       )}
     </div>
-  )
-}
+  );
+};
 
-export default Folder
+export default Folder;
