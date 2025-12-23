@@ -10,6 +10,7 @@ import Page from "@/components/ui/sidebar/page"
 import Folder from "@/components/ui/sidebar/folder"
 import Dropdown from "@/components/ui/mobile-sidebar/dropdown"
 import IntegrationSelector from "@/components/ui/integrations-sidebar/integration-selector"
+import { OpenedFoldersProvider } from "@/lib/hooks/use-opened-folders"
 // Icons
 import DiscordIcon from "@/components/ui/icons/discord"
 import GithubIcon from "@/components/ui/icons/github"
@@ -61,69 +62,71 @@ const MobileSidebar = ({
 
   return (
     <div className="flex fixed top-0 left-0 z-50 justify-end p-1 w-full h-full bg-black/30">
-      <aside className="flex flex-col w-full max-w-[280px] h-[calc(100vh-8px)] border backdrop-blur-3xl border-r-0 border-border bg-white/50 dark:bg-white/[0.01] rounded-2xl pl-3 pr-1 ">
-        <div className="flex justify-between items-center my-2 w-full">
-          <div className="flex gap-1 items-center">
-            {LEFT_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                target={link.target}
-                className="flex justify-center items-center w-11 h-11 shrink-0"
+      <OpenedFoldersProvider>
+        <aside className="flex flex-col w-full max-w-[280px] h-[calc(100vh-8px)] border backdrop-blur-3xl border-r-0 border-border bg-white/50 dark:bg-white/[0.01] rounded-2xl pl-3 pr-1 ">
+          <div className="flex justify-between items-center my-2 w-full">
+            <div className="flex gap-1 items-center">
+              {LEFT_LINKS.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  target={link.target}
+                  className="flex justify-center items-center w-11 h-11 shrink-0"
+                >
+                  <span className="flex items-center h-full">{link.icon}</span>
+                </Link>
+              ))}
+              <button
+                className="flex justify-center items-center w-11 h-11 cursor-pointer"
+                onClick={handleToggleTheme}
               >
-                <span className="flex items-center h-full">{link.icon}</span>
-              </Link>
-            ))}
+                <Image
+                  src="/images/navbar/theme-moon.svg"
+                  alt="Theme icon"
+                  width={20}
+                  height={20}
+                  className="hidden dark:inline-block"
+                />
+                <Image
+                  src="/images/navbar/theme-sun.svg"
+                  alt="Theme icon"
+                  width={20}
+                  height={20}
+                  className="dark:hidden"
+                />
+              </button>
+            </div>
             <button
-              className="flex justify-center items-center w-11 h-11 cursor-pointer"
-              onClick={handleToggleTheme}
+              className="flex justify-center items-center w-11 h-full cursor-pointer lg:hidden"
+              onClick={() => setIsOpen(false)}
             >
-              <Image
-                src="/images/navbar/theme-moon.svg"
-                alt="Theme icon"
-                width={20}
-                height={20}
-                className="hidden dark:inline-block"
-              />
-              <Image
-                src="/images/navbar/theme-sun.svg"
-                alt="Theme icon"
-                width={20}
-                height={20}
-                className="dark:hidden"
-              />
+              <CrossIcon />
             </button>
           </div>
-          <button
-            className="flex justify-center items-center w-11 h-full cursor-pointer lg:hidden"
-            onClick={() => setIsOpen(false)}
-          >
-            <CrossIcon />
-          </button>
-        </div>
 
-        <Dropdown onSelect={() => setIsOpen(false)} />
+          <Dropdown onSelect={() => setIsOpen(false)} />
 
-        {isIntegrationRoute && (
-          <IntegrationSelector
-            selectedIntegration={selectedIntegration}
-            setSelectedIntegration={setSelectedIntegration}
-          />
-        )}
+          {isIntegrationRoute && (
+            <IntegrationSelector
+              selectedIntegration={selectedIntegration}
+              setSelectedIntegration={setSelectedIntegration}
+            />
+          )}
 
-        <ul className="flex overflow-y-auto flex-col mt-6 max-h-full custom-scrollbar [&>*:first-child]:mt-0">
-          {pages.map((page) => {
-            const Component = NODE_COMPONENTS[page.type]
-            return (
-              <Component
-                key={crypto.randomUUID()}
-                node={page as Node}
-                onNavigate={() => setIsOpen(false)}
-              />
-            )
-          })}
-        </ul>
-      </aside>
+          <ul className="flex overflow-y-auto flex-col mt-6 max-h-full custom-scrollbar [&>*:first-child]:mt-0">
+            {pages.map((page) => {
+              const Component = NODE_COMPONENTS[page.type]
+              return (
+                <Component
+                  key={crypto.randomUUID()}
+                  node={page as Node}
+                  onNavigate={() => setIsOpen(false)}
+                />
+              )
+            })}
+          </ul>
+        </aside>
+      </OpenedFoldersProvider>
     </div>
   )
 }
