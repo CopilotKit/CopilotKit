@@ -1,6 +1,7 @@
 import { useState, useEffect, ComponentType } from "react"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
+import { INTEGRATION_ORDER, IntegrationId, getIntegration } from "@/lib/integrations"
 import ChevronDownIcon from "../icons/chevron"
 import A2AIcon from "../icons/a2a"
 import AdkIcon from "../icons/adk"
@@ -17,20 +18,22 @@ import CheckIcon from "../icons/check"
 import { MicrosoftIcon } from "../icons/microsoft"
 import { AwsStrandsIcon } from "../icons/aws-strands"
 
-export type Integration =
-  | "a2a"
-  | "adk"
-  | "ag2"
-  | "agno"
-  | "crewai-flows"
-  | "crewai-crews"
-  | "direct-to-llm"
-  | "langgraph"
-  | "llamaindex"
-  | "mastra"
-  | "pydantic-ai"
-  | "microsoft-agent-framework"
-  | "aws-strands"
+// Icon mapping - this stays component-specific
+const INTEGRATION_ICONS: Record<IntegrationId, ComponentType<{ className?: string }>> = {
+  "a2a": A2AIcon,
+  "adk": AdkIcon,
+  "ag2": Ag2Icon,
+  "agno": AgnoIcon,
+  "crewai-flows": CrewaiIcon,
+  "crewai-crews": CrewaiIcon,
+  "direct-to-llm": DirectToLlmIcon,
+  "langgraph": LanggraphIcon,
+  "llamaindex": LlamaIndexIcon,
+  "mastra": MastraIcon,
+  "pydantic-ai": PydanticAiIcon,
+  "microsoft-agent-framework": MicrosoftIcon,
+  "aws-strands": AwsStrandsIcon,
+}
 
 interface IntegrationOption {
   label: string
@@ -38,73 +41,17 @@ interface IntegrationOption {
   href: string
 }
 
-const INTEGRATION_OPTIONS: Record<Integration, IntegrationOption> = {
-  a2a: {
-    label: "A2A",
-    Icon: A2AIcon,
-    href: "/a2a",
-  },
-  adk: {
-    label: "ADK",
-    Icon: AdkIcon,
-    href: "/adk",
-  },
-  ag2: {
-    label: "AG2",
-    Icon: Ag2Icon,
-    href: "/ag2",
-  },
-  "microsoft-agent-framework": {
-    label: "Microsoft Agent Framework",
-    Icon: MicrosoftIcon,
-    href: "/microsoft-agent-framework",
-  },
-  "aws-strands": {
-    label: "AWS Strands",
-    Icon: AwsStrandsIcon,
-    href: "/aws-strands",
-  },
-  agno: {
-    label: "Agno",
-    Icon: AgnoIcon,
-    href: "/agno",
-  },
-  "crewai-flows": {
-    label: "CrewAI Flows",
-    Icon: CrewaiIcon,
-    href: "/crewai-flows",
-  },
-  "crewai-crews": {
-    label: "CrewAI Crews",
-    Icon: CrewaiIcon,
-    href: "/crewai-crews",
-  },
-  "direct-to-llm": {
-    label: "Direct to LLM",
-    Icon: DirectToLlmIcon,
-    href: "/direct-to-llm",
-  },
-  langgraph: {
-    label: "LangGraph",
-    Icon: LanggraphIcon,
-    href: "/langgraph",
-  },
-  llamaindex: {
-    label: "LlamaIndex",
-    Icon: LlamaIndexIcon,
-    href: "/llamaindex",
-  },
-  mastra: {
-    label: "Mastra",
-    Icon: MastraIcon,
-    href: "/mastra",
-  },
-  "pydantic-ai": {
-    label: "Pydantic AI",
-    Icon: PydanticAiIcon,
-    href: "/pydantic-ai",
-  },
-}
+// Build options from canonical order
+const INTEGRATION_OPTIONS: Record<IntegrationId, IntegrationOption> = Object.fromEntries(
+  INTEGRATION_ORDER.map(id => {
+    const meta = getIntegration(id);
+    return [id, {
+      label: meta.label,
+      Icon: INTEGRATION_ICONS[id],
+      href: meta.href,
+    }];
+  })
+) as Record<IntegrationId, IntegrationOption>;
 
 const DEFAULT_INTEGRATION: IntegrationOption = {
   label: "Select integration...",
@@ -113,8 +60,8 @@ const DEFAULT_INTEGRATION: IntegrationOption = {
 }
 
 interface IntegrationSelectorProps {
-  selectedIntegration: Integration | null
-  setSelectedIntegration: (integration: Integration | null) => void
+  selectedIntegration: IntegrationId | null
+  setSelectedIntegration: (integration: IntegrationId | null) => void
 }
 
 const IntegrationSelector = ({
@@ -130,7 +77,7 @@ const IntegrationSelector = ({
 
   const { Icon } = integration
 
-  const handleIntegrationClick = (integrationKey: Integration) => {
+  const handleIntegrationClick = (integrationKey: IntegrationId) => {
     setSelectedIntegration(integrationKey)
     setIsOpen(false)
   }
@@ -140,9 +87,9 @@ const IntegrationSelector = ({
 
     if (!isRootIntegration) {
       const pathnameParts = pathname.split("/");
-      const integrationKey = Object.keys(INTEGRATION_OPTIONS).find((key) =>
+      const integrationKey = INTEGRATION_ORDER.find((key) =>
         pathnameParts.includes(key)
-      ) as Integration | undefined;
+      );
       if (integrationKey) {
         setSelectedIntegration(integrationKey)
         return
@@ -195,8 +142,9 @@ const IntegrationSelector = ({
 
       {isOpen && (
         <div className="absolute top-full left-0 w-full max-w-[275px] bg-[#F7F7FA] shadow-2xl dark:bg-[#0C1112] border border-border rounded-lg p-1 z-30 max-h-[325px] overflow-y-auto custom-scrollbar">
-          {Object.entries(INTEGRATION_OPTIONS).map(
-            ([key, { label, Icon: OptionIcon, href }]) => (
+          {INTEGRATION_ORDER.map((id) => {
+            const { label, Icon: OptionIcon, href } = INTEGRATION_OPTIONS[id];
+            return (
               <Link
                 key={href}
                 href={href}
@@ -205,7 +153,7 @@ const IntegrationSelector = ({
                     ? "bg-[#BEC2FF33] dark:bg-[#7076D533]"
                     : "hover:bg-[#0C1112]/5 dark:hover:bg-white/5"
                 }`}
-                onClick={() => handleIntegrationClick(key as Integration)}
+                onClick={() => handleIntegrationClick(id)}
               >
                 <div className="flex gap-4 items-center">
                   <div
@@ -223,8 +171,8 @@ const IntegrationSelector = ({
                   <CheckIcon className="text-[#5C64DA] dark:text-[#7076D5]" />
                 )}
               </Link>
-            )
-          )}
+            );
+          })}
         </div>
       )}
     </div>
@@ -232,3 +180,4 @@ const IntegrationSelector = ({
 }
 
 export default IntegrationSelector
+export type { IntegrationId as Integration }

@@ -1,4 +1,5 @@
 import { IntegrationLinkButton } from "./integration-link-button"
+import { INTEGRATION_ORDER, IntegrationId, getIntegration } from "@/lib/integrations"
 import A2AIcon from "@/components/ui/icons/a2a"
 import AdkIcon from "@/components/ui/icons/adk"
 import Ag2Icon from "@/components/ui/icons/ag2"
@@ -12,79 +13,39 @@ import MastraIcon from "@/components/ui/icons/mastra"
 import PydanticAiIcon from "@/components/ui/icons/pydantic-ai"
 import { ComponentType } from "react"
 import { MicrosoftIcon } from "@/components/ui/icons/microsoft"
+
+// Icon mapping - component-specific
+const INTEGRATION_ICONS: Record<IntegrationId, ComponentType<{ className?: string }>> = {
+  "a2a": A2AIcon,
+  "adk": AdkIcon,
+  "ag2": Ag2Icon,
+  "agno": AgnoIcon,
+  "crewai-flows": CrewaiIcon,
+  "crewai-crews": CrewaiIcon,
+  "direct-to-llm": DirectToLlmIcon,
+  "langgraph": LanggraphIcon,
+  "llamaindex": LlamaIndexIcon,
+  "mastra": MastraIcon,
+  "pydantic-ai": PydanticAiIcon,
+  "microsoft-agent-framework": MicrosoftIcon,
+  "aws-strands": AwsStrandsIcon,
+}
+
 interface Integration {
   label: string
   Icon: ComponentType<{ className?: string }>
   href: string
 }
 
-const INTEGRATIONS: Integration[] = [
-  {
-    label: "A2A",
-    Icon: A2AIcon,
-    href: "/a2a",
-  },
-  {
-    label: "ADK",
-    Icon: AdkIcon,
-    href: "/adk",
-  },
-  {
-    label: "AG2",
-    Icon: Ag2Icon,
-    href: "/ag2",
-  },
-  {
-    label: "Agno",
-    Icon: AgnoIcon,
-    href: "/agno",
-  },
-  {
-    label: "Microsoft Agent Framework",
-    Icon: MicrosoftIcon,
-    href: "/microsoft-agent-framework",
-  },
-  {
-    label: "AWS Strands",
-    Icon: AwsStrandsIcon,
-    href: "/aws-strands",
-  },
-  {
-    label: "CrewAI Flows",
-    Icon: CrewaiIcon,
-    href: "/crewai-flows",
-  },
-  {
-    label: "CrewAI Crews",
-    Icon: CrewaiIcon,
-    href: "/crewai-crews",
-  },
-  {
-    label: "Direct to LLM",
-    Icon: DirectToLlmIcon,
-    href: "/direct-to-llm",
-  },
-  {
-    label: "LangGraph",
-    Icon: LanggraphIcon,
-    href: "/langgraph",
-  },
-  {
-    label: "LlamaIndex",
-    Icon: LlamaIndexIcon,
-    href: "/llamaindex",
-  },
-  {
-    label: "Mastra",
-    Icon: MastraIcon,
-    href: "/mastra",
-  },
-  {
-    label: "Pydantic AI",
-    Icon: PydanticAiIcon,
-    href: "/pydantic-ai",
-  },
-]
+// Build integrations list from canonical order
+const INTEGRATIONS: Integration[] = INTEGRATION_ORDER.map(id => {
+  const meta = getIntegration(id);
+  return {
+    label: meta.label,
+    Icon: INTEGRATION_ICONS[id],
+    href: meta.href,
+  };
+});
 
 export const IntegrationButtonGroup = () => {
   return (
