@@ -221,16 +221,16 @@ export interface ToolDefinition<Args> {
  * Define a tool for use with BuiltInAgent
  * @param name - The name of the tool
  * @param description - Description of what the tool does
- * @param parameters - Zod schema for the tool's input parameters
+ * @param parameters - Standard Schema or Zod Schema for the tool's input parameters
  * @param execute - Function to execute the tool server-side
  * @returns Tool definition
  */
-export function defineTool<TParameters extends z.ZodTypeAny>(config: {
+export function defineTool<Args>(config: {
   name: string;
   description: string;
-  parameters: TParameters;
-  execute: (args: z.infer<TParameters>) => Promise<unknown>;
-}): ToolDefinition<TParameters> {
+  parameters: StandardSchemaWithJSON<Args> | z.ZodType<Args>;
+  execute: (args: NoInfer<Args>) => Promise<unknown>;
+}): ToolDefinition<Args> {
   return {
     name: config.name,
     description: config.description,
