@@ -6,7 +6,7 @@ import { ReactFrontendTool } from "@/types";
 import { CopilotChat } from "@/components/chat/CopilotChat";
 import CopilotChatToolCallsView from "@/components/chat/CopilotChatToolCallsView";
 import { AssistantMessage, Message } from "@ag-ui/core";
-import { ToolCallStatus } from "@copilotkitnext/core";
+import { ToolCallStatus, DEFINED_IN_MIDDLEWARE } from "@copilotkitnext/core";
 import {
   AbstractAgent,
   EventType,
@@ -2108,6 +2108,221 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
 
       agent.emit(runFinishedEvent());
       agent.complete();
+    });
+  });
+
+  describe("DEFINED_IN_MIDDLEWARE Support", () => {
+    it("should accept DEFINED_IN_MIDDLEWARE as description value", async () => {
+      const agent = new MockStepwiseAgent();
+
+      // Tool that uses DEFINED_IN_MIDDLEWARE for description
+      // The middleware would replace this with the actual description
+      const MiddlewareDefinedTool: React.FC = () => {
+        const tool: ReactFrontendTool<{ value: string }> = {
+          name: "middlewareDefinedTool",
+          description: DEFINED_IN_MIDDLEWARE,
+          parameters: z.object({ value: z.string() }),
+          render: ({ args }) => (
+            <div data-testid="middleware-defined-tool">
+              Value: {args.value}
+            </div>
+          ),
+          handler: async (args) => {
+            return { processed: args.value.toUpperCase() };
+          },
+        };
+
+        useFrontendTool(tool);
+        return null;
+      };
+
+      renderWithCopilotKit({
+        agent,
+        children: (
+          <>
+            <MiddlewareDefinedTool />
+            <div style={{ height: 400 }}>
+              <CopilotChat />
+            </div>
+          </>
+        ),
+      });
+
+      // Submit message
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "Test middleware defined" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await waitFor(() => {
+        expect(screen.getByText("Test middleware defined")).toBeDefined();
+      });
+
+      const messageId = testId("msg");
+      const toolCallId = testId("tc");
+
+      agent.emit(runStartedEvent());
+      agent.emit(
+        toolCallChunkEvent({
+          toolCallId,
+          toolCallName: "middlewareDefinedTool",
+          parentMessageId: messageId,
+          delta: '{"value":"test"}',
+        })
+      );
+
+      // Tool should render successfully
+      await waitFor(() => {
+        const toolEl = screen.getByTestId("middleware-defined-tool");
+        expect(toolEl).toBeDefined();
+        expect(toolEl.textContent).toContain("Value: test");
+      });
+
+      agent.emit(runFinishedEvent());
+      agent.complete();
+    });
+
+    it("should accept DEFINED_IN_MIDDLEWARE as parameters value", async () => {
+      const agent = new MockStepwiseAgent();
+
+      // Tool that uses DEFINED_IN_MIDDLEWARE for parameters
+      // This indicates the middleware should inject the parameter schema
+      const ParametersFromMiddleware: React.FC = () => {
+        const tool: ReactFrontendTool<{ message: string }> = {
+          name: "parametersFromMiddleware",
+          description: "A tool with parameters defined in middleware",
+          parameters: DEFINED_IN_MIDDLEWARE,
+          render: ({ args }) => (
+            <div data-testid="params-middleware-tool">
+              Message: {(args as { message?: string }).message || "undefined"}
+            </div>
+          ),
+          handler: async (args: { message: string }) => {
+            return { echoed: args.message };
+          },
+        };
+
+        useFrontendTool(tool);
+        return null;
+      };
+
+      renderWithCopilotKit({
+        agent,
+        children: (
+          <>
+            <ParametersFromMiddleware />
+            <div style={{ height: 400 }}>
+              <CopilotChat />
+            </div>
+          </>
+        ),
+      });
+
+      // Submit message
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "Test params middleware" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await waitFor(() => {
+        expect(screen.getByText("Test params middleware")).toBeDefined();
+      });
+
+      const messageId = testId("msg");
+      const toolCallId = testId("tc");
+
+      agent.emit(runStartedEvent());
+      agent.emit(
+        toolCallChunkEvent({
+          toolCallId,
+          toolCallName: "parametersFromMiddleware",
+          parentMessageId: messageId,
+          delta: '{"message":"hello from middleware"}',
+        })
+      );
+
+      // Tool should render
+      await waitFor(() => {
+        const toolEl = screen.getByTestId("params-middleware-tool");
+        expect(toolEl).toBeDefined();
+        expect(toolEl.textContent).toContain("hello from middleware");
+      });
+
+      agent.emit(runFinishedEvent());
+      agent.complete();
+    });
+
+    it("should accept DEFINED_IN_MIDDLEWARE for both description and parameters", async () => {
+      const agent = new MockStepwiseAgent();
+
+      // Tool that uses DEFINED_IN_MIDDLEWARE for both fields
+      // This is the most minimal client-side definition
+      const FullyMiddlewareDefined: React.FC = () => {
+        const tool: ReactFrontendTool<{ action: string }> = {
+          name: "fullyMiddlewareDefined",
+          description: DEFINED_IN_MIDDLEWARE,
+          parameters: DEFINED_IN_MIDDLEWARE,
+          render: ({ args }) => (
+            <div data-testid="fully-middleware-tool">
+              Action: {(args as { action?: string }).action || "none"}
+            </div>
+          ),
+          handler: async (args: { action: string }) => {
+            return { performed: args.action };
+          },
+        };
+
+        useFrontendTool(tool);
+        return null;
+      };
+
+      renderWithCopilotKit({
+        agent,
+        children: (
+          <>
+            <FullyMiddlewareDefined />
+            <div style={{ height: 400 }}>
+              <CopilotChat />
+            </div>
+          </>
+        ),
+      });
+
+      // Submit message
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "Test fully middleware" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await waitFor(() => {
+        expect(screen.getByText("Test fully middleware")).toBeDefined();
+      });
+
+      const messageId = testId("msg");
+      const toolCallId = testId("tc");
+
+      agent.emit(runStartedEvent());
+      agent.emit(
+        toolCallChunkEvent({
+          toolCallId,
+          toolCallName: "fullyMiddlewareDefined",
+          parentMessageId: messageId,
+          delta: '{"action":"execute"}',
+        })
+      );
+
+      // Tool should render with the action from the tool call
+      await waitFor(() => {
+        const toolEl = screen.getByTestId("fully-middleware-tool");
+        expect(toolEl).toBeDefined();
+        expect(toolEl.textContent).toContain("Action: execute");
+      });
+
+      agent.emit(runFinishedEvent());
+      agent.complete();
+    });
+
+    it("DEFINED_IN_MIDDLEWARE constant should be the expected sentinel string", () => {
+      // Verify the constant value for serialization compatibility
+      expect(DEFINED_IN_MIDDLEWARE).toBe("__AG_UI_DEFINED_IN_MIDDLEWARE__");
+      expect(typeof DEFINED_IN_MIDDLEWARE).toBe("string");
     });
   });
 });
