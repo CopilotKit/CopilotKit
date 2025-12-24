@@ -7,7 +7,10 @@
     "dev": "next dev",
     "start": "next start",
     "postinstall": "fumadocs-mdx",
-    "prepare": "husky"
+    "prepare": "husky",
+    "generate": "node scripts/generate-integration-features.mjs",
+    "predev": "npm run generate",
+    "prebuild": "npm run generate"
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.18.2",
