@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { ActionRenderProps, FrontendAction } from "../types/frontend-action";
-import { Parameter, getZodParameters, MappedParameterTypes } from "@copilotkit/shared";
+import { Parameter, getZodParameters, MappedParameterTypes, DEFINED_IN_MIDDLEWARE_EXPERIMENTAL } from "@copilotkit/shared";
 import { parseJson } from "@copilotkit/shared";
 import { ToolCallStatus } from "@copilotkitnext/core";
 import {
@@ -41,7 +41,9 @@ export function useFrontendTool<const T extends Parameter[] = []>(
   dependencies?: any[],
 ) {
   const { name, description, parameters, render, followUp } = tool;
-  const zodParameters = getZodParameters(parameters);
+  // Handle DEFINED_IN_MIDDLEWARE_EXPERIMENTAL - treat as undefined for Zod schema generation
+  const normalizedParameters = parameters === DEFINED_IN_MIDDLEWARE_EXPERIMENTAL ? undefined : parameters;
+  const zodParameters = getZodParameters(normalizedParameters);
 
   const normalizedRender: FrontendToolOptions<T>["render"] | undefined = (() => {
     if (typeof render === "undefined") {

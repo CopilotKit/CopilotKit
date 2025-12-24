@@ -6,6 +6,7 @@ import {
   Parameter,
   getZodParameters,
   parseJson,
+  DEFINED_IN_MIDDLEWARE_EXPERIMENTAL,
 } from "@copilotkit/shared";
 import { useHumanInTheLoop as useHumanInTheLoopVNext } from "@copilotkitnext/react";
 import { ToolCallStatus } from "@copilotkitnext/core";
@@ -54,7 +55,9 @@ export function useHumanInTheLoop<const T extends Parameter[] | [] = []>(
 ) {
   const { render, ...toolRest } = tool;
   const { name, description, parameters, followUp } = toolRest;
-  const zodParameters = getZodParameters(parameters);
+  // Handle DEFINED_IN_MIDDLEWARE_EXPERIMENTAL - treat as undefined for Zod schema generation
+  const normalizedParameters = parameters === DEFINED_IN_MIDDLEWARE_EXPERIMENTAL ? undefined : parameters;
+  const zodParameters = getZodParameters(normalizedParameters);
   const renderRef = useRef<HitlRenderer | null>(null);
 
   useEffect(() => {

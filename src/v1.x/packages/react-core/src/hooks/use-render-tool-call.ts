@@ -4,7 +4,7 @@ import {
   ActionRenderPropsWait,
   FrontendAction,
 } from "../types";
-import { Parameter, getZodParameters } from "@copilotkit/shared";
+import { Parameter, getZodParameters, DEFINED_IN_MIDDLEWARE_EXPERIMENTAL } from "@copilotkit/shared";
 import React, { useEffect, useRef } from "react";
 import { defineToolCallRenderer, useCopilotKit } from "@copilotkitnext/react";
 import { parseJson } from "@copilotkit/shared";
@@ -32,7 +32,9 @@ export function useRenderToolCall<const T extends Parameter[] | [] = []>(
 
   useEffect(() => {
     const { name, parameters, render } = tool;
-    const zodParameters = getZodParameters(parameters);
+    // Handle DEFINED_IN_MIDDLEWARE_EXPERIMENTAL - treat as undefined for Zod schema generation
+    const normalizedParameters = parameters === DEFINED_IN_MIDDLEWARE_EXPERIMENTAL ? undefined : parameters;
+    const zodParameters = getZodParameters(normalizedParameters);
 
     const renderToolCall =
       name === "*"

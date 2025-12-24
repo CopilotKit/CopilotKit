@@ -3,7 +3,7 @@ import { randomUUID, logger } from "@copilotkitnext/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type { CopilotKitCore } from "./core";
 import { CopilotKitCoreErrorCode, CopilotKitCoreFriendsAccess } from "./core";
-import { FrontendTool } from "../types";
+import { FrontendTool, DEFINED_IN_MIDDLEWARE_EXPERIMENTAL } from "../types";
 
 export interface CopilotKitCoreRunAgentParams {
   agent: AbstractAgent;
@@ -478,13 +478,20 @@ export class RunHandler {
 
   /**
    * Build frontend tools for an agent
+   *
+   * If a tool uses DEFINED_IN_MIDDLEWARE_EXPERIMENTAL for description or parameters,
+   * those sentinel values are passed through unchanged. The SecureToolsMiddleware
+   * will replace them with actual values from the allowedTools configuration.
    */
   buildFrontendTools(agentId?: string): Tool[] {
     return this._tools
       .filter((tool) => !tool.agentId || tool.agentId === agentId)
       .map((tool) => ({
         name: tool.name,
-        description: tool.description ?? "",
+        // Pass through DEFINED_IN_MIDDLEWARE_EXPERIMENTAL for server-side replacement
+        description: tool.description === DEFINED_IN_MIDDLEWARE_EXPERIMENTAL
+          ? DEFINED_IN_MIDDLEWARE_EXPERIMENTAL
+          : (tool.description ?? ""),
         parameters: createToolSchema(tool),
       }));
   }
@@ -552,8 +559,17 @@ const EMPTY_TOOL_SCHEMA = {
 
 /**
  * Create a JSON schema from a tool's parameters
+ *
+ * If parameters is DEFINED_IN_MIDDLEWARE_EXPERIMENTAL, returns a special marker
+ * object that the SecureToolsMiddleware will replace with the actual schema.
  */
 function createToolSchema(tool: FrontendTool<any>): Record<string, unknown> {
+  // Pass through DEFINED_IN_MIDDLEWARE_EXPERIMENTAL as a marker for server-side replacement
+  // The middleware will replace this with the actual parameters from allowedTools
+  if (tool.parameters === DEFINED_IN_MIDDLEWARE_EXPERIMENTAL) {
+    return { __definedInMiddleware: DEFINED_IN_MIDDLEWARE_EXPERIMENTAL };
+  }
+
   if (!tool.parameters) {
     return { ...EMPTY_TOOL_SCHEMA };
   }
