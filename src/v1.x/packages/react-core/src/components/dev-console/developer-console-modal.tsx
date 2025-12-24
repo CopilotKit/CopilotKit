@@ -2,7 +2,7 @@
 
 import { useCopilotContext } from "../../context/copilot-context";
 import { useCopilotMessagesContext } from "../../context/copilot-messages-context";
-import { COPILOTKIT_VERSION } from "@copilotkit/shared";
+import { COPILOTKIT_VERSION, DEFINED_IN_MIDDLEWARE_EXPERIMENTAL } from "@copilotkit/shared";
 import { useEffect, useState } from "react";
 import { CheckIcon, CopilotKitIcon, ExclamationMarkTriangleIcon } from "./icons";
 
@@ -16,7 +16,8 @@ interface ActionParameter {
 interface Action {
   name: string;
   description?: string;
-  parameters?: ActionParameter[];
+  /** Parameters can be an array or DEFINED_IN_MIDDLEWARE_EXPERIMENTAL sentinel string */
+  parameters?: ActionParameter[] | typeof DEFINED_IN_MIDDLEWARE_EXPERIMENTAL;
   status?: string;
 }
 
@@ -513,7 +514,7 @@ function ActionsTab({ context }: { context: DisplayContext }) {
                   {action.description}
                 </p>
               )}
-              {action.parameters && action.parameters.length > 0 && (
+              {action.parameters && action.parameters !== DEFINED_IN_MIDDLEWARE_EXPERIMENTAL && action.parameters.length > 0 && (
                 <div style={{ marginTop: "12px" }}>
                   <p
                     style={{
@@ -527,7 +528,7 @@ function ActionsTab({ context }: { context: DisplayContext }) {
                     Parameters:
                   </p>
                   <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                    {action.parameters.map((param: ActionParameter, pIndex: number) => (
+                    {(action.parameters as ActionParameter[]).map((param: ActionParameter, pIndex: number) => (
                       <div key={pIndex} style={{ fontSize: "14px" }}>
                         <span style={{ fontFamily: "monospace", color: "#374151" }}>
                           {param.name}

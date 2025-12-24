@@ -1,7 +1,10 @@
 import { DestroyRef, Injector, Signal, Type, inject } from "@angular/core";
-import { FrontendTool } from "@copilotkitnext/core";
+import { FrontendTool, DEFINED_IN_MIDDLEWARE_EXPERIMENTAL } from "@copilotkitnext/core";
 import { z } from "zod";
 import { CopilotKit } from "./copilotkit";
+
+/** Type alias for the DEFINED_IN_MIDDLEWARE_EXPERIMENTAL sentinel value */
+type DefinedInMiddleware = typeof DEFINED_IN_MIDDLEWARE_EXPERIMENTAL;
 
 export type AngularToolCall<Args extends Record<string, unknown> = Record<string, unknown>> =
   | {
@@ -64,8 +67,14 @@ export interface RenderToolCallConfig<Args extends Record<string, unknown> = Rec
 
 export interface FrontendToolConfig<Args extends Record<string, unknown> = Record<string, unknown>> {
   name: string;
-  description: string;
-  parameters: z.ZodType<Args>;
+  /**
+   * Tool description. Can be DEFINED_IN_MIDDLEWARE_EXPERIMENTAL to defer to server-side middleware.
+   */
+  description: string | DefinedInMiddleware;
+  /**
+   * Tool parameters schema. Can be DEFINED_IN_MIDDLEWARE_EXPERIMENTAL to defer to server-side middleware.
+   */
+  parameters: z.ZodType<Args> | DefinedInMiddleware;
   component?: Type<ToolRenderer<Args>>;
   handler: (args: Args) => Promise<unknown>;
   agentId?: string;
@@ -73,8 +82,14 @@ export interface FrontendToolConfig<Args extends Record<string, unknown> = Recor
 
 export interface HumanInTheLoopConfig<Args extends Record<string, unknown> = Record<string, unknown>> {
   name: string;
-  description: string;
-  parameters: z.ZodType<Args>;
+  /**
+   * Tool description. Can be DEFINED_IN_MIDDLEWARE_EXPERIMENTAL to defer to server-side middleware.
+   */
+  description: string | DefinedInMiddleware;
+  /**
+   * Tool parameters schema. Can be DEFINED_IN_MIDDLEWARE_EXPERIMENTAL to defer to server-side middleware.
+   */
+  parameters: z.ZodType<Args> | DefinedInMiddleware;
   component: Type<HumanInTheLoopToolRenderer<Args>>;
   agentId?: string;
 }

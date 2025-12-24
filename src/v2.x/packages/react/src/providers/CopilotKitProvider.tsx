@@ -6,7 +6,7 @@ import { ReactCustomMessageRenderer } from "../types/react-custom-message-render
 import { ReactFrontendTool } from "../types/frontend-tool";
 import { ReactHumanInTheLoop } from "../types/human-in-the-loop";
 import { z } from "zod";
-import { FrontendTool } from "@copilotkitnext/core";
+import { FrontendTool, DEFINED_IN_MIDDLEWARE_EXPERIMENTAL } from "@copilotkitnext/core";
 import { AbstractAgent } from "@ag-ui/client";
 import { CopilotKitCoreReact } from "../lib/react-core";
 import { CopilotKitInspector } from "../components/CopilotKitInspector";
@@ -232,10 +232,11 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       processedTools.push(frontendTool);
 
       // Add the render component to renderToolCalls
-      if (tool.render) {
+      // Skip if parameters is DEFINED_IN_MIDDLEWARE_EXPERIMENTAL (no client-side schema available)
+      if (tool.render && tool.parameters && tool.parameters !== DEFINED_IN_MIDDLEWARE_EXPERIMENTAL) {
         processedRenderToolCalls.push({
           name: tool.name,
-          args: tool.parameters!,
+          args: tool.parameters,
           render: tool.render,
           ...(tool.agentId && { agentId: tool.agentId }),
         } as ReactToolCallRenderer<unknown>);
@@ -265,6 +266,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     // Add render components from frontend tools
     frontendToolsList.forEach((tool) => {
       if (tool.render) {
+        // Skip if parameters is DEFINED_IN_MIDDLEWARE_EXPERIMENTAL (no client-side schema available)
+        if (tool.parameters === DEFINED_IN_MIDDLEWARE_EXPERIMENTAL) {
+          return;
+        }
         // For wildcard tools without parameters, default to z.any()
         const args = tool.parameters || (tool.name === "*" ? z.any() : undefined);
         if (args) {

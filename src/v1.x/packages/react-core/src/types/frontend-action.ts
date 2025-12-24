@@ -4,6 +4,7 @@ import {
   Parameter,
   MappedParameterTypes,
   actionParametersToJsonSchema,
+  DEFINED_IN_MIDDLEWARE_EXPERIMENTAL,
 } from "@copilotkit/shared";
 import React from "react";
 
@@ -191,10 +192,26 @@ export function processActionsForRuntimeRequest(actions: FrontendAction<any>[]) 
       } else if (action.available === "remote") {
         available = ActionInputAvailability.Remote;
       }
+
+      // Handle DEFINED_IN_MIDDLEWARE_EXPERIMENTAL for description
+      // Pass through the sentinel for server-side middleware to replace
+      const description = action.description === DEFINED_IN_MIDDLEWARE_EXPERIMENTAL
+        ? DEFINED_IN_MIDDLEWARE_EXPERIMENTAL
+        : (action.description || "");
+
+      // Handle DEFINED_IN_MIDDLEWARE_EXPERIMENTAL for parameters
+      // Create a marker object that the server-side middleware will detect and replace
+      let jsonSchema: string;
+      if (action.parameters === DEFINED_IN_MIDDLEWARE_EXPERIMENTAL) {
+        jsonSchema = JSON.stringify({ __definedInMiddleware: DEFINED_IN_MIDDLEWARE_EXPERIMENTAL });
+      } else {
+        jsonSchema = JSON.stringify(actionParametersToJsonSchema(action.parameters || []));
+      }
+
       return {
         name: action.name,
-        description: action.description || "",
-        jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
+        description,
+        jsonSchema,
         available,
       };
     });

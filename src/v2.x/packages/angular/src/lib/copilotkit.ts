@@ -1,5 +1,5 @@
 import { AbstractAgent } from "@ag-ui/client";
-import { FrontendTool, CopilotKitCore } from "@copilotkitnext/core";
+import { FrontendTool, CopilotKitCore, DEFINED_IN_MIDDLEWARE_EXPERIMENTAL } from "@copilotkitnext/core";
 import { Injectable, Injector, Signal, WritableSignal, runInInjectionContext, signal, inject } from "@angular/core";
 import { FrontendToolConfig, HumanInTheLoopConfig, RenderToolCallConfig } from "./tools";
 import { injectCopilotKitConfig } from "./config";
@@ -36,7 +36,9 @@ export class CopilotKit {
     });
 
     this.#config.tools?.forEach((tool) => {
-      if (tool.renderer && tool.parameters) {
+      // Skip tools that use DEFINED_IN_MIDDLEWARE_EXPERIMENTAL for parameters
+      // The actual schema will be provided by the server-side middleware
+      if (tool.renderer && tool.parameters && tool.parameters !== DEFINED_IN_MIDDLEWARE_EXPERIMENTAL) {
         this.addRenderToolCall({
           name: tool.name,
           args: tool.parameters,

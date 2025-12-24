@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useCopilotKit } from "../providers/CopilotKitProvider";
 import { ReactFrontendTool } from "../types/frontend-tool";
 import { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
+import { DEFINED_IN_MIDDLEWARE_EXPERIMENTAL } from "@copilotkitnext/core";
 
 const EMPTY_DEPS: ReadonlyArray<unknown> = [];
 
@@ -24,7 +25,8 @@ export function useFrontendTool<
     copilotkit.addTool(tool);
 
     // Register/override renderer by name and agentId through core
-    if (tool.render) {
+    // Skip render registration if parameters is DEFINED_IN_MIDDLEWARE_EXPERIMENTAL (no client-side schema)
+    if (tool.render && tool.parameters && tool.parameters !== DEFINED_IN_MIDDLEWARE_EXPERIMENTAL) {
       // Get current render tool calls and merge with new entry
       const keyOf = (rc: ReactToolCallRenderer<any>) => `${rc.agentId ?? ""}:${rc.name}`;
       const currentRenderToolCalls = copilotkit.renderToolCalls as ReactToolCallRenderer<any>[];
