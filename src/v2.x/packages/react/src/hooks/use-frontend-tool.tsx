@@ -3,6 +3,7 @@ import { useCopilotKit } from "../providers/CopilotKitProvider";
 import { ReactFrontendTool } from "../types/frontend-tool";
 import { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
 import { DEFINED_IN_MIDDLEWARE_EXPERIMENTAL } from "@copilotkitnext/core";
+import { z } from "zod";
 
 const EMPTY_DEPS: ReadonlyArray<unknown> = [];
 
@@ -25,8 +26,7 @@ export function useFrontendTool<
     copilotkit.addTool(tool);
 
     // Register/override renderer by name and agentId through core
-    // Skip render registration if parameters is DEFINED_IN_MIDDLEWARE_EXPERIMENTAL (no client-side schema)
-    if (tool.render && tool.parameters && tool.parameters !== DEFINED_IN_MIDDLEWARE_EXPERIMENTAL) {
+    if (tool.render) {
       // Get current render tool calls and merge with new entry
       const keyOf = (rc: ReactToolCallRenderer<any>) => `${rc.agentId ?? ""}:${rc.name}`;
       const currentRenderToolCalls = copilotkit.renderToolCalls as ReactToolCallRenderer<any>[];
@@ -37,10 +37,16 @@ export function useFrontendTool<
         mergedMap.set(keyOf(rc), rc);
       }
 
+      // Use z.any() as fallback when parameters is DEFINED_IN_MIDDLEWARE_EXPERIMENTAL
+      // The actual schema comes from the server, but we still need to register the renderer
+      const args = tool.parameters === DEFINED_IN_MIDDLEWARE_EXPERIMENTAL
+        ? z.any()
+        : (tool.parameters ?? z.any());
+
       // Add/overwrite with new entry
       const newEntry = {
         name,
-        args: tool.parameters,
+        args,
         agentId: tool.agentId,
         render: tool.render,
       } as ReactToolCallRenderer<any>;

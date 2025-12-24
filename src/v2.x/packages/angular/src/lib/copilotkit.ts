@@ -4,6 +4,7 @@ import { Injectable, Injector, Signal, WritableSignal, runInInjectionContext, si
 import { FrontendToolConfig, HumanInTheLoopConfig, RenderToolCallConfig } from "./tools";
 import { injectCopilotKitConfig } from "./config";
 import { HumanInTheLoop } from "./human-in-the-loop";
+import { z } from "zod";
 
 @Injectable({ providedIn: "root" })
 export class CopilotKit {
@@ -36,12 +37,16 @@ export class CopilotKit {
     });
 
     this.#config.tools?.forEach((tool) => {
-      // Skip tools that use DEFINED_IN_MIDDLEWARE_EXPERIMENTAL for parameters
-      // The actual schema will be provided by the server-side middleware
-      if (tool.renderer && tool.parameters && tool.parameters !== DEFINED_IN_MIDDLEWARE_EXPERIMENTAL) {
+      if (tool.renderer) {
+        // Use z.any() as fallback when parameters is DEFINED_IN_MIDDLEWARE_EXPERIMENTAL
+        // The actual schema comes from the server, but we still need to register the renderer
+        const args = tool.parameters === DEFINED_IN_MIDDLEWARE_EXPERIMENTAL
+          ? z.any()
+          : (tool.parameters ?? z.any());
+
         this.addRenderToolCall({
           name: tool.name,
-          args: tool.parameters,
+          args,
           component: tool.renderer,
           agentId: tool.agentId,
         });

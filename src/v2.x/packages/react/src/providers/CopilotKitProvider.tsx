@@ -232,11 +232,16 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       processedTools.push(frontendTool);
 
       // Add the render component to renderToolCalls
-      // Skip if parameters is DEFINED_IN_MIDDLEWARE_EXPERIMENTAL (no client-side schema available)
-      if (tool.render && tool.parameters && tool.parameters !== DEFINED_IN_MIDDLEWARE_EXPERIMENTAL) {
+      if (tool.render) {
+        // Use z.any() as fallback when parameters is DEFINED_IN_MIDDLEWARE_EXPERIMENTAL
+        // The actual schema comes from the server, but we still need to register the renderer
+        const args = tool.parameters === DEFINED_IN_MIDDLEWARE_EXPERIMENTAL
+          ? z.any()
+          : (tool.parameters ?? z.any());
+
         processedRenderToolCalls.push({
           name: tool.name,
-          args: tool.parameters,
+          args,
           render: tool.render,
           ...(tool.agentId && { agentId: tool.agentId }),
         } as ReactToolCallRenderer<unknown>);
@@ -266,19 +271,17 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     // Add render components from frontend tools
     frontendToolsList.forEach((tool) => {
       if (tool.render) {
-        // Skip if parameters is DEFINED_IN_MIDDLEWARE_EXPERIMENTAL (no client-side schema available)
-        if (tool.parameters === DEFINED_IN_MIDDLEWARE_EXPERIMENTAL) {
-          return;
-        }
-        // For wildcard tools without parameters, default to z.any()
-        const args = tool.parameters || (tool.name === "*" ? z.any() : undefined);
-        if (args) {
-          combined.push({
-            name: tool.name,
-            args: args,
-            render: tool.render,
-          } as ReactToolCallRenderer<unknown>);
-        }
+        // Use z.any() as fallback when parameters is DEFINED_IN_MIDDLEWARE_EXPERIMENTAL
+        // or for wildcard tools without parameters
+        const args = tool.parameters === DEFINED_IN_MIDDLEWARE_EXPERIMENTAL
+          ? z.any()
+          : (tool.parameters || (tool.name === "*" ? z.any() : z.any()));
+
+        combined.push({
+          name: tool.name,
+          args: args,
+          render: tool.render,
+        } as ReactToolCallRenderer<unknown>);
       }
     });
 
