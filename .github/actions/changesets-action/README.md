@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: Setup Node.js 20
         uses: actions/setup-node@v3
@@ -77,7 +77,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: Setup Node.js 20.x
         uses: actions/setup-node@v3
@@ -142,7 +142,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: Setup Node.js 20.x
         uses: actions/setup-node@v3
@@ -186,7 +186,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: Setup Node.js 20.x
         uses: actions/setup-node@v3
