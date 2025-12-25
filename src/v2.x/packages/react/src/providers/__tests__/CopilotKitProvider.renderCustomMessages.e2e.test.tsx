@@ -618,6 +618,64 @@ describe("CopilotKitProvider custom message renderers E2E", () => {
     });
   });
 
+  it("re-renders custom message when state updates within the same run", async () => {
+    const agent = new MockStepwiseAgent();
+
+    const StateCountRenderer: React.FC<SnapshotRendererProps> = ({
+      message,
+      position,
+      stateSnapshot,
+    }) => {
+      if (position !== "after" || message.role !== "assistant") return null;
+      const snapshot = stateSnapshot as { count?: number } | undefined;
+      return (
+        <div data-testid={`count-${message.id}`}>
+          Count: {snapshot?.count ?? "none"}
+        </div>
+      );
+    };
+
+    renderWithCopilotKit({
+      agent,
+      renderCustomMessages: [{ render: StateCountRenderer }],
+    });
+
+    const input = await screen.findByRole("textbox");
+    const messageId = testId("message");
+
+    fireEvent.change(input, { target: { value: "Test" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+    await waitFor(() => {
+      expect(screen.getByText("Test")).toBeDefined();
+    });
+
+    // Start run
+    agent.emit(runStartedEvent());
+
+    // Emit message
+    agent.emit(textMessageStartEvent(messageId));
+    agent.emit(textMessageContentEvent(messageId, "Response"));
+    agent.emit(textMessageEndEvent(messageId));
+
+    // First state update
+    agent.emit(stateSnapshotEvent({ count: 1 }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId(`count-${messageId}`).textContent).toBe("Count: 1");
+    });
+
+    // Second state update WITHIN THE SAME RUN
+    agent.emit(stateSnapshotEvent({ count: 2 }));
+
+    // This assertion will FAIL due to the bug - custom message won't re-render
+    await waitFor(() => {
+      expect(screen.getByTestId(`count-${messageId}`).textContent).toBe("Count: 2");
+    });
+
+    agent.emit(runFinishedEvent());
+  });
+
   it("receives state snapshots from different runs", async () => {
     const agent = new MockStepwiseAgent();
     const receivedSnapshots: Array<{ messageId: string; count: number }> = [];
