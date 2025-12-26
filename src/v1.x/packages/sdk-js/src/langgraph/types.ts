@@ -1,3 +1,5 @@
+import { Annotation, MessagesAnnotation } from "@langchain/langgraph";
+
 export const CopilotKitPropertiesAnnotation = Annotation.Root({
   actions: Annotation<any[]>,
   context: Annotation<{ description: string; value: string }[]>,
