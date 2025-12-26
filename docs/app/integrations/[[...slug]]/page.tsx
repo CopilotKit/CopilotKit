@@ -4,7 +4,7 @@ import { DocsPage, DocsBody, DocsDescription, DocsTitle } from 'fumadocs-ui/page
 import { notFound } from 'next/navigation';
 import defaultMdxComponents from 'fumadocs-ui/mdx';
 import { Badge } from '@/components/ui/badge';
-import { CloudIcon } from 'lucide-react';
+import { ChevronLeft, CloudIcon } from 'lucide-react';
 import { Tabs, Tab } from '@/components/react/tabs';
 import { Steps, Step } from 'fumadocs-ui/components/steps';
 import { TypeTable } from 'fumadocs-ui/components/type-table';
@@ -21,6 +21,8 @@ import { NavigationLink } from '@/components/react/subdocs-menu';
 import { getSnippetTOCForPage } from '@/lib/snippet-toc';
 import { CustomPager } from '@/components/ui/custom-pager';
 import { PageBreadcrumb } from 'fumadocs-ui/layouts/docs/page-client';
+import Link from 'next/link';
+import { cn } from '@/lib/utils';
 
 /**
  * TODO: This should be dynamic, but it's not working.
@@ -97,6 +99,8 @@ export default async function Page({ params }: { params: Promise<{ slug?: string
   }
   const combinedTOC = hideTOC ? [] : [...(page.data.toc || []), ...snippetTOC];
 
+  const isIntegrationsRootPage = (resolvedParams.slug || []).length === 0;
+
   return (
     <DocsPage
       toc={combinedTOC}
@@ -108,6 +112,17 @@ export default async function Page({ params }: { params: Promise<{ slug?: string
       breadcrumb={{ enabled: false }}>
       <div>
         <div className='overflow-y-scroll px-8 py-6 rounded-2xl xl:py-12 xl:px-16 custom-scrollbar max-sm:px-4 max-sm:py-6'>
+          {!isIntegrationsRootPage && (
+            <div className={cn("mb-4", hideHeader ? "mx-auto max-w-5xl px-4 sm:px-6" : "")}>
+              <Link
+                href="/integrations"
+                className="inline-flex items-center gap-2 text-muted-foreground hover:text-accent-foreground transition-color"
+              >
+                <ChevronLeft size={20} className="" />
+                <span className="text-xs">Back to Integrations</span>
+              </Link>
+            </div>
+          )}
           <PageBreadcrumb className='mb-4' />
           <div className={hideHeader ? '' : 'min-h-screen'}>
             {!hideHeader && (
