@@ -9,7 +9,7 @@ export default defineConfig((options: Options) => ({
   },
   format: ["esm", "cjs"],
   dts: {
-    entry: ["src/index.ts", "src/langchain.ts", "src/langgraph.ts"],
+    entry: ["src/index.ts", "src/langchain.ts", "src/langgraph/index.ts"],
   },
   minify: false,
   external: [],
