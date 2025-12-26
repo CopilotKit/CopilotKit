@@ -1,23 +1,3 @@
-"""
-AG-UI Middleware for LangGraph agents.
-
-Enables:
-- Dynamic frontend tools from state['ag-ui']['tools']
-- Frontend tool routing (intercept calls, skip backend execution)
-
-Works with any agent (prebuilt or custom).
-
-Example:
-    from langchain.agents import create_agent
-    from copilotkit import CopilotKitMiddleware
-
-    agent = create_agent(
-        model="openai:gpt-4o",
-        tools=[backend_tool],
-        middleware=[CopilotKitMiddleware()],
-    )
-"""
-
 from typing import Any, Callable, Awaitable, Annotated
 from typing_extensions import TypedDict, NotRequired
 
@@ -32,9 +12,9 @@ from langgraph.runtime import Runtime
 
 
 class CopilotKitState(AgentState):
-    """Extended state schema for AG-UI middleware."""
+    """Extended state schema for CopilotKit middleware."""
 
-    # AG-UI frontend tools passed via state
+    # CopilotKit frontend tools passed via state
     actions: List[Any]
     context: List[CopilotContextItem]
 
@@ -42,13 +22,13 @@ class CopilotKitState(AgentState):
     copilotkit: NotRequired[dict[str, Any]]
 
 
-class CopilotKitMiddleware(AgentMiddleware[AGUIState, Any]):
-    """AG-UI Middleware for LangGraph agents.
+class CopilotKitMiddleware(AgentMiddleware[CopilotKitState, Any]):
+    """CopilotKit Middleware for LangGraph agents.
 
-    Handles frontend tool injection and interception for AG-UI protocol.
+    Handles frontend tool injection and interception for CopilotKit.
     """
 
-    state_schema = AGUIState
+    state_schema = CopilotKitState
     tools = []
 
     @property
@@ -61,7 +41,7 @@ class CopilotKitMiddleware(AgentMiddleware[AGUIState, Any]):
             request: ModelRequest,
             handler: Callable[[ModelRequest], ModelResponse],
     ) -> ModelResponse:
-        frontend_tools = request.state.get("ag-ui", {}).get("tools", [])
+        frontend_tools = request.state.get("copilotkit", {}).get("tools", [])
 
         if not frontend_tools:
             return handler(request)
@@ -76,7 +56,7 @@ class CopilotKitMiddleware(AgentMiddleware[AGUIState, Any]):
             request: ModelRequest,
             handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
     ) -> ModelResponse:
-        frontend_tools = request.state.get("ag-ui", {}).get("tools", [])
+        frontend_tools = request.state.get("copilotkit", {}).get("tools", [])
 
         if not frontend_tools:
             return await handler(request)
@@ -89,10 +69,10 @@ class CopilotKitMiddleware(AgentMiddleware[AGUIState, Any]):
     # Intercept frontend tool calls after model returns, before ToolNode executes
     def after_model(
             self,
-            state: AGUIState,
+            state: CopilotKitState,
             runtime: Runtime[Any],
     ) -> dict[str, Any] | None:
-        frontend_tools = state.get("ag-ui", {}).get("tools", [])
+        frontend_tools = state.get("copilotkit", {}).get("tools", [])
         if not frontend_tools:
             return None
 
@@ -143,7 +123,7 @@ class CopilotKitMiddleware(AgentMiddleware[AGUIState, Any]):
 
     async def aafter_model(
             self,
-            state: AGUIState,
+            state: CopilotKitState,
             runtime: Runtime[Any],
     ) -> dict[str, Any] | None:
         # Delegate to sync implementation
@@ -152,7 +132,7 @@ class CopilotKitMiddleware(AgentMiddleware[AGUIState, Any]):
     # Restore frontend tool calls to AIMessage before agent exits
     def after_agent(
             self,
-            state: AGUIState,
+            state: CopilotKitState,
             runtime: Runtime[Any],
     ) -> dict[str, Any] | None:
         copilotkit_state = state.get("copilotkit", {})
@@ -186,7 +166,7 @@ class CopilotKitMiddleware(AgentMiddleware[AGUIState, Any]):
 
     async def aafter_agent(
             self,
-            state: AGUIState,
+            state: CopilotKitState,
             runtime: Runtime[Any],
     ) -> dict[str, Any] | None:
         # Delegate to sync implementation
