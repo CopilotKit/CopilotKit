@@ -1,35 +1,10 @@
 import { RunnableConfig } from "@langchain/core/runnables";
 import { dispatchCustomEvent } from "@langchain/core/callbacks/dispatch";
 import { convertJsonSchemaToZodSchema, randomId, CopilotKitMisuseError } from "@copilotkit/shared";
-import { Annotation, MessagesAnnotation, interrupt } from "@langchain/langgraph";
+import { interrupt } from "@langchain/langgraph";
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { AIMessage } from "@langchain/core/messages";
-
-interface IntermediateStateConfig {
-  stateKey: string;
-  tool: string;
-  toolArgument?: string;
-}
-
-interface OptionsConfig {
-  emitToolCalls?: boolean | string | string[];
-  emitMessages?: boolean;
-  emitAll?: boolean;
-  emitIntermediateState?: IntermediateStateConfig[];
-}
-
-export const CopilotKitPropertiesAnnotation = Annotation.Root({
-  actions: Annotation<any[]>,
-  context: Annotation<{ description: string; value: string }[]>,
-});
-
-export const CopilotKitStateAnnotation = Annotation.Root({
-  copilotkit: Annotation<typeof CopilotKitPropertiesAnnotation.State>,
-  ...MessagesAnnotation.spec,
-});
-
-export type CopilotKitState = typeof CopilotKitStateAnnotation.State;
-export type CopilotKitProperties = typeof CopilotKitPropertiesAnnotation.State;
+import { OptionsConfig } from "./types";
 
 /**
  * Customize the LangGraph configuration for use in CopilotKit.
