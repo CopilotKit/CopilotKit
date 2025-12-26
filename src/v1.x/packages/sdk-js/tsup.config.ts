@@ -5,7 +5,7 @@ export default defineConfig((options: Options) => ({
   entry: {
     index: "src/index.ts",
     langchain: "src/langchain.ts",
-    langgraph: "src/langgraph.ts",
+    langgraph: "src/langgraph/index.ts",
   },
   format: ["esm", "cjs"],
   dts: {
