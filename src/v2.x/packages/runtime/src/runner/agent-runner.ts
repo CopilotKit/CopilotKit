@@ -5,6 +5,7 @@ export interface AgentRunnerRunRequest {
   threadId: string;
   agent: AbstractAgent;
   input: RunAgentInput;
+  request?: Request;
 }
 
 export interface AgentRunnerConnectRequest {

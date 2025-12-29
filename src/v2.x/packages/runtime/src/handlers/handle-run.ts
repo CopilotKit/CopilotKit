@@ -51,9 +51,9 @@ export async function handleRunAgent({
         }
       });
 
-      agent.headers = { 
-        ...agent.headers as Record<string, string>, 
-        ...forwardableHeaders 
+      agent.headers = {
+        ...agent.headers as Record<string, string>,
+        ...forwardableHeaders
       };
     }
 
@@ -86,6 +86,7 @@ export async function handleRunAgent({
           threadId: input.threadId,
           agent,
           input,
+          request,
         })
         .subscribe({
           next: async (event) => {
