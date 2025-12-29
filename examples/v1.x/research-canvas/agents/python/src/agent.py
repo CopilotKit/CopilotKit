@@ -2,18 +2,16 @@
 This is the main entry point for the AI.
 It defines the workflow graph and the entry point for the agent.
 """
-# pylint: disable=line-too-long, unused-import
-import json
-import os
-from typing import cast
 
-from langchain_core.messages import AIMessage, ToolMessage
-from langgraph.graph import StateGraph, END
-from research_canvas.langgraph.state import AgentState
-from research_canvas.langgraph.download import download_node
-from research_canvas.langgraph.chat import chat_node
-from research_canvas.langgraph.search import search_node
-from research_canvas.langgraph.delete import delete_node, perform_delete_node
+import os
+
+from langgraph.graph import StateGraph
+
+from src.lib.chat import chat_node
+from src.lib.delete import delete_node, perform_delete_node
+from src.lib.download import download_node
+from src.lib.search import search_node
+from src.lib.state import AgentState
 
 # Define a new graph
 workflow = StateGraph(AgentState)
@@ -34,6 +32,7 @@ workflow.add_edge("search_node", "download")
 # This allows compatibility with both LangGraph API and CopilotKit
 compile_kwargs = {"interrupt_after": ["delete_node"]}
 
+
 # Check if we're running in LangGraph API mode
 if os.environ.get("LANGGRAPH_FASTAPI", "false").lower() == "false":
     # When running in LangGraph API, don't use a custom checkpointer
@@ -41,6 +40,7 @@ if os.environ.get("LANGGRAPH_FASTAPI", "false").lower() == "false":
 else:
     # For CopilotKit and other contexts, use MemorySaver
     from langgraph.checkpoint.memory import MemorySaver
+
     memory = MemorySaver()
     compile_kwargs["checkpointer"] = memory
     graph = workflow.compile(**compile_kwargs)

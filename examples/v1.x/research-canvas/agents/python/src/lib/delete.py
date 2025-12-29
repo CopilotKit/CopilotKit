@@ -2,17 +2,21 @@
 
 import json
 from typing import cast
-from langchain_core.runnables import RunnableConfig
-from langchain_core.messages import ToolMessage, AIMessage
-from research_canvas.langgraph.state import AgentState
 
-async def delete_node(state: AgentState, config: RunnableConfig): # pylint: disable=unused-argument
+from langchain_core.messages import AIMessage, ToolMessage
+from langchain_core.runnables import RunnableConfig
+
+from src.lib.state import AgentState
+
+
+async def delete_node(state: AgentState, config: RunnableConfig):  # pylint: disable=unused-argument
     """
     Delete Node
     """
     return state
 
-async def perform_delete_node(state: AgentState, config: RunnableConfig): # pylint: disable=unused-argument
+
+async def perform_delete_node(state: AgentState, config: RunnableConfig):  # pylint: disable=unused-argument
     """
     Perform Delete Node
     """
@@ -22,7 +26,9 @@ async def perform_delete_node(state: AgentState, config: RunnableConfig): # pyli
         if ai_message.tool_calls:
             urls = ai_message.tool_calls[0]["args"]["urls"]
         else:
-            parsed_tool_call = json.loads(ai_message.additional_kwargs["function_call"]["arguments"])
+            parsed_tool_call = json.loads(
+                ai_message.additional_kwargs["function_call"]["arguments"]
+            )
             urls = parsed_tool_call["urls"]
 
         state["resources"] = [
