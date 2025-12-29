@@ -68,8 +68,7 @@ const mdxComponents = {
 
 export default async function Page({ params }: { params: Promise<{ slug?: string[] }> }) {
   const resolvedParams = await params;
-  const slugs = resolvedParams.slug || [];
-  const page = source.getPage(['integrations', ...slugs]);
+  const page = source.getPage(['integrations', ...(resolvedParams.slug || [])]);
   if (!page) notFound();
   const MDX = page.data.body;
   const cloudOnly = cloudOnlyFeatures.includes(page.data.title);
@@ -92,7 +91,7 @@ export default async function Page({ params }: { params: Promise<{ slug?: string
   let snippetTOC: any[] = [];
   if (!hideTOC) {
     try {
-      snippetTOC = await getSnippetTOCForPage(['integrations', ...slugs]);
+      snippetTOC = await getSnippetTOCForPage(['integrations', ...(resolvedParams.slug || [])]);
     } catch (error) {
       console.warn('Failed to load snippet TOC:', error);
       snippetTOC = [];
@@ -100,7 +99,7 @@ export default async function Page({ params }: { params: Promise<{ slug?: string
   }
   const combinedTOC = hideTOC ? [] : [...(page.data.toc || []), ...snippetTOC];
 
-  const isIntegrationsRootPage = slugs.length === 0;
+  const isIntegrationsRootPage = (resolvedParams.slug || []).length === 0;
 
   return (
     <DocsPage
@@ -119,7 +118,7 @@ export default async function Page({ params }: { params: Promise<{ slug?: string
                 href="/integrations"
                 className="inline-flex items-center gap-2 text-muted-foreground hover:text-accent-foreground transition-color"
               >
-                <ChevronLeft size={20} />
+                <ChevronLeft size={20} className="" />
                 <span className="text-xs">Back to Integrations</span>
               </Link>
             </div>
