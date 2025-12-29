@@ -68,7 +68,8 @@ const mdxComponents = {
 
 export default async function Page({ params }: { params: Promise<{ slug?: string[] }> }) {
   const resolvedParams = await params;
-  const page = source.getPage(['integrations', ...(resolvedParams.slug || [])]);
+  const slugs = resolvedParams.slug || [];
+  const page = source.getPage(['integrations', ...slugs]);
   if (!page) notFound();
   const MDX = page.data.body;
   const cloudOnly = cloudOnlyFeatures.includes(page.data.title);
@@ -91,7 +92,7 @@ export default async function Page({ params }: { params: Promise<{ slug?: string
   let snippetTOC: any[] = [];
   if (!hideTOC) {
     try {
-      snippetTOC = await getSnippetTOCForPage(['integrations', ...(resolvedParams.slug || [])]);
+      snippetTOC = await getSnippetTOCForPage(['integrations', ...slugs]);
     } catch (error) {
       console.warn('Failed to load snippet TOC:', error);
       snippetTOC = [];
@@ -99,7 +100,7 @@ export default async function Page({ params }: { params: Promise<{ slug?: string
   }
   const combinedTOC = hideTOC ? [] : [...(page.data.toc || []), ...snippetTOC];
 
-  const isIntegrationsRootPage = (resolvedParams.slug || []).length === 0;
+  const isIntegrationsRootPage = slugs.length === 0;
 
   return (
     <DocsPage
