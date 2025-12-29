@@ -79,7 +79,7 @@ export function FrameworkOverview({
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <div className="mx-auto max-w-5xl px-4 sm:px-6">
         {/* Header with Fixed Buttons */}
         <header className="text-center mb-12 sm:mb-20">

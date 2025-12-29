@@ -39,41 +39,30 @@ export function Banners() {
   const content = bannerContent[currentBanner];
 
   return (
-    <Banner className="w-full text-white bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-800 dark:to-purple-800 py-2 md:py-3" variant="rainbow" id="rotating-banner">
-      <div className="flex flex-row items-center justify-center gap-1.5 md:gap-3 w-full px-1 md:px-4">
-        <div 
-          key={currentBanner}
-          className="flex items-center gap-1.5 md:gap-2 flex-shrink min-w-0 text-white/80"
-          style={{ animation: 'slideInFromLeft 0.5s ease-out' }}
-        >
-          {content.icon}
-          <p className="text-xs md:text-base font-normal md:hidden">
-            {content.mobileText}
-          </p>
-          <p className="text-sm sm:text-base font-normal hidden md:block">
-            {content.desktopText}
-          </p>
+    <div className="w-full px-1 mt-1 xl:px-2 xl:mt-2">
+      <Banner className="w-full text-foreground bg-secondary/80 backdrop-blur-sm border border-border rounded-2xl py-1.5 md:py-2" id="rotating-banner">
+        <div className="flex flex-row items-center justify-center gap-1.5 md:gap-3 w-full px-1 md:px-4">
+          <div 
+            key={currentBanner}
+            className="flex items-center gap-1.5 md:gap-2 flex-shrink min-w-0"
+          >
+            {content.icon}
+            <p className="text-xs md:text-base font-normal md:hidden font-sans" style={{ fontWeight: 400 }}>
+              {content.mobileText}
+            </p>
+            <p className="text-sm sm:text-base font-normal hidden md:block font-sans" style={{ fontWeight: 400 }}>
+              {content.desktopText}
+            </p>
+          </div>
+          <Link 
+            href={content.href}
+            className="text-indigo-800 dark:text-indigo-300 ring-1 ring-indigo-200 dark:ring-indigo-900 text-xs md:text-sm items-center bg-gradient-to-r from-indigo-200/50 to-purple-200/80 dark:from-indigo-900/40 dark:to-purple-900/50 flex px-2 py-0.5 md:px-4 md:py-1 no-underline whitespace-nowrap transition-all duration-100 hover:ring-2 hover:ring-indigo-400 hover:dark:text-indigo-200 rounded-lg flex-shrink-0"
+          >
+            {content.buttonText}
+          </Link>
         </div>
-        <Link 
-          href={content.href}
-          className="px-2 py-0.5 md:px-6 md:py-1 bg-white/50 text-white hover:bg-gray-100 rounded-lg text-xs md:text-base font-normal transition-colors whitespace-nowrap flex-shrink-0 shadow-md"
-        >
-          {content.buttonText}
-        </Link>
-      </div>
-      <style jsx>{`
-        @keyframes slideInFromLeft {
-          0% {
-            transform: translateX(-30px);
-            opacity: 0;
-          }
-          100% {
-            transform: translateX(0);
-            opacity: 1;
-          }
-        }
-      `}</style>
-    </Banner>
+      </Banner>
+    </div>
   )
 }
 
@@ -119,52 +108,56 @@ export function AGUIBanner() {
 
 export function V150Banner() {
   return (
-    <Banner className="w-full text-white bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-800 dark:to-purple-800 py-2 md:py-3" variant="rainbow" id="v150-banner">
-      <div className="flex flex-row items-center justify-center gap-1.5 md:gap-3 w-full px-1 md:px-4">
-        <div className="flex items-center gap-1.5 md:gap-2 flex-shrink min-w-0 text-white/80">
-          <Sparkles className="w-5 h-5 hidden md:block flex-shrink-0" />
-          {/* Short text for mobile (below 768px) */}
-          <p className="text-xs md:text-base font-normal md:hidden">
-            CopilotKit 1.50 is available!
-          </p>
-          {/* Full text for desktop (768px and above) */}
-          <p className="text-sm sm:text-base font-normal hidden md:block">
-            CopilotKit 1.50 is available, featuring threads, no GraphQL, new interfaces, and more!
-          </p>
+    <div className="w-full px-1 mt-1 xl:px-2 xl:mt-2">
+      <Banner className="w-full text-foreground bg-secondary/80 backdrop-blur-sm border border-border rounded-2xl py-1.5 md:py-2" id="v150-banner">
+        <div className="flex flex-row items-center justify-center gap-1.5 md:gap-3 w-full px-1 md:px-4">
+          <div className="flex items-center gap-1.5 md:gap-2 flex-shrink min-w-0">
+            <Sparkles className="w-5 h-5 hidden md:block flex-shrink-0" />
+            {/* Short text for mobile (below 768px) */}
+            <p className="text-xs md:text-base font-normal md:hidden font-sans" style={{ fontWeight: 400 }}>
+              CopilotKit 1.50 is available!
+            </p>
+            {/* Full text for desktop (768px and above) */}
+            <p className="text-sm sm:text-base font-normal hidden md:block font-sans" style={{ fontWeight: 400 }}>
+              CopilotKit 1.50 is available, featuring threads, no GraphQL, new interfaces, and more!
+            </p>
+          </div>
+          <Link 
+            href="/whats-new/v1-50"
+            className="text-indigo-800 dark:text-indigo-300 ring-1 ring-indigo-200 dark:ring-indigo-900 text-xs md:text-sm items-center bg-gradient-to-r from-indigo-200/50 to-purple-200/80 dark:from-indigo-900/40 dark:to-purple-900/50 flex px-2 py-0.5 md:px-4 md:py-1 no-underline whitespace-nowrap transition-all duration-100 hover:ring-2 hover:ring-indigo-400 hover:dark:text-indigo-200 rounded-lg flex-shrink-0"
+          >
+            See What&apos;s New
+          </Link>
         </div>
-        <Link 
-          href="/whats-new/v1-50"
-          className="px-2 py-0.5 md:px-6 md:py-1 bg-white/50 text-white hover:bg-gray-100 rounded-lg text-xs md:text-base font-normal transition-colors whitespace-nowrap flex-shrink-0 shadow-md"
-        >
-          See What&apos;s New
-        </Link>
-      </div>
-    </Banner>
+      </Banner>
+    </div>
   )
 }
 
 export function A2UILaunchBanner() {
   return (
-    <Banner className="w-full text-white bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-800 dark:to-purple-800 py-2 md:py-3" variant="rainbow" id="a2ui-launch-banner">
-      <div className="flex flex-row items-center justify-center gap-1.5 md:gap-3 w-full px-1 md:px-4">
-        <div className="flex items-center gap-1.5 md:gap-2 flex-shrink min-w-0 text-white/80">
-          <Rocket className="w-5 h-5 hidden md:block flex-shrink-0" />
-          {/* Short text for mobile (below 768px) */}
-          <p className="text-xs md:text-base font-normal md:hidden">
-            A2UI Launch: Full CopilotKit support at launch!
-          </p>
-          {/* Full text for desktop (768px and above) */}
-          <p className="text-sm sm:text-base font-normal hidden md:block">
-            A2UI Launch: CopilotKit has partnered with Google to deliver full support at launch in both CopilotKit and AG-UI!
-          </p>
+    <div className="w-full px-1 mt-1 xl:px-2 xl:mt-2">
+      <Banner className="w-full text-foreground bg-secondary/80 backdrop-blur-sm border border-border rounded-2xl py-1.5 md:py-2" id="a2ui-launch-banner">
+        <div className="flex flex-row items-center justify-center gap-1.5 md:gap-3 w-full px-1 md:px-4">
+          <div className="flex items-center gap-1.5 md:gap-2 flex-shrink min-w-0">
+            <Rocket className="w-5 h-5 hidden md:block flex-shrink-0" />
+            {/* Short text for mobile (below 768px) */}
+            <p className="text-xs md:text-base font-normal md:hidden font-sans" style={{ fontWeight: 400 }}>
+              A2UI Launch: Full CopilotKit support at launch!
+            </p>
+            {/* Full text for desktop (768px and above) */}
+            <p className="text-sm sm:text-base font-normal hidden md:block font-sans" style={{ fontWeight: 400 }}>
+              A2UI Launch: CopilotKit has partnered with Google to deliver full support at launch in both CopilotKit and AG-UI!
+            </p>
+          </div>
+          <Link 
+            href="/whats-new/a2ui-launch"
+            className="text-indigo-800 dark:text-indigo-300 ring-1 ring-indigo-200 dark:ring-indigo-900 text-xs md:text-sm items-center bg-gradient-to-r from-indigo-200/50 to-purple-200/80 dark:from-indigo-900/40 dark:to-purple-900/50 flex px-2 py-0.5 md:px-4 md:py-1 no-underline whitespace-nowrap transition-all duration-100 hover:ring-2 hover:ring-indigo-400 hover:dark:text-indigo-200 rounded-lg flex-shrink-0"
+          >
+            Check it out
+          </Link>
         </div>
-        <Link 
-          href="/whats-new/a2ui-launch"
-          className="px-2 py-0.5 md:px-6 md:py-1 bg-white/50 text-white hover:bg-gray-100 rounded-lg text-xs md:text-base font-normal transition-colors whitespace-nowrap flex-shrink-0 shadow-md"
-        >
-          Check it out
-        </Link>
-      </div>
-    </Banner>
+      </Banner>
+    </div>
   )
 }
