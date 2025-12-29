@@ -119,7 +119,7 @@ export default async function Page({ params }: { params: Promise<{ slug?: string
                 href="/integrations"
                 className="inline-flex items-center gap-2 text-muted-foreground hover:text-accent-foreground transition-color"
               >
-                <ChevronLeft size={20} className="" />
+                <ChevronLeft size={20} />
                 <span className="text-xs">Back to Integrations</span>
               </Link>
             </div>
