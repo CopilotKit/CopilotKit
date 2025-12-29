@@ -1,5 +1,4 @@
-import { getTableOfContents } from "fumadocs-core/server";
-import type { TOCItemType } from "fumadocs-core/toc";
+import { getTableOfContents, type TOCItemType } from "fumadocs-core/server";
 import fs from 'fs';
 import path from 'path';
 
