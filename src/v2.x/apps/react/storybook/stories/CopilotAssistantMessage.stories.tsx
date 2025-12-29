@@ -89,9 +89,9 @@ Here's some \`inline code\` that should not have a copy button. You can also hav
 
 ## Blockquotes
 > This is a blockquote
-> 
+>
 > It can span multiple lines
-> 
+>
 > > And can be nested
 
 ## Tables
@@ -140,7 +140,7 @@ const meta = {
         }}
       >
         <div style={{ width: "100%", maxWidth: "640px" }}>
-          <CopilotKitProvider>
+          <CopilotKitProvider runtimeUrl="https://copilotkit.ai">
             <CopilotChatConfigurationProvider threadId="storybook-thread">
               <Story />
             </CopilotChatConfigurationProvider>
@@ -161,11 +161,54 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Default: Story = {};
+export const Default: Story = {
+  parameters: {
+    docs: {
+      source: {
+        code: `<CopilotChatAssistantMessage
+  message={{
+    id: "simple-message",
+    content: "Hello! How can I help you today?",
+    timestamp: new Date(),
+    role: "assistant"
+  }}
+/>`,
+      },
+    },
+  },
+};
 
 export const TestAllMarkdownFeatures: Story = {
   args: {
     message: markdownTestMessage,
+  },
+  parameters: {
+    docs: {
+      source: {
+        code: `<CopilotChatAssistantMessage
+  message={{
+    id: "test-message",
+    content: \`# Markdown Test Message
+
+This message tests various markdown features including **bold**, *italic*, and \\\`inline code\\\`.
+
+## Lists
+- Unordered item 1
+- Unordered item 2
+
+## Code Example
+\\\`\\\`\\\`javascript
+function greet(name) {
+  console.log(\\\`Hello, \\\${name}!\\\`);
+}
+\\\`\\\`\\\`
+\`,
+    timestamp: new Date(),
+    role: "assistant"
+  }}
+/>`,
+      },
+    },
   },
 };
 
@@ -176,6 +219,24 @@ export const WithToolbarButtons: Story = {
     onThumbsDown: () => alert("Thumbs down clicked!"),
     onReadAloud: () => alert("Read aloud clicked!"),
     onRegenerate: () => alert("Regenerate clicked!"),
+  },
+  parameters: {
+    docs: {
+      source: {
+        code: `<CopilotChatAssistantMessage
+  message={{
+    id: "simple-message",
+    content: "Hello! How can I help you today?",
+    timestamp: new Date(),
+    role: "assistant"
+  }}
+  onThumbsUp={() => alert("Thumbs up clicked!")}
+  onThumbsDown={() => alert("Thumbs down clicked!")}
+  onReadAloud={() => alert("Read aloud clicked!")}
+  onRegenerate={() => alert("Regenerate clicked!")}
+/>`,
+      },
+    },
   },
 };
 
@@ -204,6 +265,42 @@ export const WithAdditionalToolbarItems: Story = {
         </button>
       </>
     ),
+  },
+  parameters: {
+    docs: {
+      source: {
+        code: `<CopilotChatAssistantMessage
+  message={{
+    id: "simple-message",
+    content: "Hello! How can I help you today?",
+    timestamp: new Date(),
+    role: "assistant"
+  }}
+  onThumbsUp={() => console.log("Thumbs up clicked!")}
+  onThumbsDown={() => console.log("Thumbs down clicked!")}
+  onReadAloud={() => console.log("Read aloud clicked!")}
+  onRegenerate={() => console.log("Regenerate clicked!")}
+  additionalToolbarItems={
+    <>
+      <button
+        className="h-8 w-8 p-0 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+        onClick={() => alert("Custom button 1 clicked!")}
+        title="Custom Action 1"
+      >
+        📌
+      </button>
+      <button
+        className="h-8 w-8 p-0 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+        onClick={() => alert("Custom button 2 clicked!")}
+        title="Custom Action 2"
+      >
+        ❤️
+      </button>
+    </>
+  }
+/>`,
+      },
+    },
   },
 };
 
@@ -372,5 +469,35 @@ const codeBlocksTestMessage = {
 export const CodeBlocksWithLanguages: Story = {
   args: {
     message: codeBlocksTestMessage,
+  },
+  parameters: {
+    docs: {
+      source: {
+        code: `<CopilotChatAssistantMessage
+  message={{
+    id: "msg-code-blocks-test",
+    content: \`# Code Blocks Test
+
+Here's a JavaScript example:
+
+\\\`\\\`\\\`javascript
+const greet = (name) => {
+  console.log(\\\`Hello, \\\${name}!\\\`);
+};
+\\\`\\\`\\\`
+
+And a Python example:
+
+\\\`\\\`\\\`python
+def greet(name):
+    print(f"Hello, {name}!")
+\\\`\\\`\\\`
+\`,
+    timestamp: new Date(),
+    role: "assistant"
+  }}
+/>`,
+      },
+    },
   },
 };

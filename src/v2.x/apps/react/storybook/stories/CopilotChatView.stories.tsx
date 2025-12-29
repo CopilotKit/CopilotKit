@@ -1,9 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import {
-  CopilotChatConfigurationProvider,
-  CopilotChatView,
-  CopilotKitProvider,
-} from "@copilotkitnext/react";
+import { CopilotChatConfigurationProvider, CopilotChatView, CopilotKitProvider } from "@copilotkitnext/react";
 import { Suggestion } from "@copilotkitnext/core";
 
 const meta = {
@@ -11,8 +7,7 @@ const meta = {
   parameters: {
     docs: {
       description: {
-        component:
-          "A complete chat interface with message feed and input components.",
+        component: "A complete chat interface with message feed and input components.",
       },
     },
   },
@@ -27,27 +22,25 @@ export const Default: Story = {
   },
   decorators: [
     (Story) => (
-      <div
-        style={{ height: "100vh", margin: 0, padding: 0, overflow: "hidden" }}
-      >
+      <div style={{ height: "100vh", margin: 0, padding: 0, overflow: "hidden" }}>
         <Story />
       </div>
     ),
   ],
   render: () => {
     return (
-      <CopilotKitProvider>
+      <CopilotKitProvider runtimeUrl="https://copilotkit.ai">
         <CopilotChatConfigurationProvider threadId="storybook-thread">
           <div style={{ height: "100%" }}>
-          <CopilotChatView
-            messages={storyMessages}
-            inputProps={{
-              onSubmitMessage: (value) => {
-                alert(`Message submitted: ${value}`);
-              },
-            }}
-            messageView={{
-              assistantMessage: {
+            <CopilotChatView
+              messages={storyMessages}
+              inputProps={{
+                onSubmitMessage: (value) => {
+                  alert(`Message submitted: ${value}`);
+                },
+              }}
+              messageView={{
+                assistantMessage: {
                   onThumbsUp: () => {
                     alert("thumbsUp");
                   },
@@ -70,15 +63,13 @@ export const WithSuggestions: Story = {
   },
   decorators: Default.decorators,
   render: () => (
-    <CopilotKitProvider>
+    <CopilotKitProvider runtimeUrl="https://copilotkit.ai">
       <CopilotChatConfigurationProvider threadId="storybook-thread">
         <div style={{ height: "100%" }}>
           <CopilotChatView
             messages={storyMessages}
             suggestions={suggestionSamples}
-            onSelectSuggestion={(suggestion) =>
-              alert(`Selected suggestion: ${suggestion.title}`)
-            }
+            onSelectSuggestion={(suggestion) => alert(`Selected suggestion: ${suggestion.title}`)}
             inputProps={{
               onSubmitMessage: (value) => {
                 alert(`Message submitted: ${value}`);

@@ -22,11 +22,21 @@ const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
 // Define the context value interface - idiomatic React naming
 export interface CopilotKitContextValue {
   copilotkit: CopilotKitCoreReact;
+  /**
+   * Set of tool call IDs currently being executed.
+   * This is tracked at the provider level to ensure tool execution events
+   * are captured even before child components mount.
+   */
+  executingToolCallIds: ReadonlySet<string>;
 }
+
+// Empty set for default context value
+const EMPTY_SET: ReadonlySet<string> = new Set();
 
 // Create the CopilotKit context
 const CopilotKitContext = createContext<CopilotKitContextValue>({
   copilotkit: null!,
+  executingToolCallIds: EMPTY_SET,
 });
 
 // Provider props interface
@@ -305,6 +315,38 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     };
   }, [copilotkit]);
 
+  // Track executing tool call IDs at the provider level.
+  // This is critical for HITL reconnection: when connecting to a thread with
+  // pending tool calls, the onToolExecutionStart event fires before child components
+  // (like CopilotChatToolCallsView) mount. By tracking at the provider level,
+  // we ensure the executing state is captured and available when children mount.
+  const [executingToolCallIds, setExecutingToolCallIds] = useState<ReadonlySet<string>>(() => new Set());
+
+  useEffect(() => {
+    const subscription = copilotkit.subscribe({
+      onToolExecutionStart: ({ toolCallId }) => {
+        setExecutingToolCallIds((prev) => {
+          if (prev.has(toolCallId)) return prev;
+          const next = new Set(prev);
+          next.add(toolCallId);
+          return next;
+        });
+      },
+      onToolExecutionEnd: ({ toolCallId }) => {
+        setExecutingToolCallIds((prev) => {
+          if (!prev.has(toolCallId)) return prev;
+          const next = new Set(prev);
+          next.delete(toolCallId);
+          return next;
+        });
+      },
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [copilotkit]);
+
   useEffect(() => {
     copilotkit.setRuntimeUrl(chatApiEndpoint);
     copilotkit.setRuntimeTransport(useSingleEndpoint ? "single" : "rest");
@@ -317,6 +359,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     <CopilotKitContext.Provider
       value={{
         copilotkit,
+        executingToolCallIds,
       }}
     >
       {children}

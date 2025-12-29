@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import React, { useCallback, useMemo, useSyncExternalStore } from "react";
 import { ToolCall, ToolMessage } from "@ag-ui/core";
 import { ToolCallStatus } from "@copilotkitnext/core";
 import { useCopilotKit } from "@/providers/CopilotKitProvider";
@@ -101,12 +101,9 @@ const ToolCallRenderer = React.memo(
  * @returns A function that takes a tool call and optional tool message and returns the rendered component
  */
 export function useRenderToolCall() {
-  const { copilotkit } = useCopilotKit();
+  const { copilotkit, executingToolCallIds } = useCopilotKit();
   const config = useCopilotChatConfiguration();
   const agentId = config?.agentId ?? DEFAULT_AGENT_ID;
-  const [executingToolCallIds, setExecutingToolCallIds] = useState<
-    ReadonlySet<string>
-  >(() => new Set());
 
   // Subscribe to render tool calls changes using useSyncExternalStore
   // This ensures we always have the latest value, even if subscriptions run in any order
@@ -120,27 +117,11 @@ export function useRenderToolCall() {
     () => copilotkit.renderToolCalls
   );
 
-  useEffect(() => {
-    const subscription = copilotkit.subscribe({
-      onToolExecutionStart: ({ toolCallId }) => {
-        setExecutingToolCallIds((prev) => {
-          if (prev.has(toolCallId)) return prev;
-          const next = new Set(prev);
-          next.add(toolCallId);
-          return next;
-        });
-      },
-      onToolExecutionEnd: ({ toolCallId }) => {
-        setExecutingToolCallIds((prev) => {
-          if (!prev.has(toolCallId)) return prev;
-          const next = new Set(prev);
-          next.delete(toolCallId);
-          return next;
-        });
-      },
-    });
-    return () => subscription.unsubscribe();
-  }, [copilotkit]);
+  // Note: executingToolCallIds is now provided by CopilotKitProvider context.
+  // This is critical for HITL reconnection: when connecting to a thread with
+  // pending tool calls, the onToolExecutionStart event fires before child components
+  // mount. By tracking at the provider level, the executing state is already
+  // available when this hook first runs.
 
   const renderToolCall = useCallback(
     ({

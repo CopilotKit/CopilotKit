@@ -1,9 +1,6 @@
 import React from "react";
 
-import {
-  CopilotChatConfigurationProvider,
-  CopilotKitProvider,
-} from "@copilotkitnext/react";
+import { CopilotChatConfigurationProvider, CopilotKitProvider } from "@copilotkitnext/react";
 
 interface CopilotStoryLayoutProps {
   children: React.ReactNode;
@@ -38,19 +35,18 @@ const defaultContent = (
   </>
 );
 
+class MockAgent {}
+
 export const CopilotStoryLayout: React.FC<CopilotStoryLayoutProps> = ({
   children,
   threadId = "story-copilot-layout",
   isModalDefaultOpen = true,
   content,
 }) => (
-  <CopilotKitProvider>
-    <CopilotChatConfigurationProvider threadId={threadId} isModalDefaultOpen={isModalDefaultOpen}>
+  <CopilotKitProvider runtimeUrl="https://copilotkit.ai">
+    <CopilotChatConfigurationProvider threadId={"123"} isModalDefaultOpen={isModalDefaultOpen}>
       <div className="min-h-screen bg-background text-foreground">
-        <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 px-6 py-10">
-          {content ?? defaultContent}
-        </div>
-
+        <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 px-6 py-10">{content ?? defaultContent}</div>
         {children}
       </div>
     </CopilotChatConfigurationProvider>
