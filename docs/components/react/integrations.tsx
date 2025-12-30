@@ -98,7 +98,7 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
 
   return (
     <div className='flex flex-row flex-wrap justify-center items-center gap-x-6 gap-y-6 my-8'>
-      <div className='hidden lg:flex'>
+      <div className='hidden lg:flex items-center'>
         <IntegrationsSelectorLightDesktop className='h-48 block dark:hidden' />
         <IntegrationsSelectorDarkDesktop className='h-48 hidden dark:block' />
         <div className='grid grid-cols-4 gap-2'>
@@ -112,7 +112,7 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
           ))}
         </div>
       </div>
-      <div className='flex flex-row gap-2 lg:hidden'>
+      <div className='flex flex-row items-center gap-2 lg:hidden'>
         <IntegrationsSelectorLightMobile className='h-full -ml-11 block dark:hidden' />
         <IntegrationsSelectorDarkMobile className='h-full -ml-11 hidden dark:block' />
         <div className='grid grid-cols-2 gap-2 -ml-5'>
