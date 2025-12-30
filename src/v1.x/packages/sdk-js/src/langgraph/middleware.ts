@@ -24,8 +24,7 @@ import * as z from "zod";
  * ```
  */
 const copilotKitStateSchema = z.object({
-  copilotkit: z
-    .object({
+  copilotkit: z.object({
       actions: z.array(z.any()),
       context: z.any().optional(),
       interceptedToolCalls: z.array(z.any()).optional(),
@@ -59,8 +58,8 @@ const createCopilotKitMiddleware = () => {
 
     // Restore frontend tool calls to AIMessage before agent exits
     afterAgent: (state) => {
-      const interceptedToolCalls = state["copilotkit"]?._copilotkitInterceptedToolCalls;
-      const originalMessageId = state["copilotkit"]?._copilotkitOriginalAIMessageId;
+      const interceptedToolCalls = state["copilotkit"]?.interceptedToolCalls;
+      const originalMessageId = state["copilotkit"]?.originalAIMessageId;
 
       if (!interceptedToolCalls?.length || !originalMessageId) {
         return;
@@ -82,8 +81,8 @@ const createCopilotKitMiddleware = () => {
         messages: updatedMessages,
         copilotkit: {
           ...(state["copilotkit"] ?? {}),
-          _copilotkitInterceptedToolCalls: undefined,
-          _copilotkitOriginalAIMessageId: undefined,
+          interceptedToolCalls: undefined,
+          originalAIMessageId: undefined,
         },
       };
     },
@@ -123,8 +122,8 @@ const createCopilotKitMiddleware = () => {
         messages: [...state.messages.slice(0, -1), updatedAIMessage],
         copilotkit: {
           ...(state["copilotkit"] ?? {}),
-          _copilotkitInterceptedToolCalls: frontendToolCalls,
-          _copilotkitOriginalAIMessageId: lastMessage.id,
+          interceptedToolCalls: frontendToolCalls,
+          originalAIMessageId: lastMessage.id,
         },
       };
     },

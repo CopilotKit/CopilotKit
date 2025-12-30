@@ -1,5 +1,21 @@
-from typing import Any, Callable, Awaitable, Annotated
-from typing_extensions import TypedDict, NotRequired
+"""
+CopilotKit Middleware for LangGraph agents.
+
+Works with any agent (prebuilt or custom).
+
+Example:
+    from langchain.agents import create_agent
+    from copilotkit import CopilotKitMiddleware
+
+    agent = create_agent(
+        model="openai:gpt-4o",
+        tools=[backend_tool],
+        middleware=[CopilotKitMiddleware()],
+    )
+"""
+
+from typing import Any, Callable, Awaitable, ClassVar, List
+from typing_extensions import NotRequired
 
 from langchain_core.messages import AIMessage
 from langchain.agents.middleware import (
@@ -9,6 +25,8 @@ from langchain.agents.middleware import (
     ModelResponse,
 )
 from langgraph.runtime import Runtime
+
+from .langgraph import CopilotContextItem
 
 
 class CopilotKitState(AgentState):
@@ -29,7 +47,7 @@ class CopilotKitMiddleware(AgentMiddleware[CopilotKitState, Any]):
     """
 
     state_schema = CopilotKitState
-    tools = []
+    tools: ClassVar[list] = []
 
     @property
     def name(self) -> str:
