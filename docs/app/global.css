@@ -13,6 +13,7 @@
   --radius-xl: calc(var(--radius) + 4px);
   
   --breakpoint-nav: 1112px;
+  --breakpoint-nav-icons: 808px;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -53,6 +54,19 @@
   #nd-sidebar {
     width: 20rem !important;
     --fd-sidebar-width: 20rem !important;
+  }
+}
+
+/* Override fumadocs sidebar breakpoint from 1024px to 768px */
+@media (width < 768px) {
+  #nd-sidebar {
+    display: none !important;
+  }
+}
+
+@media (width >= 768px) {
+  #nd-sidebar {
+    display: flex !important;
   }
 } 
 

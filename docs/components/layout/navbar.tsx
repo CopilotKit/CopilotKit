@@ -104,10 +104,12 @@ const Navbar = ({ pageTree }: NavbarProps) => {
         <div className="flex w-full h-full">
           <div className="flex gap-11 items-center w-full h-full rounded-l-2xl border border-r-0 backdrop-blur-lg border-border bg-glass-background">
             <Logo className="pl-6" />
-            <ul className="hidden gap-6 items-center h-full lg:flex">
+            <ul className="hidden gap-6 items-center h-full md:flex">
               {LEFT_LINKS.map((link) => {
                 // Hide API Reference and Copilot Cloud at narrow widths
                 const hideAtNarrow = link.label === "API Reference" || link.label === "Copilot Cloud";
+                // Hide icons for Overview and Integrations at very narrow widths
+                const hideIconAtNarrow = link.label === "Overview" || link.label === "Integrations";
                 
                 return (
                   <li key={link.href} className={`relative h-full group ${hideAtNarrow ? '[@media(width<1112px)]:hidden' : ''}`}>
@@ -119,7 +121,9 @@ const Navbar = ({ pageTree }: NavbarProps) => {
                       } hover:opacity-100 transition-opacity duration-300`}
                     >
                       <span className="flex gap-2 items-center h-full">
-                        {link.icon}
+                        <span className={hideIconAtNarrow ? '[@media(width<808px)]:hidden' : ''}>
+                          {link.icon}
+                        </span>
 
                         <span className="text-sm font-medium">{link.label}</span>
 
@@ -171,9 +175,9 @@ const Navbar = ({ pageTree }: NavbarProps) => {
             className="-mr-px dark:hidden shrink-0 w-[24px] h-[60px] xl:w-[29px] xl:h-[72px] object-cover"
           />
 
-          <div className="flex gap-1 items-center pr-2 w-max h-full rounded-r-2xl border border-l-0 backdrop-blur-lg lg:pr-4 shrink-0 border-border bg-glass-background">
+          <div className="flex gap-1 items-center pr-2 w-max h-full rounded-r-2xl border border-l-0 backdrop-blur-lg md:pr-4 shrink-0 border-border bg-glass-background">
             {RIGHT_LINKS.map((link) => {
-              // For API Reference and Copilot Cloud, only show at narrow widths
+              // For API Reference and Copilot Cloud, only show at narrow widths (between 768px and 1112px)
               const isIconOnlyLink = link.label === "API Reference" || link.label === "Copilot Cloud";
               
               return (
@@ -181,7 +185,7 @@ const Navbar = ({ pageTree }: NavbarProps) => {
                   key={link.href}
                   href={link.href}
                   target={link.target}
-                  className={`${isIconOnlyLink ? '[@media(width>=1112px)]:hidden' : 'hidden'} justify-center items-center w-11 h-full lg:flex`}
+                  className={`${isIconOnlyLink ? '[@media(width>=1112px)]:hidden [@media(width<768px)]:hidden' : 'hidden'} justify-center items-center w-11 h-full md:flex`}
                   title={link.label}
                 >
                   <span className="flex items-center h-full">{link.icon}</span>
@@ -190,7 +194,7 @@ const Navbar = ({ pageTree }: NavbarProps) => {
             })}
 
             <button
-              className="hidden justify-center items-center w-11 h-full cursor-pointer lg:flex"
+              className="hidden justify-center items-center w-11 h-full cursor-pointer md:flex"
               onClick={handleToggleTheme}
             >
               <Image
@@ -212,7 +216,7 @@ const Navbar = ({ pageTree }: NavbarProps) => {
             <SearchDialogButton />
 
             <button
-              className="flex justify-center items-center w-11 h-full cursor-pointer lg:hidden"
+              className="flex justify-center items-center w-11 h-full cursor-pointer md:hidden"
               onClick={() => setIsMobileSidebarOpen(true)}
             >
               <BurgerMenuIcon />
