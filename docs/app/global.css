@@ -11,9 +11,6 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  
-  --breakpoint-nav: 1112px;
-  --breakpoint-nav-icons: 808px;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -57,17 +54,19 @@
   }
 }
 
-/* Override fumadocs sidebar breakpoint from 1024px to 768px */
-@media (width < 768px) {
-  #nd-sidebar {
-    display: none !important;
-  }
+/* Hide navbar when sidebar is hidden/collapsed (Zen mode via Fumadocs sidebar toggle) */
+/* When sidebar width is 0, also hide the navbar */
+.zen-mode nav {
+  display: none !important;
 }
 
-@media (width >= 768px) {
-  #nd-sidebar {
-    display: flex !important;
-  }
+.zen-mode #nd-docs-layout {
+  margin: 0 !important;
+}
+
+.zen-mode #nd-page {
+  border-left: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
 } 
 
 :root {

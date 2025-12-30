@@ -14,6 +14,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         nav={{ enabled: false }}
         sidebar={{
           component: <IntegrationsSidebar pageTree={source.pageTree} />,
+          collapsible: true
         }}
       >
         {children}

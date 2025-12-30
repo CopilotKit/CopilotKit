@@ -58,17 +58,6 @@ export const LEFT_LINKS: NavbarLink[] = [
 
 const RIGHT_LINKS: NavbarLink[] = [
   {
-    icon: <ConsoleIcon />,
-    href: "/reference",
-    label: "API Reference",
-  },
-  {
-    icon: <CloudIcon />,
-    href: "https://cloud.copilotkit.ai",
-    target: "_blank",
-    label: "Copilot Cloud",
-  },
-  {
     icon: <GithubIcon />,
     href: "https://github.com/copilotkit/copilotkit",
     target: "_blank",
@@ -82,6 +71,7 @@ const RIGHT_LINKS: NavbarLink[] = [
 
 const Navbar = ({ pageTree }: NavbarProps) => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
+  const [isZenMode, setIsZenMode] = useState(false)
   const pathname = usePathname()
   const activeRoute = pathname === "/" ? "/" : `/${pathname.split("/")[1]}`
 
@@ -90,7 +80,38 @@ const Navbar = ({ pageTree }: NavbarProps) => {
     localStorage.theme = localStorage.theme === "dark" ? "light" : "dark"
   }
 
+  const handleToggleZenMode = () => {
+    setIsZenMode(!isZenMode)
+    document.documentElement.classList.toggle("zen-mode")
+  }
+
   return (
+    <>
+      {isZenMode && (
+        <button
+          onClick={handleToggleZenMode}
+          className="fixed top-4 right-4 z-50 p-3 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-colors"
+          title="Exit Zen mode"
+          aria-label="Exit Zen mode"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M8 3v3a2 2 0 0 1-2 2H3" />
+            <path d="M21 8h-3a2 2 0 0 1-2-2V3" />
+            <path d="M3 16h3a2 2 0 0 1 2 2v3" />
+            <path d="M16 21v-3a2 2 0 0 1 2-2h3" />
+          </svg>
+        </button>
+      )}
     <nav className="h-[68px] xl:h-[88px] p-1 xl:p-2 relative">
       {isMobileSidebarOpen && (
         <MobileSidebar
@@ -104,42 +125,33 @@ const Navbar = ({ pageTree }: NavbarProps) => {
         <div className="flex w-full h-full">
           <div className="flex gap-11 items-center w-full h-full rounded-l-2xl border border-r-0 backdrop-blur-lg border-border bg-glass-background">
             <Logo className="pl-6" />
-            <ul className="hidden gap-6 items-center h-full md:flex">
-              {LEFT_LINKS.map((link) => {
-                // Hide API Reference and Copilot Cloud at narrow widths
-                const hideAtNarrow = link.label === "API Reference" || link.label === "Copilot Cloud";
-                // Hide icons for Overview and Integrations at very narrow widths
-                const hideIconAtNarrow = link.label === "Overview" || link.label === "Integrations";
-                
-                return (
-                  <li key={link.href} className={`relative h-full group ${hideAtNarrow ? '[@media(width<1112px)]:hidden' : ''}`}>
-                    <Link
-                      href={link.href}
-                      target={link.target}
-                      className={`h-full ${
-                        activeRoute === link.href ? "opacity-100" : "opacity-50"
-                      } hover:opacity-100 transition-opacity duration-300`}
-                    >
-                      <span className="flex gap-2 items-center h-full">
-                        <span className={hideIconAtNarrow ? '[@media(width<808px)]:hidden' : ''}>
-                          {link.icon}
-                        </span>
+            <ul className="hidden gap-6 items-center h-full lg:flex">
+              {LEFT_LINKS.map((link) => (
+                <li key={link.href} className="relative h-full group">
+                  <Link
+                    href={link.href}
+                    target={link.target}
+                    className={`h-full ${
+                      activeRoute === link.href ? "opacity-100" : "opacity-50"
+                    } hover:opacity-100 transition-opacity duration-300`}
+                  >
+                    <span className="flex gap-2 items-center h-full">
+                      {link.icon}
 
-                        <span className="text-sm font-medium">{link.label}</span>
+                      <span className="text-sm font-medium">{link.label}</span>
 
-                        {link.showExternalLinkIcon && <ExternalLinkIcon />}
-                      </span>
-                    </Link>
-                    <div
-                      className={`absolute bottom-0 left-0 w-full h-[3px] bg-[#7076D5] transition-opacity duration-300 ${
-                        activeRoute === link.href
-                          ? "opacity-100"
-                          : "opacity-0 group-hover:opacity-100"
-                      }`}
-                    />
-                  </li>
-                );
-              })}
+                      {link.showExternalLinkIcon && <ExternalLinkIcon />}
+                    </span>
+                  </Link>
+                  <div
+                    className={`absolute bottom-0 left-0 w-full h-[3px] bg-[#7076D5] transition-opacity duration-300 ${
+                      activeRoute === link.href
+                        ? "opacity-100"
+                        : "opacity-0 group-hover:opacity-100"
+                    }`}
+                  />
+                </li>
+              ))}
             </ul>
           </div>
 
@@ -175,26 +187,20 @@ const Navbar = ({ pageTree }: NavbarProps) => {
             className="-mr-px dark:hidden shrink-0 w-[24px] h-[60px] xl:w-[29px] xl:h-[72px] object-cover"
           />
 
-          <div className="flex gap-1 items-center pr-2 w-max h-full rounded-r-2xl border border-l-0 backdrop-blur-lg md:pr-4 shrink-0 border-border bg-glass-background">
-            {RIGHT_LINKS.map((link) => {
-              // For API Reference and Copilot Cloud, only show at narrow widths (between 768px and 1112px)
-              const isIconOnlyLink = link.label === "API Reference" || link.label === "Copilot Cloud";
-              
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  target={link.target}
-                  className={`${isIconOnlyLink ? '[@media(width>=1112px)]:hidden [@media(width<768px)]:hidden' : 'hidden'} justify-center items-center w-11 h-full md:flex`}
-                  title={link.label}
-                >
-                  <span className="flex items-center h-full">{link.icon}</span>
-                </Link>
-              );
-            })}
+          <div className="flex gap-1 items-center pr-2 w-max h-full rounded-r-2xl border border-l-0 backdrop-blur-lg lg:pr-4 shrink-0 border-border bg-glass-background">
+            {RIGHT_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                target={link.target}
+                className="hidden justify-center items-center w-11 h-full lg:flex"
+              >
+                <span className="flex items-center h-full">{link.icon}</span>
+              </Link>
+            ))}
 
             <button
-              className="hidden justify-center items-center w-11 h-full cursor-pointer md:flex"
+              className="hidden justify-center items-center w-11 h-full cursor-pointer lg:flex"
               onClick={handleToggleTheme}
             >
               <Image
@@ -216,7 +222,41 @@ const Navbar = ({ pageTree }: NavbarProps) => {
             <SearchDialogButton />
 
             <button
-              className="flex justify-center items-center w-11 h-full cursor-pointer md:hidden"
+              className="hidden justify-center items-center w-11 h-full cursor-pointer lg:flex"
+              onClick={handleToggleZenMode}
+              title={isZenMode ? "Exit Zen Mode" : "Enter Zen Mode"}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                {isZenMode ? (
+                  <>
+                    <path d="M8 3v3a2 2 0 0 1-2 2H3" />
+                    <path d="M21 8h-3a2 2 0 0 1-2-2V3" />
+                    <path d="M3 16h3a2 2 0 0 1 2 2v3" />
+                    <path d="M16 21v-3a2 2 0 0 1 2-2h3" />
+                  </>
+                ) : (
+                  <>
+                    <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+                    <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+                    <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+                    <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+                  </>
+                )}
+              </svg>
+            </button>
+
+            <button
+              className="flex justify-center items-center w-11 h-full cursor-pointer lg:hidden"
               onClick={() => setIsMobileSidebarOpen(true)}
             >
               <BurgerMenuIcon />
@@ -225,6 +265,7 @@ const Navbar = ({ pageTree }: NavbarProps) => {
         </div>
       </div>
     </nav>
+    </>
   )
 }
 

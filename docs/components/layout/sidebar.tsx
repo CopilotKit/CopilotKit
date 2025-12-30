@@ -1,3 +1,6 @@
+"use client"
+
+import { useState } from "react"
 import { DocsLayoutProps } from "fumadocs-ui/layouts/docs"
 import Separator from "../ui/sidebar/separator"
 import Page from "../ui/sidebar/page"

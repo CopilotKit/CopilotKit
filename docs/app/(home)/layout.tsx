@@ -12,7 +12,10 @@ export default function Layout({ children }: { children: ReactNode }) {
         tree={source.pageTree}
         searchToggle={{ enabled: false }}
         nav={{ enabled: false }}
-        sidebar={{ component: <Sidebar pageTree={source.pageTree} /> }}
+        sidebar={{ 
+          component: <Sidebar pageTree={source.pageTree} />,
+          collapsible: true 
+        }}
       >
         {children}
       </DocsLayout>
