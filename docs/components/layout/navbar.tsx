@@ -58,6 +58,17 @@ export const LEFT_LINKS: NavbarLink[] = [
 
 const RIGHT_LINKS: NavbarLink[] = [
   {
+    icon: <ConsoleIcon />,
+    href: "/reference",
+    label: "API Reference",
+  },
+  {
+    icon: <CloudIcon />,
+    href: "https://cloud.copilotkit.ai",
+    target: "_blank",
+    label: "Copilot Cloud",
+  },
+  {
     icon: <GithubIcon />,
     href: "https://github.com/copilotkit/copilotkit",
     target: "_blank",
@@ -94,32 +105,37 @@ const Navbar = ({ pageTree }: NavbarProps) => {
           <div className="flex gap-11 items-center w-full h-full rounded-l-2xl border border-r-0 backdrop-blur-lg border-border bg-glass-background">
             <Logo className="pl-6" />
             <ul className="hidden gap-6 items-center h-full lg:flex">
-              {LEFT_LINKS.map((link) => (
-                <li key={link.href} className="relative h-full group">
-                  <Link
-                    href={link.href}
-                    target={link.target}
-                    className={`h-full ${
-                      activeRoute === link.href ? "opacity-100" : "opacity-50"
-                    } hover:opacity-100 transition-opacity duration-300`}
-                  >
-                    <span className="flex gap-2 items-center h-full">
-                      {link.icon}
+              {LEFT_LINKS.map((link) => {
+                // Hide API Reference and Copilot Cloud at narrow widths
+                const hideAtNarrow = link.label === "API Reference" || link.label === "Copilot Cloud";
+                
+                return (
+                  <li key={link.href} className={`relative h-full group ${hideAtNarrow ? '[@media(width<1112px)]:hidden' : ''}`}>
+                    <Link
+                      href={link.href}
+                      target={link.target}
+                      className={`h-full ${
+                        activeRoute === link.href ? "opacity-100" : "opacity-50"
+                      } hover:opacity-100 transition-opacity duration-300`}
+                    >
+                      <span className="flex gap-2 items-center h-full">
+                        {link.icon}
 
-                      <span className="text-sm font-medium">{link.label}</span>
+                        <span className="text-sm font-medium">{link.label}</span>
 
-                      {link.showExternalLinkIcon && <ExternalLinkIcon />}
-                    </span>
-                  </Link>
-                  <div
-                    className={`absolute bottom-0 left-0 w-full h-[3px] bg-[#7076D5] transition-opacity duration-300 ${
-                      activeRoute === link.href
-                        ? "opacity-100"
-                        : "opacity-0 group-hover:opacity-100"
-                    }`}
-                  />
-                </li>
-              ))}
+                        {link.showExternalLinkIcon && <ExternalLinkIcon />}
+                      </span>
+                    </Link>
+                    <div
+                      className={`absolute bottom-0 left-0 w-full h-[3px] bg-[#7076D5] transition-opacity duration-300 ${
+                        activeRoute === link.href
+                          ? "opacity-100"
+                          : "opacity-0 group-hover:opacity-100"
+                      }`}
+                    />
+                  </li>
+                );
+              })}
             </ul>
           </div>
 
@@ -156,16 +172,22 @@ const Navbar = ({ pageTree }: NavbarProps) => {
           />
 
           <div className="flex gap-1 items-center pr-2 w-max h-full rounded-r-2xl border border-l-0 backdrop-blur-lg lg:pr-4 shrink-0 border-border bg-glass-background">
-            {RIGHT_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                target={link.target}
-                className="hidden justify-center items-center w-11 h-full lg:flex"
-              >
-                <span className="flex items-center h-full">{link.icon}</span>
-              </Link>
-            ))}
+            {RIGHT_LINKS.map((link) => {
+              // For API Reference and Copilot Cloud, only show at narrow widths
+              const isIconOnlyLink = link.label === "API Reference" || link.label === "Copilot Cloud";
+              
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  target={link.target}
+                  className={`${isIconOnlyLink ? '[@media(width>=1112px)]:hidden' : 'hidden'} justify-center items-center w-11 h-full lg:flex`}
+                  title={link.label}
+                >
+                  <span className="flex items-center h-full">{link.icon}</span>
+                </Link>
+              );
+            })}
 
             <button
               className="hidden justify-center items-center w-11 h-full cursor-pointer lg:flex"
