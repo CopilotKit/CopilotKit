@@ -39,7 +39,7 @@ export function Banners() {
   const content = bannerContent[currentBanner];
 
   return (
-    <div className="w-full px-1 mt-1 xl:px-2 xl:mt-2">
+    <div className="w-full px-1 mt-1 xl:px-2 xl:mt-2 flex-shrink-0">
       <Banner className="w-full text-foreground bg-secondary/80 backdrop-blur-sm border border-border rounded-2xl py-1.5 md:py-2" id="rotating-banner">
         <div className="flex flex-row items-center justify-center gap-1.5 md:gap-3 w-full px-1 md:px-4">
           <div 

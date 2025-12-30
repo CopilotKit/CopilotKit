@@ -220,7 +220,8 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
 }
 
 /* Override fumadocs Banner sticky positioning to relative */
-#agui-banner {
+#agui-banner,
+#rotating-banner {
   position: relative !important;
   top: auto !important;
 }
@@ -229,7 +230,14 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
   padding-top: 0 !important;
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow: auto;
+}
+
+#nd-home-layout {
+  padding-top: 0 !important;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
 #nd-docs-layout {

@@ -113,23 +113,43 @@ const Navbar = ({ pageTree }: NavbarProps) => {
                 
                 return (
                   <li key={link.href} className={`relative h-full group ${hideAtNarrow ? '[@media(width<1112px)]:hidden' : ''}`}>
-                    <Link
-                      href={link.href}
-                      target={link.target}
-                      className={`h-full ${
-                        activeRoute === link.href ? "opacity-100" : "opacity-50"
-                      } hover:opacity-100 transition-opacity duration-300`}
-                    >
-                      <span className="flex gap-2 items-center h-full">
-                        <span className={hideIconAtNarrow ? '[@media(width<808px)]:hidden' : ''}>
-                          {link.icon}
+                    {link.target === "_blank" ? (
+                      <a
+                        href={link.href}
+                        target={link.target}
+                        rel="noreferrer noopener"
+                        className={`h-full ${
+                          activeRoute === link.href ? "opacity-100" : "opacity-50"
+                        } hover:opacity-100 transition-opacity duration-300`}
+                      >
+                        <span className="flex gap-2 items-center h-full">
+                          <span className={hideIconAtNarrow ? '[@media(width<808px)]:hidden' : ''}>
+                            {link.icon}
+                          </span>
+
+                          <span className="text-sm font-medium">{link.label}</span>
+
+                          {link.showExternalLinkIcon && <ExternalLinkIcon />}
                         </span>
+                      </a>
+                    ) : (
+                      <Link
+                        href={link.href}
+                        className={`h-full ${
+                          activeRoute === link.href ? "opacity-100" : "opacity-50"
+                        } hover:opacity-100 transition-opacity duration-300`}
+                      >
+                        <span className="flex gap-2 items-center h-full">
+                          <span className={hideIconAtNarrow ? '[@media(width<808px)]:hidden' : ''}>
+                            {link.icon}
+                          </span>
 
-                        <span className="text-sm font-medium">{link.label}</span>
+                          <span className="text-sm font-medium">{link.label}</span>
 
-                        {link.showExternalLinkIcon && <ExternalLinkIcon />}
-                      </span>
-                    </Link>
+                          {link.showExternalLinkIcon && <ExternalLinkIcon />}
+                        </span>
+                      </Link>
+                    )}
                     <div
                       className={`absolute bottom-0 left-0 w-full h-[3px] bg-[#7076D5] transition-opacity duration-300 ${
                         activeRoute === link.href
@@ -180,11 +200,26 @@ const Navbar = ({ pageTree }: NavbarProps) => {
               // For API Reference and Copilot Cloud, only show at narrow widths (between 768px and 1112px)
               const isIconOnlyLink = link.label === "API Reference" || link.label === "Copilot Cloud";
               
+              // Use regular <a> tag for external links to avoid hydration issues
+              if (link.target === "_blank") {
+                return (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    target={link.target}
+                    rel="noreferrer noopener"
+                    className={`${isIconOnlyLink ? '[@media(width>=1112px)]:hidden [@media(width<768px)]:hidden' : 'hidden'} justify-center items-center w-11 h-full md:flex`}
+                    title={link.label}
+                  >
+                    <span className="flex items-center h-full">{link.icon}</span>
+                  </a>
+                );
+              }
+              
               return (
                 <Link
                   key={link.href}
                   href={link.href}
-                  target={link.target}
                   className={`${isIconOnlyLink ? '[@media(width>=1112px)]:hidden [@media(width<768px)]:hidden' : 'hidden'} justify-center items-center w-11 h-full md:flex`}
                   title={link.label}
                 >
