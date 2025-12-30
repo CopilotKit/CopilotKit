@@ -1,7 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { useSearchContext } from "fumadocs-ui/provider"
+import { useSearchContext } from "fumadocs-ui/contexts/search"
 // Icons
 import LoupeIcon from "@/components/ui/icons/loupe"
 import SearchShortcutIcon from "@/components/ui/icons/search-shortcut"

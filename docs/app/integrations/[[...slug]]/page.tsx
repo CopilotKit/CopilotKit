@@ -20,7 +20,7 @@ import { Accordions, Accordion } from 'fumadocs-ui/components/accordion';
 import { NavigationLink } from '@/components/react/subdocs-menu';
 import { getSnippetTOCForPage } from '@/lib/snippet-toc';
 import { CustomPager } from '@/components/ui/custom-pager';
-import { PageBreadcrumb } from 'fumadocs-ui/layouts/docs/page-client';
+import { PageBreadcrumb } from 'fumadocs-ui/layouts/docs/page';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
