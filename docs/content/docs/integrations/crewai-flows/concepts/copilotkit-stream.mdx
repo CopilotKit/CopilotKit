@@ -1,0 +1,30 @@
+---
+title: Streaming and Tool Calls
+description: CoAgents support streaming your messages and tool calls to the frontend.
+---
+
+If you'd like to stream messages from your CrewAI agents you can utilize our Copilotkit SDK which provides a collection
+of functions and utilities for interacting with the agent's state or behavior. This allows you to choose how messages and
+tool calls are emitted and streamed to the frontend.
+
+## Message Streaming
+
+If you just call the LiteLLM `completion` function from your CrewAI agent, messages will not be streamed by default.
+To stream messages, wrap the `completion` function with the `copilotkit_stream` function. This will enable streaming
+of both the messages and tool calls to the frontend.
+
+```python
+response = copilotkit_stream(
+    completion(
+        model="openai/gpt-4o",
+        messages=[
+            {"role": "system", "content": my_prompt},
+            *self.state["messages"]
+        ],
+        stream=True
+    )
+)
+```
+
+For more information on how tool calls are utilized check out our [frontend actions](/crewai-flows/frontend-actions)
+documentation.
