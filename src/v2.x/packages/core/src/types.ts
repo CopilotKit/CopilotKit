@@ -1,6 +1,10 @@
 import { ToolCall } from "@ag-ui/client";
 import { z } from "zod";
 
+export const DEFINED_IN_MIDDLEWARE_EXPERIMENTAL = "__AG_UI_DEFINED_IN_MIDDLEWARE__";
+// DefinedInMiddleware type not exported while experimental - use `typeof DEFINED_IN_MIDDLEWARE_EXPERIMENTAL` if needed
+type DefinedInMiddleware = typeof DEFINED_IN_MIDDLEWARE_EXPERIMENTAL;
+
 /**
  * Status of a tool call execution
  */
@@ -14,8 +18,8 @@ export type CopilotRuntimeTransport = "rest" | "single";
 
 export type FrontendTool<T extends Record<string, unknown> = Record<string, unknown>> = {
   name: string;
-  description?: string;
-  parameters?: z.ZodType<T>;
+  description?: string | DefinedInMiddleware;
+  parameters?: z.ZodType<T> | DefinedInMiddleware;
   handler?: (args: T, toolCall: ToolCall) => Promise<unknown>;
   followUp?: boolean;
   /**

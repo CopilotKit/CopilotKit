@@ -1,3 +1,7 @@
+export const DEFINED_IN_MIDDLEWARE_EXPERIMENTAL = "__AG_UI_DEFINED_IN_MIDDLEWARE__";
+// DefinedInMiddleware type not exported while experimental - use `typeof DEFINED_IN_MIDDLEWARE_EXPERIMENTAL` if needed
+type DefinedInMiddleware = typeof DEFINED_IN_MIDDLEWARE_EXPERIMENTAL;
+
 type TypeMap = {
   string: string;
   number: number;
@@ -80,10 +84,10 @@ export type MappedParameterTypes<T extends Parameter[] | [] = []> = T extends []
 
 export type Action<T extends Parameter[] | [] = []> = {
   name: string;
-  description?: string;
-  parameters?: T;
-  handler?: T extends []
-    ? () => any | Promise<any>
+  description?: string | DefinedInMiddleware;
+  parameters?: T | DefinedInMiddleware;
+  handler?: T extends [] 
+    ? () => any | Promise<any> 
     : (args: MappedParameterTypes<T>) => any | Promise<any>;
   additionalConfig?: Record<string, any>;
 };
