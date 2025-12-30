@@ -8,6 +8,7 @@ import Folder from '../ui/sidebar/folder';
 import IntegrationSelector, { Integration } from '../ui/integrations-sidebar/integration-selector';
 import IntegrationSelectorSkeleton from '../ui/integrations-sidebar/skeleton';
 import { OpenedFoldersProvider } from '@/lib/hooks/use-opened-folders';
+import { getIntegration } from '@/lib/integrations';
 
 type Node = DocsLayoutProps['tree']['children'][number] & {
   url: string;
@@ -27,11 +28,14 @@ const IntegrationsSidebar = ({ pageTree }: { pageTree: DocsLayoutProps['tree'] }
   const integrationPages = useMemo(() => {
     if (!selectedIntegration) return [];
 
-    const integrationPath = `/integrations/${selectedIntegration}`;
+    // Get the integration metadata to find the display name
+    const integrationMeta = getIntegration(selectedIntegration);
+    const integrationLabel = integrationMeta.label;
 
+    // Find the integration folder by matching the name
     const integrationFolder = pageTree.children.find(node => {
       const folderNode = node as Node;
-      return folderNode.type === 'folder' && folderNode.index?.url === integrationPath;
+      return folderNode.type === 'folder' && folderNode.name === integrationLabel;
     }) as Node | undefined;
 
     return integrationFolder?.children ?? [];

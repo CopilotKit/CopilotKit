@@ -1,7 +1,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import { ReactNode } from "react"
-import type { PageTree } from "fumadocs-core/server"
+import type { PageTree } from "fumadocs-core/page-tree"
 import { Page } from "fumadocs-core/source"
 import { ChevronRight } from "lucide-react"
 import { ChevronLeft } from "lucide-react"
