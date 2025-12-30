@@ -21,6 +21,7 @@
   <a href="https://github.com/copilotkit/copilotkit/blob/main/LICENSE" target="_blank">
     <img src="https://img.shields.io/github/license/copilotkit/copilotkit?color=%236963ff&label=License" alt="MIT">
   </a>
+<a href="https://app.fossa.com/projects/git%2Bgithub.com%2FCopilotKit%2FCopilotKit?ref=badge_shield" alt="FOSSA Status"><img src="https://app.fossa.com/api/projects/git%2Bgithub.com%2FCopilotKit%2FCopilotKit.svg?type=shield"/></a>
 
   <a href="https://discord.gg/6dffbvGU3D" target="_blank">
     <img src="https://img.shields.io/discord/1122926057641742418?logo=discord&logoColor=%23FFFFFF&label=Discord&color=%236963ff" alt="Discord">
@@ -32,6 +33,9 @@
     <img src="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=428778&theme=light&period=daily">
   </a>
   </div>
+
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FCopilotKit%2FCopilotKit.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FCopilotKit%2FCopilotKit?ref=badge_large)
 
 ## ⚡️ Quick Install
 ```
