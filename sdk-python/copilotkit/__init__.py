@@ -6,7 +6,7 @@ from .parameter import Parameter
 from .agent import Agent
 from .langgraph_agent import LangGraphAgent
 from .langgraph_agui_agent import LangGraphAGUIAgent
-from .copilotkit_lg_middleware import copilotkit_middleware
+from .copilotkit_lg_middleware import CopilotKitMiddleware
 
 
 
@@ -22,5 +22,5 @@ __all__ = [
     'CrewAIAgent', # pyright: ignore[reportUnsupportedDunderAll] pylint: disable=undefined-all-variable
     'LangGraphAgent', # pyright: ignore[reportUnsupportedDunderAll] pylint: disable=undefined-all-variable
     "LangGraphAGUIAgent",
-    "copilotkit_middleware"
+    "CopilotKitMiddleware"
 ]

@@ -15,7 +15,6 @@ Example:
 """
 
 from typing import Any, Callable, Awaitable, ClassVar, List
-from typing_extensions import NotRequired
 
 from langchain_core.messages import AIMessage
 from langchain.agents.middleware import (
@@ -28,8 +27,7 @@ from langgraph.runtime import Runtime
 
 from .langgraph import CopilotContextItem
 
-
-class CopilotKitState(AgentState):
+class CopilotKitState:
     """Extended state schema for CopilotKit middleware."""
 
     # CopilotKit frontend tools passed via state
@@ -37,7 +35,11 @@ class CopilotKitState(AgentState):
     context: List[CopilotContextItem]
 
     # Private state for CopilotKit middleware
-    copilotkit: NotRequired[dict[str, Any]]
+    intercepted_tool_calls: Any
+    original_ai_message_id: Any
+
+class StateSchema(AgentState):
+    copilotkit: CopilotKitState
 
 
 class CopilotKitMiddleware(AgentMiddleware[CopilotKitState, Any]):
@@ -59,7 +61,7 @@ class CopilotKitMiddleware(AgentMiddleware[CopilotKitState, Any]):
             request: ModelRequest,
             handler: Callable[[ModelRequest], ModelResponse],
     ) -> ModelResponse:
-        frontend_tools = request.state.get("copilotkit", {}).get("tools", [])
+        frontend_tools = request.state.get("copilotkit", {}).get("actions", [])
 
         if not frontend_tools:
             return handler(request)
@@ -74,7 +76,7 @@ class CopilotKitMiddleware(AgentMiddleware[CopilotKitState, Any]):
             request: ModelRequest,
             handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
     ) -> ModelResponse:
-        frontend_tools = request.state.get("copilotkit", {}).get("tools", [])
+        frontend_tools = request.state.get("copilotkit", {}).get("actions", [])
 
         if not frontend_tools:
             return await handler(request)
@@ -190,6 +192,3 @@ class CopilotKitMiddleware(AgentMiddleware[CopilotKitState, Any]):
         # Delegate to sync implementation
         return self.after_agent(state, runtime)
 
-
-# Pre-created instance for convenience
-copilotkit_middleware = CopilotKitMiddleware()
