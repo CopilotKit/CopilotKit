@@ -105,7 +105,7 @@ export default async function Page({ params }: { params: Promise<{ slug?: string
     <DocsPage
       toc={combinedTOC}
       full={page.data.full}
-      footer={{ component: <CustomPager tree={source.pageTree} page={page} /> }}
+      footer={{ enabled: false }}
       tableOfContent={{
         style: 'clerk',
       }}
@@ -161,6 +161,7 @@ export default async function Page({ params }: { params: Promise<{ slug?: string
               <MDX components={mdxComponents} />
             </DocsBody>
           </div>
+          <CustomPager tree={source.pageTree} page={page} />
         </div>
       </div>
     </DocsPage>

@@ -121,6 +121,7 @@ export default async function Page({
     <DocsPage
       toc={combinedTOC}
       full={page.data.full}
+      footer={{ enabled: false }}
       tableOfContent={{
         style:"clerk",
       }}

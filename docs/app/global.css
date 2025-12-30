@@ -211,10 +211,6 @@
   }
 }
 
-[data-toc] {
-  display: none !important;
-}
-
 figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-auto.max-h-\[600px\].fd-scroll-container {
   background-color: var(--background) !important;
 }
@@ -226,11 +222,26 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
   top: auto !important;
 }
 
+/* Fix navbar positioning - prevent it from moving off-screen */
 #nd-home-layout {
   padding-top: 0 !important;
   flex: 1;
   min-height: 0;
   overflow: auto;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* Ensure nav stays visible */
+#nd-home-layout > div {
+  flex-shrink: 0 !important;
+}
+
+/* Force nav wrapper to stay in place */
+nav[class*="h-[68px]"],
+nav[class*="h-[88px]"] {
+  position: relative !important;
+  flex-shrink: 0 !important;
 }
 
 #nd-home-layout {
@@ -248,7 +259,7 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
   margin: 0 4px !important;
   padding: 0 !important;
   height: 100%;
-  overflow: hidden;
+  overflow-y: auto !important;
 
   @media (min-width: 1280px) {
     margin: 0 8px 8px 8px !important;
@@ -256,10 +267,11 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
 }
 
 #nd-page {
-  flex-direction: column;
+  display: flex !important;
+  flex-direction: column !important;
   padding-top: 0 !important;
-  max-height: 100%;
-  overflow-y: auto;
+  max-height: none !important;
+  overflow-y: visible !important;
   margin: 0 !important;
   width: 100% !important;
   max-width: none !important;
@@ -269,17 +281,19 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
   background: 
     linear-gradient(to right, oklch(0.1081 0.0147 220.92 / 4%), oklch(0.1081 0.0147 220.92 / 0%)),
     var(--glass-background) !important;
+  padding: 1.5rem 2rem !important;
 }
 
-.dark #nd-page {
-  background: 
-    linear-gradient(to right, oklch(1 0 0 / 3%), oklch(1 0 0 / 0%)),
-    var(--glass-background) !important;
+@media (min-width: 1280px) {
+  #nd-page {
+    padding: 3rem 4rem !important;
+  }
 }
 
-#nd-page article {
-  margin: 0 !important;
-  padding: 0 !important;
+@media (max-width: 640px) {
+  #nd-page {
+    padding: 1.5rem 1rem !important;
+  }
 }
 
 /* Show TOC popover on mobile for navigation */
@@ -289,6 +303,16 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
   position: sticky;
   inset-inline-start: auto !important;
   top: 0 !important;
+}
+
+/* TOC positioning and visibility */
+#nd-toc {
+  display: block !important;
+  position: sticky !important;
+  top: 1rem !important;
+  max-height: calc(100vh - 2rem) !important;
+  overflow-y: auto !important;
+  flex-shrink: 0 !important;
 }
 
 /* Hide TOC popover on desktop since we use clerk-style inline TOC */

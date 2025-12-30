@@ -29,10 +29,10 @@ function cleanTree(tree: PageTree.Node[]): PageTree.Node[] {
 function getIndex(tree: PageTree.Node[], page: Page): number {
   return tree.findIndex((node) => {
     if (node.type === "folder") {
-      return (node as PageTree.Folder).index?.$id === page.path
+      return (node as PageTree.Folder).index?.url === page.url
     }
     if (node.type === "page") {
-      return (node as PageTree.Item).$id === page.path
+      return (node as PageTree.Item).url === page.url
     }
     return false
   })
