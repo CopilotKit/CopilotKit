@@ -9,8 +9,9 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@copilotkit/react-core": "^1.5.20",
-    "@copilotkit/react-ui": "^1.5.20",
+    "@copilotkit/react-core": "^1.50.1",
+    "@copilotkit/react-ui": "^1.50.1",
+    "@copilotkit/runtime": "^1.50.1",
     "@hookform/resolvers": "^4.1.2",
     "@radix-ui/react-label": "^2.1.2",
     "@radix-ui/react-popover": "^1.1.6",
@@ -25,6 +26,7 @@
     "react-day-picker": "8.10.1",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.54.2",
+    "shiki": "^3.20.0",
     "tailwind-merge": "^3.0.2",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^3.24.2"
@@ -36,7 +38,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "15.2.0-canary.76",
+    "eslint-config-next": "15.2.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
