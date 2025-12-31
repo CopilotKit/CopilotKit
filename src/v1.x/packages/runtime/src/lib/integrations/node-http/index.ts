@@ -40,8 +40,11 @@ export function copilotRuntimeNodeHttpEndpoint(options: CreateCopilotRuntimeServ
     reqOrRequest: IncomingMessage | Request,
     res?: ServerResponse,
   ): Promise<void> | Promise<Response> | Response {
-    if (reqOrRequest instanceof Request || res === undefined) {
+    if (reqOrRequest instanceof Request) {
       return honoApp.fetch(reqOrRequest as Request);
+    }
+    if (!res) {
+      throw new TypeError("ServerResponse is required for Node HTTP requests");
     }
     return handle(reqOrRequest as IncomingMessage, res);
   };
