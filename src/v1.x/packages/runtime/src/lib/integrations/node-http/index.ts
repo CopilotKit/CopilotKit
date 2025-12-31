@@ -1,6 +1,8 @@
 import { CreateCopilotRuntimeServerOptions, getCommonConfig } from "../shared";
 import telemetry, { getRuntimeInstanceTelemetryInfo } from "../../telemetry-client";
 import { createCopilotEndpointSingleRoute } from "@copilotkitnext/runtime";
+import { getRequestListener } from "@hono/node-server";
+import type { IncomingMessage, ServerResponse } from "node:http";
 
 export function copilotRuntimeNodeHttpEndpoint(options: CreateCopilotRuntimeServerOptions) {
   const commonConfig = getCommonConfig(options);
@@ -32,5 +34,15 @@ export function copilotRuntimeNodeHttpEndpoint(options: CreateCopilotRuntimeServ
     basePath: options.baseUrl ?? options.endpoint,
   });
 
-  return honoApp.fetch;
+  const handle = getRequestListener(honoApp.fetch);
+
+  return function (
+    reqOrRequest: IncomingMessage | Request,
+    res?: ServerResponse,
+  ): Promise<void> | Promise<Response> | Response {
+    if (reqOrRequest instanceof Request || res === undefined) {
+      return honoApp.fetch(reqOrRequest as Request);
+    }
+    return handle(reqOrRequest as IncomingMessage, res);
+  };
 }
