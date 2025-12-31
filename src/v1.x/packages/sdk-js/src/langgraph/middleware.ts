@@ -24,7 +24,8 @@ import * as z from "zod";
  * ```
  */
 const copilotKitStateSchema = z.object({
-  copilotkit: z.object({
+  copilotkit: z
+    .object({
       actions: z.array(z.any()),
       context: z.any().optional(),
       interceptedToolCalls: z.array(z.any()).optional(),
@@ -65,8 +66,10 @@ const createCopilotKitMiddleware = () => {
         return;
       }
 
+      let messageFound = false;
       const updatedMessages = state.messages.map((msg: any) => {
         if (AIMessage.isInstance(msg) && msg.id === originalMessageId) {
+          messageFound = true;
           const existingToolCalls = msg.tool_calls || [];
           return new AIMessage({
             content: msg.content,
@@ -76,6 +79,14 @@ const createCopilotKitMiddleware = () => {
         }
         return msg;
       });
+
+      // Only clear intercepted state if we successfully restored the tool calls
+      if (!messageFound) {
+        console.warn(
+          `CopilotKit: Could not find message with id ${originalMessageId} to restore tool calls`,
+        );
+        return;
+      }
 
       return {
         messages: updatedMessages,

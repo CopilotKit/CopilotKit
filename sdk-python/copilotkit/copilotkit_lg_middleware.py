@@ -25,30 +25,19 @@ from langchain.agents.middleware import (
 )
 from langgraph.runtime import Runtime
 
-from .langgraph import CopilotContextItem
-
-class CopilotKitState:
-    """Extended state schema for CopilotKit middleware."""
-
-    # CopilotKit frontend tools passed via state
-    actions: List[Any]
-    context: List[CopilotContextItem]
-
-    # Private state for CopilotKit middleware
-    intercepted_tool_calls: Any
-    original_ai_message_id: Any
+from .langgraph import CopilotKitProperties
 
 class StateSchema(AgentState):
-    copilotkit: CopilotKitState
+    copilotkit: CopilotKitProperties
 
 
-class CopilotKitMiddleware(AgentMiddleware[CopilotKitState, Any]):
+class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
     """CopilotKit Middleware for LangGraph agents.
 
     Handles frontend tool injection and interception for CopilotKit.
     """
 
-    state_schema = CopilotKitState
+    state_schema = StateSchema
     tools: ClassVar[list] = []
 
     @property
@@ -89,10 +78,10 @@ class CopilotKitMiddleware(AgentMiddleware[CopilotKitState, Any]):
     # Intercept frontend tool calls after model returns, before ToolNode executes
     def after_model(
             self,
-            state: CopilotKitState,
+            state: StateSchema,
             runtime: Runtime[Any],
     ) -> dict[str, Any] | None:
-        frontend_tools = state.get("copilotkit", {}).get("tools", [])
+        frontend_tools = state.get("copilotkit", {}).get("actions", [])
         if not frontend_tools:
             return None
 
@@ -143,7 +132,7 @@ class CopilotKitMiddleware(AgentMiddleware[CopilotKitState, Any]):
 
     async def aafter_model(
             self,
-            state: CopilotKitState,
+            state: StateSchema,
             runtime: Runtime[Any],
     ) -> dict[str, Any] | None:
         # Delegate to sync implementation
@@ -152,7 +141,7 @@ class CopilotKitMiddleware(AgentMiddleware[CopilotKitState, Any]):
     # Restore frontend tool calls to AIMessage before agent exits
     def after_agent(
             self,
-            state: CopilotKitState,
+            state: StateSchema,
             runtime: Runtime[Any],
     ) -> dict[str, Any] | None:
         copilotkit_state = state.get("copilotkit", {})
@@ -186,7 +175,7 @@ class CopilotKitMiddleware(AgentMiddleware[CopilotKitState, Any]):
 
     async def aafter_agent(
             self,
-            state: CopilotKitState,
+            state: StateSchema,
             runtime: Runtime[Any],
     ) -> dict[str, Any] | None:
         # Delegate to sync implementation
