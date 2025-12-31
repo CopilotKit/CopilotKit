@@ -227,7 +227,7 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
   padding-top: 0 !important;
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow: visible !important;
   display: flex !important;
   flex-direction: column !important;
 }
@@ -248,7 +248,7 @@ nav[class*="h-[88px]"] {
   padding-top: 0 !important;
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow: visible !important;
 }
 
 #nd-docs-layout {
@@ -297,8 +297,8 @@ nav[class*="h-[88px]"] {
   display: block !important;
   position: sticky !important;
   top: 0 !important;
-  max-height: 100% !important;
-  overflow-y: auto !important;
+  max-height: none !important;
+  overflow-y: visible !important;
   flex-shrink: 0 !important;
   border-top: 1px solid var(--border) !important;
   border-right: 1px solid var(--border) !important;
