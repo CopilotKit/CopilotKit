@@ -5,7 +5,7 @@ import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNodeHttpEndpoint } from "@
 import OpenAI from "openai";
 
 const openai = new OpenAI();
-const serviceAdapter = new OpenAIAdapter({ openai });
+const serviceAdapter = new OpenAIAdapter({ openai: openai as any });
 
 const runtime = new CopilotRuntime({
   actions: [
@@ -36,13 +36,13 @@ const copilotRuntime = copilotRuntimeNodeHttpEndpoint({
 
 const app = express();
 
-// app.use("/copilotkit", copilotRuntime);
+app.use("/copilotkit", copilotRuntime);
 
 // OR
 
-app.use("/copilotkit", (req, res, next) => {
-  return copilotRuntime(req, res, next);
-});
+// app.use("/copilotkit", (req, res, next) => {
+//   return copilotRuntime(req, res, next);
+// });
 
 app.listen(4000, () => {
   console.log("Listening at http://localhost:4000/copilotkit");
