@@ -128,7 +128,7 @@ export default async function Page({
       breadcrumb={{ enabled: false }}
     >
       <div>
-        <div className="overflow-y-scroll px-8 py-6 rounded-2xl xl:py-12 xl:px-16 custom-scrollbar max-sm:px-4 max-sm:py-6">
+        <div className="px-8 py-6 xl:py-12 xl:px-16 max-sm:px-4 max-sm:py-6">
           <PageBreadcrumb className="mb-4" />
           <div className={hideHeader ? "" : "min-h-screen"}>
             {!hideHeader && (
