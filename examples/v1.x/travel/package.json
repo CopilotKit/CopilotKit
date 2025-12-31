@@ -3,16 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "",
+    "dev:ui": "next dev",
+    "dev:agent": "cd agent && uv run main.py",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "install:agent": "cd agent && uv sync"
   },
   "dependencies": {
-    "@copilotkit/react-core": "1.9.2",
-    "@copilotkit/react-ui": "1.9.2",
-    "@copilotkit/runtime": "1.9.2",
-    "@copilotkit/runtime-client-gql": "1.9.2",
+    "@copilotkit/react-core": "1.50.1",
+    "@copilotkit/react-ui": "1.50.1",
+    "@copilotkit/runtime": "1.50.1",
     "@radix-ui/react-accordion": "^1.2.1",
     "@radix-ui/react-checkbox": "^1.1.1",
     "@radix-ui/react-dialog": "^1.1.2",

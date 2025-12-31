@@ -1,72 +1,36 @@
-# CoAgents Travel
+This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
-This example contains a Travel Planner application with search capabilities using CoAgents.
+## Getting Started
 
-**These instructions assume you are in the `coagents-travel/` directory**
+First, run the development server:
 
-## Running the Agent
-
-This agent is already hosted in LangGraph Platform. However, if you'd like to run it
-yourself first, install the dependencies:
-
-```sh
-cd agent
-poetry install
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-Then, create a `.env` file inside `./agent` with the following:
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-```
-OPENAI_API_KEY=...
-GOOGLE_MAPS_API_KEY=...
-```
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-IMPORTANT:
-Make sure the OpenAI API Key you provide, supports gpt-4o.
+This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
 
-Then, run the demo:
+## Learn More
 
-```sh
-poetry run demo
-```
+To learn more about Next.js, take a look at the following resources:
 
-## Running the UI
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-First, install the dependencies:
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
 
-```sh
-cd ./ui
-pnpm i
-```
+## Deploy on Vercel
 
-Then, create a `.env` file inside `./ui` with the following:
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-```
-OPENAI_API_KEY=...
-NEXT_PUBLIC_CPK_PUBLIC_API_KEY=...
-```
-
-If you need a CopilotKit API key, you can get one [here](https://cloud.copilotkit.ai)
-
-Then, run the Next.js project:
-
-```sh
-pnpm run dev
-```
-
-## Usage
-
-Navigate to [http://localhost:3000](http://localhost:3000).
-
-# LangGraph Studio
-
-Run LangGraph studio, then load the `./agent` folder into it.
-
-Make sure to create the `.env` files mentioned above first!
-
-# Troubleshooting
-
-A few things to try if you are running into trouble:
-
-1. Make sure there is no other local application server running on the 8000 port.
-2. Under `/agent/travel/demo.py`, change `0.0.0.0` to `127.0.0.1` or to `localhost`
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
