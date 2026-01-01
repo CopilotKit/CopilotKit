@@ -230,18 +230,18 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
   min-width: 0;
   height: 100%;
   overflow-y: auto;
-  border: 1px solid var(--border);
-  border-left: none;
-  border-radius: 0 var(--radius) var(--radius) 0;
+  border: 1px solid var(--border) !important;
+  border-left: none !important;
+  border-radius: 0 var(--radius) var(--radius) 0 !important;
   background: 
     linear-gradient(to right, oklch(0.1081 0.0147 220.92 / 4%), oklch(0.1081 0.0147 220.92 / 0%)),
-    var(--glass-background);
+    var(--glass-background) !important;
 }
 
 .dark .docs-content-wrapper {
   background: 
     linear-gradient(to right, oklch(1 0 0 / 3%), oklch(1 0 0 / 0%)),
-    var(--glass-background);
+    var(--glass-background) !important;
 }
 
 #nd-home-layout {
@@ -264,9 +264,18 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
   display: contents !important;
 }
 
+/* Override any fumadocs default backgrounds on content elements */
+.docs-content-wrapper #nd-page,
+.docs-content-wrapper #nd-toc,
+.docs-content-wrapper article {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
 /* Style the article/main content area - #nd-page is the article in v16 */
 #nd-page {
   padding-top: 0 !important;
+  background: transparent !important;
 }
 
 /* TOC popover styling for mobile (below 1280px) */
@@ -279,13 +288,12 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
   justify-content: flex-start !important;
 }
 
-/* TOC styling */
+/* TOC styling - inherit background from wrapper, no separate border */
 #nd-toc {
-  background: var(--glass-background) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: var(--radius) !important;
+  background: transparent !important;
+  border: none !important;
   padding: 1rem !important;
-  margin-top: 3rem !important;
+  margin-top: 0 !important;
 }
 
 #nd-toc h3 svg {
