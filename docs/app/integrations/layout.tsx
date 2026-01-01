@@ -11,16 +11,17 @@ export default function Layout({ children }: { children: ReactNode }) {
     <>
       <Navbar pageTree={source.pageTree} />
       <HomeLayout {...baseOptions} nav={{ enabled: false }}>
-        <DocsLayout
-          tree={source.pageTree}
-          searchToggle={{ enabled: false }}
-          nav={{ enabled: false }}
-          sidebar={{
-            component: <IntegrationsSidebar pageTree={source.pageTree} />,
-          }}
-        >
-          {children}
-        </DocsLayout>
+        <IntegrationsSidebar pageTree={source.pageTree} />
+        <div className="docs-content-wrapper">
+          <DocsLayout
+            tree={source.pageTree}
+            searchToggle={{ enabled: false }}
+            nav={{ enabled: false }}
+            sidebar={{ enabled: false }}
+          >
+            {children}
+          </DocsLayout>
+        </div>
       </HomeLayout>
     </>
   )

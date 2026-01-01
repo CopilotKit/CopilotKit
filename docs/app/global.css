@@ -223,46 +223,45 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
   top: auto !important;
 }
 
+/* Wrapper for content area - we need to add this in layout */
+.docs-content-wrapper {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-left: none;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: 
+    linear-gradient(to right, oklch(0.1081 0.0147 220.92 / 4%), oklch(0.1081 0.0147 220.92 / 0%)),
+    var(--glass-background);
+}
+
+.dark .docs-content-wrapper {
+  background: 
+    linear-gradient(to right, oklch(1 0 0 / 3%), oklch(1 0 0 / 0%)),
+    var(--glass-background);
+}
+
 #nd-home-layout {
+  display: flex;
+  flex-direction: row;
   padding-top: 0 !important;
   flex: 1;
   min-height: 0;
   overflow: hidden;
-}
-
-#nd-docs-layout {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: stretch;
-  margin: 0 4px !important;
-  padding: 0 !important;
-  height: 100%;
-  overflow: hidden;
+  margin: 0 4px;
+  gap: 0;
 
   @media (min-width: 1280px) {
-    margin: 0 8px 8px 8px !important;
+    margin: 0 8px 8px 8px;
   }
 }
 
-/* Main content wrapper - the grid container that holds article and TOC */
-#nd-docs-layout > div:not(#nd-sidebar):not(aside) {
-  border: 1px solid var(--border) !important;
-  border-left: none !important;
-  border-radius: 0 var(--radius) var(--radius) 0 !important;
-  background: 
-    linear-gradient(to right, oklch(0.1081 0.0147 220.92 / 4%), oklch(0.1081 0.0147 220.92 / 0%)),
-    var(--glass-background) !important;
-  flex: 1;
-  min-width: 0;
-  max-height: 100%;
-  overflow-y: auto;
-}
-
-.dark #nd-docs-layout > div:not(#nd-sidebar):not(aside) {
-  background: 
-    linear-gradient(to right, oklch(1 0 0 / 3%), oklch(1 0 0 / 0%)),
-    var(--glass-background) !important;
+/* Hide the fumadocs grid layout container - we'll handle layout ourselves */
+#nd-docs-layout {
+  display: contents !important;
 }
 
 /* Style the article/main content area - #nd-page is the article in v16 */
