@@ -223,9 +223,8 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
   top: auto !important;
 }
 
-/* Wrapper for content area - we need to add this in layout */
+/* Wrapper for content area */
 .docs-content-wrapper {
-  display: flex;
   flex: 1;
   min-width: 0;
   height: 100%;
@@ -259,9 +258,9 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
   }
 }
 
-/* Hide the fumadocs grid layout container - we'll handle layout ourselves */
+/* Override fumadocs banner height calculation since we handle banners outside DocsLayout */
 #nd-docs-layout {
-  display: contents !important;
+  --fd-banner-height: 0px !important;
 }
 
 /* Override any fumadocs default backgrounds on content elements */
@@ -288,12 +287,12 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
   justify-content: flex-start !important;
 }
 
-/* TOC styling - inherit background from wrapper, no separate border */
+/* TOC styling */
 #nd-toc {
   background: transparent !important;
   border: none !important;
   padding: 1rem !important;
-  margin-top: 0 !important;
+  margin: 0 !important;
 }
 
 #nd-toc h3 svg {
