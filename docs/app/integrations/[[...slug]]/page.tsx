@@ -20,7 +20,7 @@ import { Accordions, Accordion } from 'fumadocs-ui/components/accordion';
 import { NavigationLink } from '@/components/react/subdocs-menu';
 import { getSnippetTOCForPage } from '@/lib/snippet-toc';
 import { CustomPager } from '@/components/ui/custom-pager';
-import { PageBreadcrumb } from 'fumadocs-ui/layouts/docs/page-client';
+import { PageBreadcrumb } from 'fumadocs-ui/layouts/docs/page';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
@@ -110,21 +110,20 @@ export default async function Page({ params }: { params: Promise<{ slug?: string
         style: 'clerk',
       }}
       breadcrumb={{ enabled: false }}>
-      <div>
-        <div className='overflow-y-scroll px-8 py-6 rounded-2xl xl:py-12 xl:px-16 custom-scrollbar max-sm:px-4 max-sm:py-6'>
-          {!isIntegrationsRootPage && (
-            <div className={cn("mb-4", hideHeader ? "mx-auto max-w-5xl px-4 sm:px-6" : "")}>
-              <Link
-                href="/integrations"
-                className="inline-flex items-center gap-2 text-muted-foreground hover:text-accent-foreground transition-color"
-              >
-                <ChevronLeft size={20} className="" />
-                <span className="text-xs">Back to Integrations</span>
-              </Link>
-            </div>
-          )}
-          <PageBreadcrumb className='mb-4' />
-          <div className={hideHeader ? '' : 'min-h-screen'}>
+      <div className='px-8 py-6 xl:py-12 xl:px-16 max-sm:px-4 max-sm:py-6'>
+        {!isIntegrationsRootPage && (
+          <div className={cn("mb-4", hideHeader ? "mx-auto max-w-5xl px-4 sm:px-6" : "")}>
+            <Link
+              href="/integrations"
+              className="inline-flex items-center gap-2 text-muted-foreground hover:text-accent-foreground transition-color"
+            >
+              <ChevronLeft size={20} className="" />
+              <span className="text-xs">Back to Integrations</span>
+            </Link>
+          </div>
+        )}
+        <PageBreadcrumb className='mb-4' />
+        <div>
             {!hideHeader && (
               <div className='gap-5 flex flex-col'>
                 <div className='flex gap-3 items-center'>
@@ -162,7 +161,6 @@ export default async function Page({ params }: { params: Promise<{ slug?: string
             </DocsBody>
           </div>
         </div>
-      </div>
     </DocsPage>
   );
 }

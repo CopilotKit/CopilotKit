@@ -4,18 +4,22 @@ import type { ReactNode } from "react"
 import { baseOptions } from "../layout.config"
 import { source } from "@/app/source"
 import Sidebar from "@/components/layout/sidebar"
+import Navbar from "@/components/layout/navbar"
 
 export default function Layout({ children }: { children: ReactNode }) {
   return (
-    <HomeLayout {...baseOptions}>
-      <DocsLayout
-        tree={source.pageTree}
-        searchToggle={{ enabled: false }}
-        nav={{ enabled: false }}
-        sidebar={{ component: <Sidebar pageTree={source.pageTree} /> }}
-      >
-        {children}
-      </DocsLayout>
-    </HomeLayout>
+    <>
+      <Navbar pageTree={source.pageTree} />
+      <HomeLayout {...baseOptions} nav={{ enabled: false }}>
+        <DocsLayout
+          tree={source.pageTree}
+          searchToggle={{ enabled: false }}
+          nav={{ enabled: false }}
+          sidebar={{ component: <Sidebar pageTree={source.pageTree} /> }}
+        >
+          {children}
+        </DocsLayout>
+      </HomeLayout>
+    </>
   )
 }

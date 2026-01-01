@@ -211,9 +211,7 @@
   }
 }
 
-[data-toc] {
-  display: none !important;
-}
+/* TOC is handled via fumadocs v16 grid layout - no need to hide */
 
 figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-auto.max-h-\[600px\].fd-scroll-container {
   background-color: var(--background) !important;
@@ -236,7 +234,7 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
   display: flex;
   flex-direction: row;
   justify-content: space-between;
-  align-items: start;
+  align-items: stretch;
   margin: 0 4px !important;
   padding: 0 !important;
   height: 100%;
@@ -247,51 +245,48 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
   }
 }
 
-#nd-page {
-  flex-direction: column;
-  padding-top: 0 !important;
-  max-height: 100%;
-  overflow-y: auto;
-  margin: 0 !important;
-  width: 100% !important;
-  max-width: none !important;
+/* Main content wrapper - the grid container that holds article and TOC */
+#nd-docs-layout > div:not(#nd-sidebar):not(aside) {
   border: 1px solid var(--border) !important;
   border-left: none !important;
   border-radius: 0 var(--radius) var(--radius) 0 !important;
   background: 
     linear-gradient(to right, oklch(0.1081 0.0147 220.92 / 4%), oklch(0.1081 0.0147 220.92 / 0%)),
     var(--glass-background) !important;
+  flex: 1;
+  min-width: 0;
+  max-height: 100%;
+  overflow-y: auto;
 }
 
-.dark #nd-page {
+.dark #nd-docs-layout > div:not(#nd-sidebar):not(aside) {
   background: 
     linear-gradient(to right, oklch(1 0 0 / 3%), oklch(1 0 0 / 0%)),
     var(--glass-background) !important;
 }
 
-#nd-page article {
-  margin: 0 !important;
-  padding: 0 !important;
+/* Style the article/main content area - #nd-page is the article in v16 */
+#nd-page {
+  padding-top: 0 !important;
 }
 
-/* Show TOC popover on mobile for navigation */
-#nd-tocnav {
-  display: flex !important;
-  flex-direction: column !important;
-  position: sticky;
-  inset-inline-start: auto !important;
-  top: 0 !important;
+/* TOC popover styling for mobile (below 1280px) */
+[data-toc-popover] {
+  width: 100% !important;
 }
 
-/* Hide TOC popover on desktop since we use clerk-style inline TOC */
-@media (min-width: 1280px) {
-  #nd-page {
-    flex-direction: row !important;
-  }
+/* Ensure TOC popover trigger appears at top on mobile */
+[data-toc-popover-trigger] {
+  justify-content: flex-start !important;
+}
 
-  #nd-tocnav {
-    display: none !important;
-  }
+/* TOC styling */
+#nd-toc {
+  background: var(--glass-background) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  padding: 1rem !important;
+  margin-top: 3rem !important;
 }
 
 #nd-toc h3 svg {

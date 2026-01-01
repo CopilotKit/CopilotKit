@@ -1,5 +1,5 @@
 import "./global.css"
-import { RootProvider } from "fumadocs-ui/provider"
+import { RootProvider } from "fumadocs-ui/provider/next"
 import { Plus_Jakarta_Sans, Spline_Sans_Mono } from "next/font/google"
 import type { ReactNode } from "react"
 import { ProvidersWrapper } from "@/lib/providers/providers-wrapper"

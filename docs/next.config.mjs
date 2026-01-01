@@ -40,7 +40,7 @@ const config = {
   skipTrailingSlashRedirect: true,
   skipProxyUrlNormalize: true,
 
-  turbopack: true,
+  // turbopack: true, // Disabled due to pnpm monorepo issues
 
   async rewrites() {
     const integrations = [

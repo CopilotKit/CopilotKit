@@ -1,7 +1,8 @@
 import Link from "next/link"
 import Image from "next/image"
 import { ReactNode } from "react"
-import type { PageTree } from "fumadocs-core/server"
+import type { PageTree } from "fumadocs-core/page-tree"
+import { findNeighbour } from "fumadocs-core/page-tree"
 import { Page } from "fumadocs-core/source"
 import { ChevronRight } from "lucide-react"
 import { ChevronLeft } from "lucide-react"
@@ -11,83 +12,19 @@ interface CustomPagerProps {
   page: Page
 }
 
-function cleanTree(tree: PageTree.Node[]): PageTree.Node[] {
-  return tree.flatMap((node: PageTree.Node) => {
-    if (node.type === "folder") {
-      if ((node as PageTree.Folder).index) {
-        return [node, ...cleanTree(node.children as PageTree.Node[])]
-      }
-      return cleanTree(node.children as PageTree.Node[])
-    }
-    if (node.type === "page") {
-      return [node]
-    }
-    return []
-  })
-}
-
-function getIndex(tree: PageTree.Node[], page: Page): number {
-  return tree.findIndex((node) => {
-    if (node.type === "folder") {
-      return (node as PageTree.Folder).index?.$id === page.path
-    }
-    if (node.type === "page") {
-      return (node as PageTree.Item).$id === page.path
-    }
-    return false
-  })
-}
-
-function getPrev(
-  tree: PageTree.Node[],
-  pageIndex: number
-): { url: string; title: string } | null {
-  if (pageIndex <= 0) return null
-
-  const prevItem = tree[pageIndex - 1]
-
-  if (!prevItem) return null
-
-  if (prevItem.type === "folder") {
-    return {
-      url: (prevItem as PageTree.Folder).index?.url as string,
-      title: (prevItem as PageTree.Folder).index?.name?.toString() as string,
-    }
-  }
-
-  return {
-    url: (prevItem as PageTree.Item).url as string,
-    title: (prevItem as PageTree.Item).name?.toString() as string,
-  }
-}
-
-function getNext(
-  tree: PageTree.Node[],
-  pageIndex: number
-): { url: string; title: string } | null {
-  if (pageIndex === tree.length - 1) return null
-
-  const nextItem = tree[pageIndex + 1]
-
-  if (!nextItem) return null
-
-  if (nextItem.type === "folder") {
-    return {
-      url: (nextItem as PageTree.Folder).index?.url as string,
-      title: (nextItem as PageTree.Folder).index?.name?.toString() as string,
-    }
-  }
-  return {
-    url: (nextItem as PageTree.Item).url as string,
-    title: (nextItem as PageTree.Item).name?.toString() as string,
-  }
-}
-
 export function CustomPager({ tree, page }: CustomPagerProps): ReactNode {
-  const cleanedTree = cleanTree(tree.children)
-  const pageIndex = getIndex(cleanedTree, page)
-  const prev = getPrev(cleanedTree, pageIndex)
-  const next = getNext(cleanedTree, pageIndex)
+  // Use fumadocs-core's built-in findNeighbour function for reliable prev/next detection
+  const { previous, next: nextItem } = findNeighbour(tree, page.url)
+  
+  const prev = previous ? {
+    url: previous.url,
+    title: previous.name?.toString() || ''
+  } : null
+  
+  const next = nextItem ? {
+    url: nextItem.url,
+    title: nextItem.name?.toString() || ''
+  } : null
 
   return (
     <div className="box-content flex flex-col gap-3 justify-between items-center px-4 pb-12 lg:gap-0 lg:flex-row lg:px-8 lg:h-20 shrink-0">

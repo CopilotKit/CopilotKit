@@ -41,7 +41,7 @@ const IntegrationsSidebar = ({ pageTree }: { pageTree: DocsLayoutProps['tree'] }
     <OpenedFoldersProvider>
       <aside
         id='nd-sidebar'
-        className='w-full flex-col max-w-[260px] h-full border backdrop-blur-lg border-r-0 border-border bg-glass-background rounded-l-2xl pl-3 pr-3 hidden lg:flex'>
+        className='w-full flex-col max-w-[260px] h-full border backdrop-blur-lg border-r-0 border-border bg-glass-background rounded-l-2xl pl-3 pr-3 flex'>
         <IntegrationSelector
           selectedIntegration={selectedIntegration}
           setSelectedIntegration={setSelectedIntegration}
