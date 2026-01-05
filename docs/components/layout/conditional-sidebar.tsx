@@ -28,12 +28,6 @@ export default function ConditionalSidebar({ pageTree }: ConditionalSidebarProps
   // Check if this is a reference route (e.g., /reference)
   const isReferenceRoute = firstSegment === "reference"
   
-  // Debug logging
-  console.log('ConditionalSidebar - pathname:', pathname);
-  console.log('ConditionalSidebar - firstSegment:', firstSegment);
-  console.log('ConditionalSidebar - isIntegrationRoute:', isIntegrationRoute);
-  console.log('ConditionalSidebar - isReferenceRoute:', isReferenceRoute);
-  
   // Find the reference folder and create a filtered pageTree
   const referencePageTree = useMemo(() => {
     if (!isReferenceRoute) return null;

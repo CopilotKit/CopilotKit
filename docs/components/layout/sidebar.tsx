@@ -31,11 +31,6 @@ const isIntegrationFolder = (node: Node): boolean => {
 const Sidebar = ({ pageTree }: { pageTree: DocsLayoutProps["tree"] }) => {
   const pages = pageTree.children
 
-  // Debug logging
-  console.log('Sidebar rendered');
-  console.log('pageTree.children count:', pages.length);
-  console.log('pageTree.children:', pages.map((p: Node) => ({ type: p.type, url: p.url, indexUrl: p.index?.url, name: (p as any).name })));
-
   return (
     <OpenedFoldersProvider>
       <aside

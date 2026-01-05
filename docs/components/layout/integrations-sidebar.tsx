@@ -26,11 +26,6 @@ const NODE_COMPONENTS = {
 const IntegrationsSidebar = ({ pageTree }: { pageTree: DocsLayoutProps['tree'] }) => {
   const [selectedIntegration, setSelectedIntegration] = useState<Integration | null>(null);
 
-  // Debug logging
-  console.log('IntegrationsSidebar rendered');
-  console.log('selectedIntegration:', selectedIntegration);
-  console.log('pageTree.children:', pageTree.children.map((c: Node) => ({ type: c.type, url: c.url, indexUrl: c.index?.url, name: c.name })));
-
   const integrationPages = useMemo(() => {
     if (!selectedIntegration) return [];
 

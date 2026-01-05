@@ -58,10 +58,6 @@ export function patchPageTree(pageTree: DocsLayoutProps['tree']): DocsLayoutProp
       if (integrationId) {
         const meta = INTEGRATION_METADATA[integrationId as keyof typeof INTEGRATION_METADATA];
         patchedNode.index = { url: meta.href };
-        console.log(`[patchPageTree] Set indexUrl for folder "${patchedNode.name}" -> ${meta.href} (integration: ${integrationId})`);
-      } else if (patchedNode.name) {
-        // Debug: log folders that didn't match
-        console.log(`[patchPageTree] Could not match folder "${patchedNode.name}" to any integration`);
       }
     }
     

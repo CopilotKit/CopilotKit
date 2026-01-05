@@ -88,17 +88,12 @@ const IntegrationSelector = ({
   useEffect(() => {
     const isRootIntegration = pathname === "/integrations"
 
-    console.log('IntegrationSelector useEffect - pathname:', pathname);
-    console.log('IntegrationSelector useEffect - isRootIntegration:', isRootIntegration);
-
     if (!isRootIntegration) {
       const pathnameParts = pathname.split("/").filter(Boolean); // Remove empty strings
-      console.log('IntegrationSelector useEffect - pathnameParts:', pathnameParts);
       // Check if any pathname part matches an integration ID
       const integrationKey = Object.keys(INTEGRATION_OPTIONS).find((key) =>
         pathnameParts.includes(key)
       ) as Integration | undefined;
-      console.log('IntegrationSelector useEffect - found integrationKey:', integrationKey);
       if (integrationKey) {
         setSelectedIntegration(integrationKey)
         return
