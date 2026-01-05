@@ -150,7 +150,7 @@ const IntegrationSelector = ({
       </div>
 
       {isOpen && (
-        <div className="absolute top-full left-0 w-full max-w-[275px] bg-[#F7F7FA] shadow-2xl dark:bg-[#0C1112] border border-border rounded-lg p-1 z-30 max-h-[325px] overflow-y-auto custom-scrollbar">
+        <div className="absolute top-full left-0 w-full max-w-[275px] bg-[#F7F7FA] shadow-2xl dark:bg-[#0C1112] border border-border rounded-lg p-1 z-30 max-h-[calc(100vh-200px)] overflow-y-auto custom-scrollbar">
           {visibleIntegrations.map(
             ([key, { label, Icon: OptionIcon, href }]) => (
               <Link
