@@ -1,10 +1,12 @@
-import React from "react";
+import React, { useEffect, useReducer } from "react";
 import { WithSlots, renderSlot } from "@/lib/slots";
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage";
 import CopilotChatUserMessage from "./CopilotChatUserMessage";
 import { ActivityMessage, AssistantMessage, Message, UserMessage } from "@ag-ui/core";
 import { twMerge } from "tailwind-merge";
 import { useRenderActivityMessage, useRenderCustomMessages } from "@/hooks";
+import { useCopilotKit } from "@/providers/CopilotKitProvider";
+import { useCopilotChatConfiguration } from "@/providers/CopilotChatConfigurationProvider";
 
 /**
  * Memoized wrapper for assistant messages to prevent re-renders when other messages change.
@@ -141,6 +143,7 @@ const MemoizedCustomMessage = React.memo(
     message: Message;
     position: "before" | "after";
     renderCustomMessage: (params: { message: Message; position: "before" | "after" }) => React.ReactElement | null;
+    stateSnapshot?: unknown;
   }) {
     return renderCustomMessage({ message, position });
   },
@@ -151,8 +154,10 @@ const MemoizedCustomMessage = React.memo(
     // Compare message content - for assistant messages this is a string, for others may differ
     if (prevProps.message.content !== nextProps.message.content) return false;
     if (prevProps.message.role !== nextProps.message.role) return false;
+    // Compare state snapshot - custom renderers may depend on state
+    if (JSON.stringify(prevProps.stateSnapshot) !== JSON.stringify(nextProps.stateSnapshot)) return false;
     // Note: We don't compare renderCustomMessage function reference because it changes
-    // frequently. The message content comparison is sufficient to determine if a re-render is needed.
+    // frequently. The message and state comparison is sufficient to determine if a re-render is needed.
     return true;
   }
 );
@@ -190,10 +195,34 @@ export function CopilotChatMessageView({
 }: CopilotChatMessageViewProps) {
   const renderCustomMessage = useRenderCustomMessages();
   const renderActivityMessage = useRenderActivityMessage();
+  const { copilotkit } = useCopilotKit();
+  const config = useCopilotChatConfiguration();
+  const [, forceUpdate] = useReducer((x) => x + 1, 0);
+
+  // Subscribe to state changes so custom message renderers re-render when state updates
+  useEffect(() => {
+    if (!config?.agentId) return;
+    const agent = copilotkit.getAgent(config.agentId);
+    if (!agent) return;
+
+    const subscription = agent.subscribe({
+      onStateChanged: () => forceUpdate(),
+    });
+    return () => subscription.unsubscribe();
+  }, [config?.agentId, copilotkit]);
+
+  // Helper to get state snapshot for a message (used for memoization)
+  const getStateSnapshotForMessage = (messageId: string): unknown => {
+    if (!config) return undefined;
+    const runId = copilotkit.getRunIdForMessage(config.agentId, config.threadId, messageId);
+    if (!runId) return undefined;
+    return copilotkit.getStateByRun(config.agentId, config.threadId, runId);
+  };
 
   const messageElements: React.ReactElement[] = messages
     .flatMap((message) => {
       const elements: (React.ReactElement | null | undefined)[] = [];
+      const stateSnapshot = getStateSnapshotForMessage(message.id);
 
       // Render custom message before (using memoized wrapper)
       if (renderCustomMessage) {
@@ -203,6 +232,7 @@ export function CopilotChatMessageView({
             message={message}
             position="before"
             renderCustomMessage={renderCustomMessage}
+            stateSnapshot={stateSnapshot}
           />
         );
       }
@@ -259,6 +289,7 @@ export function CopilotChatMessageView({
             message={message}
             position="after"
             renderCustomMessage={renderCustomMessage}
+            stateSnapshot={stateSnapshot}
           />
         );
       }
