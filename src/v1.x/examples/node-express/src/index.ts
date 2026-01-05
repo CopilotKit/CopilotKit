@@ -1,13 +1,22 @@
 import express from "express";
 import * as dotenv from "dotenv";
 dotenv.config();
-import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNodeHttpEndpoint } from "@copilotkit/runtime";
+import {
+  CopilotRuntime,
+  OpenAIAdapter,
+  copilotRuntimeNodeExpressEndpoint,
+} from "@copilotkit/runtime";
 import OpenAI from "openai";
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import cors from "cors";
 
 const openai = new OpenAI();
 const serviceAdapter = new OpenAIAdapter({ openai: openai as any });
 
 const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
   actions: [
     {
       name: "sayHello",
@@ -28,21 +37,26 @@ const runtime = new CopilotRuntime({
   ],
 });
 
-const copilotRuntime = copilotRuntimeNodeHttpEndpoint({
-  endpoint: "/copilotkit",
+const copilotRuntime = copilotRuntimeNodeExpressEndpoint({
+  endpoint: "/",
   runtime,
   serviceAdapter,
 });
 
 const app = express();
 
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE", "PATCH"],
+    allowedHeaders: ["*"],
+  }),
+);
+
+// Uncomment this line to parse the request body
+// app.use(express.json());
+
 app.use("/copilotkit", copilotRuntime);
-
-// OR
-
-// app.use("/copilotkit", (req, res, next) => {
-//   return copilotRuntime(req, res, next);
-// });
 
 app.listen(4000, () => {
   console.log("Listening at http://localhost:4000/copilotkit");
