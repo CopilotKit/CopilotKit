@@ -71,11 +71,29 @@ function isFolderActive(indexUrl: string | undefined, pathname: string): boolean
 const Folder = ({ node }: FolderProps) => {
   const { isFolderOpen, toggleFolder } = useOpenedFolders();
   const pathname = usePathname();
-  const isActive = isFolderActive(node?.index?.url, pathname);
   const router = useRouter();
   const folderUrl = node.index?.url;
   const folderId = node.$id;
-  const isOpen = folderId ? isFolderOpen(folderId) : false;
+  
+  // Check if folder should be open by default from meta.json defaultOpen property
+  // Fumadocs exposes this property from meta.json files
+  const defaultOpen = (node as any).defaultOpen === true;
+  
+  const isOpen = folderId ? (isFolderOpen(folderId) || defaultOpen) : false;
+  
+  // Check if any child page is active - if so, don't mark the folder as active
+  const folderChildren = (node as { children?: Node[] }).children || [];
+  const normalizedPathname = normalizeUrlForMatching(pathname);
+  const hasActiveChild = folderChildren.some((child: any) => {
+    if (child.type === 'page' && child.url) {
+      const childUrl = normalizeUrlForMatching(child.url);
+      return normalizedPathname === childUrl || normalizedPathname.startsWith(childUrl + '/');
+    }
+    return false;
+  });
+  
+  // Only mark folder as active if we're on the folder's index page AND no child is active
+  const isActive = !hasActiveChild && isFolderActive(node?.index?.url, pathname);
 
   const NODE_COMPONENTS = {
     separator: Separator,
