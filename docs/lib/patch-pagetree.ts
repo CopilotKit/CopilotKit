@@ -9,13 +9,23 @@ type Node = DocsLayoutProps['tree']['children'][number] & {
 };
 
 /**
+ * Special mappings for folder names that don't exactly match integration labels.
+ * Key: folder name from meta.json title
+ * Value: integration ID
+ */
+const FOLDER_NAME_TO_INTEGRATION_ID: Record<string, string> = {
+  'AutoGen2': 'ag2',
+  'autogen2': 'ag2',
+};
+
+/**
  * Patches the pageTree to set missing indexUrl for integration folders.
  * This fixes an issue where fumadocs v16 doesn't set indexUrl for root folders
  * even when they have index.mdx files and "root": true in meta.json.
  * 
  * The patch works by:
  * 1. Finding folders without indexUrl
- * 2. Matching them to integration metadata by name
+ * 2. Matching them to integration metadata by name (with special case handling)
  * 3. Setting the indexUrl from the integration's href
  */
 export function patchPageTree(pageTree: DocsLayoutProps['tree']): DocsLayoutProps['tree'] {
@@ -26,18 +36,32 @@ export function patchPageTree(pageTree: DocsLayoutProps['tree']): DocsLayoutProp
     
     // If this is a folder without an indexUrl, try to set it
     if (patchedNode.type === 'folder' && !patchedNode.index?.url) {
-      // Try to match by integration metadata (by folder name)
-      const integrationId = Object.keys(INTEGRATION_METADATA).find(id => {
-        const meta = INTEGRATION_METADATA[id as keyof typeof INTEGRATION_METADATA];
-        const folderNameLower = patchedNode.name?.toLowerCase() || '';
-        const labelLower = meta.label.toLowerCase();
-        const idLower = id.toLowerCase();
-        return folderNameLower === labelLower || folderNameLower === idLower;
-      });
+      let integrationId: string | undefined;
+      
+      // First, check special mappings (e.g., "AutoGen2" -> "ag2")
+      if (patchedNode.name) {
+        integrationId = FOLDER_NAME_TO_INTEGRATION_ID[patchedNode.name] || 
+                       FOLDER_NAME_TO_INTEGRATION_ID[patchedNode.name.toLowerCase()];
+      }
+      
+      // If no special mapping, try to match by integration metadata (by folder name)
+      if (!integrationId) {
+        integrationId = Object.keys(INTEGRATION_METADATA).find(id => {
+          const meta = INTEGRATION_METADATA[id as keyof typeof INTEGRATION_METADATA];
+          const folderNameLower = patchedNode.name?.toLowerCase() || '';
+          const labelLower = meta.label.toLowerCase();
+          const idLower = id.toLowerCase();
+          return folderNameLower === labelLower || folderNameLower === idLower;
+        });
+      }
       
       if (integrationId) {
         const meta = INTEGRATION_METADATA[integrationId as keyof typeof INTEGRATION_METADATA];
         patchedNode.index = { url: meta.href };
+        console.log(`[patchPageTree] Set indexUrl for folder "${patchedNode.name}" -> ${meta.href} (integration: ${integrationId})`);
+      } else if (patchedNode.name) {
+        // Debug: log folders that didn't match
+        console.log(`[patchPageTree] Could not match folder "${patchedNode.name}" to any integration`);
       }
     }
     

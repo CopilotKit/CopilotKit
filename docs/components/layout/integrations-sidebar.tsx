@@ -46,6 +46,12 @@ const IntegrationsSidebar = ({ pageTree }: { pageTree: DocsLayoutProps['tree'] }
       `/integrations/${selectedIntegration}`
     ];
 
+    // Special mappings for folder names that don't match integration labels
+    const FOLDER_NAME_MAPPINGS: Record<string, string> = {
+      'AutoGen2': 'ag2',
+      'autogen2': 'ag2',
+    };
+
     // Helper to check if a folder matches the integration
     const matchesIntegration = (folderNode: Node): boolean => {
       if (folderNode.type !== 'folder') return false;
@@ -63,6 +69,13 @@ const IntegrationsSidebar = ({ pageTree }: { pageTree: DocsLayoutProps['tree'] }
         const labelLower = integrationLabel?.toLowerCase() || '';
         const idLower = selectedIntegration.toLowerCase();
         
+        // Check special mappings first (e.g., "AutoGen2" -> "ag2")
+        const mappedId = FOLDER_NAME_MAPPINGS[folderNode.name] || FOLDER_NAME_MAPPINGS[folderNameLower];
+        if (mappedId && mappedId === selectedIntegration.toLowerCase()) {
+          return true;
+        }
+        
+        // Then check direct matches
         if (folderNameLower === labelLower || folderNameLower === idLower) {
           return true;
         }
