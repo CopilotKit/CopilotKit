@@ -1,14 +1,14 @@
 import Link from "next/link"
 import Image from "next/image"
 import { ReactNode } from "react"
-import type { PageTree } from "fumadocs-core/page-tree"
 import { findNeighbour } from "fumadocs-core/page-tree"
 import { Page } from "fumadocs-core/source"
+import { DocsLayoutProps } from "fumadocs-ui/layouts/docs"
 import { ChevronRight } from "lucide-react"
 import { ChevronLeft } from "lucide-react"
 
 interface CustomPagerProps {
-  tree: PageTree.Root
+  tree: DocsLayoutProps["tree"]
   page: Page
 }
 

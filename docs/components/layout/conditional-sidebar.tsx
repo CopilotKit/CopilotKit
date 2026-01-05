@@ -11,12 +11,7 @@ interface ConditionalSidebarProps {
   pageTree: DocsLayoutProps["tree"]
 }
 
-type Node = DocsLayoutProps['tree']['children'][number] & {
-  url?: string;
-  name?: string;
-  index?: { url: string };
-  children?: Node[];
-};
+type Node = DocsLayoutProps['tree']['children'][number];
 
 export default function ConditionalSidebar({ pageTree }: ConditionalSidebarProps) {
   const pathname = usePathname()
@@ -33,17 +28,19 @@ export default function ConditionalSidebar({ pageTree }: ConditionalSidebarProps
     if (!isReferenceRoute) return null;
     
     // Find the reference folder
-    const referenceFolder = pageTree.children.find((node: Node) => {
+    const referenceFolder = pageTree.children.find((node) => {
       if (node.type !== 'folder') return false;
-      const url = (node as Node).index?.url || (node as Node).url;
-      return url === '/reference' || (node as Node).name?.toLowerCase() === 'reference';
+      const folderNode = node as any;
+      const url = folderNode.index?.url || folderNode.url;
+      const name = typeof folderNode.name === 'string' ? folderNode.name : undefined;
+      return url === '/reference' || name?.toLowerCase() === 'reference';
     }) as Node | undefined;
     
-    if (referenceFolder) {
+    if (referenceFolder && 'children' in referenceFolder) {
       // Return a pageTree with only the reference folder's children
       return {
         ...pageTree,
-        children: referenceFolder.children || []
+        children: (referenceFolder as any).children || []
       };
     }
     
