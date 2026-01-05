@@ -5,6 +5,7 @@ import { DocsLayoutProps } from "fumadocs-ui/layouts/docs"
 import Sidebar from "./sidebar"
 import IntegrationsSidebar from "./integrations-sidebar"
 import { INTEGRATION_ORDER } from "@/lib/integrations"
+import { normalizeUrl } from "@/lib/analytics-utils"
 import { useMemo } from "react"
 
 interface ConditionalSidebarProps {
@@ -16,8 +17,11 @@ type Node = DocsLayoutProps['tree']['children'][number];
 export default function ConditionalSidebar({ pageTree }: ConditionalSidebarProps) {
   const pathname = usePathname()
   
+  // Normalize the pathname to handle /integrations/... paths
+  const normalizedPathname = normalizeUrl(pathname);
   // Check if this is an integration landing page (e.g., /langgraph)
-  const firstSegment = pathname.replace(/^\//, "").split("/")[0]
+  // Use the first segment of the normalized pathname to ensure correct matching
+  const firstSegment = normalizedPathname.replace(/^\//, "").split("/")[0]
   const isIntegrationRoute = INTEGRATION_ORDER.includes(firstSegment as typeof INTEGRATION_ORDER[number])
   
   // Check if this is a reference route (e.g., /reference)

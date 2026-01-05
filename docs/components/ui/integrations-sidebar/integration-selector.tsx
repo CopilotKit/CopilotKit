@@ -17,6 +17,7 @@ import { MicrosoftIcon } from "../icons/microsoft"
 import { AwsStrandsIcon } from "../icons/aws-strands"
 import { AgentSpecMarkIcon, A2AIcon } from "@/lib/icons/custom-icons"
 import { INTEGRATION_ORDER, IntegrationId, getIntegration } from "@/lib/integrations"
+import { normalizeUrl } from "@/lib/analytics-utils"
 
 export type Integration = IntegrationId
 
@@ -89,14 +90,16 @@ const IntegrationSelector = ({
     const isRootIntegration = pathname === "/integrations"
 
     if (!isRootIntegration) {
-      const pathnameParts = pathname.split("/").filter(Boolean); // Remove empty strings
-      // Check if any pathname part matches an integration ID
-      const integrationKey = Object.keys(INTEGRATION_OPTIONS).find((key) =>
-        pathnameParts.includes(key)
-      ) as Integration | undefined;
-      if (integrationKey) {
-        setSelectedIntegration(integrationKey)
-        return
+      // Normalize the pathname to handle /integrations/... paths
+      const normalizedPathname = normalizeUrl(pathname);
+      // Get the first segment after the leading slash
+      const firstSegment = normalizedPathname.replace(/^\//, "").split("/")[0];
+      
+      // Check if the first segment matches an integration ID
+      // This ensures /agent-spec/langgraph matches agent-spec, not langgraph
+      if (firstSegment && INTEGRATION_ORDER.includes(firstSegment as IntegrationId)) {
+        setSelectedIntegration(firstSegment as Integration);
+        return;
       }
     }
 
