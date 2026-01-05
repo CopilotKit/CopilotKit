@@ -97,7 +97,7 @@ const MobileSidebar = ({
               </button>
             </div>
             <button
-              className="flex justify-center items-center w-11 h-full cursor-pointer lg:hidden"
+              className="flex justify-center items-center w-11 h-full cursor-pointer"
               onClick={() => setIsOpen(false)}
             >
               <CrossIcon />

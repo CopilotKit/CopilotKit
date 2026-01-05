@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "fumadocs-core/link"
 import { usePathname } from "next/navigation"
@@ -84,6 +84,23 @@ const Navbar = ({ pageTree }: NavbarProps) => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const pathname = usePathname()
   const activeRoute = pathname === "/" ? "/" : `/${pathname.split("/")[1]}`
+
+  // Close mobile sidebar when viewport expands beyond mobile breakpoint (md: 768px)
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768 && isMobileSidebarOpen) {
+        setIsMobileSidebarOpen(false)
+      }
+    }
+
+    window.addEventListener('resize', handleResize)
+    // Check on mount in case viewport is already large
+    handleResize()
+
+    return () => {
+      window.removeEventListener('resize', handleResize)
+    }
+  }, [isMobileSidebarOpen])
 
   const handleToggleTheme = () => {
     document.documentElement.classList.toggle("dark")
