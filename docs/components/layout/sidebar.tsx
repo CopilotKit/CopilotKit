@@ -4,6 +4,7 @@ import Page from "../ui/sidebar/page"
 import Folder from "../ui/sidebar/folder"
 import IntegrationLink from "../ui/sidebar/integration-link"
 import { OpenedFoldersProvider } from "@/lib/hooks/use-opened-folders"
+import { INTEGRATION_ORDER } from "@/lib/integrations"
 
 type Node = DocsLayoutProps["tree"]["children"][number] & {
   url: string
@@ -18,13 +19,22 @@ const NODE_COMPONENTS = {
 }
 
 const isIntegrationFolder = (node: Node): boolean => {
-  return (
-    node.type === "folder" && !!node.index?.url?.startsWith("/integrations/")
-  )
+  if (node.type !== "folder") return false
+  const url = node.index?.url || node.url
+  if (!url) return false
+  // Integration landing pages are at /{integration} (e.g., /langgraph)
+  // Check if the URL matches a known integration ID
+  const integrationId = url.replace(/^\//, "").split("/")[0]
+  return INTEGRATION_ORDER.includes(integrationId as typeof INTEGRATION_ORDER[number])
 }
 
 const Sidebar = ({ pageTree }: { pageTree: DocsLayoutProps["tree"] }) => {
   const pages = pageTree.children
+
+  // Debug logging
+  console.log('Sidebar rendered');
+  console.log('pageTree.children count:', pages.length);
+  console.log('pageTree.children:', pages.map((p: Node) => ({ type: p.type, url: p.url, indexUrl: p.index?.url, name: (p as any).name })));
 
   return (
     <OpenedFoldersProvider>
