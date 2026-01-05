@@ -26,6 +26,28 @@ export function CustomPager({ tree, page }: CustomPagerProps): ReactNode {
     title: nextItem.name?.toString() || ''
   } : null
 
+  // Temporary logging to identify pages with no neighbors
+  if (!prev && !next) {
+    console.log('[CustomPager] Page with no previous or next:', {
+      url: page.url,
+      title: page.data.title,
+      pageUrl: page.url
+    })
+    return null
+  }
+
+  // Log pages with only one neighbor for reference
+  if ((!prev && next) || (prev && !next)) {
+    console.log('[CustomPager] Page with only one neighbor:', {
+      url: page.url,
+      title: page.data.title,
+      hasPrev: !!prev,
+      hasNext: !!next,
+      prevUrl: prev?.url,
+      nextUrl: next?.url
+    })
+  }
+
   return (
     <div className="box-content flex flex-col gap-3 justify-between items-center px-4 pb-12 lg:gap-0 lg:flex-row lg:px-8 lg:h-20 shrink-0">
       <div className={`flex h-full ${prev ? "w-full" : "w-max"}`}>
