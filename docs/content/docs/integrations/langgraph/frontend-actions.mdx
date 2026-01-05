@@ -5,6 +5,7 @@ description: Create frontend tools and use them within your LangGraph agent.
 ---
 import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx"
+import FrontEndToolsImpl from "@/snippets/integrations/langgraph/frontend-tools.mdx"
 import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 import { IframeSwitcher } from "@/components/content"
 
@@ -118,31 +119,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
 
         Here's how you can call a frontend tool from your agent:
 
-        <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
-            <Tab value="Python">
-                ```python title="agent.py"
-                async def agent_node(state: YourAgentState, config: RunnableConfig):
-                    # Access the tools from the copilotkit property
-
-                    tools = state.get("copilotkit", {}).get("actions", []) # [!code highlight]
-                    model = ChatOpenAI(model="gpt-4o").bind_tools(tools)
-
-                    # ...
-                ```
-            </Tab>
-            <Tab value="TypeScript">
-                ```typescript title="agent-js/src/agent.ts"
-                async function agentNode(state: YourAgentState, config: RunnableConfig): Promise<YourAgentState> {
-                    // Access the tools from the copilotkit property
-
-                    const tools = state.copilotkit?.actions; // [!code highlight]
-                    const model = ChatOpenAI({ model: 'gpt-4o' }).bindTools(tools);
-
-                    // ...
-                }
-                ```
-            </Tab>
-        </Tabs>
+        <FrontEndToolsImpl components={props.components} />
 
         These tools are automatically populated by CopilotKit and are compatible with LangChain's tool call definitions, making it straightforward to integrate them into your agent's workflow.
     </Step>
