@@ -55,10 +55,18 @@ const INTEGRATION_ICONS: Record<IntegrationId, ComponentType<IntegrationIconProp
 
 const ICON_SIZE = 20
 
+import { normalizeUrl, normalizeUrlForMatching } from "@/lib/analytics-utils"
+
 const IntegrationLink = ({ node }: IntegrationLinkProps) => {
   const pathname = usePathname()
   const linkUrl = node.index?.url ?? ""
-  const isActive = pathname.startsWith(linkUrl)
+  const normalizedUrl = normalizeUrl(linkUrl)
+  // Use normalizeUrlForMatching for consistent comparison
+  const normalizedPathname = normalizeUrlForMatching(pathname)
+  const normalizedLinkUrl = normalizeUrlForMatching(linkUrl)
+  const isActive = normalizedPathname.startsWith(normalizedLinkUrl) || 
+                   normalizedPathname === normalizedLinkUrl ||
+                   pathname.startsWith(linkUrl) // Fallback for edge cases
 
   const integrationKey = linkUrl.split("/").pop() ?? ""
   const Icon = INTEGRATION_ICONS[integrationKey as IntegrationId]
@@ -71,7 +79,7 @@ const IntegrationLink = ({ node }: IntegrationLinkProps) => {
       )}
     >
       <Link
-        href={linkUrl}
+        href={normalizedUrl}
         className="flex gap-2 justify-between items-center w-full h-full text-foreground dark:text-white"
       >
         <div className="flex gap-2 items-center">

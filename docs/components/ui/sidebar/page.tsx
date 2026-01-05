@@ -4,6 +4,7 @@ import Link from "fumadocs-core/link"
 import { DocsLayoutProps } from "fumadocs-ui/layouts/docs"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { normalizeUrl, normalizeUrlForMatching } from "@/lib/analytics-utils"
 
 type Node = DocsLayoutProps["tree"]["children"][number] & { url: string }
 
@@ -14,28 +15,16 @@ interface PageProps {
 }
 
 /**
- * Normalizes a URL by removing trailing slashes and handling relative paths
- */
-function normalizeUrl(url: string): string {
-  if (!url) return '';
-  // Handle relative URLs (simplified - assumes they resolve to absolute)
-  let normalized = url.startsWith('../') ? url.replace(/^\.\.\//, '/') : url;
-  // Remove trailing slashes (except for root)
-  normalized = normalized === '/' ? '/' : normalized.replace(/\/$/, '');
-  return normalized;
-}
-
-/**
  * Checks if a page URL matches the current pathname.
  * Handles:
  * - Exact matches
  * - Index page matches (e.g., /langgraph matches /langgraph/index)
  * - Rewrite matches (e.g., /langgraph matches /integrations/langgraph)
- * - Normalizes relative URLs
+ * - Normalizes relative URLs and integration URLs
  */
 function isPageActive(pageUrl: string, pathname: string): boolean {
-  const normalizedPageUrl = normalizeUrl(pageUrl);
-  const normalizedPathname = normalizeUrl(pathname);
+  const normalizedPageUrl = normalizeUrlForMatching(pageUrl);
+  const normalizedPathname = normalizeUrlForMatching(pathname);
   
   // Exact match
   if (normalizedPageUrl === normalizedPathname) {
@@ -75,6 +64,7 @@ function isPageActive(pageUrl: string, pathname: string): boolean {
 
 const Page = ({ node, onNavigate, minimal }: PageProps) => {
   const pathname = usePathname()
+  const normalizedUrl = normalizeUrl(node.url)
   const isActive = isPageActive(node.url, pathname)
 
   return (
@@ -85,7 +75,7 @@ const Page = ({ node, onNavigate, minimal }: PageProps) => {
       )}
     >
       <Link
-        href={node.url}
+        href={normalizedUrl}
         className="text-foreground dark:text-white"
         onClick={onNavigate}
       >

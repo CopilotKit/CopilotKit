@@ -8,6 +8,7 @@ import ChevronDownIcon from '../icons/chevron';
 import { cn } from '@/lib/utils';
 import Separator from './separator';
 import { useOpenedFolders } from '@/lib/hooks/use-opened-folders';
+import { normalizeUrl, normalizeUrlForMatching } from '@/lib/analytics-utils';
 
 type Node = DocsLayoutProps['tree']['children'][number] & {
   url: string;
@@ -20,24 +21,17 @@ interface FolderProps {
 }
 
 /**
- * Normalizes a URL by removing trailing slashes
- */
-function normalizeUrl(url: string): string {
-  if (!url) return '';
-  return url === '/' ? '/' : url.replace(/\/$/, '');
-}
-
-/**
  * Checks if a folder's index URL matches the current pathname.
  * Handles:
  * - Index page normalization (e.g., /langgraph matches /langgraph/index)
  * - Rewrite matches (e.g., /langgraph matches /integrations/langgraph)
+ * - Normalizes integration URLs and relative URLs
  */
 function isFolderActive(indexUrl: string | undefined, pathname: string): boolean {
   if (!indexUrl) return false;
   
-  const normalizedIndexUrl = normalizeUrl(indexUrl);
-  const normalizedPathname = normalizeUrl(pathname);
+  const normalizedIndexUrl = normalizeUrlForMatching(indexUrl);
+  const normalizedPathname = normalizeUrlForMatching(pathname);
   
   // Exact match
   if (normalizedIndexUrl === normalizedPathname) {
@@ -99,7 +93,8 @@ const Folder = ({ node }: FolderProps) => {
       }
       
       if (folderUrl) {
-        router.push(folderUrl);
+        const normalizedUrl = normalizeUrl(folderUrl);
+        router.push(normalizedUrl);
       }
     },
     [folderUrl, router, folderId, toggleFolder]
