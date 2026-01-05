@@ -58,6 +58,7 @@ function Chat() {
 
   useConfigureSuggestions({
     instructions: "Suggest follow-up tasks based on the current page content",
+    available: "always",
   });
 
   useAgentContext({ description: "The current Thread ID is:", value: selectedThreadId });
