@@ -19,10 +19,65 @@ interface FolderProps {
   onNavigate?: () => void;
 }
 
+/**
+ * Normalizes a URL by removing trailing slashes
+ */
+function normalizeUrl(url: string): string {
+  if (!url) return '';
+  return url === '/' ? '/' : url.replace(/\/$/, '');
+}
+
+/**
+ * Checks if a folder's index URL matches the current pathname.
+ * Handles:
+ * - Index page normalization (e.g., /langgraph matches /langgraph/index)
+ * - Rewrite matches (e.g., /langgraph matches /integrations/langgraph)
+ */
+function isFolderActive(indexUrl: string | undefined, pathname: string): boolean {
+  if (!indexUrl) return false;
+  
+  const normalizedIndexUrl = normalizeUrl(indexUrl);
+  const normalizedPathname = normalizeUrl(pathname);
+  
+  // Exact match
+  if (normalizedIndexUrl === normalizedPathname) {
+    return true;
+  }
+  
+  // Handle index pages: /langgraph should match /langgraph/index
+  if (normalizedPathname === normalizedIndexUrl.replace(/\/index$/, '')) {
+    return true;
+  }
+  
+  // Handle reverse: /langgraph/index should match /langgraph
+  if (normalizedIndexUrl === `${normalizedPathname}/index`) {
+    return true;
+  }
+  
+  // Handle rewrite patterns: /langgraph should match /integrations/langgraph
+  const pathnameBase = normalizedPathname.replace(/^\/integrations\//, '/');
+  const indexUrlBase = normalizedIndexUrl.replace(/^\/integrations\//, '/');
+  
+  if (pathnameBase === indexUrlBase) {
+    return true;
+  }
+  
+  // Handle index with rewrite: /langgraph should match /integrations/langgraph/index
+  if (pathnameBase === indexUrlBase.replace(/\/index$/, '')) {
+    return true;
+  }
+  
+  if (indexUrlBase === `${pathnameBase}/index`) {
+    return true;
+  }
+  
+  return false;
+}
+
 const Folder = ({ node }: FolderProps) => {
   const { isFolderOpen, toggleFolder } = useOpenedFolders();
   const pathname = usePathname();
-  const isActive = node?.index?.url === pathname;
+  const isActive = isFolderActive(node?.index?.url, pathname);
   const router = useRouter();
   const folderUrl = node.index?.url;
   const folderId = node.$id;

@@ -10,11 +10,72 @@ type Node = DocsLayoutProps["tree"]["children"][number] & { url: string }
 interface PageProps {
   node: Node
   onNavigate?: () => void
+  minimal?: boolean
 }
 
-const Page = ({ node, onNavigate }: PageProps) => {
+/**
+ * Normalizes a URL by removing trailing slashes and handling relative paths
+ */
+function normalizeUrl(url: string): string {
+  if (!url) return '';
+  // Handle relative URLs (simplified - assumes they resolve to absolute)
+  let normalized = url.startsWith('../') ? url.replace(/^\.\.\//, '/') : url;
+  // Remove trailing slashes (except for root)
+  normalized = normalized === '/' ? '/' : normalized.replace(/\/$/, '');
+  return normalized;
+}
+
+/**
+ * Checks if a page URL matches the current pathname.
+ * Handles:
+ * - Exact matches
+ * - Index page matches (e.g., /langgraph matches /langgraph/index)
+ * - Rewrite matches (e.g., /langgraph matches /integrations/langgraph)
+ * - Normalizes relative URLs
+ */
+function isPageActive(pageUrl: string, pathname: string): boolean {
+  const normalizedPageUrl = normalizeUrl(pageUrl);
+  const normalizedPathname = normalizeUrl(pathname);
+  
+  // Exact match
+  if (normalizedPageUrl === normalizedPathname) {
+    return true;
+  }
+  
+  // Handle index pages: /langgraph should match /langgraph/index
+  if (normalizedPathname === normalizedPageUrl.replace(/\/index$/, '')) {
+    return true;
+  }
+  
+  // Handle reverse: /langgraph/index should match /langgraph
+  if (normalizedPageUrl === `${normalizedPathname}/index`) {
+    return true;
+  }
+  
+  // Handle rewrite patterns: /langgraph should match /integrations/langgraph
+  // Extract the base path (e.g., /langgraph from /integrations/langgraph/index)
+  const pathnameBase = normalizedPathname.replace(/^\/integrations\//, '/');
+  const pageUrlBase = normalizedPageUrl.replace(/^\/integrations\//, '/');
+  
+  if (pathnameBase === pageUrlBase) {
+    return true;
+  }
+  
+  // Handle index with rewrite: /langgraph should match /integrations/langgraph/index
+  if (pathnameBase === pageUrlBase.replace(/\/index$/, '')) {
+    return true;
+  }
+  
+  if (pageUrlBase === `${pathnameBase}/index`) {
+    return true;
+  }
+  
+  return false;
+}
+
+const Page = ({ node, onNavigate, minimal }: PageProps) => {
   const pathname = usePathname()
-  const isActive = node.url === pathname
+  const isActive = isPageActive(node.url, pathname)
 
   return (
     <li
