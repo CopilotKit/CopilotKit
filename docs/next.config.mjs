@@ -45,8 +45,10 @@ const config = {
   async rewrites() {
     const integrations = [
       'adk',
+      'a2a',
       'ag2',
       'agno',
+      'agent-spec',
       'crewai-flows',
       'crewai-crews',
       'direct-to-llm',
