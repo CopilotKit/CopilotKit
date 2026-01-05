@@ -53,6 +53,11 @@
     "tsup": "^6.7.0",
     "typescript": "^5.2.3"
   },
+  "pnpm": {
+    "overrides": {
+      "streamdown>react": "^19.0.0"
+    }
+  },
   "dependencies": {
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/runtime-client-gql": "workspace:*",

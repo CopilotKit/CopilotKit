@@ -63,6 +63,11 @@
     "typescript": "^5.2.3",
     "zod": ">=3.0.0"
   },
+  "pnpm": {
+    "overrides": {
+      "streamdown>react": "^19.0.0"
+    }
+  },
   "dependencies": {
     "@ag-ui/client": "^0.0.42",
     "@copilotkit/runtime-client-gql": "workspace:*",

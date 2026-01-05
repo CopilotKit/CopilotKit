@@ -26,6 +26,11 @@
     "tailwindcss": "3",
     "tailwindcss-animate": "^1.0.7"
   },
+  "pnpm": {
+    "overrides": {
+      "streamdown>react": "^19.0.0"
+    }
+  },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@types/node": "^20",
