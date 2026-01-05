@@ -55,6 +55,19 @@ export function patchPageTree(pageTree: DocsLayoutProps['tree']): DocsLayoutProp
         const meta = INTEGRATION_METADATA[integrationId as keyof typeof INTEGRATION_METADATA];
         // Type assertion needed because fumadocs expects a full Item type, but we only need to set the URL
         patchedNode.index = { url: meta.href } as any;
+      } else {
+        // If no integration match, check if folder has exactly one child page
+        // In that case, set the indexUrl to that child's URL
+        const children = patchedNode.children || [];
+        const pageChildren = children.filter((child: any) => child.type === 'page');
+        
+        if (pageChildren.length === 1) {
+          const singlePage = pageChildren[0] as any;
+          const pageUrl = singlePage.url;
+          if (pageUrl) {
+            patchedNode.index = { url: pageUrl } as any;
+          }
+        }
       }
     }
     
