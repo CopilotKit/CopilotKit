@@ -1,0 +1,48 @@
+{
+  "name": "demo",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest --coverage"
+  },
+  "dependencies": {
+    "@ag-ui/client": "0.0.42",
+    "@ag-ui/mcp-apps-middleware": "0.0.1",
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "@copilotkitnext/agent": "workspace:*",
+    "@copilotkitnext/core": "workspace:*",
+    "@copilotkitnext/react": "workspace:*",
+    "@copilotkitnext/runtime": "workspace:*",
+    "@copilotkitnext/shared": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.18.2",
+    "hono": "^4.6.13",
+    "next": "15.4.4",
+    "openai": "^5.9.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "rxjs": "^7.8.1",
+    "zod": "^3.25.75"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.4.4",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "vitest": "^3.2.3"
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "name": "@copilotkitnext/sqlite-runner",
+  "version": "0.0.33",
+  "description": "SQLite-backed agent runner for CopilotKit2",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup",
+    "prepublishOnly": "pnpm run build",
+    "dev": "tsup --watch",
+    "lint": "eslint . --max-warnings 0",
+    "check-types": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@copilotkitnext/eslint-config": "workspace:*",
+    "@copilotkitnext/typescript-config": "workspace:*",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.15.3",
+    "better-sqlite3": "^12.2.0",
+    "eslint": "^9.30.0",
+    "tsup": "^8.5.0",
+    "typescript": "5.8.2",
+    "vitest": "^3.0.5"
+  },
+  "dependencies": {
+    "@ag-ui/client": "0.0.42",
+    "@copilotkitnext/runtime": "workspace:*",
+    "rxjs": "7.8.1"
+  },
+  "peerDependencies": {
+    "better-sqlite3": "^12.2.0"
+  },
+  "peerDependenciesMeta": {
+    "better-sqlite3": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

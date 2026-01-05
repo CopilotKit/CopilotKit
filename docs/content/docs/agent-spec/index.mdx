@@ -1,0 +1,88 @@
+---
+title: Overview
+icon: "custom/agentspecMark"
+description: Bring your Agent‑Spec agents to your users with CopilotKit via AG‑UI.
+hideHeader: true
+---
+import { customIcons } from "@/lib/icons/custom-icons";
+import { FrameworkOverview } from "@/components/content/landing-pages/framework-overview";
+
+<FrameworkOverview
+  frameworkName="Open Agent Spec"
+  frameworkIcon={<customIcons.agentspecMark className="h-10 w-10" />}
+  header="Bring your Open Agent Spec agents to your users"
+  subheader="Give your Open Agent Spec agents real user-interactivity using CopilotKit and AG-UI. Build rich, interactive, agent-powered applications."
+  bannerVideo="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
+  guideLink="/agent-spec/quickstart"
+  initCommand="npx copilotkit@latest init"
+  featuresLink="https://feature-viewer.copilotkit.ai/agent-spec-wayflow/feature/agentic_chat"
+  supportedFeatures={[
+    {
+      title: "Generative UI",
+      description: "Render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. Bridges the gap between AI agents and user interfaces.",
+      documentationLink: "/agent-spec/generative-ui",
+      demoLink: "https://feature-viewer.copilotkit.ai/agent-spec-wayflow/feature/tool_based_generative_ui",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4"
+    },
+    {
+      title: "Human in the Loop",
+      description: "Empower users to guide agents at key checkpoints. Combine the best of AI and human judgment for more reliable and controllable agent behavior.",
+      documentationLink: "/agent-spec/human-in-the-loop",
+      demoLink: "https://examples-coagents-ai-travel-app.vercel.app/",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
+    }
+  ]}
+  architectureImage="https://cdn.copilotkit.ai/docs/copilotkit/images/generic-agui-architecture.png"
+  liveDemos={[
+    {
+      type: "saas",
+      title: "SaaS Copilot",
+      description: "A traditional SaaS application enhanced with AI agents. These copilots integrate seamlessly into existing workflows, providing intelligent assistance for specific business processes. Perfect for customer service, sales automation, project management, and domain-specific tasks where users need guided, step-by-step AI assistance.",
+      iframeUrl: "https://examples-coagents-ai-travel-app.vercel.app?copilotOpen=true"
+    },
+    {
+      type: "canvas",
+      title: "Canvas Copilot",
+      description: "An infinite canvas interface where users collaborate with AI agents in a spatial, visual environment. These copilots excel at research, brainstorming, content creation, and complex problem-solving where information needs to be organized, connected, and explored in a non-linear, creative way.",
+      iframeUrl: "https://examples-coagents-research-canvas-ui.vercel.app/"
+    }
+  ]}
+/>
+
+
+# Open Agent Spec + CopilotKit
+
+Bring your Agent Spec agents to an interactive UI using CopilotKit and AG‑UI. Use our Next.js starter to connect a CopilotKit UI to your Agent‑Spec FastAPI endpoint that streams AG‑UI events.
+
+## Quickstart
+
+```bash
+npx copilotkit@latest create -f agent-spec
+```
+
+Then set an endpoint for your backend (defaults to `http://localhost:8000/copilotkit`):
+
+```dotenv title=".env.local"
+COPILOTKIT_REMOTE_ENDPOINT=http://localhost:8000/copilotkit
+```
+
+Run your Agent Spec FastAPI server and start the Next.js app. You can use the example server at `ag-ui/integrations/agent-spec/python/examples/server.py`.
+
+## How it works
+
+- Backend: Your FastAPI endpoint (from the Agent Spec integration) emits AG‑UI SSE events.
+- Frontend: The Next.js template proxies requests to your backend using CopilotKit Runtime.
+- Protocol: AG‑UI spans/events power streaming text, tool calls and results, and run lifecycle.
+
+## Links
+
+- Next.js starter flag: `-f agent-spec`
+- Example FastAPI server: `ag-ui/integrations/agent-spec/python/examples/server.py`
+- Endpoint helper: `ag-ui/integrations/agent-spec/python/ag_ui_agentspec/endpoint.py`
+
+## Learn more
+
+- Agent Spec docs home: https://oracle.github.io/agent-spec/development/docs_home.html
+- Specification overview: https://oracle.github.io/agent-spec/development/agentspec/index.html
+- API reference: https://oracle.github.io/agent-spec/development/api/index.html
+- Reference sheet: https://oracle.github.io/agent-spec/development/misc/reference_sheet.html

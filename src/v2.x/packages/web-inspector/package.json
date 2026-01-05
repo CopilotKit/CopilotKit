@@ -1,0 +1,50 @@
+{
+  "name": "@copilotkitnext/web-inspector",
+  "version": "0.0.33",
+  "description": "Lit-based web component for the CopilotKit web inspector",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup",
+    "build:css": "npx @tailwindcss/cli -i ./src/styles/tailwind.css -o ./src/styles/generated.css -m",
+    "dev": "pnpm run build:css && concurrently \"pnpm run dev:css\" \"tsup --watch\"",
+    "dev:css": "npx @tailwindcss/cli -i ./src/styles/tailwind.css -o ./src/styles/generated.css --watch --minify",
+    "prepublishOnly": "pnpm run build:css && pnpm run build",
+    "lint": "eslint . --max-warnings 0",
+    "check-types": "pnpm run build:css && tsc --noEmit",
+    "clean": "rm -rf dist src/styles/generated.css",
+    "test": "pnpm run build:css && vitest run"
+  },
+  "dependencies": {
+    "@ag-ui/client": "0.0.42",
+    "@copilotkitnext/core": "workspace:*",
+    "lit": "^3.2.0",
+    "lucide": "^0.525.0",
+    "marked": "^12.0.2"
+  },
+  "devDependencies": {
+    "@copilotkitnext/eslint-config": "workspace:*",
+    "@copilotkitnext/typescript-config": "workspace:*",
+    "@tailwindcss/cli": "^4.1.11",
+    "@types/node": "^22.15.3",
+    "concurrently": "^9.1.0",
+    "eslint": "^9.30.0",
+    "tailwindcss": "^4.0.8",
+    "tsup": "^8.5.0",
+    "typescript": "5.8.2",
+    "vitest": "^3.0.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -284,6 +284,26 @@ const config = {
         destination: "/a2a/generative-ui/declarative-a2ui",
         permanent: true,
       },
+      {
+        source: "/adk/shared-state/state-inputs-outputs",
+        destination: "/adk/shared-state/workflow-execution",
+        permanent: true,
+      },
+      {
+        source: "/langgraph/shared-state/state-inputs-outputs",
+        destination: "/langgraph/shared-state/workflow-execution",
+        permanent: true,
+      },
+      {
+        source: "/llamaindex/shared-state/state-inputs-outputs",
+        destination: "/llamaindex/shared-state/workflow-execution",
+        permanent: true,
+      },
+      {
+        source: "/coagents/shared-state/state-inputs-outputs",
+        destination: "/langgraph/shared-state/workflow-execution",
+        permanent: true,
+      },
     ];
   },
 };

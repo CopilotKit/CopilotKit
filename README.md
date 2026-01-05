@@ -5,8 +5,12 @@
 <br>
 
 <a href="https://go.copilotkit.ai/copilotkit-docs" target="_blank">
-<img width="4096" height="1588" alt="header" src="https://github.com/user-attachments/assets/dd638592-fb74-4e22-8c55-49dfc4d0e462" />
+<img width="996" height="293" alt="image" src="https://github.com/user-attachments/assets/aeb56c28-c766-44a5-810c-5d999bb6a32a" />
 <a />
+
+
+
+
 
 <br>
   <div align="start" style="display:flex;justify-content:start;gap:16px;height:20px;margin: 0;">

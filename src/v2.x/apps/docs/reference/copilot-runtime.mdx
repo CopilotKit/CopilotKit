@@ -1,0 +1,277 @@
+---
+title: CopilotRuntime
+description: "Server-side runtime for hosting CopilotKit agents"
+---
+
+The `CopilotRuntime` package gives you everything you need to host CopilotKit agents on your own infrastructure. It owns the agent registry, wires an `AgentRunner`, exposes HTTP endpoints (Express or Hono), and optionally coordinates middleware and transcription services.
+
+## Basic Setup
+
+```ts
+import { CopilotRuntime, InMemoryAgentRunner } from "@copilotkitnext/runtime";
+import { BasicAgent } from "@copilotkitnext/agent";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BasicAgent({
+      model: "openai/gpt-4o",
+      prompt: "You are a helpful assistant.",
+    }),
+  },
+  runner: new InMemoryAgentRunner(),
+});
+```
+
+Once you create a runtime instance you can mount one of the provided HTTP endpoints (Express or Hono) described below.
+
+## `CopilotRuntime` Constructor
+
+```ts
+new CopilotRuntime(options: CopilotRuntimeOptions)
+```
+
+### `CopilotRuntimeOptions`
+
+| Option | Type | Description |
+| --- | --- | --- |
+| `agents` | `Promise<Record<string, AbstractAgent>> \| Record<string, AbstractAgent>` | Required. A map from agent identifier to an `AbstractAgent`. You can return the map synchronously or asynchronously. |
+| `runner` | `AgentRunner` | Optional. Defaults to `new InMemoryAgentRunner()`. Controls how agent runs are scheduled and streamed. |
+| `transcriptionService` | `TranscriptionService` | Optional. Enables `/transcribe` and reports `audioFileTranscriptionEnabled: true` from `/info`. |
+| `beforeRequestMiddleware` | `BeforeRequestMiddleware` | Optional. Runs before every request. Can mutate the incoming `Request` or return `void`. |
+| `afterRequestMiddleware` | `AfterRequestMiddleware` | Optional. Runs after every handler resolves. Use this for logging, metrics, etc. |
+
+### Passing Agents
+
+- Provide a plain object mapping agent ids to instances. The helper `BasicAgent` covers common OpenAI/Anthropic/Gemini setups, but you can supply any `AbstractAgent`.
+- Because `agents` may be an async function, you can lazily load credentials or fetch configuration before returning the record.
+- Each request clones the selected agent instance so per-request state (messages, headers, tool registration) does not leak between threads.
+- `Authorization` and `x-*` headers on the incoming request are forwarded to the cloned agent automatically. Override or strip them inside `beforeRequestMiddleware` if needed.
+
+```ts
+const runtime = new CopilotRuntime({
+  agents: async () => ({
+    default: buildDefaultAgent(),
+    support: buildSupportAgent(),
+  }),
+});
+```
+
+### Choosing an `AgentRunner`
+
+`InMemoryAgentRunner` is the default and streams events directly from your Node.js process. Swap it with a custom `AgentRunner` if you need to enqueue work or forward to another service:
+
+```ts
+class QueueBackedRunner implements AgentRunner { /* ... */ }
+
+const runtime = new CopilotRuntime({
+  agents,
+  runner: new QueueBackedRunner(),
+});
+```
+
+### Middleware Hooks
+
+```ts
+const runtime = new CopilotRuntime({
+  agents,
+  beforeRequestMiddleware: async ({ request, path }) => {
+    const auth = request.headers.get("authorization");
+    if (!auth) {
+      throw new Response("Unauthorized", { status: 401 });
+    }
+  },
+  afterRequestMiddleware: async ({ response, path }) => {
+    console.info("Handled", path, response.status);
+  },
+});
+```
+
+Throwing a `Response` from `beforeRequestMiddleware` short-circuits the request. `afterRequestMiddleware` runs in the background and should swallow its own errors.
+
+## HTTP Endpoints
+
+Import the helper that matches your server framework and the transport style you want to expose.
+
+### Hono (REST-style)
+
+```ts
+import { createCopilotEndpoint } from "@copilotkitnext/runtime";
+
+const copilot = createCopilotEndpoint({ runtime, basePath: "/api/copilotkit" });
+
+const app = new Hono();
+app.route("/", copilot);
+```
+
+This mounts five routes under the base path:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/agent/:agentId/run` | Streams agent events (SSE). |
+| `POST` | `/agent/:agentId/connect` | Creates a live WebSocket/stream connection. |
+| `POST` | `/agent/:agentId/stop/:threadId` | Cancels an in-flight thread. |
+| `GET` | `/info` | Returns runtime metadata and agent list. |
+| `POST` | `/transcribe` | Proxies audio transcription (requires `transcriptionService`). |
+
+### Hono (Single-route)
+
+```ts
+import { createCopilotEndpointSingleRoute } from "@copilotkitnext/runtime";
+
+const copilot = createCopilotEndpointSingleRoute({ runtime, basePath: "/api/copilotkit" });
+
+const app = new Hono();
+app.route("/", copilot);
+```
+
+All interactions happen through a single `POST /api/copilotkit` endpoint. The client sends a JSON envelope:
+
+```json
+{
+  "method": "agent/run",
+  "params": { "agentId": "default" },
+  "body": { "messages": [...], "threadId": "thread-123" }
+}
+```
+
+Allowed `method` values are:
+
+- `agent/run`
+- `agent/connect`
+- `agent/stop`
+- `info`
+- `transcribe`
+
+Pair this server endpoint with the React provider flag `<CopilotKitProvider useSingleEndpoint />`.
+
+### Next.js (App Router) with Hono
+
+When you're inside a Next.js `app/` route, export the Hono handlers directly:
+
+```ts
+// app/api/copilotkit/[[...slug]]/route.ts
+import { CopilotRuntime, createCopilotEndpoint } from "@copilotkitnext/runtime";
+import { handle } from "hono/vercel";
+
+const runtime = new CopilotRuntime({ agents, runner });
+const app = createCopilotEndpoint({ runtime, basePath: "/api/copilotkit" });
+
+export const GET = handle(app);
+export const POST = handle(app);
+```
+
+Swap `createCopilotEndpoint` for `createCopilotEndpointSingleRoute` if you configure the client with `useSingleEndpoint`.
+
+### Express (REST-style)
+
+```ts
+import express from "express";
+import { createCopilotEndpointExpress } from "@copilotkitnext/runtime/express";
+
+const app = express();
+app.use(
+  "/api/copilotkit",
+  createCopilotEndpointExpress({ runtime, basePath: "/" }),
+);
+```
+
+The router mirrors the Hono REST routes and automatically enables permissive CORS (allowing all origins, headers, and methods). Adjust headers upstream if you need tighter controls.
+
+### Express (Single-route)
+
+```ts
+import express from "express";
+import { createCopilotEndpointSingleRouteExpress } from "@copilotkitnext/runtime/express";
+
+const app = express();
+app.use(
+  "/api/copilotkit",
+  createCopilotEndpointSingleRouteExpress({ runtime, basePath: "/" }),
+);
+```
+
+Single-route Express works identically to the Hono version: send the JSON envelope described earlier, and set `useSingleEndpoint` on the client.
+
+### NestJS (Express backend)
+
+NestJS uses Express by default. Mount the Express router in `main.ts`:
+
+```ts
+// main.ts
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { CopilotRuntime } from '@copilotkitnext/runtime';
+import { createCopilotEndpointExpress } from '@copilotkitnext/runtime/express';
+import { BasicAgent } from '@copilotkitnext/agent';
+
+async function bootstrap() {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  const runtime = new CopilotRuntime({
+    agents: {
+      default: new BasicAgent({ model: 'openai/gpt-4o', prompt: 'You are helpful.' }),
+    },
+  });
+
+  // Mount under /api/copilotkit (REST-style routes)
+  app.use(
+    '/api/copilotkit',
+    createCopilotEndpointExpress({ runtime, basePath: '/' }),
+  );
+
+  await app.listen(3000);
+}
+bootstrap();
+```
+
+Available routes (no global prefix):
+
+- `POST /api/copilotkit/agent/:agentId/run`
+- `POST /api/copilotkit/agent/:agentId/connect`
+- `POST /api/copilotkit/agent/:agentId/stop/:threadId`
+- `GET  /api/copilotkit/info`
+- `POST /api/copilotkit/transcribe`
+
+If you prefer the single-route transport, mount the single-route helper instead and set `useSingleEndpoint` on the client:
+
+```ts
+import { createCopilotEndpointSingleRouteExpress } from '@copilotkitnext/runtime/express';
+
+app.use(
+  '/api/copilotkit',
+  createCopilotEndpointSingleRouteExpress({ runtime, basePath: '/' }),
+);
+```
+
+Notes:
+
+- If you call `app.setGlobalPrefix('api')`, the effective paths become `/api/copilotkit/...` (or `/api/copilotkit` for single-route).
+- Endpoints stream Server‑Sent Events; ensure your proxy honors `text/event-stream` and keep‑alive.
+- The router enables permissive CORS; tighten via Nest’s `enableCors` if needed.
+
+## Runtime Metadata
+
+Calling `GET /info` (or the `info` single-route method) returns:
+
+```json
+{
+  "version": "0.0.20",
+  "agents": {
+    "default": {
+      "name": "default",
+      "className": "BasicAgent",
+      "description": "You are a helpful assistant."
+    }
+  },
+  "audioFileTranscriptionEnabled": false
+}
+```
+
+Use this to verify deployments and surface diagnostics in your UI.
+
+## Next Steps
+
+- Configure the React client with `runtimeUrl` (and `useSingleEndpoint` if you chose the single endpoint helper).
+- Register frontend tools with `CopilotKitProvider` so agents can trigger UI actions.
+- Extend the runtime runner or middleware hooks to integrate logging, rate limiting, or background queues.

@@ -1,0 +1,103 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "ui": "tui",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+    },
+    "lint": {
+      "dependsOn": ["^lint"],
+      "env": ["LOG_LEVEL", "NODE_ENV"]
+    },
+    "check-types": {
+      "dependsOn": ["^build", "^check-types"]
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "**/__tests__/**",
+        "**/*.test.*",
+        "**/*.spec.*"
+      ],
+      "outputs": ["coverage/**"],
+      "env": ["LOG_LEVEL", "NODE_ENV"]
+    },
+    "test:watch": {
+      "cache": false,
+      "persistent": true,
+      "env": ["LOG_LEVEL", "NODE_ENV"]
+    },
+    "test:coverage": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "**/__tests__/**",
+        "**/*.test.*",
+        "**/*.spec.*"
+      ],
+      "outputs": ["coverage/**"],
+      "env": ["LOG_LEVEL", "NODE_ENV"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true,
+      "dependsOn": ["^build"]
+    },
+    "build:css": {
+      "cache": true,
+      "outputs": ["dist/styles.css", "src/styles/generated.css"]
+    },
+    "@copilotkitnext/web-inspector#build:css": {
+      "cache": true,
+      "outputs": ["src/styles/generated.css"]
+    },
+    "@copilotkitnext/web-inspector#build": {
+      "dependsOn": ["^build", "@copilotkitnext/web-inspector#build:css"],
+      "outputs": ["dist/**"]
+    },
+    "demo#dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "@copilotkitnext/angular-demo#dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "@copilotkitnext/angular-demo-server#dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "storybook:dev": {
+      "cache": false
+    },
+    "storybook": {
+      "cache": false,
+      "dependsOn": ["^build"]
+    },
+    "storybook-angular#dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "storybook#dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "storybook:build": {
+      "dependsOn": ["^build"],
+      "outputs": [
+        "apps/react/storybook/storybook-static/**",
+        "apps/angular/storybook/storybook-static/**"
+      ]
+    },
+    "clean": {
+      "cache": false,
+      "persistent": false,
+      "dependsOn": ["^clean"]
+    }
+  }
+}

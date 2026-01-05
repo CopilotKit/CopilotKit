@@ -1,0 +1,83 @@
+{
+  "$schema": "https://mintlify.com/schema.json",
+  "name": "CopilotKit vnext_experimental",
+  "theme": "mint",
+  "logo": {
+    "dark": "/logo/dark.svg",
+    "light": "/logo/light.svg"
+  },
+  "favicon": "/favicon.ico",
+  "colors": {
+    "primary": "#0D9373",
+    "light": "#07C983",
+    "dark": "#0D9373"
+  },
+  "topbarLinks": [
+    {
+      "name": "Support",
+      "url": "mailto:hi@copilotkitnext.ai"
+    }
+  ],
+  "topbarCtaButton": {
+    "name": "Dashboard",
+    "url": "https://dashboard.copilotkit.ai"
+  },
+  "navigation": {
+    "anchors": [
+      {
+        "name": "Community",
+        "icon": "slack",
+        "url": "https://discord.gg/6dffbvGU3D"
+      },
+      {
+        "name": "Blog",
+        "icon": "newspaper",
+        "url": "https://copilotkit.ai/blog"
+      }
+    ],
+    "groups": [
+      {
+        "group": "Get Started",
+        "pages": ["introduction"]
+      },
+      {
+        "group": "API Reference",
+        "pages": [
+          {
+            "group": "Core",
+            "pages": ["reference/copilotkit-core", "reference/proxied-copilot-runtime-agent", "reference/frontend-tool"]
+          },
+          {
+            "group": "React",
+            "pages": [
+              {
+                "group": "Providers",
+                "pages": ["reference/copilotkit-provider", "reference/copilot-chat-configuration-provider"]
+              },
+              {
+                "group": "Components",
+                "pages": ["reference/copilot-chat"]
+              },
+              {
+                "group": "Hooks",
+                "pages": [
+                  "reference/use-copilotkit",
+                  "reference/use-agent",
+                  "reference/use-agent-context",
+                  "reference/use-frontend-tool",
+                  "reference/use-human-in-the-loop",
+                  "reference/use-render-tool-call"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "footerSocials": {
+    "x": "https://x.com/copilotkit",
+    "github": "https://github.com/copilotkit/copilotkit",
+    "linkedin": "https://www.linkedin.com/company/copilotkit"
+  }
+}

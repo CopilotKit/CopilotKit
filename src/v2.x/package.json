@@ -1,0 +1,56 @@
+{
+  "name": "CopilotKitNext",
+  "private": true,
+  "scripts": {
+    "predev": "turbo run build --filter='@copilotkitnext/core' --filter='@copilotkitnext/shared' --filter='@copilotkitnext/web-inspector' --filter='@copilotkitnext/react' --filter='@copilotkitnext/angular' --filter='@copilotkitnext/agent' --filter='@copilotkitnext/sqlite-runner'",
+    "build": "turbo run build",
+    "clean": "turbo run clean",
+    "dev": "turbo run dev --filter='@copilotkitnext/core' --filter='@copilotkitnext/shared' --filter='@copilotkitnext/web-inspector' --filter='@copilotkitnext/runtime' --filter='@copilotkitnext/sqlite-runner' --filter='@copilotkitnext/react' --filter='@copilotkitnext/angular' --filter='@copilotkitnext/agent' --concurrency=15",
+    "dev:packages": "turbo run dev --filter='@copilotkitnext/core' --filter='@copilotkitnext/shared' --filter='@copilotkitnext/web-inspector' --filter='@copilotkitnext/runtime' --filter='@copilotkitnext/sqlite-runner' --filter='@copilotkitnext/react' --filter='@copilotkitnext/angular' --filter='@copilotkitnext/agent'",
+    "demo:angular": "turbo run dev --filter='@copilotkitnext/angular-demo-server' --filter='@copilotkitnext/angular-demo'",
+    "storybook:angular": "pnpm -C apps/angular/storybook dev",
+    "demo:react": "pnpm -C apps/react/demo dev",
+    "storybook:react": "pnpm -C apps/react/storybook dev",
+    "docs": "pnpm -C apps/docs dev",
+    "server:node": "pnpm -C apps/node dev",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "check-types": "turbo run check-types",
+    "test": "turbo run test --filter=@copilotkitnext/react --filter=@copilotkitnext/runtime --filter=@copilotkitnext/core --filter=@copilotkitnext/angular --filter=@copilotkitnext/agent --filter=@copilotkitnext/web-inspector --filter=@copilotkitnext/sqlite-runner --filter=@copilotkitnext/demo-agents",
+    "test:watch": "turbo run test:watch --filter=@copilotkitnext/react --filter=@copilotkitnext/runtime --filter=@copilotkitnext/core --filter=@copilotkitnext/angular --filter=@copilotkitnext/agent --filter=@copilotkitnext/web-inspector --filter=@copilotkitnext/sqlite-runner --filter=@copilotkitnext/demo-agents",
+    "test:coverage": "turbo run test:coverage --filter=@copilotkitnext/react --filter=@copilotkitnext/runtime --filter=@copilotkitnext/core --filter=@copilotkitnext/angular --filter=@copilotkitnext/agent --filter=@copilotkitnext/web-inspector --filter=@copilotkitnext/sqlite-runner --filter=@copilotkitnext/demo-agents",
+    "storybook": "pnpm storybook:react",
+    "storybook:all": "echo 'Run storybooks in separate terminals: pnpm storybook:react | pnpm storybook:angular'",
+    "build-storybook": "turbo run build --filter=storybook --filter=storybook-angular",
+    "bump:prerelease": "pnpm -r --filter='@copilotkitnext/agent' --filter='@copilotkitnext/angular' --filter='@copilotkitnext/core' --filter='@copilotkitnext/react' --filter='@copilotkitnext/runtime' --filter='@copilotkitnext/sqlite-runner' --filter='@copilotkitnext/shared' --filter='@copilotkitnext/web-inspector' exec pnpm version prerelease --preid=alpha",
+    "bump:release": "pnpm -r --filter='@copilotkitnext/agent' --filter='@copilotkitnext/angular' --filter='@copilotkitnext/core' --filter='@copilotkitnext/react' --filter='@copilotkitnext/runtime' --filter='@copilotkitnext/sqlite-runner' --filter='@copilotkitnext/shared' --filter='@copilotkitnext/web-inspector' exec pnpm version patch",
+    "publish:prerelease": "pnpm -r clean && pnpm install && turbo build && pnpm publish -r --no-git-checks --filter='@copilotkitnext/agent' --filter='@copilotkitnext/angular' --filter='@copilotkitnext/core' --filter='@copilotkitnext/react' --filter='@copilotkitnext/runtime' --filter='@copilotkitnext/sqlite-runner' --filter='@copilotkitnext/shared' --filter='@copilotkitnext/web-inspector' --tag alpha",
+    "publish:release:dry": "pnpm -r --filter '@copilotkitnext/*' publish --access public --dry-run",
+    "publish:release": "pnpm -r --filter '@copilotkitnext/*' publish --access public"
+  },
+  "devDependencies": {
+    "@storybook/addon-docs": "^10.1.10",
+    "@storybook/addon-webpack5-compiler-swc": "^4.0.2",
+    "@storybook/react-webpack5": "^10.1.10",
+    "prettier": "^3.6.0",
+    "storybook": "^10.1.10",
+    "turbo": "^2.5.4",
+    "typescript": "5.8.2"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=18"
+  },
+  "pnpm": {
+    "peerDependencyRules": {
+      "ignoreMissing": [
+        "react",
+        "react-dom"
+      ],
+      "allowedVersions": {
+        "react": "*",
+        "react-dom": "*"
+      }
+    }
+  }
+}

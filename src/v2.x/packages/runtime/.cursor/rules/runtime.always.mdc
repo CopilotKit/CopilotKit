@@ -1,0 +1,9 @@
+---
+description: Conventions for the runtime package.
+globs: "*"
+alwaysApply: true
+---
+
+- Node-targeted code compiled from `src/` to `dist/` using TypeScript.
+- Vitest tests reside in `src/__tests__/` and use Node environment.
+- Exported APIs live under `src/index.ts`.

@@ -1,0 +1,261 @@
+---
+title: CopilotKitProvider
+description: "CopilotKitProvider API Reference"
+---
+
+`CopilotKitProvider` is the React context provider that initializes and manages `CopilotKitCore` for your React
+application. It provides all child components with access to agents, tools, and copilot functionality through React's
+context API.
+
+## What is CopilotKitProvider?
+
+The CopilotKitProvider is the root component that:
+
+- Creates and manages a `CopilotKitCore` instance
+- Provides React-specific features like hooks and render components
+- Manages tool rendering and human-in-the-loop interactions
+- Handles state synchronization between your React app and AI agents
+
+## Basic Usage
+
+Typically you would wrap your application with `CopilotKitProvider` at the root level:
+
+```tsx
+import { CopilotKitProvider } from "@copilotkitnext/react";
+
+function App() {
+  return (
+    <CopilotKitProvider runtimeUrl="http://localhost:3000/api/copilotkit">
+      {/* Your app components */}
+    </CopilotKitProvider>
+  );
+}
+```
+
+## Props
+
+### runtimeUrl
+
+`string` **(optional)**
+
+The URL of your CopilotRuntime server. The provider will automatically connect to the runtime and discover available
+agents.
+
+```tsx
+<CopilotKitProvider runtimeUrl="https://api.example.com/copilot">{children}</CopilotKitProvider>
+```
+
+### headers
+
+`Record<string, string>` **(optional)**
+
+Custom HTTP headers to include with every request to the runtime. Useful for authentication and custom metadata.
+
+```tsx
+<CopilotKitProvider
+  runtimeUrl="https://api.example.com"
+  headers={{
+    Authorization: "Bearer your-token",
+    "X-Custom-Header": "value",
+  }}
+>
+  {children}
+</CopilotKitProvider>
+```
+
+### properties
+
+`Record<string, unknown>` **(optional)**
+
+Application-specific data that gets forwarded to agents as additional context. Agents receive these as `forwardedProps`.
+
+```tsx
+<CopilotKitProvider
+  properties={{
+    userId: "user-123",
+    theme: "dark",
+    locale: "en-US",
+    featureFlags: {
+      betaFeatures: true,
+    },
+  }}
+>
+  {children}
+</CopilotKitProvider>
+```
+
+### agents\_\_unsafe_dev_only
+
+`Record<string, AbstractAgent>` **(optional, development only)**
+
+<Warning>
+  This property is intended solely for rapid prototyping during development. Production deployments require the
+  security, reliability, and performance guarantees that only the CopilotRuntime can provide.
+</Warning>
+
+Local agents for development testing. The key becomes the agent's identifier.
+
+```tsx
+import { HttpAgent } from "@ag-ui/client";
+
+const devAgent = new HttpAgent({
+  url: "http://localhost:8000",
+});
+
+<CopilotKitProvider
+  agents__unsafe_dev_only={{
+    devAgent,
+  }}
+>
+  {children}
+</CopilotKitProvider>;
+```
+
+### useSingleEndpoint
+
+`boolean` **(optional, default: `false`)**
+
+When set to `true`, the provider connects to runtimes that expose the **single-route** transport (a single POST endpoint that multiplexes all runtime actions). Leave this `false` for the default REST-style transport.
+
+Pair this flag with the matching server endpoint helper:
+
+```tsx
+<CopilotKitProvider runtimeUrl="/api/copilotkit" useSingleEndpoint>
+  {children}
+</CopilotKitProvider>
+```
+
+On the server, mount one of the single-route runtimes (`createCopilotEndpointSingleRoute` for Hono or `createCopilotEndpointSingleRouteExpress` for Express).
+
+### renderToolCalls
+
+`ReactToolCallRenderer[]` **(optional)**
+
+A static list of components to render when specific tools are called. Enables visual feedback for tool execution.
+
+```tsx
+const renderToolCalls = [
+  {
+    name: "searchProducts",
+    args: z.object({
+      query: z.string(),
+    }),
+    render: ({ args }) => <div>Searching for: {args.query}</div>,
+  },
+];
+
+<CopilotKitProvider renderToolCalls={renderToolCalls}>{children}</CopilotKitProvider>;
+```
+
+<Note>
+  The `renderToolCalls` array must be stable across renders. Define it outside your component or use `useMemo`. For
+  dynamic tool rendering, use the `useRenderToolCall` hook instead.
+</Note>
+
+### frontendTools
+
+`ReactFrontendTool[]` **(optional)**
+
+A static list of frontend tools that agents can invoke. These are React-specific wrappers around the base `FrontendTool`
+type with additional rendering capabilities.
+
+```tsx
+const tools = [
+  {
+    name: "showNotification",
+    description: "Display a notification to the user",
+    parameters: z.object({
+      message: z.string(),
+      type: z.enum(["info", "success", "warning", "error"]),
+    }),
+    handler: async ({ message, type }) => {
+      toast[type](message);
+      return "Notification displayed";
+    },
+  },
+];
+
+<CopilotKitProvider frontendTools={tools}>{children}</CopilotKitProvider>;
+```
+
+<Note>
+  The `frontendTools` array must be stable across renders. For dynamically adding/removing tools, use the
+  `useFrontendTool` hook.
+</Note>
+
+### humanInTheLoop
+
+`ReactHumanInTheLoop[]` **(optional)**
+
+Tools that require human interaction or approval before execution. These tools pause agent execution until the user
+responds.
+
+```tsx
+const humanInTheLoop = [
+  {
+    name: "confirmAction",
+    description: "Request user confirmation for an action",
+    parameters: z.object({
+      action: z.string(),
+      details: z.string(),
+    }),
+    render: ({ args, resolve }) => (
+      <ConfirmDialog
+        action={args.action}
+        details={args.details}
+        onConfirm={() => resolve({ confirmed: true })}
+        onCancel={() => resolve({ confirmed: false })}
+      />
+    ),
+  },
+];
+
+<CopilotKitProvider humanInTheLoop={humanInTheLoop}>{children}</CopilotKitProvider>;
+```
+
+### children
+
+`ReactNode` **(required)**
+
+The React components that will have access to the CopilotKit context.
+
+## Context Value
+
+The provider makes a `CopilotKitContextValue` available to child components through React context:
+
+```typescript
+interface CopilotKitContextValue {
+  copilotkit: CopilotKitCore;
+  renderToolCalls: ReactToolCallRenderer<any>[];
+  currentRenderToolCalls: ReactToolCallRenderer<unknown>[];
+  setCurrentRenderToolCalls: React.Dispatch<React.SetStateAction<ReactToolCallRenderer<unknown>[]>>;
+}
+```
+
+Access this context using the `useCopilotKit` hook:
+
+```tsx
+import { useCopilotKit } from "@copilotkitnext/react";
+
+function MyComponent() {
+  const { copilotkit } = useCopilotKit();
+
+  // Access CopilotKitCore instance
+  const agent = copilotkit.getAgent("assistant");
+}
+```
+
+## Considerations
+
+### Server-Side Rendering (SSR)
+
+The provider is compatible with SSR but won't fetch runtime information during server-side rendering. The runtime
+connection is established only on the client side to prevent blocking SSR.
+
+### Dynamic Updates
+
+You can dynamically update the following props:
+
+- `runtimeUrl`: Changing this will disconnect from the current runtime and connect to the new one
+- `headers`: Updates are applied to all future requests
+- `properties`: Changes are immediately available to agents
