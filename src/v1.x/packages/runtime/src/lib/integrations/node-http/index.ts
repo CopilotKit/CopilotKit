@@ -44,10 +44,7 @@ export function copilotRuntimeNodeHttpEndpoint(options: CreateCopilotRuntimeServ
     basePath: options.baseUrl ?? options.endpoint,
   });
 
-  // handle1 is for pure nodeHTTP
-  const handle1 = getRequestListener(honoApp.fetch);
-  // handle2 is for express requests
-  const handle2 = async function handler(req: IncomingWithBody, res: ServerResponse) {
+  const handle = async function handler(req: IncomingWithBody, res: ServerResponse) {
     const url = getFullUrl(req);
     const hasBody = req.method !== "GET" && req.method !== "HEAD";
 
@@ -142,6 +139,6 @@ export function copilotRuntimeNodeHttpEndpoint(options: CreateCopilotRuntimeServ
     if (!res) {
       throw new TypeError("ServerResponse is required for Node HTTP requests");
     }
-    return handle2(reqOrRequest as IncomingMessage, res);
+    return handle(reqOrRequest as IncomingMessage, res);
   };
 }
