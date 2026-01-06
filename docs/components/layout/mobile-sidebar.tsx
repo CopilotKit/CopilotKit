@@ -10,6 +10,7 @@ import Page from "@/components/ui/sidebar/page"
 import Folder from "@/components/ui/sidebar/folder"
 import Dropdown from "@/components/ui/mobile-sidebar/dropdown"
 import IntegrationSelector from "@/components/ui/integrations-sidebar/integration-selector"
+import IntegrationSelectorSkeleton from "@/components/ui/integrations-sidebar/skeleton"
 import { OpenedFoldersProvider } from "@/lib/hooks/use-opened-folders"
 // Icons
 import DiscordIcon from "@/components/ui/icons/discord"
@@ -19,6 +20,8 @@ import CrossIcon from "@/components/ui/icons/cross"
 import { NavbarLink } from "./navbar"
 import { DocsLayoutProps } from "fumadocs-ui/layouts/docs"
 import { Integration } from "../ui/integrations-sidebar/integration-selector"
+import { INTEGRATION_ORDER, INTEGRATION_METADATA } from "@/lib/integrations"
+import { normalizeUrl } from "@/lib/analytics-utils"
 
 interface MobileSidebarProps {
   pageTree: DocsLayoutProps["tree"]
@@ -26,7 +29,12 @@ interface MobileSidebarProps {
   handleToggleTheme: () => void
 }
 
-type Node = DocsLayoutProps["tree"]["children"][number] & { url: string }
+type Node = DocsLayoutProps["tree"]["children"][number] & { 
+  url: string
+  name?: string
+  index?: { url: string }
+  children?: Node[]
+}
 
 const LEFT_LINKS: NavbarLink[] = [
   {
@@ -55,10 +63,105 @@ const MobileSidebar = ({
   setIsOpen,
   handleToggleTheme,
 }: MobileSidebarProps) => {
-  const pages = pageTree.children
-  const isIntegrationRoute = usePathname().startsWith("/integrations")
+  const pathname = usePathname()
   const [selectedIntegration, setSelectedIntegration] =
     useState<Integration | null>(null)
+
+  // Determine route type from pathname
+  const normalizedPathname = normalizeUrl(pathname)
+  const firstSegment = normalizedPathname.replace(/^\//, "").split("/")[0]
+  const isIntegrationRoute = INTEGRATION_ORDER.includes(firstSegment as typeof INTEGRATION_ORDER[number])
+  const isReferenceRoute = firstSegment === "reference"
+
+  // Get integration-specific pages when an integration is selected
+  const integrationPages = useMemo(() => {
+    if (!selectedIntegration) return [];
+
+    const integrationMeta = INTEGRATION_METADATA[selectedIntegration];
+    const integrationLabel = integrationMeta?.label;
+
+    const possiblePaths = [
+      `/${selectedIntegration}`,
+      `/integrations/${selectedIntegration}`
+    ];
+
+    const FOLDER_NAME_MAPPINGS: Record<string, string> = {
+      'AutoGen2': 'ag2',
+      'autogen2': 'ag2',
+    };
+
+    const matchesIntegration = (folderNode: Node): boolean => {
+      if (folderNode.type !== 'folder') return false;
+      
+      const url = folderNode.index?.url || folderNode.url;
+      if (url && possiblePaths.includes(url)) {
+        return true;
+      }
+      
+      if (folderNode.name) {
+        const folderNameLower = folderNode.name.toLowerCase();
+        const labelLower = integrationLabel?.toLowerCase() || '';
+        const idLower = selectedIntegration.toLowerCase();
+        
+        const mappedId = FOLDER_NAME_MAPPINGS[folderNode.name] || FOLDER_NAME_MAPPINGS[folderNameLower];
+        if (mappedId && mappedId === selectedIntegration.toLowerCase()) {
+          return true;
+        }
+        
+        if (folderNameLower === labelLower || folderNameLower === idLower) {
+          return true;
+        }
+      }
+      
+      return false;
+    };
+
+    let integrationFolder = pageTree.children.find(node => matchesIntegration(node as Node)) as Node | undefined;
+
+    if (!integrationFolder) {
+      const integrationsParent = pageTree.children.find(node => {
+        const folderNode = node as Node;
+        return folderNode.type === 'folder' && 
+          (folderNode.index?.url === '/integrations' || folderNode.name?.toLowerCase() === 'integrations');
+      }) as Node | undefined;
+
+      if (integrationsParent?.children) {
+        integrationFolder = integrationsParent.children.find(node => matchesIntegration(node as Node)) as Node | undefined;
+      }
+    }
+
+    return integrationFolder?.children ?? [];
+  }, [selectedIntegration, pageTree.children]);
+
+  // Get reference-specific pages
+  const referencePages = useMemo(() => {
+    if (!isReferenceRoute) return [];
+    
+    const referenceFolder = pageTree.children.find((node) => {
+      if (node.type !== 'folder') return false;
+      const folderNode = node as Node;
+      const url = folderNode.index?.url || folderNode.url;
+      const name = typeof folderNode.name === 'string' ? folderNode.name : undefined;
+      return url === '/reference' || name?.toLowerCase() === 'reference';
+    }) as Node | undefined;
+    
+    if (referenceFolder && 'children' in referenceFolder) {
+      return (referenceFolder as Node).children || [];
+    }
+    
+    return [];
+  }, [isReferenceRoute, pageTree.children]);
+
+  // Determine which pages to show
+  const pagesToShow = useMemo(() => {
+    if (isIntegrationRoute && selectedIntegration) {
+      return integrationPages;
+    }
+    if (isReferenceRoute) {
+      return referencePages;
+    }
+    return pageTree.children;
+  }, [isIntegrationRoute, selectedIntegration, integrationPages, isReferenceRoute, referencePages, pageTree.children]);
 
   return (
     <div className="flex fixed top-0 left-0 z-50 justify-end p-1 w-full h-full bg-black/30">
@@ -113,18 +216,35 @@ const MobileSidebar = ({
             />
           )}
 
-          <ul className="flex overflow-y-auto flex-col mt-6 max-h-full custom-scrollbar [&>*:first-child]:mt-0">
-            {pages.map((page) => {
-              const Component = NODE_COMPONENTS[page.type]
-              return (
-                <Component
-                  key={crypto.randomUUID()}
-                  node={page as Node}
-                  onNavigate={() => setIsOpen(false)}
-                />
-              )
-            })}
-          </ul>
+          {isIntegrationRoute && selectedIntegration ? (
+            <ul className="flex overflow-y-auto flex-col mt-6 max-h-full custom-scrollbar [&>*:first-child]:mt-0">
+              {integrationPages.map((page) => {
+                const Component = NODE_COMPONENTS[page.type]
+                return (
+                  <Component
+                    key={crypto.randomUUID()}
+                    node={page as Node}
+                    onNavigate={() => setIsOpen(false)}
+                  />
+                )
+              })}
+            </ul>
+          ) : isIntegrationRoute && !selectedIntegration ? (
+            <IntegrationSelectorSkeleton />
+          ) : (
+            <ul className="flex overflow-y-auto flex-col mt-6 max-h-full custom-scrollbar [&>*:first-child]:mt-0">
+              {pagesToShow.map((page) => {
+                const Component = NODE_COMPONENTS[page.type]
+                return (
+                  <Component
+                    key={crypto.randomUUID()}
+                    node={page as Node}
+                    onNavigate={() => setIsOpen(false)}
+                  />
+                )
+              })}
+            </ul>
+          )}
         </aside>
       </OpenedFoldersProvider>
     </div>
