@@ -1,7 +1,6 @@
 import { CreateCopilotRuntimeServerOptions, getCommonConfig } from "../shared";
 import telemetry, { getRuntimeInstanceTelemetryInfo } from "../../telemetry-client";
 import { createCopilotEndpointSingleRoute } from "@copilotkitnext/runtime";
-import { getRequestListener } from "@hono/node-server";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import {
   getFullUrl,
