@@ -49,13 +49,16 @@ export function CustomPager({ tree, page }: CustomPagerProps): ReactNode {
   }
 
   return (
-    <div className="box-content flex flex-col gap-3 justify-between items-center px-4 pb-12 lg:gap-0 lg:flex-row lg:px-8 lg:h-20 shrink-0">
+    <div 
+      className="box-content flex flex-col gap-3 justify-between items-center px-4 pb-12 lg:gap-0 lg:flex-row lg:px-8 lg:h-20 shrink-0"
+    >
       <div className={`flex h-full ${prev ? "w-full" : "w-max"}`}>
         {prev ? (
           <>
             <Link
               href={prev?.url}
-              className="flex flex-col gap-1 justify-center px-4 lg:px-5 w-full h-[80px] rounded-2xl rounded-r-none border border-r-0 backdrop-blur-lg border-border bg-glass-background dark:!bg-[#01050780]"
+              className="flex flex-col gap-1 justify-center px-4 lg:px-5 w-full h-[80px] rounded-2xl rounded-r-none border border-r-0 backdrop-blur-lg border-border "
+              style={{ backgroundColor: 'var(--sidebar)' }}
             >
               <div className="flex gap-2 justify-start items-center">
                 <ChevronLeft className="size-4 shrink-0 text-fd-muted-foreground" />
@@ -69,7 +72,10 @@ export function CustomPager({ tree, page }: CustomPagerProps): ReactNode {
             </Link>
           </>
         ) : (
-          <div className="w-11 h-full rounded-2xl rounded-r-none border border-r-0 backdrop-blur-lg border-border bg-glass-background dark:!bg-[#01050780]" />
+          <div 
+            className="w-11 h-full rounded-2xl rounded-r-none border border-r-0 backdrop-blur-lg border-border "
+            style={{ backgroundColor: 'var(--sidebar)' }}
+          />
         )}
 
         <Image
@@ -102,13 +108,19 @@ export function CustomPager({ tree, page }: CustomPagerProps): ReactNode {
             height={80}
             className="shrink-0 dark:hidden"
           />
-          <div className="w-11 h-full rounded-2xl rounded-l-none border border-l-0 backdrop-blur-lg border-border bg-glass-background dark:!bg-[#01050780]" />
+          <div 
+            className="w-11 h-full rounded-2xl rounded-l-none border border-l-0 backdrop-blur-lg border-border "
+            style={{ backgroundColor: 'var(--sidebar)' }}
+          />
         </div>
       </div>
 
       <div className={`flex lg:-ml-3 h-full ${next ? "w-full" : "w-max"}`}>
         <div className="flex -mr-3 lg:hidden">
-          <div className="w-11 h-full rounded-2xl rounded-r-none border border-r-0 backdrop-blur-lg border-border bg-glass-background dark:!bg-[#01050780]" />
+          <div 
+            className="w-11 h-full rounded-2xl rounded-r-none border border-r-0 backdrop-blur-lg border-border "
+            style={{ backgroundColor: 'var(--sidebar)' }}
+          />
           <Image
             src="/images/redirects/slanted-end-border-dark.svg"
             alt="Slanted start border"
@@ -143,7 +155,8 @@ export function CustomPager({ tree, page }: CustomPagerProps): ReactNode {
         {next ? (
           <Link
             href={next.url}
-            className="flex flex-col gap-1 justify-center px-4 lg:px-5 w-full h-[80px] rounded-2xl rounded-l-none border border-l-0 backdrop-blur-lg border-border bg-glass-background dark:!bg-[#01050780]"
+            className="flex flex-col gap-1 justify-center px-4 lg:px-5 w-full h-[80px] rounded-2xl rounded-l-none border border-l-0 backdrop-blur-lg border-border "
+            style={{ backgroundColor: 'var(--sidebar)' }}
           >
             <div className="flex gap-2 justify-end items-center">
               <span className="text-xs font-medium text-right font-spline">
@@ -156,7 +169,10 @@ export function CustomPager({ tree, page }: CustomPagerProps): ReactNode {
             </span>
           </Link>
         ) : (
-          <div className="w-11 h-full rounded-2xl rounded-l-none border border-l-0 backdrop-blur-lg border-border bg-glass-background dark:!bg-[#01050780]" />
+          <div 
+            className="w-11 h-full rounded-2xl rounded-l-none border border-l-0 backdrop-blur-lg border-border "
+            style={{ backgroundColor: 'var(--sidebar)' }}
+          />
         )}
       </div>
     </div>

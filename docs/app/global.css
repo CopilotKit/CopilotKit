@@ -95,7 +95,7 @@
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
+  --sidebar: #EFEFF3;
   --sidebar-foreground: oklch(0.141 0.005 285.823);
   --sidebar-primary: oklch(0.55 0.25 285);
   --sidebar-primary-foreground: oklch(0.98 0.005 285);
@@ -105,7 +105,8 @@
   --sidebar-ring: oklch(0.55 0.25 285);
   --sidebar-separator: oklch(0.4582 0.0064 286.14);
   --scrollbar-color: oklch(0.1081 0.0147 220.92 / 30.2%);
-  --glass-background: oklch(1 0 0 / 50%); 
+  --scrollbar-track: #EAEAEE;
+  --glass-background: #EAEAEE; 
   --icon: oklch(0.1081 0.0147 220.92);
 }
 
@@ -133,7 +134,7 @@
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.21 0.006 285.885);
+  --sidebar: #111618;
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.65 0.15 285);
   --sidebar-primary-foreground: oklch(0.95 0.02 285);
@@ -143,7 +144,8 @@
   --sidebar-ring: oklch(0.65 0.15 285);
   --sidebar-separator: oklch(0.6119 0.0089 286.13);
   --scrollbar-color: oklch(1 0 0 / 30.2%);
-  --glass-background: oklch(1 0 0 / 5%); 
+  --scrollbar-track: #182326;
+  --glass-background: #182326; 
   --icon: oklch(1 0 0);
 }
 
@@ -180,7 +182,7 @@
   }
 
   .custom-scrollbar {
-    scrollbar-color: var(--scrollbar-color) transparent;
+    scrollbar-color: var(--scrollbar-color) var(--scrollbar-track);
     scrollbar-width: thin;
   }
 }
@@ -232,15 +234,41 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
   border: 1px solid var(--border) !important;
   border-left: none !important;
   border-radius: 0 var(--radius) var(--radius) 0 !important;
-  background: 
-    linear-gradient(to right, oklch(0.1081 0.0147 220.92 / 4%), oklch(0.1081 0.0147 220.92 / 0%)),
-    var(--glass-background) !important;
+  position: relative;
+  background: #F5F5F5 !important; /* Fallback */
+  scrollbar-color: var(--scrollbar-color) var(--scrollbar-track);
+  scrollbar-width: thin;
+}
+
+/* Apply gradient using pseudo-element to ensure it's not overridden */
+.docs-content-wrapper::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(to right, #F5F5F5, #FFFFFF) !important;
+  pointer-events: none;
+  z-index: 0;
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+/* Ensure content is above the gradient */
+.docs-content-wrapper > * {
+  position: relative;
+  z-index: 1;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.dark .docs-content-wrapper::before {
+  display: none;
 }
 
 .dark .docs-content-wrapper {
-  background: 
-    linear-gradient(to right, oklch(1 0 0 / 3%), oklch(1 0 0 / 0%)),
-    var(--glass-background) !important;
+  background: var(--glass-background) !important;
+  background-color: transparent !important;
 }
 
 #nd-home-layout {
@@ -261,12 +289,21 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
 /* Override fumadocs banner height calculation since we handle banners outside DocsLayout */
 #nd-docs-layout {
   --fd-banner-height: 0px !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* Ensure Fumadocs layout container is transparent to show gradient */
+.docs-content-wrapper #nd-docs-layout {
+  background: transparent !important;
+  background-color: transparent !important;
 }
 
 /* Override any fumadocs default backgrounds on content elements */
 .docs-content-wrapper #nd-page,
 .docs-content-wrapper #nd-toc,
-.docs-content-wrapper article {
+.docs-content-wrapper article,
+.docs-content-wrapper [id^="nd-"]:not(#nd-docs-layout) {
   background: transparent !important;
   background-color: transparent !important;
 }

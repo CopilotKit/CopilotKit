@@ -35,7 +35,8 @@ const Sidebar = ({ pageTree }: { pageTree: DocsLayoutProps["tree"] }) => {
     <OpenedFoldersProvider>
       <aside
         id="nd-sidebar"
-        className="w-full max-w-[260px] h-full border backdrop-blur-lg border-r-0 border-border bg-glass-background rounded-l-2xl pl-3 pr-1 flex flex-col"
+        className="w-full max-w-[260px] h-full border backdrop-blur-lg border-r-0 border-border rounded-l-2xl pl-3 pr-1 flex flex-col"
+        style={{ backgroundColor: 'var(--sidebar)' }}
       >
         <ul className="flex overflow-y-auto flex-col pr-1 max-h-full custom-scrollbar pt-6">
           <li className="w-full h-6" />
