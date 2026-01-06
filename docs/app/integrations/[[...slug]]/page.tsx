@@ -4,7 +4,7 @@ import { DocsPage, DocsBody, DocsDescription, DocsTitle } from 'fumadocs-ui/page
 import { notFound } from 'next/navigation';
 import defaultMdxComponents from 'fumadocs-ui/mdx';
 import { Badge } from '@/components/ui/badge';
-import { ChevronLeft, CloudIcon } from 'lucide-react';
+import { CloudIcon } from 'lucide-react';
 import { Tabs, Tab } from '@/components/react/tabs';
 import { Steps, Step } from 'fumadocs-ui/components/steps';
 import { TypeTable } from 'fumadocs-ui/components/type-table';
@@ -99,8 +99,6 @@ export default async function Page({ params }: { params: Promise<{ slug?: string
   }
   const combinedTOC = hideTOC ? [] : [...(page.data.toc || []), ...snippetTOC];
 
-  const isIntegrationsRootPage = (resolvedParams.slug || []).length === 0;
-
   return (
     <DocsPage
       toc={combinedTOC}
@@ -111,17 +109,6 @@ export default async function Page({ params }: { params: Promise<{ slug?: string
       }}
       breadcrumb={{ enabled: false }}>
       <div className='px-8 py-6 xl:py-12 xl:px-16 max-sm:px-4 max-sm:py-6'>
-        {!isIntegrationsRootPage && (
-          <div className={cn("mb-4", hideHeader ? "mx-auto max-w-5xl px-4 sm:px-6" : "")}>
-            <Link
-              href="/integrations"
-              className="inline-flex items-center gap-2 text-muted-foreground hover:text-accent-foreground transition-color"
-            >
-              <ChevronLeft size={20} className="" />
-              <span className="text-xs">Back to Integrations</span>
-            </Link>
-          </div>
-        )}
         <PageBreadcrumb className='mb-4' />
         <div>
             {!hideHeader && (

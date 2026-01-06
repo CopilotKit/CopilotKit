@@ -1,6 +1,7 @@
 import { useState, useEffect, ComponentType } from "react"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
+import { X } from "lucide-react"
 import ChevronDownIcon from "../icons/chevron"
 import AdkIcon from "../icons/adk"
 import Ag2Icon from "../icons/ag2"
@@ -74,6 +75,13 @@ const IntegrationSelector = ({
 }: IntegrationSelectorProps) => {
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
+  const router = useRouter()
+
+  const handleClearSelection = (e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent dropdown from opening
+    setSelectedIntegration(null)
+    router.push("/integrations")
+  }
 
   const integration = selectedIntegration
     ? INTEGRATION_OPTIONS[selectedIntegration]
@@ -146,7 +154,18 @@ const IntegrationSelector = ({
           </span>
         </div>
 
-        <ChevronDownIcon className="mr-1 w-4 h-4" />
+        <div className="flex items-center gap-1">
+          {selectedIntegration && (
+            <button
+              onClick={handleClearSelection}
+              className="p-1 rounded hover:bg-[#0C1112]/10 dark:hover:bg-white/10 transition-colors"
+              aria-label="Clear integration selection"
+            >
+              <X className="w-4 h-4 text-muted-foreground" />
+            </button>
+          )}
+          <ChevronDownIcon className="mr-1 w-4 h-4" />
+        </div>
       </div>
 
       {isOpen && (
