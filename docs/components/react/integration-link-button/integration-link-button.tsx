@@ -12,7 +12,7 @@ export const IntegrationLinkButton = ({ label, Icon, href }: IntegrationLinkButt
     <Link href={href} className='w-full no-underline h-[60px] hover:opacity-100'>
       <div className='flex gap-2 justify-between items-center p-1 w-full h-full rounded-lg bg-[#FFFFFF80]/50 dark:bg-background/50 hover:bg-white/50 dark:hover:bg-[#1A2022] group pr-4'>
         <div className='flex gap-2 justify-start items-center w-full'>
-          <div className='w-[52px] h-[52px] flex items-center justify-center bg-[#0105070D] dark:bg-white/5 rounded-md group-hover:bg-[#BEC2FF] dark:group-hover:bg-[#7076D5] transition-all duration-200'>
+          <div className='w-[52px] h-[52px] shrink-0 flex items-center justify-center bg-[#0105070D] dark:bg-white/5 rounded-md group-hover:bg-[#BEC2FF] dark:group-hover:bg-[#7076D5] transition-all duration-200'>
             <Icon className='text-foreground' />
           </div>
           <span className='text-sm font-medium no-underline'>{label}</span>

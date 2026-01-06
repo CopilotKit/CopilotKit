@@ -137,7 +137,7 @@ const IntegrationSelector = ({
       >
         <div className="flex gap-2 items-center">
           <div
-            className={`flex justify-center items-center w-10 h-10 rounded-md ${
+            className={`flex justify-center items-center w-10 h-10 shrink-0 rounded-md ${
               pathname !== "/integrations"
                 ? "bg-[#BEC2FF] dark:bg-[#7076D5]"
                 : "bg-[#0C1112]/5 dark:bg-white/5"
@@ -184,7 +184,7 @@ const IntegrationSelector = ({
               >
                 <div className="flex gap-4 items-center">
                   <div
-                    className={`flex justify-center items-center w-10 h-10 rounded-md  transition-all duration-200 ${
+                    className={`flex justify-center items-center w-10 h-10 shrink-0 rounded-md transition-all duration-200 ${
                       integration.href === href
                         ? "bg-[#BEC2FF] dark:bg-[#7076D5]"
                         : "bg-[#0C1112]/5 dark:bg-white/5 group-hover:bg-[#0C1112]/10 dark:group-hover:bg-white/5"
