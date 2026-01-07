@@ -26,26 +26,8 @@ export function CustomPager({ tree, page }: CustomPagerProps): ReactNode {
     title: nextItem.name?.toString() || ''
   } : null
 
-  // Temporary logging to identify pages with no neighbors
   if (!prev && !next) {
-    console.log('[CustomPager] Page with no previous or next:', {
-      url: page.url,
-      title: page.data.title,
-      pageUrl: page.url
-    })
     return null
-  }
-
-  // Log pages with only one neighbor for reference
-  if ((!prev && next) || (prev && !next)) {
-    console.log('[CustomPager] Page with only one neighbor:', {
-      url: page.url,
-      title: page.data.title,
-      hasPrev: !!prev,
-      hasNext: !!next,
-      prevUrl: prev?.url,
-      nextUrl: next?.url
-    })
   }
 
   return (
