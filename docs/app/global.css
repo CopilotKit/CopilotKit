@@ -336,6 +336,7 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
   border: none !important;
   padding: 1rem !important;
   margin: 0 !important;
+  padding-top: 8rem !important; /* Push TOC below article title */
 }
 
 #nd-toc h3 svg {
