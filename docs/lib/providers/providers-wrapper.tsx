@@ -2,7 +2,7 @@
 
 import React, { Suspense } from "react";
 import { PostHogProvider } from "@/lib/providers/posthog-provider";
-import { ClerkProvider } from "@clerk/clerk-react";
+import { ClerkProvider } from "@clerk/nextjs";
 import { ScarfPixel } from "./scarf-pixel";
 import { useRB2B } from "@/lib/hooks/use-rb2b";
 import { useGoogleAnalytics } from "../hooks/use-google-analytics";

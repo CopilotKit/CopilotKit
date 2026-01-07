@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useAuth } from "@clerk/nextjs";
 import posthog from "posthog-js";
 import { CloudIcon } from "lucide-react";
 
@@ -18,7 +17,6 @@ export function LinkToCopilotCloud({
   children?: React.ReactNode;
 }) {
   const [isClient, setIsClient] = useState(false);
-  const { userId } = useAuth();
 
   useEffect(() => {
     setIsClient(true);
