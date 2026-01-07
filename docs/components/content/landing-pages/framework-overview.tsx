@@ -114,19 +114,36 @@ export function FrameworkOverview({
             {subheader}
           </p>
 
-          <div className="flex flex-col md:flex-row flex-wrap justify-center gap-3 sm:gap-4 px-4">
-            <Link href={guideLink} className="w-full md:w-auto">
-              <Button
-                size="lg"
-                variant="outline"
-                className="w-full md:w-auto px-6 sm:px-8 py-3 text-sm sm:text-base cursor-pointer"
+          <div className="flex flex-wrap lg:flex-nowrap justify-center gap-3 sm:gap-4 px-4">
+            {/* Quickstart and View Features stay together on small screens */}
+            <div className="flex gap-3 sm:gap-4 w-full lg:w-auto lg:contents">
+              <Link href={guideLink} className="flex-1 lg:flex-none lg:w-auto lg:order-1">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="w-full px-6 sm:px-8 py-3 text-sm sm:text-base cursor-pointer"
+                >
+                  Quickstart
+                </Button>
+              </Link>
+              <Link
+                href={featuresLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 lg:flex-none lg:w-auto lg:order-3"
               >
-                Quickstart
-              </Button>
-            </Link>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="w-full px-6 sm:px-8 py-3 text-sm sm:text-base cursor-pointer"
+                >
+                  View Features
+                </Button>
+              </Link>
+            </div>
             <Button
               size="lg"
-              className="w-full md:w-auto bg-primary/10 dark:bg-primary/20 text-primary hover:bg-primary/20 dark:hover:bg-primary/40 shadow-lg px-6 sm:px-8 py-3 text-sm sm:text-base font-mono cursor-pointer border border-primary"
+              className="w-full lg:w-auto bg-primary/10 dark:bg-primary/20 text-primary hover:bg-primary/20 dark:hover:bg-primary/40 shadow-lg px-6 sm:px-8 py-3 text-sm sm:text-base font-mono cursor-pointer border border-primary lg:order-2"
               onClick={handleCopyCommand}
             >
               <span className="truncate">npx copilotkit create</span>
@@ -136,20 +153,6 @@ export function FrameworkOverview({
                 <Copy className="ml-2 h-4 w-4 flex-shrink-0" />
               )}
             </Button>
-            <Link
-              href={featuresLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full md:w-auto"
-            >
-              <Button
-                size="lg"
-                variant="outline"
-                className="w-full md:w-auto px-6 sm:px-8 py-3 text-sm sm:text-base cursor-pointer"
-              >
-                View Features
-              </Button>
-            </Link>
           </div>
         </header>
 
