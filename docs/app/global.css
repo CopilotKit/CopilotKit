@@ -281,6 +281,13 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
   --fd-banner-height: 0px !important;
   background: transparent !important;
   background-color: transparent !important;
+  max-width: none !important;
+  width: 100% !important;
+}
+
+/* Remove Fumadocs default max-width constraints on content */
+#nd-docs-layout > * {
+  max-width: none !important;
 }
 
 /* Ensure Fumadocs layout container is transparent to show gradient */
@@ -302,6 +309,15 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
 #nd-page {
   padding-top: 0 !important;
   background: transparent !important;
+  max-width: none !important;
+  width: 100% !important;
+}
+
+/* Remove max-width constraints from article content */
+#nd-page article,
+#nd-page > *,
+.docs-content-wrapper article {
+  max-width: none !important;
 }
 
 /* TOC popover styling for mobile (below 1280px) */

@@ -41,7 +41,7 @@ export function QuickstartDropdown() {
         defaultValue=""
       >
         <option value="" disabled>
-          CHOOSE AGENT OR LLM
+          CHOOSE INTEGRATION
         </option>
         {options.map((option) => (
           <option key={option.url} value={option.url}>
