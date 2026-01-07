@@ -21,6 +21,19 @@ export function mockStreamTextResponse(events: MockStreamEvent[]) {
 }
 
 /**
+ * Helper to create a text-start event
+ */
+export function textStart(id?: string): MockStreamEvent {
+  const event: MockStreamEvent = {
+    type: "text-start",
+  };
+  if (id !== undefined) {
+    event.id = id;
+  }
+  return event;
+}
+
+/**
  * Helper to create a text delta event
  */
 export function textDelta(text: string): MockStreamEvent {
