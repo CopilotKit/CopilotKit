@@ -16,9 +16,8 @@
   },
   "scripts": {
     "build": "tsup",
-    "prepublishOnly": "pnpm run build",
     "dev": "tsup --watch",
-    "lint": "eslint . --max-warnings 0",
+    "lint": "eslint .",
     "check-types": "tsc --noEmit",
     "clean": "rm -rf dist",
     "test": "vitest run",
@@ -36,7 +35,6 @@
     "vitest": "^3.0.5"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.42",
     "@ai-sdk/anthropic": "^2.0.22",
     "@ai-sdk/google": "^2.0.17",
     "@ai-sdk/mcp": "^0.0.8",
@@ -45,6 +43,9 @@
     "ai": "^5.0.92",
     "rxjs": "^7.8.1",
     "zod": "^3.25.75"
+  },
+  "peerDependencies": {
+    "@ag-ui/client": "0.0.42"
   },
   "engines": {
     "node": ">=18"

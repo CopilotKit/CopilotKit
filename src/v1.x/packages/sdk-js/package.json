@@ -42,6 +42,7 @@
     "unlink:global": "pnpm unlink --global"
   },
   "devDependencies": {
+    "@copilotkit/shared": "workspace:*",
     "@langchain/core": "^1.1.8",
     "@langchain/langgraph": "^1.0.7",
     "@swc/core": "1.5.28",
@@ -60,10 +61,8 @@
     "tsup": "^6.7.0",
     "typescript": "^5.2.3"
   },
-  "dependencies": {
-    "@copilotkit/shared": "workspace:*"
-  },
   "peerDependencies": {
+    "@copilotkit/shared": "workspace:*",
     "@langchain/community": "^0.0.53",
     "@langchain/core": ">=0.4.0 <2.0.0",
     "@langchain/langgraph": ">=0.4.0 <2.0.0",

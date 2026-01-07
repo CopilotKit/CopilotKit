@@ -6,6 +6,7 @@ import {
 } from "@ag-ui/client";
 import { Observable } from "rxjs";
 import { OpenAI } from "openai";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
 export class OpenAIAgent extends AbstractAgent {
   private openai: OpenAI;
@@ -19,7 +20,7 @@ export class OpenAIAgent extends AbstractAgent {
     return new OpenAIAgent(this.openai);
   }
 
-  protected run(input: RunAgentInput): Observable<BaseEvent> {
+  run(input: RunAgentInput): Observable<BaseEvent> {
     return new Observable<BaseEvent>((observer) => {
       observer.next({
         type: EventType.RUN_STARTED,
@@ -39,24 +40,24 @@ export class OpenAIAgent extends AbstractAgent {
               parameters: tool.parameters,
             },
           })),
-          messages: input.messages.map((message) => {
+          messages: input.messages.map((message): ChatCompletionMessageParam => {
             if (message.role === "tool") {
               return {
-                role: "tool" as const,
+                role: "tool",
                 content: message.content ?? "",
                 tool_call_id: message.toolCallId ?? "",
               };
             } else if (message.role === "assistant" && message.toolCalls) {
               return {
-                role: "assistant" as const,
+                role: "assistant",
                 content: message.content ?? "",
                 tool_calls: message.toolCalls,
               };
             } else {
               return {
-                role: message.role as "system" | "user" | "assistant",
+                role: message.role,
                 content: message.content ?? "",
-              };
+              } as ChatCompletionMessageParam;
             }
           }),
         })

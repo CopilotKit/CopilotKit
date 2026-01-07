@@ -17,7 +17,7 @@ export class SlowToolCallStreamingAgent extends AbstractAgent {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  protected run(input: RunAgentInput): Observable<BaseEvent> {
+  run(input: RunAgentInput): Observable<BaseEvent> {
     return new Observable<BaseEvent>((observer) => {
       let cancelled = false;
 
