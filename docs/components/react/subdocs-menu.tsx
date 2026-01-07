@@ -7,6 +7,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { useSidebar } from 'fumadocs-ui/components/sidebar/base';
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -288,6 +289,7 @@ export function SubdocsMenu({
 }: {
   options: (Option | OptionDropdown | Separator | Label)[];
 } & HTMLAttributes<HTMLButtonElement>): React.ReactElement {
+  const { closeOnRedirect } = useSidebar();
   const pathname = usePathname();
 
   // State for tracking user's explicit navigation preference
@@ -365,8 +367,8 @@ export function SubdocsMenu({
   }, []);
 
   const onClick = useCallback(() => {
-    // Navigation click handler
-  }, []);
+    //closeOnRedirect.current = false;
+  }, [closeOnRedirect]);
 
       return (
       <div className="flex flex-col gap-1">

@@ -5,7 +5,7 @@
     "...(root)",
     "reference",
     "---Integrations---",
-    "...integrations",
+    "adk",
     "a2a",
     "microsoft-agent-framework",
     "aws-strands",
