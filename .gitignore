@@ -7,7 +7,6 @@
 __snapshots__
 @generated
 node_modules
-.pnpm-store
 .idea/
 cdk_outputs.json
 .turbo

@@ -1,0 +1,9 @@
+{
+  "icon": "lucide/Repeat",
+  "pages": [
+    "in-app-agent-read",
+    "in-app-agent-write",
+    "workflow-execution",
+    "predictive-state-updates"
+  ]
+}
