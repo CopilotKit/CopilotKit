@@ -25,6 +25,7 @@ jobs:
           - travel
           - research-canvas
           - chat-with-your-data
+          - state-machine
 
     steps:
       - name: Checkout
