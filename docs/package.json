@@ -32,7 +32,7 @@
     "clsx": "^2.1.1",
     "fumadocs-core": "^16.0.0",
     "fumadocs-docgen": "^1.2.0",
-    "fumadocs-mdx": "^15.0.0",
+    "fumadocs-mdx": "^14.0.0",
     "fumadocs-typescript": "^5.0.0",
     "fumadocs-ui": "^16.0.0",
     "hast-util-to-jsx-runtime": "^2.3.0",
