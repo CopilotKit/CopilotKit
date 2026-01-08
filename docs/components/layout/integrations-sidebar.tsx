@@ -9,7 +9,6 @@ import IntegrationSelector, { Integration } from '../ui/integrations-sidebar/int
 import IntegrationSelectorSkeleton from '../ui/integrations-sidebar/skeleton';
 import { OpenedFoldersProvider } from '@/lib/hooks/use-opened-folders';
 import { INTEGRATION_METADATA } from '@/lib/integrations';
-import { generateUUID } from '@/lib/utils';
 
 type Node = DocsLayoutProps['tree']['children'][number] & {
   url: string;
@@ -112,9 +111,11 @@ const IntegrationsSidebar = ({ pageTree }: { pageTree: DocsLayoutProps['tree'] }
         {selectedIntegration ? (
           <ul className='flex overflow-y-auto flex-col pr-1 max-h-full custom-scrollbar'>
             <li className='w-full h-6' />
-            {integrationPages.map(page => {
+            {integrationPages.map((page, index) => {
               const Component = NODE_COMPONENTS[page.type];
-              return <Component key={generateUUID()} node={page as Node} />;
+              const pageUrl = page.index?.url || page.url || `page-${index}`
+              const key = `${page.type}-${pageUrl}`
+              return <Component key={key} node={page as Node} />;
             })}
           </ul>
         ) : (

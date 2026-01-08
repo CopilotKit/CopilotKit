@@ -5,7 +5,6 @@ import Folder from "../ui/sidebar/folder"
 import IntegrationLink from "../ui/sidebar/integration-link"
 import { OpenedFoldersProvider } from "@/lib/hooks/use-opened-folders"
 import { INTEGRATION_ORDER } from "@/lib/integrations"
-import { generateUUID } from "@/lib/utils"
 
 type Node = DocsLayoutProps["tree"]["children"][number] & {
   url: string
@@ -41,12 +40,15 @@ const Sidebar = ({ pageTree }: { pageTree: DocsLayoutProps["tree"] }) => {
       >
         <ul className="flex overflow-y-auto flex-col pr-1 max-h-full custom-scrollbar pt-6">
           <li className="w-full h-6" />
-          {pages.map((page) => {
+          {pages.map((page, index) => {
             const nodeType = isIntegrationFolder(page as Node)
               ? "integrationLink"
               : page.type
             const Component = NODE_COMPONENTS[nodeType]
-            return <Component key={generateUUID()} node={page as Node} />
+            // Use stable key based on page data to avoid hydration mismatches
+            const pageUrl = (page as Node).index?.url || (page as Node).url || `page-${index}`
+            const key = `${nodeType}-${pageUrl}`
+            return <Component key={key} node={page as Node} />
           })}
         </ul>
       </aside>

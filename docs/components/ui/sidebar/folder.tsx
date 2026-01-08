@@ -5,7 +5,7 @@ import { DocsLayoutProps } from 'fumadocs-ui/layouts/docs';
 import { usePathname, useRouter } from 'next/navigation';
 import Page from './page';
 import ChevronDownIcon from '../icons/chevron';
-import { cn, generateUUID } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import Separator from './separator';
 import { useOpenedFolders } from '@/lib/hooks/use-opened-folders';
 import { normalizeUrl, normalizeUrlForMatching } from '@/lib/analytics-utils';
@@ -137,9 +137,12 @@ const Folder = ({ node }: FolderProps) => {
         <ul className='flex relative flex-col gap-2 ml-4'>
           <div className='absolute top-1/2 -translate-y-1/2 -left-2 w-px h-[calc(100%-8px)] bg-foreground/10' />
 
-          {(node as { children: Node[] }).children.map(page => {
+          {(node as { children: Node[] }).children.map((page, index) => {
             const Component = NODE_COMPONENTS[page.type as keyof typeof NODE_COMPONENTS];
-            return <Component key={generateUUID()} node={page as Node} minimal={true} />;
+            const pageWithIndex = page as Node & { index?: { url: string } };
+            const pageUrl = pageWithIndex.index?.url || page.url || `page-${index}`
+            const key = `${page.type}-${pageUrl}`
+            return <Component key={key} node={page as Node} minimal={true} />;
           })}
         </ul>
       )}

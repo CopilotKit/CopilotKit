@@ -12,7 +12,6 @@ import Dropdown from "@/components/ui/mobile-sidebar/dropdown"
 import IntegrationSelector from "@/components/ui/integrations-sidebar/integration-selector"
 import IntegrationSelectorSkeleton from "@/components/ui/integrations-sidebar/skeleton"
 import { OpenedFoldersProvider } from "@/lib/hooks/use-opened-folders"
-import { generateUUID } from "@/lib/utils"
 // Icons
 import DiscordIcon from "@/components/ui/icons/discord"
 import GithubIcon from "@/components/ui/icons/github"
@@ -219,11 +218,13 @@ const MobileSidebar = ({
 
           {isIntegrationRoute && selectedIntegration ? (
             <ul className="flex overflow-y-auto flex-col mt-6 max-h-full custom-scrollbar [&>*:first-child]:mt-0">
-              {integrationPages.map((page) => {
+              {integrationPages.map((page, index) => {
                 const Component = NODE_COMPONENTS[page.type]
+                const pageUrl = (page as Node).index?.url || (page as Node).url || `page-${index}`
+                const key = `${page.type}-${pageUrl}`
                 return (
                   <Component
-                    key={generateUUID()}
+                    key={key}
                     node={page as Node}
                     onNavigate={() => setIsOpen(false)}
                   />
@@ -234,11 +235,13 @@ const MobileSidebar = ({
             <IntegrationSelectorSkeleton />
           ) : (
             <ul className="flex overflow-y-auto flex-col mt-6 max-h-full custom-scrollbar [&>*:first-child]:mt-0">
-              {pagesToShow.map((page) => {
+              {pagesToShow.map((page, index) => {
                 const Component = NODE_COMPONENTS[page.type]
+                const pageUrl = (page as Node).index?.url || (page as Node).url || `page-${index}`
+                const key = `${page.type}-${pageUrl}`
                 return (
                   <Component
-                    key={generateUUID()}
+                    key={key}
                     node={page as Node}
                     onNavigate={() => setIsOpen(false)}
                   />
