@@ -82,6 +82,8 @@ function PopupLayout() {
 function PopupChat() {
   useConfigureSuggestions({
     instructions: "Suggest short summaries or next actions based on the dashboard content",
+    available: "always",
+    maxSuggestions: 2,
   });
 
   useFrontendTool({

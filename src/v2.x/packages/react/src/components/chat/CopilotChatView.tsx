@@ -13,6 +13,17 @@ import { cn } from "@/lib/utils";
 import { useCopilotChatConfiguration, CopilotChatDefaultLabels } from "@/providers/CopilotChatConfigurationProvider";
 import { useKeyboardHeight } from "@/hooks/use-keyboard-height";
 
+// Forward declaration for WelcomeScreen component type
+export type WelcomeScreenProps = WithSlots<
+  {
+    welcomeMessage: React.FC<React.HTMLAttributes<HTMLDivElement>>;
+  },
+  {
+    input: React.ReactElement;
+    suggestionView: React.ReactElement;
+  } & React.HTMLAttributes<HTMLDivElement>
+>;
+
 export type CopilotChatViewProps = WithSlots<
   {
     messageView: typeof CopilotChatMessageView;
@@ -32,6 +43,7 @@ export type CopilotChatViewProps = WithSlots<
     suggestions?: Suggestion[];
     suggestionLoadingIndexes?: ReadonlyArray<number>;
     onSelectSuggestion?: (suggestion: Suggestion, index: number) => void;
+    welcomeScreen?: SlotValue<React.FC<WelcomeScreenProps>> | boolean;
   } & React.HTMLAttributes<HTMLDivElement>
 >;
 
@@ -44,6 +56,7 @@ export function CopilotChatView({
   inputContainer,
   disclaimer,
   suggestionView,
+  welcomeScreen,
   messages = [],
   autoScroll = true,
   inputProps,
@@ -157,6 +170,31 @@ export function CopilotChatView({
       </>
     ),
   });
+
+  // Welcome screen logic
+  const isEmpty = messages.length === 0;
+  // Type assertion needed because TypeScript doesn't fully propagate `| boolean` through WithSlots
+  const welcomeScreenDisabled = (welcomeScreen as unknown) === false;
+  const shouldShowWelcomeScreen = isEmpty && !welcomeScreenDisabled;
+
+  if (shouldShowWelcomeScreen) {
+    // Convert boolean `true` to undefined (use default), and exclude `false` since we've checked for it
+    const welcomeScreenSlot = (welcomeScreen === true ? undefined : welcomeScreen) as SlotValue<React.FC<WelcomeScreenProps>> | undefined;
+    const BoundWelcomeScreen = renderSlot(
+      welcomeScreenSlot,
+      CopilotChatView.WelcomeScreen,
+      {
+        input: BoundInput,
+        suggestionView: BoundSuggestionView ?? <></>,
+      }
+    );
+
+    return (
+      <div className={twMerge("relative h-full", className)} {...props}>
+        {BoundWelcomeScreen}
+      </div>
+    );
+  }
 
   if (children) {
     return children({
@@ -386,6 +424,83 @@ export namespace CopilotChatView {
         {...props}
       >
         {labels.chatDisclaimerText}
+      </div>
+    );
+  };
+
+  export const WelcomeMessage: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
+    className,
+    ...props
+  }) => {
+    const config = useCopilotChatConfiguration();
+    const labels = config?.labels ?? CopilotChatDefaultLabels;
+
+    return (
+      <h1
+        className={cn(
+          "text-xl sm:text-2xl font-medium text-foreground text-center",
+          className
+        )}
+        {...props}
+      >
+        {labels.welcomeMessageText}
+      </h1>
+    );
+  };
+
+  export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
+    welcomeMessage,
+    input,
+    suggestionView,
+    className,
+    children,
+    ...props
+  }) => {
+    // Render the welcomeMessage slot internally
+    const BoundWelcomeMessage = renderSlot(
+      welcomeMessage,
+      CopilotChatView.WelcomeMessage,
+      {}
+    );
+
+    if (children) {
+      return (
+        <>
+          {children({
+            welcomeMessage: BoundWelcomeMessage,
+            input,
+            suggestionView,
+            className,
+            ...props,
+          })}
+        </>
+      );
+    }
+
+    return (
+      <div
+        className={cn(
+          "h-full flex flex-col items-center justify-center px-4",
+          className
+        )}
+        {...props}
+      >
+        <div className="w-full max-w-3xl flex flex-col items-center">
+          {/* Welcome message */}
+          <div className="mb-6">
+            {BoundWelcomeMessage}
+          </div>
+
+          {/* Input */}
+          <div className="w-full">
+            {input}
+          </div>
+
+          {/* Suggestions */}
+          <div className="mt-4 flex justify-center">
+            {suggestionView}
+          </div>
+        </div>
       </div>
     );
   };

@@ -29,6 +29,7 @@ export function CopilotSidebar({ header, defaultOpen, width, ...chatProps }: Cop
 
   return (
     <CopilotChat
+      welcomeScreen={CopilotSidebarView.WelcomeScreen}
       {...chatProps}
       chatView={SidebarViewOverride}
       isModalDefaultOpen={defaultOpen}

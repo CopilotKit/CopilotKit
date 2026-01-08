@@ -22,6 +22,7 @@ export const CopilotChatDefaultLabels = {
   chatToggleOpenLabel: "Open chat",
   chatToggleCloseLabel: "Close chat",
   modalHeaderTitle: "CopilotKit Chat",
+  welcomeMessageText: "How can I help you today?",
 };
 
 export type CopilotChatLabels = typeof CopilotChatDefaultLabels;

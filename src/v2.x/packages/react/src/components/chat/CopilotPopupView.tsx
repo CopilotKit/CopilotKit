@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import CopilotChatView, { CopilotChatViewProps } from "./CopilotChatView";
+import CopilotChatView, { CopilotChatViewProps, WelcomeScreenProps } from "./CopilotChatView";
 import CopilotChatToggleButton from "./CopilotChatToggleButton";
 import { CopilotModalHeader } from "./CopilotModalHeader";
 import { cn } from "@/lib/utils";
@@ -202,5 +202,67 @@ export function CopilotPopupView({
 }
 
 CopilotPopupView.displayName = "CopilotPopupView";
+
+// eslint-disable-next-line @typescript-eslint/no-namespace
+export namespace CopilotPopupView {
+  /**
+   * Popup-specific welcome screen layout:
+   * - Welcome message centered vertically
+   * - Suggestions just above input
+   * - Input fixed at the bottom
+   */
+  export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
+    welcomeMessage,
+    input,
+    suggestionView,
+    className,
+    children,
+    ...props
+  }) => {
+    // Render the welcomeMessage slot internally
+    const BoundWelcomeMessage = renderSlot(
+      welcomeMessage,
+      CopilotChatView.WelcomeMessage,
+      {}
+    );
+
+    if (children) {
+      return (
+        <>
+          {children({
+            welcomeMessage: BoundWelcomeMessage,
+            input,
+            suggestionView,
+            className,
+            ...props,
+          })}
+        </>
+      );
+    }
+
+    return (
+      <div
+        className={cn("h-full flex flex-col", className)}
+        {...props}
+      >
+        {/* Welcome message - centered vertically */}
+        <div className="flex-1 flex flex-col items-center justify-center px-4">
+          {BoundWelcomeMessage}
+        </div>
+
+        {/* Suggestions and input at bottom */}
+        <div className="px-6 pb-4">
+          <div className="max-w-3xl mx-auto">
+            {/* Suggestions above input */}
+            <div className="mb-4 flex justify-center">
+              {suggestionView}
+            </div>
+            {input}
+          </div>
+        </div>
+      </div>
+    );
+  };
+}
 
 export default CopilotPopupView;

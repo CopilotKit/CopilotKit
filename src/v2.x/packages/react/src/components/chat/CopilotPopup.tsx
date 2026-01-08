@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 
 import { CopilotChat, CopilotChatProps } from "./CopilotChat";
 import CopilotChatView, { CopilotChatViewProps } from "./CopilotChatView";
-import { CopilotPopupView, CopilotPopupViewProps } from "./CopilotPopupView";
+import CopilotPopupView, { CopilotPopupViewProps } from "./CopilotPopupView";
 
 export type CopilotPopupProps = Omit<CopilotChatProps, "chatView"> & {
   header?: CopilotPopupViewProps["header"];
@@ -46,6 +46,7 @@ export function CopilotPopup({
 
   return (
     <CopilotChat
+      welcomeScreen={CopilotPopupView.WelcomeScreen}
       {...chatProps}
       chatView={PopupViewOverride}
       isModalDefaultOpen={defaultOpen}
