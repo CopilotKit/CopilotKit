@@ -480,7 +480,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       // }
 
       // TODO: replace hooksParams top argument type with BeforeRequestMiddlewareParameters when exported
-      params?.beforeRequestMiddleware?.(hookParams);
+      const middlewareResult = await params?.beforeRequestMiddleware?.(hookParams);
 
       if (params?.middleware?.onBeforeRequest) {
         const { request, runtime, path } = hookParams;
@@ -504,6 +504,8 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
           url: request.url,
         } satisfies OnBeforeRequestOptions);
       }
+
+      return middlewareResult;
     };
   }
 
