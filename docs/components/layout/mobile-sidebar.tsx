@@ -12,6 +12,7 @@ import Dropdown from "@/components/ui/mobile-sidebar/dropdown"
 import IntegrationSelector from "@/components/ui/integrations-sidebar/integration-selector"
 import IntegrationSelectorSkeleton from "@/components/ui/integrations-sidebar/skeleton"
 import { OpenedFoldersProvider } from "@/lib/hooks/use-opened-folders"
+import { generateUUID } from "@/lib/utils"
 // Icons
 import DiscordIcon from "@/components/ui/icons/discord"
 import GithubIcon from "@/components/ui/icons/github"
@@ -222,7 +223,7 @@ const MobileSidebar = ({
                 const Component = NODE_COMPONENTS[page.type]
                 return (
                   <Component
-                    key={crypto.randomUUID()}
+                    key={generateUUID()}
                     node={page as Node}
                     onNavigate={() => setIsOpen(false)}
                   />
@@ -237,7 +238,7 @@ const MobileSidebar = ({
                 const Component = NODE_COMPONENTS[page.type]
                 return (
                   <Component
-                    key={crypto.randomUUID()}
+                    key={generateUUID()}
                     node={page as Node}
                     onNavigate={() => setIsOpen(false)}
                   />

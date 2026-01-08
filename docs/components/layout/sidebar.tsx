@@ -5,6 +5,7 @@ import Folder from "../ui/sidebar/folder"
 import IntegrationLink from "../ui/sidebar/integration-link"
 import { OpenedFoldersProvider } from "@/lib/hooks/use-opened-folders"
 import { INTEGRATION_ORDER } from "@/lib/integrations"
+import { generateUUID } from "@/lib/utils"
 
 type Node = DocsLayoutProps["tree"]["children"][number] & {
   url: string
@@ -45,7 +46,7 @@ const Sidebar = ({ pageTree }: { pageTree: DocsLayoutProps["tree"] }) => {
               ? "integrationLink"
               : page.type
             const Component = NODE_COMPONENTS[nodeType]
-            return <Component key={crypto.randomUUID()} node={page as Node} />
+            return <Component key={generateUUID()} node={page as Node} />
           })}
         </ul>
       </aside>

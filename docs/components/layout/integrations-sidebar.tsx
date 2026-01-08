@@ -9,6 +9,7 @@ import IntegrationSelector, { Integration } from '../ui/integrations-sidebar/int
 import IntegrationSelectorSkeleton from '../ui/integrations-sidebar/skeleton';
 import { OpenedFoldersProvider } from '@/lib/hooks/use-opened-folders';
 import { INTEGRATION_METADATA } from '@/lib/integrations';
+import { generateUUID } from '@/lib/utils';
 
 type Node = DocsLayoutProps['tree']['children'][number] & {
   url: string;
@@ -113,7 +114,7 @@ const IntegrationsSidebar = ({ pageTree }: { pageTree: DocsLayoutProps['tree'] }
             <li className='w-full h-6' />
             {integrationPages.map(page => {
               const Component = NODE_COMPONENTS[page.type];
-              return <Component key={crypto.randomUUID()} node={page as Node} />;
+              return <Component key={generateUUID()} node={page as Node} />;
             })}
           </ul>
         ) : (

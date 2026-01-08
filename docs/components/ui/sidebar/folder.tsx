@@ -5,7 +5,7 @@ import { DocsLayoutProps } from 'fumadocs-ui/layouts/docs';
 import { usePathname, useRouter } from 'next/navigation';
 import Page from './page';
 import ChevronDownIcon from '../icons/chevron';
-import { cn } from '@/lib/utils';
+import { cn, generateUUID } from '@/lib/utils';
 import Separator from './separator';
 import { useOpenedFolders } from '@/lib/hooks/use-opened-folders';
 import { normalizeUrl, normalizeUrlForMatching } from '@/lib/analytics-utils';
@@ -139,7 +139,7 @@ const Folder = ({ node }: FolderProps) => {
 
           {(node as { children: Node[] }).children.map(page => {
             const Component = NODE_COMPONENTS[page.type as keyof typeof NODE_COMPONENTS];
-            return <Component key={crypto.randomUUID()} node={page as Node} minimal={true} />;
+            return <Component key={generateUUID()} node={page as Node} minimal={true} />;
           })}
         </ul>
       )}
