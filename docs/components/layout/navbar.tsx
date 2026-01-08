@@ -139,6 +139,7 @@ const Navbar = ({ pageTree }: NavbarProps) => {
                       className={`h-full ${
                         activeRoute === link.href ? "opacity-100" : "opacity-50"
                       } hover:opacity-100 transition-opacity duration-300`}
+                      suppressHydrationWarning={link.target === "_blank"}
                     >
                       <span className="flex gap-2 items-center h-full">
                         <span className={hideIconAtNarrow ? '[@media(width<808px)]:hidden' : ''}>
@@ -210,6 +211,7 @@ const Navbar = ({ pageTree }: NavbarProps) => {
                   target={link.target}
                   className={`${isIconOnlyLink ? '[@media(width>=1112px)]:hidden [@media(width<768px)]:hidden' : 'hidden'} justify-center items-center w-11 h-full md:flex`}
                   title={link.label}
+                  suppressHydrationWarning={link.target === "_blank"}
                 >
                   <span className="flex items-center h-full">{link.icon}</span>
                 </Link>

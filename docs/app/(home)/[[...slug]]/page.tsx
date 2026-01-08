@@ -57,10 +57,13 @@ const mdxComponents = {
   Card: Card,
   PropertyReference: PropertyReference,
   a: ({ href, children, className, ...props }: any) => {
+    // Check if link is external (for suppressHydrationWarning)
+    const isExternal = href && typeof href === "string" && (href.startsWith("http://") || href.startsWith("https://"))
+
     // Don't wrap anchor links (hash links) in NavigationLink to avoid nested <a> tags
     if (href && typeof href === "string" && href.startsWith("#")) {
       return (
-        <a href={href} className={className} {...props}>
+        <a href={href} className={className} {...props} suppressHydrationWarning={isExternal}>
           {children}
         </a>
       )
@@ -71,7 +74,7 @@ const mdxComponents = {
       (props["data-card"] !== undefined || props["data-heading"] !== undefined)
     ) {
       return (
-        <a href={href} className={className} {...props}>
+        <a href={href} className={className} {...props} suppressHydrationWarning={isExternal}>
           {children}
         </a>
       )
@@ -83,7 +86,7 @@ const mdxComponents = {
       className.includes("peer")
     ) {
       return (
-        <a href={href} className={className} {...props}>
+        <a href={href} className={className} {...props} suppressHydrationWarning={isExternal}>
           {children}
         </a>
       )

@@ -53,11 +53,47 @@ const mdxComponents = {
   Cards: Cards,
   Card: Card,
   PropertyReference: PropertyReference,
-  a: ({ href, children, ...props }: any) => (
-    <NavigationLink href={href as string} {...props}>
-      {children}
-    </NavigationLink>
-  ),
+  a: ({ href, children, className, ...props }: any) => {
+    // Check if link is external (for suppressHydrationWarning)
+    const isExternal = href && typeof href === "string" && (href.startsWith("http://") || href.startsWith("https://"))
+
+    // Don't wrap anchor links (hash links) in NavigationLink to avoid nested <a> tags
+    if (href && typeof href === "string" && href.startsWith("#")) {
+      return (
+        <a href={href} className={className} {...props} suppressHydrationWarning={isExternal}>
+          {children}
+        </a>
+      )
+    }
+    // Don't wrap links that have data-card attribute or peer className (fumadocs heading anchors)
+    if (
+      props &&
+      (props["data-card"] !== undefined || props["data-heading"] !== undefined)
+    ) {
+      return (
+        <a href={href} className={className} {...props} suppressHydrationWarning={isExternal}>
+          {children}
+        </a>
+      )
+    }
+    // Don't wrap links with 'peer' className (fumadocs uses this for heading anchor links)
+    if (
+      className &&
+      typeof className === "string" &&
+      className.includes("peer")
+    ) {
+      return (
+        <a href={href} className={className} {...props} suppressHydrationWarning={isExternal}>
+          {children}
+        </a>
+      )
+    }
+    return (
+      <NavigationLink href={href as string} className={className} {...props}>
+        {children}
+      </NavigationLink>
+    )
+  },
   // HTML `ref` attribute conflicts with `forwardRef`
   pre: ({ ref: _ref, ...props }: any) => (
     <CodeBlock {...props}>
