@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from copilotkit import LangGraphAGUIAgent
-from ag_ui_langgraph import add_langgraph_fastapi_endpoint
+from ag_ui_langgraph import add_langgraph_fastapi_endpoints
 
 graph = None
 @asynccontextmanager
@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-add_langgraph_fastapi_endpoint(
+add_langgraph_fastapi_endpoints(
     app=app,
     agent=LangGraphAGUIAgent(
         name="research_agent",
