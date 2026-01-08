@@ -66,7 +66,7 @@ export function createFetchRequestFromExpress(req: ExpressRequest): Request {
   }
 
   const controller = new AbortController();
-  req.on("close", () => controller.abort());
+  req.socket.on("close", () => controller.abort());
   init.signal = controller.signal;
 
   try {
