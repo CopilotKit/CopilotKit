@@ -1,0 +1,28 @@
+import React from "react"
+import { cn } from "@/lib/utils"
+
+interface ExternalLinkIconProps {
+  className?: string
+}
+
+const DEFAULT_CLASSNAME = "text-icon"
+
+const ExternalLinkIcon = ({ className }: ExternalLinkIconProps) => {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={cn(DEFAULT_CLASSNAME, className)}
+    >
+      <path
+        d="M12.4998 4V10.5C12.4998 10.6326 12.4471 10.7598 12.3533 10.8536C12.2596 10.9473 12.1324 11 11.9998 11C11.8672 11 11.74 10.9473 11.6462 10.8536C11.5525 10.7598 11.4998 10.6326 11.4998 10.5V5.20687L4.35354 12.3538C4.25972 12.4476 4.13247 12.5003 3.99979 12.5003C3.86711 12.5003 3.73986 12.4476 3.64604 12.3538C3.55222 12.2599 3.49951 12.1327 3.49951 12C3.49951 11.8673 3.55222 11.7401 3.64604 11.6462L10.7929 4.5H5.49979C5.36718 4.5 5.24 4.44732 5.14624 4.35355C5.05247 4.25979 4.99979 4.13261 4.99979 4C4.99979 3.86739 5.05247 3.74021 5.14624 3.64645C5.24 3.55268 5.36718 3.5 5.49979 3.5H11.9998C12.1324 3.5 12.2596 3.55268 12.3533 3.64645C12.4471 3.74021 12.4998 3.86739 12.4998 4Z"
+        fill="currentColor"
+      />
+    </svg>
+  )
+}
+
+export default ExternalLinkIcon
