@@ -84,7 +84,7 @@ importers:
         specifier: ^3.0.0
         version: 3.0.0
       next:
-        specifier: ^16.0.0
+        specifier: ^16.1.1
         version: 16.1.1(@babel/core@7.28.5)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       next-themes:
         specifier: ^0.4.6
