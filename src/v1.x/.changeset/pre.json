@@ -18,5 +18,8 @@
     "tailwind-config": "1.4.6",
     "tsconfig": "1.4.6"
   },
-  "changesets": []
+  "changesets": [
+    "fluffy-waves-build",
+    "seven-lizards-ring"
+  ]
 }

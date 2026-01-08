@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.50.2-next.0
+
+### Patch Changes
+
+- cf245a6: fix: restore and fix handle method in node http
+- cf245a6: fix: use direct hono node integration on node-http integration
+  - @copilotkit/shared@1.50.2-next.0
+
 ## 1.50.1
 
 ### Patch Changes
