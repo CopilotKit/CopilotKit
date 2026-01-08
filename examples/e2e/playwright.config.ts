@@ -18,6 +18,7 @@ export default defineConfig({
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
     trace: "retain-on-failure",
+    video: "retain-on-failure",
   },
   webServer: {
     command: webServerCommand,

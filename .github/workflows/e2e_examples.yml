@@ -82,7 +82,7 @@ jobs:
         run: pnpm test
 
       - name: Upload Playwright artifacts
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: examples-e2e-${{ matrix.example }}
