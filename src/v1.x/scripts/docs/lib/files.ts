@@ -137,7 +137,7 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
   /* SDKs */
 
   {
-    sourcePath: "../../sdk-python/copilotkit/langgraph.py",
+    sourcePath: "../../src/sdks/python/copilotkit/langgraph.py",
     destinationPath: "docs/content/docs/reference/sdk/python/LangGraph.mdx",
     title: "LangGraph SDK",
     description:
@@ -151,7 +151,7 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
     ],
   },
   {
-    sourcePath: "../../sdk-python/copilotkit/crewai/crewai_sdk.py",
+    sourcePath: "../../src/sdks/python/copilotkit/crewai/crewai_sdk.py",
     destinationPath: "docs/content/docs/reference/sdk/python/CrewAI.mdx",
     title: "CrewAI SDK",
     description:
@@ -167,21 +167,21 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
 
   /* Agents */
   {
-    sourcePath: "../../sdk-python/copilotkit/langgraph_agent.py",
+    sourcePath: "../../src/sdks/python/copilotkit/langgraph_agent.py",
     destinationPath: "docs/content/docs/reference/sdk/python/LangGraphAgent.mdx",
     title: "LangGraphAgent",
     description: "LangGraphAgent lets you define your agent for use with CopilotKit.",
     pythonSymbols: ["LangGraphAgent", "CopilotKitConfig"],
   },
   {
-    sourcePath: "../../sdk-python/copilotkit/crewai/crewai_agent.py",
+    sourcePath: "../../src/sdks/python/copilotkit/crewai/crewai_agent.py",
     destinationPath: "docs/content/docs/reference/sdk/python/CrewAIAgent.mdx",
     title: "CrewAIAgent",
     description: "CrewAIAgent lets you define your agent for use with CopilotKit.",
     pythonSymbols: ["CrewAIAgent", "CopilotKitConfig"],
   },
   {
-    sourcePath: "../../sdk-python/copilotkit/sdk.py",
+    sourcePath: "../../src/sdks/python/copilotkit/sdk.py",
     destinationPath: "docs/content/docs/reference/sdk/python/RemoteEndpoints.mdx",
     title: "Remote Endpoints",
     description:

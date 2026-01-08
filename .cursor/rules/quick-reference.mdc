@@ -22,12 +22,12 @@ alwaysApply: false
 - **Flows**: [coagents-starter-crewai-flows/](mdc:examples/coagents-starter-crewai-flows)
 
 ### Develop Python Agents
-- Use [sdk-python/](mdc:sdk-python) package
-- Check [copilotkit/agent.py](mdc:sdk-python/copilotkit/agent.py) for main agent class
+- Use the [sdk-python/](mdc:src/sdks/python) package
+- Check [copilotkit/agent.py](mdc:src/sdks/python/copilotkit/agent.py) for main agent class
 - See [coagents-starter/agent-py/](mdc:examples/coagents-starter/agent-py) for example
 
 ### Develop JavaScript Agents
-- Use [sdk-js/](mdc:src/v1.x/packages/sdk-js) package
+- Use the [sdk-js/](mdc:src/v1.x/packages/sdk-js) package
 - Check [coagents-starter/agent-js/](mdc:examples/coagents-starter/agent-js) for example
 
 ### Customize UI Components
@@ -51,7 +51,7 @@ alwaysApply: false
 
 ## Key Files to Know
 - **[src/v1.x/package.json](mdc:src/v1.x/package.json)** - Main workspace configuration
-- **[sdk-python/pyproject.toml](mdc:sdk-python/pyproject.toml)** - Python SDK configuration
+- **[src/sdks/python/pyproject.toml](mdc:src/sdks/python/pyproject.toml)** - Python SDK configuration
 - **[CopilotKit.code-workspace](mdc:src/v1.x/CopilotKit.code-workspace)** - VS Code workspace settings
 - **[examples/shared/](mdc:examples/shared)** - Shared utilities and templates
 
