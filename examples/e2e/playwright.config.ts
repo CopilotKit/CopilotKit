@@ -1,53 +1,48 @@
 import { defineConfig, devices } from "@playwright/test";
+import path from "path";
 
-/**
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
- */
-// import dotenv from 'dotenv';
-// import path from 'path';
-// dotenv.config({ path: path.resolve(__dirname, '.env') });
+const EXAMPLE = process.env.EXAMPLE ?? "form-filling";
+const PORT = Number(process.env.PORT ?? "3000");
 
-/**
- * See https://playwright.dev/docs/test-configuration.
- */
+const HYBRID_EXAMPLES = new Set(["travel", "research-canvas"]);
+const webServerCommand = HYBRID_EXAMPLES.has(EXAMPLE) ? "pnpm dev:ui" : "pnpm dev";
+
+const exampleDir = path.resolve(__dirname, "../v1.x", EXAMPLE);
+
 export default defineConfig({
-  timeout: 120000,
   testDir: "./tests",
-  /* Fail the build on CI if you accidentally left test.only in the source code. */
-  forbidOnly: !!process.env.CI,
-  /* Retry on CI only */
-  retries: process.env.CI ? 5 : 3,
-  /* Opt out of parallel tests on non-CI environments. */
-  workers: process.env.CI ? 10 : "90%",
-  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: [
-    ["list"],
-    [
-      "./reporters/structured-reporter.ts",
-      {
-        outputFile: "test-results/test-run-comment.md",
-      },
-    ],
-    ["json", { outputFile: "test-results/test-results.json" }],
-  ],
-  /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
-  use: {
-    /* Base URL to use in actions like `await page.goto('/')`. */
-    // baseURL: 'http://127.0.0.1:3000',
-
-    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
-    trace: "on-first-retry",
-    video: {
-      mode: "retain-on-failure",
-    }
+  timeout: 60_000,
+  expect: {
+    timeout: 10_000,
   },
-
-  /* Configure projects for major browsers */
+  use: {
+    baseURL: `http://127.0.0.1:${PORT}`,
+    trace: "retain-on-failure",
+    video: "retain-on-failure",
+  },
+  webServer: {
+    command: webServerCommand,
+    url: `http://127.0.0.1:${PORT}`,
+    cwd: exampleDir,
+    reuseExistingServer: !process.env.CI,
+    timeout: 180_000,
+    env: {
+      ...process.env,
+      PORT: String(PORT),
+      NEXT_TELEMETRY_DISABLED: "1",
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY ?? "test",
+      NEXT_PUBLIC_CPK_PUBLIC_API_KEY: process.env.NEXT_PUBLIC_CPK_PUBLIC_API_KEY ?? "",
+      NEXT_PUBLIC_COPILOT_PUBLIC_API_KEY: process.env.NEXT_PUBLIC_COPILOT_PUBLIC_API_KEY ?? "",
+      LANGSMITH_API_KEY: process.env.LANGSMITH_API_KEY ?? "",
+      REMOTE_ACTION_URL: process.env.REMOTE_ACTION_URL ?? "http://127.0.0.1:8000/copilotkit",
+    },
+  },
   projects: [
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
     },
   ],
+  reporter: process.env.CI ? "github" : "list",
+  outputDir: "test-results",
 });

@@ -1,0 +1,92 @@
+name: e2e / examples
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "examples/**"
+      - ".github/workflows/e2e_examples.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "examples/**"
+      - ".github/workflows/e2e_examples.yml"
+
+jobs:
+  examples:
+    name: ${{ matrix.example }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        example:
+          - form-filling
+          - travel
+          - research-canvas
+          - chat-with-your-data
+          - state-machine
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.13.1
+
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install e2e dependencies
+        working-directory: examples/e2e
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: examples/e2e
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Install example dependencies
+        working-directory: examples/v1.x/${{ matrix.example }}
+        run: |
+          if [ "${{ matrix.example }}" = "research-canvas" ]; then
+            pnpm install --frozen-lockfile --ignore-scripts
+          else
+            pnpm install --frozen-lockfile
+          fi
+
+      - name: Run e2e tests
+        working-directory: examples/e2e
+        env:
+          EXAMPLE: ${{ matrix.example }}
+          CI: "true"
+          OPENAI_API_KEY: test
+          NEXT_PUBLIC_CPK_PUBLIC_API_KEY: ""
+          NEXT_PUBLIC_COPILOT_PUBLIC_API_KEY: ""
+          LANGSMITH_API_KEY: ""
+        run: pnpm test
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: examples-e2e-${{ matrix.example }}
+          path: |
+            examples/e2e/test-results/**/*
+            examples/e2e/playwright-report/**/*
+          retention-days: 7
