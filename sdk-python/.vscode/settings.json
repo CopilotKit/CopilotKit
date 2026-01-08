@@ -1,6 +1,0 @@
-{
-  "files.exclude": {
-    "**/__pycache__": true
-  },
-  "python.analysis.typeCheckingMode": "basic"
-}

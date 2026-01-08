@@ -20,10 +20,10 @@ The main CopilotKit library is located in [CopilotKit/](mdc:src/v1.x/) with the 
 - **[shared/](mdc:src/v1.x/packages/shared/)** - Shared utilities and types
 
 ### Python SDK
-- **[sdk-python/](mdc:sdk-python/)** - Python SDK with integrations for:
-  - CrewAI agents in [crewai/](mdc:sdk-python/copilotkit/crewai/)
+- **[sdk-python/](mdc:src/sdks/python/)** - Python SDK with integrations for:
+  - CrewAI agents in [crewai/](mdc:src/sdks/python/copilotkit/crewai/)
   - LangGraph integrations
-  - OpenAI integrations in [openai/](mdc:sdk-python/copilotkit/openai/)
+  - OpenAI integrations in [openai/](mdc:src/sdks/python/copilotkit/openai/)
 
 ## Key Concepts
 - **Copilots**: AI assistants that can read and write application state

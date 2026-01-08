@@ -112,9 +112,9 @@ cd "$root_dir/../examples/$example_dir/$agent_dir"
 poetry lock
 poetry install
 
-# Add sdk-python as an editable package only if the backend is fastapi
+# Add the python sdk as an editable package only if the backend is fastapi
 if [[ "$backend" == "fastapi" ]]; then
-  poetry add --editable ../../../sdk-python
+  poetry add --editable ../../../src/sdks/python
 fi
 
 if [[ "$backend" == "langgraph-platform" ]]; then

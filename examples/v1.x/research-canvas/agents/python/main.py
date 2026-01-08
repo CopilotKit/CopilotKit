@@ -47,8 +47,8 @@ def main():
         reload_dirs=(
             ["."]
             + (
-                ["../../../../sdk-python/copilotkit"]
-                if os.path.exists("../../../../sdk-python/copilotkit")
+                ["../../../../src/sdks/python/copilotkit"]
+                if os.path.exists("../../../../src/sdks/python/copilotkit")
                 else []
             )
         ),
