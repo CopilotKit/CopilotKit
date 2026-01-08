@@ -3,7 +3,7 @@
 import Image from "next/image"
 import Link from "fumadocs-core/link"
 import { usePathname } from "next/navigation"
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect, useCallback } from "react"
 // Components
 import Separator from "@/components/ui/sidebar/separator"
 import Page from "@/components/ui/sidebar/page"
@@ -58,6 +58,8 @@ const NODE_COMPONENTS: Record<
   folder: Folder,
 }
 
+const ANIMATION_DURATION = 300 // ms
+
 const MobileSidebar = ({
   pageTree,
   setIsOpen,
@@ -66,6 +68,22 @@ const MobileSidebar = ({
   const pathname = usePathname()
   const [selectedIntegration, setSelectedIntegration] =
     useState<Integration | null>(null)
+  const [isVisible, setIsVisible] = useState(false)
+
+  // Trigger slide-in animation on mount
+  useEffect(() => {
+    // Small delay to ensure the initial state is rendered before animating
+    const timer = setTimeout(() => setIsVisible(true), 10)
+    return () => clearTimeout(timer)
+  }, [])
+
+  // Handle closing with animation
+  const handleClose = useCallback(() => {
+    setIsVisible(false)
+    setTimeout(() => {
+      setIsOpen(false)
+    }, ANIMATION_DURATION)
+  }, [setIsOpen])
 
   // Determine route type from pathname
   const normalizedPathname = normalizeUrl(pathname)
@@ -164,9 +182,21 @@ const MobileSidebar = ({
   }, [isIntegrationRoute, selectedIntegration, integrationPages, isReferenceRoute, referencePages, pageTree.children]);
 
   return (
-    <div className="flex fixed top-0 left-0 z-50 justify-end p-1 w-full h-full bg-black/30">
+    <div 
+      className={`flex fixed top-0 left-0 z-50 justify-end p-1 w-full h-full transition-colors duration-300 ${
+        isVisible ? "bg-black/30" : "bg-black/0"
+      }`}
+      onClick={(e) => {
+        // Close when clicking the backdrop (outside the sidebar)
+        if (e.target === e.currentTarget) handleClose()
+      }}
+    >
       <OpenedFoldersProvider>
-        <aside className="flex flex-col w-full max-w-[280px] h-[calc(100vh-8px)] border backdrop-blur-3xl border-r-0 border-border bg-white/50 dark:bg-white/[0.01] rounded-2xl pl-3 pr-1 ">
+        <aside 
+          className={`flex flex-col w-full max-w-[280px] h-[calc(100vh-8px)] border backdrop-blur-3xl border-r-0 border-border bg-white/50 dark:bg-white/[0.01] rounded-2xl pl-3 pr-1 transition-transform duration-300 ease-out ${
+            isVisible ? "translate-x-0" : "translate-x-full"
+          }`}
+        >
           <div className="flex justify-between items-center my-2 w-full">
             <div className="flex gap-1 items-center">
               {LEFT_LINKS.map((link) => (
@@ -201,18 +231,19 @@ const MobileSidebar = ({
             </div>
             <button
               className="flex justify-center items-center w-11 h-full cursor-pointer"
-              onClick={() => setIsOpen(false)}
+              onClick={handleClose}
             >
               <CrossIcon />
             </button>
           </div>
 
-          <Dropdown onSelect={() => setIsOpen(false)} />
+          <Dropdown onSelect={handleClose} />
 
           {isIntegrationRoute && (
             <IntegrationSelector
               selectedIntegration={selectedIntegration}
               setSelectedIntegration={setSelectedIntegration}
+              onNavigate={handleClose}
             />
           )}
 
@@ -226,7 +257,7 @@ const MobileSidebar = ({
                   <Component
                     key={key}
                     node={page as Node}
-                    onNavigate={() => setIsOpen(false)}
+                    onNavigate={handleClose}
                   />
                 )
               })}
@@ -243,7 +274,7 @@ const MobileSidebar = ({
                   <Component
                     key={key}
                     node={page as Node}
-                    onNavigate={() => setIsOpen(false)}
+                    onNavigate={handleClose}
                   />
                 )
               })}

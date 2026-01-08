@@ -67,11 +67,13 @@ const DEFAULT_INTEGRATION: IntegrationOption = {
 interface IntegrationSelectorProps {
   selectedIntegration: Integration | null
   setSelectedIntegration: (integration: Integration | null) => void
+  onNavigate?: () => void
 }
 
 const IntegrationSelector = ({
   selectedIntegration,
   setSelectedIntegration,
+  onNavigate,
 }: IntegrationSelectorProps) => {
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
@@ -81,6 +83,7 @@ const IntegrationSelector = ({
     e.stopPropagation() // Prevent dropdown from opening
     setSelectedIntegration(null)
     router.push("/integrations")
+    onNavigate?.()
   }
 
   const integration = selectedIntegration
@@ -89,9 +92,13 @@ const IntegrationSelector = ({
 
   const { Icon } = integration
 
-  const handleIntegrationClick = (integrationKey: Integration) => {
+  const handleIntegrationClick = (e: React.MouseEvent, integrationKey: Integration, href: string) => {
+    e.preventDefault() // Prevent Link's default navigation
     setSelectedIntegration(integrationKey)
     setIsOpen(false)
+    // Close the mobile sidebar when navigating, then navigate
+    onNavigate?.()
+    router.push(href)
   }
 
   useEffect(() => {
@@ -180,7 +187,7 @@ const IntegrationSelector = ({
                     ? "bg-[#BEC2FF33] dark:bg-[#7076D533]"
                     : "hover:bg-[#0C1112]/5 dark:hover:bg-white/5"
                 }`}
-                onClick={() => handleIntegrationClick(key as Integration)}
+                onClick={(e) => handleIntegrationClick(e, key as Integration, href)}
               >
                 <div className="flex gap-4 items-center">
                   <div
