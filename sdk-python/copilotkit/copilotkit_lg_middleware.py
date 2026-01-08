@@ -4,7 +4,7 @@ CopilotKit Middleware for LangGraph agents.
 Works with any agent (prebuilt or custom).
 
 Example:
-    from langchain.agents import create_agent
+    from langgraph.prebuilt import create_agent
     from copilotkit import CopilotKitMiddleware
 
     agent = create_agent(
