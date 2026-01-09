@@ -250,7 +250,7 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
 }
 
 .dark .docs-content-wrapper {
-  background: linear-gradient(to right, rgba(1, 5, 7, 0.10), rgba(1, 5, 7, 0)), var(--glass-background) !important;
+  background: linear-gradient(to right, rgba(1, 5, 7, 0.10), rgba(1, 5, 7, 0)), var(--sidebar) !important;
 }
 
 .dark .docs-content-wrapper #nd-docs-layout,
