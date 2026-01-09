@@ -45,6 +45,10 @@ export interface CopilotKitProviderProps {
   runtimeUrl?: string;
   headers?: Record<string, string>;
   /**
+   * Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies in cross-origin requests).
+   */
+  credentials?: RequestCredentials;
+  /**
    * The Copilot Cloud public API key.
    */
   publicApiKey?: string;
@@ -91,6 +95,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   children,
   runtimeUrl,
   headers = {},
+  credentials,
   publicApiKey,
   publicLicenseKey,
   properties = {},
@@ -288,6 +293,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       runtimeUrl: chatApiEndpoint,
       runtimeTransport: useSingleEndpoint ? "single" : "rest",
       headers: mergedHeaders,
+      credentials,
       properties,
       agents__unsafe_dev_only: agents,
       tools: allTools,
@@ -351,9 +357,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     copilotkit.setRuntimeUrl(chatApiEndpoint);
     copilotkit.setRuntimeTransport(useSingleEndpoint ? "single" : "rest");
     copilotkit.setHeaders(mergedHeaders);
+    copilotkit.setCredentials(credentials);
     copilotkit.setProperties(properties);
     copilotkit.setAgents__unsafe_dev_only(agents);
-  }, [chatApiEndpoint, mergedHeaders, properties, agents, useSingleEndpoint]);
+  }, [chatApiEndpoint, mergedHeaders, credentials, properties, agents, useSingleEndpoint]);
 
   return (
     <CopilotKitContext.Provider

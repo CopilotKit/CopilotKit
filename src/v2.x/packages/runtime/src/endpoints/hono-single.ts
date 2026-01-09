@@ -16,12 +16,19 @@ import {
   parseMethodCall,
 } from "./single-route-helpers";
 
+import { CopilotEndpointCorsConfig } from "./hono";
+
 interface CopilotSingleEndpointParams {
   runtime: CopilotRuntime;
   /**
    * Absolute path at which to mount the single-route endpoint (e.g. "/api/copilotkit").
    */
   basePath: string;
+  /**
+   * Optional CORS configuration. When not provided, defaults to allowing all origins without credentials.
+   * To support HTTP-only cookies, provide cors config with credentials: true and explicit origin.
+   */
+  cors?: CopilotEndpointCorsConfig;
 }
 
 type CopilotEndpointContext = {
@@ -30,7 +37,7 @@ type CopilotEndpointContext = {
   };
 };
 
-export function createCopilotEndpointSingleRoute({ runtime, basePath }: CopilotSingleEndpointParams) {
+export function createCopilotEndpointSingleRoute({ runtime, basePath, cors: corsConfig }: CopilotSingleEndpointParams) {
   const app = new Hono<CopilotEndpointContext>();
   const routePath = normalizePath(basePath);
 
@@ -39,9 +46,10 @@ export function createCopilotEndpointSingleRoute({ runtime, basePath }: CopilotS
     .use(
       "*",
       cors({
-        origin: "*",
+        origin: corsConfig?.origin ?? "*",
         allowMethods: ["GET", "HEAD", "PUT", "POST", "DELETE", "PATCH", "OPTIONS"],
         allowHeaders: ["*"],
+        credentials: corsConfig?.credentials ?? false,
       }),
     )
     .use("*", async (c, next) => {

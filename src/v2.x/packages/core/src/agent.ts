@@ -12,10 +12,12 @@ import { CopilotRuntimeTransport } from "./types";
 export interface ProxiedCopilotRuntimeAgentConfig extends Omit<HttpAgentConfig, "url"> {
   runtimeUrl?: string;
   transport?: CopilotRuntimeTransport;
+  credentials?: RequestCredentials;
 }
 
 export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   runtimeUrl?: string;
+  credentials?: RequestCredentials;
   private transport: CopilotRuntimeTransport;
   private singleEndpointUrl?: string;
 
@@ -36,6 +38,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       url: runUrl,
     });
     this.runtimeUrl = normalizedRuntimeUrl ?? config.runtimeUrl;
+    this.credentials = config.credentials;
     this.transport = transport;
     if (this.transport === "single") {
       this.singleEndpointUrl = this.runtimeUrl;
@@ -67,6 +70,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
             threadId: this.threadId,
           },
         }),
+        ...(this.credentials ? { credentials: this.credentials } : {}),
       }).catch((error) => {
         console.error("ProxiedCopilotRuntimeAgent: stop request failed", error);
       });
@@ -88,6 +92,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
         "Content-Type": "application/json",
         ...this.headers,
       },
+      ...(this.credentials ? { credentials: this.credentials } : {}),
     }).catch((error) => {
       console.error("ProxiedCopilotRuntimeAgent: stop request failed", error);
     });
@@ -129,6 +134,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   public override clone(): ProxiedCopilotRuntimeAgent {
     const cloned = super.clone() as ProxiedCopilotRuntimeAgent;
     cloned.runtimeUrl = this.runtimeUrl;
+    cloned.credentials = this.credentials;
     cloned.transport = this.transport;
     cloned.singleEndpointUrl = this.singleEndpointUrl;
     return cloned;
@@ -170,6 +176,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       ...baseInit,
       headers,
       body: JSON.stringify(envelope),
+      ...(this.credentials ? { credentials: this.credentials } : {}),
     };
   }
 }

@@ -158,6 +158,24 @@ export class AgentRegistry {
   }
 
   /**
+   * Apply current credentials to an agent
+   */
+  applyCredentialsToAgent(agent: AbstractAgent): void {
+    if (agent instanceof ProxiedCopilotRuntimeAgent) {
+      agent.credentials = (this.core as unknown as CopilotKitCoreFriendsAccess).credentials;
+    }
+  }
+
+  /**
+   * Apply current credentials to all agents
+   */
+  applyCredentialsToAgents(agents: Record<string, AbstractAgent>): void {
+    Object.values(agents).forEach((agent) => {
+      this.applyCredentialsToAgent(agent);
+    });
+  }
+
+  /**
    * Update runtime connection and fetch remote agents
    */
   private async updateRuntimeConnection(): Promise<void> {
@@ -190,6 +208,7 @@ export class AgentRegistry {
         version: string;
       } = runtimeInfoResponse;
 
+      const credentials = (this.core as unknown as CopilotKitCoreFriendsAccess).credentials;
       const agents: Record<string, AbstractAgent> = Object.fromEntries(
         Object.entries(runtimeInfo.agents).map(([id, { description }]) => {
           const agent = new ProxiedCopilotRuntimeAgent({
@@ -197,6 +216,7 @@ export class AgentRegistry {
             agentId: id, // Runtime agents always have their ID set correctly
             description: description,
             transport: this._runtimeTransport,
+            credentials,
           });
           this.applyHeadersToAgent(agent);
           return [id, agent];
@@ -238,6 +258,7 @@ export class AgentRegistry {
     }
 
     const baseHeaders = (this.core as unknown as CopilotKitCoreFriendsAccess).headers;
+    const credentials = (this.core as unknown as CopilotKitCoreFriendsAccess).credentials;
     const headers: Record<string, string> = {
       ...baseHeaders,
     };
@@ -250,6 +271,7 @@ export class AgentRegistry {
         method: "POST",
         headers,
         body: JSON.stringify({ method: "info" }),
+        ...(credentials ? { credentials } : {}),
       });
       if ("ok" in response && !(response as Response).ok) {
         throw new Error(`Runtime info request failed with status ${response.status}`);
@@ -259,6 +281,7 @@ export class AgentRegistry {
 
     const response = await fetch(`${this.runtimeUrl}/info`, {
       headers,
+      ...(credentials ? { credentials } : {}),
     });
     if ("ok" in response && !(response as Response).ok) {
       throw new Error(`Runtime info request failed with status ${response.status}`);
