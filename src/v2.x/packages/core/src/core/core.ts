@@ -49,7 +49,13 @@ export enum CopilotKitCoreErrorCode {
   AGENT_RUN_ERROR_EVENT = "agent_run_error_event",
   TOOL_ARGUMENT_PARSE_FAILED = "tool_argument_parse_failed",
   TOOL_HANDLER_FAILED = "tool_handler_failed",
+  // Transcription errors
   TRANSCRIPTION_FAILED = "transcription_failed",
+  TRANSCRIPTION_SERVICE_NOT_CONFIGURED = "transcription_service_not_configured",
+  TRANSCRIPTION_INVALID_AUDIO = "transcription_invalid_audio",
+  TRANSCRIPTION_RATE_LIMITED = "transcription_rate_limited",
+  TRANSCRIPTION_AUTH_FAILED = "transcription_auth_failed",
+  TRANSCRIPTION_NETWORK_ERROR = "transcription_network_error",
 }
 
 export interface CopilotKitCoreSubscriber {

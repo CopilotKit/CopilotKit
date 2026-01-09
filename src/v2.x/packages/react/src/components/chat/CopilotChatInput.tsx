@@ -836,7 +836,7 @@ export function CopilotChatInput({
         </div>
         <div
           className={twMerge(
-            "relative flex min-w-0 flex-col",
+            "relative flex min-w-0 flex-col min-h-[50px] justify-center",
             isExpanded ? "col-span-3 row-start-1" : "col-start-2 row-start-1",
           )}
         >

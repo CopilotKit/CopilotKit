@@ -7,15 +7,14 @@ import {
   CopilotChatLabels,
   useCopilotChatConfiguration,
 } from "@/providers/CopilotChatConfigurationProvider";
-import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkitnext/shared";
+import { DEFAULT_AGENT_ID, randomUUID, TranscriptionErrorCode } from "@copilotkitnext/shared";
 import { Suggestion, CopilotKitCoreErrorCode } from "@copilotkitnext/core";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { merge } from "ts-deepmerge";
 import { useCopilotKit } from "@/providers/CopilotKitProvider";
 import { AbstractAgent, AGUIConnectNotImplementedError } from "@ag-ui/client";
 import { renderSlot, SlotValue } from "@/lib/slots";
-import { transcribeAudio } from "@/lib/transcription-client";
-import { AudioRecorderError } from "./CopilotChatAudioRecorder";
+import { transcribeAudio, TranscriptionError } from "@/lib/transcription-client";
 
 export type CopilotChatProps = Omit<
   CopilotChatViewProps,
@@ -161,11 +160,41 @@ export function CopilotChat({ agentId, threadId, labels, chatView, isModalDefaul
     } catch (error) {
       console.error("CopilotChat: Transcription failed", error);
 
-      // For user feedback, set error state
-      const errorMessage = error instanceof Error ? error.message : "Transcription failed";
-      if (error instanceof AudioRecorderError) {
-        setTranscriptionError(errorMessage);
+      // Show contextual error message based on error type
+      if (error instanceof TranscriptionError) {
+        const { code, retryable, message } = error.info;
+        switch (code) {
+          case TranscriptionErrorCode.RATE_LIMITED:
+            setTranscriptionError("Too many requests. Please wait a moment.");
+            break;
+          case TranscriptionErrorCode.AUTH_FAILED:
+            setTranscriptionError("Authentication error. Please check your configuration.");
+            break;
+          case TranscriptionErrorCode.AUDIO_TOO_LONG:
+            setTranscriptionError("Recording is too long. Please try a shorter recording.");
+            break;
+          case TranscriptionErrorCode.AUDIO_TOO_SHORT:
+            setTranscriptionError("Recording is too short. Please try again.");
+            break;
+          case TranscriptionErrorCode.INVALID_AUDIO_FORMAT:
+            setTranscriptionError("Audio format not supported.");
+            break;
+          case TranscriptionErrorCode.SERVICE_NOT_CONFIGURED:
+            setTranscriptionError("Transcription service is not available.");
+            break;
+          case TranscriptionErrorCode.NETWORK_ERROR:
+            setTranscriptionError("Network error. Please check your connection.");
+            break;
+          default:
+            // For retryable errors, show more helpful message
+            setTranscriptionError(
+              retryable
+                ? "Transcription failed. Please try again."
+                : message
+            );
+        }
       } else {
+        // Fallback for unexpected errors
         setTranscriptionError("Transcription failed. Please try again.");
       }
     } finally {
