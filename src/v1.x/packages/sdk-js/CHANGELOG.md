@@ -1,15 +1,5 @@
 # @copilotkit/sdk-js
 
-## 2.0.0-next.1
-
-### Minor Changes
-
-- 5a24f28: create copilotkit langgraph middleware
-
-### Patch Changes
-
-- @copilotkit/shared@2.0.0-next.1
-
 ## 1.50.2-next.0
 
 ### Patch Changes
