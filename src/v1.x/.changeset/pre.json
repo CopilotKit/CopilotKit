@@ -20,7 +20,6 @@
   },
   "changesets": [
     "fluffy-waves-build",
-    "seven-lizards-ring",
-    "silent-cooks-scream"
+    "seven-lizards-ring"
   ]
 }
