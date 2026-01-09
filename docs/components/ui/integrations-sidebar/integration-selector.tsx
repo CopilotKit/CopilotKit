@@ -96,11 +96,11 @@ const IntegrationSelector = ({
 
   const handleIntegrationClick = (e: React.MouseEvent, integrationKey: Integration, href: string) => {
     e.preventDefault() // Prevent Link's default navigation
-    setSelectedIntegration(integrationKey)
     setIsOpen(false)
     // Close the mobile sidebar when navigating, then navigate
     onNavigate?.()
     router.push(href)
+    // Note: selectedIntegration will be updated by the useEffect when pathname changes
   }
 
   useEffect(() => {
