@@ -34,11 +34,13 @@
     "@copilotkitnext/shared": "0.0.33",
     "@copilotkitnext/sqlite-runner": "0.0.33",
     "@copilotkitnext/typescript-config": "0.0.0",
-    "@copilotkitnext/web-inspector": "0.0.33"
+    "@copilotkitnext/web-inspector": "0.0.33",
+    "storybook-react": "0.0.0"
   },
   "changesets": [
     "fluffy-waves-build",
     "khaki-clouds-help",
+    "light-breads-wonder",
     "seven-lizards-ring"
   ]
 }

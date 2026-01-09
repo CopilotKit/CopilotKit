@@ -11,7 +11,7 @@
     "@copilotkitnext/demo-agents",
     "@copilotkitnext/docs",
     "@apps/node",
-    "storybook",
+    "storybook-react",
     "storybook-angular"
   ],
   "linked": [],
