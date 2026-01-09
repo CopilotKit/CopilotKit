@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.51.0-next.2
+
+### Patch Changes
+
+- 2afd4e3: Fix CI
+
 ## 1.51.0-next.1
 
 ## 1.50.2-next.0

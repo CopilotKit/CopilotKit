@@ -1,5 +1,14 @@
 # node
 
+## 1.4.7-next.1
+
+### Patch Changes
+
+- Updated dependencies [2afd4e3]
+- Updated dependencies [4addb72]
+  - @copilotkit/shared@1.51.0-next.2
+  - @copilotkit/runtime@1.51.0-next.2
+
 ## 1.4.7-next.0
 
 ### Patch Changes
