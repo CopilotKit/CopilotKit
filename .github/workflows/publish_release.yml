@@ -49,7 +49,7 @@ jobs:
       - name: Get current version
         id: current-version
         run: |
-          echo "version=$(node -p "require('./packages/react-core/package.json').version")" >> "$GITHUB_OUTPUT"
+          echo "version=$(node -p "require('./src/v1.x/packages/react-core/package.json').version")" >> "$GITHUB_OUTPUT"
 
       - name: Prepare version
         id: prepare-version
@@ -71,7 +71,7 @@ jobs:
       - name: Get new version
         id: new-version
         run: |
-          echo "version=$(node -p "require('./packages/react-core/package.json').version")" >> "$GITHUB_OUTPUT"
+          echo "version=$(node -p "require('./src/v1.x/packages/react-core/package.json').version")" >> "$GITHUB_OUTPUT"
 
       - name: Check if published
         id: check-if-published
