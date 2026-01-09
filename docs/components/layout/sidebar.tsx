@@ -1,8 +1,12 @@
+"use client"
+
+import { useState } from "react"
 import { DocsLayoutProps } from "fumadocs-ui/layouts/docs"
 import Separator from "../ui/sidebar/separator"
 import Page from "../ui/sidebar/page"
 import Folder from "../ui/sidebar/folder"
 import IntegrationLink from "../ui/sidebar/integration-link"
+import IntegrationSelector, { Integration } from "../ui/integrations-sidebar/integration-selector"
 import { OpenedFoldersProvider } from "@/lib/hooks/use-opened-folders"
 import { INTEGRATION_ORDER } from "@/lib/integrations"
 
@@ -30,15 +34,21 @@ const isIntegrationFolder = (node: Node): boolean => {
 
 const Sidebar = ({ pageTree }: { pageTree: DocsLayoutProps["tree"] }) => {
   const pages = pageTree.children
+  const [selectedIntegration, setSelectedIntegration] = useState<Integration | null>(null)
 
   return (
     <OpenedFoldersProvider>
       <aside
         id="nd-sidebar"
-        className="w-full max-w-[260px] h-full border backdrop-blur-lg border-r-0 border-border rounded-l-2xl pl-3 pr-1 flex flex-col"
+        className="w-full max-w-[260px] h-full border backdrop-blur-lg border-r-0 border-border rounded-l-2xl pl-3 pr-3 flex flex-col"
         style={{ backgroundColor: 'var(--sidebar)' }}
       >
-        <ul className="flex overflow-y-auto flex-col pr-1 max-h-full custom-scrollbar pt-6">
+        <IntegrationSelector
+          selectedIntegration={selectedIntegration}
+          setSelectedIntegration={setSelectedIntegration}
+        />
+
+        <ul className="flex overflow-y-auto flex-col pr-1 max-h-full custom-scrollbar">
           <li className="w-full h-6" />
           {pages.map((page, index) => {
             const nodeType = isIntegrationFolder(page as Node)
