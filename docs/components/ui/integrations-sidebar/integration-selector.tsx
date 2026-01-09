@@ -76,13 +76,15 @@ const IntegrationSelector = ({
   onNavigate,
 }: IntegrationSelectorProps) => {
   const [isOpen, setIsOpen] = useState(false)
+  const [isHovering, setIsHovering] = useState(false)
+  const [showTooltip, setShowTooltip] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
 
   const handleClearSelection = (e: React.MouseEvent) => {
     e.stopPropagation() // Prevent dropdown from opening
     setSelectedIntegration(null)
-    router.push("/integrations")
+    router.push("/")
     onNavigate?.()
   }
 
@@ -109,7 +111,7 @@ const IntegrationSelector = ({
       const normalizedPathname = normalizeUrl(pathname);
       // Get the first segment after the leading slash
       const firstSegment = normalizedPathname.replace(/^\//, "").split("/")[0];
-      
+
       // Check if the first segment matches an integration ID
       // This ensures /agent-spec/langgraph matches agent-spec, not langgraph
       if (firstSegment && INTEGRATION_ORDER.includes(firstSegment as IntegrationId)) {
@@ -120,6 +122,20 @@ const IntegrationSelector = ({
 
     if (isRootIntegration && selectedIntegration) setSelectedIntegration(null)
   }, [pathname, selectedIntegration, setSelectedIntegration])
+
+  useEffect(() => {
+    if (isHovering && !selectedIntegration && !isOpen) {
+      const timer = setTimeout(() => {
+        setShowTooltip(true)
+      }, 3000)
+      return () => {
+        clearTimeout(timer)
+        setShowTooltip(false)
+      }
+    } else {
+      setShowTooltip(false)
+    }
+  }, [isHovering, selectedIntegration, isOpen])
 
   const visibleIntegrations = Object.entries(INTEGRATION_OPTIONS);
 
@@ -132,6 +148,8 @@ const IntegrationSelector = ({
             : "bg-white/50 dark:bg-foreground/5 border-[#0C1112]/10 dark:border-border"
         }`}
         onClick={() => setIsOpen(!isOpen)}
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             setIsOpen(!isOpen)
@@ -207,6 +225,12 @@ const IntegrationSelector = ({
               </Link>
             )
           )}
+        </div>
+      )}
+
+      {showTooltip && (
+        <div className="absolute top-full left-0 mt-2 w-full px-3 py-2 rounded-lg bg-[#0C1112] dark:bg-white text-white dark:text-[#0C1112] text-xs font-medium shadow-lg z-30">
+          See what CopilotKit and your chosen agentic backend can do.
         </div>
       )}
     </div>
