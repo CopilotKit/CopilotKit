@@ -80,10 +80,21 @@ const RIGHT_LINKS: NavbarLink[] = [
   },
 ]
 
+// Integration IDs that should highlight the "Integrations" nav item
+const INTEGRATION_ROUTES = [
+  'adk', 'a2a', 'microsoft-agent-framework', 'aws-strands', 'direct-to-llm',
+  'langgraph', 'ag2', 'agno', 'crewai-crews', 'crewai-flows',
+  'llamaindex', 'mastra', 'agent-spec', 'pydantic-ai', 'integrations'
+]
+
 const Navbar = ({ pageTree }: NavbarProps) => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const pathname = usePathname()
-  const activeRoute = pathname === "/" ? "/" : `/${pathname.split("/")[1]}`
+  const firstSegment = pathname === "/" ? "/" : pathname.split("/")[1]
+  
+  // Check if current route is an integration route
+  const isIntegrationRoute = INTEGRATION_ROUTES.includes(firstSegment)
+  const activeRoute = isIntegrationRoute ? "/integrations" : `/${firstSegment}`
 
   // Close mobile sidebar when viewport expands beyond mobile breakpoint (md: 768px)
   useEffect(() => {
