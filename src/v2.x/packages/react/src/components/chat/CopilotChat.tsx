@@ -1,19 +1,21 @@
 import { useAgent } from "@/hooks/use-agent";
 import { useSuggestions } from "@/hooks/use-suggestions";
 import { CopilotChatView, CopilotChatViewProps } from "./CopilotChatView";
-import CopilotChatInput, { CopilotChatInputProps } from "./CopilotChatInput";
+import CopilotChatInput, { CopilotChatInputProps, CopilotChatInputMode } from "./CopilotChatInput";
 import {
   CopilotChatConfigurationProvider,
   CopilotChatLabels,
   useCopilotChatConfiguration,
 } from "@/providers/CopilotChatConfigurationProvider";
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkitnext/shared";
-import { Suggestion } from "@copilotkitnext/core";
-import { useCallback, useEffect, useMemo } from "react";
+import { Suggestion, CopilotKitCoreErrorCode } from "@copilotkitnext/core";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { merge } from "ts-deepmerge";
 import { useCopilotKit } from "@/providers/CopilotKitProvider";
 import { AbstractAgent, AGUIConnectNotImplementedError } from "@ag-ui/client";
 import { renderSlot, SlotValue } from "@/lib/slots";
+import { transcribeAudio } from "@/lib/transcription-client";
+import { AudioRecorderError } from "./CopilotChatAudioRecorder";
 
 export type CopilotChatProps = Omit<
   CopilotChatViewProps,
@@ -39,6 +41,18 @@ export function CopilotChat({ agentId, threadId, labels, chatView, isModalDefaul
   const { copilotkit } = useCopilotKit();
 
   const { suggestions: autoSuggestions } = useSuggestions({ agentId: resolvedAgentId });
+
+  // Transcription state
+  const [transcribeMode, setTranscribeMode] = useState<CopilotChatInputMode>("input");
+  const [inputValue, setInputValue] = useState("");
+  const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+
+  // Check if transcription is enabled
+  const isTranscriptionEnabled = copilotkit.audioFileTranscriptionEnabled;
+
+  // Check if browser supports MediaRecorder
+  const isMediaRecorderSupported = typeof window !== "undefined" && typeof MediaRecorder !== "undefined";
 
   const {
     inputProps: providedInputProps,
@@ -71,6 +85,8 @@ export function CopilotChat({ agentId, threadId, labels, chatView, isModalDefaul
         role: "user",
         content: value,
       });
+      // Clear input after submitting
+      setInputValue("");
       try {
         await copilotkit.runAgent({ agent });
       } catch (error) {
@@ -110,6 +126,63 @@ export function CopilotChat({ agentId, threadId, labels, chatView, isModalDefaul
     }
   }, [agent, copilotkit]);
 
+  // Transcription handlers
+  const handleStartTranscribe = useCallback(() => {
+    setTranscriptionError(null);
+    setTranscribeMode("transcribe");
+  }, []);
+
+  const handleCancelTranscribe = useCallback(() => {
+    setTranscriptionError(null);
+    setTranscribeMode("input");
+  }, []);
+
+  const handleFinishTranscribe = useCallback(() => {
+    setTranscribeMode("input");
+  }, []);
+
+  // Handle audio blob from CopilotChatInput and transcribe it
+  const handleFinishTranscribeWithAudio = useCallback(async (audioBlob: Blob) => {
+    setIsTranscribing(true);
+    try {
+      setTranscriptionError(null);
+
+      // Send to transcription endpoint
+      const result = await transcribeAudio(copilotkit, audioBlob);
+
+      // Insert transcribed text into input
+      setInputValue((prev) => {
+        const trimmedPrev = prev.trim();
+        if (trimmedPrev) {
+          return `${trimmedPrev} ${result.text}`;
+        }
+        return result.text;
+      });
+    } catch (error) {
+      console.error("CopilotChat: Transcription failed", error);
+
+      // For user feedback, set error state
+      const errorMessage = error instanceof Error ? error.message : "Transcription failed";
+      if (error instanceof AudioRecorderError) {
+        setTranscriptionError(errorMessage);
+      } else {
+        setTranscriptionError("Transcription failed. Please try again.");
+      }
+    } finally {
+      setIsTranscribing(false);
+    }
+  }, [copilotkit]);
+
+  // Clear transcription error after a delay
+  useEffect(() => {
+    if (transcriptionError) {
+      const timer = setTimeout(() => {
+        setTranscriptionError(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [transcriptionError]);
+
   const mergedProps = merge(
     {
       isRunning: agent.isRunning,
@@ -132,14 +205,28 @@ export function CopilotChat({ agentId, threadId, labels, chatView, isModalDefaul
   const shouldAllowStop = agent.isRunning && hasMessages;
   const effectiveStopHandler = shouldAllowStop ? (providedStopHandler ?? stopCurrentRun) : providedStopHandler;
 
+  // Determine if transcription feature should be available
+  const showTranscription = isTranscriptionEnabled && isMediaRecorderSupported;
+
+  // Determine mode: agent running or transcribing takes priority, then transcribe mode, then default to input
+  const effectiveMode: CopilotChatInputMode = agent.isRunning || isTranscribing
+    ? "processing"
+    : transcribeMode;
+
   const finalInputProps = {
     ...providedInputProps,
     onSubmitMessage: onSubmitInput,
     onStop: effectiveStopHandler,
     isRunning: agent.isRunning,
+    mode: effectiveMode,
+    value: inputValue,
+    onChange: setInputValue,
+    // Only provide transcription handlers if feature is available
+    onStartTranscribe: showTranscription ? handleStartTranscribe : undefined,
+    onCancelTranscribe: showTranscription ? handleCancelTranscribe : undefined,
+    onFinishTranscribe: showTranscription ? handleFinishTranscribe : undefined,
+    onFinishTranscribeWithAudio: showTranscription ? handleFinishTranscribeWithAudio : undefined,
   } as Partial<CopilotChatInputProps> & { onSubmitMessage: (value: string) => void };
-
-  finalInputProps.mode = agent.isRunning ? "processing" : (finalInputProps.mode ?? "input");
 
   const finalProps = merge(mergedProps, {
     messages: agent.messages,
@@ -157,6 +244,24 @@ export function CopilotChat({ agentId, threadId, labels, chatView, isModalDefaul
       labels={labels}
       isModalDefaultOpen={isModalDefaultOpen}
     >
+      {transcriptionError && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "100px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            backgroundColor: "#ef4444",
+            color: "white",
+            padding: "8px 16px",
+            borderRadius: "8px",
+            fontSize: "14px",
+            zIndex: 50,
+          }}
+        >
+          {transcriptionError}
+        </div>
+      )}
       {RenderedChatView}
     </CopilotChatConfigurationProvider>
   );

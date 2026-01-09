@@ -1,6 +1,12 @@
-import { CopilotRuntime, InMemoryAgentRunner, createCopilotEndpointSingleRoute } from "@copilotkitnext/runtime";
+import {
+  CopilotRuntime,
+  InMemoryAgentRunner,
+  createCopilotEndpointSingleRoute,
+  TranscriptionServiceOpenAI,
+} from "@copilotkitnext/runtime";
 import { handle } from "hono/vercel";
 import { BasicAgent } from "@copilotkitnext/agent";
+import OpenAI from "openai";
 
 const determineModel = () => {
   if (process.env.OPENAI_API_KEY?.trim()) {
@@ -21,11 +27,19 @@ const agent = new BasicAgent({
   temperature: 0.7,
 });
 
+// Set up transcription service if OpenAI API key is available
+const transcriptionService = process.env.OPENAI_API_KEY?.trim()
+  ? new TranscriptionServiceOpenAI({
+      openai: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
+    })
+  : undefined;
+
 const singleRuntime = new CopilotRuntime({
   agents: {
     default: agent,
   },
   runner: new InMemoryAgentRunner(),
+  transcriptionService,
 });
 
 const app = createCopilotEndpointSingleRoute({
