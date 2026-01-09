@@ -27,3 +27,6 @@ yarn-error.log*
 .env*.local
 .vercel
 next-env.d.ts
+
+# Claude session context
+SESSION_CONTEXT.md

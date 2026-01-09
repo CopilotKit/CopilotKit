@@ -9,6 +9,7 @@ import { DocsLayoutProps } from "fumadocs-ui/layouts/docs"
 import { Logo } from "@/app/logo"
 import SearchDialogButton from "@/components/ui/search-button"
 import MobileSidebar from "@/components/layout/mobile-sidebar"
+import { INTEGRATION_ORDER } from "@/lib/integrations"
 // Icons
 import RocketIcon from "@/components/ui/icons/rocket"
 import PuzzleIcon from "@/components/ui/icons/puzzle"
@@ -83,7 +84,13 @@ const RIGHT_LINKS: NavbarLink[] = [
 const Navbar = ({ pageTree }: NavbarProps) => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const pathname = usePathname()
-  const activeRoute = pathname === "/" ? "/" : `/${pathname.split("/")[1]}`
+  
+  // Determine active route based on current path
+  const firstSegment = pathname === "/" ? "/" : `/${pathname.split("/")[1]}`
+  const isIntegrationPage = firstSegment === "/integrations" || INTEGRATION_ORDER.some(id => firstSegment === `/${id}`)
+  const isReferencePage = firstSegment === "/reference"
+  // Integration pages → /integrations, Reference pages → /reference, Everything else (root) → /
+  const activeRoute = isIntegrationPage ? "/integrations" : isReferencePage ? "/reference" : "/"
 
   // Close mobile sidebar when viewport expands beyond mobile breakpoint (md: 768px)
   useEffect(() => {
