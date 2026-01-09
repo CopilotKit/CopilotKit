@@ -141,8 +141,13 @@ export function CopilotChat({ agentId, threadId, labels, chatView, isModalDefaul
 
   finalInputProps.mode = agent.isRunning ? "processing" : (finalInputProps.mode ?? "input");
 
+  // Memoize messages array - only create new reference when content actually changes
+  // (agent.messages is mutated in place, so we need a new reference for React to detect changes)
+  const messagesJson = JSON.stringify(agent.messages);
+  const messages = useMemo(() => [...agent.messages], [messagesJson]);
+
   const finalProps = merge(mergedProps, {
-    messages: agent.messages,
+    messages,
     inputProps: finalInputProps,
   }) as CopilotChatViewProps;
 

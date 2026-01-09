@@ -81,7 +81,6 @@ export function useAgent({ agentId, updates }: UseAgentProps = {}) {
   ]);
 
   useEffect(() => {
-    
     if (updateFlags.length === 0) {
       return;
     }

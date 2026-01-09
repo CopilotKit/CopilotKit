@@ -24,6 +24,18 @@ export const MCPAppsActivityContentSchema = z.object({
     mimeType: z.string().optional(),
     text: z.string().optional(),
     blob: z.string().optional(),
+    // Resource metadata per SEP-1865
+    _meta: z.object({
+      ui: z.object({
+        // Visual boundary preference: true = show border/background, false = none, omitted = host decides
+        prefersBorder: z.boolean().optional(),
+        // CSP configuration (for future use)
+        csp: z.object({
+          connectDomains: z.array(z.string()).optional(),
+          resourceDomains: z.array(z.string()).optional(),
+        }).optional(),
+      }).optional(),
+    }).optional(),
   }),
   // Server ID for proxying requests (MD5 hash of server config)
   serverId: z.string().optional(),
@@ -144,27 +156,36 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> = (
 
   // Effect 1: Setup sandbox proxy iframe and communication
   useEffect(() => {
-    if (!containerRef.current) return;
+    // Capture container reference at effect start (refs are cleared during unmount)
+    const container = containerRef.current;
+    if (!container) return;
 
     let mounted = true;
     let messageHandler: ((event: MessageEvent) => void) | null = null;
+    let initialListener: ((event: MessageEvent) => void) | null = null;
+    let createdIframe: HTMLIFrameElement | null = null;
 
     const setup = async () => {
       try {
         // Create sandbox proxy iframe
         const iframe = document.createElement("iframe");
+        createdIframe = iframe; // Track for cleanup
         iframe.style.width = "100%";
-        iframe.style.height = "300px";
+        iframe.style.height = "100px"; // Start small, will be resized by size-changed notification
         iframe.style.border = "none";
         iframe.style.backgroundColor = "transparent";
+        iframe.style.display = "block";
         iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms");
 
         // Wait for sandbox proxy to be ready
         const sandboxReady = new Promise<void>((resolve) => {
-          const initialListener = (event: MessageEvent) => {
+          initialListener = (event: MessageEvent) => {
             if (event.source === iframe.contentWindow) {
               if (event.data?.method === "ui/notifications/sandbox-proxy-ready") {
-                window.removeEventListener("message", initialListener);
+                if (initialListener) {
+                  window.removeEventListener("message", initialListener);
+                  initialListener = null;
+                }
                 resolve();
               }
             }
@@ -172,10 +193,19 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> = (
           window.addEventListener("message", initialListener);
         });
 
+        // Check mounted before adding to DOM (handles StrictMode double-mount)
+        if (!mounted) {
+          if (initialListener) {
+            window.removeEventListener("message", initialListener);
+            initialListener = null;
+          }
+          return;
+        }
+
         // Set iframe source and add to DOM
         iframe.src = "/sandbox.html";
         iframeRef.current = iframe;
-        containerRef.current?.appendChild(iframe);
+        container.appendChild(iframe);
 
         // Wait for sandbox proxy to signal ready
         await sandboxReady;
@@ -216,10 +246,39 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> = (
               }
 
               case "ui/message": {
-                // For now, just acknowledge the message
-                // TODO: Hook into CopilotKit chat to add messages
-                console.log("[MCPAppsRenderer] ui/message request:", msg.params);
-                sendResponse(msg.id, { isError: false });
+                // Add message to CopilotKit chat
+                const currentAgent = agentRef.current;
+
+                if (!currentAgent) {
+                  console.warn("[MCPAppsRenderer] ui/message: No agent available");
+                  sendResponse(msg.id, { isError: false });
+                  break;
+                }
+
+                try {
+                  const params = msg.params as {
+                    role?: string;
+                    content?: Array<{ type: string; text?: string }>;
+                  };
+
+                  // Extract text content from the message
+                  const textContent = params.content
+                    ?.filter((c) => c.type === "text" && c.text)
+                    .map((c) => c.text)
+                    .join("\n") || "";
+
+                  if (textContent) {
+                    currentAgent.addMessage({
+                      id: crypto.randomUUID(),
+                      role: (params.role as "user" | "assistant") || "user",
+                      content: textContent,
+                    });
+                  }
+                  sendResponse(msg.id, { isError: false });
+                } catch (err) {
+                  console.error("[MCPAppsRenderer] ui/message error:", err);
+                  sendResponse(msg.id, { isError: true });
+                }
                 break;
               }
 
@@ -288,7 +347,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> = (
                 break;
               }
 
-              case "ui/notifications/size-change": {
+              case "ui/notifications/size-changed": {
                 const { width, height } = msg.params || {};
                 console.log("[MCPAppsRenderer] Size change:", { width, height });
                 if (mounted) {
@@ -327,12 +386,19 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> = (
 
     return () => {
       mounted = false;
+      // Clean up initial listener if still active
+      if (initialListener) {
+        window.removeEventListener("message", initialListener);
+        initialListener = null;
+      }
       if (messageHandler) {
         window.removeEventListener("message", messageHandler);
       }
-      // Remove iframe from DOM
-      if (iframeRef.current && containerRef.current?.contains(iframeRef.current)) {
-        containerRef.current.removeChild(iframeRef.current);
+      // Remove the iframe we created (using tracked reference, not DOM query)
+      // This works even if containerRef.current is null during unmount
+      if (createdIframe) {
+        createdIframe.remove();
+        createdIframe = null;
       }
       iframeRef.current = null;
     };
@@ -342,7 +408,9 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> = (
   useEffect(() => {
     if (iframeRef.current) {
       if (iframeSize.width !== undefined) {
-        iframeRef.current.style.width = `${iframeSize.width}px`;
+        // Use minWidth with min() to allow expansion but cap at 100%
+        iframeRef.current.style.minWidth = `min(${iframeSize.width}px, 100%)`;
+        iframeRef.current.style.width = "100%";
       }
       if (iframeSize.height !== undefined) {
         iframeRef.current.style.height = `${iframeSize.height}px`;
@@ -368,16 +436,26 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> = (
     }
   }, [iframeReady, content.result, sendNotification]);
 
+  // Determine border styling based on prefersBorder metadata
+  // true = show border/background, false = none, undefined = host decides (we default to none)
+  const prefersBorder = content.resource._meta?.ui?.prefersBorder;
+  const borderStyle = prefersBorder === true
+    ? {
+        borderRadius: "8px",
+        backgroundColor: "#f9f9f9",
+        border: "1px solid #e0e0e0",
+      }
+    : {};
+
   return (
     <div
       ref={containerRef}
       style={{
         width: "100%",
+        height: iframeSize.height ? `${iframeSize.height}px` : "auto",
         minHeight: "100px",
-        borderRadius: "8px",
         overflow: "hidden",
-        backgroundColor: "#f9f9f9",
-        border: "1px solid #e0e0e0",
+        ...borderStyle,
       }}
     >
       {error && (

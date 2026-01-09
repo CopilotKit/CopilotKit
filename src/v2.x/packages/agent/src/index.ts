@@ -334,7 +334,7 @@ export function convertMessagesToVercelAISDKMessages(messages: Message[]): Model
  * JSON Schema type definition
  */
 interface JsonSchema {
-  type: "object" | "string" | "number" | "boolean" | "array";
+  type: "object" | "string" | "number" | "integer" | "boolean" | "array";
   description?: string;
   properties?: Record<string, JsonSchema>;
   required?: string[];
@@ -345,6 +345,10 @@ interface JsonSchema {
  * Converts JSON Schema to Zod schema
  */
 export function convertJsonSchemaToZodSchema(jsonSchema: JsonSchema, required: boolean): z.ZodSchema {
+  // Handle empty schemas {} (no input required) - treat as empty object
+  if (!jsonSchema.type) {
+    return required ? z.object({}) : z.object({}).optional();
+  }
   if (jsonSchema.type === "object") {
     const spec: { [key: string]: z.ZodSchema } = {};
 
@@ -360,7 +364,7 @@ export function convertJsonSchemaToZodSchema(jsonSchema: JsonSchema, required: b
   } else if (jsonSchema.type === "string") {
     let schema = z.string().describe(jsonSchema.description ?? "");
     return required ? schema : schema.optional();
-  } else if (jsonSchema.type === "number") {
+  } else if (jsonSchema.type === "number" || jsonSchema.type === "integer") {
     let schema = z.number().describe(jsonSchema.description ?? "");
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "boolean") {
@@ -374,6 +378,7 @@ export function convertJsonSchemaToZodSchema(jsonSchema: JsonSchema, required: b
     let schema = z.array(itemSchema).describe(jsonSchema.description ?? "");
     return required ? schema : schema.optional();
   }
+  console.error("Invalid JSON schema:", JSON.stringify(jsonSchema, null, 2));
   throw new Error("Invalid JSON schema");
 }
 
@@ -383,7 +388,9 @@ export function convertJsonSchemaToZodSchema(jsonSchema: JsonSchema, required: b
 function isJsonSchema(obj: unknown): obj is JsonSchema {
   if (typeof obj !== "object" || obj === null) return false;
   const schema = obj as Record<string, unknown>;
-  return typeof schema.type === "string" && ["object", "string", "number", "boolean", "array"].includes(schema.type);
+  // Empty objects {} are valid JSON schemas (no input required)
+  if (Object.keys(schema).length === 0) return true;
+  return typeof schema.type === "string" && ["object", "string", "number", "integer", "boolean", "array"].includes(schema.type);
 }
 
 export function convertToolsToVercelAITools(tools: RunAgentInput["tools"]): ToolSet {

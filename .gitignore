@@ -28,3 +28,6 @@ __pycache__/
 .vercel
 
 docs/next-env.d.ts
+
+# External repos (cloned for development)
+ext-apps/
