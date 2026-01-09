@@ -24,6 +24,7 @@ export class AgentRegistry {
   private _runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus =
     CopilotKitCoreRuntimeConnectionStatus.Disconnected;
   private _runtimeTransport: CopilotRuntimeTransport = "rest";
+  private _audioFileTranscriptionEnabled: boolean = false;
 
   constructor(private core: CopilotKitCore) {}
 
@@ -48,6 +49,10 @@ export class AgentRegistry {
 
   get runtimeTransport(): CopilotRuntimeTransport {
     return this._runtimeTransport;
+  }
+
+  get audioFileTranscriptionEnabled(): boolean {
+    return this._audioFileTranscriptionEnabled;
   }
 
   /**
@@ -169,6 +174,7 @@ export class AgentRegistry {
     if (!this.runtimeUrl) {
       this._runtimeConnectionStatus = CopilotKitCoreRuntimeConnectionStatus.Disconnected;
       this._runtimeVersion = undefined;
+      this._audioFileTranscriptionEnabled = false;
       this.remoteAgents = {};
       this._agents = this.localAgents;
 
@@ -207,12 +213,14 @@ export class AgentRegistry {
       this._agents = { ...this.localAgents, ...this.remoteAgents };
       this._runtimeConnectionStatus = CopilotKitCoreRuntimeConnectionStatus.Connected;
       this._runtimeVersion = version;
+      this._audioFileTranscriptionEnabled = runtimeInfoResponse.audioFileTranscriptionEnabled ?? false;
 
       await this.notifyRuntimeStatusChanged(CopilotKitCoreRuntimeConnectionStatus.Connected);
       await this.notifyAgentsChanged();
     } catch (error) {
       this._runtimeConnectionStatus = CopilotKitCoreRuntimeConnectionStatus.Error;
       this._runtimeVersion = undefined;
+      this._audioFileTranscriptionEnabled = false;
       this.remoteAgents = {};
       this._agents = this.localAgents;
 

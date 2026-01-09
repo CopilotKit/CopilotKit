@@ -111,7 +111,8 @@ function createSingleRouteHandler(runtime: CopilotRuntime) {
           break;
         }
         case "transcribe": {
-          response = await handleTranscribe({ runtime, request });
+          const handlerRequest = createJsonRequest(request, methodCall.body);
+          response = await handleTranscribe({ runtime, request: handlerRequest });
           break;
         }
         default: {
