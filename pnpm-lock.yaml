@@ -13,6 +13,11 @@ overrides:
   react: 19.1.0
   react-dom: 19.1.0
 
+patchedDependencies:
+  '@changesets/assemble-release-plan@6.0.9':
+    hash: 1bc53c741da20baad9cdeb674c599225dcf9fe6aa7b0de16ff87e63f12a97b24
+    path: patches/@changesets__assemble-release-plan@6.0.9.patch
+
 importers:
 
   .:
@@ -21994,7 +21999,7 @@ snapshots:
       resolve-from: 5.0.0
       semver: 7.7.3
 
-  '@changesets/assemble-release-plan@6.0.9':
+  '@changesets/assemble-release-plan@6.0.9(patch_hash=1bc53c741da20baad9cdeb674c599225dcf9fe6aa7b0de16ff87e63f12a97b24)':
     dependencies:
       '@changesets/errors': 0.2.0
       '@changesets/get-dependents-graph': 2.1.3
@@ -22010,7 +22015,7 @@ snapshots:
   '@changesets/cli@2.29.8(@types/node@18.19.130)':
     dependencies:
       '@changesets/apply-release-plan': 7.0.14
-      '@changesets/assemble-release-plan': 6.0.9
+      '@changesets/assemble-release-plan': 6.0.9(patch_hash=1bc53c741da20baad9cdeb674c599225dcf9fe6aa7b0de16ff87e63f12a97b24)
       '@changesets/changelog-git': 0.2.1
       '@changesets/config': 3.1.2
       '@changesets/errors': 0.2.0
@@ -22063,7 +22068,7 @@ snapshots:
 
   '@changesets/get-release-plan@4.0.14':
     dependencies:
-      '@changesets/assemble-release-plan': 6.0.9
+      '@changesets/assemble-release-plan': 6.0.9(patch_hash=1bc53c741da20baad9cdeb674c599225dcf9fe6aa7b0de16ff87e63f12a97b24)
       '@changesets/config': 3.1.2
       '@changesets/pre': 2.0.2
       '@changesets/read': 0.6.6

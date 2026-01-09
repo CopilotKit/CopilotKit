@@ -16,10 +16,30 @@
     "@copilotkit/shared": "1.50.1",
     "eslint-config-custom": "1.4.6",
     "tailwind-config": "1.4.6",
-    "tsconfig": "1.4.6"
+    "tsconfig": "1.4.6",
+    "@copilotkitnext/angular-demo": "0.0.0",
+    "@copilotkitnext/angular-demo-server": "0.0.0",
+    "storybook-angular": "0.0.0",
+    "@copilotkitnext/docs": "0.1.0",
+    "@apps/node": "0.0.1",
+    "demo": "0.1.0",
+    "storybook": "0.0.0",
+    "@copilotkitnext/agent": "0.0.33",
+    "@copilotkitnext/angular": "0.0.33",
+    "@copilotkitnext/core": "0.0.33",
+    "@copilotkitnext/demo-agents": "0.0.0",
+    "@copilotkitnext/eslint-config": "0.0.0",
+    "@copilotkitnext/react": "0.0.33",
+    "@copilotkitnext/runtime": "0.0.33",
+    "@copilotkitnext/shared": "0.0.33",
+    "@copilotkitnext/sqlite-runner": "0.0.33",
+    "@copilotkitnext/typescript-config": "0.0.0",
+    "@copilotkitnext/web-inspector": "0.0.33"
   },
   "changesets": [
     "fluffy-waves-build",
-    "seven-lizards-ring"
+    "khaki-clouds-help",
+    "seven-lizards-ring",
+    "silent-cooks-scream"
   ]
 }
