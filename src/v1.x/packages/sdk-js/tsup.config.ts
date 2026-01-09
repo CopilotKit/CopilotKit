@@ -5,11 +5,11 @@ export default defineConfig((options: Options) => ({
   entry: {
     index: "src/index.ts",
     langchain: "src/langchain.ts",
-    langgraph: "src/langgraph.ts",
+    langgraph: "src/langgraph/index.ts",
   },
   format: ["esm", "cjs"],
   dts: {
-    entry: ["src/index.ts", "src/langchain.ts", "src/langgraph.ts"],
+    entry: ["src/index.ts", "src/langchain.ts", "src/langgraph/index.ts"],
   },
   minify: false,
   external: [],

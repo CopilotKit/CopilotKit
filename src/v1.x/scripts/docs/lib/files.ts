@@ -189,7 +189,7 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
     pythonSymbols: ["CopilotKitRemoteEndpoint", "CopilotKitContext"],
   },
   {
-    sourcePath: "packages/sdk-js/src/langgraph.ts",
+    sourcePath: "packages/sdk-js/src/langgraph/index.ts",
     destinationPath: "docs/content/docs/reference/sdk/js/LangGraph.mdx",
     title: "LangGraph SDK",
     description:
