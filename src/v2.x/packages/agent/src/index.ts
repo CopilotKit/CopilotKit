@@ -715,7 +715,7 @@ export class BuiltInAgent extends AbstractAgent {
 
                 // Get tools from this MCP server and merge with existing tools
                 const mcpTools = await mcpClient.tools();
-                streamTextParams.tools = { ...streamTextParams.tools, ...mcpTools };
+                streamTextParams.tools = { ...streamTextParams.tools, ...mcpTools } as ToolSet;
               }
             }
           }

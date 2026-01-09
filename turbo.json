@@ -3,18 +3,30 @@
   "ui": "tui",
   "tasks": {
     "build": {
+      "cache": false,
+      "persistent": false,
+      "interactive": false,
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
-    "lint": {
-      "dependsOn": ["^lint"],
-      "env": ["LOG_LEVEL", "NODE_ENV"]
+    "@copilotkit/runtime#generate-graphql-schema": {
+      "cache": false,
+      "persistent": false,
+      "dependsOn": ["^build"]
     },
-    "check-types": {
-      "dependsOn": ["^build", "^check-types"]
+    "@copilotkit/runtime-client-gql#graphql-codegen": {
+      "cache": false,
+      "persistent": false,
+      "dependsOn": ["^build", "@copilotkit/runtime#generate-graphql-schema"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true,
+      "dependsOn": ["^build"]
     },
     "test": {
+      "cache": false,
       "dependsOn": ["^build"],
       "inputs": [
         "src/**/*.ts",
@@ -43,10 +55,33 @@
       "outputs": ["coverage/**"],
       "env": ["LOG_LEVEL", "NODE_ENV"]
     },
-    "dev": {
+    "lint": {
+      "dependsOn": ["^lint"],
+      "env": ["LOG_LEVEL", "NODE_ENV"]
+    },
+    "check-types": {
       "cache": false,
-      "persistent": true,
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build", "^check-types"]
+    },
+    "clean": {
+      "cache": false,
+      "persistent": false,
+      "dependsOn": ["^clean"]
+    },
+    "//#check-prettier": {},
+    "//#format": {
+      "cache": false
+    },
+    "//#freshbuild": {
+      "cache": false
+    },
+    "link:global": {
+      "cache": false,
+      "persistent": false
+    },
+    "unlink:global": {
+      "cache": false,
+      "persistent": false
     },
     "build:css": {
       "cache": true,
@@ -93,11 +128,6 @@
         "apps/react/storybook/storybook-static/**",
         "apps/angular/storybook/storybook-static/**"
       ]
-    },
-    "clean": {
-      "cache": false,
-      "persistent": false,
-      "dependsOn": ["^clean"]
     }
   }
 }
