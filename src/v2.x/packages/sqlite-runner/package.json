@@ -16,9 +16,8 @@
   },
   "scripts": {
     "build": "tsup",
-    "prepublishOnly": "pnpm run build",
     "dev": "tsup --watch",
-    "lint": "eslint . --max-warnings 0",
+    "lint": "eslint .",
     "check-types": "tsc --noEmit",
     "clean": "rm -rf dist",
     "test": "vitest run",
@@ -27,6 +26,7 @@
   },
   "devDependencies": {
     "@copilotkitnext/eslint-config": "workspace:*",
+    "@copilotkitnext/runtime": "workspace:*",
     "@copilotkitnext/typescript-config": "workspace:*",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.15.3",
@@ -37,12 +37,12 @@
     "vitest": "^3.0.5"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.42",
-    "@copilotkitnext/runtime": "workspace:*",
     "rxjs": "7.8.1"
   },
   "peerDependencies": {
-    "better-sqlite3": "^12.2.0"
+    "@ag-ui/client": "0.0.42",
+    "better-sqlite3": "^12.2.0",
+    "@copilotkitnext/runtime": "workspace:*"
   },
   "peerDependenciesMeta": {
     "better-sqlite3": {
