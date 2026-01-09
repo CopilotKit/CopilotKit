@@ -9,10 +9,8 @@ import { DocsLayoutProps } from "fumadocs-ui/layouts/docs"
 import { Logo } from "@/app/logo"
 import SearchDialogButton from "@/components/ui/search-button"
 import MobileSidebar from "@/components/layout/mobile-sidebar"
-import { INTEGRATION_ORDER } from "@/lib/integrations"
 // Icons
 import RocketIcon from "@/components/ui/icons/rocket"
-import PuzzleIcon from "@/components/ui/icons/puzzle"
 import ConsoleIcon from "@/components/ui/icons/console"
 import CloudIcon from "@/components/ui/icons/cloud"
 import GithubIcon from "@/components/ui/icons/github"
@@ -35,13 +33,8 @@ interface NavbarProps {
 export const LEFT_LINKS: NavbarLink[] = [
   {
     icon: <RocketIcon />,
-    label: "Overview",
+    label: "Documentation",
     href: "/",
-  },
-  {
-    icon: <PuzzleIcon />,
-    label: "Integrations",
-    href: "/integrations",
   },
   {
     icon: <ConsoleIcon />,
@@ -87,10 +80,9 @@ const Navbar = ({ pageTree }: NavbarProps) => {
   
   // Determine active route based on current path
   const firstSegment = pathname === "/" ? "/" : `/${pathname.split("/")[1]}`
-  const isIntegrationPage = firstSegment === "/integrations" || INTEGRATION_ORDER.some(id => firstSegment === `/${id}`)
   const isReferencePage = firstSegment === "/reference"
-  // Integration pages → /integrations, Reference pages → /reference, Everything else (root) → /
-  const activeRoute = isIntegrationPage ? "/integrations" : isReferencePage ? "/reference" : "/"
+  // Reference pages → /reference, Everything else (root + integrations) → /
+  const activeRoute = isReferencePage ? "/reference" : "/"
 
   // Close mobile sidebar when viewport expands beyond mobile breakpoint (md: 768px)
   useEffect(() => {
@@ -135,8 +127,8 @@ const Navbar = ({ pageTree }: NavbarProps) => {
               {LEFT_LINKS.map((link) => {
                 // Hide API Reference and Copilot Cloud at narrow widths
                 const hideAtNarrow = link.label === "API Reference" || link.label === "Copilot Cloud";
-                // Hide icons for Overview and Integrations at very narrow widths
-                const hideIconAtNarrow = link.label === "Overview" || link.label === "Integrations";
+                // Hide icons for Documentation at very narrow widths
+                const hideIconAtNarrow = link.label === "Documentation";
                 
                 return (
                   <li key={link.href} className={`relative h-full group ${hideAtNarrow ? '[@media(width<1112px)]:hidden' : ''}`}>
