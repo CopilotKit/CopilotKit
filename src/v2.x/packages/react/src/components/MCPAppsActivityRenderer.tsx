@@ -100,11 +100,30 @@ interface MCPAppsActivityRendererProps {
 }
 
 /**
+ * Custom comparison function for React.memo
+ * Only re-render when actual content changes, not when parent re-renders
+ */
+function arePropsEqual(
+  prevProps: MCPAppsActivityRendererProps,
+  nextProps: MCPAppsActivityRendererProps
+): boolean {
+  // Re-render if resource URI changes
+  if (prevProps.content.resource.uri !== nextProps.content.resource.uri) return false;
+  // Re-render if tool result changes
+  if (prevProps.content.result !== nextProps.content.result) return false;
+  // Re-render if tool input changes
+  if (prevProps.content.toolInput !== nextProps.content.toolInput) return false;
+  // Don't re-render for agent reference changes - we use agentRef internally
+  return true;
+}
+
+/**
  * MCP Apps Extension Activity Renderer
  *
  * Renders MCP Apps UI in a sandboxed iframe with full protocol support.
+ * Memoized to prevent unnecessary re-renders when parent components update.
  */
-export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> = ({ content, agent }) => {
+export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> = React.memo(function MCPAppsActivityRenderer({ content, agent }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [iframeReady, setIframeReady] = useState(false);
@@ -465,4 +484,4 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> = (
       )}
     </div>
   );
-};
+}, arePropsEqual);

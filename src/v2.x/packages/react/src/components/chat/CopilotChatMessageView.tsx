@@ -199,7 +199,9 @@ export function CopilotChatMessageView({
   const config = useCopilotChatConfiguration();
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
-  // Subscribe to state changes so custom message renderers re-render when state updates
+  // Subscribe to state changes so custom message renderers re-render when state updates.
+  // Activity messages (like MCP Apps) are protected by MemoizedActivityMessage and
+  // MCPAppsActivityRenderer's own React.memo, so they won't re-render unnecessarily.
   useEffect(() => {
     if (!config?.agentId) return;
     const agent = copilotkit.getAgent(config.agentId);

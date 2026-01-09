@@ -26,12 +26,14 @@ function AppLayout() {
             <p className="font-medium text-slate-900">Available MCP Tools (ext-apps):</p>
             <ul className="mt-2 list-inside list-disc space-y-1">
               <li><code className="rounded bg-slate-100 px-1">get-time</code> - Current server time</li>
-              <li><code className="rounded bg-slate-100 px-1">get-scenario-data</code> - SaaS financial scenario modeling</li>
               <li><code className="rounded bg-slate-100 px-1">get-budget-data</code> - Interactive budget allocation</li>
               <li><code className="rounded bg-slate-100 px-1">get-cohort-data</code> - Cohort analysis heatmap</li>
               <li><code className="rounded bg-slate-100 px-1">get-customer-data</code> - Customer segmentation analysis</li>
-              <li><code className="rounded bg-slate-100 px-1">show_threejs_scene</code> - 3D visualization (Three.js)</li>
+              <li><code className="rounded bg-slate-100 px-1">get-scenario-data</code> - SaaS financial scenario modeling</li>
               <li><code className="rounded bg-slate-100 px-1">play-sheet-music</code> - Music notation rendering</li>
+              <li><code className="rounded bg-slate-100 px-1">get-system-stats</code> - System monitoring dashboard</li>
+              <li><code className="rounded bg-slate-100 px-1">show_threejs_scene</code> - 3D visualization (Three.js)</li>
+              <li><code className="rounded bg-slate-100 px-1">play_video</code> - Video player</li>
               <li><code className="rounded bg-slate-100 px-1">get-first-degree-links</code> - Wikipedia link explorer</li>
             </ul>
             <div className="mt-3 space-y-1 text-xs text-slate-500">

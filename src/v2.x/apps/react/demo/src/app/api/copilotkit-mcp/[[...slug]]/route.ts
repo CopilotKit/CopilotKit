@@ -21,21 +21,20 @@ const agent = new BasicAgent({
   prompt: "You are a helpful AI assistant with access to MCP apps and tools.",
   temperature: 0.7,
 }).use(new MCPAppsMiddleware({
-  // Port assignments match ext-apps/examples/run-all.ts (sorted alphabetically, BASE_PORT=3101)
+  // Port assignments - verified by checking each server's tools
   mcpServers: [
-    { type: "http", url: "http://localhost:3101/mcp" }, // basic-server-react
-    { type: "http", url: "http://localhost:3102/mcp" }, // basic-server-vanillajs
-    { type: "http", url: "http://localhost:3103/mcp" }, // budget-allocator-server
-    { type: "http", url: "http://localhost:3104/mcp" }, // cohort-heatmap-server
-    { type: "http", url: "http://localhost:3105/mcp" }, // customer-segmentation-server
-    { type: "http", url: "http://localhost:3106/mcp" }, // integration-server
-    // 3107: qr-server (skipped)
-    { type: "http", url: "http://localhost:3108/mcp" }, // scenario-modeler-server
-    { type: "http", url: "http://localhost:3109/mcp" }, // sheet-music-server
-    // 3110: system-monitor-server (skipped - broken)
-    { type: "http", url: "http://localhost:3111/mcp" }, // threejs-server
-    { type: "http", url: "http://localhost:3112/mcp" }, // video-resource-server
-    { type: "http", url: "http://localhost:3113/mcp" }, // wiki-explorer-server
+    { type: "http", url: "http://localhost:3101/mcp" }, // basic-server-react (get-time)
+    { type: "http", url: "http://localhost:3102/mcp" }, // basic-server-vanillajs (get-time)
+    { type: "http", url: "http://localhost:3103/mcp" }, // budget-allocator-server (get-budget-data)
+    { type: "http", url: "http://localhost:3104/mcp" }, // cohort-heatmap-server (get-cohort-data)
+    { type: "http", url: "http://localhost:3105/mcp" }, // customer-segmentation-server (get-customer-data)
+    { type: "http", url: "http://localhost:3106/mcp" }, // integration-server (get-time)
+    { type: "http", url: "http://localhost:3107/mcp" }, // scenario-modeler-server (get-scenario-data)
+    { type: "http", url: "http://localhost:3108/mcp" }, // sheet-music-server (play-sheet-music)
+    { type: "http", url: "http://localhost:3109/mcp" }, // system-monitor-server (get-system-stats)
+    { type: "http", url: "http://localhost:3110/mcp" }, // threejs-server (show_threejs_scene)
+    { type: "http", url: "http://localhost:3111/mcp" }, // video-resource-server (play_video)
+    { type: "http", url: "http://localhost:3112/mcp" }, // wiki-explorer-server (get-first-degree-links)
   ],
 }));
 
