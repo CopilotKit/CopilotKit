@@ -1,5 +1,18 @@
 # next-pages-router
 
+## 1.4.7-next.1
+
+### Patch Changes
+
+- Updated dependencies [4b28c78]
+- Updated dependencies [2afd4e3]
+- Updated dependencies [4addb72]
+  - @copilotkit/react-textarea@1.51.0-next.2
+  - @copilotkit/shared@1.51.0-next.2
+  - @copilotkit/runtime@1.51.0-next.2
+  - @copilotkit/react-core@1.51.0-next.2
+  - @copilotkit/react-ui@1.51.0-next.2
+
 ## 1.4.7-next.0
 
 ### Patch Changes
