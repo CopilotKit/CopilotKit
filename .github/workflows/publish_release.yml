@@ -58,7 +58,7 @@ jobs:
 
       - name: Build
         id: build
-        run: pnpm run build
+        run: pnpm run build:packages
 
       - name: NPM Publish
         id: publish
