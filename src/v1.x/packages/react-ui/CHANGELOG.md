@@ -1,5 +1,13 @@
 # ui
 
+## 1.51.0-next.1
+
+### Patch Changes
+
+- @copilotkit/react-core@1.51.0-next.1
+- @copilotkit/runtime-client-gql@1.51.0-next.1
+- @copilotkit/shared@1.51.0-next.1
+
 ## 1.50.2-next.0
 
 ### Patch Changes
@@ -410,7 +418,6 @@
 - 0cc9ec2: - fix(react-ui): address hydration issue
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - @copilotkit/react-core@1.10.6-next.0
   - @copilotkit/runtime-client-gql@1.10.6-next.0
   - @copilotkit/shared@1.10.6-next.0
@@ -678,14 +685,12 @@
   agentic runtimes we acquired tech-debt that, with this PR, is being alleviated.
 
   As such, the following features have been updated to be completely functional with Headless UI.
-
   - Generative UI
   - Suggestions
   - Agentic Generative UI
   - Interrupts
 
   In addition, a variety of QOL changes have been made.
-
   - New AG-UI based message types
   - Inline code rendering is fixed
 
@@ -695,7 +700,6 @@
 
 - 967d0ab: - refactor(chat): separate useCopilotChat into internal implementation and public API
 - 2354be4: - feat(chat): implement custom error handling in CopilotChat and Modal components
-
   - Added `renderError` prop to `CopilotChat` for inline error rendering.
   - Introduced `triggerChatError` function to manage chat-specific errors and observability hooks.
   - Updated `Modal` to handle observability hooks with public API key checks.
@@ -705,19 +709,15 @@
 - 6d1de58: - fix: address issues that would cause headless UI breaking changes in the next release
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - fix: more fixes addressing breaking changes in new Headless UI
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: address linting issues
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: fixing branding and docs
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: more docs fixing
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
@@ -764,19 +764,15 @@
 - 6d1de58: - fix: address issues that would cause headless UI breaking changes in the next release
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - fix: more fixes addressing breaking changes in new Headless UI
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: address linting issues
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: fixing branding and docs
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: more docs fixing
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
@@ -791,7 +787,6 @@
 ### Patch Changes
 
 - 2354be4: - feat(chat): implement custom error handling in CopilotChat and Modal components
-
   - Added `renderError` prop to `CopilotChat` for inline error rendering.
   - Introduced `triggerChatError` function to manage chat-specific errors and observability hooks.
   - Updated `Modal` to handle observability hooks with public API key checks.
@@ -879,14 +874,12 @@
   agentic runtimes we acquired tech-debt that, with this PR, is being alleviated.
 
   As such, the following features have been updated to be completely functional with Headless UI.
-
   - Generative UI
   - Suggestions
   - Agentic Generative UI
   - Interrupts
 
   In addition, a variety of QOL changes have been made.
-
   - New AG-UI based message types
   - Inline code rendering is fixed
 
@@ -1468,7 +1461,6 @@
 - b9dd397: - fix(react-ui): fix scrolling into view issue
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - @copilotkit/runtime-client-gql@1.8.11
   - @copilotkit/react-core@1.8.11
   - @copilotkit/shared@1.8.11
@@ -1488,7 +1480,6 @@
 - b9dd397: - fix(react-ui): fix scrolling into view issue
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - @copilotkit/react-core@1.8.11-next.0
   - @copilotkit/runtime-client-gql@1.8.11-next.0
   - @copilotkit/shared@1.8.11-next.0
@@ -2462,7 +2453,6 @@
 - 86fae3a: - feat(react-ui): add interfaces for full message customization
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - @copilotkit/react-core@1.5.12-next.0
   - @copilotkit/runtime-client-gql@1.5.12-next.0
   - @copilotkit/shared@1.5.12-next.0
@@ -2779,7 +2769,6 @@
   send() function despite the send button being correctly disabled. Added
   the sendDisabled check to the onKeyDown handler to ensure consistent
   validation between button and keyboard triggers.
-
   - Added validation check to Enter key handler
   - Ensures empty messages can't be sent via keyboard shortcut
   - Makes behavior consistent with disabled send button state
@@ -2805,13 +2794,11 @@
   send() function despite the send button being correctly disabled. Added
   the sendDisabled check to the onKeyDown handler to ensure consistent
   validation between button and keyboard triggers.
-
   - Added validation check to Enter key handler
   - Ensures empty messages can't be sent via keyboard shortcut
   - Makes behavior consistent with disabled send button state
 
   Resolves #1129
-
   - @copilotkit/react-core@1.4.8-next.0
   - @copilotkit/runtime-client-gql@1.4.8-next.0
   - @copilotkit/shared@1.4.8-next.0
@@ -2950,7 +2937,6 @@
 - e16d95e: New prerelease
 - 1721cbd: Add convertActionsToDynamicStructuredTools to sdk-js
 - CopilotKit Core:
-
   - Improved error messages and overall logs
   - `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
   - Improved scrolling behavior. It is now possible to scroll up during LLM response generation
@@ -2958,7 +2944,6 @@
   - Updated interfaces for better developer ergonomics
 
   CoAgents:
-
   - Renamed `remoteActions` to `remoteEndpoints` (backwards compatible, will be deprecated in the future)
   - Support for LangGraph Platform in Remote Endpoints
   - LangGraph JS Support for CoAgents (locally via `langgraph dev`, `langgraph up` or deployed to LangGraph Platform)
@@ -2966,7 +2951,6 @@
   - Enhanced state management and message handling
 
   CopilotKid Back-end SDK:
-
   - Released a whole-new `@copilotkit/sdk-js` for building agents with LangGraph JS Support
 
 - 8d0144f: bump
@@ -3369,7 +3353,6 @@ CopilotKid Back-end SDK:
 ### Patch Changes
 
 - inject minified css in bundle
-
   - removes the need to import `styles.css` manually
   - empty `styles.css` included in the build for backwards compatibility
   - uses tsup's `injectStyles` with `postcss` to bundle and minify the CSS, then inject it as a style tag
@@ -3534,7 +3517,6 @@ CopilotKid Back-end SDK:
 ### Major Changes
 
 - b6a4b6eb: V1.0 Release Candidate
-
   - A robust new protocol between the frontend and the Copilot Runtime
   - Support for Copilot Cloud
   - Generative UI
@@ -3542,7 +3524,6 @@ CopilotKid Back-end SDK:
   - OpenAI assistant API streaming
 
 - V1.0 Release
-
   - A robust new protocol between the frontend and the Copilot Runtime
   - Support for Copilot Cloud
   - Generative UI
@@ -3586,7 +3567,6 @@ CopilotKid Back-end SDK:
 ### Major Changes
 
 - V1.0 Release Candidate
-
   - A robust new protocol between the frontend and the Copilot Runtime
   - Support for Copilot Cloud
   - Generative UI
@@ -4893,14 +4873,12 @@ CopilotKid Back-end SDK:
   agentic runtimes we acquired tech-debt that, with this PR, is being alleviated.
 
   As such, the following features have been updated to be completely functional with Headless UI.
-
   - Generative UI
   - Suggestions
   - Agentic Generative UI
   - Interrupts
 
   In addition, a variety of QOL changes have been made.
-
   - New AG-UI based message types
   - Inline code rendering is fixed
 
@@ -4910,7 +4888,6 @@ CopilotKid Back-end SDK:
 
 - 967d0ab: - refactor(chat): separate useCopilotChat into internal implementation and public API
 - 2354be4: - feat(chat): implement custom error handling in CopilotChat and Modal components
-
   - Added `renderError` prop to `CopilotChat` for inline error rendering.
   - Introduced `triggerChatError` function to manage chat-specific errors and observability hooks.
   - Updated `Modal` to handle observability hooks with public API key checks.
@@ -4920,19 +4897,15 @@ CopilotKid Back-end SDK:
 - 6d1de58: - fix: address issues that would cause headless UI breaking changes in the next release
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - fix: more fixes addressing breaking changes in new Headless UI
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: address linting issues
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: fixing branding and docs
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: more docs fixing
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
@@ -4979,19 +4952,15 @@ CopilotKid Back-end SDK:
 - 6d1de58: - fix: address issues that would cause headless UI breaking changes in the next release
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - fix: more fixes addressing breaking changes in new Headless UI
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: address linting issues
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: fixing branding and docs
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: more docs fixing
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
@@ -5006,7 +4975,6 @@ CopilotKid Back-end SDK:
 ### Patch Changes
 
 - 2354be4: - feat(chat): implement custom error handling in CopilotChat and Modal components
-
   - Added `renderError` prop to `CopilotChat` for inline error rendering.
   - Introduced `triggerChatError` function to manage chat-specific errors and observability hooks.
   - Updated `Modal` to handle observability hooks with public API key checks.
@@ -5094,14 +5062,12 @@ CopilotKid Back-end SDK:
   agentic runtimes we acquired tech-debt that, with this PR, is being alleviated.
 
   As such, the following features have been updated to be completely functional with Headless UI.
-
   - Generative UI
   - Suggestions
   - Agentic Generative UI
   - Interrupts
 
   In addition, a variety of QOL changes have been made.
-
   - New AG-UI based message types
   - Inline code rendering is fixed
 
@@ -5683,7 +5649,6 @@ CopilotKid Back-end SDK:
 - b9dd397: - fix(react-ui): fix scrolling into view issue
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - @copilotkit/runtime-client-gql@1.8.11
   - @copilotkit/react-core@1.8.11
   - @copilotkit/shared@1.8.11
@@ -5703,7 +5668,6 @@ CopilotKid Back-end SDK:
 - b9dd397: - fix(react-ui): fix scrolling into view issue
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - @copilotkit/react-core@1.8.11-next.0
   - @copilotkit/runtime-client-gql@1.8.11-next.0
   - @copilotkit/shared@1.8.11-next.0
@@ -6677,7 +6641,6 @@ CopilotKid Back-end SDK:
 - 86fae3a: - feat(react-ui): add interfaces for full message customization
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - @copilotkit/react-core@1.5.12-next.0
   - @copilotkit/runtime-client-gql@1.5.12-next.0
   - @copilotkit/shared@1.5.12-next.0
@@ -6994,7 +6957,6 @@ CopilotKid Back-end SDK:
   send() function despite the send button being correctly disabled. Added
   the sendDisabled check to the onKeyDown handler to ensure consistent
   validation between button and keyboard triggers.
-
   - Added validation check to Enter key handler
   - Ensures empty messages can't be sent via keyboard shortcut
   - Makes behavior consistent with disabled send button state
@@ -7020,13 +6982,11 @@ CopilotKid Back-end SDK:
   send() function despite the send button being correctly disabled. Added
   the sendDisabled check to the onKeyDown handler to ensure consistent
   validation between button and keyboard triggers.
-
   - Added validation check to Enter key handler
   - Ensures empty messages can't be sent via keyboard shortcut
   - Makes behavior consistent with disabled send button state
 
   Resolves #1129
-
   - @copilotkit/react-core@1.4.8-next.0
   - @copilotkit/runtime-client-gql@1.4.8-next.0
   - @copilotkit/shared@1.4.8-next.0
@@ -7165,7 +7125,6 @@ CopilotKid Back-end SDK:
 - e16d95e: New prerelease
 - 1721cbd: Add convertActionsToDynamicStructuredTools to sdk-js
 - CopilotKit Core:
-
   - Improved error messages and overall logs
   - `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
   - Improved scrolling behavior. It is now possible to scroll up during LLM response generation
@@ -7173,7 +7132,6 @@ CopilotKid Back-end SDK:
   - Updated interfaces for better developer ergonomics
 
   CoAgents:
-
   - Renamed `remoteActions` to `remoteEndpoints` (backwards compatible, will be deprecated in the future)
   - Support for LangGraph Platform in Remote Endpoints
   - LangGraph JS Support for CoAgents (locally via `langgraph dev`, `langgraph up` or deployed to LangGraph Platform)
@@ -7181,7 +7139,6 @@ CopilotKid Back-end SDK:
   - Enhanced state management and message handling
 
   CopilotKid Back-end SDK:
-
   - Released a whole-new `@copilotkit/sdk-js` for building agents with LangGraph JS Support
 
 - 8d0144f: bump
@@ -7584,7 +7541,6 @@ CopilotKid Back-end SDK:
 ### Patch Changes
 
 - inject minified css in bundle
-
   - removes the need to import `styles.css` manually
   - empty `styles.css` included in the build for backwards compatibility
   - uses tsup's `injectStyles` with `postcss` to bundle and minify the CSS, then inject it as a style tag
@@ -7749,7 +7705,6 @@ CopilotKid Back-end SDK:
 ### Major Changes
 
 - b6a4b6eb: V1.0 Release Candidate
-
   - A robust new protocol between the frontend and the Copilot Runtime
   - Support for Copilot Cloud
   - Generative UI
@@ -7757,7 +7712,6 @@ CopilotKid Back-end SDK:
   - OpenAI assistant API streaming
 
 - V1.0 Release
-
   - A robust new protocol between the frontend and the Copilot Runtime
   - Support for Copilot Cloud
   - Generative UI
@@ -7801,7 +7755,6 @@ CopilotKid Back-end SDK:
 ### Major Changes
 
 - V1.0 Release Candidate
-
   - A robust new protocol between the frontend and the Copilot Runtime
   - Support for Copilot Cloud
   - Generative UI
@@ -9116,14 +9069,12 @@ CopilotKid Back-end SDK:
   agentic runtimes we acquired tech-debt that, with this PR, is being alleviated.
 
   As such, the following features have been updated to be completely functional with Headless UI.
-
   - Generative UI
   - Suggestions
   - Agentic Generative UI
   - Interrupts
 
   In addition, a variety of QOL changes have been made.
-
   - New AG-UI based message types
   - Inline code rendering is fixed
 
@@ -9133,7 +9084,6 @@ CopilotKid Back-end SDK:
 
 - 967d0ab: - refactor(chat): separate useCopilotChat into internal implementation and public API
 - 2354be4: - feat(chat): implement custom error handling in CopilotChat and Modal components
-
   - Added `renderError` prop to `CopilotChat` for inline error rendering.
   - Introduced `triggerChatError` function to manage chat-specific errors and observability hooks.
   - Updated `Modal` to handle observability hooks with public API key checks.
@@ -9143,19 +9093,15 @@ CopilotKid Back-end SDK:
 - 6d1de58: - fix: address issues that would cause headless UI breaking changes in the next release
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - fix: more fixes addressing breaking changes in new Headless UI
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: address linting issues
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: fixing branding and docs
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: more docs fixing
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
@@ -9202,19 +9148,15 @@ CopilotKid Back-end SDK:
 - 6d1de58: - fix: address issues that would cause headless UI breaking changes in the next release
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - fix: more fixes addressing breaking changes in new Headless UI
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: address linting issues
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: fixing branding and docs
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: more docs fixing
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
@@ -9229,7 +9171,6 @@ CopilotKid Back-end SDK:
 ### Patch Changes
 
 - 2354be4: - feat(chat): implement custom error handling in CopilotChat and Modal components
-
   - Added `renderError` prop to `CopilotChat` for inline error rendering.
   - Introduced `triggerChatError` function to manage chat-specific errors and observability hooks.
   - Updated `Modal` to handle observability hooks with public API key checks.
@@ -9317,14 +9258,12 @@ CopilotKid Back-end SDK:
   agentic runtimes we acquired tech-debt that, with this PR, is being alleviated.
 
   As such, the following features have been updated to be completely functional with Headless UI.
-
   - Generative UI
   - Suggestions
   - Agentic Generative UI
   - Interrupts
 
   In addition, a variety of QOL changes have been made.
-
   - New AG-UI based message types
   - Inline code rendering is fixed
 
@@ -9906,7 +9845,6 @@ CopilotKid Back-end SDK:
 - b9dd397: - fix(react-ui): fix scrolling into view issue
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - @copilotkit/runtime-client-gql@1.8.11
   - @copilotkit/react-core@1.8.11
   - @copilotkit/shared@1.8.11
@@ -9926,7 +9864,6 @@ CopilotKid Back-end SDK:
 - b9dd397: - fix(react-ui): fix scrolling into view issue
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - @copilotkit/react-core@1.8.11-next.0
   - @copilotkit/runtime-client-gql@1.8.11-next.0
   - @copilotkit/shared@1.8.11-next.0
@@ -10900,7 +10837,6 @@ CopilotKid Back-end SDK:
 - 86fae3a: - feat(react-ui): add interfaces for full message customization
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - @copilotkit/react-core@1.5.12-next.0
   - @copilotkit/runtime-client-gql@1.5.12-next.0
   - @copilotkit/shared@1.5.12-next.0
@@ -11217,7 +11153,6 @@ CopilotKid Back-end SDK:
   send() function despite the send button being correctly disabled. Added
   the sendDisabled check to the onKeyDown handler to ensure consistent
   validation between button and keyboard triggers.
-
   - Added validation check to Enter key handler
   - Ensures empty messages can't be sent via keyboard shortcut
   - Makes behavior consistent with disabled send button state
@@ -11243,13 +11178,11 @@ CopilotKid Back-end SDK:
   send() function despite the send button being correctly disabled. Added
   the sendDisabled check to the onKeyDown handler to ensure consistent
   validation between button and keyboard triggers.
-
   - Added validation check to Enter key handler
   - Ensures empty messages can't be sent via keyboard shortcut
   - Makes behavior consistent with disabled send button state
 
   Resolves #1129
-
   - @copilotkit/react-core@1.4.8-next.0
   - @copilotkit/runtime-client-gql@1.4.8-next.0
   - @copilotkit/shared@1.4.8-next.0
@@ -11388,7 +11321,6 @@ CopilotKid Back-end SDK:
 - e16d95e: New prerelease
 - 1721cbd: Add convertActionsToDynamicStructuredTools to sdk-js
 - CopilotKit Core:
-
   - Improved error messages and overall logs
   - `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
   - Improved scrolling behavior. It is now possible to scroll up during LLM response generation
@@ -11396,7 +11328,6 @@ CopilotKid Back-end SDK:
   - Updated interfaces for better developer ergonomics
 
   CoAgents:
-
   - Renamed `remoteActions` to `remoteEndpoints` (backwards compatible, will be deprecated in the future)
   - Support for LangGraph Platform in Remote Endpoints
   - LangGraph JS Support for CoAgents (locally via `langgraph dev`, `langgraph up` or deployed to LangGraph Platform)
@@ -11404,7 +11335,6 @@ CopilotKid Back-end SDK:
   - Enhanced state management and message handling
 
   CopilotKid Back-end SDK:
-
   - Released a whole-new `@copilotkit/sdk-js` for building agents with LangGraph JS Support
 
 - 8d0144f: bump
@@ -11807,7 +11737,6 @@ CopilotKid Back-end SDK:
 ### Patch Changes
 
 - inject minified css in bundle
-
   - removes the need to import `styles.css` manually
   - empty `styles.css` included in the build for backwards compatibility
   - uses tsup's `injectStyles` with `postcss` to bundle and minify the CSS, then inject it as a style tag
@@ -11972,7 +11901,6 @@ CopilotKid Back-end SDK:
 ### Major Changes
 
 - b6a4b6eb: V1.0 Release Candidate
-
   - A robust new protocol between the frontend and the Copilot Runtime
   - Support for Copilot Cloud
   - Generative UI
@@ -11980,7 +11908,6 @@ CopilotKid Back-end SDK:
   - OpenAI assistant API streaming
 
 - V1.0 Release
-
   - A robust new protocol between the frontend and the Copilot Runtime
   - Support for Copilot Cloud
   - Generative UI
@@ -12024,7 +11951,6 @@ CopilotKid Back-end SDK:
 ### Major Changes
 
 - V1.0 Release Candidate
-
   - A robust new protocol between the frontend and the Copilot Runtime
   - Support for Copilot Cloud
   - Generative UI
@@ -13331,14 +13257,12 @@ CopilotKid Back-end SDK:
   agentic runtimes we acquired tech-debt that, with this PR, is being alleviated.
 
   As such, the following features have been updated to be completely functional with Headless UI.
-
   - Generative UI
   - Suggestions
   - Agentic Generative UI
   - Interrupts
 
   In addition, a variety of QOL changes have been made.
-
   - New AG-UI based message types
   - Inline code rendering is fixed
 
@@ -13348,7 +13272,6 @@ CopilotKid Back-end SDK:
 
 - 967d0ab: - refactor(chat): separate useCopilotChat into internal implementation and public API
 - 2354be4: - feat(chat): implement custom error handling in CopilotChat and Modal components
-
   - Added `renderError` prop to `CopilotChat` for inline error rendering.
   - Introduced `triggerChatError` function to manage chat-specific errors and observability hooks.
   - Updated `Modal` to handle observability hooks with public API key checks.
@@ -13358,19 +13281,15 @@ CopilotKid Back-end SDK:
 - 6d1de58: - fix: address issues that would cause headless UI breaking changes in the next release
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - fix: more fixes addressing breaking changes in new Headless UI
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: address linting issues
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: fixing branding and docs
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: more docs fixing
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
@@ -13417,19 +13336,15 @@ CopilotKid Back-end SDK:
 - 6d1de58: - fix: address issues that would cause headless UI breaking changes in the next release
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - fix: more fixes addressing breaking changes in new Headless UI
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: address linting issues
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: fixing branding and docs
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: more docs fixing
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
@@ -13444,7 +13359,6 @@ CopilotKid Back-end SDK:
 ### Patch Changes
 
 - 2354be4: - feat(chat): implement custom error handling in CopilotChat and Modal components
-
   - Added `renderError` prop to `CopilotChat` for inline error rendering.
   - Introduced `triggerChatError` function to manage chat-specific errors and observability hooks.
   - Updated `Modal` to handle observability hooks with public API key checks.
@@ -13532,14 +13446,12 @@ CopilotKid Back-end SDK:
   agentic runtimes we acquired tech-debt that, with this PR, is being alleviated.
 
   As such, the following features have been updated to be completely functional with Headless UI.
-
   - Generative UI
   - Suggestions
   - Agentic Generative UI
   - Interrupts
 
   In addition, a variety of QOL changes have been made.
-
   - New AG-UI based message types
   - Inline code rendering is fixed
 
@@ -14121,7 +14033,6 @@ CopilotKid Back-end SDK:
 - b9dd397: - fix(react-ui): fix scrolling into view issue
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - @copilotkit/runtime-client-gql@1.8.11
   - @copilotkit/react-core@1.8.11
   - @copilotkit/shared@1.8.11
@@ -14141,7 +14052,6 @@ CopilotKid Back-end SDK:
 - b9dd397: - fix(react-ui): fix scrolling into view issue
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - @copilotkit/react-core@1.8.11-next.0
   - @copilotkit/runtime-client-gql@1.8.11-next.0
   - @copilotkit/shared@1.8.11-next.0
@@ -15115,7 +15025,6 @@ CopilotKid Back-end SDK:
 - 86fae3a: - feat(react-ui): add interfaces for full message customization
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - @copilotkit/react-core@1.5.12-next.0
   - @copilotkit/runtime-client-gql@1.5.12-next.0
   - @copilotkit/shared@1.5.12-next.0
@@ -15432,7 +15341,6 @@ CopilotKid Back-end SDK:
   send() function despite the send button being correctly disabled. Added
   the sendDisabled check to the onKeyDown handler to ensure consistent
   validation between button and keyboard triggers.
-
   - Added validation check to Enter key handler
   - Ensures empty messages can't be sent via keyboard shortcut
   - Makes behavior consistent with disabled send button state
@@ -15458,13 +15366,11 @@ CopilotKid Back-end SDK:
   send() function despite the send button being correctly disabled. Added
   the sendDisabled check to the onKeyDown handler to ensure consistent
   validation between button and keyboard triggers.
-
   - Added validation check to Enter key handler
   - Ensures empty messages can't be sent via keyboard shortcut
   - Makes behavior consistent with disabled send button state
 
   Resolves #1129
-
   - @copilotkit/react-core@1.4.8-next.0
   - @copilotkit/runtime-client-gql@1.4.8-next.0
   - @copilotkit/shared@1.4.8-next.0
@@ -15603,7 +15509,6 @@ CopilotKid Back-end SDK:
 - e16d95e: New prerelease
 - 1721cbd: Add convertActionsToDynamicStructuredTools to sdk-js
 - CopilotKit Core:
-
   - Improved error messages and overall logs
   - `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
   - Improved scrolling behavior. It is now possible to scroll up during LLM response generation
@@ -15611,7 +15516,6 @@ CopilotKid Back-end SDK:
   - Updated interfaces for better developer ergonomics
 
   CoAgents:
-
   - Renamed `remoteActions` to `remoteEndpoints` (backwards compatible, will be deprecated in the future)
   - Support for LangGraph Platform in Remote Endpoints
   - LangGraph JS Support for CoAgents (locally via `langgraph dev`, `langgraph up` or deployed to LangGraph Platform)
@@ -15619,7 +15523,6 @@ CopilotKid Back-end SDK:
   - Enhanced state management and message handling
 
   CopilotKid Back-end SDK:
-
   - Released a whole-new `@copilotkit/sdk-js` for building agents with LangGraph JS Support
 
 - 8d0144f: bump
@@ -16022,7 +15925,6 @@ CopilotKid Back-end SDK:
 ### Patch Changes
 
 - inject minified css in bundle
-
   - removes the need to import `styles.css` manually
   - empty `styles.css` included in the build for backwards compatibility
   - uses tsup's `injectStyles` with `postcss` to bundle and minify the CSS, then inject it as a style tag
@@ -16187,7 +16089,6 @@ CopilotKid Back-end SDK:
 ### Major Changes
 
 - b6a4b6eb: V1.0 Release Candidate
-
   - A robust new protocol between the frontend and the Copilot Runtime
   - Support for Copilot Cloud
   - Generative UI
@@ -16195,7 +16096,6 @@ CopilotKid Back-end SDK:
   - OpenAI assistant API streaming
 
 - V1.0 Release
-
   - A robust new protocol between the frontend and the Copilot Runtime
   - Support for Copilot Cloud
   - Generative UI
@@ -16239,7 +16139,6 @@ CopilotKid Back-end SDK:
 ### Major Changes
 
 - V1.0 Release Candidate
-
   - A robust new protocol between the frontend and the Copilot Runtime
   - Support for Copilot Cloud
   - Generative UI
