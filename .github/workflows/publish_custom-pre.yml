@@ -8,9 +8,6 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 jobs:
   custom-pre:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: "src/v1.x"
     timeout-minutes: 10
     steps:
       - name: Checkout Repo
