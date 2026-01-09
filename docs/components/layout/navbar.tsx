@@ -85,10 +85,12 @@ const Navbar = ({ pageTree }: NavbarProps) => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const pathname = usePathname()
   
-  // Determine active route - check if we're on an integration page
+  // Determine active route based on current path
   const firstSegment = pathname === "/" ? "/" : `/${pathname.split("/")[1]}`
-  const isIntegrationPage = INTEGRATION_ORDER.some(id => firstSegment === `/${id}`)
-  const activeRoute = isIntegrationPage ? "/integrations" : firstSegment
+  const isIntegrationPage = firstSegment === "/integrations" || INTEGRATION_ORDER.some(id => firstSegment === `/${id}`)
+  const isReferencePage = firstSegment === "/reference"
+  // Integration pages → /integrations, Reference pages → /reference, Everything else (root) → /
+  const activeRoute = isIntegrationPage ? "/integrations" : isReferencePage ? "/reference" : "/"
 
   // Close mobile sidebar when viewport expands beyond mobile breakpoint (md: 768px)
   useEffect(() => {
