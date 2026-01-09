@@ -20,7 +20,7 @@ export function Suggestion({ title, onClick, partial, className }: SuggestionsPr
         e.preventDefault();
         onClick();
       }}
-      className={cn(className, partial ? "suggestion loading" : "suggestion")}
+      className={`suggestion ${className ?? ""} ${partial ? "loading" : ""}`}
       data-test-id="suggestion"
       type="button"
     >
