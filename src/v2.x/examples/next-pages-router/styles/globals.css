@@ -1,0 +1,48 @@
+:root {
+  color-scheme: light;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  color: #0f172a;
+  background-color: #f8fafc;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#__next {
+  height: 100%;
+  margin: 0;
+}
+
+.page {
+  min-height: 100%;
+  display: flex;
+  background: radial-gradient(circle at top, #e2e8f0, #f8fafc 55%, #ffffff 100%);
+}
+
+.content {
+  padding: 48px 56px;
+  max-width: 720px;
+}
+
+.content h1 {
+  font-size: 32px;
+  margin-bottom: 12px;
+}
+
+.content p {
+  font-size: 16px;
+  line-height: 1.6;
+  margin: 0 0 12px;
+}
+
+.inline-code {
+  background: #e2e8f0;
+  border-radius: 6px;
+  padding: 2px 6px;
+  margin-left: 6px;
+  font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 13px;
+}
