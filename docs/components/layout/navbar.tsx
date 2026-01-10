@@ -52,11 +52,6 @@ export const LEFT_LINKS: NavbarLink[] = [
 
 const RIGHT_LINKS: NavbarLink[] = [
   {
-    icon: <ConsoleIcon />,
-    href: "/reference",
-    label: "API Reference",
-  },
-  {
     icon: <CloudIcon />,
     href: "https://cloud.copilotkit.ai",
     target: "_blank",
@@ -135,15 +130,15 @@ const Navbar = ({ pageTree }: NavbarProps) => {
             <Logo className="pl-6" />
             <ul className="hidden gap-6 items-center h-full md:flex">
               {LEFT_LINKS.map((link) => {
-                // Hide API Reference and Copilot Cloud at narrow widths
-                const hideAtNarrow = link.label === "API Reference" || link.label === "Copilot Cloud";
-                // Hide icons for Documentation at very narrow widths
-                const hideIconAtNarrow = link.label === "Documentation";
+                // Hide only Copilot Cloud at narrow widths
+                const hideAtNarrow = link.label === "Copilot Cloud";
+                // Hide icons for Documentation and API Reference at very narrow widths
+                const hideIconAtNarrow = link.label === "Documentation" || link.label === "API Reference";
                 // Use dynamic href for Documentation link
                 const href = link.label === "Documentation" ? getDocumentationHref() : link.href;
 
                 return (
-                  <li key={link.href} className={`relative h-full group ${hideAtNarrow ? '[@media(width<1112px)]:hidden' : ''}`}>
+                  <li key={link.href} className={`relative h-full group ${hideAtNarrow ? '[@media(width<1028px)]:hidden' : ''}`}>
                     <Link
                       href={href}
                       target={link.target}
@@ -212,15 +207,15 @@ const Navbar = ({ pageTree }: NavbarProps) => {
             style={{ backgroundColor: 'var(--sidebar)' }}
           >
             {RIGHT_LINKS.map((link) => {
-              // For API Reference and Copilot Cloud, only show at narrow widths (between 768px and 1112px)
-              const isIconOnlyLink = link.label === "API Reference" || link.label === "Copilot Cloud";
-              
+              // Only show Copilot Cloud at narrow widths (between 768px and 1028px)
+              const isIconOnlyLink = link.label === "Copilot Cloud";
+
               return (
                 <Link
                   key={link.href}
                   href={link.href}
                   target={link.target}
-                  className={`${isIconOnlyLink ? '[@media(width>=1112px)]:hidden [@media(width<768px)]:hidden' : 'hidden'} justify-center items-center w-11 h-full md:flex`}
+                  className={`${isIconOnlyLink ? '[@media(width>=1028px)]:hidden [@media(width<768px)]:hidden' : 'hidden'} justify-center items-center w-11 h-full md:flex`}
                   title={link.label}
                   suppressHydrationWarning={link.target === "_blank"}
                 >
