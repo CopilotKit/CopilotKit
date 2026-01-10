@@ -8,8 +8,14 @@ import { SiCrewai } from "@icons-pack/react-simple-icons";
 import { Sparkles, Rocket } from "lucide-react";
 import { useState, useEffect } from "react";
 
+// Time in milliseconds before a dismissed banner reappears
+const BANNER_REAPPEAR_DELAY = 3 * 24 * 60 * 60 * 1000; // 3 days
+const BANNER_DISMISSED_KEY = "nd-banner-rotating-banner";
+const BANNER_DISMISSED_TIME_KEY = "nd-banner-rotating-banner-dismissed-at";
+
 export function Banners() {
   const [currentBanner, setCurrentBanner] = useState(0);
+  const [key, setKey] = useState(0); // Force re-render to show banner again
 
   const bannerContent = [
     {
@@ -28,6 +34,7 @@ export function Banners() {
     }
   ];
 
+  // Rotate banners
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentBanner((prev) => (prev + 1) % bannerContent.length);
@@ -36,10 +43,66 @@ export function Banners() {
     return () => clearInterval(interval);
   }, []);
 
+  // Check for dismissed banner and handle reappearance based on timestamp
+  useEffect(() => {
+    const checkBannerExpiry = () => {
+      const isDismissed = localStorage.getItem(BANNER_DISMISSED_KEY) === "true";
+      
+      if (isDismissed) {
+        const dismissedAt = localStorage.getItem(BANNER_DISMISSED_TIME_KEY);
+        
+        if (dismissedAt) {
+          const elapsed = Date.now() - parseInt(dismissedAt, 10);
+          
+          if (elapsed >= BANNER_REAPPEAR_DELAY) {
+            // Time has passed - show banner again
+            localStorage.removeItem(BANNER_DISMISSED_KEY);
+            localStorage.removeItem(BANNER_DISMISSED_TIME_KEY);
+            setKey((prev) => prev + 1);
+          } else {
+            // Schedule check for when delay expires
+            const remaining = BANNER_REAPPEAR_DELAY - elapsed;
+            const timeout = setTimeout(() => {
+              localStorage.removeItem(BANNER_DISMISSED_KEY);
+              localStorage.removeItem(BANNER_DISMISSED_TIME_KEY);
+              setKey((prev) => prev + 1);
+            }, remaining);
+            return () => clearTimeout(timeout);
+          }
+        } else {
+          // Banner was just dismissed - record the time
+          localStorage.setItem(BANNER_DISMISSED_TIME_KEY, Date.now().toString());
+        }
+      }
+    };
+
+    checkBannerExpiry();
+
+    // Also listen for storage changes (in case dismissed in this or another tab)
+    const handleStorage = () => {
+      const isDismissed = localStorage.getItem(BANNER_DISMISSED_KEY) === "true";
+      const hasTimestamp = localStorage.getItem(BANNER_DISMISSED_TIME_KEY);
+      
+      if (isDismissed && !hasTimestamp) {
+        localStorage.setItem(BANNER_DISMISSED_TIME_KEY, Date.now().toString());
+      }
+    };
+
+    window.addEventListener("storage", handleStorage);
+    
+    // Also check periodically in case the banner was dismissed while on this page
+    const interval = setInterval(checkBannerExpiry, 1000);
+    
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      clearInterval(interval);
+    };
+  }, [key]);
+
   const content = bannerContent[currentBanner];
 
   return (
-    <div className="w-full px-1 mt-1 xl:px-2 xl:mt-2">
+    <div key={key} className="w-full px-1 mt-1 xl:px-2 xl:mt-2">
       <Banner className="w-full text-foreground bg-secondary/80 backdrop-blur-sm border border-border rounded-2xl py-1.5 md:py-2" id="rotating-banner">
         <div className="flex flex-row items-center justify-center gap-1.5 md:gap-3 w-full px-1 md:px-4">
           <div 

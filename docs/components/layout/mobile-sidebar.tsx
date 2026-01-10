@@ -23,6 +23,7 @@ import { Integration } from "../ui/integrations-sidebar/integration-selector"
 import { INTEGRATION_ORDER, INTEGRATION_METADATA } from "@/lib/integrations"
 import { normalizeUrl } from "@/lib/analytics-utils"
 
+
 interface MobileSidebarProps {
   pageTree: DocsLayoutProps["tree"]
   setIsOpen: (isOpen: boolean) => void
@@ -239,7 +240,7 @@ const MobileSidebar = ({
 
           <Dropdown onSelect={handleClose} />
 
-          {isIntegrationRoute && (
+          {!isReferenceRoute && (
             <IntegrationSelector
               selectedIntegration={selectedIntegration}
               setSelectedIntegration={setSelectedIntegration}

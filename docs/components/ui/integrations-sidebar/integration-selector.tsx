@@ -1,7 +1,7 @@
-import { useState, useEffect, ComponentType } from "react"
+import { useState, useEffect, ComponentType, useRef } from "react"
+import { flushSync } from "react-dom"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
-import { X } from "lucide-react"
 import ChevronDownIcon from "../icons/chevron"
 import AdkIcon from "../icons/adk"
 import Ag2Icon from "../icons/ag2"
@@ -76,15 +76,49 @@ const IntegrationSelector = ({
   onNavigate,
 }: IntegrationSelectorProps) => {
   const [isOpen, setIsOpen] = useState(false)
+  const [isHovering, setIsHovering] = useState(false)
+  const [showTooltip, setShowTooltip] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
+  const isClearing = useRef(false)
 
-  const handleClearSelection = (e: React.MouseEvent) => {
-    e.stopPropagation() // Prevent dropdown from opening
-    setSelectedIntegration(null)
-    router.push("/integrations")
-    onNavigate?.()
-  }
+  // Load persisted selection on mount
+  useEffect(() => {
+    const persistedSelection = localStorage.getItem('selectedIntegration')
+    if (persistedSelection && persistedSelection !== 'null') {
+      setSelectedIntegration(persistedSelection as Integration)
+    }
+  }, [setSelectedIntegration])
+
+  // Listen for logo click to clear selection
+  useEffect(() => {
+    const handleClearSelection = () => {
+      // Set flag to prevent pathname effect from re-selecting
+      isClearing.current = true
+      // Clear localStorage immediately to prevent race condition
+      localStorage.removeItem('selectedIntegration')
+      flushSync(() => {
+        setSelectedIntegration(null)
+      })
+      // Reset flag after a brief delay
+      setTimeout(() => {
+        isClearing.current = false
+      }, 100)
+    }
+    window.addEventListener('clearIntegrationSelection', handleClearSelection)
+    return () => {
+      window.removeEventListener('clearIntegrationSelection', handleClearSelection)
+    }
+  }, [setSelectedIntegration])
+
+  // Persist selection to localStorage when it changes
+  useEffect(() => {
+    if (selectedIntegration) {
+      localStorage.setItem('selectedIntegration', selectedIntegration)
+    } else {
+      localStorage.removeItem('selectedIntegration')
+    }
+  }, [selectedIntegration])
 
   const integration = selectedIntegration
     ? INTEGRATION_OPTIONS[selectedIntegration]
@@ -94,32 +128,78 @@ const IntegrationSelector = ({
 
   const handleIntegrationClick = (e: React.MouseEvent, integrationKey: Integration, href: string) => {
     e.preventDefault() // Prevent Link's default navigation
-    setSelectedIntegration(integrationKey)
     setIsOpen(false)
+
+    // If clicking the already selected integration, dismiss it
+    if (selectedIntegration === integrationKey) {
+      // Set flag to prevent pathname effect from re-selecting
+      isClearing.current = true
+      localStorage.removeItem('selectedIntegration')
+      localStorage.setItem('lastDocsPath', '/')
+      flushSync(() => {
+        setSelectedIntegration(null)
+      })
+      router.push("/")
+      onNavigate?.()
+      // Reset flag after a brief delay
+      setTimeout(() => {
+        isClearing.current = false
+      }, 100)
+      return
+    }
+
+    // Update selection immediately
+    flushSync(() => {
+      setSelectedIntegration(integrationKey)
+    })
     // Close the mobile sidebar when navigating, then navigate
     onNavigate?.()
     router.push(href)
   }
 
   useEffect(() => {
-    const isRootIntegration = pathname === "/integrations"
-
-    if (!isRootIntegration) {
-      // Normalize the pathname to handle /integrations/... paths
-      const normalizedPathname = normalizeUrl(pathname);
-      // Get the first segment after the leading slash
-      const firstSegment = normalizedPathname.replace(/^\//, "").split("/")[0];
-      
-      // Check if the first segment matches an integration ID
-      // This ensures /agent-spec/langgraph matches agent-spec, not langgraph
-      if (firstSegment && INTEGRATION_ORDER.includes(firstSegment as IntegrationId)) {
-        setSelectedIntegration(firstSegment as Integration);
-        return;
-      }
+    // Don't update selection if we're in the middle of clearing (logo click)
+    if (isClearing.current) {
+      return;
     }
 
-    if (isRootIntegration && selectedIntegration) setSelectedIntegration(null)
+    // Normalize the pathname to handle /integrations/... paths
+    const normalizedPathname = normalizeUrl(pathname);
+    // Get the first segment after the leading slash
+    const firstSegment = normalizedPathname.replace(/^\//, "").split("/")[0];
+
+    // If we're on an integration page, update the selection to match the URL
+    if (firstSegment && INTEGRATION_ORDER.includes(firstSegment as IntegrationId)) {
+      setSelectedIntegration(firstSegment as Integration);
+      return;
+    }
+
+    // Only clear selection if we're specifically on /integrations page
+    if (pathname === "/integrations" && selectedIntegration) {
+      setSelectedIntegration(null);
+    }
   }, [pathname, selectedIntegration, setSelectedIntegration])
+
+  // Track last visited docs page (not reference)
+  useEffect(() => {
+    if (!pathname.startsWith('/reference')) {
+      localStorage.setItem('lastDocsPath', pathname)
+    }
+  }, [pathname])
+
+  useEffect(() => {
+    if (isHovering && !selectedIntegration && !isOpen) {
+      const timer = setTimeout(() => {
+        setShowTooltip(true)
+      }, 3000)
+      return () => {
+        clearTimeout(timer)
+        setShowTooltip(false)
+      }
+    } else {
+      setShowTooltip(false)
+    }
+  }, [isHovering, selectedIntegration, isOpen])
 
   const visibleIntegrations = Object.entries(INTEGRATION_OPTIONS);
 
@@ -127,11 +207,13 @@ const IntegrationSelector = ({
     <div className="relative w-full">
       <div
         className={`flex justify-between items-center p-2 mt-3 mb-3 w-full h-14 rounded-lg border cursor-pointer ${
-          pathname !== "/integrations"
+          selectedIntegration || !pathname.startsWith("/reference")
             ? "bg-[#BEC2FF33] dark:bg-[#7076D533] border-[#7076D5] dark:border-[#BEC2FF] [box-shadow:0px_17px_12px_-10px_rgba(112,118,213,0.3)]"
             : "bg-white/50 dark:bg-foreground/5 border-[#0C1112]/10 dark:border-border"
         }`}
         onClick={() => setIsOpen(!isOpen)}
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             setIsOpen(!isOpen)
@@ -145,7 +227,7 @@ const IntegrationSelector = ({
         <div className="flex gap-2 items-center">
           <div
             className={`flex justify-center items-center w-10 h-10 shrink-0 rounded-md ${
-              pathname !== "/integrations"
+              selectedIntegration || !pathname.startsWith("/reference")
                 ? "bg-[#BEC2FF] dark:bg-[#7076D5]"
                 : "bg-[#0C1112]/5 dark:bg-white/5"
             }`}
@@ -154,7 +236,7 @@ const IntegrationSelector = ({
           </div>
           <span
             className={`text-sm font-medium opacity-60 ${
-              pathname !== "/integrations" && "text-foreground"
+              (selectedIntegration || !pathname.startsWith("/reference")) && "text-foreground"
             }`}
           >
             {integration.label}
@@ -162,15 +244,6 @@ const IntegrationSelector = ({
         </div>
 
         <div className="flex items-center gap-1">
-          {selectedIntegration && (
-            <button
-              onClick={handleClearSelection}
-              className="p-1 rounded hover:bg-[#0C1112]/10 dark:hover:bg-white/10 transition-colors"
-              aria-label="Clear integration selection"
-            >
-              <X className="w-4 h-4 text-muted-foreground" />
-            </button>
-          )}
           <ChevronDownIcon className="mr-1 w-4 h-4" />
         </div>
       </div>
@@ -207,6 +280,12 @@ const IntegrationSelector = ({
               </Link>
             )
           )}
+        </div>
+      )}
+
+      {showTooltip && (
+        <div className="absolute top-full left-0 mt-2 w-full px-3 py-2 rounded-lg bg-[#0C1112] dark:bg-white text-white dark:text-[#0C1112] text-xs font-medium shadow-lg z-30">
+          See what CopilotKit and your chosen agentic backend can do.
         </div>
       )}
     </div>

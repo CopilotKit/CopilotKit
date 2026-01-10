@@ -1,3 +1,5 @@
+"use client"
+
 import Image from "next/image"
 import Link from "fumadocs-core/link"
 import { cn } from "@/lib/utils"
@@ -18,9 +20,18 @@ export function Logo({
   width = DESKTOP_WIDTH,
   height = DESKTOP_HEIGHT,
 }: LogoProps) {
+  const handleLogoClick = (e: React.MouseEvent) => {
+    // Clear the integration selection from localStorage
+    localStorage.removeItem('selectedIntegration')
+    localStorage.setItem('lastDocsPath', '/')
+    // Dispatch custom event to notify IntegrationSelector
+    window.dispatchEvent(new CustomEvent('clearIntegrationSelection'))
+  }
+
   return (
     <Link
       href="/"
+      onClick={handleLogoClick}
       className={cn("flex justify-center items-center", className)}
     >
       <Image
