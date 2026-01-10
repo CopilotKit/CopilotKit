@@ -1,4 +1,4 @@
-import { useState, useEffect, ComponentType } from "react"
+import { useState, useEffect, ComponentType, useRef } from "react"
 import { flushSync } from "react-dom"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -80,6 +80,7 @@ const IntegrationSelector = ({
   const [showTooltip, setShowTooltip] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
+  const isClearing = useRef(false)
 
   // Load persisted selection on mount
   useEffect(() => {
@@ -92,11 +93,17 @@ const IntegrationSelector = ({
   // Listen for logo click to clear selection
   useEffect(() => {
     const handleClearSelection = () => {
+      // Set flag to prevent pathname effect from re-selecting
+      isClearing.current = true
       // Clear localStorage immediately to prevent race condition
       localStorage.removeItem('selectedIntegration')
       flushSync(() => {
         setSelectedIntegration(null)
       })
+      // Reset flag after a brief delay
+      setTimeout(() => {
+        isClearing.current = false
+      }, 100)
     }
     window.addEventListener('clearIntegrationSelection', handleClearSelection)
     return () => {
@@ -143,6 +150,11 @@ const IntegrationSelector = ({
   }
 
   useEffect(() => {
+    // Don't update selection if we're in the middle of clearing (logo click)
+    if (isClearing.current) {
+      return;
+    }
+
     // Normalize the pathname to handle /integrations/... paths
     const normalizedPathname = normalizeUrl(pathname);
     // Get the first segment after the leading slash
@@ -155,10 +167,10 @@ const IntegrationSelector = ({
     }
 
     // Only clear selection if we're specifically on /integrations page
-    if (pathname === "/integrations") {
+    if (pathname === "/integrations" && selectedIntegration) {
       setSelectedIntegration(null);
     }
-  }, [pathname, setSelectedIntegration])
+  }, [pathname, selectedIntegration, setSelectedIntegration])
 
   // Track last visited docs page (not reference)
   useEffect(() => {
