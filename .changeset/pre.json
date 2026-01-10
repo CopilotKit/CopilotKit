@@ -38,6 +38,7 @@
     "storybook-react": "0.0.0"
   },
   "changesets": [
+    "clever-ducks-exist",
     "fluffy-waves-build",
     "gold-monkeys-design",
     "happy-spiders-invent",
