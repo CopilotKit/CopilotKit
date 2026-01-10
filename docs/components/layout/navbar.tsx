@@ -82,7 +82,7 @@ const Navbar = ({ pageTree }: NavbarProps) => {
   // Get the appropriate href for Documentation link
   const getDocumentationHref = () => {
     // If we're on a reference page, try to restore last docs path
-    if (isReferencePage) {
+    if (isReferencePage && typeof window !== 'undefined') {
       const lastDocsPath = localStorage.getItem('lastDocsPath')
       return lastDocsPath || '/'
     }

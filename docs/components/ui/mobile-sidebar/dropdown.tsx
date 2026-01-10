@@ -29,7 +29,7 @@ const Dropdown = ({ onSelect }: DropdownProps) => {
       const firstSegment = pathname === "/" ? "/" : `/${pathname.split("/")[1]}`
       const isReferencePage = firstSegment === "/reference"
 
-      if (isReferencePage) {
+      if (isReferencePage && typeof window !== 'undefined') {
         const lastDocsPath = localStorage.getItem('lastDocsPath')
         return lastDocsPath || '/'
       }
