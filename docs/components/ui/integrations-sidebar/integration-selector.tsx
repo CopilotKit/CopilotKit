@@ -132,11 +132,19 @@ const IntegrationSelector = ({
 
     // If clicking the already selected integration, dismiss it
     if (selectedIntegration === integrationKey) {
+      // Set flag to prevent pathname effect from re-selecting
+      isClearing.current = true
+      localStorage.removeItem('selectedIntegration')
+      localStorage.setItem('lastDocsPath', '/')
       flushSync(() => {
         setSelectedIntegration(null)
       })
       router.push("/")
       onNavigate?.()
+      // Reset flag after a brief delay
+      setTimeout(() => {
+        isClearing.current = false
+      }, 100)
       return
     }
 

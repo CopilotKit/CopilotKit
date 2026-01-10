@@ -239,7 +239,7 @@ const MobileSidebar = ({
 
           <Dropdown onSelect={handleClose} />
 
-          {isIntegrationRoute && (
+          {!isReferenceRoute && (
             <IntegrationSelector
               selectedIntegration={selectedIntegration}
               setSelectedIntegration={setSelectedIntegration}
