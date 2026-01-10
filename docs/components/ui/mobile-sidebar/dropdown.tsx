@@ -21,6 +21,12 @@ const Dropdown = ({ onSelect }: DropdownProps) => {
   const [isPositionReady, setIsPositionReady] = useState(false)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const pathname = usePathname()
+  const [lastDocsPath, setLastDocsPath] = useState<string | null>(null)
+
+  // Read localStorage on client only to avoid hydration mismatch
+  useEffect(() => {
+    setLastDocsPath(localStorage.getItem('lastDocsPath'))
+  }, [])
 
   // Get the appropriate href for Documentation link
   const getHrefForItem = (item: NavbarLink) => {
@@ -29,9 +35,8 @@ const Dropdown = ({ onSelect }: DropdownProps) => {
       const firstSegment = pathname === "/" ? "/" : `/${pathname.split("/")[1]}`
       const isReferencePage = firstSegment === "/reference"
 
-      if (isReferencePage && typeof window !== 'undefined') {
-        const lastDocsPath = localStorage.getItem('lastDocsPath')
-        return lastDocsPath || '/'
+      if (isReferencePage && lastDocsPath) {
+        return lastDocsPath
       }
     }
     return item.href

@@ -71,7 +71,13 @@ const RIGHT_LINKS: NavbarLink[] = [
 
 const Navbar = ({ pageTree }: NavbarProps) => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
+  const [lastDocsPath, setLastDocsPath] = useState<string | null>(null)
   const pathname = usePathname()
+
+  // Read localStorage on client only to avoid hydration mismatch
+  useEffect(() => {
+    setLastDocsPath(localStorage.getItem('lastDocsPath'))
+  }, [])
 
   // Determine active route based on current path
   const firstSegment = pathname === "/" ? "/" : `/${pathname.split("/")[1]}`
@@ -82,9 +88,8 @@ const Navbar = ({ pageTree }: NavbarProps) => {
   // Get the appropriate href for Documentation link
   const getDocumentationHref = () => {
     // If we're on a reference page, try to restore last docs path
-    if (isReferencePage && typeof window !== 'undefined') {
-      const lastDocsPath = localStorage.getItem('lastDocsPath')
-      return lastDocsPath || '/'
+    if (isReferencePage && lastDocsPath) {
+      return lastDocsPath
     }
     return '/'
   }
