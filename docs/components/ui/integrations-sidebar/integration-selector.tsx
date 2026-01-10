@@ -1,7 +1,7 @@
 import { useState, useEffect, ComponentType } from "react"
+import { flushSync } from "react-dom"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
-import { X } from "lucide-react"
 import ChevronDownIcon from "../icons/chevron"
 import AdkIcon from "../icons/adk"
 import Ag2Icon from "../icons/ag2"
@@ -81,13 +81,6 @@ const IntegrationSelector = ({
   const pathname = usePathname()
   const router = useRouter()
 
-  const handleClearSelection = (e: React.MouseEvent) => {
-    e.stopPropagation() // Prevent dropdown from opening
-    setSelectedIntegration(null)
-    router.push("/")
-    onNavigate?.()
-  }
-
   const integration = selectedIntegration
     ? INTEGRATION_OPTIONS[selectedIntegration]
     : DEFAULT_INTEGRATION
@@ -97,10 +90,24 @@ const IntegrationSelector = ({
   const handleIntegrationClick = (e: React.MouseEvent, integrationKey: Integration, href: string) => {
     e.preventDefault() // Prevent Link's default navigation
     setIsOpen(false)
+
+    // If clicking the already selected integration, dismiss it
+    if (selectedIntegration === integrationKey) {
+      flushSync(() => {
+        setSelectedIntegration(null)
+      })
+      router.push("/")
+      onNavigate?.()
+      return
+    }
+
+    // Update selection immediately
+    flushSync(() => {
+      setSelectedIntegration(integrationKey)
+    })
     // Close the mobile sidebar when navigating, then navigate
     onNavigate?.()
     router.push(href)
-    // Note: selectedIntegration will be updated by the useEffect when pathname changes
   }
 
   useEffect(() => {
@@ -143,7 +150,7 @@ const IntegrationSelector = ({
     <div className="relative w-full">
       <div
         className={`flex justify-between items-center p-2 mt-3 mb-3 w-full h-14 rounded-lg border cursor-pointer ${
-          pathname !== "/integrations"
+          selectedIntegration || !pathname.startsWith("/reference")
             ? "bg-[#BEC2FF33] dark:bg-[#7076D533] border-[#7076D5] dark:border-[#BEC2FF] [box-shadow:0px_17px_12px_-10px_rgba(112,118,213,0.3)]"
             : "bg-white/50 dark:bg-foreground/5 border-[#0C1112]/10 dark:border-border"
         }`}
@@ -163,7 +170,7 @@ const IntegrationSelector = ({
         <div className="flex gap-2 items-center">
           <div
             className={`flex justify-center items-center w-10 h-10 shrink-0 rounded-md ${
-              pathname !== "/integrations"
+              selectedIntegration || !pathname.startsWith("/reference")
                 ? "bg-[#BEC2FF] dark:bg-[#7076D5]"
                 : "bg-[#0C1112]/5 dark:bg-white/5"
             }`}
@@ -172,7 +179,7 @@ const IntegrationSelector = ({
           </div>
           <span
             className={`text-sm font-medium opacity-60 ${
-              pathname !== "/integrations" && "text-foreground"
+              (selectedIntegration || !pathname.startsWith("/reference")) && "text-foreground"
             }`}
           >
             {integration.label}
@@ -180,15 +187,6 @@ const IntegrationSelector = ({
         </div>
 
         <div className="flex items-center gap-1">
-          {selectedIntegration && (
-            <button
-              onClick={handleClearSelection}
-              className="p-1 rounded hover:bg-[#0C1112]/10 dark:hover:bg-white/10 transition-colors"
-              aria-label="Clear integration selection"
-            >
-              <X className="w-4 h-4 text-muted-foreground" />
-            </button>
-          )}
           <ChevronDownIcon className="mr-1 w-4 h-4" />
         </div>
       </div>
