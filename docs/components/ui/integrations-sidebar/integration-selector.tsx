@@ -81,6 +81,38 @@ const IntegrationSelector = ({
   const pathname = usePathname()
   const router = useRouter()
 
+  // Load persisted selection on mount
+  useEffect(() => {
+    const persistedSelection = localStorage.getItem('selectedIntegration')
+    if (persistedSelection && persistedSelection !== 'null') {
+      setSelectedIntegration(persistedSelection as Integration)
+    }
+  }, [setSelectedIntegration])
+
+  // Listen for logo click to clear selection
+  useEffect(() => {
+    const handleClearSelection = () => {
+      // Clear localStorage immediately to prevent race condition
+      localStorage.removeItem('selectedIntegration')
+      flushSync(() => {
+        setSelectedIntegration(null)
+      })
+    }
+    window.addEventListener('clearIntegrationSelection', handleClearSelection)
+    return () => {
+      window.removeEventListener('clearIntegrationSelection', handleClearSelection)
+    }
+  }, [setSelectedIntegration])
+
+  // Persist selection to localStorage when it changes
+  useEffect(() => {
+    if (selectedIntegration) {
+      localStorage.setItem('selectedIntegration', selectedIntegration)
+    } else {
+      localStorage.removeItem('selectedIntegration')
+    }
+  }, [selectedIntegration])
+
   const integration = selectedIntegration
     ? INTEGRATION_OPTIONS[selectedIntegration]
     : DEFAULT_INTEGRATION
@@ -111,24 +143,29 @@ const IntegrationSelector = ({
   }
 
   useEffect(() => {
-    const isRootIntegration = pathname === "/integrations"
+    // Normalize the pathname to handle /integrations/... paths
+    const normalizedPathname = normalizeUrl(pathname);
+    // Get the first segment after the leading slash
+    const firstSegment = normalizedPathname.replace(/^\//, "").split("/")[0];
 
-    if (!isRootIntegration) {
-      // Normalize the pathname to handle /integrations/... paths
-      const normalizedPathname = normalizeUrl(pathname);
-      // Get the first segment after the leading slash
-      const firstSegment = normalizedPathname.replace(/^\//, "").split("/")[0];
-
-      // Check if the first segment matches an integration ID
-      // This ensures /agent-spec/langgraph matches agent-spec, not langgraph
-      if (firstSegment && INTEGRATION_ORDER.includes(firstSegment as IntegrationId)) {
-        setSelectedIntegration(firstSegment as Integration);
-        return;
-      }
+    // If we're on an integration page, update the selection to match the URL
+    if (firstSegment && INTEGRATION_ORDER.includes(firstSegment as IntegrationId)) {
+      setSelectedIntegration(firstSegment as Integration);
+      return;
     }
 
-    if (isRootIntegration && selectedIntegration) setSelectedIntegration(null)
-  }, [pathname, selectedIntegration, setSelectedIntegration])
+    // Only clear selection if we're specifically on /integrations page
+    if (pathname === "/integrations") {
+      setSelectedIntegration(null);
+    }
+  }, [pathname, setSelectedIntegration])
+
+  // Track last visited docs page (not reference)
+  useEffect(() => {
+    if (!pathname.startsWith('/reference')) {
+      localStorage.setItem('lastDocsPath', pathname)
+    }
+  }, [pathname])
 
   useEffect(() => {
     if (isHovering && !selectedIntegration && !isOpen) {

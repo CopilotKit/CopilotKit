@@ -77,12 +77,22 @@ const RIGHT_LINKS: NavbarLink[] = [
 const Navbar = ({ pageTree }: NavbarProps) => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const pathname = usePathname()
-  
+
   // Determine active route based on current path
   const firstSegment = pathname === "/" ? "/" : `/${pathname.split("/")[1]}`
   const isReferencePage = firstSegment === "/reference"
   // Reference pages → /reference, Everything else (root + integrations) → /
   const activeRoute = isReferencePage ? "/reference" : "/"
+
+  // Get the appropriate href for Documentation link
+  const getDocumentationHref = () => {
+    // If we're on a reference page, try to restore last docs path
+    if (isReferencePage) {
+      const lastDocsPath = localStorage.getItem('lastDocsPath')
+      return lastDocsPath || '/'
+    }
+    return '/'
+  }
 
   // Close mobile sidebar when viewport expands beyond mobile breakpoint (md: 768px)
   useEffect(() => {
@@ -129,11 +139,13 @@ const Navbar = ({ pageTree }: NavbarProps) => {
                 const hideAtNarrow = link.label === "API Reference" || link.label === "Copilot Cloud";
                 // Hide icons for Documentation at very narrow widths
                 const hideIconAtNarrow = link.label === "Documentation";
-                
+                // Use dynamic href for Documentation link
+                const href = link.label === "Documentation" ? getDocumentationHref() : link.href;
+
                 return (
                   <li key={link.href} className={`relative h-full group ${hideAtNarrow ? '[@media(width<1112px)]:hidden' : ''}`}>
                     <Link
-                      href={link.href}
+                      href={href}
                       target={link.target}
                       className={`h-full ${
                         activeRoute === link.href ? "opacity-100" : "opacity-50"
