@@ -23,7 +23,7 @@ const IntegrationSelectorSkeleton = () => {
     <div className="relative mt-3 w-full">
       <div className="absolute z-20 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 p-4 rounded-lg dark:border dark:border-[#8387FF4D] bg-[#BEC2FF4D] dark:bg-[#6972FF1A] w-full">
         <p className="text-xs text-[#484ECF] dark:text-[#C4C6FF] font-medium">
-          Please select an integration to view the sidebar content.
+          See what CopilotKit and your chosen agentic backend can do.
         </p>
       </div>
 

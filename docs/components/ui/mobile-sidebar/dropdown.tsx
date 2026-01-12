@@ -21,6 +21,26 @@ const Dropdown = ({ onSelect }: DropdownProps) => {
   const [isPositionReady, setIsPositionReady] = useState(false)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const pathname = usePathname()
+  const [lastDocsPath, setLastDocsPath] = useState<string | null>(null)
+
+  // Read localStorage on client only to avoid hydration mismatch
+  useEffect(() => {
+    setLastDocsPath(localStorage.getItem('lastDocsPath'))
+  }, [])
+
+  // Get the appropriate href for Documentation link
+  const getHrefForItem = (item: NavbarLink) => {
+    if (item.label === "Documentation") {
+      // Check if we're on a reference page
+      const firstSegment = pathname === "/" ? "/" : `/${pathname.split("/")[1]}`
+      const isReferencePage = firstSegment === "/reference"
+
+      if (isReferencePage && lastDocsPath) {
+        return lastDocsPath
+      }
+    }
+    return item.href
+  }
 
   useEffect(() => {
     const activeItem = DROPDOWN_ITEMS.find((item) => item.href === pathname)
@@ -110,7 +130,7 @@ const Dropdown = ({ onSelect }: DropdownProps) => {
                 className="flex justify-start items-center pl-2 h-12 rounded-xl"
               >
                 <Link
-                  href={item.href}
+                  href={getHrefForItem(item)}
                   className="flex gap-2 items-center w-full"
                 >
                   {item.icon}

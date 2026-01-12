@@ -144,8 +144,8 @@
   --sidebar-ring: oklch(0.65 0.15 285);
   --sidebar-separator: oklch(0.6119 0.0089 286.13);
   --scrollbar-color: oklch(1 0 0 / 30.2%);
-  --scrollbar-track: #182326;
-  --glass-background: #182326; 
+  --scrollbar-track: #292D2F;
+  --glass-background: rgba(255, 255, 255, 0.1); 
   --icon: oklch(1 0 0);
 }
 
@@ -250,7 +250,7 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
 }
 
 .dark .docs-content-wrapper {
-  background: linear-gradient(to right, rgba(1, 5, 7, 0.10), rgba(1, 5, 7, 0)), var(--glass-background) !important;
+  background: linear-gradient(to right, rgba(1, 5, 7, 0.10), rgba(1, 5, 7, 0)), var(--sidebar) !important;
 }
 
 .dark .docs-content-wrapper #nd-docs-layout,
