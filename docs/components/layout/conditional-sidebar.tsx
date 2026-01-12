@@ -54,10 +54,10 @@ export default function ConditionalSidebar({ pageTree }: ConditionalSidebarProps
   if (isIntegrationRoute) {
     return <IntegrationsSidebar pageTree={pageTree} />
   }
-  
+
   if (isReferenceRoute && referencePageTree) {
-    return <Sidebar pageTree={referencePageTree} />
+    return <Sidebar pageTree={referencePageTree} showIntegrationSelector={false} />
   }
-  
+
   return <Sidebar pageTree={pageTree} />
 }

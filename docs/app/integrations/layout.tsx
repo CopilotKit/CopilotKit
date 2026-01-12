@@ -5,17 +5,19 @@ import { baseOptions } from "../layout.config"
 import { source } from "@/app/source"
 import IntegrationsSidebar from "@/components/layout/integrations-sidebar"
 import Navbar from "@/components/layout/navbar"
+import { ScrollReset } from "@/components/layout/scroll-reset"
 import { patchPageTree } from "@/lib/patch-pagetree"
 
 export default function Layout({ children }: { children: ReactNode }) {
   const patchedPageTree = patchPageTree(source.pageTree);
-  
+
   return (
     <>
       <Navbar pageTree={patchedPageTree} />
       <HomeLayout {...baseOptions} nav={{ enabled: false }}>
         <IntegrationsSidebar pageTree={patchedPageTree} />
         <div className="docs-content-wrapper">
+          <ScrollReset />
           <DocsLayout
             tree={patchedPageTree}
             searchToggle={{ enabled: false }}

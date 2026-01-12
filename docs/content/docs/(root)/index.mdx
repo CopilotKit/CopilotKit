@@ -93,8 +93,8 @@ import { CopilotKitHero } from "@/components/branding/CopilotKitHero"
   <h2 className="text-4xl font-bold mb-4 text-foreground">Get Started Now</h2>
   <div className="w-24 h-1 bg-gradient-to-r from-primary to-primary mx-auto mt-6 rounded-full"></div>
 </div>
-<div className="grid grid-cols-1 xl:grid-cols-10 gap-6 mb-12">
-  <div className="xl:col-span-3 border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
+<div className="grid grid-cols-1 xl:grid-cols-10 gap-6 mb-12 justify-items-center">
+  <div className="xl:col-span-3 w-full max-w-sm xl:max-w-none border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
     <div>
       <h3 className="text-xl font-bold mb-3 text-foreground">Quickstart</h3>
       <div className="text-sm text-muted-foreground mb-8">Start with an LLM<br /> or Agent Framework</div>
@@ -103,7 +103,7 @@ import { CopilotKitHero } from "@/components/branding/CopilotKitHero"
       <QuickstartDropdown />
     </div>
   </div>
-  <div className="xl:col-span-4 border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
+  <div className="xl:col-span-4 w-full max-w-sm xl:max-w-none border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
     <div>
       <h3 className="text-xl font-bold mb-3 text-foreground">CLI</h3>
       <div className="text-sm text-muted-foreground mb-4">Bootstrap your NextJS<br />application with CopilotKit</div>
@@ -115,7 +115,7 @@ npx copilotkit@latest init
 ```
     </div>
   </div>
-  <div className="xl:col-span-3 border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
+  <div className="xl:col-span-3 w-full max-w-sm xl:max-w-none border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
     <div>
       <h3 className="text-xl font-bold mb-3 text-foreground">Cloud</h3>
       <div className="text-sm text-muted-foreground mb-4">Start the easiest way<br /> with our hosted service</div>
