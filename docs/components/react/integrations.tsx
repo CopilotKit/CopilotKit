@@ -1,5 +1,7 @@
 import { IntegrationsSelectorLightDesktop } from './integrations-index-selector/integrations-selector-light-desktop';
+import { IntegrationsSelectorDarkDesktop } from './integrations-index-selector/integrations-selector-dark-desktop';
 import { IntegrationsSelectorLightMobile } from './integrations-index-selector/integrations-selector-light-mobile';
+import { IntegrationsSelectorDarkMobile } from './integrations-index-selector/integrations-selector-dark-mobile';
 import { IntegrationLinkRoundedButton } from './integration-link-button/integration-link-rounded-button';
 import { ComponentType } from 'react';
 import { INTEGRATION_ORDER, IntegrationId, getIntegration } from '@/lib/integrations';
@@ -10,8 +12,6 @@ import Ag2Icon from '../ui/icons/ag2';
 import CrewaiIcon from '../ui/icons/crewai';
 import DirectToLlmIcon from '../ui/icons/direct-to-llm';
 import LanggraphIcon from '../ui/icons/langgraph';
-import { IntegrationsSelectorDarkDesktop } from './integrations-index-selector/integrations-selector-dark-desktop';
-import { IntegrationsSelectorDarkMobile } from './integrations-index-selector/integrations-selector-dark-mobile';
 import LlamaIndexIcon from '../ui/icons/llama-index';
 import MastraIcon from '../ui/icons/mastra';
 import AgnoIcon from '../ui/icons/agno';
@@ -98,7 +98,8 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
 
   return (
     <div className='flex flex-row flex-wrap justify-center items-center gap-x-6 gap-y-6 my-8'>
-      <div className='hidden xl:flex items-center'>
+      {/* Large desktop: 4 columns (2xl+) */}
+      <div className='hidden 2xl:flex items-center'>
         <IntegrationsSelectorLightDesktop className='h-48 block dark:hidden' />
         <IntegrationsSelectorDarkDesktop className='h-48 hidden dark:block' />
         <div className='grid grid-cols-4 gap-2'>
@@ -112,11 +113,13 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
           ))}
         </div>
       </div>
-      <div className='flex flex-row items-center gap-2 xl:hidden'>
-        <IntegrationsSelectorLightMobile className='h-full -ml-11 block dark:hidden' />
-        <IntegrationsSelectorDarkMobile className='h-full -ml-11 hidden dark:block' />
-        <div className='grid grid-cols-2 gap-2 -ml-5'>
-          <div className='col-span-2 h-[80px]' />
+      {/* Mobile/tablet/medium desktop: 2 columns (below 2xl) - works better with TOC */}
+      <div className='flex flex-row items-start gap-2 2xl:hidden'>
+        <div className='-ml-11 shrink-0'>
+          <IntegrationsSelectorLightMobile className='block dark:hidden' rows={Math.ceil(filteredIntegrations.length / 2)} />
+          <IntegrationsSelectorDarkMobile className='hidden dark:block' rows={Math.ceil(filteredIntegrations.length / 2)} />
+        </div>
+        <div className='grid grid-cols-2 gap-[8px] auto-rows-[47px] -ml-5 pt-[90px]'>
           {filteredIntegrations.map((integration) => (
             <IntegrationLinkRoundedButton
               key={integration.id}

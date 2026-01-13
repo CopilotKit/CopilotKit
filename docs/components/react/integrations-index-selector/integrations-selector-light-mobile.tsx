@@ -1,6 +1,13 @@
-export function IntegrationsSelectorLightMobile({ className }: { className?: string }) {
+export function IntegrationsSelectorLightMobile({ className, rows = 7 }: { className?: string; rows?: number }) {
+  // Calculate which connectors to show based on row count
+  const showConnector1 = rows >= 2;
+  const showConnector2 = rows >= 3;
+  const showConnector3 = rows >= 4;
+  const showConnector4 = rows >= 5;
+  const showConnector5 = rows >= 6;
+  const showConnector6 = rows >= 7;
   return (
-    <svg className={className} width='116' height='342' viewBox='0 0 116 342' fill='none' xmlns='http://www.w3.org/2000/svg'>
+    <svg className={className} width='116' height='452' viewBox='0 0 116 452' fill='none' xmlns='http://www.w3.org/2000/svg'>
       <rect x='25.6001' y='25.6826' width='64' height='64' rx='32' fill='white' />
       <path
         d='M47.825 52.0662C50.5644 48.483 52.838 44.9397 53.7129 42.0783C53.7364 42.0005 53.8276 41.9674 53.8953 42.0124C56.9374 44.0269 62.4784 45.3529 67.3795 45.384C67.4638 45.3846 67.5218 45.4677 67.4914 45.5463C65.8619 49.6804 63.8716 57.088 63.7942 65.5471C63.7942 65.6728 63.6173 65.7178 63.5551 65.6087C60.7659 60.7276 51.8318 53.8689 47.8706 52.2501C47.7973 52.22 47.7766 52.1295 47.825 52.0662Z'
@@ -37,26 +44,61 @@ export function IntegrationsSelectorLightMobile({ className }: { className?: str
         stroke='url(#paint4_radial_6481_45022)'
       />
       <circle opacity='0.3' cx='57.6' cy='57.6' r='57.1' stroke='url(#paint5_radial_6481_45022)' />
+      {/* Main trunk line - ends at last row */}
       <path
-        d='M58.6001 89.6826L58.6001 317.683C58.6001 330.385 68.8976 340.683 81.6001 340.683'
+        d={rows >= 7 
+          ? 'M58.6001 89.6826L58.6001 427.683C58.6001 440.385 68.8976 450.683 81.6001 450.683'
+          : rows >= 6
+          ? 'M58.6001 89.6826L58.6001 368.683C58.6001 381.385 68.8975 391.683 81.6001 391.683'
+          : rows >= 5
+          ? 'M58.6001 89.6826L58.6001 313.683C58.6001 326.385 68.8975 336.683 81.6001 336.683'
+          : rows >= 4
+          ? 'M58.6001 89.6826L58.6001 258.683C58.6001 271.385 68.8975 281.683 81.6001 281.683'
+          : rows >= 3
+          ? 'M58.6001 89.6826L58.6001 203.683C58.6001 216.385 68.8975 226.683 81.6001 226.683'
+          : rows >= 2
+          ? 'M58.6001 89.6826L58.6001 147.683C58.6001 160.385 68.8975 170.683 81.6001 170.683'
+          : 'M58.6001 89.6826L58.6001 92.6826C58.6001 105.385 68.8975 115.683 81.6001 115.683'
+        }
         stroke='url(#paint6_linear_6481_45022)'
       />
-      <path
-        d='M58.6001 244.683L58.6001 258.683C58.6001 271.385 68.8975 281.683 81.6001 281.683'
-        stroke='url(#paint7_linear_6481_45022)'
-      />
-      <path
-        d='M58.6001 189.683L58.6001 203.683C58.6001 216.385 68.8975 226.683 81.6001 226.683'
-        stroke='url(#paint8_linear_6481_45022)'
-      />
-      <path
-        d='M58.6001 133.683L58.6001 147.683C58.6001 160.385 68.8975 170.683 81.6001 170.683'
-        stroke='url(#paint9_linear_6481_45022)'
-      />
-      <path
-        d='M58.6001 90.6826L58.6001 92.6826C58.6001 105.385 68.8975 115.683 81.6001 115.683'
-        stroke='url(#paint10_linear_6481_45022)'
-      />
+      {/* Branch connectors */}
+      {showConnector6 && (
+        <path
+          d='M58.6001 354.683L58.6001 368.683C58.6001 381.385 68.8975 391.683 81.6001 391.683'
+          stroke='url(#paint11_linear_6481_45022)'
+        />
+      )}
+      {showConnector5 && (
+        <path
+          d='M58.6001 299.683L58.6001 313.683C58.6001 326.385 68.8975 336.683 81.6001 336.683'
+          stroke='url(#paint7_linear_6481_45022)'
+        />
+      )}
+      {showConnector4 && (
+        <path
+          d='M58.6001 244.683L58.6001 258.683C58.6001 271.385 68.8975 281.683 81.6001 281.683'
+          stroke='url(#paint12_linear_6481_45022)'
+        />
+      )}
+      {showConnector3 && (
+        <path
+          d='M58.6001 189.683L58.6001 203.683C58.6001 216.385 68.8975 226.683 81.6001 226.683'
+          stroke='url(#paint8_linear_6481_45022)'
+        />
+      )}
+      {showConnector2 && (
+        <path
+          d='M58.6001 133.683L58.6001 147.683C58.6001 160.385 68.8975 170.683 81.6001 170.683'
+          stroke='url(#paint9_linear_6481_45022)'
+        />
+      )}
+      {showConnector1 && (
+        <path
+          d='M58.6001 90.6826L58.6001 92.6826C58.6001 105.385 68.8975 115.683 81.6001 115.683'
+          stroke='url(#paint10_linear_6481_45022)'
+        />
+      )}
       <defs>
         <linearGradient
           id='paint0_linear_6481_45022'
@@ -130,10 +172,32 @@ export function IntegrationsSelectorLightMobile({ className }: { className?: str
           gradientUnits='userSpaceOnUse'>
           <stop stopColor='#BEC2FF' stopOpacity='0.6' />
           <stop offset='0.178093' stopColor='#BEC2FF' />
-          <stop offset='1' stopColor='#BEC2FF' stopOpacity='0' />
+          <stop offset='1' stopColor='#BEC2FF' stopOpacity='0.3' />
         </linearGradient>
         <linearGradient
           id='paint7_linear_6481_45022'
+          x1='58.6001'
+          y1='299.423'
+          x2='85.229'
+          y2='334.992'
+          gradientUnits='userSpaceOnUse'>
+          <stop stopColor='#BEC2FF' stopOpacity='0.2' />
+          <stop offset='0.423077' stopColor='#BEC2FF' />
+          <stop offset='1' stopColor='#BEC2FF' stopOpacity='0.3' />
+        </linearGradient>
+        <linearGradient
+          id='paint11_linear_6481_45022'
+          x1='58.6001'
+          y1='354.423'
+          x2='85.229'
+          y2='389.992'
+          gradientUnits='userSpaceOnUse'>
+          <stop stopColor='#BEC2FF' stopOpacity='0.2' />
+          <stop offset='0.423077' stopColor='#BEC2FF' />
+          <stop offset='1' stopColor='#BEC2FF' stopOpacity='0.3' />
+        </linearGradient>
+        <linearGradient
+          id='paint12_linear_6481_45022'
           x1='58.6001'
           y1='244.423'
           x2='85.229'

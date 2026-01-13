@@ -1,10 +1,18 @@
-export function IntegrationsSelectorDarkMobile({ className }: { className?: string }) {
+export function IntegrationsSelectorDarkMobile({ className, rows = 7 }: { className?: string; rows?: number }) {
+  // Calculate which connectors to show based on row count
+  // Row positions: 1=115, 2=170, 3=226, 4=281, 5=336, 6=391, 7=450 (trunk end)
+  const showConnector1 = rows >= 2; // y=115
+  const showConnector2 = rows >= 3; // y=170
+  const showConnector3 = rows >= 4; // y=226
+  const showConnector4 = rows >= 5; // y=281
+  const showConnector5 = rows >= 6; // y=336
+  const showConnector6 = rows >= 7; // y=391
   return (
     <svg
       className={className}
       width='116'
-      height='342'
-      viewBox='0 0 116 342'
+      height='452'
+      viewBox='0 0 116 452'
       fill='none'
       xmlns='http://www.w3.org/2000/svg'>
       <rect x='25.5996' y='25.6826' width='64' height='64' rx='32' fill='white' fillOpacity='0.05' />
@@ -43,26 +51,61 @@ export function IntegrationsSelectorDarkMobile({ className }: { className?: stri
         stroke='url(#paint4_radial_6481_48844)'
       />
       <circle opacity='0.3' cx='57.6' cy='57.6' r='57.1' stroke='url(#paint5_radial_6481_48844)' />
+      {/* Main trunk line - always shown, ends at last row */}
       <path
-        d='M58.5996 89.6826L58.5996 317.683C58.5996 330.385 68.8971 340.683 81.5996 340.683'
+        d={rows >= 7 
+          ? 'M58.5996 89.6826L58.5996 427.683C58.5996 440.385 68.8971 450.683 81.5996 450.683'
+          : rows >= 6
+          ? 'M58.5996 89.6826L58.5996 368.683C58.5996 381.385 68.8971 391.683 81.5996 391.683'
+          : rows >= 5
+          ? 'M58.5996 89.6826L58.5996 313.683C58.5996 326.385 68.8971 336.683 81.5996 336.683'
+          : rows >= 4
+          ? 'M58.5996 89.6826L58.5996 258.683C58.5996 271.385 68.8971 281.683 81.5996 281.683'
+          : rows >= 3
+          ? 'M58.5996 89.6826L58.5996 203.683C58.5996 216.385 68.8971 226.683 81.5996 226.683'
+          : rows >= 2
+          ? 'M58.5996 89.6826L58.5996 147.683C58.5996 160.385 68.8971 170.683 81.5996 170.683'
+          : 'M58.5996 89.6826L58.5996 92.6826C58.5996 105.385 68.8971 115.683 81.5996 115.683'
+        }
         stroke='url(#paint6_linear_6481_48844)'
       />
-      <path
-        d='M58.5996 244.683L58.5996 258.683C58.5996 271.385 68.8971 281.683 81.5996 281.683'
-        stroke='url(#paint7_linear_6481_48844)'
-      />
-      <path
-        d='M58.5996 189.683L58.5996 203.683C58.5996 216.385 68.8971 226.683 81.5996 226.683'
-        stroke='url(#paint8_linear_6481_48844)'
-      />
-      <path
-        d='M58.5996 133.683L58.5996 147.683C58.5996 160.385 68.8971 170.683 81.5996 170.683'
-        stroke='url(#paint9_linear_6481_48844)'
-      />
-      <path
-        d='M58.5996 90.6826L58.5996 92.6826C58.5996 105.385 68.8971 115.683 81.5996 115.683'
-        stroke='url(#paint10_linear_6481_48844)'
-      />
+      {/* Branch connectors - conditionally rendered */}
+      {showConnector6 && (
+        <path
+          d='M58.5996 354.683L58.5996 368.683C58.5996 381.385 68.8971 391.683 81.5996 391.683'
+          stroke='url(#paint11_linear_6481_48844)'
+        />
+      )}
+      {showConnector5 && (
+        <path
+          d='M58.5996 299.683L58.5996 313.683C58.5996 326.385 68.8971 336.683 81.5996 336.683'
+          stroke='url(#paint7_linear_6481_48844)'
+        />
+      )}
+      {showConnector4 && (
+        <path
+          d='M58.5996 244.683L58.5996 258.683C58.5996 271.385 68.8971 281.683 81.5996 281.683'
+          stroke='url(#paint12_linear_6481_48844)'
+        />
+      )}
+      {showConnector3 && (
+        <path
+          d='M58.5996 189.683L58.5996 203.683C58.5996 216.385 68.8971 226.683 81.5996 226.683'
+          stroke='url(#paint8_linear_6481_48844)'
+        />
+      )}
+      {showConnector2 && (
+        <path
+          d='M58.5996 133.683L58.5996 147.683C58.5996 160.385 68.8971 170.683 81.5996 170.683'
+          stroke='url(#paint9_linear_6481_48844)'
+        />
+      )}
+      {showConnector1 && (
+        <path
+          d='M58.5996 90.6826L58.5996 92.6826C58.5996 105.385 68.8971 115.683 81.5996 115.683'
+          stroke='url(#paint10_linear_6481_48844)'
+        />
+      )}
       <defs>
         <linearGradient
           id='paint0_linear_6481_48844'
@@ -136,10 +179,32 @@ export function IntegrationsSelectorDarkMobile({ className }: { className?: stri
           gradientUnits='userSpaceOnUse'>
           <stop stopColor='#7076D5' stopOpacity='0.6' />
           <stop offset='0.178093' stopColor='#7076D5' />
-          <stop offset='1' stopColor='#7076D5' stopOpacity='0' />
+          <stop offset='1' stopColor='#7076D5' stopOpacity='0.3' />
         </linearGradient>
         <linearGradient
           id='paint7_linear_6481_48844'
+          x1='58.5996'
+          y1='299.423'
+          x2='85.2286'
+          y2='334.992'
+          gradientUnits='userSpaceOnUse'>
+          <stop stopColor='#7076D5' stopOpacity='0.2' />
+          <stop offset='0.423077' stopColor='#7076D5' />
+          <stop offset='1' stopColor='#7076D5' stopOpacity='0.3' />
+        </linearGradient>
+        <linearGradient
+          id='paint11_linear_6481_48844'
+          x1='58.5996'
+          y1='354.423'
+          x2='85.2286'
+          y2='389.992'
+          gradientUnits='userSpaceOnUse'>
+          <stop stopColor='#7076D5' stopOpacity='0.2' />
+          <stop offset='0.423077' stopColor='#7076D5' />
+          <stop offset='1' stopColor='#7076D5' stopOpacity='0.3' />
+        </linearGradient>
+        <linearGradient
+          id='paint12_linear_6481_48844'
           x1='58.5996'
           y1='244.423'
           x2='85.2286'
