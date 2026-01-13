@@ -83,7 +83,7 @@ npm start`}
         </section>
       </main>
 
-      <CopilotSidebar defaultOpen={true} width="50%" threadId="mcp-apps" />
+      <CopilotSidebar defaultOpen={true} width="50%" threadId="mcp-apps-003" />
     </div>
   );
 }

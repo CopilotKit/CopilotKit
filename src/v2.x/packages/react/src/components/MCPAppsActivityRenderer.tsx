@@ -2,10 +2,114 @@
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { z } from "zod";
-import type { AbstractAgent } from "@ag-ui/client";
+import type { AbstractAgent, RunAgentResult } from "@ag-ui/client";
 
 // Protocol version supported
 const PROTOCOL_VERSION = "2025-06-18";
+
+/**
+ * Queue for serializing MCP app requests to an agent.
+ * Ensures requests wait for the agent to stop running and are processed one at a time.
+ */
+class MCPAppsRequestQueue {
+  private queues = new Map<string, Array<{
+    execute: () => Promise<RunAgentResult>;
+    resolve: (result: RunAgentResult) => void;
+    reject: (error: Error) => void;
+  }>>();
+  private processing = new Map<string, boolean>();
+
+  /**
+   * Add a request to the queue for a specific agent thread.
+   * Returns a promise that resolves when the request completes.
+   */
+  async enqueue(
+    agent: AbstractAgent,
+    request: () => Promise<RunAgentResult>
+  ): Promise<RunAgentResult> {
+    const threadId = agent.threadId || "default";
+
+    return new Promise((resolve, reject) => {
+      // Get or create queue for this thread
+      let queue = this.queues.get(threadId);
+      if (!queue) {
+        queue = [];
+        this.queues.set(threadId, queue);
+      }
+
+      // Add request to queue
+      queue.push({ execute: request, resolve, reject });
+
+      // Start processing if not already running
+      this.processQueue(threadId, agent);
+    });
+  }
+
+  private async processQueue(threadId: string, agent: AbstractAgent): Promise<void> {
+    // If already processing this queue, return
+    if (this.processing.get(threadId)) {
+      return;
+    }
+
+    this.processing.set(threadId, true);
+
+    try {
+      const queue = this.queues.get(threadId);
+      if (!queue) return;
+
+      while (queue.length > 0) {
+        const item = queue[0]!;
+
+        try {
+          // Wait for any active run to complete before processing
+          await this.waitForAgentIdle(agent);
+
+          // Execute the request
+          const result = await item.execute();
+          item.resolve(result);
+        } catch (error) {
+          item.reject(error instanceof Error ? error : new Error(String(error)));
+        }
+
+        // Remove processed item
+        queue.shift();
+      }
+    } finally {
+      this.processing.set(threadId, false);
+    }
+  }
+
+  private waitForAgentIdle(agent: AbstractAgent): Promise<void> {
+    return new Promise((resolve) => {
+      if (!agent.isRunning) {
+        resolve();
+        return;
+      }
+
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        clearInterval(checkInterval);
+        sub.unsubscribe();
+        resolve();
+      };
+
+      const sub = agent.subscribe({
+        onRunFinalized: finish,
+        onRunFailed: finish,
+      });
+
+      // Fallback for reconnect scenarios where events don't fire
+      const checkInterval = setInterval(() => {
+        if (!agent.isRunning) finish();
+      }, 500);
+    });
+  }
+}
+
+// Global queue instance for all MCP app requests
+const mcpAppsRequestQueue = new MCPAppsRequestQueue();
 
 /**
  * Activity type for MCP Apps events - must match the middleware's MCPAppsActivityType
@@ -185,52 +289,22 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> = f
     fetchStateRef.current.inProgress = true;
     fetchStateRef.current.resourceUri = resourceUri;
 
-    // Create the fetch promise
+    // Create the fetch promise using the queue to serialize requests
     const fetchPromise = (async (): Promise<FetchedResource | null> => {
       try {
-        // Wait for any active run to complete before fetching resource
-        // This prevents "Thread already running" errors
-        if (agent.isRunning) {
-          await new Promise<void>((resolve) => {
-            let resolved = false;
-            const sub = agent.subscribe({
-              onRunFinalized: () => {
-                if (!resolved) {
-                  resolved = true;
-                  sub.unsubscribe();
-                  resolve();
-                }
+        // Use queue to wait for agent to be idle and serialize requests
+        const runResult = await mcpAppsRequestQueue.enqueue(agent, () =>
+          agent.runAgent({
+            forwardedProps: {
+              __proxiedMCPRequest: {
+                serverHash,
+                serverId, // optional, takes precedence if provided
+                method: "resources/read",
+                params: { uri: resourceUri },
               },
-              onRunFailed: () => {
-                if (!resolved) {
-                  resolved = true;
-                  sub.unsubscribe();
-                  resolve();
-                }
-              },
-            });
-            // Timeout in case run finished between check and subscription
-            setTimeout(() => {
-              if (!resolved && !agent.isRunning) {
-                resolved = true;
-                sub.unsubscribe();
-                resolve();
-              }
-            }, 100);
-          });
-        }
-
-        // Fetch resource via proxied MCP request
-        const runResult = await agent.runAgent({
-          forwardedProps: {
-            __proxiedMCPRequest: {
-              serverHash,
-              serverId, // optional, takes precedence if provided
-              method: "resources/read",
-              params: { uri: resourceUri },
             },
-          },
-        });
+          })
+        );
 
         // Extract resource from result
         // The response format is: { contents: [{ uri, mimeType, text?, blob?, _meta? }] }
@@ -431,50 +505,19 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> = f
                 }
 
                 try {
-                  // Wait for any active run to complete before proxying tool call
-                  // This prevents "Thread already running" errors
-                  if (currentAgent.isRunning) {
-                    await new Promise<void>((resolve) => {
-                      let resolved = false;
-                      const sub = currentAgent.subscribe({
-                        onRunFinalized: () => {
-                          if (!resolved) {
-                            resolved = true;
-                            sub.unsubscribe();
-                            resolve();
-                          }
+                  // Use queue to wait for agent to be idle and serialize requests
+                  const runResult = await mcpAppsRequestQueue.enqueue(currentAgent, () =>
+                    currentAgent.runAgent({
+                      forwardedProps: {
+                        __proxiedMCPRequest: {
+                          serverHash,
+                          serverId, // optional, takes precedence if provided
+                          method: "tools/call",
+                          params: msg.params,
                         },
-                        onRunFailed: () => {
-                          if (!resolved) {
-                            resolved = true;
-                            sub.unsubscribe();
-                            resolve();
-                          }
-                        },
-                      });
-                      // Timeout in case run finished between check and subscription
-                      setTimeout(() => {
-                        if (!resolved && !currentAgent.isRunning) {
-                          resolved = true;
-                          sub.unsubscribe();
-                          resolve();
-                        }
-                      }, 100);
-                    });
-                  }
-
-                  // Use agent.runAgent() to proxy the MCP request
-                  // The middleware will intercept forwardedProps.__proxiedMCPRequest
-                  const runResult = await currentAgent.runAgent({
-                    forwardedProps: {
-                      __proxiedMCPRequest: {
-                        serverHash,
-                        serverId, // optional, takes precedence if provided
-                        method: "tools/call",
-                        params: msg.params,
                       },
-                    },
-                  });
+                    })
+                  );
 
                   // The result from runAgent contains the MCP response
                   sendResponse(msg.id, runResult.result || {});
