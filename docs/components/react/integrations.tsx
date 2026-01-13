@@ -113,11 +113,28 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
           ))}
         </div>
       </div>
-      {/* Mobile/tablet/medium desktop: 2 columns (below 2xl) - works better with TOC */}
-      <div className='flex flex-row items-start gap-2 2xl:hidden'>
+      {/* Small screens (below lg): 2 columns with 36px row height */}
+      <div className='flex flex-row items-start gap-2 lg:hidden'>
         <div className='-ml-11 shrink-0'>
-          <IntegrationsSelectorLightMobile className='block dark:hidden' rows={Math.ceil(filteredIntegrations.length / 2)} />
-          <IntegrationsSelectorDarkMobile className='hidden dark:block' rows={Math.ceil(filteredIntegrations.length / 2)} />
+          <IntegrationsSelectorLightMobile className='block dark:hidden' rows={Math.ceil(filteredIntegrations.length / 2)} rowHeight={36} />
+          <IntegrationsSelectorDarkMobile className='hidden dark:block' rows={Math.ceil(filteredIntegrations.length / 2)} rowHeight={36} />
+        </div>
+        <div className='grid grid-cols-2 gap-2 -ml-5 pt-[90px]'>
+          {filteredIntegrations.map((integration) => (
+            <IntegrationLinkRoundedButton
+              key={integration.id}
+              label={integration.label}
+              Icon={integration.Icon}
+              href={getHref(integration)}
+            />
+          ))}
+        </div>
+      </div>
+      {/* Medium screens (lg to 2xl): 2 columns with 60px row height */}
+      <div className='hidden lg:flex 2xl:hidden flex-row items-start gap-2'>
+        <div className='-ml-11 shrink-0'>
+          <IntegrationsSelectorLightMobile className='block dark:hidden' rows={Math.ceil(filteredIntegrations.length / 2)} rowHeight={60} />
+          <IntegrationsSelectorDarkMobile className='hidden dark:block' rows={Math.ceil(filteredIntegrations.length / 2)} rowHeight={60} />
         </div>
         <div className='grid grid-cols-2 gap-2 -ml-5 pt-[90px]'>
           {filteredIntegrations.map((integration) => (
