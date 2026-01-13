@@ -119,7 +119,7 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
           <IntegrationsSelectorLightMobile className='block dark:hidden' rows={Math.ceil(filteredIntegrations.length / 2)} />
           <IntegrationsSelectorDarkMobile className='hidden dark:block' rows={Math.ceil(filteredIntegrations.length / 2)} />
         </div>
-        <div className='grid grid-cols-2 gap-[8px] auto-rows-[47px] -ml-5 pt-[90px]'>
+        <div className='grid grid-cols-2 gap-2 -ml-5 pt-[90px]'>
           {filteredIntegrations.map((integration) => (
             <IntegrationLinkRoundedButton
               key={integration.id}
