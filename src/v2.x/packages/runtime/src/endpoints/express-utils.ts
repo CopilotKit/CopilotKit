@@ -116,7 +116,7 @@ export async function sendFetchResponse(res: ExpressResponse, response: Response
     return;
   }
 
-  const nodeStream = Readable.fromWeb(response.body as unknown as ReadableStream<Uint8Array>);
+  const nodeStream = Readable.fromWeb(response.body as any);
   try {
     await streamPipeline(nodeStream, res);
   } catch (error) {
