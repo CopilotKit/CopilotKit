@@ -1,4 +1,4 @@
-import { useCopilotKit, type ReactActivityMessageRenderer } from "@copilotkitnext/react";
+import { useCopilotKit, type ReactActivityMessageRenderer } from "@copilotkit/react-core/v2";
 import { v0_8 } from "@a2ui/lit";
 import type {
   ThemedA2UISurfaceActionCallback,

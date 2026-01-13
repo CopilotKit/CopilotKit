@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.50.2-next.0",
+  "version": "1.51.0-next.4",
   "sideEffects": [
     "**/*.css"
   ],
@@ -36,9 +36,15 @@
     "unlink:global": "pnpm unlink --global"
   },
   "peerDependencies": {
+    "@copilotkit/react-core": "workspace:*",
+    "@copilotkit/runtime-client-gql": "workspace:*",
+    "@copilotkit/shared": "workspace:*",
     "react": "^18 || ^19 || ^19.0.0-rc"
   },
   "devDependencies": {
+    "@copilotkit/react-core": "workspace:*",
+    "@copilotkit/runtime-client-gql": "workspace:*",
+    "@copilotkit/shared": "workspace:*",
     "@types/jest": "^29.5.4",
     "@types/react": "^19.1.0",
     "@types/react-syntax-highlighter": "^15.5.7",
@@ -55,9 +61,6 @@
     "typescript": "^5.2.3"
   },
   "dependencies": {
-    "@copilotkit/react-core": "workspace:*",
-    "@copilotkit/runtime-client-gql": "workspace:*",
-    "@copilotkit/shared": "workspace:*",
     "@headlessui/react": "^2.2.9",
     "react-markdown": "^10.1.0",
     "react-syntax-highlighter": "^15.6.1",

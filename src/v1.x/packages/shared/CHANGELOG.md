@@ -1,5 +1,17 @@
 # @copilotkit/shared
 
+## 1.51.0-next.4
+
+## 1.51.0-next.3
+
+## 1.51.0-next.2
+
+### Patch Changes
+
+- 2afd4e3: Fix CI
+
+## 1.51.0-next.1
+
 ## 1.50.2-next.0
 
 ## 1.50.1
@@ -238,14 +250,12 @@
   agentic runtimes we acquired tech-debt that, with this PR, is being alleviated.
 
   As such, the following features have been updated to be completely functional with Headless UI.
-
   - Generative UI
   - Suggestions
   - Agentic Generative UI
   - Interrupts
 
   In addition, a variety of QOL changes have been made.
-
   - New AG-UI based message types
   - Inline code rendering is fixed
 
@@ -257,19 +267,15 @@
 - 6d1de58: - fix: address issues that would cause headless UI breaking changes in the next release
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - fix: more fixes addressing breaking changes in new Headless UI
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: address linting issues
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: fixing branding and docs
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: more docs fixing
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
@@ -287,19 +293,15 @@
 - 6d1de58: - fix: address issues that would cause headless UI breaking changes in the next release
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - fix: more fixes addressing breaking changes in new Headless UI
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: address linting issues
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: fixing branding and docs
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - chore: more docs fixing
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
@@ -336,14 +338,12 @@
   agentic runtimes we acquired tech-debt that, with this PR, is being alleviated.
 
   As such, the following features have been updated to be completely functional with Headless UI.
-
   - Generative UI
   - Suggestions
   - Agentic Generative UI
   - Interrupts
 
   In addition, a variety of QOL changes have been made.
-
   - New AG-UI based message types
   - Inline code rendering is fixed
 
@@ -374,7 +374,6 @@
 ### Patch Changes
 
 - fac89c2: - refactor: rename onTrace to onError throughout codebase
-
   - Rename CopilotTraceEvent to CopilotErrorEvent and CopilotTraceHandler to CopilotErrorHandler
 
 - 9169ad7: - feat: add onTrace handler for runtime and UI error/event tracking
@@ -404,7 +403,6 @@
 ### Patch Changes
 
 - fac89c2: - refactor: rename onTrace to onError throughout codebase
-
   - Rename CopilotTraceEvent to CopilotErrorEvent and CopilotTraceHandler to CopilotErrorHandler
 
 ## 1.9.2-next.17
@@ -1008,7 +1006,6 @@
 - e16d95e: New prerelease
 - 1721cbd: Add convertActionsToDynamicStructuredTools to sdk-js
 - CopilotKit Core:
-
   - Improved error messages and overall logs
   - `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
   - Improved scrolling behavior. It is now possible to scroll up during LLM response generation
@@ -1016,7 +1013,6 @@
   - Updated interfaces for better developer ergonomics
 
   CoAgents:
-
   - Renamed `remoteActions` to `remoteEndpoints` (backwards compatible, will be deprecated in the future)
   - Support for LangGraph Platform in Remote Endpoints
   - LangGraph JS Support for CoAgents (locally via `langgraph dev`, `langgraph up` or deployed to LangGraph Platform)
@@ -1024,7 +1020,6 @@
   - Enhanced state management and message handling
 
   CopilotKid Back-end SDK:
-
   - Released a whole-new `@copilotkit/sdk-js` for building agents with LangGraph JS Support
 
 - 8d0144f: bump
@@ -1264,7 +1259,6 @@ CopilotKid Back-end SDK:
 ### Patch Changes
 
 - inject minified css in bundle
-
   - removes the need to import `styles.css` manually
   - empty `styles.css` included in the build for backwards compatibility
   - uses tsup's `injectStyles` with `postcss` to bundle and minify the CSS, then inject it as a style tag
@@ -1366,7 +1360,6 @@ CopilotKid Back-end SDK:
 ### Major Changes
 
 - b6a4b6eb: V1.0 Release Candidate
-
   - A robust new protocol between the frontend and the Copilot Runtime
   - Support for Copilot Cloud
   - Generative UI
@@ -1374,7 +1367,6 @@ CopilotKid Back-end SDK:
   - OpenAI assistant API streaming
 
 - V1.0 Release
-
   - A robust new protocol between the frontend and the Copilot Runtime
   - Support for Copilot Cloud
   - Generative UI
@@ -1403,7 +1395,6 @@ CopilotKid Back-end SDK:
 ### Major Changes
 
 - V1.0 Release Candidate
-
   - A robust new protocol between the frontend and the Copilot Runtime
   - Support for Copilot Cloud
   - Generative UI

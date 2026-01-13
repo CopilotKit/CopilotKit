@@ -5,10 +5,15 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --font-spline: var(--font-spline-sans-mono);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  
+  --breakpoint-nav: 1112px;
+  --breakpoint-nav-icons: 808px;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -40,6 +45,9 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-separator: var(--sidebar-separator);
+  --color-glass-background: var(--glass-background);
+  --color-icon: var(--icon);
 }
 
 @media (width >= 1550px) {
@@ -47,12 +55,25 @@
     width: 20rem !important;
     --fd-sidebar-width: 20rem !important;
   }
+}
+
+/* Override fumadocs sidebar breakpoint from 1024px to 768px */
+@media (width < 768px) {
+  #nd-sidebar {
+    display: none !important;
+  }
+}
+
+@media (width >= 768px) {
+  #nd-sidebar {
+    display: flex !important;
+  }
 } 
 
 :root {
   --radius: 0.65rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.141 0.005 285.823);
+  --background: oklch(0.9038 0.0149 286.1);
+  --foreground: oklch(0.1081 0.0147 220.92);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.141 0.005 285.823);
   --popover: oklch(1 0 0);
@@ -66,7 +87,7 @@
   --accent: oklch(0.967 0.001 286.375);
   --accent-foreground: oklch(0.21 0.006 285.885);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.92 0.004 286.32);
+  --border: oklch(0.9 0 0);
   --input: oklch(0.92 0.004 286.32);
   --ring: oklch(0.55 0.25 285);
   --chart-1: oklch(0.646 0.222 41.116);
@@ -74,7 +95,7 @@
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
+  --sidebar: #EFEFF3;
   --sidebar-foreground: oklch(0.141 0.005 285.823);
   --sidebar-primary: oklch(0.55 0.25 285);
   --sidebar-primary-foreground: oklch(0.98 0.005 285);
@@ -82,10 +103,15 @@
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0.92 0.004 286.32);
   --sidebar-ring: oklch(0.55 0.25 285);
+  --sidebar-separator: oklch(0.4582 0.0064 286.14);
+  --scrollbar-color: oklch(0.1081 0.0147 220.92 / 30.2%);
+  --scrollbar-track: #EAEAEE;
+  --glass-background: #EAEAEE; 
+  --icon: oklch(0.1081 0.0147 220.92);
 }
 
 .dark {
-  --background: oklch(0.141 0.005 285.823);
+  --background: oklch(0.1081 0.0147 220.92);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.21 0.006 285.885);
   --card-foreground: oklch(0.985 0 0);
@@ -108,7 +134,7 @@
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.21 0.006 285.885);
+  --sidebar: #111618;
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.65 0.15 285);
   --sidebar-primary-foreground: oklch(0.95 0.02 285);
@@ -116,6 +142,11 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.65 0.15 285);
+  --sidebar-separator: oklch(0.6119 0.0089 286.13);
+  --scrollbar-color: oklch(1 0 0 / 30.2%);
+  --scrollbar-track: #292D2F;
+  --glass-background: rgba(255, 255, 255, 0.1); 
+  --icon: oklch(1 0 0);
 }
 
 /* Custom styles for CopilotKit */
@@ -149,6 +180,11 @@
   .copilotKitMarkdown {
     font-size: 0.875rem !important; /* 14px */
   }
+
+  .custom-scrollbar {
+    scrollbar-color: var(--scrollbar-color) var(--scrollbar-track);
+    scrollbar-width: thin;
+  }
 }
 
 @layer base {
@@ -158,6 +194,10 @@
   body {
     background-color: var(--background);
     color: var(--foreground);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
 
   .fd-codeblock pre {
@@ -173,10 +213,158 @@
   }
 }
 
-[data-toc] {
-  display: none !important;
-}
+/* TOC is handled via fumadocs v16 grid layout - no need to hide */
 
 figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-auto.max-h-\[600px\].fd-scroll-container {
   background-color: var(--background) !important;
-} 
+}
+
+/* Override fumadocs Banner sticky positioning to relative */
+#agui-banner {
+  position: relative !important;
+  top: auto !important;
+}
+
+/* Wrapper for content area */
+.docs-content-wrapper {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  overflow-y: auto;
+  border: 1px solid var(--border) !important;
+  border-left: none !important;
+  border-radius: 0 var(--radius) var(--radius) 0 !important;
+  position: relative;
+  background: linear-gradient(to right, rgba(1, 5, 7, 0.10), rgba(1, 5, 7, 0)), #FFFFFF !important;
+  scrollbar-color: var(--scrollbar-color) var(--scrollbar-track);
+  scrollbar-width: thin;
+}
+
+/* Ensure Fumadocs layout elements are transparent so gradient shows through */
+.docs-content-wrapper #nd-docs-layout,
+.docs-content-wrapper #nd-page,
+.docs-content-wrapper #nd-toc,
+.docs-content-wrapper article {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+.dark .docs-content-wrapper {
+  background: linear-gradient(to right, rgba(1, 5, 7, 0.10), rgba(1, 5, 7, 0)), var(--sidebar) !important;
+}
+
+.dark .docs-content-wrapper #nd-docs-layout,
+.dark .docs-content-wrapper #nd-page,
+.dark .docs-content-wrapper #nd-toc,
+.dark .docs-content-wrapper article {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+#nd-home-layout {
+  display: flex;
+  flex-direction: row;
+  padding-top: 0 !important;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  margin: 0 4px;
+  gap: 0;
+
+  @media (min-width: 1280px) {
+    margin: 0 8px 8px 8px;
+  }
+}
+
+/* Override fumadocs banner height calculation since we handle banners outside DocsLayout */
+#nd-docs-layout {
+  --fd-banner-height: 0px !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  max-width: none !important;
+  width: 100% !important;
+}
+
+/* Remove Fumadocs default max-width constraints on content */
+#nd-docs-layout > * {
+  max-width: none !important;
+}
+
+/* Ensure Fumadocs layout container is transparent to show gradient */
+.docs-content-wrapper #nd-docs-layout {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* Override any fumadocs default backgrounds on content elements */
+.docs-content-wrapper #nd-page,
+.docs-content-wrapper #nd-toc,
+.docs-content-wrapper article,
+.docs-content-wrapper [id^="nd-"]:not(#nd-docs-layout) {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* Style the article/main content area - #nd-page is the article in v16 */
+#nd-page {
+  padding-top: 0 !important;
+  background: transparent !important;
+  max-width: none !important;
+  width: 100% !important;
+}
+
+/* Remove max-width constraints from article content */
+#nd-page article,
+#nd-page > *,
+.docs-content-wrapper article {
+  max-width: none !important;
+}
+
+/* TOC popover styling for mobile (below 1280px) */
+[data-toc-popover] {
+  width: 100% !important;
+}
+
+/* Ensure TOC popover trigger appears at top on mobile */
+[data-toc-popover-trigger] {
+  justify-content: flex-start !important;
+}
+
+/* TOC styling */
+#nd-toc {
+  background: transparent !important;
+  border: none !important;
+  padding: 1rem !important;
+  margin: 0 !important;
+  padding-top: 8rem !important; /* Push TOC below article title */
+}
+
+#nd-toc h3 svg {
+  display: none !important;
+}
+#nd-toc h3 {
+  font-weight: 600 !important;
+}
+#nd-toc a {
+  color: #010507 !important;
+}
+#nd-toc a[data-active="false"] {
+  opacity: 0.6;
+}
+.dark #nd-toc a {
+  color: #ffffff !important;
+}
+
+h2, h3, p {
+  color: #010507 !important;
+}
+
+.dark h2, .dark h3, .dark p {
+  color: #ffffff !important;
+}
+
+.accordion-icon-right button {
+  flex-direction: row-reverse !important;
+  justify-content: space-between;
+  cursor: pointer !important;
+}

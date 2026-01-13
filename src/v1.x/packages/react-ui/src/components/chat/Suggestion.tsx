@@ -10,8 +10,8 @@ interface SuggestionsProps {
 }
 
 export function Suggestion({ title, onClick, partial, className }: SuggestionsProps) {
-  if (!title) return null;
   const { isLoading } = useCopilotChatInternal();
+  if (!title) return null;
 
   return (
     <button
@@ -20,8 +20,9 @@ export function Suggestion({ title, onClick, partial, className }: SuggestionsPr
         e.preventDefault();
         onClick();
       }}
-      className={className || (partial ? "suggestion loading" : "suggestion")}
+      className={`suggestion ${className ?? ""} ${partial ? "loading" : ""}`}
       data-test-id="suggestion"
+      type="button"
     >
       {partial ? SmallSpinnerIcon : <span>{title}</span>}
     </button>
