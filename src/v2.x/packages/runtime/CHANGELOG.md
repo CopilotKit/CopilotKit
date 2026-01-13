@@ -1,5 +1,15 @@
 # @copilotkitnext/runtime
 
+## 1.51.0
+
+### Patch Changes
+
+- 2793a11: test ci
+- 73f196f: Test CI
+- 2839a15: Update versioning strategy
+- Updated dependencies [2839a15]
+  - @copilotkitnext/shared@1.51.0
+
 ## 1.51.0-next.4
 
 ### Patch Changes
