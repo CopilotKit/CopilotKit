@@ -6,4 +6,3 @@ export * from "./runner";
 
 // Export transcription services
 export * from "./transcription-service/transcription-service";
-export * from "./transcription-service/transcription-service-openai";
