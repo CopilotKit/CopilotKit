@@ -1,5 +1,17 @@
 # ui
 
+## 1.51.0
+
+### Patch Changes
+
+- 2839a15: Update versioning strategy
+- Updated dependencies [2839a15]
+- Updated dependencies [2afd4e3]
+  - @copilotkit/runtime-client-gql@1.51.0
+  - @copilotkit/shared@1.51.0
+  - @copilotkitnext/react@1.51.0
+  - @copilotkitnext/core@1.51.0
+
 ## 1.51.0-next.4
 
 ### Patch Changes

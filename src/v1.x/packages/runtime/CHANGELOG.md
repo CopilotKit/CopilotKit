@@ -1,5 +1,21 @@
 # @copilotkit/runtime
 
+## 1.51.0
+
+### Patch Changes
+
+- 2839a15: fix: restore and fix handle method in node http
+- 2839a15: Update versioning strategy
+- 2839a15: fix: use direct hono node integration on node-http integration
+- 4addb72: Fix ci again but really for real this time
+- Updated dependencies [2793a11]
+- Updated dependencies [73f196f]
+- Updated dependencies [2839a15]
+- Updated dependencies [2afd4e3]
+  - @copilotkitnext/runtime@1.51.0
+  - @copilotkit/shared@1.51.0
+  - @copilotkitnext/agent@1.51.0
+
 ## 1.51.0-next.4
 
 ### Patch Changes
