@@ -88,6 +88,38 @@ const runtime = new CopilotRuntime({
 
 Throwing a `Response` from `beforeRequestMiddleware` short-circuits the request. `afterRequestMiddleware` runs in the background and should swallow its own errors.
 
+### Audio Transcription
+
+Enable audio transcription by providing a `transcriptionService`. The `@copilotkitnext/speech` package includes providers:
+
+```ts
+import { CopilotRuntime } from "@copilotkitnext/runtime";
+import { TranscriptionServiceOpenAI } from "@copilotkitnext/speech";
+import OpenAI from "openai";
+
+const runtime = new CopilotRuntime({
+  agents: { default: yourAgent },
+  transcriptionService: new TranscriptionServiceOpenAI({
+    openai: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
+  }),
+});
+```
+
+This enables the `/transcribe` endpoint and shows a microphone button in the chat UI. The `/info` endpoint will report `audioFileTranscriptionEnabled: true`.
+
+For custom providers, extend `TranscriptionService` from runtime:
+
+```ts
+import { TranscriptionService, TranscribeFileOptions } from "@copilotkitnext/runtime";
+
+class MyTranscriptionService extends TranscriptionService {
+  async transcribeFile(options: TranscribeFileOptions): Promise<string> {
+    // options.audioFile, options.mimeType, options.size
+    return "transcribed text";
+  }
+}
+```
+
 ## HTTP Endpoints
 
 Import the helper that matches your server framework and the transport style you want to expose.
