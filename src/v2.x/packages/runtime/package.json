@@ -1,6 +1,6 @@
 {
   "name": "@copilotkitnext/runtime",
-  "version": "0.0.33",
+  "version": "1.51.0",
   "description": "Server-side runtime package for CopilotKit2",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -21,9 +21,8 @@
   },
   "scripts": {
     "build": "tsup",
-    "prepublishOnly": "pnpm run build",
     "dev": "tsup --watch",
-    "lint": "eslint . --max-warnings 0",
+    "lint": "eslint .",
     "check-types": "tsc --noEmit",
     "clean": "rm -rf dist",
     "test": "vitest run",
@@ -32,6 +31,7 @@
   },
   "devDependencies": {
     "@copilotkitnext/eslint-config": "workspace:*",
+    "@copilotkitnext/shared": "workspace:*",
     "@copilotkitnext/typescript-config": "workspace:*",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
@@ -44,16 +44,16 @@
     "vitest": "^3.0.5"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.42",
-    "@ag-ui/core": "0.0.42",
-    "@ag-ui/encoder": "0.0.42",
-    "@copilotkitnext/shared": "workspace:*",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "hono": "^4.6.13",
     "rxjs": "7.8.1"
   },
   "peerDependencies": {
+    "@ag-ui/client": "0.0.42",
+    "@ag-ui/core": "0.0.42",
+    "@ag-ui/encoder": "0.0.42",
+    "@copilotkitnext/shared": "workspace:*",
     "openai": "^5.9.0"
   },
   "peerDependenciesMeta": {},

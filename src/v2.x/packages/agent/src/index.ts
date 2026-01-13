@@ -715,7 +715,7 @@ export class BuiltInAgent extends AbstractAgent {
 
                 // Get tools from this MCP server and merge with existing tools
                 const mcpTools = await mcpClient.tools();
-                streamTextParams.tools = { ...streamTextParams.tools, ...mcpTools };
+                streamTextParams.tools = { ...streamTextParams.tools, ...mcpTools } as ToolSet;
               }
             }
           }
@@ -797,7 +797,9 @@ export class BuiltInAgent extends AbstractAgent {
 
               case "text-start": {
                 // New text message starting - use the SDK-provided id
-                messageId = "id" in part ? (part.id as typeof messageId) : randomUUID();
+                // Use randomUUID() if part.id is falsy or "0" to prevent message merging issues
+                const providedId = "id" in part ? part.id : undefined;
+                messageId = (providedId && providedId !== "0") ? (providedId as typeof messageId) : randomUUID();
                 break;
               }
 

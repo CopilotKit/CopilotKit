@@ -1,5 +1,47 @@
 # node
 
+## 1.4.7
+
+### Patch Changes
+
+- Updated dependencies [2839a15]
+- Updated dependencies [2839a15]
+- Updated dependencies [2afd4e3]
+- Updated dependencies [2839a15]
+- Updated dependencies [4addb72]
+  - @copilotkit/runtime@1.51.0
+  - @copilotkit/shared@1.51.0
+
+## 1.4.7-next.3
+
+### Patch Changes
+
+- @copilotkit/runtime@1.51.0-next.4
+- @copilotkit/shared@1.51.0-next.4
+
+## 1.4.7-next.2
+
+### Patch Changes
+
+- @copilotkit/runtime@1.51.0-next.3
+- @copilotkit/shared@1.51.0-next.3
+
+## 1.4.7-next.1
+
+### Patch Changes
+
+- Updated dependencies [2afd4e3]
+- Updated dependencies [4addb72]
+  - @copilotkit/shared@1.51.0-next.2
+  - @copilotkit/runtime@1.51.0-next.2
+
+## 1.4.7-next.0
+
+### Patch Changes
+
+- @copilotkit/runtime@1.51.0-next.1
+- @copilotkit/shared@1.51.0-next.1
+
 ## 1.4.6
 
 ### Patch Changes
@@ -72,7 +114,6 @@
 - e16d95e: New prerelease
 - 1721cbd: Add convertActionsToDynamicStructuredTools to sdk-js
 - CopilotKit Core:
-
   - Improved error messages and overall logs
   - `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
   - Improved scrolling behavior. It is now possible to scroll up during LLM response generation
@@ -80,7 +121,6 @@
   - Updated interfaces for better developer ergonomics
 
   CoAgents:
-
   - Renamed `remoteActions` to `remoteEndpoints` (backwards compatible, will be deprecated in the future)
   - Support for LangGraph Platform in Remote Endpoints
   - LangGraph JS Support for CoAgents (locally via `langgraph dev`, `langgraph up` or deployed to LangGraph Platform)
@@ -88,7 +128,6 @@
   - Enhanced state management and message handling
 
   CopilotKid Back-end SDK:
-
   - Released a whole-new `@copilotkit/sdk-js` for building agents with LangGraph JS Support
 
 - 8d0144f: bump
@@ -463,7 +502,6 @@ CopilotKid Back-end SDK:
 ### Patch Changes
 
 - inject minified css in bundle
-
   - removes the need to import `styles.css` manually
   - empty `styles.css` included in the build for backwards compatibility
   - uses tsup's `injectStyles` with `postcss` to bundle and minify the CSS, then inject it as a style tag
@@ -607,7 +645,6 @@ CopilotKid Back-end SDK:
 ### Major Changes
 
 - b6a4b6eb: V1.0 Release Candidate
-
   - A robust new protocol between the frontend and the Copilot Runtime
   - Support for Copilot Cloud
   - Generative UI
@@ -615,7 +652,6 @@ CopilotKid Back-end SDK:
   - OpenAI assistant API streaming
 
 - V1.0 Release
-
   - A robust new protocol between the frontend and the Copilot Runtime
   - Support for Copilot Cloud
   - Generative UI

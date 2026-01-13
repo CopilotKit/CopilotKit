@@ -1,98 +1,17 @@
 import { CreateCopilotRuntimeServerOptions, getCommonConfig } from "../shared";
 import telemetry, { getRuntimeInstanceTelemetryInfo } from "../../telemetry-client";
 import { createCopilotEndpointSingleRoute } from "@copilotkitnext/runtime";
-import { IncomingMessage, ServerResponse } from "http";
-import { Readable } from "node:stream";
-
-type IncomingWithBody = IncomingMessage & { body?: unknown; complete?: boolean };
-
-export function readableStreamToNodeStream(webStream: ReadableStream): Readable {
-  const reader = webStream.getReader();
-
-  return new Readable({
-    async read() {
-      try {
-        const { done, value } = await reader.read();
-        if (done) {
-          this.push(null);
-        } else {
-          this.push(Buffer.from(value));
-        }
-      } catch (err) {
-        this.destroy(err as Error);
-      }
-    },
-  });
-}
-
-function getFullUrl(req: IncomingMessage): string {
-  const expressPath =
-    (req as any).originalUrl ??
-    ((req as any).baseUrl ? `${(req as any).baseUrl}${req.url ?? ""}` : undefined);
-  const path = expressPath || req.url || "/";
-  const host =
-    (req.headers["x-forwarded-host"] as string) || (req.headers.host as string) || "localhost";
-  const proto =
-    (req.headers["x-forwarded-proto"] as string) ||
-    ((req.socket as any).encrypted ? "https" : "http");
-
-  return `${proto}://${host}${path}`;
-}
-
-function toHeaders(rawHeaders: IncomingMessage["headers"]): Headers {
-  const headers = new Headers();
-
-  for (const [key, value] of Object.entries(rawHeaders)) {
-    if (value === undefined) continue;
-
-    if (Array.isArray(value)) {
-      value.forEach((entry) => headers.append(key, entry));
-      continue;
-    }
-
-    headers.append(key, value);
-  }
-
-  return headers;
-}
-
-function isStreamConsumed(req: IncomingWithBody): boolean {
-  const readableState = (req as any)._readableState;
-
-  return Boolean(
-    req.readableEnded || req.complete || readableState?.ended || readableState?.endEmitted,
-  );
-}
-
-function synthesizeBodyFromParsedBody(
-  parsedBody: unknown,
-  headers: Headers,
-): { body: BodyInit | null; contentType?: string } {
-  if (parsedBody === null || parsedBody === undefined) {
-    return { body: null };
-  }
-
-  if (parsedBody instanceof Buffer || parsedBody instanceof Uint8Array) {
-    return { body: parsedBody };
-  }
-
-  if (typeof parsedBody === "string") {
-    return { body: parsedBody, contentType: headers.get("content-type") ?? "text/plain" };
-  }
-
-  return {
-    body: JSON.stringify(parsedBody),
-    contentType: "application/json",
-  };
-}
-
-function isDisturbedOrLockedError(error: unknown): boolean {
-  return (
-    error instanceof TypeError &&
-    typeof error.message === "string" &&
-    (error.message.includes("disturbed") || error.message.includes("locked"))
-  );
-}
+import type { IncomingMessage, ServerResponse } from "node:http";
+import {
+  getFullUrl,
+  IncomingWithBody,
+  isDisturbedOrLockedError,
+  isStreamConsumed,
+  nodeStreamToReadableStream,
+  readableStreamToNodeStream,
+  synthesizeBodyFromParsedBody,
+  toHeaders,
+} from "./request-handler";
 
 export function copilotRuntimeNodeHttpEndpoint(options: CreateCopilotRuntimeServerOptions) {
   const commonConfig = getCommonConfig(options);
@@ -124,7 +43,7 @@ export function copilotRuntimeNodeHttpEndpoint(options: CreateCopilotRuntimeServ
     basePath: options.baseUrl ?? options.endpoint,
   });
 
-  return async function handler(req: IncomingWithBody, res: ServerResponse) {
+  const handle = async function handler(req: IncomingWithBody, res: ServerResponse) {
     const url = getFullUrl(req);
     const hasBody = req.method !== "GET" && req.method !== "HEAD";
 
@@ -138,7 +57,7 @@ export function copilotRuntimeNodeHttpEndpoint(options: CreateCopilotRuntimeServ
     let useDuplex = false;
 
     if (hasBody && canStream) {
-      requestBody = req as unknown as BodyInit;
+      requestBody = nodeStreamToReadableStream(req);
       useDuplex = true;
     }
 
@@ -207,5 +126,18 @@ export function copilotRuntimeNodeHttpEndpoint(options: CreateCopilotRuntimeServ
     } else {
       res.end();
     }
+  };
+
+  return function (
+    reqOrRequest: IncomingMessage | Request,
+    res?: ServerResponse,
+  ): Promise<void> | Promise<Response> | Response {
+    if (reqOrRequest instanceof Request) {
+      return honoApp.fetch(reqOrRequest as Request);
+    }
+    if (!res) {
+      throw new TypeError("ServerResponse is required for Node HTTP requests");
+    }
+    return handle(reqOrRequest as IncomingMessage, res);
   };
 }

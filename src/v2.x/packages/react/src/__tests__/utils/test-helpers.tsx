@@ -10,7 +10,7 @@ import {
   type BaseEvent,
   type RunAgentInput,
 } from "@ag-ui/client";
-import { Observable, Subject } from "rxjs";
+import { Observable, Subject, from, delay } from "rxjs";
 import { ReactActivityMessageRenderer, ReactToolCallRenderer } from "@/types";
 import { ReactCustomMessageRenderer } from "@/types/react-custom-message-renderer";
 
@@ -55,6 +55,65 @@ export class MockStepwiseAgent extends AbstractAgent {
 
   run(_input: RunAgentInput): Observable<BaseEvent> {
     return this.subject.asObservable();
+  }
+}
+
+/**
+ * A mock agent that supports both run() and connect() for testing reconnection scenarios.
+ * On run(), emits events and stores them.
+ * On connect(), replays stored events (simulating thread history replay).
+ */
+export class MockReconnectableAgent extends AbstractAgent {
+  private subject = new Subject<BaseEvent>();
+  private storedEvents: BaseEvent[] = [];
+
+  /**
+   * Emit a single agent event during run
+   */
+  emit(event: BaseEvent) {
+    if (event.type === EventType.RUN_STARTED) {
+      this.isRunning = true;
+    } else if (
+      event.type === EventType.RUN_FINISHED ||
+      event.type === EventType.RUN_ERROR
+    ) {
+      this.isRunning = false;
+    }
+    this.storedEvents.push(event);
+    act(() => {
+      this.subject.next(event);
+    });
+  }
+
+  /**
+   * Complete the agent stream
+   */
+  complete() {
+    this.isRunning = false;
+    act(() => {
+      this.subject.complete();
+    });
+  }
+
+  /**
+   * Reset for reconnection test - creates new subject for connect
+   */
+  reset() {
+    this.subject = new Subject<BaseEvent>();
+  }
+
+  clone(): MockReconnectableAgent {
+    return this;
+  }
+
+  run(_input: RunAgentInput): Observable<BaseEvent> {
+    return this.subject.asObservable();
+  }
+
+  connect(_input: RunAgentInput): Observable<BaseEvent> {
+    // Replay stored events with async delay to simulate HTTP transport
+    // This is critical for reproducing timing bugs that occur in real scenarios
+    return from(this.storedEvents).pipe(delay(10));
   }
 }
 

@@ -1,6 +1,0 @@
-packages:
-  - "packages/*"
-  - "apps/docs"
-  - "apps/react/*"
-  - "apps/angular/*"
-  - "apps/node"
