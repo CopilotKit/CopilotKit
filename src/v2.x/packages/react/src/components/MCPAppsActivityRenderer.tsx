@@ -12,38 +12,41 @@ const PROTOCOL_VERSION = "2025-06-18";
  */
 export const MCPAppsActivityType = "mcp-apps";
 
-// Zod schema for activity content validation
+// Zod schema for activity content validation (middleware 0.0.2 format)
 export const MCPAppsActivityContentSchema = z.object({
   result: z.object({
     content: z.array(z.any()).optional(),
     structuredContent: z.any().optional(),
     isError: z.boolean().optional(),
   }),
-  resource: z.object({
-    uri: z.string(),
-    mimeType: z.string().optional(),
-    text: z.string().optional(),
-    blob: z.string().optional(),
-    // Resource metadata per SEP-1865
-    _meta: z.object({
-      ui: z.object({
-        // Visual boundary preference: true = show border/background, false = none, omitted = host decides
-        prefersBorder: z.boolean().optional(),
-        // CSP configuration (for future use)
-        csp: z.object({
-          connectDomains: z.array(z.string()).optional(),
-          resourceDomains: z.array(z.string()).optional(),
-        }).optional(),
-      }).optional(),
-    }).optional(),
-  }),
-  // Server ID for proxying requests (MD5 hash of server config)
+  // Resource URI to fetch (e.g., "ui://server/dashboard")
+  resourceUri: z.string(),
+  // MD5 hash of server config (renamed from serverId in 0.0.1)
+  serverHash: z.string(),
+  // Optional stable server ID from config (takes precedence over serverHash)
   serverId: z.string().optional(),
   // Original tool input arguments
   toolInput: z.record(z.unknown()).optional(),
 });
 
 export type MCPAppsActivityContent = z.infer<typeof MCPAppsActivityContentSchema>;
+
+// Type for the resource fetched from the server
+interface FetchedResource {
+  uri: string;
+  mimeType?: string;
+  text?: string;
+  blob?: string;
+  _meta?: {
+    ui?: {
+      prefersBorder?: boolean;
+      csp?: {
+        connectDomains?: string[];
+        resourceDomains?: string[];
+      };
+    };
+  };
+}
 
 interface JSONRPCRequest {
   jsonrpc: "2.0";
@@ -76,20 +79,6 @@ function isNotification(msg: JSONRPCMessage): msg is JSONRPCNotification {
 }
 
 /**
- * Extract HTML content from a resource object
- */
-function extractHtmlFromResource(resource: MCPAppsActivityContent["resource"]): string {
-  if (resource.text) {
-    return resource.text;
-  }
-  if (resource.blob) {
-    // Base64 decode
-    return atob(resource.blob);
-  }
-  throw new Error("Resource has no text or blob content");
-}
-
-/**
  * Props for the activity renderer component
  */
 interface MCPAppsActivityRendererProps {
@@ -100,35 +89,20 @@ interface MCPAppsActivityRendererProps {
 }
 
 /**
- * Custom comparison function for React.memo
- * Only re-render when actual content changes, not when parent re-renders
- */
-function arePropsEqual(
-  prevProps: MCPAppsActivityRendererProps,
-  nextProps: MCPAppsActivityRendererProps
-): boolean {
-  // Re-render if resource URI changes
-  if (prevProps.content.resource.uri !== nextProps.content.resource.uri) return false;
-  // Re-render if tool result changes
-  if (prevProps.content.result !== nextProps.content.result) return false;
-  // Re-render if tool input changes
-  if (prevProps.content.toolInput !== nextProps.content.toolInput) return false;
-  // Don't re-render for agent reference changes - we use agentRef internally
-  return true;
-}
-
-/**
  * MCP Apps Extension Activity Renderer
  *
  * Renders MCP Apps UI in a sandboxed iframe with full protocol support.
- * Memoized to prevent unnecessary re-renders when parent components update.
+ * Fetches resource content on-demand via proxied MCP requests.
  */
-export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> = React.memo(function MCPAppsActivityRenderer({ content, agent }) {
+export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> = function MCPAppsActivityRenderer({ content, agent }) {
+
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [iframeReady, setIframeReady] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [iframeSize, setIframeSize] = useState<{ width?: number; height?: number }>({});
+  const [fetchedResource, setFetchedResource] = useState<FetchedResource | null>(null);
 
   // Use refs for values that shouldn't trigger re-renders but need latest values
   const contentRef = useRef(content);
@@ -137,6 +111,13 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> = R
   // Store agent in a ref for use in async handlers
   const agentRef = useRef(agent);
   agentRef.current = agent;
+
+  // Ref to track fetch state - survives StrictMode remounts
+  const fetchStateRef = useRef<{
+    inProgress: boolean;
+    promise: Promise<FetchedResource | null> | null;
+    resourceUri: string | null;
+  }>({ inProgress: false, promise: null, resourceUri: null });
 
   // Callback to send a message to the iframe
   const sendToIframe = useCallback((msg: JSONRPCMessage) => {
@@ -173,11 +154,132 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> = R
     });
   }, [sendToIframe]);
 
-  // Effect 1: Setup sandbox proxy iframe and communication
+  // Effect 0: Fetch the resource content on mount
+  // Uses ref-based deduplication to handle React StrictMode double-mounting
   useEffect(() => {
+    const { resourceUri, serverHash, serverId } = content;
+
+    // Check if we already have a fetch in progress for this resource
+    // This handles StrictMode double-mounting - second mount reuses first mount's promise
+    if (fetchStateRef.current.inProgress && fetchStateRef.current.resourceUri === resourceUri) {
+      // Reuse the existing promise
+      fetchStateRef.current.promise?.then((resource) => {
+        if (resource) {
+          setFetchedResource(resource);
+          setIsLoading(false);
+        }
+      }).catch((err) => {
+        setError(err instanceof Error ? err : new Error(String(err)));
+        setIsLoading(false);
+      });
+      return;
+    }
+
+    if (!agent) {
+      setError(new Error("No agent available to fetch resource"));
+      setIsLoading(false);
+      return;
+    }
+
+    // Mark fetch as in progress
+    fetchStateRef.current.inProgress = true;
+    fetchStateRef.current.resourceUri = resourceUri;
+
+    // Create the fetch promise
+    const fetchPromise = (async (): Promise<FetchedResource | null> => {
+      try {
+        // Wait for any active run to complete before fetching resource
+        // This prevents "Thread already running" errors
+        if (agent.isRunning) {
+          await new Promise<void>((resolve) => {
+            let resolved = false;
+            const sub = agent.subscribe({
+              onRunFinalized: () => {
+                if (!resolved) {
+                  resolved = true;
+                  sub.unsubscribe();
+                  resolve();
+                }
+              },
+              onRunFailed: () => {
+                if (!resolved) {
+                  resolved = true;
+                  sub.unsubscribe();
+                  resolve();
+                }
+              },
+            });
+            // Timeout in case run finished between check and subscription
+            setTimeout(() => {
+              if (!resolved && !agent.isRunning) {
+                resolved = true;
+                sub.unsubscribe();
+                resolve();
+              }
+            }, 100);
+          });
+        }
+
+        // Fetch resource via proxied MCP request
+        const runResult = await agent.runAgent({
+          forwardedProps: {
+            __proxiedMCPRequest: {
+              serverHash,
+              serverId, // optional, takes precedence if provided
+              method: "resources/read",
+              params: { uri: resourceUri },
+            },
+          },
+        });
+
+        // Extract resource from result
+        // The response format is: { contents: [{ uri, mimeType, text?, blob?, _meta? }] }
+        const resultData = runResult.result as { contents?: FetchedResource[] } | undefined;
+        const resource = resultData?.contents?.[0];
+
+        if (!resource) {
+          throw new Error("No resource content in response");
+        }
+
+        return resource;
+      } catch (err) {
+        console.error("[MCPAppsRenderer] Failed to fetch resource:", err);
+        throw err;
+      } finally {
+        // Mark fetch as complete
+        fetchStateRef.current.inProgress = false;
+      }
+    })();
+
+    // Store the promise for potential reuse
+    fetchStateRef.current.promise = fetchPromise;
+
+    // Handle the result
+    fetchPromise.then((resource) => {
+      if (resource) {
+        setFetchedResource(resource);
+        setIsLoading(false);
+      }
+    }).catch((err) => {
+      setError(err instanceof Error ? err : new Error(String(err)));
+      setIsLoading(false);
+    });
+
+    // No cleanup needed - we want the fetch to complete even if StrictMode unmounts
+  }, [agent, content]);
+
+  // Effect 1: Setup sandbox proxy iframe and communication (after resource is fetched)
+  useEffect(() => {
+    // Wait for resource to be fetched
+    if (isLoading || !fetchedResource) {
+      return;
+    }
+
     // Capture container reference at effect start (refs are cleared during unmount)
     const container = containerRef.current;
-    if (!container) return;
+    if (!container) {
+      return;
+    }
 
     let mounted = true;
     let messageHandler: ((event: MessageEvent) => void) | null = null;
@@ -315,11 +417,11 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> = R
 
               case "tools/call": {
                 // Proxy tool call to MCP server via agent.runAgent()
-                const { serverId } = contentRef.current;
+                const { serverHash, serverId } = contentRef.current;
                 const currentAgent = agentRef.current;
 
-                if (!serverId) {
-                  sendErrorResponse(msg.id, -32603, "No server ID available for proxying");
+                if (!serverHash) {
+                  sendErrorResponse(msg.id, -32603, "No server hash available for proxying");
                   break;
                 }
 
@@ -329,12 +431,45 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> = R
                 }
 
                 try {
+                  // Wait for any active run to complete before proxying tool call
+                  // This prevents "Thread already running" errors
+                  if (currentAgent.isRunning) {
+                    await new Promise<void>((resolve) => {
+                      let resolved = false;
+                      const sub = currentAgent.subscribe({
+                        onRunFinalized: () => {
+                          if (!resolved) {
+                            resolved = true;
+                            sub.unsubscribe();
+                            resolve();
+                          }
+                        },
+                        onRunFailed: () => {
+                          if (!resolved) {
+                            resolved = true;
+                            sub.unsubscribe();
+                            resolve();
+                          }
+                        },
+                      });
+                      // Timeout in case run finished between check and subscription
+                      setTimeout(() => {
+                        if (!resolved && !currentAgent.isRunning) {
+                          resolved = true;
+                          sub.unsubscribe();
+                          resolve();
+                        }
+                      }, 100);
+                    });
+                  }
+
                   // Use agent.runAgent() to proxy the MCP request
                   // The middleware will intercept forwardedProps.__proxiedMCPRequest
                   const runResult = await currentAgent.runAgent({
                     forwardedProps: {
                       __proxiedMCPRequest: {
-                        serverId,
+                        serverHash,
+                        serverId, // optional, takes precedence if provided
                         method: "tools/call",
                         params: msg.params,
                       },
@@ -389,8 +524,17 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> = R
 
         window.addEventListener("message", messageHandler);
 
-        // Send the HTML resource to the sandbox proxy
-        const html = extractHtmlFromResource(content.resource);
+        // Extract HTML content from fetched resource
+        let html: string;
+        if (fetchedResource.text) {
+          html = fetchedResource.text;
+        } else if (fetchedResource.blob) {
+          html = atob(fetchedResource.blob);
+        } else {
+          throw new Error("Resource has no text or blob content");
+        }
+
+        // Send the resource content to the sandbox proxy
         sendNotification("ui/notifications/sandbox-resource-ready", { html });
 
       } catch (err) {
@@ -421,7 +565,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> = R
       }
       iframeRef.current = null;
     };
-  }, [content.resource, sendNotification, sendResponse, sendErrorResponse]);
+  }, [isLoading, fetchedResource, sendNotification, sendResponse, sendErrorResponse]);
 
   // Effect 2: Update iframe size when it changes
   useEffect(() => {
@@ -455,9 +599,9 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> = R
     }
   }, [iframeReady, content.result, sendNotification]);
 
-  // Determine border styling based on prefersBorder metadata
+  // Determine border styling based on prefersBorder metadata from fetched resource
   // true = show border/background, false = none, undefined = host decides (we default to none)
-  const prefersBorder = content.resource._meta?.ui?.prefersBorder;
+  const prefersBorder = fetchedResource?._meta?.ui?.prefersBorder;
   const borderStyle = prefersBorder === true
     ? {
         borderRadius: "8px",
@@ -474,9 +618,15 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> = R
         height: iframeSize.height ? `${iframeSize.height}px` : "auto",
         minHeight: "100px",
         overflow: "hidden",
+        position: "relative",
         ...borderStyle,
       }}
     >
+      {isLoading && (
+        <div style={{ padding: "1rem", color: "#666" }}>
+          Loading...
+        </div>
+      )}
       {error && (
         <div style={{ color: "red", padding: "1rem" }}>
           Error: {error.message}
@@ -484,4 +634,4 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> = R
       )}
     </div>
   );
-}, arePropsEqual);
+};

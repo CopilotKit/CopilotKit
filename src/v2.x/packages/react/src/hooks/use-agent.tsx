@@ -3,7 +3,6 @@ import { useMemo, useEffect, useReducer } from "react";
 import { DEFAULT_AGENT_ID } from "@copilotkitnext/shared";
 import { AbstractAgent } from "@ag-ui/client";
 import { ProxiedCopilotRuntimeAgent, CopilotKitCoreRuntimeConnectionStatus } from "@copilotkitnext/core";
-import { Observable } from "rxjs";
 
 export enum UseAgentUpdate {
   OnMessagesChanged = "OnMessagesChanged",
@@ -88,31 +87,25 @@ export function useAgent({ agentId, updates }: UseAgentProps = {}) {
     const handlers: Parameters<AbstractAgent["subscribe"]>[0] = {};
 
     if (updateFlags.includes(UseAgentUpdate.OnMessagesChanged)) {
+      // Content stripping for immutableContent renderers is handled by CopilotKitCoreReact
       handlers.onMessagesChanged = () => {
         forceUpdate();
       };
     }
 
     if (updateFlags.includes(UseAgentUpdate.OnStateChanged)) {
-      handlers.onStateChanged = () => {
-        forceUpdate();
-      };
+      handlers.onStateChanged = forceUpdate;
     }
 
     if (updateFlags.includes(UseAgentUpdate.OnRunStatusChanged)) {
-      handlers.onRunInitialized = () => {
-        forceUpdate();
-      };
-      handlers.onRunFinalized = () => {
-        forceUpdate();
-      };
-      handlers.onRunFailed = () => {
-        forceUpdate();
-      };
+      handlers.onRunInitialized = forceUpdate;
+      handlers.onRunFinalized = forceUpdate;
+      handlers.onRunFailed = forceUpdate;
     }
 
     const subscription = agent.subscribe(handlers);
     return () => subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent, forceUpdate, JSON.stringify(updateFlags)]);
 
   return {
