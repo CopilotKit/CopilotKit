@@ -82,9 +82,9 @@ const IntegrationSelector = ({
   const router = useRouter()
   const isClearing = useRef(false)
 
-  // Load persisted selection on mount
+  // Load persisted selection on mount (using sessionStorage for tab-specific state)
   useEffect(() => {
-    const persistedSelection = localStorage.getItem('selectedIntegration')
+    const persistedSelection = sessionStorage.getItem('selectedIntegration')
     if (persistedSelection && persistedSelection !== 'null') {
       setSelectedIntegration(persistedSelection as Integration)
     }
@@ -95,8 +95,8 @@ const IntegrationSelector = ({
     const handleClearSelection = () => {
       // Set flag to prevent pathname effect from re-selecting
       isClearing.current = true
-      // Clear localStorage immediately to prevent race condition
-      localStorage.removeItem('selectedIntegration')
+      // Clear sessionStorage immediately to prevent race condition
+      sessionStorage.removeItem('selectedIntegration')
       flushSync(() => {
         setSelectedIntegration(null)
       })
@@ -111,12 +111,12 @@ const IntegrationSelector = ({
     }
   }, [setSelectedIntegration])
 
-  // Persist selection to localStorage when it changes
+  // Persist selection to sessionStorage when it changes (tab-specific)
   useEffect(() => {
     if (selectedIntegration) {
-      localStorage.setItem('selectedIntegration', selectedIntegration)
+      sessionStorage.setItem('selectedIntegration', selectedIntegration)
     } else {
-      localStorage.removeItem('selectedIntegration')
+      sessionStorage.removeItem('selectedIntegration')
     }
   }, [selectedIntegration])
 
@@ -134,8 +134,8 @@ const IntegrationSelector = ({
     if (selectedIntegration === integrationKey) {
       // Set flag to prevent pathname effect from re-selecting
       isClearing.current = true
-      localStorage.removeItem('selectedIntegration')
-      localStorage.setItem('lastDocsPath', '/')
+      sessionStorage.removeItem('selectedIntegration')
+      sessionStorage.setItem('lastDocsPath', '/')
       flushSync(() => {
         setSelectedIntegration(null)
       })
@@ -180,10 +180,10 @@ const IntegrationSelector = ({
     }
   }, [pathname, selectedIntegration, setSelectedIntegration])
 
-  // Track last visited docs page (not reference)
+  // Track last visited docs page (not reference) - tab-specific
   useEffect(() => {
     if (!pathname.startsWith('/reference')) {
-      localStorage.setItem('lastDocsPath', pathname)
+      sessionStorage.setItem('lastDocsPath', pathname)
     }
   }, [pathname])
 
