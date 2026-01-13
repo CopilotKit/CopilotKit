@@ -8,9 +8,6 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 jobs:
   custom-pre:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: "src/v1.x"
     timeout-minutes: 10
     steps:
       - name: Checkout Repo
@@ -19,7 +16,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: "9.5"
+          version: "10.13.1"
 
       - name: Setup Node
         uses: actions/setup-node@v4

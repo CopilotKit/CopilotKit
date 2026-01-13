@@ -11,9 +11,6 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 jobs:
   release:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: "src/v1.x"
     timeout-minutes: 10
     steps:
       - name: Checkout Repo
@@ -30,7 +27,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: "9.5"
+          version: "10.13.1"
 
       - name: Install Dependencies
         run: pnpm i
@@ -52,13 +49,20 @@ jobs:
       - name: Get current version
         id: current-version
         run: |
-          echo "version=$(node -p "require('./packages/react-core/package.json').version")" >> "$GITHUB_OUTPUT"
+          echo "version=$(node -p "require('./src/v1.x/packages/react-core/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare version
+        id: prepare-version
+        run: |
+          pnpm changeset version
+
+      - name: Build
+        id: build
+        run: pnpm run build:packages
 
       - name: NPM Publish
         id: publish
         run: |
-          pnpm changeset version
-          pnpm run build
           pnpm changeset publish --no-git-tag 2>&1 | tee publish-output.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -67,7 +71,7 @@ jobs:
       - name: Get new version
         id: new-version
         run: |
-          echo "version=$(node -p "require('./packages/react-core/package.json').version")" >> "$GITHUB_OUTPUT"
+          echo "version=$(node -p "require('./src/v1.x/packages/react-core/package.json').version")" >> "$GITHUB_OUTPUT"
 
       - name: Check if published
         id: check-if-published
