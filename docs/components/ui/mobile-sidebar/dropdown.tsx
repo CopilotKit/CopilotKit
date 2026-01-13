@@ -23,9 +23,9 @@ const Dropdown = ({ onSelect }: DropdownProps) => {
   const pathname = usePathname()
   const [lastDocsPath, setLastDocsPath] = useState<string | null>(null)
 
-  // Read localStorage on client only to avoid hydration mismatch
+  // Read sessionStorage on client only to avoid hydration mismatch (tab-specific)
   useEffect(() => {
-    setLastDocsPath(localStorage.getItem('lastDocsPath'))
+    setLastDocsPath(sessionStorage.getItem('lastDocsPath'))
   }, [])
 
   // Get the appropriate href for Documentation link
