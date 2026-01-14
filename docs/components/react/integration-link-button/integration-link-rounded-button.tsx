@@ -11,7 +11,7 @@ export const IntegrationLinkRoundedButton = ({ label, Icon, href }: IntegrationL
   return (
     <Link href={href} className='w-full no-underline h-9 lg:min-h-[60px] hover:opacity-100'>
       <div
-        className={`flex gap-2 justify-between items-center p-1 w-full h-full rounded-full bg-[#FFFFFF80]/50 dark:bg-background/50 hover:bg-white/50 dark:hover:bg-[#1A2022] group pr-4`}>
+        className={`flex gap-2 justify-between items-center p-1 w-full h-full rounded-full bg-white dark:bg-background/50 hover:bg-white dark:hover:bg-[#1A2022] group pr-4 border border-black/5 dark:border-transparent`}>
         <div className='flex gap-2 justify-start items-center w-full min-w-0 overflow-hidden'>
           <div
             className={`w-9 lg:w-[52px] h-9 lg:h-[52px] flex shrink-0 items-center justify-center bg-[#0105070D] dark:bg-white/5 rounded-full group-hover:bg-[#BEC2FF] dark:group-hover:bg-[#7076D5] transition-all duration-200`}>
