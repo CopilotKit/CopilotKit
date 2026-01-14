@@ -21,8 +21,20 @@ const agent = new BasicAgent({
   prompt: "You are a helpful AI assistant with access to MCP apps and tools.",
   temperature: 0.7,
 }).use(new MCPAppsMiddleware({
+  // Port assignments - verified by checking each server's tools
   mcpServers: [
-    { type: "http", url: "http://localhost:3001/mcp" }
+    { type: "http", url: "http://localhost:3101/mcp" }, // basic-server-react (get-time)
+    { type: "http", url: "http://localhost:3102/mcp" }, // basic-server-vanillajs (get-time)
+    { type: "http", url: "http://localhost:3103/mcp" }, // budget-allocator-server (get-budget-data)
+    { type: "http", url: "http://localhost:3104/mcp" }, // cohort-heatmap-server (get-cohort-data)
+    { type: "http", url: "http://localhost:3105/mcp" }, // customer-segmentation-server (get-customer-data)
+    { type: "http", url: "http://localhost:3106/mcp" }, // integration-server (get-time)
+    { type: "http", url: "http://localhost:3107/mcp" }, // scenario-modeler-server (get-scenario-data)
+    { type: "http", url: "http://localhost:3108/mcp" }, // sheet-music-server (play-sheet-music)
+    { type: "http", url: "http://localhost:3109/mcp" }, // system-monitor-server (get-system-stats)
+    { type: "http", url: "http://localhost:3110/mcp" }, // threejs-server (show_threejs_scene)
+    { type: "http", url: "http://localhost:3111/mcp" }, // video-resource-server (play_video)
+    { type: "http", url: "http://localhost:3112/mcp" }, // wiki-explorer-server (get-first-degree-links)
   ],
 }));
 
