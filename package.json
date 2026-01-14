@@ -50,7 +50,7 @@
     "docs:classic": "ts-node src/v1.x/scripts/docs/gen.ts",
 
     "demo:next:angular": "turbo run dev --filter='@copilotkitnext/angular-demo-server' --filter='@copilotkitnext/angular-demo'",
-    "demo:next:react": "pnpm -C src/apps/react/demo dev",
+    "demo:next:react": "pnpm -C src/v2.x/apps/react/demo dev",
     "dev:next:packages": "turbo run dev --filter='@copilotkitnext/core' --filter='@copilotkitnext/shared' --filter='@copilotkitnext/web-inspector' --filter='@copilotkitnext/runtime' --filter='@copilotkitnext/sqlite-runner' --filter='@copilotkitnext/react' --filter='@copilotkitnext/angular' --filter='@copilotkitnext/agent'",
 
     "prepare": "husky"
