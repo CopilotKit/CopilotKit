@@ -106,7 +106,7 @@ jobs:
       - name: Git Tag
         if: ${{ steps.check-if-published.outputs.published == 'true' && steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'false' }}
         run: |
-          node -p "require('./scripts/release/generate-changelog')('${{ steps.new-version.outputs.version }}')" > changelog.txt
+          node -p "require('./src/v1.x/scripts/release/generate-changelog')('${{ steps.new-version.outputs.version }}')" > changelog.txt
           git tag -a v${{ steps.new-version.outputs.version }} -m "Release ${{ steps.new-version.outputs.version }}"
           git push origin v${{ steps.new-version.outputs.version }}
           git push origin main --force
