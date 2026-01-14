@@ -701,7 +701,7 @@ describe("MCP Apps Activity Renderer E2E", () => {
       // so we verify both iframes are eventually created.
       await waitFor(
         () => {
-          const iframes = document.querySelectorAll('iframe[src="/sandbox.html"]');
+          const iframes = document.querySelectorAll('iframe[srcdoc]');
           expect(iframes.length).toBe(2);
         },
         { timeout: 2000 }
@@ -808,10 +808,10 @@ describe("MCP Apps Activity Renderer E2E", () => {
     });
 
     it("handles resource with no text or blob - iframe created but stuck waiting for sandbox", async () => {
-      // NOTE: In jsdom, the sandbox.html can't be loaded, so the component will create
-      // an iframe and wait for the sandbox proxy to be ready. The actual error for
-      // missing text/blob happens inside the sandbox communication flow which can't
-      // complete in jsdom. This test verifies that:
+      // NOTE: In jsdom, the sandbox iframe (using srcdoc) can't fully execute, so the
+      // component will create an iframe and wait for the sandbox proxy to be ready.
+      // The actual error for missing text/blob happens inside the sandbox communication
+      // flow which can't complete in jsdom. This test verifies that:
       // 1. The component fetches the resource successfully
       // 2. The iframe is created (showing the component progressed past loading)
 
@@ -862,7 +862,7 @@ describe("MCP Apps Activity Renderer E2E", () => {
       // is never reached. This is a limitation of jsdom testing.
       await waitFor(
         () => {
-          const iframe = document.querySelector('iframe[src="/sandbox.html"]');
+          const iframe = document.querySelector('iframe[srcdoc]');
           expect(iframe).not.toBeNull();
         },
         { timeout: 2000 }
@@ -923,7 +923,7 @@ describe("MCP Apps Activity Renderer E2E", () => {
           // Loading should disappear
           expect(screen.queryByText("Loading...")).toBeNull();
           // Iframe should be created
-          const iframe = document.querySelector('iframe[src="/sandbox.html"]');
+          const iframe = document.querySelector('iframe[srcdoc]');
           expect(iframe).not.toBeNull();
         },
         { timeout: 3000 }
