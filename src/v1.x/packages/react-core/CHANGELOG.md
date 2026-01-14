@@ -1,5 +1,16 @@
 # ui
 
+## 1.51.1
+
+### Patch Changes
+
+- 329653b: Add support for MCP Apps Middleware
+- Updated dependencies [329653b]
+  - @copilotkitnext/react@1.51.1
+  - @copilotkit/runtime-client-gql@1.51.1
+  - @copilotkit/shared@1.51.1
+  - @copilotkitnext/core@1.51.1
+
 ## 1.51.0
 
 ### Patch Changes

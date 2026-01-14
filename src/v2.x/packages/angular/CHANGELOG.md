@@ -1,5 +1,12 @@
 # @copilotkitnext/angular
 
+## 1.51.1
+
+### Patch Changes
+
+- @copilotkitnext/core@1.51.1
+- @copilotkitnext/shared@1.51.1
+
 ## 1.51.0
 
 ### Patch Changes

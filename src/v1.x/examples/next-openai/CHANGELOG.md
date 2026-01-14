@@ -1,5 +1,17 @@
 # web
 
+## 1.4.8
+
+### Patch Changes
+
+- Updated dependencies [329653b]
+  - @copilotkit/react-core@1.51.1
+  - @copilotkit/runtime@1.51.1
+  - @copilotkit/react-textarea@1.51.1
+  - @copilotkit/react-ui@1.51.1
+  - @copilotkit/runtime-client-gql@1.51.1
+  - @copilotkit/shared@1.51.1
+
 ## 1.4.7
 
 ### Patch Changes

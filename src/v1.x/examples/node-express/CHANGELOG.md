@@ -1,5 +1,12 @@
 # node
 
+## 1.4.8
+
+### Patch Changes
+
+- @copilotkit/runtime@1.51.1
+- @copilotkit/shared@1.51.1
+
 ## 1.4.7
 
 ### Patch Changes

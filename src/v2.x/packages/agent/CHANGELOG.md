@@ -1,5 +1,11 @@
 # @copilotkitnext/agent
 
+## 1.51.1
+
+### Patch Changes
+
+- 329653b: Add support for MCP Apps Middleware
+
 ## 1.51.0
 
 ### Patch Changes
