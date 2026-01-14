@@ -14,7 +14,7 @@ export function IntegrationsSelectorDarkDesktop({ className, rows = 3, rowHeight
   
   // Connector coordinates in viewBox space
   const CONNECTOR_START_X = 0;
-  const CONNECTOR_END_X = 102;
+  const CONNECTOR_END_X = 60;
   const svgWidth = CONNECTOR_END_X;
   
   // Kite center at SVG vertical center (which aligns with grid center due to items-center)
@@ -25,7 +25,7 @@ export function IntegrationsSelectorDarkDesktop({ className, rows = 3, rowHeight
     return rowIndex * ROW_SPACING + rowHeight / 2;
   };
 
-  // Generate connector path - horizontal first, then curve to target
+  // Generate connector path - smooth diagonal arc from center to target row
   const getConnectorPath = (rowIndex: number) => {
     const targetY = getRowY(rowIndex);
     const startX = CONNECTOR_START_X;
@@ -33,11 +33,17 @@ export function IntegrationsSelectorDarkDesktop({ className, rows = 3, rowHeight
     const distanceFromCenter = Math.abs(targetY - KITE_CENTER_Y);
     
     if (distanceFromCenter < 5) {
+      // Nearly horizontal - straight line
       return `M${startX} ${KITE_CENTER_Y}H${endX}`;
     } else {
-      const midX = startX + 20;
-      const curveStartX = midX + 20;
-      return `M${startX} ${KITE_CENTER_Y}L${midX} ${KITE_CENTER_Y}C${curveStartX} ${KITE_CENTER_Y} ${curveStartX + 30} ${targetY} ${endX} ${targetY}`;
+      // Diagonal arc: control points shifted to create more diagonal trajectory
+      // First control point: partway across X, partway toward target Y
+      // Second control point: closer to end, at target Y
+      const cp1X = startX + 15;
+      const cp1Y = KITE_CENTER_Y + (targetY - KITE_CENTER_Y) * 0.7;
+      const cp2X = startX + 35;
+      const cp2Y = targetY;
+      return `M${startX} ${KITE_CENTER_Y}C${cp1X} ${cp1Y} ${cp2X} ${cp2Y} ${endX} ${targetY}`;
     }
   };
 

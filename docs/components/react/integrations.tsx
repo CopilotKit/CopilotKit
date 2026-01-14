@@ -107,7 +107,7 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
           <KiteIconDark className='hidden dark:block w-[120px] h-[120px]' />
         </div>
         {/* Connectors SVG - overlaps with kite to attach to circle edge */}
-        <div className='-ml-[20px]'>
+        <div className='-ml-[40px]'>
           <IntegrationsSelectorLightDesktop 
             className='block dark:hidden' 
             rows={Math.ceil(filteredIntegrations.length / 4)} 
