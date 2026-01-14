@@ -1,5 +1,6 @@
 import { IntegrationsSelectorLightDesktop } from './integrations-index-selector/integrations-selector-light-desktop';
 import { IntegrationsSelectorDarkDesktop } from './integrations-index-selector/integrations-selector-dark-desktop';
+import { KiteIconLight, KiteIconDark } from './integrations-index-selector/kite-icon';
 import { IntegrationsSelectorLightMobile } from './integrations-index-selector/integrations-selector-light-mobile';
 import { IntegrationsSelectorDarkMobile } from './integrations-index-selector/integrations-selector-dark-mobile';
 import { IntegrationLinkRoundedButton } from './integration-link-button/integration-link-rounded-button';
@@ -100,8 +101,24 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
     <div className='flex flex-row flex-wrap justify-center items-center gap-x-6 gap-y-6 my-8'>
       {/* Large desktop: 4 columns (2xl+) */}
       <div className='hidden 2xl:flex items-center'>
-        <IntegrationsSelectorLightDesktop className='h-48 block dark:hidden' />
-        <IntegrationsSelectorDarkDesktop className='h-48 hidden dark:block' />
+        {/* Kite icon - positioned separately to avoid SVG distortion */}
+        <div className='relative flex items-center'>
+          <KiteIconLight className='block dark:hidden w-[120px] h-[120px]' />
+          <KiteIconDark className='hidden dark:block w-[120px] h-[120px]' />
+        </div>
+        {/* Connectors SVG - overlaps with kite to attach to circle edge */}
+        <div className='-ml-[20px]'>
+          <IntegrationsSelectorLightDesktop 
+            className='block dark:hidden' 
+            rows={Math.ceil(filteredIntegrations.length / 4)} 
+            rowHeight={60} 
+          />
+          <IntegrationsSelectorDarkDesktop 
+            className='hidden dark:block' 
+            rows={Math.ceil(filteredIntegrations.length / 4)} 
+            rowHeight={60} 
+          />
+        </div>
         <div className='grid grid-cols-4 gap-2'>
           {filteredIntegrations.map((integration) => (
             <IntegrationLinkRoundedButton
