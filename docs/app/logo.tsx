@@ -21,9 +21,9 @@ export function Logo({
   height = DESKTOP_HEIGHT,
 }: LogoProps) {
   const handleLogoClick = (e: React.MouseEvent) => {
-    // Clear the integration selection from localStorage
-    localStorage.removeItem('selectedIntegration')
-    localStorage.setItem('lastDocsPath', '/')
+    // Clear the integration selection from sessionStorage (tab-specific)
+    sessionStorage.removeItem('selectedIntegration')
+    sessionStorage.setItem('lastDocsPath', '/')
     // Dispatch custom event to notify IntegrationSelector
     window.dispatchEvent(new CustomEvent('clearIntegrationSelection'))
   }

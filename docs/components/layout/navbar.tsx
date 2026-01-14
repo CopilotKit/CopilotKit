@@ -74,9 +74,9 @@ const Navbar = ({ pageTree }: NavbarProps) => {
   const [lastDocsPath, setLastDocsPath] = useState<string | null>(null)
   const pathname = usePathname()
 
-  // Read localStorage on client only to avoid hydration mismatch
+  // Read sessionStorage on client only to avoid hydration mismatch (tab-specific)
   useEffect(() => {
-    setLastDocsPath(localStorage.getItem('lastDocsPath'))
+    setLastDocsPath(sessionStorage.getItem('lastDocsPath'))
   }, [])
 
   // Determine active route based on current path
