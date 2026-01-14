@@ -95,8 +95,8 @@ export function KiteIconDark({ className }: { className?: string }) {
       fill='none' 
       xmlns='http://www.w3.org/2000/svg'
     >
-      {/* Kite background circle */}
-      <rect x='40' y='40' width='100' height='100' rx='50' fill='white' fillOpacity='0.05' />
+      {/* Kite background circle - more opaque to hide connectors behind */}
+      <rect x='40' y='40' width='100' height='100' rx='50' fill='#1a1a1a' />
       
       {/* Kite icon - scaled up and centered */}
       <g transform='translate(90, 90) scale(1.25) translate(-72, -72)'>
