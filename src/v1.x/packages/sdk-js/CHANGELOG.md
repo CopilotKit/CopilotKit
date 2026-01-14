@@ -1,5 +1,18 @@
 # @copilotkit/sdk-js
 
+## 1.51.0
+
+### Minor Changes
+
+- ce14f8b: create copilotkit langgraph middleware
+
+### Patch Changes
+
+- 2839a15: Update versioning strategy
+- Updated dependencies [2839a15]
+- Updated dependencies [2afd4e3]
+  - @copilotkit/shared@1.51.0
+
 ## 1.51.0-next.4
 
 ### Patch Changes
