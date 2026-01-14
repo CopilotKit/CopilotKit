@@ -1,5 +1,14 @@
 # @copilotkitnext/react
 
+## 1.51.1
+
+### Patch Changes
+
+- 329653b: Add support for MCP Apps Middleware
+  - @copilotkitnext/core@1.51.1
+  - @copilotkitnext/shared@1.51.1
+  - @copilotkitnext/web-inspector@1.51.1
+
 ## 1.51.0
 
 ### Patch Changes
