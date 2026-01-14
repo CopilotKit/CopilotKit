@@ -6,7 +6,7 @@
   "scripts": {
     "start": "ng serve",
     "build": "ng build",
-    "dev": "nodemon --verbose --cwd ../../../ --watch packages/angular/dist/** --watch packages/core/dist/** --watch packages/shared/dist/** --watch packages/runtime/dist/** --watch packages/angular/dist/fesm2022/copilotkit-angular.mjs --ext mjs,js,json,css --delay 800ms --signal SIGTERM --exec \"pnpm -s -C apps/angular/demo run serve:clean\"",
+    "dev": "nodemon --verbose --cwd ../../../../ --watch packages/angular/dist/** --watch packages/core/dist/** --watch packages/shared/dist/** --watch packages/runtime/dist/** --watch packages/angular/dist/fesm2022/copilotkit-angular.mjs --ext mjs,js,json,css --delay 800ms --signal SIGTERM --exec \"pnpm -s -C examples/v2/angular/demo run serve:clean\"",
     "serve:clean": "rimraf .angular/cache || true && ng serve",
     "clean": "rimraf dist .angular"
   },

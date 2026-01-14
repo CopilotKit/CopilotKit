@@ -26,6 +26,7 @@ import { provideCopilotKit } from "@copilotkitnext/angular";
 export const appConfig: ApplicationConfig = {
   providers: [
     provideCopilotKit({
+      licenseKey: "ck_pub_your_public_api_key",
       runtimeUrl: "http://localhost:3001/api/copilotkit",
       headers: { Authorization: "Bearer ..." },
       properties: { app: "demo" },
@@ -97,6 +98,7 @@ The `agent` is an AG-UI `AbstractAgent`. Refer to your AG-UI agent implementatio
 export interface CopilotKitConfig {
   runtimeUrl?: string;
   headers?: Record<string, string>;
+  licenseKey?: string;
   properties?: Record<string, unknown>;
   agents?: Record<string, AbstractAgent>;
   tools?: ClientTool[];
@@ -108,6 +110,7 @@ export interface CopilotKitConfig {
 
 - `runtimeUrl`: URL to your CopilotKit runtime.
 - `headers`: Default headers sent to the runtime.
+- `licenseKey`: Copilot Cloud public API key (`ck_pub_...`), required by `provideCopilotKit`.
 - `properties`: Arbitrary props forwarded to agent runs.
 - `agents`: Local, in-browser agents keyed by `agentId`.
 - `tools`: Tool definitions advertised to the runtime (no handler).
@@ -275,6 +278,7 @@ registerHumanInTheLoop({
 
 ```ts
 provideCopilotKit({
+  licenseKey: "ck_pub_your_public_api_key",
   frontendTools: [
     /* FrontendToolConfig[] */
   ],

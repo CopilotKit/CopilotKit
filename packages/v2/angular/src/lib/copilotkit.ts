@@ -21,6 +21,7 @@ import {
 } from "./tools";
 import { injectCopilotKitConfig } from "./config";
 import { HumanInTheLoop } from "./human-in-the-loop";
+import { ensureLicenseWatermark } from "./license-watermark";
 
 @Injectable({ providedIn: "root" })
 export class CopilotKit {
@@ -67,6 +68,8 @@ export class CopilotKit {
     this.#humanInTheLoopToolRenderConfigs.asReadonly();
 
   constructor() {
+    ensureLicenseWatermark(this.#config.headers);
+
     this.#runtimeConnectionStatus.set(this.core.runtimeConnectionStatus);
     this.#runtimeUrl.set(this.core.runtimeUrl);
     this.#runtimeTransport.set(this.core.runtimeTransport);
