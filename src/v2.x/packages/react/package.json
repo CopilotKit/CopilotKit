@@ -30,11 +30,8 @@
     "clean": "rm -rf dist"
   },
   "devDependencies": {
-    "@copilotkitnext/core": "workspace:*",
     "@copilotkitnext/eslint-config": "workspace:*",
-    "@copilotkitnext/shared": "workspace:*",
     "@copilotkitnext/typescript-config": "workspace:*",
-    "@copilotkitnext/web-inspector": "workspace:*",
     "@tailwindcss/cli": "^4.1.11",
     "@tailwindcss/postcss": "^4.1.11",
     "@tailwindcss/typography": "^0.5.16",
@@ -56,6 +53,11 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
+    "@ag-ui/client": "0.0.42",
+    "@ag-ui/core": "0.0.42",
+    "@copilotkitnext/core": "workspace:*",
+    "@copilotkitnext/shared": "workspace:*",
+    "@copilotkitnext/web-inspector": "workspace:*",
     "@lit-labs/react": "^2.0.2",
     "@radix-ui/react-dropdown-menu": "^2.1.15",
     "@radix-ui/react-slot": "^1.2.3",
@@ -72,11 +74,6 @@
     "zod": "^3.25.75"
   },
   "peerDependencies": {
-    "@ag-ui/client": "0.0.42",
-    "@ag-ui/core": "0.0.42",
-    "@copilotkitnext/core": "workspace:*",
-    "@copilotkitnext/shared": "workspace:*",
-    "@copilotkitnext/web-inspector": "workspace:*",
     "react": ">=16.8.0",
     "react-dom": ">=16.8.0"
   },
