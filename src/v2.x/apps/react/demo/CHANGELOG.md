@@ -1,5 +1,17 @@
 # demo
 
+## 0.1.3
+
+### Patch Changes
+
+- Updated dependencies [e59d23f]
+- Updated dependencies [f36b6b1]
+  - @copilotkitnext/runtime@1.51.2
+  - @copilotkitnext/shared@1.51.2
+  - @copilotkitnext/agent@1.51.2
+  - @copilotkitnext/react@1.51.2
+  - @copilotkitnext/core@1.51.2
+
 ## 0.1.3-next.1
 
 ### Patch Changes

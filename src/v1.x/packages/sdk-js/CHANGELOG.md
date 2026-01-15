@@ -1,5 +1,13 @@
 # @copilotkit/sdk-js
 
+## 1.51.2
+
+### Patch Changes
+
+- e59d23f: Use deps instead of peerdeps
+- e59d23f: Move in-repo deps from peerdeps to actual deps
+  - @copilotkit/shared@1.51.2
+
 ## 1.51.2-next.1
 
 ### Patch Changes
