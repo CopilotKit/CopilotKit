@@ -41,7 +41,7 @@
     "@ai-sdk/openai": "^2.0.42",
     "@modelcontextprotocol/sdk": "^1.18.2",
     "ai": "^5.0.92",
-    "rxjs": "^7.8.1",
+    "rxjs": "7.8.1",
     "zod": "^3.25.75"
   },
   "peerDependencies": {
