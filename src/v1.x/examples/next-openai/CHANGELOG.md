@@ -1,5 +1,16 @@
 # web
 
+## 1.4.9-next.0
+
+### Patch Changes
+
+- @copilotkit/runtime@1.51.2-next.0
+- @copilotkit/runtime-client-gql@1.51.2-next.0
+- @copilotkit/react-core@1.51.2-next.0
+- @copilotkit/react-textarea@1.51.2-next.0
+- @copilotkit/react-ui@1.51.2-next.0
+- @copilotkit/shared@1.51.2-next.0
+
 ## 1.4.8
 
 ### Patch Changes

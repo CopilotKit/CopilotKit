@@ -1,5 +1,14 @@
 # @copilotkit/runtime
 
+## 1.51.2-next.0
+
+### Patch Changes
+
+- Updated dependencies [f36b6b1]
+  - @copilotkitnext/agent@1.51.2-next.0
+  - @copilotkit/shared@1.51.2-next.0
+  - @copilotkitnext/runtime@1.51.2-next.0
+
 ## 1.51.1
 
 ### Patch Changes

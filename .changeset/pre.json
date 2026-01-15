@@ -36,5 +36,7 @@
     "@copilotkitnext/typescript-config": "1.51.1",
     "@copilotkitnext/web-inspector": "1.51.1"
   },
-  "changesets": []
+  "changesets": [
+    "violet-zoos-dress"
+  ]
 }

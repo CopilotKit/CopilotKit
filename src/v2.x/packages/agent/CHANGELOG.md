@@ -1,5 +1,11 @@
 # @copilotkitnext/agent
 
+## 1.51.2-next.0
+
+### Patch Changes
+
+- f36b6b1: Pin rxjs dependency
+
 ## 1.51.1
 
 ### Patch Changes
