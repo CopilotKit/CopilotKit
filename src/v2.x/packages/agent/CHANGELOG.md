@@ -1,5 +1,12 @@
 # @copilotkitnext/agent
 
+## 1.51.2
+
+### Patch Changes
+
+- e59d23f: Use deps instead of peerdeps
+- f36b6b1: Pin rxjs dependency
+
 ## 1.51.2-next.1
 
 ### Patch Changes
