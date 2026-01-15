@@ -1,5 +1,18 @@
 # ui
 
+## 1.51.2-next.1
+
+### Patch Changes
+
+- e59d23f: Use deps instead of peerdeps
+- e59d23f: Move in-repo deps from peerdeps to actual deps
+- Updated dependencies [e59d23f]
+- Updated dependencies [e59d23f]
+  - @copilotkit/runtime-client-gql@1.51.2-next.1
+  - @copilotkitnext/react@1.51.2-next.1
+  - @copilotkitnext/core@1.51.2-next.1
+  - @copilotkit/shared@1.51.2-next.1
+
 ## 1.51.2-next.0
 
 ### Patch Changes

@@ -1,5 +1,13 @@
 # @copilotkitnext/web-inspector
 
+## 1.51.2-next.1
+
+### Patch Changes
+
+- e59d23f: Use deps instead of peerdeps
+- Updated dependencies [e59d23f]
+  - @copilotkitnext/core@1.51.2-next.1
+
 ## 1.51.2-next.0
 
 ### Patch Changes
