@@ -1,5 +1,11 @@
 # @copilotkitnext/web-inspector
 
+## 1.51.2-next.0
+
+### Patch Changes
+
+- @copilotkitnext/core@1.51.2-next.0
+
 ## 1.51.1
 
 ### Patch Changes
