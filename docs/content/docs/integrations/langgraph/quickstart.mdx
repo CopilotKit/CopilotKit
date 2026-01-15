@@ -35,6 +35,7 @@ import { SiLangchain } from "react-icons/si";
 import CopilotUI from "@/snippets/copilot-ui.mdx";
 import { PathIcon } from "lucide-react";
 import { SquareTerminal, SquareChartGantt } from "lucide-react";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
@@ -147,81 +148,354 @@ Before you begin, you'll need the following:
             title="Use an existing agent"
             description="I already have a LangGraph agent and want to add CopilotKit."
         >
-            <Step>
-                ### Frontend Setup
-                CopilotKit works with any React-based frontend. We'll use Next.js for this example.
+          <Step>
+              ### Initialize your agent project
 
-                ```bash
-                npx create-next-app@latest my-copilot-app
-                cd my-copilot-app
+              If you don't already have a Python project set up, create one using `uv`:
+
+              ```bash
+              uv init my-agent
+              cd my-agent
+              ```
+          </Step>
+          <Step>
+              ### Install LangGraph and AG-UI
+
+              Add LangGraph and the required AG-UI packages to your project:
+
+              ```bash
+              uv add langgraph copilotkit langchain-openai langchain-core
+              ```
+          </Step>
+          <Step>
+            ### Expose your agent via AG-UI
+
+            If you already have a LangGraph agent written, just reference the following code. In this step
+            we create a simple LangGraph agent for the sake of demonstration.
+              <Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
+                <Tab value="LangSmith">
+                  First, we'll create a simple LangGraph agent:
+
+                  ```python title="main.py"
+                  from langchain_core.messages import SystemMessage
+                  from langchain_openai import ChatOpenAI
+                  from langgraph.graph import END, START, MessagesState, StateGraph
+
+                  async def mock_llm(state: MessagesState):
+                    model = ChatOpenAI(model="gpt-4.1-mini")
+                    system_message = SystemMessage(content="You are a helpful assistant.")
+                    response = await model.ainvoke(
+                      [
+                        system_message,
+                        *state["messages"],
+                      ]
+                    )
+                    return {"messages": response}
+
+                  graph = StateGraph(MessagesState)
+                  graph.add_node(mock_llm)
+                  graph.add_edge(START, "mock_llm")
+                  graph.add_edge("mock_llm", END)
+                  graph = graph.compile()
+                  ```
+
+                  Then to test and deploy with LangSmith, we'll also need a `langgraph.json`
+
+                  ```sh
+                  touch langgraph.json
+                  ```
+
+                  ```json title="langgraph.json"
+                  {
+                    "python_version": "3.12",
+                    "dockerfile_lines": [],
+                    "dependencies": ["."],
+                    "package_manager": "uv",
+                    "graphs": {
+                      "sample_agent": "./main.py:graph"
+                    },
+                    "env": ".env"
+                  }
+                  ```
+                </Tab>
+                <Tab value="FastAPI">
+                  First, add the `ag-ui-langgraph` package to your project:
+
+                  ```bash
+                  uv add ag-ui-langgraph fastapi uvicorn copilotkit
+                  ```
+
+                  Then create a simple LangGraph agent, add a FastAPI app, and build attach our agent as an AG-UI endpoint.
+
+                  ```python title="main.py"
+                  import os
+
+                  # [!code highlight:2]
+                  from ag_ui_langgraph import add_langgraph_fastapi_endpoint
+                  from copilotkit import LangGraphAGUIAgent
+                  from fastapi import FastAPI
+                  from langgraph.graph import END, START, MessagesState, StateGraph
+                  from langchain_core.messages import SystemMessage
+                  from langchain_openai import ChatOpenAI
+
+                  async def mock_llm(state: MessagesState):
+                    model = ChatOpenAI(model="gpt-4.1-mini")
+                    system_message = SystemMessage(content="You are a helpful assistant.")
+                    response = await model.ainvoke(
+                      [
+                        system_message,
+                        *state["messages"],
+                      ]
+                    )
+                    return {"messages": response}
+
+
+                  graph = StateGraph(MessagesState)
+                  graph.add_node(mock_llm)
+                  graph.add_edge(START, "mock_llm")
+                  graph.add_edge("mock_llm", END)
+                  graph = graph.compile()
+
+                  app = FastAPI()
+
+                  # [!code highlight:9]
+                  add_langgraph_fastapi_endpoint(
+                    app=app,
+                    agent=LangGraphAGUIAgent(
+                      name="sample_agent",
+                      description="An example agent to use as a starting point for your own agent.",
+                      graph=graph,
+                    ),
+                    path="/",
+                  )
+
+                  def main():
+                    """Run the uvicorn server."""
+                    uvicorn.run(
+                      "main:app",
+                      host="0.0.0.0",
+                      port="8123",
+                      reload=True,
+                    )
+
+                  if __name__ == "__main__":
+                    main()
+                  ```
+                </Tab>
+              </Tabs>
+
+              <Callout type="info" title="What is AG-UI?">
+                AG-UI is an open protocol for frontend-agent communication.
+              </Callout>
+          </Step>
+          <Step>
+              ### Configure your environment
+
+              Create a `.env` file in your agent directory and add your OpenAI API key:
+
+              ```plaintext title=".env"
+              OPENAI_API_KEY=your_openai_api_key
+              ```
+
+              <Callout type="info" title="What about other models?">
+                The starter template is configured to use OpenAI's GPT-4o by default, but you can modify it to use any language model supported by LangGraph.
+              </Callout>
+          </Step>
+          <Step>
+              ### Create your frontend
+
+              CopilotKit works with any React-based frontend. We'll use Next.js for this example.
+
+              ```bash
+              npx create-next-app@latest frontend
+              cd frontend
+              ```
+          </Step>
+          <Step>
+              ### Install CopilotKit packages
+
+              ```npm
+              npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime
+              ```
+          </Step>
+          <Step>
+              ### Setup Copilot Runtime
+
+              Create an API route to connect CopilotKit to your LangGraph agent:
+
+              ```sh
+              mkdir -p app/api/copilotkit && touch app/api/copilotkit/route.ts
+              ```
+
+              <Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
+                <Tab value="LangSmith">
+                  ```tsx title="app/api/copilotkit/route.ts"
+                  import {
+                    CopilotRuntime,
+                    ExperimentalEmptyAdapter,
+                    copilotRuntimeNextJSAppRouterEndpoint,
+                  } from "@copilotkit/runtime";
+                  // [!code highlight]
+                  import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+                  import { NextRequest } from "next/server";
+
+                  const serviceAdapter = new ExperimentalEmptyAdapter();
+
+                  const runtime = new CopilotRuntime({
+                    agents: {
+                    // [!code highlight:5]
+                      sample_agent: new LangGraphAgent({
+                        deploymentUrl:  process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
+                        graphId: "sample_agent",
+                        langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
+                      }),
+                    }
+                  });
+
+                  export const POST = async (req: NextRequest) => {
+                    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+                      runtime,
+                      serviceAdapter,
+                      endpoint: "/api/copilotkit",
+                    });
+
+                    return handleRequest(req);
+                  };
                 ```
-            </Step>
-            <Step>
-                ### Install CopilotKit packages
+              </Tab>
+              <Tab value="FastAPI">
+                ```tsx title="app/api/copilotkit/route.ts"
+                import {
+                  CopilotRuntime,
+                  ExperimentalEmptyAdapter,
+                  copilotRuntimeNextJSAppRouterEndpoint,
+                } from "@copilotkit/runtime";
+                // [!code highlight]
+                import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
+                import { NextRequest } from "next/server";
 
-                ```npm
-                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime
-                ```
-            </Step>
-            <Step>
-                ### Setup Copilot Runtime
+                const serviceAdapter = new ExperimentalEmptyAdapter();
 
-                CopilotKit requires a Copilot Runtime endpoint to safely communicate with your agent. This can be served
-                anywhere that Node.js can run, but for this example we'll just use Next.js.
+                const runtime = new CopilotRuntime({
+                  agents: {
+                    // [!code highlight:3]
+                    sample_agent: new LangGraphHttpAgent({
+                      url:  process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
+                    }),
+                  }
+                });
 
-                <SelfHostingCopilotRuntimeLangGraphEndpoint components={props.components} />
-            </Step>
-            <Step>
-                ### Start your LangGraph agent
+                export const POST = async (req: NextRequest) => {
+                  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+                    runtime,
+                    serviceAdapter,
+                    endpoint: "/api/copilotkit",
+                  });
 
-                <LangGraphPlatformDeploymentTabs components={props.components} />
-            </Step>
-            <Step>
-                ### Configure CopilotKit Provider
+                  return handleRequest(req);
+                };
+              ```
+              </Tab>
+            </Tabs>
+          </Step>
+          <Step>
+              ### Configure CopilotKit Provider
 
-                Next, wrap your application with the CopilotKit provider so that CopilotKit can take control across your application
-                via the LangGraph agent.
+              Wrap your application with the CopilotKit provider:
 
-                ```tsx title="app/layout.tsx"
-                import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
-                import "@copilotkit/react-ui/styles.css";
+              ```tsx title="app/layout.tsx"
+              // [!code highlight:2]
+              import { CopilotKit } from "@copilotkit/react-core";
+              import "@copilotkit/react-ui/styles.css";
 
-                // ...
+              // ...
 
-                export default function RootLayout({ children }: {children: React.ReactNode}) {
-                  return (
-                    <html lang="en">
-                      <body>
-                        {/* [!code highlight:3] */}
-                        <CopilotKit runtimeUrl="/api/copilotkit">
-                          {children}
-                        </CopilotKit>
-                      </body>
-                    </html>
-                  );
-                }
-
-                ```
-            </Step>
-            <Step>
-              ### Add the chat interface
-
-              Add the CopilotSidebar component to your page:
-
-              ```tsx title="app/page.tsx"
-              import { CopilotSidebar } from "@copilotkit/react-ui"; // [!code highlight]
-
-              export default function Page() {
+              export default function RootLayout({ children }: {children: React.ReactNode}) {
                 return (
-                  <main>
-                    <h1>Your App</h1>
-                    {/* [!code highlight:1] */}
-                    <CopilotSidebar />
-                  </main>
+                  <html lang="en">
+                    <body>
+                      {/* [!code highlight:3] */}
+                      <CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent">
+                        {children}
+                      </CopilotKit>
+                    </body>
+                  </html>
                 );
               }
               ```
-            </Step>
+          </Step>
+          <Step>
+            ### Add the chat interface
+
+            Add the CopilotSidebar component to your page:
+
+            ```tsx title="app/page.tsx"
+            import { CopilotSidebar } from "@copilotkit/react-ui"; // [!code highlight:1]
+
+            export default function Page() {
+              return (
+                <main>
+                  <h1>Your App</h1>
+                  {/* [!code highlight:1] */}
+                  <CopilotSidebar />
+                </main>
+              );
+            }
+            ```
+          </Step>
+          <Step>
+              ### Start your agent
+              From your agent directory, start the agent server:
+
+              <Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
+                <Tab value="LangSmith">
+                  ```bash
+                  cd ..
+                  npx @langchain/langgraph-cli dev --port 8123 --no-browser
+                  ```
+                </Tab>
+                <Tab value="FastAPI">
+                  ```bash
+                  cd ..
+                  uv run main.py
+                  ```
+                </Tab>
+              </Tabs>
+
+              Your agent will be available at `http://localhost:8123`.
+          </Step>
+          <Step>
+              ### Start your UI
+
+              In a separate terminal, navigate to your frontend directory and start the development server:
+
+              <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+                  <Tab value="npm">
+                      ```bash
+                      cd frontend
+                      npm run dev
+                      ```
+                  </Tab>
+                  <Tab value="pnpm">
+                      ```bash
+                      cd frontend
+                      pnpm dev
+                      ```
+                  </Tab>
+                  <Tab value="yarn">
+                      ```bash
+                      cd frontend
+                      yarn dev
+                      ```
+                  </Tab>
+                  <Tab value="bun">
+                      ```bash
+                      cd frontend
+                      bun dev
+                      ```
+                  </Tab>
+              </Tabs>
+          </Step>
         </TailoredContentOption>
     </TailoredContent>
     <Step>
