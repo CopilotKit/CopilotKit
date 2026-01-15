@@ -90,11 +90,11 @@ Throwing a `Response` from `beforeRequestMiddleware` short-circuits the request.
 
 ### Audio Transcription
 
-Enable audio transcription by providing a `transcriptionService`. The `@copilotkitnext/speech` package includes providers:
+Enable audio transcription by providing a `transcriptionService`. The `@copilotkit/voice` package includes providers:
 
 ```ts
 import { CopilotRuntime } from "@copilotkitnext/runtime";
-import { TranscriptionServiceOpenAI } from "@copilotkitnext/speech";
+import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import OpenAI from "openai";
 
 const runtime = new CopilotRuntime({

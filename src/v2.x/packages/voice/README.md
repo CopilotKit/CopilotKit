@@ -1,16 +1,16 @@
-# @copilotkitnext/speech
+# @copilotkit/voice
 
 Audio transcription providers for CopilotKit.
 
 ## Setup
 
 ```bash
-pnpm add @copilotkitnext/speech openai
+pnpm add @copilotkit/voice openai
 ```
 
 ```typescript
 import { CopilotRuntime, createCopilotEndpoint } from "@copilotkitnext/runtime";
-import { TranscriptionServiceOpenAI } from "@copilotkitnext/speech";
+import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import OpenAI from "openai";
 
 const runtime = new CopilotRuntime({

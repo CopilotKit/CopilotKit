@@ -1,7 +1,7 @@
 {
-  "name": "@copilotkitnext/speech",
-  "version": "0.0.33",
-  "description": "Speech services for CopilotKit (transcription, etc.)",
+  "name": "@copilotkit/voice",
+  "version": "0.0.1",
+  "description": "Voice services for CopilotKit (transcription, text-to-speech, etc.)",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {

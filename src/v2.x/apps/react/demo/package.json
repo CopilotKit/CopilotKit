@@ -21,7 +21,7 @@
     "@copilotkitnext/react": "workspace:*",
     "@copilotkitnext/runtime": "workspace:*",
     "@copilotkitnext/shared": "workspace:*",
-    "@copilotkitnext/speech": "workspace:*",
+    "@copilotkit/voice": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.18.2",
     "hono": "^4.6.13",
     "next": "15.4.4",

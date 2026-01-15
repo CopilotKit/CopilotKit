@@ -3,7 +3,7 @@ import {
   InMemoryAgentRunner,
   createCopilotEndpointSingleRoute,
 } from "@copilotkitnext/runtime";
-import { TranscriptionServiceOpenAI } from "@copilotkitnext/speech";
+import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import { handle } from "hono/vercel";
 import { BasicAgent } from "@copilotkitnext/agent";
 import OpenAI from "openai";

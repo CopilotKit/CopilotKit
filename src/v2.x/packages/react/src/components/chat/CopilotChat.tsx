@@ -237,8 +237,8 @@ export function CopilotChat({ agentId, threadId, labels, chatView, isModalDefaul
   // Determine if transcription feature should be available
   const showTranscription = isTranscriptionEnabled && isMediaRecorderSupported;
 
-  // Determine mode: agent running or transcribing takes priority, then transcribe mode, then default to input
-  const effectiveMode: CopilotChatInputMode = agent.isRunning || isTranscribing
+  // Determine mode: transcribing takes priority, then transcribe mode, then default to input
+  const effectiveMode: CopilotChatInputMode = isTranscribing
     ? "processing"
     : transcribeMode;
 
