@@ -98,8 +98,9 @@ describe("handleTranscribe", () => {
 
     const body = await response.json();
     expect(body).toEqual({
-      error: "Transcription service not configured",
-      message: "No transcription service has been configured in the runtime",
+      error: "service_not_configured",
+      message: "Transcription service is not configured",
+      retryable: false,
     });
   });
 
@@ -115,8 +116,9 @@ describe("handleTranscribe", () => {
 
     const body = await response.json();
     expect(body).toEqual({
-      error: "Invalid content type",
-      message: "Request must contain multipart/form-data with an audio file",
+      error: "invalid_request",
+      message: "Request must include 'audio' field with base64-encoded audio data",
+      retryable: false,
     });
   });
 
@@ -132,9 +134,10 @@ describe("handleTranscribe", () => {
 
     const body = await response.json();
     expect(body).toEqual({
-      error: "Missing audio file",
+      error: "invalid_request",
       message:
         "No audio file found in form data. Please include an 'audio' field.",
+      retryable: false,
     });
   });
 
@@ -199,8 +202,9 @@ describe("handleTranscribe", () => {
     expect(response.headers.get("Content-Type")).toBe("application/json");
 
     const body = await response.json();
-    expect(body.error).toBe("Invalid file type");
-    expect(body.message).toContain("Unsupported audio file type: text/plain");
+    expect(body.error).toBe("invalid_audio_format");
+    expect(body.message).toContain("Unsupported audio format: text/plain");
+    expect(body.retryable).toBe(false);
   });
 
   it("should return 500 when transcription service throws an error", async () => {
@@ -216,8 +220,9 @@ describe("handleTranscribe", () => {
 
     const body = await response.json();
     expect(body).toEqual({
-      error: "Transcription failed",
+      error: "provider_error",
       message: "Transcription service error",
+      retryable: true,
     });
   });
 
@@ -238,7 +243,8 @@ describe("handleTranscribe", () => {
     expect(response.headers.get("Content-Type")).toBe("application/json");
 
     const body = await response.json();
-    expect(body.error).toBe("Transcription failed");
+    expect(body.error).toBe("provider_error");
+    expect(body.retryable).toBe(true);
   });
 
   it("should handle non-File objects in form data", async () => {
@@ -260,9 +266,10 @@ describe("handleTranscribe", () => {
 
     const body = await response.json();
     expect(body).toEqual({
-      error: "Missing audio file",
+      error: "invalid_request",
       message:
         "No audio file found in form data. Please include an 'audio' field.",
+      retryable: false,
     });
   });
 
