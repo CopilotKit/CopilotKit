@@ -1,46 +1,45 @@
-import { ComponentPropsWithoutRef } from "react";
-import { Streamdown } from "streamdown";
+import { FC, memo } from "react";
+import ReactMarkdown, { Options, Components } from "react-markdown";
 import { CodeBlock } from "./CodeBlock";
-
-type Components = ComponentPropsWithoutRef<typeof Streamdown>["components"];
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeRaw from "rehype-raw";
 
 const defaultComponents: Components = {
   a({ children, ...props }) {
     return (
-      <a
-        className="copilotKitMarkdownElement"
-        {...props}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
+      <a className="copilotKitMarkdownElement" {...props} target="_blank" rel="noopener noreferrer">
         {children}
       </a>
     );
   },
-  pre({ children, ...props }) {
-    // Extract language from the code element's className
-    const codeElement = children as React.ReactElement<{
-      className?: string;
-      children?: React.ReactNode;
-    }>;
-    const className = codeElement?.props?.className || "";
-    const match = /language-(\w+)/.exec(className);
-    const language = match ? match[1] : "";
+  // @ts-expect-error -- inline
+  code({ children, className, inline, ...props }) {
+    if (Array.isArray(children) && children.length) {
+      if (children[0] == "▍") {
+        return (
+          <span
+            style={{
+              animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+              marginTop: "0.25rem",
+            }}
+          >
+            ▍
+          </span>
+        );
+      }
 
-    return (
-      <CodeBlock language={language}>
-        <pre className="copilotKitMarkdownElement" {...props}>
-          {children}
-        </pre>
-      </CodeBlock>
-    );
-  },
-  code({ children, className, ...props }) {
-    // Check if this is inline code (no language class and no newlines)
+      children[0] = (children?.[0] as string).replace("`▍`", "▍");
+    }
+
     const match = /language-(\w+)/.exec(className || "");
+
+    // Detect inline code: if it has a language class or contains newlines, it's likely a code block
+    // Otherwise, treat it as inline code
+    const hasLanguage = match && match[1];
     const content = String(children);
     const hasNewlines = content.includes("\n");
-    const isInline = !match && !hasNewlines;
+    const isInline = !hasLanguage && !hasNewlines;
 
     if (isInline) {
       return (
@@ -54,9 +53,12 @@ const defaultComponents: Components = {
     }
 
     return (
-      <code className={`copilotKitMarkdownElement ${className || ""}`} {...props}>
-        {children}
-      </code>
+      <CodeBlock
+        key={Math.random()}
+        language={(match && match[1]) || ""}
+        value={String(children).replace(/\n$/, "")}
+        {...props}
+      />
     );
   },
   h1: ({ children, ...props }) => (
@@ -94,6 +96,11 @@ const defaultComponents: Components = {
       {children}
     </p>
   ),
+  pre: ({ children, ...props }) => (
+    <pre className="copilotKitMarkdownElement" {...props}>
+      {children}
+    </pre>
+  ),
   blockquote: ({ children, ...props }) => (
     <blockquote className="copilotKitMarkdownElement" {...props}>
       {children}
@@ -111,6 +118,12 @@ const defaultComponents: Components = {
   ),
 };
 
+const MemoizedReactMarkdown: FC<Options> = memo(
+  ReactMarkdown,
+  (prevProps, nextProps) =>
+    prevProps.children === nextProps.children && prevProps.components === nextProps.components,
+);
+
 type MarkdownProps = {
   content: string;
   components?: Components;
@@ -119,9 +132,13 @@ type MarkdownProps = {
 export const Markdown = ({ content, components }: MarkdownProps) => {
   return (
     <div className="copilotKitMarkdown">
-      <Streamdown components={{ ...defaultComponents, ...components }}>
+      <MemoizedReactMarkdown
+        components={{ ...defaultComponents, ...components }}
+        remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: false }]]}
+        rehypePlugins={[rehypeRaw]}
+      >
         {content}
-      </Streamdown>
+      </MemoizedReactMarkdown>
     </div>
   );
 };
