@@ -1,150 +1,60 @@
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
-import { ADKIcon, MastraIcon, LlamaIndexIcon, AG2Icon, AgnoIcon, PydanticAIIcon, AwsStrandsIcon, A2AIcon } from "@/lib/icons/custom-icons";
-import { SiCrewai } from "@icons-pack/react-simple-icons";
-import { SiLangchain } from "react-icons/si";
-import { FaMicrosoft } from "react-icons/fa";
-import { Brain } from "lucide-react";
-import { RocketIcon } from "lucide-react";
+import { IntegrationsSelectorLightDesktop } from './integrations-index-selector/integrations-selector-light-desktop';
+import { IntegrationsSelectorDarkDesktop } from './integrations-index-selector/integrations-selector-dark-desktop';
+import { KiteIconLight, KiteIconDark } from './integrations-index-selector/kite-icon';
+import { IntegrationsSelectorLightMobile } from './integrations-index-selector/integrations-selector-light-mobile';
+import { IntegrationsSelectorDarkMobile } from './integrations-index-selector/integrations-selector-dark-mobile';
+import { IntegrationLinkRoundedButton } from './integration-link-button/integration-link-rounded-button';
+import { ComponentType } from 'react';
+import { INTEGRATION_ORDER, IntegrationId, getIntegration } from '@/lib/integrations';
+import { hasIntegrationFeature } from '@/lib/integration-features';
+import { AgentSpecMarkIcon, A2AIcon } from '@/lib/icons/custom-icons';
+import AdkIcon from '../ui/icons/adk';
+import Ag2Icon from '../ui/icons/ag2';
+import CrewaiIcon from '../ui/icons/crewai';
+import DirectToLlmIcon from '../ui/icons/direct-to-llm';
+import LanggraphIcon from '../ui/icons/langgraph';
+import LlamaIndexIcon from '../ui/icons/llama-index';
+import MastraIcon from '../ui/icons/mastra';
+import AgnoIcon from '../ui/icons/agno';
+import PydanticAiIcon from '../ui/icons/pydantic-ai';
+import { MicrosoftIcon } from '../ui/icons/microsoft';
+import { AwsStrandsIcon } from '../ui/icons/aws-strands';
+
+// Icon mapping - component-specific
+const INTEGRATION_ICONS: Record<IntegrationId, ComponentType<{ className?: string }>> = {
+  'a2a': A2AIcon,
+  'adk': AdkIcon,
+  'ag2': Ag2Icon,
+  'agent-spec': AgentSpecMarkIcon,
+  'agno': AgnoIcon,
+  'crewai-flows': CrewaiIcon,
+  'crewai-crews': CrewaiIcon,
+  'direct-to-llm': DirectToLlmIcon,
+  'langgraph': LanggraphIcon,
+  'llamaindex': LlamaIndexIcon,
+  'mastra': MastraIcon,
+  'pydantic-ai': PydanticAiIcon,
+  'microsoft-agent-framework': MicrosoftIcon,
+  'aws-strands': AwsStrandsIcon,
+};
 
 interface Integration {
-  title: string;
-  description?: string;
-  logo: React.ReactNode;
-  bgGradient: string;
+  id: IntegrationId;
+  label: string;
+  Icon: ComponentType<{ className?: string }>;
   href: string;
 }
 
-interface IntegrationCardProps {
-  integration: Integration;
-  className?: string;
-}
-
-const integrations: Integration[] = [
-  {
-    title: "Google ADK",
-    description: "ADK is a framework for building and deploying AI agents.",
-    logo: <ADKIcon className="w-8 h-8" />,
-    bgGradient: "bg-[#FF3C1A] text-white",
-    href: "/adk",
-  },
-  {
-    title: "A2A",
-    description: "A2A is a protocol for allowing agents to interact with each other.",
-    logo: <A2AIcon className="w-8 h-8 text-bold" />,
-    bgGradient: "bg-gradient-to-b from-orange-700 to-orange-400 text-orange-100",
-    href: "/a2a",
-  },
-  {
-    title: "Microsoft",
-    description: "Microsoft Agent Framework is a framework for building and deploying AI agents.",
-    logo: <FaMicrosoft className="w-8 h-8" />,
-    bgGradient: "bg-gradient-to-b from-blue-700 to-blue-400 text-blue-100",
-    href: "/microsoft-agent-framework",
-  },
-  {
-    title: "AWS Strands",
-    description: "AWS Strands is a framework for building and deploying AI agents.",
-    logo: <AwsStrandsIcon className="w-8 h-8" />,
-    bgGradient: "bg-black text-white",
-    href: "/aws-strands",
-  },
-  {
-    title: "Direct to LLM",
-    description: "Use CopilotKit directly with your LLM of choice. No framework required.",
-    logo: <RocketIcon className="w-8 h-8" />,
-    bgGradient: "bg-gradient-to-b from-green-700 to-green-400 text-green-100",
-    href: "/direct-to-llm",
-  },
-  {
-    title: "LangGraph",
-    description: "LangGraph is a framework for building and deploying AI agents.",
-    logo: <SiLangchain className="w-8 h-8" />,
-    bgGradient: "bg-gradient-to-b from-purple-700 to-purple-400 text-purple-100",
-    href: "/coagents",
-  },
-  {
-    title: "Agno",
-    description: "Agno is a framework for building and deploying AI agents.",
-    logo: <AgnoIcon className="w-8 h-8" />,
-    bgGradient: "bg-[#FF3C1A] text-white",
-    href: "/agno",
-  },
-  {
-    title: "AutoGen2",
-    description: "AutoGen2 is a framework for building and deploying AI agents.",
-    logo: <AG2Icon className="w-8 h-8 text-bold" />,
-    bgGradient: "bg-gradient-to-b from-indigo-700 to-indigo-400 text-indigo-100",
-    href: "/ag2",
-  },
-  {
-    title: "CrewAI - Crews",
-    description: "CrewAI is a framework for building and deploying AI agents.",
-    logo: <SiCrewai className="w-8 h-8" />,
-    bgGradient: "bg-gradient-to-b from-[#FA694C] to-[#FE8A71] text-white",
-    href: "/crewai-crews",
-  },
-  {
-    title: "CrewAI - Flows",
-    description: "CrewAI is a framework for building and deploying AI agents.",
-    logo: <SiCrewai className="w-8 h-8" />,
-    bgGradient: "bg-gradient-to-b from-[#FA694C] to-[#FE8A71] text-white",
-    href: "/crewai-flows",
-  },
-  {
-    title: "LlamaIndex",
-    description: "LlamaIndex is a framework for building and deploying AI agents.",
-    logo: <LlamaIndexIcon className="w-8 h-8" />,
-    bgGradient: "bg-gradient-to-b from-pink-500 via-purple-500 to-blue-400 text-pink-100",
-    href: "/llamaindex",
-  },
-  {
-    title: "Mastra",
-    description: "Mastra is a framework for building and deploying AI agents.",
-    logo: <MastraIcon className="w-8 h-8" />,
-    bgGradient: "bg-gradient-to-b from-black to-zinc-800 text-white",
-    href: "/mastra",
-  },
-  {
-    title: "Pydantic AI",
-    description: "Pydantic AI is a framework for building and deploying AI agents.",
-    logo: <PydanticAIIcon className="w-8 h-8 text-bold" />,
-    bgGradient: "bg-[#ED2762] text-white",
-    href: "/pydantic-ai",
-  },
-  // Add more integrations here
-];
-
-const IntegrationCard: React.FC<IntegrationCardProps> = ({
-  integration,
-  className,
-}) => {
-  const { title, logo, href } = integration;
-
-  return (
-    <Card className={cn(
-      "group transition-all duration-200 hover:shadow-lg dark:hover:shadow-black/20",
-      "bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800",
-      "hover:border-zinc-300 dark:hover:border-zinc-700",
-      "rounded-lg",
-      "flex flex-col",
-      className
-    )}>
-      <a href={href} className="block p-6 flex-1 flex flex-col no-underline">
-        <CardHeader className="p-0">
-          <CardTitle className="text-lg font-medium text-zinc-800 dark:text-zinc-200">
-            {title}
-          </CardTitle>
-        </CardHeader>
-        <div className="flex-1 flex items-center justify-center py-8">
-          <div className="text-zinc-600 dark:text-zinc-400 group-hover:text-black dark:group-hover:text-white transition-colors duration-200">
-            {logo}
-          </div>
-        </div>
-      </a>
-    </Card>
-  );
-};
+// Build integrations list from canonical order
+const INTEGRATIONS: Integration[] = INTEGRATION_ORDER.map(id => {
+  const meta = getIntegration(id);
+  return {
+    id,
+    label: meta.label,
+    Icon: INTEGRATION_ICONS[id],
+    href: meta.href,
+  };
+});
 
 interface IntegrationsGridProps {
   targetPage?: string;
@@ -153,23 +63,12 @@ interface IntegrationsGridProps {
 
 const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppressDirectToLLM = false }) => {
   const hasTargetPage = (integration: Integration, targetPage: string): boolean => {
-    // Direct to LLM special cases
-    if (integration.title === "Direct to LLM") {
-      return targetPage === "generative-ui" || targetPage === "frontend-actions";
+    if (!targetPage) {
+      return true;
     }
 
-    // AutoGen2 missing pages
-    if (integration.title === "AutoGen2") {
-      return targetPage !== "generative-ui" && targetPage !== "shared-state";
-    }
-
-    // Frameworks that don't have shared-state pages
-    if (targetPage === "shared-state") {
-      return !["LlamaIndex", "Mastra", "AutoGen2", "Agno"].includes(integration.title);
-    }
-
-    // All other frameworks have the standard pages
-    return true;
+    // Use auto-generated feature mapping
+    return hasIntegrationFeature(integration.id, targetPage);
   };
 
   const getHref = (integration: Integration) => {
@@ -177,31 +76,20 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
       return integration.href;
     }
 
-    // Special cases where certain frameworks have pages in different locations
-    if (integration.title === "Direct to LLM") {
-      if (targetPage === "generative-ui") {
-        return "/direct-to-llm/guides/generative-ui";
-      }
-      if (targetPage === "frontend-actions") {
-        return "/direct-to-llm/guides/frontend-actions";
-      }
+    // Special case: direct-to-llm has pages in /guides/ subdirectory
+    if (integration.id === 'direct-to-llm') {
+      return `${integration.href}/guides/${targetPage}`;
     }
 
-    // For other frameworks, append the target page
+    // For all other frameworks, append the target page
     return `${integration.href}/${targetPage}`;
   };
 
-  let filteredIntegrations = integrations;
-
-  // Hide Microsoft Agent Framework from the integrations grid
-  // TODO: Remove this once Microsoft Agent Framework support is announced
-  filteredIntegrations = filteredIntegrations.filter((integration) => {
-    return !integration.title.toLowerCase().includes("microsoft");
-  });
+  let filteredIntegrations = INTEGRATIONS;
 
   // Filter out Direct to LLM if suppressed
   if (suppressDirectToLLM) {
-    filteredIntegrations = filteredIntegrations.filter(integration => integration.title !== "Direct to LLM");
+    filteredIntegrations = filteredIntegrations.filter(integration => integration.id !== 'direct-to-llm');
   }
 
   // Filter out integrations that don't have the target page
@@ -210,24 +98,75 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({ targetPage, suppres
   }
 
   return (
-    <div className="flex flex-row flex-wrap justify-center items-center gap-x-6 gap-y-6 my-8">
-      {filteredIntegrations.map((integration, index) => (
-        <a
-          key={index}
-          href={getHref(integration)}
-          className="flex flex-col items-center gap-3 text-center no-underline group"
-        >
-          <div className={`w-12 h-12 flex items-center justify-center rounded-2xl transition-all duration-200 group-hover:scale-105 ${integration.bgGradient}`}>
-            {integration.logo}
-          </div>
-          <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300 group-hover:text-black dark:group-hover:text-white transition-colors duration-200">
-            {integration.title}
-          </span>
-        </a>
-      ))}
+    <div className='flex flex-row flex-wrap justify-center items-center gap-x-6 gap-y-6 my-8'>
+      {/* Large desktop: 4 columns (2xl+) */}
+      <div className='hidden 2xl:flex items-center'>
+        {/* Kite icon - positioned separately to avoid SVG distortion */}
+        <div className='relative flex items-center'>
+          <KiteIconLight className='block dark:hidden w-[120px] h-[120px]' />
+          <KiteIconDark className='hidden dark:block w-[120px] h-[120px]' />
+        </div>
+        {/* Connectors SVG - overlaps with kite to attach to circle edge */}
+        <div className='-ml-[40px]'>
+          <IntegrationsSelectorLightDesktop 
+            className='block dark:hidden' 
+            rows={Math.ceil(filteredIntegrations.length / 4)} 
+            rowHeight={60} 
+          />
+          <IntegrationsSelectorDarkDesktop 
+            className='hidden dark:block' 
+            rows={Math.ceil(filteredIntegrations.length / 4)} 
+            rowHeight={60} 
+          />
+        </div>
+        <div className='grid grid-cols-4 gap-2'>
+          {filteredIntegrations.map((integration) => (
+            <IntegrationLinkRoundedButton
+              key={integration.id}
+              label={integration.label}
+              Icon={integration.Icon}
+              href={getHref(integration)}
+            />
+          ))}
+        </div>
+      </div>
+      {/* Small screens (below lg): 2 columns with 36px row height */}
+      <div className='flex flex-row items-start gap-2 lg:hidden'>
+        <div className='-ml-11 shrink-0'>
+          <IntegrationsSelectorLightMobile className='block dark:hidden' rows={Math.ceil(filteredIntegrations.length / 2)} rowHeight={36} />
+          <IntegrationsSelectorDarkMobile className='hidden dark:block' rows={Math.ceil(filteredIntegrations.length / 2)} rowHeight={36} />
+        </div>
+        <div className='grid grid-cols-2 gap-2 -ml-5 pt-[90px]'>
+          {filteredIntegrations.map((integration) => (
+            <IntegrationLinkRoundedButton
+              key={integration.id}
+              label={integration.label}
+              Icon={integration.Icon}
+              href={getHref(integration)}
+            />
+          ))}
+        </div>
+      </div>
+      {/* Medium screens (lg to 2xl): 2 columns with 60px row height */}
+      <div className='hidden lg:flex 2xl:hidden flex-row items-start gap-2'>
+        <div className='-ml-11 shrink-0'>
+          <IntegrationsSelectorLightMobile className='block dark:hidden' rows={Math.ceil(filteredIntegrations.length / 2)} rowHeight={60} />
+          <IntegrationsSelectorDarkMobile className='hidden dark:block' rows={Math.ceil(filteredIntegrations.length / 2)} rowHeight={60} />
+        </div>
+        <div className='grid grid-cols-2 gap-2 -ml-5 pt-[90px]'>
+          {filteredIntegrations.map((integration) => (
+            <IntegrationLinkRoundedButton
+              key={integration.id}
+              label={integration.label}
+              Icon={integration.Icon}
+              href={getHref(integration)}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
 
-export { IntegrationCard, IntegrationsGrid, integrations };
+export { IntegrationsGrid };
 export type { IntegrationsGridProps };

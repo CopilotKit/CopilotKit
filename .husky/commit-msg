@@ -1,0 +1,6 @@
+cd "$(git rev-parse --show-toplevel)"
+if [ -f node_modules/.bin/commitlint ]; then
+  node_modules/.bin/commitlint --edit "$1"
+else
+  npx --yes -- commitlint --edit "$1"
+fi

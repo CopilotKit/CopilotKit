@@ -7,6 +7,7 @@
 __snapshots__
 @generated
 node_modules
+.pnpm-store
 .idea/
 cdk_outputs.json
 .turbo
@@ -28,3 +29,6 @@ __pycache__/
 .vercel
 
 docs/next-env.d.ts
+
+# External repos (cloned for development)
+ext-apps/

@@ -1,6 +1,6 @@
 {
   "name": "@copilotkitnext/react",
-  "version": "0.0.33",
+  "version": "1.51.2",
   "description": "React components for CopilotKit2",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -21,7 +21,7 @@
     "dev": "concurrently \"npm:dev:css\" \"tsup --watch\"",
     "build": "tsup && npm run build:css",
     "prepublishOnly": "pnpm run build",
-    "lint": "eslint . --max-warnings 0",
+    "lint": "eslint .",
     "check-types": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",

@@ -5,6 +5,7 @@ import { EventType, type RunAgentInput } from "@ag-ui/client";
 import { streamText } from "ai";
 import {
   mockStreamTextResponse,
+  textStart,
   textDelta,
   finish,
   collectEvents,
@@ -120,6 +121,70 @@ describe("BasicAgent", () => {
         type: EventType.TEXT_MESSAGE_CHUNK,
         delta: " world",
       });
+    });
+
+    it("should generate unique messageId when provider returns id '0'", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          textStart("0"), // Simulate Google Gemini returning "0"
+          textDelta("First message"),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+
+      const textEvents = events.filter((e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK);
+      expect(textEvents).toHaveLength(1);
+
+      // Verify that messageId is NOT "0" - should be a UUID
+      expect(textEvents[0].messageId).not.toBe("0");
+      expect(textEvents[0].messageId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+    });
+
+    it("should use provider-supplied messageId when it's not '0'", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      const validId = "msg_abc123";
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          textStart(validId), // Valid ID from provider
+          textDelta("Test message"),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+
+      const textEvents = events.filter((e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK);
+      expect(textEvents).toHaveLength(1);
+
+      // Verify that the valid ID from provider is used
+      expect(textEvents[0].messageId).toBe(validId);
     });
   });
 
