@@ -1938,9 +1938,6 @@ importers:
       hono:
         specifier: ^4.6.13
         version: 4.11.3
-      openai:
-        specifier: ^5.9.0
-        version: 5.23.2(ws@8.19.0)(zod@3.25.76)
       rxjs:
         specifier: 7.8.1
         version: 7.8.1
@@ -33765,7 +33762,7 @@ snapshots:
       isstream: 0.1.2
       jsonwebtoken: 9.0.3
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.13.2(debug@4.4.3))
+      retry-axios: 2.6.0(axios@1.13.2)
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -38787,7 +38784,7 @@ snapshots:
       retext-stringify: 4.0.0
       unified: 11.0.5
 
-  retry-axios@2.6.0(axios@1.13.2(debug@4.4.3)):
+  retry-axios@2.6.0(axios@1.13.2):
     dependencies:
       axios: 1.13.2(debug@4.4.3)
 
