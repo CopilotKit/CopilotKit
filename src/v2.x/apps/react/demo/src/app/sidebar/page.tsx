@@ -67,6 +67,7 @@ function AppLayout() {
 function SidebarChat() {
   useConfigureSuggestions({
     instructions: "Suggest follow-up tasks based on the current page content",
+    available: "always",
   });
 
   useFrontendTool({
