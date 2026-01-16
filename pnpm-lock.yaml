@@ -144,10 +144,10 @@ importers:
         version: 0.3.37(@langchain/anthropic@0.3.34(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76)))(zod@3.25.76))(@langchain/aws@1.1.1(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))))(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76)))(@opentelemetry/api@1.9.0)(axios@1.13.2)(encoding@0.1.13)(handlebars@4.7.8)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
       next:
         specifier: 15.0.7
-        version: 15.0.7(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.57.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.97.2)
+        version: 15.0.7(@opentelemetry/api@1.9.0)(@playwright/test@1.57.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.97.2)
       next-themes:
         specifier: ^0.2.1
-        version: 0.2.1(next@15.0.7(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.57.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.97.2))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+        version: 0.2.1(next@15.0.7(@opentelemetry/api@1.9.0)(@playwright/test@1.57.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.97.2))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       openai:
         specifier: ^4.85.1
         version: 4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76)
@@ -244,7 +244,7 @@ importers:
         version: 0.1.37(@aws-crypto/sha256-js@5.2.0)(@aws-sdk/client-bedrock-agent-runtime@3.965.0)(@aws-sdk/client-bedrock-runtime@3.965.0)(@aws-sdk/client-kendra@3.965.0)(@aws-sdk/credential-provider-node@3.965.0)(@browserbasehq/sdk@2.6.0(encoding@0.1.13))(@smithy/util-utf8@2.3.0)(axios@1.13.2)(encoding@0.1.13)(fast-xml-parser@5.2.5)(google-auth-library@8.9.0(encoding@0.1.13))(handlebars@4.7.8)(ignore@5.3.2)(jsdom@26.1.0)(jsonwebtoken@9.0.3)(lodash@4.17.21)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(playwright@1.57.0)(ws@8.19.0)
       next:
         specifier: 14.2.35
-        version: 14.2.35(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.57.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.97.2)
+        version: 14.2.35(@opentelemetry/api@1.9.0)(@playwright/test@1.57.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.97.2)
       openai:
         specifier: ^4.85.1
         version: 4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76)
@@ -623,6 +623,18 @@ importers:
       '@headlessui/react':
         specifier: ^2.2.9
         version: 2.2.9(react-dom@19.2.3(react@19.1.0))(react@19.1.0)
+      react-syntax-highlighter:
+        specifier: ^15.6.1
+        version: 15.6.6(react@19.1.0)
+      rehype-raw:
+        specifier: ^7.0.0
+        version: 7.0.0
+      remark-gfm:
+        specifier: ^4.0.1
+        version: 4.0.1
+      remark-math:
+        specifier: ^6.0.0
+        version: 6.0.0
       streamdown:
         specifier: ^1.6.10
         version: 1.6.11(@types/mdast@4.0.4)(micromark-util-types@2.0.2)(micromark@4.0.2)(react@19.1.0)
@@ -633,6 +645,9 @@ importers:
       '@types/react':
         specifier: ^19.1.0
         version: 19.2.7
+      '@types/react-syntax-highlighter':
+        specifier: ^15.5.7
+        version: 15.5.13
       eslint:
         specifier: ^8.56.0
         version: 8.57.1
@@ -33595,7 +33610,7 @@ snapshots:
       isstream: 0.1.2
       jsonwebtoken: 9.0.3
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.13.2(debug@4.4.3))
+      retry-axios: 2.6.0(axios@1.13.2)
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -36422,13 +36437,13 @@ snapshots:
       - supports-color
       - unified
 
-  next-themes@0.2.1(next@15.0.7(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.57.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.97.2))(react-dom@19.1.0(react@19.1.0))(react@19.1.0):
+  next-themes@0.2.1(next@15.0.7(@opentelemetry/api@1.9.0)(@playwright/test@1.57.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.97.2))(react-dom@19.1.0(react@19.1.0))(react@19.1.0):
     dependencies:
-      next: 15.0.7(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.57.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.97.2)
+      next: 15.0.7(@opentelemetry/api@1.9.0)(@playwright/test@1.57.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.97.2)
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
 
-  next@14.2.35(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.57.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.97.2):
+  next@14.2.35(@opentelemetry/api@1.9.0)(@playwright/test@1.57.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.97.2):
     dependencies:
       '@next/env': 14.2.35
       '@swc/helpers': 0.5.5
@@ -36438,7 +36453,7 @@ snapshots:
       postcss: 8.4.31
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
-      styled-jsx: 5.1.1(@babel/core@7.28.5)(react@19.1.0)
+      styled-jsx: 5.1.1(react@19.1.0)
     optionalDependencies:
       '@next/swc-darwin-arm64': 14.2.33
       '@next/swc-darwin-x64': 14.2.33
@@ -36456,7 +36471,7 @@ snapshots:
       - '@babel/core'
       - babel-plugin-macros
 
-  next@15.0.7(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.57.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.97.2):
+  next@15.0.7(@opentelemetry/api@1.9.0)(@playwright/test@1.57.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.97.2):
     dependencies:
       '@next/env': 15.0.7
       '@swc/counter': 0.1.3
@@ -38177,7 +38192,7 @@ snapshots:
   remark-gfm@4.0.0:
     dependencies:
       '@types/mdast': 4.0.4
-      mdast-util-gfm: 3.0.0
+      mdast-util-gfm: 3.1.0
       micromark-extension-gfm: 3.0.0
       remark-parse: 11.0.0
       remark-stringify: 11.0.0
@@ -38385,7 +38400,7 @@ snapshots:
       retext-stringify: 4.0.0
       unified: 11.0.5
 
-  retry-axios@2.6.0(axios@1.13.2(debug@4.4.3)):
+  retry-axios@2.6.0(axios@1.13.2):
     dependencies:
       axios: 1.13.2(debug@4.4.3)
 
@@ -39387,12 +39402,10 @@ snapshots:
     dependencies:
       inline-style-parser: 0.2.7
 
-  styled-jsx@5.1.1(@babel/core@7.28.5)(react@19.1.0):
+  styled-jsx@5.1.1(react@19.1.0):
     dependencies:
       client-only: 0.0.1
       react: 19.1.0
-    optionalDependencies:
-      '@babel/core': 7.28.5
 
   styled-jsx@5.1.6(@babel/core@7.28.5)(react@19.1.0):
     dependencies:
