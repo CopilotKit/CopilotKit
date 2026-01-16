@@ -1,6 +1,6 @@
 {
   "name": "@copilotkitnext/runtime",
-  "version": "1.51.0-next.4",
+  "version": "1.51.2",
   "description": "Server-side runtime package for CopilotKit2",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -31,7 +31,6 @@
   },
   "devDependencies": {
     "@copilotkitnext/eslint-config": "workspace:*",
-    "@copilotkitnext/shared": "workspace:*",
     "@copilotkitnext/typescript-config": "workspace:*",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
@@ -43,6 +42,10 @@
     "vitest": "^3.0.5"
   },
   "dependencies": {
+    "@ag-ui/client": "0.0.42",
+    "@ag-ui/core": "0.0.42",
+    "@ag-ui/encoder": "0.0.42",
+    "@copilotkitnext/shared": "workspace:*",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "hono": "^4.6.13",
@@ -52,7 +55,8 @@
     "@ag-ui/client": "0.0.42",
     "@ag-ui/core": "0.0.42",
     "@ag-ui/encoder": "0.0.42",
-    "@copilotkitnext/shared": "workspace:*"
+    "@copilotkitnext/shared": "workspace:*",
+    "openai": "^5.9.0"
   },
   "peerDependenciesMeta": {},
   "engines": {

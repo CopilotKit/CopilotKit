@@ -1,5 +1,62 @@
 # @copilotkit/runtime
 
+## 1.51.2
+
+### Patch Changes
+
+- e59d23f: Use deps instead of peerdeps
+- e59d23f: Move in-repo deps from peerdeps to actual deps
+- Updated dependencies [e59d23f]
+- Updated dependencies [f36b6b1]
+  - @copilotkitnext/runtime@1.51.2
+  - @copilotkitnext/agent@1.51.2
+  - @copilotkit/shared@1.51.2
+
+## 1.51.2-next.1
+
+### Patch Changes
+
+- e59d23f: Use deps instead of peerdeps
+- e59d23f: Move in-repo deps from peerdeps to actual deps
+- Updated dependencies [e59d23f]
+  - @copilotkitnext/runtime@1.51.2-next.1
+  - @copilotkitnext/agent@1.51.2-next.1
+  - @copilotkit/shared@1.51.2-next.1
+
+## 1.51.2-next.0
+
+### Patch Changes
+
+- Updated dependencies [f36b6b1]
+  - @copilotkitnext/agent@1.51.2-next.0
+  - @copilotkit/shared@1.51.2-next.0
+  - @copilotkitnext/runtime@1.51.2-next.0
+
+## 1.51.1
+
+### Patch Changes
+
+- Updated dependencies [329653b]
+  - @copilotkitnext/agent@1.51.1
+  - @copilotkit/shared@1.51.1
+  - @copilotkitnext/runtime@1.51.1
+
+## 1.51.0
+
+### Patch Changes
+
+- 2839a15: fix: restore and fix handle method in node http
+- 2839a15: Update versioning strategy
+- 2839a15: fix: use direct hono node integration on node-http integration
+- 4addb72: Fix ci again but really for real this time
+- Updated dependencies [2793a11]
+- Updated dependencies [73f196f]
+- Updated dependencies [2839a15]
+- Updated dependencies [2afd4e3]
+  - @copilotkitnext/runtime@1.51.0
+  - @copilotkit/shared@1.51.0
+  - @copilotkitnext/agent@1.51.0
+
 ## 1.51.0-next.4
 
 ### Patch Changes

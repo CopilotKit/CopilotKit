@@ -46,4 +46,4 @@ jobs:
         run: npx turbo run build
 
       - name: Run tests
-        run: npx run test:classic
+        run: npm run test:classic

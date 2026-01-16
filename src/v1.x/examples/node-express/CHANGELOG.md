@@ -1,5 +1,49 @@
 # node
 
+## 1.4.9
+
+### Patch Changes
+
+- Updated dependencies [e59d23f]
+- Updated dependencies [e59d23f]
+  - @copilotkit/runtime@1.51.2
+  - @copilotkit/shared@1.51.2
+
+## 1.4.9-next.1
+
+### Patch Changes
+
+- Updated dependencies [e59d23f]
+- Updated dependencies [e59d23f]
+  - @copilotkit/runtime@1.51.2-next.1
+  - @copilotkit/shared@1.51.2-next.1
+
+## 1.4.9-next.0
+
+### Patch Changes
+
+- @copilotkit/runtime@1.51.2-next.0
+- @copilotkit/shared@1.51.2-next.0
+
+## 1.4.8
+
+### Patch Changes
+
+- @copilotkit/runtime@1.51.1
+- @copilotkit/shared@1.51.1
+
+## 1.4.7
+
+### Patch Changes
+
+- Updated dependencies [2839a15]
+- Updated dependencies [2839a15]
+- Updated dependencies [2afd4e3]
+- Updated dependencies [2839a15]
+- Updated dependencies [4addb72]
+  - @copilotkit/runtime@1.51.0
+  - @copilotkit/shared@1.51.0
+
 ## 1.4.7-next.3
 
 ### Patch Changes

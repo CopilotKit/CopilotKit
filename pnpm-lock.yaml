@@ -377,6 +377,9 @@ importers:
       '@a2ui/lit':
         specifier: ^0.8.1
         version: 0.8.1(signal-polyfill@0.2.2)
+      '@copilotkit/react-core':
+        specifier: workspace:*
+        version: link:../react-core
       '@lit-labs/signals':
         specifier: ^0.1.3
         version: 0.1.3
@@ -396,9 +399,6 @@ importers:
         specifier: ^3.25.75
         version: 3.25.76
     devDependencies:
-      '@copilotkit/react-core':
-        specifier: workspace:*
-        version: link:../react-core
       '@types/react':
         specifier: ^19.1.0
         version: 19.2.7
@@ -414,16 +414,6 @@ importers:
       '@ag-ui/client':
         specifier: 0.0.42
         version: 0.0.42
-      '@scarf/scarf':
-        specifier: ^1.3.0
-        version: 1.4.0
-      react-markdown:
-        specifier: ^8.0.7
-        version: 8.0.7(@types/react@19.2.7)(react@19.1.0)
-      untruncate-json:
-        specifier: ^0.0.1
-        version: 0.0.1
-    devDependencies:
       '@copilotkit/runtime-client-gql':
         specifier: workspace:*
         version: link:../runtime-client-gql
@@ -436,6 +426,16 @@ importers:
       '@copilotkitnext/react':
         specifier: workspace:*
         version: link:../../../v2.x/packages/react
+      '@scarf/scarf':
+        specifier: ^1.3.0
+        version: 1.4.0
+      react-markdown:
+        specifier: ^8.0.7
+        version: 8.0.7(@types/react@19.2.7)(react@19.1.0)
+      untruncate-json:
+        specifier: ^0.0.1
+        version: 0.0.1
+    devDependencies:
       '@testing-library/react':
         specifier: ^16.3.0
         version: 16.3.1(@testing-library/dom@10.4.0)(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -490,6 +490,15 @@ importers:
 
   src/v1.x/packages/react-textarea:
     dependencies:
+      '@copilotkit/react-core':
+        specifier: workspace:*
+        version: link:../react-core
+      '@copilotkit/runtime-client-gql':
+        specifier: workspace:*
+        version: link:../runtime-client-gql
+      '@copilotkit/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@emotion/css':
         specifier: ^11.11.2
         version: 11.13.5
@@ -545,15 +554,6 @@ importers:
         specifier: ^1.13.2
         version: 1.14.0
     devDependencies:
-      '@copilotkit/react-core':
-        specifier: workspace:*
-        version: link:../react-core
-      '@copilotkit/runtime-client-gql':
-        specifier: workspace:*
-        version: link:../runtime-client-gql
-      '@copilotkit/shared':
-        specifier: workspace:*
-        version: link:../shared
       '@types/jest':
         specifier: ^29.5.4
         version: 29.5.14
@@ -611,6 +611,15 @@ importers:
 
   src/v1.x/packages/react-ui:
     dependencies:
+      '@copilotkit/react-core':
+        specifier: workspace:*
+        version: link:../react-core
+      '@copilotkit/runtime-client-gql':
+        specifier: workspace:*
+        version: link:../runtime-client-gql
+      '@copilotkit/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@headlessui/react':
         specifier: ^2.2.9
         version: 2.2.9(react-dom@19.2.3(react@19.1.0))(react@19.1.0)
@@ -630,15 +639,6 @@ importers:
         specifier: ^6.0.0
         version: 6.0.0
     devDependencies:
-      '@copilotkit/react-core':
-        specifier: workspace:*
-        version: link:../react-core
-      '@copilotkit/runtime-client-gql':
-        specifier: workspace:*
-        version: link:../runtime-client-gql
-      '@copilotkit/shared':
-        specifier: workspace:*
-        version: link:../shared
       '@types/jest':
         specifier: ^29.5.4
         version: 29.5.14
@@ -696,6 +696,15 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.57.0
         version: 0.57.0
+      '@copilotkit/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@copilotkitnext/agent':
+        specifier: workspace:*
+        version: link:../../../v2.x/packages/agent
+      '@copilotkitnext/runtime':
+        specifier: workspace:*
+        version: link:../../../v2.x/packages/runtime
       '@graphql-yoga/plugin-defer-stream':
         specifier: ^3.3.1
         version: 3.18.0(graphql-yoga@5.18.0(graphql@16.12.0))(graphql@16.12.0)
@@ -772,15 +781,6 @@ importers:
         specifier: ^3.23.3
         version: 3.25.76
     devDependencies:
-      '@copilotkit/shared':
-        specifier: workspace:*
-        version: link:../shared
-      '@copilotkitnext/agent':
-        specifier: workspace:*
-        version: link:../../../v2.x/packages/agent
-      '@copilotkitnext/runtime':
-        specifier: workspace:*
-        version: link:../../../v2.x/packages/runtime
       '@jest/globals':
         specifier: ^29.7.0
         version: 29.7.0
@@ -829,6 +829,12 @@ importers:
 
   src/v1.x/packages/runtime-client-gql:
     dependencies:
+      '@copilotkit/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+      '@copilotkit/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@urql/core':
         specifier: ^5.0.3
         version: 5.2.0(graphql@16.12.0)
@@ -842,12 +848,6 @@ importers:
         specifier: ^4.1.0
         version: 4.2.2(@urql/core@5.2.0(graphql@16.12.0))(react@19.1.0)
     devDependencies:
-      '@copilotkit/runtime':
-        specifier: workspace:*
-        version: link:../runtime
-      '@copilotkit/shared':
-        specifier: workspace:*
-        version: link:../shared
       '@graphql-codegen/cli':
         specifier: ^5.0.2
         version: 5.0.7(@parcel/watcher@2.5.1)(@types/node@20.19.27)(encoding@0.1.13)(enquirer@2.4.1)(graphql@16.12.0)(typescript@5.9.2)
@@ -908,6 +908,9 @@ importers:
 
   src/v1.x/packages/sdk-js:
     dependencies:
+      '@copilotkit/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@langchain/community':
         specifier: ^0.0.53
         version: 0.0.53(@aws-crypto/sha256-js@5.2.0)(@aws-sdk/client-bedrock-agent-runtime@3.965.0)(@aws-sdk/client-bedrock-runtime@3.965.0)(@aws-sdk/client-kendra@3.965.0)(@aws-sdk/credential-provider-node@3.965.0)(@smithy/util-utf8@2.3.0)(encoding@0.1.13)(google-auth-library@8.9.0(encoding@0.1.13))(jsdom@26.1.0)(jsonwebtoken@9.0.3)(lodash@4.17.21)(openai@5.23.2(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
@@ -915,9 +918,6 @@ importers:
         specifier: ^3.23.3 || ^3.24.0 || ^3.25.0
         version: 3.25.76
     devDependencies:
-      '@copilotkit/shared':
-        specifier: workspace:*
-        version: link:../shared
       '@langchain/core':
         specifier: ^1.1.8
         version: 1.1.12(@opentelemetry/api@1.9.0)(openai@5.23.2(ws@8.19.0)(zod@3.25.76))
@@ -1326,8 +1326,8 @@ importers:
         specifier: 0.0.42
         version: 0.0.42
       '@ag-ui/mcp-apps-middleware':
-        specifier: 0.0.1
-        version: 0.0.1(@ag-ui/client@0.0.42)(@cfworker/json-schema@4.1.1)(hono@4.11.3)(rxjs@7.8.1)(zod@3.25.76)
+        specifier: 0.0.2
+        version: 0.0.2(@ag-ui/client@0.0.42)(@cfworker/json-schema@4.1.1)(hono@4.11.3)(rxjs@7.8.1)(zod@3.25.76)
       '@copilotkit/voice':
         specifier: workspace:*
         version: link:../../../packages/voice
@@ -1496,7 +1496,7 @@ importers:
         specifier: ^5.0.92
         version: 5.0.118(zod@3.25.76)
       rxjs:
-        specifier: ^7.8.1
+        specifier: 7.8.1
         version: 7.8.1
       zod:
         specifier: ^3.25.75
@@ -1535,6 +1535,12 @@ importers:
       '@ag-ui/core':
         specifier: 0.0.42
         version: 0.0.42
+      '@copilotkitnext/core':
+        specifier: workspace:*
+        version: link:../core
+      '@copilotkitnext/shared':
+        specifier: workspace:*
+        version: link:../shared
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -1587,15 +1593,9 @@ importers:
       '@angular/platform-browser-dynamic':
         specifier: ^18.0.0
         version: 18.2.14(@angular/common@18.2.14(@angular/core@18.2.14(rxjs@7.8.1)(zone.js@0.14.10))(rxjs@7.8.1))(@angular/compiler@18.2.14(@angular/core@18.2.14(rxjs@7.8.1)(zone.js@0.14.10)))(@angular/core@18.2.14(rxjs@7.8.1)(zone.js@0.14.10))(@angular/platform-browser@18.2.14(@angular/animations@18.2.14(@angular/core@18.2.14(rxjs@7.8.1)(zone.js@0.14.10)))(@angular/common@18.2.14(@angular/core@18.2.14(rxjs@7.8.1)(zone.js@0.14.10))(rxjs@7.8.1))(@angular/core@18.2.14(rxjs@7.8.1)(zone.js@0.14.10)))
-      '@copilotkitnext/core':
-        specifier: workspace:*
-        version: link:../core
       '@copilotkitnext/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
-      '@copilotkitnext/shared':
-        specifier: workspace:*
-        version: link:../shared
       '@copilotkitnext/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
@@ -1677,6 +1677,9 @@ importers:
       '@ag-ui/client':
         specifier: 0.0.42
         version: 0.0.42
+      '@copilotkitnext/shared':
+        specifier: workspace:*
+        version: link:../shared
       rxjs:
         specifier: 7.8.1
         version: 7.8.1
@@ -1690,9 +1693,6 @@ importers:
       '@copilotkitnext/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
-      '@copilotkitnext/shared':
-        specifier: workspace:*
-        version: link:../shared
       '@copilotkitnext/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
@@ -1793,6 +1793,15 @@ importers:
       '@ag-ui/core':
         specifier: 0.0.42
         version: 0.0.42
+      '@copilotkitnext/core':
+        specifier: workspace:*
+        version: link:../core
+      '@copilotkitnext/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@copilotkitnext/web-inspector':
+        specifier: workspace:*
+        version: link:../web-inspector
       '@lit-labs/react':
         specifier: ^2.0.2
         version: 2.1.3(@types/react@19.2.7)
@@ -1842,21 +1851,12 @@ importers:
         specifier: ^3.25.75
         version: 3.25.76
     devDependencies:
-      '@copilotkitnext/core':
-        specifier: workspace:*
-        version: link:../core
       '@copilotkitnext/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
-      '@copilotkitnext/shared':
-        specifier: workspace:*
-        version: link:../shared
       '@copilotkitnext/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
-      '@copilotkitnext/web-inspector':
-        specifier: workspace:*
-        version: link:../web-inspector
       '@tailwindcss/cli':
         specifier: ^4.1.11
         version: 4.1.18
@@ -1926,6 +1926,9 @@ importers:
       '@ag-ui/encoder':
         specifier: 0.0.42
         version: 0.0.42
+      '@copilotkitnext/shared':
+        specifier: workspace:*
+        version: link:../shared
       cors:
         specifier: ^2.8.5
         version: 2.8.5
@@ -1935,6 +1938,9 @@ importers:
       hono:
         specifier: ^4.6.13
         version: 4.11.3
+      openai:
+        specifier: ^5.9.0
+        version: 5.23.2(ws@8.19.0)(zod@3.25.76)
       rxjs:
         specifier: 7.8.1
         version: 7.8.1
@@ -1942,9 +1948,6 @@ importers:
       '@copilotkitnext/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
-      '@copilotkitnext/shared':
-        specifier: workspace:*
-        version: link:../shared
       '@copilotkitnext/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
@@ -2009,6 +2012,9 @@ importers:
       '@ag-ui/client':
         specifier: 0.0.42
         version: 0.0.42
+      '@copilotkitnext/runtime':
+        specifier: workspace:*
+        version: link:../runtime
       rxjs:
         specifier: 7.8.1
         version: 7.8.1
@@ -2016,9 +2022,6 @@ importers:
       '@copilotkitnext/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
-      '@copilotkitnext/runtime':
-        specifier: workspace:*
-        version: link:../runtime
       '@copilotkitnext/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
@@ -2082,6 +2085,9 @@ importers:
       '@ag-ui/client':
         specifier: 0.0.42
         version: 0.0.42
+      '@copilotkitnext/core':
+        specifier: workspace:*
+        version: link:../core
       lit:
         specifier: ^3.2.0
         version: 3.3.2
@@ -2092,9 +2098,6 @@ importers:
         specifier: ^12.0.2
         version: 12.0.2
     devDependencies:
-      '@copilotkitnext/core':
-        specifier: workspace:*
-        version: link:../core
       '@copilotkitnext/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
@@ -2160,8 +2163,8 @@ packages:
       '@ag-ui/client': 0.0.42
       '@ag-ui/core': 0.0.42
 
-  '@ag-ui/mcp-apps-middleware@0.0.1':
-    resolution: {integrity: sha512-GndsrxBr12Ji/Ioa4zYALbmEGD7cglExIwL7wlco3/PVyqk1WsjybxRNyDj+p9NQh2HJ3s/ctEJWGxwVUyC+fw==}
+  '@ag-ui/mcp-apps-middleware@0.0.2':
+    resolution: {integrity: sha512-EMHm65hs3aNfoCpxZ1RYDLvZejmit0yipvzg39jwKrGTzqvB3CZuZUenDS9o2eWu2PZIvcFuvU15nEwH7SZb8A==}
     peerDependencies:
       '@ag-ui/client': 0.0.42
       rxjs: 7.8.1
@@ -19268,7 +19271,7 @@ snapshots:
       - react
       - react-dom
 
-  '@ag-ui/mcp-apps-middleware@0.0.1(@ag-ui/client@0.0.42)(@cfworker/json-schema@4.1.1)(hono@4.11.3)(rxjs@7.8.1)(zod@3.25.76)':
+  '@ag-ui/mcp-apps-middleware@0.0.2(@ag-ui/client@0.0.42)(@cfworker/json-schema@4.1.1)(hono@4.11.3)(rxjs@7.8.1)(zod@3.25.76)':
     dependencies:
       '@ag-ui/client': 0.0.42
       '@modelcontextprotocol/sdk': 1.25.2(@cfworker/json-schema@4.1.1)(hono@4.11.3)(zod@3.25.76)
@@ -33762,7 +33765,7 @@ snapshots:
       isstream: 0.1.2
       jsonwebtoken: 9.0.3
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.13.2)
+      retry-axios: 2.6.0(axios@1.13.2(debug@4.4.3))
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -38784,7 +38787,7 @@ snapshots:
       retext-stringify: 4.0.0
       unified: 11.0.5
 
-  retry-axios@2.6.0(axios@1.13.2):
+  retry-axios@2.6.0(axios@1.13.2(debug@4.4.3)):
     dependencies:
       axios: 1.13.2(debug@4.4.3)
 

@@ -1,5 +1,27 @@
 # @copilotkitnext/shared
 
+## 1.51.2
+
+### Patch Changes
+
+- e59d23f: Use deps instead of peerdeps
+
+## 1.51.2-next.1
+
+### Patch Changes
+
+- e59d23f: Use deps instead of peerdeps
+
+## 1.51.2-next.0
+
+## 1.51.1
+
+## 1.51.0
+
+### Patch Changes
+
+- 2839a15: Update versioning strategy
+
 ## 1.51.0-next.4
 
 ## 1.51.0-next.3

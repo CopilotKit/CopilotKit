@@ -1,5 +1,63 @@
 # ui
 
+## 1.51.2
+
+### Patch Changes
+
+- e59d23f: Use deps instead of peerdeps
+- e59d23f: Move in-repo deps from peerdeps to actual deps
+- Updated dependencies [e59d23f]
+- Updated dependencies [e59d23f]
+  - @copilotkit/runtime-client-gql@1.51.2
+  - @copilotkitnext/react@1.51.2
+  - @copilotkitnext/core@1.51.2
+  - @copilotkit/shared@1.51.2
+
+## 1.51.2-next.1
+
+### Patch Changes
+
+- e59d23f: Use deps instead of peerdeps
+- e59d23f: Move in-repo deps from peerdeps to actual deps
+- Updated dependencies [e59d23f]
+- Updated dependencies [e59d23f]
+  - @copilotkit/runtime-client-gql@1.51.2-next.1
+  - @copilotkitnext/react@1.51.2-next.1
+  - @copilotkitnext/core@1.51.2-next.1
+  - @copilotkit/shared@1.51.2-next.1
+
+## 1.51.2-next.0
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.51.2-next.0
+- @copilotkit/shared@1.51.2-next.0
+- @copilotkitnext/core@1.51.2-next.0
+- @copilotkitnext/react@1.51.2-next.0
+
+## 1.51.1
+
+### Patch Changes
+
+- 329653b: Add support for MCP Apps Middleware
+- Updated dependencies [329653b]
+  - @copilotkitnext/react@1.51.1
+  - @copilotkit/runtime-client-gql@1.51.1
+  - @copilotkit/shared@1.51.1
+  - @copilotkitnext/core@1.51.1
+
+## 1.51.0
+
+### Patch Changes
+
+- 2839a15: Update versioning strategy
+- Updated dependencies [2839a15]
+- Updated dependencies [2afd4e3]
+  - @copilotkit/runtime-client-gql@1.51.0
+  - @copilotkit/shared@1.51.0
+  - @copilotkitnext/react@1.51.0
+  - @copilotkitnext/core@1.51.0
+
 ## 1.51.0-next.4
 
 ### Patch Changes

@@ -1,5 +1,46 @@
 # @copilotkit/sdk-js
 
+## 1.51.2
+
+### Patch Changes
+
+- e59d23f: Use deps instead of peerdeps
+- e59d23f: Move in-repo deps from peerdeps to actual deps
+  - @copilotkit/shared@1.51.2
+
+## 1.51.2-next.1
+
+### Patch Changes
+
+- e59d23f: Use deps instead of peerdeps
+- e59d23f: Move in-repo deps from peerdeps to actual deps
+  - @copilotkit/shared@1.51.2-next.1
+
+## 1.51.2-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.51.2-next.0
+
+## 1.51.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.51.1
+
+## 1.51.0
+
+### Minor Changes
+
+- ce14f8b: create copilotkit langgraph middleware
+
+### Patch Changes
+
+- 2839a15: Update versioning strategy
+- Updated dependencies [2839a15]
+- Updated dependencies [2afd4e3]
+  - @copilotkit/shared@1.51.0
+
 ## 1.51.0-next.4
 
 ### Patch Changes
