@@ -12,6 +12,21 @@ import { StateResolver } from "../../graphql/resolvers/state.resolver";
 import * as packageJson from "../../../package.json";
 import { CopilotKitError, CopilotKitErrorCode } from "@copilotkit/shared";
 
+/**
+ * CORS configuration for CopilotKit endpoints.
+ */
+export interface CopilotEndpointCorsConfig {
+  /**
+   * Allowed origin(s). Can be a string, array of strings, or a function that returns the origin.
+   */
+  origin: string | string[] | ((origin: string, c: any) => string | undefined | null);
+  /**
+   * Whether to include credentials (cookies, authorization headers) in CORS requests.
+   * When true, origin cannot be "*" - must be an explicit origin.
+   */
+  credentials?: boolean;
+}
+
 const logger = createLogger();
 
 export const addCustomHeaderPlugin = {
@@ -41,6 +56,11 @@ export interface CreateCopilotRuntimeServerOptions {
   cloud?: CopilotCloudOptions;
   properties?: CopilotRequestContextProperties;
   logLevel?: LogLevel;
+  /**
+   * Optional CORS configuration. When not provided, defaults to allowing all origins without credentials.
+   * To support HTTP-only cookies, provide cors config with credentials: true and explicit origin.
+   */
+  cors?: CopilotEndpointCorsConfig;
 }
 
 export async function createContext(

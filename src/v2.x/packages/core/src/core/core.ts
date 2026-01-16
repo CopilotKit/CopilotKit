@@ -21,6 +21,8 @@ export interface CopilotKitCoreConfig {
   agents__unsafe_dev_only?: Record<string, AbstractAgent>;
   /** Headers appended to every HTTP request made by `CopilotKitCore`. */
   headers?: Record<string, string>;
+  /** Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies). */
+  credentials?: RequestCredentials;
   /** Properties sent as `forwardedProps` to the AG-UI agent. */
   properties?: Record<string, unknown>;
   /** Ordered collection of frontend tools available to the core. */
@@ -140,6 +142,7 @@ export interface CopilotKitCoreFriendsAccess {
 
   // Getters for internal state
   readonly headers: Readonly<Record<string, string>>;
+  readonly credentials: RequestCredentials | undefined;
   readonly properties: Readonly<Record<string, unknown>>;
   readonly context: Readonly<Record<string, Context>>;
 
@@ -156,6 +159,7 @@ export interface CopilotKitCoreFriendsAccess {
 
 export class CopilotKitCore {
   private _headers: Record<string, string>;
+  private _credentials?: RequestCredentials;
   private _properties: Record<string, unknown>;
 
   private subscribers: Set<CopilotKitCoreSubscriber> = new Set();
@@ -171,12 +175,14 @@ export class CopilotKitCore {
     runtimeUrl,
     runtimeTransport = "rest",
     headers = {},
+    credentials,
     properties = {},
     agents__unsafe_dev_only = {},
     tools = [],
     suggestionsConfig = [],
   }: CopilotKitCoreConfig) {
     this._headers = headers;
+    this._credentials = credentials;
     this._properties = properties;
 
     // Initialize delegate classes
@@ -288,6 +294,10 @@ export class CopilotKitCore {
     return this._headers;
   }
 
+  get credentials(): RequestCredentials | undefined {
+    return this._credentials;
+  }
+
   get properties(): Readonly<Record<string, unknown>> {
     return this._properties;
   }
@@ -314,6 +324,11 @@ export class CopilotKitCore {
         }),
       "Subscriber onHeadersChanged error:",
     );
+  }
+
+  setCredentials(credentials: RequestCredentials | undefined): void {
+    this._credentials = credentials;
+    this.agentRegistry.applyCredentialsToAgents(this.agentRegistry.agents as Record<string, AbstractAgent>);
   }
 
   setProperties(properties: Record<string, unknown>): void {
