@@ -8,6 +8,7 @@ import { useRenderActivityMessage, useRenderCustomMessages } from "@/hooks";
 import { useCopilotKit } from "@/providers/CopilotKitProvider";
 import { useCopilotChatConfiguration } from "@/providers/CopilotChatConfigurationProvider";
 
+
 /**
  * Memoized wrapper for assistant messages to prevent re-renders when other messages change.
  */
@@ -119,14 +120,15 @@ const MemoizedActivityMessage = React.memo(
     return renderActivityMessage(message);
   },
   (prevProps, nextProps) => {
-    // Only re-render if this specific activity message changed
+    // Message ID changed = different message, must re-render
     if (prevProps.message.id !== nextProps.message.id) return false;
+
+    // Activity type changed = must re-render
     if (prevProps.message.activityType !== nextProps.message.activityType) return false;
-    // Compare content - need to stringify since it's an object
+
+    // Compare content using JSON.stringify (native code, handles deep comparison)
     if (JSON.stringify(prevProps.message.content) !== JSON.stringify(nextProps.message.content)) return false;
-    // Note: We don't compare renderActivityMessage function reference because it changes
-    // frequently due to useCallback dependencies in useRenderActivityMessage.
-    // The message content comparison is sufficient to determine if a re-render is needed.
+
     return true;
   }
 );
@@ -194,22 +196,22 @@ export function CopilotChatMessageView({
   ...props
 }: CopilotChatMessageViewProps) {
   const renderCustomMessage = useRenderCustomMessages();
-  const renderActivityMessage = useRenderActivityMessage();
+  const { renderActivityMessage } = useRenderActivityMessage();
   const { copilotkit } = useCopilotKit();
   const config = useCopilotChatConfiguration();
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
-  // Subscribe to state changes so custom message renderers re-render when state updates
+  // Subscribe to state changes so custom message renderers re-render when state updates.
   useEffect(() => {
     if (!config?.agentId) return;
     const agent = copilotkit.getAgent(config.agentId);
     if (!agent) return;
 
     const subscription = agent.subscribe({
-      onStateChanged: () => forceUpdate(),
+      onStateChanged: forceUpdate,
     });
     return () => subscription.unsubscribe();
-  }, [config?.agentId, copilotkit]);
+  }, [config?.agentId, copilotkit, forceUpdate]);
 
   // Helper to get state snapshot for a message (used for memoization)
   const getStateSnapshotForMessage = (messageId: string): unknown => {
@@ -272,10 +274,11 @@ export function CopilotChatMessageView({
         );
       } else if (message.role === "activity") {
         // Use memoized wrapper to prevent re-renders when other messages change
+        const activityMsg = message as ActivityMessage;
         elements.push(
           <MemoizedActivityMessage
             key={message.id}
-            message={message as ActivityMessage}
+            message={activityMsg}
             renderActivityMessage={renderActivityMessage}
           />
         );

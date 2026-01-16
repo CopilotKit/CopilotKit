@@ -1,5 +1,106 @@
 # @copilotkit/runtime
 
+## 1.51.2
+
+### Patch Changes
+
+- e59d23f: Use deps instead of peerdeps
+- e59d23f: Move in-repo deps from peerdeps to actual deps
+- Updated dependencies [e59d23f]
+- Updated dependencies [f36b6b1]
+  - @copilotkitnext/runtime@1.51.2
+  - @copilotkitnext/agent@1.51.2
+  - @copilotkit/shared@1.51.2
+
+## 1.51.2-next.1
+
+### Patch Changes
+
+- e59d23f: Use deps instead of peerdeps
+- e59d23f: Move in-repo deps from peerdeps to actual deps
+- Updated dependencies [e59d23f]
+  - @copilotkitnext/runtime@1.51.2-next.1
+  - @copilotkitnext/agent@1.51.2-next.1
+  - @copilotkit/shared@1.51.2-next.1
+
+## 1.51.2-next.0
+
+### Patch Changes
+
+- Updated dependencies [f36b6b1]
+  - @copilotkitnext/agent@1.51.2-next.0
+  - @copilotkit/shared@1.51.2-next.0
+  - @copilotkitnext/runtime@1.51.2-next.0
+
+## 1.51.1
+
+### Patch Changes
+
+- Updated dependencies [329653b]
+  - @copilotkitnext/agent@1.51.1
+  - @copilotkit/shared@1.51.1
+  - @copilotkitnext/runtime@1.51.1
+
+## 1.51.0
+
+### Patch Changes
+
+- 2839a15: fix: restore and fix handle method in node http
+- 2839a15: Update versioning strategy
+- 2839a15: fix: use direct hono node integration on node-http integration
+- 4addb72: Fix ci again but really for real this time
+- Updated dependencies [2793a11]
+- Updated dependencies [73f196f]
+- Updated dependencies [2839a15]
+- Updated dependencies [2afd4e3]
+  - @copilotkitnext/runtime@1.51.0
+  - @copilotkit/shared@1.51.0
+  - @copilotkitnext/agent@1.51.0
+
+## 1.51.0-next.4
+
+### Patch Changes
+
+- Updated dependencies [2793a11]
+  - @copilotkitnext/runtime@1.51.0-next.4
+  - @copilotkit/shared@1.51.0-next.4
+  - @copilotkitnext/agent@1.51.0-next.4
+
+## 1.51.0-next.3
+
+### Patch Changes
+
+- Updated dependencies [73f196f]
+  - @copilotkitnext/runtime@1.51.0-next.3
+  - @copilotkit/shared@1.51.0-next.3
+  - @copilotkitnext/agent@1.51.0-next.3
+
+## 1.51.0-next.2
+
+### Patch Changes
+
+- 4addb72: Fix ci again but really for real this time
+- Updated dependencies [2afd4e3]
+  - @copilotkit/shared@1.51.0-next.2
+  - @copilotkitnext/agent@1.51.0-next.2
+  - @copilotkitnext/runtime@1.51.0-next.2
+
+## 1.51.0-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.51.0-next.1
+- @copilotkitnext/agent@1.51.0-next.1
+- @copilotkitnext/runtime@1.51.0-next.1
+
+## 1.50.2-next.0
+
+### Patch Changes
+
+- cf245a6: fix: restore and fix handle method in node http
+- cf245a6: fix: use direct hono node integration on node-http integration
+  - @copilotkit/shared@1.50.2-next.0
+
 ## 1.50.1
 
 ### Patch Changes
@@ -515,7 +616,6 @@
 ### Patch Changes
 
 - 1abcecf: - fix: add graphqlContext to constructAGUIRemoteAction for enhanced agent properties
-
   - Updated constructAGUIRemoteAction to accept graphqlContext, allowing forwarding of properties like Authorization token to the agent.
   - Modified setupRemoteActions to include graphqlContext in the parameters.
 
@@ -617,7 +717,6 @@
 ### Patch Changes
 
 - 1abcecf: - fix: add graphqlContext to constructAGUIRemoteAction for enhanced agent properties
-
   - Updated constructAGUIRemoteAction to accept graphqlContext, allowing forwarding of properties like Authorization token to the agent.
   - Modified setupRemoteActions to include graphqlContext in the parameters.
   - @copilotkit/shared@1.10.0-next.1
@@ -685,7 +784,6 @@
   - remove request logging
 - 3a7f45f: - fix: resolve agui agents only after all other endpoints
 - fac89c2: - refactor: rename onTrace to onError throughout codebase
-
   - Rename CopilotTraceEvent to CopilotErrorEvent and CopilotTraceHandler to CopilotErrorHandler
 
 - 7ca7023: - feat: send node name to agui agent
@@ -786,7 +884,6 @@
 ### Patch Changes
 
 - fac89c2: - refactor: rename onTrace to onError throughout codebase
-
   - Rename CopilotTraceEvent to CopilotErrorEvent and CopilotTraceHandler to CopilotErrorHandler
 
 - Updated dependencies [fac89c2]
@@ -1268,11 +1365,9 @@
 - c0d3261: - full AWP support
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - refactor: address linter issues with the new pages
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - Merge branch 'mme/acp' into mme/mastra
   - add sse example
   - Create small-turkeys-agree.md
@@ -1289,17 +1384,14 @@
 - 77a7457: - feat: Add Model Context Protocol (MCP) support
 - 76d9ef9: - fix: handle langgraph client specific errors when running lgc stream
 - c0d3261: - add AWP support
-
   - make it work
   - update docs
   - refactor: move UI files to be normal NextJS pages and update generation
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - refactor: address linter issues with the new pages
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - Merge branch 'mme/acp' into mme/mastra
   - add sse example
 
@@ -1313,11 +1405,9 @@
 - c0d3261: - full AWP support
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - refactor: address linter issues with the new pages
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - Merge branch 'mme/acp' into mme/mastra
   - add sse example
   - Create small-turkeys-agree.md
@@ -1332,17 +1422,14 @@
   - fix missing tool call ids
 
 - c0d3261: - add AWP support
-
   - make it work
   - update docs
   - refactor: move UI files to be normal NextJS pages and update generation
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - refactor: address linter issues with the new pages
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
-
   - Merge branch 'mme/acp' into mme/mastra
   - add sse example
   - @copilotkit/shared@1.8.5-next.5
@@ -2347,7 +2434,6 @@
 - e16d95e: New prerelease
 - 1721cbd: Add convertActionsToDynamicStructuredTools to sdk-js
 - CopilotKit Core:
-
   - Improved error messages and overall logs
   - `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
   - Improved scrolling behavior. It is now possible to scroll up during LLM response generation
@@ -2355,7 +2441,6 @@
   - Updated interfaces for better developer ergonomics
 
   CoAgents:
-
   - Renamed `remoteActions` to `remoteEndpoints` (backwards compatible, will be deprecated in the future)
   - Support for LangGraph Platform in Remote Endpoints
   - LangGraph JS Support for CoAgents (locally via `langgraph dev`, `langgraph up` or deployed to LangGraph Platform)
@@ -2363,7 +2448,6 @@
   - Enhanced state management and message handling
 
   CopilotKid Back-end SDK:
-
   - Released a whole-new `@copilotkit/sdk-js` for building agents with LangGraph JS Support
 
 - 8d0144f: bump
@@ -2710,7 +2794,6 @@ CopilotKid Back-end SDK:
 ### Patch Changes
 
 - inject minified css in bundle
-
   - removes the need to import `styles.css` manually
   - empty `styles.css` included in the build for backwards compatibility
   - uses tsup's `injectStyles` with `postcss` to bundle and minify the CSS, then inject it as a style tag
@@ -2847,7 +2930,6 @@ CopilotKid Back-end SDK:
 ### Major Changes
 
 - b6a4b6eb: V1.0 Release Candidate
-
   - A robust new protocol between the frontend and the Copilot Runtime
   - Support for Copilot Cloud
   - Generative UI
@@ -2855,7 +2937,6 @@ CopilotKid Back-end SDK:
   - OpenAI assistant API streaming
 
 - V1.0 Release
-
   - A robust new protocol between the frontend and the Copilot Runtime
   - Support for Copilot Cloud
   - Generative UI
@@ -2893,7 +2974,6 @@ CopilotKid Back-end SDK:
 ### Major Changes
 
 - V1.0 Release Candidate
-
   - A robust new protocol between the frontend and the Copilot Runtime
   - Support for Copilot Cloud
   - Generative UI

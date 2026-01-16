@@ -22,9 +22,6 @@ jobs:
   v1:
     name: "unit / v1.x"
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: "src/v1.x"
     strategy:
       matrix:
         node-version: [20.x, 22.x, 24.x]
@@ -35,7 +32,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: "9.5"
+          version: "10.13.1"
 
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
@@ -49,4 +46,4 @@ jobs:
         run: npx turbo run build
 
       - name: Run tests
-        run: npx turbo run test
+        run: npm run test:classic

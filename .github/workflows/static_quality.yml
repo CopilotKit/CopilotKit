@@ -33,7 +33,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: "9.5"
+          version: "10.13.1"
 
       - name: Use Node.js 20
         uses: actions/setup-node@v3
@@ -60,7 +60,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: "9.5"
+          version: "10.13.1"
 
       - name: Use Node.js 20
         uses: actions/setup-node@v3

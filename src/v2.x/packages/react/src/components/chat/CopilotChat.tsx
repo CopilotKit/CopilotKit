@@ -35,9 +35,9 @@ export function CopilotChat({ agentId, threadId, labels, chatView, isModalDefaul
     () => threadId ?? existingConfig?.threadId ?? randomUUID(),
     [threadId, existingConfig?.threadId],
   );
+
   const { agent } = useAgent({ agentId: resolvedAgentId });
   const { copilotkit } = useCopilotKit();
-
   const { suggestions: autoSuggestions } = useSuggestions({ agentId: resolvedAgentId });
 
   const {
@@ -141,8 +141,13 @@ export function CopilotChat({ agentId, threadId, labels, chatView, isModalDefaul
 
   finalInputProps.mode = agent.isRunning ? "processing" : (finalInputProps.mode ?? "input");
 
+  // Memoize messages array - only create new reference when content actually changes
+  // (agent.messages is mutated in place, so we need a new reference for React to detect changes)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const messages = useMemo(() => [...agent.messages], [JSON.stringify(agent.messages)]);
+
   const finalProps = merge(mergedProps, {
-    messages: agent.messages,
+    messages,
     inputProps: finalInputProps,
   }) as CopilotChatViewProps;
 

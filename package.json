@@ -1,24 +1,124 @@
 {
   "name": "CopilotKit",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "turbo run build",
+    "build:classic": "turbo run build --filter=@copilotkit/*",
+    "build:next": "turbo run build --filter=@copilotkitnext/*",
+    "build:storybook": "turbo run build --filter=storybook-react --filter=storybook-angular",
+    "build:packages": "turbo run build --filter='@copilotkit/a2ui-renderer...' --filter='@copilotkit/react-core...' --filter='@copilotkit/react-textarea...' --filter='@copilotkit/react-ui...' --filter='@copilotkit/runtime...' --filter='@copilotkit/runtime-client-gql...' --filter='@copilotkit/sdk-js...' --filter='@copilotkit/shared...' --filter='@copilotkitnext/agent...' --filter='@copilotkitnext/angular...' --filter='@copilotkitnext/core...' --filter='@copilotkitnext/react...' --filter='@copilotkitnext/runtime...' --filter='@copilotkitnext/shared...' --filter='@copilotkitnext/sqlite-runner...' --filter='@copilotkitnext/web-inspector...'",
+
+    "check-types": "turbo run check-types",
+    "check-types:classic": "turbo run check-types --filter=@copilotkit/*",
+    "check-types:next": "turbo run check-types --filter=@copilotkitnext/*",
+
+    "clean": "turbo clean",
+    "clean:classic": "turbo run clean --filter=@copilotkit/*",
+    "clean:next": "turbo run clean --filter=@copilotkitnext/*",
+
+    "lint": "turbo lint",
+    "lint:classic": "turbo run lint --filter=@copilotkit/*",
+    "lint:next": "turbo run lint --filter=@copilotkitnext/*",
+
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "format:classic": "prettier --write \"src/v1.x/**/*.{ts,tsx,md}\"",
+    "format:next": "prettier --write \"src/v2.x/**/*.{ts,tsx,md}\"",
+
+    "check-prettier": "prettier --check \"**/*.{ts,tsx,md}\"",
+    "check-prettier:classic": "prettier --check \"src/v1.x/**/*.{ts,tsx,md}\"",
+    "check-prettier:next": "prettier --check \"src/v2.x/**/*.{ts,tsx,md}\"",
+
+    "test": "turbo test",
+    "test:classic": "turbo run test --filter=@copilotkit/*",
+    "test:next": "turbo run test --filter=@copilotkitnext/*",
+    "test:watch:classic": "turbo run test:watch --filter=@copilotkit/*",
+    "test:watch:next": "turbo run test:watch --filter=@copilotkitnext/*",
+    "test:coverage:classic": "turbo run test:coverage --filter=@copilotkit/*",
+    "test:coverage:next": "turbo run test:coverage --filter=@copilotkitnext/*",
+
+    "dev": "turbo run dev --concurrency 24",
+    "dev:classic": "turbo run dev --filter=@copilotkit/*",
+    "dev:next": "turbo run dev --filter=@copilotkitnext/*",
+    "predev:next": "turbo run build --filter='@copilotkitnext/core' --filter='@copilotkitnext/shared' --filter='@copilotkitnext/web-inspector' --filter='@copilotkitnext/react' --filter='@copilotkitnext/angular' --filter='@copilotkitnext/agent' --filter='@copilotkitnext/sqlite-runner'",
+
+    "storybook:all": "echo 'Run storybooks in separate terminals: pnpm storybook:react | pnpm storybook:angular'",
+    "storybook:angular": "pnpm -C src/apps/angular/storybook dev",
+    "storybook:react": "pnpm -C src/apps/react/storybook dev",
+    "storybook": "pnpm storybook:react",
+
+    "docs:next": "pnpm -C src/v2.x/apps/docs dev",
+    "docs:classic": "ts-node src/v1.x/scripts/docs/gen.ts",
+
+    "demo:next:angular": "turbo run dev --filter='@copilotkitnext/angular-demo-server' --filter='@copilotkitnext/angular-demo'",
+    "demo:next:react": "pnpm -C src/v2.x/apps/react/demo dev",
+    "dev:next:packages": "turbo run dev --filter='@copilotkitnext/core' --filter='@copilotkitnext/shared' --filter='@copilotkitnext/web-inspector' --filter='@copilotkitnext/runtime' --filter='@copilotkitnext/sqlite-runner' --filter='@copilotkitnext/react' --filter='@copilotkitnext/angular' --filter='@copilotkitnext/agent'",
+
     "prepare": "husky"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "devDependencies": {
-    "danger": "^12.3.3",
-    "husky": "^9.1.4"
+  "v2Leftovers": {
+    "bump:prerelease": "pnpm -r --filter='@copilotkitnext/agent' --filter='@copilotkitnext/angular' --filter='@copilotkitnext/core' --filter='@copilotkitnext/react' --filter='@copilotkitnext/runtime' --filter='@copilotkitnext/sqlite-runner' --filter='@copilotkitnext/shared' --filter='@copilotkitnext/web-inspector' exec pnpm version prerelease --preid=alpha",
+    "bump:release": "pnpm -r --filter='@copilotkitnext/agent' --filter='@copilotkitnext/angular' --filter='@copilotkitnext/core' --filter='@copilotkitnext/react' --filter='@copilotkitnext/runtime' --filter='@copilotkitnext/sqlite-runner' --filter='@copilotkitnext/shared' --filter='@copilotkitnext/web-inspector' exec pnpm version patch",
+    "publish:prerelease": "pnpm -r clean && pnpm install && turbo build && pnpm publish -r --no-git-checks --filter='@copilotkitnext/agent' --filter='@copilotkitnext/angular' --filter='@copilotkitnext/core' --filter='@copilotkitnext/react' --filter='@copilotkitnext/runtime' --filter='@copilotkitnext/sqlite-runner' --filter='@copilotkitnext/shared' --filter='@copilotkitnext/web-inspector' --tag alpha",
+    "publish:release:dry": "pnpm -r --filter '@copilotkitnext/*' publish --access public --dry-run",
+    "publish:release": "pnpm -r --filter '@copilotkitnext/*' publish --access public",
+    "server:node": "pnpm -C src/apps/node dev"
   },
-  "dependencies": {
-    "@copilotkit/react-core": "1.10.6",
-    "@copilotkit/react-textarea": "1.10.6",
-    "@copilotkit/react-ui": "1.10.6",
-    "@copilotkit/runtime": "1.10.6",
-    "nvm": "^0.0.4"
+  "v1Leftovers": {
+    "freshbuild": "pnpm -w clean && pnpm i && pnpm -w build",
+    "precommit": "pnpm run docs",
+    "prepublish": "turbo run build"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.29.8",
+    "@commitlint/cli": "^20.3.0",
+    "@commitlint/config-conventional": "^20.3.0",
+    "@storybook/addon-docs": "^10.1.10",
+    "@storybook/addon-webpack5-compiler-swc": "^4.0.2",
+    "@storybook/react-webpack5": "^10.1.10",
+    "@types/node": "^18.11.17",
+    "danger": "^12.3.3",
+    "eslint-config-custom": "workspace:*",
+    "eslint": "^8.56.0",
+    "glob": "^10.3.12",
+    "husky": "^9.1.4",
+    "install": "^0.13.0",
+    "npm": "^10.7.0",
+    "prettier-plugin-tailwindcss": "^0.1.11",
+    "prettier": "^3.6.0",
+    "storybook": "^10.1.10",
+    "ts-node": "^10.9.2",
+    "turbo": "^2.5.4",
+    "typescript": "^5.2.3"
+  },
+  "packageManager": "pnpm@10.13.1",
+  "engines": {
+    "node": ">=18"
+  },
+  "pnpm": {
+    "peerDependencyRules": {
+      "ignoreMissing": [
+        "react",
+        "react-dom"
+      ],
+      "allowedVersions": {
+        "react": "*",
+        "react-dom": "*"
+      }
+    },
+    "overrides": {
+      "@ag-ui/client": "0.0.42",
+      "@ag-ui/core": "0.0.42",
+      "@ag-ui/encoder": "0.0.42",
+      "@types/react": "^19.1.0",
+      "@types/react-dom": "^19.0.2",
+      "react": "19.1.0",
+      "react-dom": "19.1.0"
+    },
+    "publicHoistPattern": [
+      "@ag-ui/*"
+    ],
+    "patchedDependencies": {
+      "@changesets/assemble-release-plan@6.0.9": "patches/@changesets__assemble-release-plan@6.0.9.patch"
+    }
   }
 }

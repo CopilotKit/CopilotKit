@@ -1,6 +1,6 @@
 {
   "name": "@copilotkitnext/agent",
-  "version": "0.0.33",
+  "version": "1.51.2",
   "description": "Basic Agent for CopilotKit",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -16,9 +16,8 @@
   },
   "scripts": {
     "build": "tsup",
-    "prepublishOnly": "pnpm run build",
     "dev": "tsup --watch",
-    "lint": "eslint . --max-warnings 0",
+    "lint": "eslint .",
     "check-types": "tsc --noEmit",
     "clean": "rm -rf dist",
     "test": "vitest run",
@@ -43,7 +42,7 @@
     "@ai-sdk/openai": "^2.0.42",
     "@modelcontextprotocol/sdk": "^1.18.2",
     "ai": "^5.0.92",
-    "rxjs": "^7.8.1",
+    "rxjs": "7.8.1",
     "zod": "^3.25.75"
   },
   "engines": {

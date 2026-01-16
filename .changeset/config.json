@@ -1,0 +1,19 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@3.0.4/schema.json",
+  "changelog": "@changesets/cli/changelog",
+  "commit": false,
+  "access": "public",
+  "baseBranch": "origin/main",
+  "fixed": [["@copilotkit/*", "@copilotkitnext/*"]],
+  "ignore": [
+    "@copilotkitnext/angular-demo",
+    "@copilotkitnext/angular-demo-server",
+    "@copilotkitnext/demo-agents",
+    "@copilotkitnext/docs",
+    "@apps/node",
+    "storybook-react",
+    "storybook-angular"
+  ],
+  "linked": [],
+  "updateInternalDependencies": "patch"
+}

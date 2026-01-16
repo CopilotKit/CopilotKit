@@ -1,6 +1,6 @@
 {
   "name": "@copilotkitnext/angular",
-  "version": "0.0.33",
+  "version": "1.51.2",
   "description": "Angular library for CopilotKit",
   "main": "dist/fesm2022/copilotkitnext-angular.mjs",
   "module": "dist/fesm2022/copilotkitnext-angular.mjs",
@@ -23,9 +23,8 @@
     "build:css": "npx @tailwindcss/cli -i ./src/styles/globals.css -o ./dist/styles.css",
     "dev": "concurrently \"ng-packagr -p ng-package.json --watch\" \"npm run dev:css\"",
     "dev:css": "npx @tailwindcss/cli -i ./src/styles/globals.css -o ./dist/styles.css --watch",
-    "prepublishOnly": "pnpm run build",
     "clean": "rimraf dist",
-    "lint": "eslint src --ext .ts",
+    "lint": "eslint .",
     "check-types": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest --watch"
@@ -63,6 +62,7 @@
     "@angular/platform-browser-dynamic": "^18.0.0",
     "@copilotkitnext/eslint-config": "workspace:*",
     "@copilotkitnext/typescript-config": "workspace:*",
+    "eslint": "^9.17.0",
     "@eslint/js": "^9.30.0",
     "@lucide/build-icons": "^1.1.0",
     "@tailwindcss/cli": "^4.1.11",

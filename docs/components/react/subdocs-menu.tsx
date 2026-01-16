@@ -7,7 +7,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { useSidebar } from 'fumadocs-ui/components/sidebar/base';
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -22,14 +21,16 @@ import {
 import { PiGraph } from "react-icons/pi";
 import { PlugIcon } from "lucide-react";
 
-// localStorage utilities for managing user's connection type preference
+// sessionStorage utilities for managing user's connection type preference
+// Using sessionStorage instead of localStorage so preference is tab-specific
+// and doesn't persist across new tabs or browser sessions
 const STORAGE_KEY = "copilotkit-nav-preference";
 const DEFAULT_URL = "/";
 
 function getStoredNavPreference(): string | null {
   if (typeof window === "undefined") return null;
   try {
-    return localStorage.getItem(STORAGE_KEY);
+    return sessionStorage.getItem(STORAGE_KEY);
   } catch {
     return null;
   }
@@ -38,9 +39,9 @@ function getStoredNavPreference(): string | null {
 function setStoredNavPreference(url: string): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(STORAGE_KEY, url);
+    sessionStorage.setItem(STORAGE_KEY, url);
   } catch {
-    // Ignore localStorage errors
+    // Ignore sessionStorage errors
   }
 }
 
@@ -289,7 +290,6 @@ export function SubdocsMenu({
 }: {
   options: (Option | OptionDropdown | Separator | Label)[];
 } & HTMLAttributes<HTMLButtonElement>): React.ReactElement {
-  const { closeOnRedirect } = useSidebar();
   const pathname = usePathname();
 
   // State for tracking user's explicit navigation preference
@@ -367,8 +367,8 @@ export function SubdocsMenu({
   }, []);
 
   const onClick = useCallback(() => {
-    //closeOnRedirect.current = false;
-  }, [closeOnRedirect]);
+    // Navigation click handler
+  }, []);
 
       return (
       <div className="flex flex-col gap-1">
