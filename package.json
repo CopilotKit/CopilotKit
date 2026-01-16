@@ -36,14 +36,14 @@
     "test:coverage:classic": "turbo run test:coverage --filter=@copilotkit/*",
     "test:coverage:next": "turbo run test:coverage --filter=@copilotkitnext/*",
 
-    "dev": "turbo run dev --concurrency 24",
+    "dev": "turbo run dev --concurrency 25",
     "dev:classic": "turbo run dev --filter=@copilotkit/*",
-    "dev:next": "turbo run dev --filter=@copilotkitnext/*",
-    "predev:next": "turbo run build --filter='@copilotkitnext/core' --filter='@copilotkitnext/shared' --filter='@copilotkitnext/web-inspector' --filter='@copilotkitnext/react' --filter='@copilotkitnext/angular' --filter='@copilotkitnext/agent' --filter='@copilotkitnext/sqlite-runner'",
+    "dev:next": "turbo run dev --concurrency 14 --filter=@copilotkitnext/* --filter=@copilotkit/voice",
+    "predev:next": "turbo run build --filter='@copilotkitnext/core' --filter='@copilotkitnext/shared' --filter='@copilotkitnext/web-inspector' --filter='@copilotkitnext/react' --filter='@copilotkitnext/angular' --filter='@copilotkitnext/agent' --filter='@copilotkitnext/sqlite-runner' --filter='@copilotkit/voice'",
 
     "storybook:all": "echo 'Run storybooks in separate terminals: pnpm storybook:react | pnpm storybook:angular'",
-    "storybook:angular": "pnpm -C src/apps/angular/storybook dev",
-    "storybook:react": "pnpm -C src/apps/react/storybook dev",
+    "storybook:angular": "pnpm -C src/v2.x/apps/angular/storybook dev",
+    "storybook:react": "pnpm -C src/v2.x/apps/react/storybook dev",
     "storybook": "pnpm storybook:react",
 
     "docs:next": "pnpm -C src/v2.x/apps/docs dev",

@@ -131,7 +131,8 @@ export function createCopilotEndpointSingleRoute({ runtime, basePath, cors: cors
             return await handleGetRuntimeInfo({ runtime, request });
           }
           case "transcribe": {
-            return await handleTranscribe({ runtime, request });
+            const handlerRequest = createJsonRequest(request, methodCall.body);
+            return await handleTranscribe({ runtime, request: handlerRequest });
           }
           default: {
             const exhaustiveCheck: never = methodCall.method;

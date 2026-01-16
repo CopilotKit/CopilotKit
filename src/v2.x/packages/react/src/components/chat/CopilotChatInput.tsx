@@ -11,7 +11,7 @@ import React, {
   useMemo,
 } from "react";
 import { twMerge } from "tailwind-merge";
-import { Plus, Mic, ArrowUp, X, Check, Square } from "lucide-react";
+import { Plus, Mic, ArrowUp, X, Check, Square, Loader2 } from "lucide-react";
 
 import {
   CopilotChatLabels,
@@ -69,6 +69,7 @@ type CopilotChatInputRestProps = {
   onStartTranscribe?: () => void;
   onCancelTranscribe?: () => void;
   onFinishTranscribe?: () => void;
+  onFinishTranscribeWithAudio?: (audioBlob: Blob) => Promise<void>;
   onAddFile?: () => void;
   value?: string;
   onChange?: (value: string) => void;
@@ -97,6 +98,7 @@ export function CopilotChatInput({
   onStartTranscribe,
   onCancelTranscribe,
   onFinishTranscribe,
+  onFinishTranscribeWithAudio,
   onAddFile,
   onChange,
   value,
@@ -465,8 +467,25 @@ export function CopilotChatInput({
     onClick: onCancelTranscribe,
   });
 
+  // Handler for finish button - stops recording and passes audio blob
+  const handleFinishTranscribe = useCallback(async () => {
+    const recorder = audioRecorderRef.current;
+    if (recorder && recorder.state === "recording") {
+      try {
+        const audioBlob = await recorder.stop();
+        if (onFinishTranscribeWithAudio) {
+          await onFinishTranscribeWithAudio(audioBlob);
+        }
+      } catch (error) {
+        console.error("Failed to stop recording:", error);
+      }
+    }
+    // Always call the original handler to reset mode
+    onFinishTranscribe?.();
+  }, [onFinishTranscribe, onFinishTranscribeWithAudio]);
+
   const BoundFinishTranscribeButton = renderSlot(finishTranscribeButton, CopilotChatInput.FinishTranscribeButton, {
-    onClick: onFinishTranscribe,
+    onClick: handleFinishTranscribe,
   });
 
   const BoundAddMenuButton = renderSlot(addMenuButton, CopilotChatInput.AddMenuButton, {
@@ -817,12 +836,16 @@ export function CopilotChatInput({
         </div>
         <div
           className={twMerge(
-            "relative flex min-w-0 flex-col",
+            "relative flex min-w-0 flex-col min-h-[50px] justify-center",
             isExpanded ? "col-span-3 row-start-1" : "col-start-2 row-start-1",
           )}
         >
           {mode === "transcribe" ? (
             BoundAudioRecorder
+          ) : mode === "processing" ? (
+            <div className="flex w-full items-center justify-center py-3 px-5">
+              <Loader2 className="size-[26px] animate-spin text-muted-foreground" />
+            </div>
           ) : (
             <>
               {BoundTextArea}
