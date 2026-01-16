@@ -65,7 +65,7 @@ ORDER BY order_count DESC;
   "version": "2.0.0",
   "dependencies": {
     "react": "^18.0.0",
-    "react-markdown": "^10.1.0"
+    "streamdown": "^1.6.10"
   }
 }
 \`\`\`
