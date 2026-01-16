@@ -9,9 +9,35 @@ import { callBeforeRequestMiddleware, callAfterRequestMiddleware } from "../midd
 import { handleConnectAgent } from "../handlers/handle-connect";
 import { handleStopAgent } from "../handlers/handle-stop";
 
+/**
+ * CORS configuration for CopilotKit endpoints.
+ * When using credentials (e.g., HTTP-only cookies), you must specify an explicit origin.
+ */
+export interface CopilotEndpointCorsConfig {
+  /**
+   * Allowed origin(s) for CORS. Can be:
+   * - A string: exact origin (e.g., "https://myapp.com")
+   * - An array: list of allowed origins
+   * - A function: dynamic origin resolution
+   *
+   * Note: When credentials is true, origin cannot be "*"
+   */
+  origin: string | string[] | ((origin: string, c: any) => string | undefined | null);
+  /**
+   * Whether to allow credentials (cookies, HTTP authentication).
+   * When true, origin must be explicitly specified (not "*").
+   */
+  credentials?: boolean;
+}
+
 interface CopilotEndpointParams {
   runtime: CopilotRuntime;
   basePath: string;
+  /**
+   * Optional CORS configuration. When not provided, defaults to allowing all origins without credentials.
+   * To support HTTP-only cookies, provide cors config with credentials: true and explicit origin.
+   */
+  cors?: CopilotEndpointCorsConfig;
 }
 
 // Define the context variables type
@@ -21,7 +47,7 @@ type CopilotEndpointContext = {
   };
 };
 
-export function createCopilotEndpoint({ runtime, basePath }: CopilotEndpointParams) {
+export function createCopilotEndpoint({ runtime, basePath, cors: corsConfig }: CopilotEndpointParams) {
   const app = new Hono<CopilotEndpointContext>();
 
   return app
@@ -29,9 +55,10 @@ export function createCopilotEndpoint({ runtime, basePath }: CopilotEndpointPara
     .use(
       "*",
       cors({
-        origin: "*",
+        origin: corsConfig?.origin ?? "*",
         allowMethods: ["GET", "HEAD", "PUT", "POST", "DELETE", "PATCH", "OPTIONS"],
         allowHeaders: ["*"],
+        credentials: corsConfig?.credentials ?? false,
       }),
     )
     .use("*", async (c, next) => {

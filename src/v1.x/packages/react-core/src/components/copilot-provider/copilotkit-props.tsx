@@ -102,6 +102,26 @@ export interface CopilotKitProps extends Omit<CopilotKitProviderProps, "children
   /**
    * Indicates whether the user agent should send or receive cookies from the other domain
    * in the case of cross-origin requests.
+   *
+   * To enable HTTP-only cookie authentication, set `credentials="include"` and configure
+   * CORS on your runtime endpoint:
+   *
+   * ```tsx
+   * // Frontend (https://myapp.com)
+   * <CopilotKit runtimeUrl="https://api.myapp.com/copilotkit" credentials="include">
+   *   {children}
+   * </CopilotKit>
+   *
+   * // Backend (https://api.myapp.com)
+   * copilotRuntimeNextJSAppRouterEndpoint({
+   *   runtime,
+   *   endpoint: "/copilotkit",
+   *   cors: {
+   *     origin: "https://myapp.com",
+   *     credentials: true,
+   *   },
+   * });
+   * ```
    */
   credentials?: RequestCredentials;
 
