@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 import { AgentStore, injectAgentStore } from "./agent";
 import { CopilotKit } from "./copilotkit";
+import { ProxiedCopilotRuntimeAgent, CopilotKitCoreRuntimeConnectionStatus } from "@copilotkitnext/core";
 
 class MockAgent {
   readonly id: string;
@@ -61,17 +62,48 @@ class MockAgent {
 
 class CopilotKitStub {
   readonly #agents = signal<Record<string, AbstractAgent>>({});
-  readonly #didLoadRuntime = signal(false);
+  readonly #runtimeConnectionStatus = signal<CopilotKitCoreRuntimeConnectionStatus>(
+    CopilotKitCoreRuntimeConnectionStatus.Disconnected,
+  );
+  readonly #runtimeUrl = signal<string | undefined>(undefined);
+  readonly #runtimeTransport = signal<"rest" | "single">("rest");
+  readonly #headers = signal<Record<string, string>>({});
   getAgent = vi.fn((id: string) => this.#agents()[id]);
   agents = this.#agents.asReadonly();
-  didLoadRuntime = this.#didLoadRuntime.asReadonly();
+  runtimeConnectionStatus = this.#runtimeConnectionStatus.asReadonly();
+  runtimeUrl = this.#runtimeUrl.asReadonly();
+  runtimeTransport = this.#runtimeTransport.asReadonly();
+  headers = this.#headers.asReadonly();
+  core = {
+    runtimeUrl: undefined as string | undefined,
+    runtimeTransport: "rest" as const,
+    runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Disconnected,
+    headers: {} as Record<string, string>,
+  };
 
   setAgents(map: Record<string, AbstractAgent>) {
     this.#agents.set(map);
+    this.core = { ...this.core, agents: map };
   }
 
-  setRuntimeLoaded(value: boolean) {
-    this.#didLoadRuntime.set(value);
+  setRuntimeConnectionStatus(value: CopilotKitCoreRuntimeConnectionStatus) {
+    this.#runtimeConnectionStatus.set(value);
+    this.core = { ...this.core, runtimeConnectionStatus: value };
+  }
+
+  setRuntimeUrl(value: string | undefined) {
+    this.#runtimeUrl.set(value);
+    this.core = { ...this.core, runtimeUrl: value };
+  }
+
+  setHeaders(value: Record<string, string>) {
+    this.#headers.set(value);
+    this.core = { ...this.core, headers: value };
+  }
+
+  setRuntimeTransport(value: "rest" | "single") {
+    this.#runtimeTransport.set(value);
+    this.core = { ...this.core, runtimeTransport: value };
   }
 }
 
@@ -90,7 +122,6 @@ describe("injectAgentStore", () => {
   it("creates AgentStore instances that mirror agent events", () => {
     const agent = new MockAgent("agent-1");
     copilotKitStub.setAgents({ "agent-1": agent as unknown as AbstractAgent });
-    copilotKitStub.setRuntimeLoaded(true);
 
     @Component({
       standalone: true,
@@ -128,7 +159,6 @@ describe("injectAgentStore", () => {
       "agent-1": firstAgent as unknown as AbstractAgent,
       "agent-2": secondAgent as unknown as AbstractAgent,
     });
-    copilotKitStub.setRuntimeLoaded(true);
 
     @Component({
       standalone: true,
@@ -158,9 +188,11 @@ describe("injectAgentStore", () => {
     expect(secondAgent.unsubscribeCount).toBe(1);
   });
 
-  it("returns undefined when agent cannot be resolved", () => {
+  it("returns a proxied AgentStore while runtime is connecting", () => {
     copilotKitStub.setAgents({});
-    copilotKitStub.setRuntimeLoaded(true);
+    copilotKitStub.setRuntimeUrl("https://runtime.local");
+    copilotKitStub.setHeaders({ "x-test": "1" });
+    copilotKitStub.setRuntimeConnectionStatus(CopilotKitCoreRuntimeConnectionStatus.Connecting);
 
     @Component({
       standalone: true,
@@ -173,6 +205,31 @@ describe("injectAgentStore", () => {
     const fixture = TestBed.createComponent(MissingAgentHost);
     fixture.detectChanges();
 
-    expect(fixture.componentInstance.store()).toBeUndefined();
+    const store = fixture.componentInstance.store();
+    expect(store).toBeInstanceOf(AgentStore);
+    expect(store.agent).toBeInstanceOf(ProxiedCopilotRuntimeAgent);
+    expect((store.agent as ProxiedCopilotRuntimeAgent).agentId).toBe("missing");
+    expect((store.agent as ProxiedCopilotRuntimeAgent).headers).toEqual({ "x-test": "1" });
+  });
+
+  it("throws when agent cannot be resolved after runtime sync", () => {
+    copilotKitStub.setAgents({});
+    copilotKitStub.setRuntimeUrl("https://runtime.local");
+    copilotKitStub.setRuntimeConnectionStatus(CopilotKitCoreRuntimeConnectionStatus.Connected);
+
+    @Component({
+      standalone: true,
+      template: "",
+    })
+    class MissingAgentHost {
+      store = injectAgentStore("missing");
+    }
+
+    const fixture = TestBed.createComponent(MissingAgentHost);
+    fixture.detectChanges();
+
+    expect(() => fixture.componentInstance.store()).toThrowError(
+      /injectAgentStore: Agent 'missing' not found after runtime sync/,
+    );
   });
 });
