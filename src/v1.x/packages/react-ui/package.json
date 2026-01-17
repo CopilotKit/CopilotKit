@@ -59,11 +59,8 @@
     "@copilotkit/runtime-client-gql": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@headlessui/react": "^2.2.9",
-    "react-markdown": "^10.1.0",
     "react-syntax-highlighter": "^15.6.1",
-    "rehype-raw": "^7.0.0",
-    "remark-gfm": "^4.0.1",
-    "remark-math": "^6.0.0"
+    "streamdown": "^1.6.10"
   },
   "keywords": [
     "copilotkit",

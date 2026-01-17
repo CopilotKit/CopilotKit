@@ -12,7 +12,7 @@ module.exports = {
     "\\.(css|less|scss|sass)$": "identity-obj-proxy",
   },
   transformIgnorePatterns: [
-    "node_modules/(?!(react-markdown|streamdown|@copilotkitnext)/)",
+    "node_modules/(?!(streamdown|@copilotkitnext)/)",
   ],
   transform: {
     "^.+\\.(ts|tsx)$": "ts-jest",
