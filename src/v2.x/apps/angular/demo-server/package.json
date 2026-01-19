@@ -13,7 +13,7 @@
     "@copilotkitnext/demo-agents": "workspace:^",
     "@copilotkitnext/runtime": "workspace:^",
     "@hono/node-server": "^1.13.6",
-    "hono": "^4.6.11",
+    "hono": "^4.11.4",
     "openai": "^4.56.1",
     "rxjs": "^7.8.1"
   },
