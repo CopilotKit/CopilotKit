@@ -93,6 +93,7 @@
     "@langchain/core": ">=0.3.66",
     "@langchain/community": ">=0.3.58",
     "@langchain/google-gauth": ">=0.1.0",
+    "@langchain/google-vertexai": "^2.1.10",
     "@langchain/langgraph-sdk": ">=0.1.2",
     "@langchain/openai": ">=0.4.2",
     "groq-sdk": ">=0.3.0 <1.0.0",

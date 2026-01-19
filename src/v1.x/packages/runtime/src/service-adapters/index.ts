@@ -9,6 +9,7 @@ export * from "./shared";
 export * from "./openai/openai-adapter";
 export * from "./langchain/langchain-adapter";
 export * from "./google/google-genai-adapter";
+export * from "./vertex/google-vertex-adapter";
 export * from "./openai/openai-assistant-adapter";
 export * from "./unify/unify-adapter";
 export * from "./groq/groq-adapter";
