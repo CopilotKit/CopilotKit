@@ -23,7 +23,7 @@
     "@copilotkitnext/shared": "workspace:*",
     "@copilotkit/voice": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.18.2",
-    "hono": "^4.6.13",
+    "hono": "^4.11.4",
     "next": "15.4.4",
     "openai": "^5.9.0",
     "react": "19.1.0",
