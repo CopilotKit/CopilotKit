@@ -69,7 +69,7 @@
     }
   },
   "dependencies": {
-    "@ag-ui/client": "^0.0.42",
+    "@ag-ui/client": "^0.0.43",
     "@copilotkit/runtime-client-gql": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@copilotkitnext/core": "workspace:*",
