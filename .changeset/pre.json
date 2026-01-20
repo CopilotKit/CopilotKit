@@ -34,7 +34,10 @@
     "@copilotkitnext/shared": "1.51.2",
     "@copilotkitnext/sqlite-runner": "1.51.2",
     "@copilotkitnext/typescript-config": "1.51.2",
-    "@copilotkitnext/web-inspector": "1.51.2"
+    "@copilotkitnext/web-inspector": "1.51.2",
+    "@copilotkit/voice": "0.0.1"
   },
-  "changesets": []
+  "changesets": [
+    "curvy-taxis-brush"
+  ]
 }
