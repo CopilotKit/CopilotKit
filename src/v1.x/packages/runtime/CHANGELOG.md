@@ -1,5 +1,15 @@
 # @copilotkit/runtime
 
+## 1.51.3-next.0
+
+### Patch Changes
+
+- d268c49: fix: add apiKey parameter to BuiltInAgentConfiguration
+- Updated dependencies [d268c49]
+  - @copilotkitnext/agent@1.51.3-next.0
+  - @copilotkit/shared@1.51.3-next.0
+  - @copilotkitnext/runtime@1.51.3-next.0
+
 ## 1.51.2
 
 ### Patch Changes

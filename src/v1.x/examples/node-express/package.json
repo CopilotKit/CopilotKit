@@ -1,6 +1,6 @@
 {
   "name": "node-express",
-  "version": "1.4.9",
+  "version": "1.4.10-next.0",
   "private": true,
   "scripts": {
     "example-start": "node dist/index.js",
