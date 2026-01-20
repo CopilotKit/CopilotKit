@@ -64,7 +64,7 @@
     "typescript": "^5.2.3"
   },
   "peerDependencies": {
-    "@langchain/community": "^0.0.53",
+    "@langchain/community": "^0.3.58",
     "@langchain/core": ">=0.4.0 <2.0.0",
     "@langchain/langgraph": ">=0.4.0 <2.0.0",
     "langchain": ">=1.0.0",
