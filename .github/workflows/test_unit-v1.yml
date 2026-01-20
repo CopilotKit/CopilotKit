@@ -18,6 +18,13 @@ on:
       - "docs/**"
       - "README.md"
       - "examples/**"
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to run the workflow on'
+        required: true
+        default: 'main'
+        type: string
 jobs:
   v1:
     name: "unit / v1.x"
@@ -28,6 +35,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
