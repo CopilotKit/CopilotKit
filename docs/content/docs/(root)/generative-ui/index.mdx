@@ -12,26 +12,7 @@ import { TwoColumnSection } from "@/components/react/generative-ui/two-column-se
 import { AttributeCards } from "@/components/react/generative-ui/attribute-cards"
 import { PatternCard } from "@/components/react/generative-ui/pattern-card"
 import { EcosystemTable } from "@/components/react/generative-ui/ecosystem-table"
-
-<div className="flex flex-col items-center gap-6 pt-4">
-  <Badge className="mb-4">Design Patterns</Badge>
-
-  <h1 className="text-4xl md:text-6xl font-semibold text-center mb-4">
-    Generative UI
-  </h1>
-
-  <p className="text-lg md:text-xl font-semibold text-center max-w-4xl mb-6">
-    The different types of Generative UI, and how AG-UI and CopilotKit work with them all.
-  </p>
-
-  <div className="flex justify-center mb-8">
-    <Button asChild size="lg">
-      <a href="/docs/generative-ui.pdf" download="generative-ui.pdf">
-        Download: Generative UI Explained
-      </a>
-    </Button>
-  </div>
-</div>
+import { IntegrationsGrid } from "@/components/react/integrations";
 
 ---
 
@@ -58,6 +39,20 @@ This page covers:
 - **[AG-UI and CopilotKit](#ag-ui-and-copilotkit-are-gen-ui-agnostic)** - how AG-UI and CopilotKit work with the different types of Generative UI.
 
 </TwoColumnSection>
+
+---
+
+<div>
+
+## Ready to Get Started? Choose your Integration!
+
+Generative UI can be implemented with any agentic backend, with each integration offering different approaches for creating dynamic, AI-driven interfaces.
+
+**Choose your integration to see specific implementation guides and examples, or scroll down to learn more about Generative UI.**
+
+<IntegrationsGrid targetPage="generative-ui" />
+
+</div>
 
 ---
 
@@ -300,7 +295,7 @@ Types of Generative UI, and even individual uses vary greatly in terms of two at
 <div className="flex flex-col md:flex-row items-start gap-6 md:gap-8 w-full mb-8">
   <div className="w-full md:w-1/3 flex flex-col gap-4 text-sm md:text-base">
     <p>
-      Several recently announced [Generative UI Specifications](/generative-ui-specs), have added richness (and some confusion) to generative UIs. These include [MCP-UI](https://mcpui.dev/), [Open JSON UI](https://json-schema.org/), and the newly released [A2UI](/generative-ui-specs/a2ui).
+      Several recently announced [Generative UI Specifications](/generative-ui/specs), have added richness (and some confusion) to generative UIs. These include [MCP-UI](https://mcpui.dev/), [Open JSON UI](https://json-schema.org/), and the newly released [A2UI](/generative-ui/specs/a2ui).
     </p>
     <p>
       The generative UI styles map cleanly to the ecosystem of tools and these standards.
@@ -374,7 +369,7 @@ Types of Generative UI, and even individual uses vary greatly in terms of two at
 </div>
 
 <Callout type="info">
-  Learn more about implementing Generative UI with the [AG-UI Protocol](/ag-ui-protocol) and explore [Generative UI Specifications](/generative-ui-specs).
+  Learn more about implementing Generative UI with the [AG-UI Protocol](/ag-ui-protocol) and explore [Generative UI Specifications](/generative-ui/specs).
 </Callout>
 
 <div className="flex justify-center my-12">
