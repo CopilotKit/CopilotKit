@@ -1,4 +1,4 @@
-name: static
+name: static / quality
 
 on:
   push:

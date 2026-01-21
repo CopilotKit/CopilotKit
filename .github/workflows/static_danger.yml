@@ -1,4 +1,4 @@
-name: static
+name: static / danger
 
 on:
   pull_request:
