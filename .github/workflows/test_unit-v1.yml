@@ -43,6 +43,9 @@ jobs:
         with:
           version: "10.13.1"
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
