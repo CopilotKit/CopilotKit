@@ -1,17 +1,13 @@
 # CopilotKit for Angular
 
-`@copilotkitnext/angular` provides Angular-native providers, components, directives, and registration APIs for CopilotKit agents and chat UIs.
+Angular bindings for CopilotKit core and AG-UI agents. This package provides services, directives, and utilities for building custom (headless) Copilot UIs, plus optional chat UI components (not documented here per request).
 
-## Requirements
-
-- Angular `^19.0.0`
-- Node.js `18+`
-- `@angular/core`, `@angular/common`, `@angular/cdk`, `rxjs` installed in your app
+> Note: This README intentionally omits all APIs defined under `src/lib/components/chat`.
 
 ## Installation
 
 ```bash
-# pnpm
+# pnpm (recommended)
 pnpm add @copilotkitnext/angular
 
 # npm
@@ -21,423 +17,494 @@ npm install @copilotkitnext/angular
 yarn add @copilotkitnext/angular
 ```
 
-### Peer Dependencies
+### Peer dependencies
 
-Install these in the consuming app:
+- `@angular/core` and `@angular/common` (Angular 18 or 19)
+- `@angular/cdk` (match your Angular major)
+- `rxjs`
+- `tslib`
 
-- `@angular/core` `^19.0.0`
-- `@angular/common` `^19.0.0`
-- `@angular/cdk` `^19.0.0`
-- `rxjs` `^7.8.0`
+### Styles (optional)
 
-### Styles
-
-Include package styles so built-in chat UI components render correctly.
-
-Option 1 (`angular.json`):
+If you use the bundled chat UI components, include the stylesheet:
 
 ```json
 "styles": [
-  "node_modules/@copilotkitnext/angular/dist/styles.css",
+  "@copilotkitnext/angular/styles.css",
   "src/styles.css"
 ]
 ```
 
-Option 2 (global stylesheet):
+Or in a global stylesheet:
 
 ```css
 @import "@copilotkitnext/angular/styles.css";
 ```
 
-## Quick Start
+## Quick start (headless)
 
-Configure CopilotKit in `app.config.ts`:
+### 1) Provide CopilotKit
+
+Configure runtime and tools in your app config:
 
 ```ts
 import { ApplicationConfig, importProvidersFrom } from "@angular/core";
 import { BrowserModule } from "@angular/platform-browser";
-import {
-  provideCopilotKit,
-  provideCopilotChatLabels,
-} from "@copilotkitnext/angular";
+import { provideCopilotKit } from "@copilotkitnext/angular";
 
 export const appConfig: ApplicationConfig = {
   providers: [
     importProvidersFrom(BrowserModule),
     provideCopilotKit({
       runtimeUrl: "http://localhost:3001/api/copilotkit",
-    }),
-    provideCopilotChatLabels({
-      chatInputPlaceholder: "Ask me anything...",
-      chatDisclaimerText: "AI can make mistakes. Verify important info.",
+      headers: { Authorization: "Bearer ..." },
+      properties: { app: "demo" },
     }),
   ],
 };
 ```
 
-Render chat UI:
-
-```html
-<copilot-chat></copilot-chat>
-```
-
-## Main APIs
-
-### `provideCopilotKit(config)`
-
-`provideCopilotKit` accepts:
-
-- `runtimeUrl?: string`
-- `headers?: Record<string, string>`
-- `properties?: Record<string, unknown>`
-- `agents?: Record<string, AbstractAgent>`
-- `tools?: ClientTool[]`
-- `renderToolCalls?: RenderToolCallConfig[]`
-- `frontendTools?: FrontendToolConfig[]`
-- `humanInTheLoop?: HumanInTheLoopConfig[]`
-
-Notes:
-
-- If a `tools[]` entry contains both `renderer` and `parameters`, the renderer is also registered for tool-call UI.
-- Frontend tools and HITL tools from config are registered on startup.
-
-### `CopilotChat`
-
-`CopilotChat` is the batteries-included chat component.
-
-Inputs:
-
-- `agentId?: string`
-- `threadId?: string`
-- `inputComponent?: Type<any>`
-
-Examples:
-
-```html
-<copilot-chat></copilot-chat>
-<copilot-chat [agentId]="'openai'"></copilot-chat>
-<copilot-chat [threadId]="'thread-1'"></copilot-chat>
-```
-
-### Custom Input (`injectChatState`)
-
-Custom input components can call `injectChatState()` and use:
-
-- `changeInput(value: string)`
-- `submitInput(value: string)`
+### 2) Build a custom UI with `injectAgentStore`
 
 ```ts
-import { Component, Input } from "@angular/core";
-import { FormsModule } from "@angular/forms";
-import { injectChatState } from "@copilotkitnext/angular";
+import { Component, computed, signal } from "@angular/core";
+import { injectAgentStore } from "@copilotkitnext/angular";
 
 @Component({
-  selector: "my-custom-input",
   standalone: true,
-  imports: [FormsModule],
   template: `
-    <form (ngSubmit)="submit()">
+    <div>
+      <div *ngFor="let msg of messages()">
+        <strong>{{ msg.role }}:</strong> {{ msg.content }}
+      </div>
+
       <input
-        [(ngModel)]="value"
-        name="message"
-        [disabled]="inProgress"
-        (ngModelChange)="chatState.changeInput($event)"
+        [value]="input()"
+        (input)="input.set($any($event.target).value)"
+        (keyup.enter)="send()"
       />
-      <button type="submit" [disabled]="inProgress || !value.trim()">
-        Send
-      </button>
-    </form>
-  `,
-})
-export class MyCustomInputComponent {
-  @Input() inProgress = false;
-  value = "";
-  readonly chatState = injectChatState();
-
-  submit(): void {
-    const content = this.value.trim();
-    if (!content) return;
-    this.chatState.submitInput(content);
-    this.value = "";
-  }
-}
-```
-
-Use it:
-
-```html
-<copilot-chat [inputComponent]="customInput"></copilot-chat>
-```
-
-### Headless Agent State (`injectAgentStore`)
-
-Use `injectAgentStore(agentIdOrSignal)` for custom layouts.
-
-```ts
-import { Component, computed, inject } from "@angular/core";
-import { CommonModule } from "@angular/common";
-import { FormsModule } from "@angular/forms";
-import {
-  CopilotKit,
-  RenderToolCalls,
-  injectAgentStore,
-} from "@copilotkitnext/angular";
-
-@Component({
-  selector: "headless-chat",
-  standalone: true,
-  imports: [CommonModule, FormsModule, RenderToolCalls],
-  template: `
-    <div *ngFor="let m of messages()">
-      <div>{{ m.role }}: {{ m.content }}</div>
-      <copilot-render-tool-calls
-        *ngIf="m.role === 'assistant'"
-        [message]="m"
-        [messages]="messages()"
-        [isLoading]="isRunning()"
-      />
+      <button (click)="send()" [disabled]="isRunning()">Send</button>
     </div>
-
-    <form (ngSubmit)="send()">
-      <input name="message" [(ngModel)]="inputValue" [disabled]="isRunning()" />
-      <button type="submit" [disabled]="isRunning() || !inputValue.trim()">
-        Send
-      </button>
-    </form>
   `,
 })
 export class HeadlessChatComponent {
-  readonly store = injectAgentStore("openai");
-  readonly agent = computed(() => this.store()?.agent);
-  readonly messages = computed(() => this.store()?.messages() ?? []);
-  readonly isRunning = computed(() => !!this.store()?.isRunning());
-  readonly copilotkit = inject(CopilotKit);
+  private store = injectAgentStore("default");
+  messages = computed(() => this.store().messages());
+  isRunning = computed(() => this.store().isRunning());
+  input = signal("");
 
-  inputValue = "";
+  async send() {
+    const content = this.input().trim();
+    if (!content) return;
 
-  async send(): Promise<void> {
-    const content = this.inputValue.trim();
-    const agent = this.agent();
-    if (!agent || !content || this.isRunning()) return;
-
-    agent.addMessage({ id: crypto.randomUUID(), role: "user", content });
-    this.inputValue = "";
-    await this.copilotkit.core.runAgent({ agent });
+    const agent = this.store().agent;
+    agent.addMessage({ role: "user", content });
+    this.input.set("");
+    await agent.runAgent();
   }
 }
 ```
 
-## Tool Rendering and Tool Registration
+The `agent` is an AG-UI `AbstractAgent`. Refer to your AG-UI agent implementation for available methods and message formats.
 
-### Render Tool Calls (`RenderToolCalls` / `copilot-render-tool-calls`)
+## Core configuration
 
-`RenderToolCalls` resolves the renderer in this order:
+### `CopilotKitConfig`
 
-1. `renderToolCalls` match by tool name (and `agentId` when set)
-2. `frontendTools` match by tool name
-3. `humanInTheLoop` match by tool name
-4. wildcard renderer (`name: "*"`)
-
-Register renderers globally:
+`provideCopilotKit` accepts a `CopilotKitConfig` object:
 
 ```ts
-import { Component, input } from "@angular/core";
-import { z } from "zod";
-import {
-  AngularToolCall,
-  ToolRenderer,
-  provideCopilotKit,
-} from "@copilotkitnext/angular";
-
-@Component({
-  selector: "weather-tool-renderer",
-  standalone: true,
-  template: `<pre>{{ toolCall().args | json }}</pre>`,
-})
-export class WeatherToolRenderer implements ToolRenderer<{ city: string }> {
-  readonly toolCall = input.required<AngularToolCall<{ city: string }>>();
+export interface CopilotKitConfig {
+  runtimeUrl?: string;
+  headers?: Record<string, string>;
+  properties?: Record<string, unknown>;
+  agents?: Record<string, AbstractAgent>;
+  tools?: ClientTool[];
+  renderToolCalls?: RenderToolCallConfig[];
+  frontendTools?: FrontendToolConfig[];
+  humanInTheLoop?: HumanInTheLoopConfig[];
 }
-
-provideCopilotKit({
-  runtimeUrl: "http://localhost:3001/api/copilotkit",
-  renderToolCalls: [
-    {
-      name: "weather",
-      args: z.object({ city: z.string() }),
-      component: WeatherToolRenderer,
-    },
-  ],
-});
 ```
 
-For dynamic registration in an injection context, use `registerRenderToolCall(...)`.
+- `runtimeUrl`: URL to your CopilotKit runtime.
+- `headers`: Default headers sent to the runtime.
+- `properties`: Arbitrary props forwarded to agent runs.
+- `agents`: Local, in-browser agents keyed by `agentId`.
+- `tools`: Tool definitions advertised to the runtime (no handler).
+- `renderToolCalls`: Components to render tool calls in the UI.
+- `frontendTools`: Client-side tools with handlers.
+- `humanInTheLoop`: Tools that pause for user input.
 
-### Frontend Tools (`registerFrontendTool`)
+### Injection helpers
 
-Call from an injection context (component/directive/service constructor, etc.).
+- `provideCopilotKit(config)`: Provider for `CopilotKitConfig`.
+- `injectCopilotKitConfig()`: Read the injected config.
+- `COPILOT_KIT_CONFIG`: Injection token.
+
+## `CopilotKit` service
+
+The main service that wraps `@copilotkitnext/core`.
+
+### Readonly signals
+
+- `agents`: `Signal<Record<string, AbstractAgent>>`
+- `runtimeConnectionStatus`: `Signal<CopilotKitCoreRuntimeConnectionStatus>`
+- `runtimeUrl`: `Signal<string | undefined>`
+- `runtimeTransport`: `Signal<CopilotRuntimeTransport>` (`"rest" | "single"`)
+- `headers`: `Signal<Record<string, string>>`
+- `toolCallRenderConfigs`: `Signal<RenderToolCallConfig[]>`
+- `clientToolCallRenderConfigs`: `Signal<FrontendToolConfig[]>`
+- `humanInTheLoopToolRenderConfigs`: `Signal<HumanInTheLoopConfig[]>`
+
+### Methods
+
+- `getAgent(agentId: string): AbstractAgent | undefined`
+- `addFrontendTool(config: FrontendToolConfig & { injector: Injector }): void`
+- `addRenderToolCall(config: RenderToolCallConfig): void`
+- `addHumanInTheLoop(config: HumanInTheLoopConfig): void`
+- `removeTool(toolName: string, agentId?: string): void`
+- `updateRuntime(options: { runtimeUrl?: string; runtimeTransport?: CopilotRuntimeTransport; headers?: Record<string,string>; properties?: Record<string, unknown>; agents?: Record<string, AbstractAgent>; }): void`
+
+### Advanced
+
+- `core`: The underlying `CopilotKitCore` instance.
+
+## Agents
+
+### `injectAgentStore`
 
 ```ts
-import { Component } from "@angular/core";
-import { registerFrontendTool } from "@copilotkitnext/angular";
-import { z } from "zod";
-
-@Component({
-  selector: "tool-registration",
-  standalone: true,
-  template: "",
-})
-export class ToolRegistrationComponent {
-  constructor() {
-    registerFrontendTool({
-      name: "formatDate",
-      description: "Formats an ISO date string",
-      parameters: z.object({ iso: z.string() }),
-      handler: async ({ iso }) => new Date(iso).toISOString(),
-    });
-  }
-}
+const store = injectAgentStore("default");
+// or: injectAgentStore(signal(agentId))
 ```
 
-### Human In The Loop (`registerHumanInTheLoop`)
+Returns a `Signal<AgentStore>`. The store exposes:
 
-```ts
-import { Component, input } from "@angular/core";
-import {
-  HumanInTheLoopToolCall,
-  HumanInTheLoopToolRenderer,
-  registerHumanInTheLoop,
-} from "@copilotkitnext/angular";
-import { z } from "zod";
+- `agent`: `AbstractAgent`
+- `messages`: `Signal<Message[]>`
+- `state`: `Signal<any>`
+- `isRunning`: `Signal<boolean>`
+- `teardown()`: Clean up subscriptions
 
-@Component({
-  selector: "require-approval",
-  standalone: true,
-  template: `
-    <button (click)="approve()">Approve</button>
-    <button (click)="deny()">Deny</button>
-  `,
-})
-export class RequireApprovalComponent implements HumanInTheLoopToolRenderer<{
-  action: string;
-  reason: string;
-}> {
-  readonly toolCall =
-    input.required<
-      HumanInTheLoopToolCall<{ action: string; reason: string }>
-    >();
+If the agent is not available locally but a `runtimeUrl` is configured, a proxy agent is created while the runtime connects. If the agent still cannot be resolved, an error is thrown that includes the configured runtime and known agent IDs.
 
-  approve(): void {
-    this.toolCall().respond({ approved: true });
-  }
+### `CopilotkitAgentFactory`
 
-  deny(): void {
-    this.toolCall().respond({ approved: false });
-  }
-}
+Advanced factory for creating `AgentStore` signals. Most apps should use `injectAgentStore` instead.
 
-registerHumanInTheLoop({
-  name: "requireApproval",
-  description: "Requires user approval",
-  parameters: z.object({ action: z.string(), reason: z.string() }),
-  component: RequireApprovalComponent,
-});
-```
-
-## Agent Context
+## Agent context
 
 ### `connectAgentContext`
 
-Connect static or signal-driven context to `CopilotKit.core`:
+Connect AG-UI context to the runtime (auto-cleanup when the effect is destroyed):
 
 ```ts
-import { signal } from "@angular/core";
 import { connectAgentContext } from "@copilotkitnext/angular";
 
-connectAgentContext(
-  signal({
-    description: "Selected customer",
-    value: "customer-123",
+connectAgentContext({
+  description: "User preferences",
+  value: { theme: "dark" },
+});
+```
+
+You must call it within an injection context (e.g., inside a component constructor or `runInInjectionContext`), or pass an explicit `Injector`:
+
+```ts
+connectAgentContext(contextSignal, { injector });
+```
+
+### `CopilotKitAgentContext` directive
+
+Template-friendly context binding:
+
+```html
+<div copilotkitAgentContext [description]="'Form state'" [value]="formValue"></div>
+
+<div [copilotkitAgentContext]="{ description: 'User', value: user }"></div>
+```
+
+## Tools and tool rendering
+
+### Types
+
+```ts
+export interface RenderToolCallConfig<Args> {
+  name: string;              // tool name, or "*" for wildcard
+  args: z.ZodType<Args>;      // Zod schema for args
+  component: Type<ToolRenderer<Args>>;
+  agentId?: string;           // optional agent scope
+}
+
+export interface FrontendToolConfig<Args> {
+  name: string;
+  description: string;
+  parameters: z.ZodType<Args>;
+  component?: Type<ToolRenderer<Args>>; // optional UI renderer
+  handler: (args: Args) => Promise<unknown>;
+  agentId?: string;
+}
+
+export interface HumanInTheLoopConfig<Args> {
+  name: string;
+  description: string;
+  parameters: z.ZodType<Args>;
+  component: Type<HumanInTheLoopToolRenderer<Args>>;
+  agentId?: string;
+}
+
+export type ClientTool<Args> = Omit<FrontendTool<Args>, \"handler\"> & {
+  renderer?: Type<ToolRenderer<Args>>;
+};
+```
+
+Renderer components receive a signal:
+
+```ts
+export interface ToolRenderer<Args> {
+  toolCall: Signal<AngularToolCall<Args>>;
+}
+
+export interface HumanInTheLoopToolRenderer<Args> {
+  toolCall: Signal<HumanInTheLoopToolCall<Args>>; // includes respond(result)
+}
+```
+
+`AngularToolCall` / `HumanInTheLoopToolCall` expose `args`, `status` (`"in-progress" | "executing" | "complete"`), and `result`.
+
+### Register tools with DI
+
+These helpers auto-remove tools when the current injection context is destroyed:
+Call them from an injection context (e.g., a component constructor, directive, or `runInInjectionContext`).
+
+```ts
+import { registerFrontendTool, registerRenderToolCall, registerHumanInTheLoop } from "@copilotkitnext/angular";
+import { z } from "zod";
+
+registerFrontendTool({
+  name: "lookup",
+  description: "Fetch a record",
+  parameters: z.object({ id: z.string() }),
+  handler: async ({ id }) => ({ id, ok: true }),
+});
+
+registerRenderToolCall({
+  name: "*", // wildcard renderer
+  args: z.any(),
+  component: MyToolCallRenderer,
+});
+
+registerHumanInTheLoop({
+  name: "approval",
+  description: "Request approval",
+  parameters: z.object({ reason: z.string() }),
+  component: ApprovalRenderer,
+});
+```
+
+### Configure tools in `provideCopilotKit`
+
+```ts
+provideCopilotKit({
+  frontendTools: [/* FrontendToolConfig[] */],
+  renderToolCalls: [/* RenderToolCallConfig[] */],
+  humanInTheLoop: [/* HumanInTheLoopConfig[] */],
+  tools: [/* ClientTool[] */],
+});
+```
+
+`tools` are advertised to the runtime. If you include `renderer` + `parameters` on a `ClientTool`, CopilotKit will also register a renderer for tool calls.
+
+## `RenderToolCalls` component
+
+`RenderToolCalls` renders tool call components under an assistant message based on registered render configs.
+
+```html
+<copilot-render-tool-calls
+  [message]="assistantMessage"
+  [messages]="messages"
+  [isLoading]="isRunning"
+></copilot-render-tool-calls>
+```
+
+Inputs:
+
+- `message`: `AssistantMessage` (must include `toolCalls`)
+- `messages`: full `Message[]` list (used to find tool results)
+- `isLoading`: whether the agent is currently running
+
+Tool arguments are parsed with `partialJSONParse`, so incomplete JSON during streaming still renders.
+
+## Chat labels
+
+Although chat UI components are not documented here, you can customize their labels:
+
+```ts
+import { provideCopilotChatLabels } from "@copilotkitnext/angular";
+
+providers: [
+  provideCopilotChatLabels({
+    chatInputPlaceholder: "Ask me anything...",
+    chatDisclaimerText: "AI can be wrong. Verify critical info.",
   }),
-);
+];
 ```
 
-`connectAgentContext(...)` must run in an injection context, or you must pass `{ injector }`.
+API:
 
-### `copilotkitAgentContext` Directive
+- `CopilotChatLabels`: label interface
+- `COPILOT_CHAT_DEFAULT_LABELS`: default values
+- `COPILOT_CHAT_LABELS`: injection token
+- `injectChatLabels()`: resolves labels (defaults if none provided)
+- `provideCopilotChatLabels(partial)`: provider
 
-Object form:
+## `ChatState`
+
+`ChatState` is an abstract injectable used by chat inputs. If you build your own input, you can implement and provide `ChatState` to child components.
+
+```ts
+export abstract class ChatState {
+  abstract readonly inputValue: WritableSignal<string>;
+  abstract submitInput(value: string): void;
+  abstract changeInput(value: string): void;
+}
+```
+
+Use `injectChatState()` to read it; it throws if no parent provides the state.
+
+## Slots
+
+The slot utilities provide a small, typed slot system that works with templates or components.
+
+### `CopilotSlot` component
+
+```html
+<copilot-slot
+  [slot]="customTemplateOrComponent"
+  [context]="{ label: 'Save' }"
+  [defaultComponent]="DefaultButton"
+  [outputs]="{ click: onClick }"
+>
+  <!-- default content shown if no slot/default component -->
+</copilot-slot>
+```
+
+### Utilities
+
+- `renderSlot(viewContainer, options)`: Render a slot (template or component).
+- `createSlotConfig(overrides, defaults)`: Build a slot registry map.
+- `provideSlots(slots)`: Provide DI overrides (components only).
+- `getSlotConfig()`: Read the DI slot registry.
+- `createSlotRenderer(defaultComponent, slotName?)`: Pre-configured renderer.
+- `normalizeSlotValue`, `isSlotValue`, `isComponentType`: helpers.
+
+### Types
+
+- `SlotValue`, `SlotConfig`, `SlotContext`, `SlotRegistryEntry`, `RenderSlotOptions`, `WithSlots`
+
+## Directives
+
+### `CopilotKitAgentContext`
+
+See **Agent context** above.
+
+### `StickToBottom`
+
+Directive: `copilotStickToBottom`.
+
+Inputs:
+
+- `enabled` (default `true`)
+- `threshold` (pixels from bottom, default `10`)
+- `initialBehavior` (`"smooth" | "instant" | "auto"`, default `"smooth"`)
+- `resizeBehavior` (same as above, default `"smooth"`)
+- `debounceMs` (default `100`)
+
+Outputs:
+
+- `isAtBottomChange: EventEmitter<boolean>`
+- `scrollToBottomRequested: EventEmitter<void>`
+
+Public methods (via template ref):
+
+- `scrollToBottom(behavior?: ScrollBehavior)`
+- `isAtBottom()`
+- `getScrollState()`
+
+Example:
 
 ```html
 <div
-  [copilotkitAgentContext]="{ description: 'Selected customer', value: selectedCustomer }"
-></div>
+  copilotStickToBottom
+  [enabled]="true"
+  (isAtBottomChange)="isAtBottom = $event"
+>
+  <div data-stick-to-bottom-content>
+    <!-- messages -->
+  </div>
+</div>
+
+<button (click)="scrollToBottom()">Jump to bottom</button>
 ```
 
-Split inputs form:
+```ts
+import { Component, ViewChild } from "@angular/core";
+import { StickToBottom } from "@copilotkitnext/angular";
+
+@Component({ /* ... */ })
+export class MessagesComponent {
+  @ViewChild(StickToBottom) stickToBottom?: StickToBottom;
+
+  scrollToBottom() {
+    this.stickToBottom?.scrollToBottom("smooth");
+  }
+}
+```
+
+### `CopilotTooltip`
+
+Directive: `copilotTooltip`.
+
+Inputs:
+
+- `copilotTooltip`: tooltip text
+- `tooltipPosition`: `"above" | "below" | "left" | "right"` (default `"below"`)
+- `tooltipDelay`: milliseconds (default `500`)
+
+Example:
 
 ```html
-<div
-  copilotkitAgentContext
-  [description]="'Selected customer'"
-  [value]="selectedCustomer"
-></div>
+<button copilotTooltip="Copy" tooltipPosition="above">Copy</button>
 ```
 
-## UI Customization (`CopilotChatView`)
+## Services
 
-`CopilotChatView` supports component/template overrides for:
+### `ScrollPosition`
 
-- `messageView`
-- `scrollView`
-- `scrollToBottomButton`
-- `input`
-- `inputContainer`
-- `feather`
-- `disclaimer`
+- `monitorScrollPosition(element, threshold?) => Observable<ScrollState>`
+- `scrollToBottom(element, smooth?)`
+- `isAtBottom(element, threshold?)`
+- `getScrollState(element, threshold)`
+- `observeResize(element, debounceMs?) => Observable<ResizeObserverEntry>`
 
-You can also supply named templates for deep sub-slots such as:
+### `ResizeObserverService`
 
-- `#sendButton`, `#toolbar`, `#textArea`, `#audioRecorder`
-- `#assistantMessageMarkdownRenderer`
-- `#thumbsUpButton`, `#thumbsDownButton`, `#readAloudButton`, `#regenerateButton`
+- `observeElement(element, debounceMs?, resizingDurationMs?) => Observable<ResizeState>`
+- `unobserve(element)`
+- `getCurrentSize(element)`
+- `getCurrentState(element)`
 
-Important outputs on `CopilotChatView`:
+## Utilities
 
-- `assistantMessageThumbsUp`
-- `assistantMessageThumbsDown`
-- `assistantMessageReadAloud`
-- `assistantMessageRegenerate`
-- `userMessageCopy`
-- `userMessageEdit`
+### `cn(...inputs)`
 
-## Common Exports
+Merge class name strings using `clsx` + `tailwind-merge`.
 
-- Providers/config: `provideCopilotKit`, `provideCopilotChatLabels`
-- Core service: `CopilotKit`
-- Agent/chat state: `injectAgentStore`, `injectChatState`, `ChatState`
-- Tool APIs: `registerRenderToolCall`, `registerFrontendTool`, `registerHumanInTheLoop`, `RenderToolCalls`
-- Context APIs: `connectAgentContext`, `CopilotKitAgentContext`
-- Chat components: `CopilotChat`, `CopilotChatView`, `CopilotChatInput`, `CopilotChatMessageView`, `CopilotChatToolCallsView`
-- Slots: `CopilotSlot`
-- Utility directives: `StickToBottom`, `CopilotTooltip`
+## Runtime notes
 
-## Monorepo Commands
+- Set `runtimeUrl` to your CopilotKit runtime endpoint.
+- If you need to change runtime settings at runtime, call `CopilotKit.updateRuntime(...)`.
+- `runtimeTransport` supports `"rest"` or `"single"` (SSE single-stream transport).
 
-From repo root:
+## Not documented here
 
-```bash
-pnpm install
-pnpm demo:next:angular
-pnpm storybook:angular
-```
-
-## Package Verification
-
-From repo root:
-
-```bash
-pnpm nx run @copilotkitnext/angular:build --excludeTaskDependencies
-pnpm nx run @copilotkitnext/angular:lint --excludeTaskDependencies
-pnpm nx run @copilotkitnext/angular:test --excludeTaskDependencies
-pnpm nx run @copilotkitnext/angular:check-types --excludeTaskDependencies
-```
+This package also exports a full set of chat UI components under `src/lib/components/chat`. Those APIs are intentionally omitted from this README.
