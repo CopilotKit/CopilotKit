@@ -1,5 +1,5 @@
 {
-  "name": "copilot-form-filling",
+  "name": "@copilotkit-examples/form-filling",
   "version": "0.1.0",
   "private": true,
   "scripts": {

@@ -1,5 +1,5 @@
 {
-  "name": "state-machine",
+  "name": "@copilotkit-examples/state-machine",
   "version": "0.1.0",
   "private": true,
   "scripts": {

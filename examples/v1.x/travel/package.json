@@ -1,5 +1,5 @@
 {
-  "name": "coagents-travel",
+  "name": "@copilotkit-examples/travel",
   "version": "0.1.0",
   "private": true,
   "scripts": {
