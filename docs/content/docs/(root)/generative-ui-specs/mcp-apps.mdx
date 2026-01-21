@@ -4,9 +4,16 @@ icon: "lucide/Monitor"
 description: "Render interactive UI components from MCP servers directly in your chat interface"
 ---
 
-# MCP Apps
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
-**MCP Apps** extends the Model Context Protocol to enable MCP servers to return rich, interactive UI components that render directly in your chat interface.
+## Prerequisites
+
+Before you begin, you'll need the following:
+
+- An OpenAI API key (or API key for your preferred LLM provider)
+- Node.js 20+
+- Your favorite package manager
+- An MCP server running (see [Example MCP Servers](#example-mcp-servers) below)
 
 ## What are MCP Apps?
 
@@ -19,37 +26,97 @@ Key benefits:
 - **Direct server communication** - The middleware securely proxies communication between the rendered UI and the MCP server, enabling real-time interactions
 - **Thread persistence** - MCP Apps are stored in conversation history and restored on reconnect
 
-## Setup
+## Quickstart
+
+Want to try MCP Apps out with a new application? We have a pre-built example app you can use via our CLI.
+
+```bash
+npx copilotkit create -f mcp-apps
+```
+
+## Getting started
+
+If you're looking to add an MCP App into an existing application, let's walk through the process.
 
 <Steps>
   <Step>
-    ### Install the middleware
+    ### (Optional) Create a new application
+
+    We'll be starting from scratch for this example, but feel free to skip this step if you already have an application.
+
+    For the sake of this example, we'll be using Next.js but the process will slot into any frontend React framework.
 
     ```bash
-    npm install @ag-ui/mcp-apps-middleware
+    npx create-next-app@latest
+    ```
+  </Step>
+  <Step>
+    ### Add the dependencies
+
+    ```npm
+    npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/mcp-apps-middleware
     ```
   </Step>
   <Step>
     ### Configure your agent
 
-    Add the `MCPAppsMiddleware` to your agent with your MCP server configurations:
+    Add your agent configuration to CopilotRuntime and add the `MCPAppsMiddleware` to the BuiltInAgent with your MCP server configurations:
 
-    ```typescript
-    import { BasicAgent } from "@copilotkit/agent";
+    <Callout>
+      This same process will work with any agent configuration.
+    </Callout>
+
+    ```bash
+    touch app/api/copilotkit/route.ts
+    ```
+
+    ```typescript title="app/api/copilotkit/route.ts"
+    import {
+      CopilotRuntime,
+      ExperimentalEmptyAdapter,
+      copilotRuntimeNextJSAppRouterEndpoint,
+    } from "@copilotkit/runtime";
+    import { BuiltInAgent } from "@copilotkit/runtime/v2";
+    import { NextRequest } from "next/server";
     import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 
-    const agent = new BasicAgent({
+    // 1. Create your agent and add the MCP Apps middleware
+    const agent = new BuiltInAgent({
       model: "openai/gpt-4o",
       prompt: "You are a helpful assistant.",
-    }).use(new MCPAppsMiddleware({
-      mcpServers: [
-        {
-          type: "http",
-          url: "http://localhost:3101/mcp",
-          serverId: "my-server" // Recommended: stable identifier
-        },
-      ],
-    }));
+    }).use(
+       new MCPAppsMiddleware({
+        mcpServers: [
+          {
+            type: "http",
+            url: "http://localhost:3108/mcp",
+            serverId: "my-server" // Recommended: stable identifier
+          },
+        ],
+      }),
+    )
+
+    // 2. Create a service adapter, empty if not relevant
+    const serviceAdapter = new ExperimentalEmptyAdapter();
+
+    // 3. Create the runtime and add the agent
+    const runtime = new CopilotRuntime({
+      agents: {
+        default: agent,
+      },
+    });
+
+    // 4. Create the API route
+    export const POST = async (req: NextRequest) => {
+      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+        runtime,
+        serviceAdapter,
+        endpoint: "/api/copilotkit",
+      });
+
+      return handleRequest(req);
+    };
+
     ```
 
     <Callout type="info" title="Server ID">
@@ -57,29 +124,93 @@ Key benefits:
     </Callout>
   </Step>
   <Step>
-    ### Set up the runtime
+    ### Configure environment
 
-    Create your CopilotKit endpoint with the configured agent:
+    Create a `.env.local` file in your frontend directory and add your API key:
 
-    ```typescript
-    import { CopilotRuntime, createCopilotEndpoint, InMemoryAgentRunner } from "@copilotkit/runtime";
-    import { handle } from "hono/vercel";
-
-    const runtime = new CopilotRuntime({
-      agents: {
-        default: agent,
-      },
-      runner: new InMemoryAgentRunner(),
-    });
-
-    const app = createCopilotEndpoint({
-      runtime,
-      basePath: "/api/copilotkit",
-    });
-
-    export const GET = handle(app);
-    export const POST = handle(app);
+    ```plaintext title=".env.local"
+    OPENAI_API_KEY=your_openai_api_key
     ```
+
+    <Callout type="info" title="What about other models?">
+    The example is configured to use OpenAI's GPT-4o by default, but you can modify the BuiltInAgent to use any language model supported by CopilotKit.
+    </Callout>
+  </Step>
+  <Step>
+    ### Configure CopilotKit Provider
+
+    Wrap your application with the CopilotKit provider:
+
+    ```tsx title="app/layout.tsx"
+    // [!code highlight:2]
+    import { CopilotKit } from "@copilotkit/react-core";
+    import "@copilotkit/react-ui/styles.css";
+
+    // ...
+
+    export default function RootLayout({ children }: {children: React.ReactNode}) {
+        return (
+            <html lang="en">
+                <body>
+                    {/* [!code highlight:3] */}
+                    <CopilotKit runtimeUrl="/api/copilotkit">
+                        {children}
+                    </CopilotKit>
+                </body>
+            </html>
+        );
+    }
+    ```
+  </Step>
+  <Step>
+    ### Add the chat interface
+
+    Add the CopilotSidebar component to your page:
+
+    ```tsx title="app/page.tsx"
+    "use client";
+
+    import { CopilotSidebar } from "@copilotkit/react-ui";
+
+    export default function Page() {
+        return (
+            <main>
+                <h1>Your App</h1>
+                <CopilotSidebar />
+            </main>
+        );
+    }
+    ```
+  </Step>
+  <Step>
+    ### Start your UI
+
+    Start the development server:
+
+    <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+        <Tab value="npm">
+            ```bash
+            npm run dev
+            ```
+        </Tab>
+        <Tab value="pnpm">
+            ```bash
+            pnpm dev
+            ```
+        </Tab>
+        <Tab value="yarn">
+            ```bash
+            yarn dev
+            ```
+        </Tab>
+        <Tab value="bun">
+            ```bash
+            bun dev
+            ```
+        </Tab>
+    </Tabs>
+
+    Your application will be available at `http://localhost:3000`.
   </Step>
 </Steps>
 
@@ -126,19 +257,8 @@ MCP Apps integrate fully with CopilotKit's threading system:
 
 ## Example MCP Servers
 
-Try these open-source MCP Apps servers to get started:
+Try these open-source MCP Apps servers to get started: 
 
-```bash
-git clone https://github.com/anthropics/ext-apps
-cd ext-apps
-npm install
-npm start
-```
+https://github.com/modelcontextprotocol/ext-apps
 
-This starts multiple demo servers with tools like budget allocators, data visualizations, and interactive dashboards.
-
-## Learn More
-
-- [MCP (Agents\<-\>Tools)](/connect-mcp-servers) - Connect to standard MCP servers for tool access
-- [Generative UI Specs](/generative-ui-specs) - Compare all supported UI specifications
-- [AG-UI Protocol](/ag-ui-protocol) - The underlying protocol powering MCP Apps
+This repo contains multiple demo servers with tools like budget allocators, data visualizations, and interactive dashboards.
