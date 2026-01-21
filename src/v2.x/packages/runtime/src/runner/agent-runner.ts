@@ -9,6 +9,7 @@ export interface AgentRunnerRunRequest {
 
 export interface AgentRunnerConnectRequest {
   threadId: string;
+  headers?: Record<string, string>;
 }
 
 export interface AgentRunnerIsRunningRequest {
