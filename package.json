@@ -2,7 +2,7 @@
   "name": "CopilotKit",
   "private": true,
   "scripts": {
-    "build": "turbo run build --filter=!@copilotkit-examples/*",
+    "build": "turbo run build --filter=!@copilotkit-examples/* --filter=!@copilotkit-storybook/*",
     "build:classic": "turbo run build --filter=@copilotkit/*",
     "build:next": "turbo run build --filter=@copilotkitnext/*",
     "build:storybook": "turbo run build --filter=storybook-react --filter=storybook-angular",
