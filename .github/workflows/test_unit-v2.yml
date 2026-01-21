@@ -1,4 +1,4 @@
-name: test
+name: test / unit / v2
 
 on:
   push:

@@ -1,4 +1,4 @@
-name: e2e / examples
+name: test / e2e / examples
 
 on:
   push:

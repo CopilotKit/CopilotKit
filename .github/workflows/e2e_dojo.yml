@@ -1,4 +1,4 @@
-name: e2e / dojo
+name: test / e2e / dojo
 
 on:
   push:
