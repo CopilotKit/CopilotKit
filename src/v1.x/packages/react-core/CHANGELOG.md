@@ -1,5 +1,14 @@
 # ui
 
+## 1.51.3-next.1
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.51.3-next.1
+- @copilotkit/shared@1.51.3-next.1
+- @copilotkitnext/core@1.51.3-next.1
+- @copilotkitnext/react@1.51.3-next.1
+
 ## 1.51.3-next.0
 
 ### Patch Changes
