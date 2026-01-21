@@ -1,5 +1,5 @@
 {
-  "name": "ui",
+  "name": "@copilotkit-examples/research-canvas",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -15,9 +15,9 @@
     "postinstall": "npm run install:agent:py"
   },
   "dependencies": {
-    "@copilotkit/react-core": "1.50.1",
-    "@copilotkit/react-ui": "1.50.1",
-    "@copilotkit/runtime": "1.50.1",
+    "@copilotkit/react-core": "workspace:*",
+    "@copilotkit/react-ui": "workspace:*",
+    "@copilotkit/runtime": "workspace:*",
     "@radix-ui/react-dialog": "^1.1.2",
     "@radix-ui/react-icons": "^1.3.2",
     "@radix-ui/react-select": "^2.1.2",
@@ -42,11 +42,5 @@
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"
-  },
-  "pnpm": {
-    "overrides": {
-      "@types/react": "19.0.1",
-      "@types/react-dom": "19.0.2"
-    }
   }
 }

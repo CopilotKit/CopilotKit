@@ -1,4 +1,4 @@
-name: e2e / examples
+name: test / e2e / examples
 
 on:
   push:
@@ -62,6 +62,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build CopilotKit
+        id: build-cpk
+        run: pnpm build:classic
+
       - name: Install e2e dependencies
         working-directory: examples/e2e
         run: pnpm install --frozen-lockfile
@@ -69,15 +79,6 @@ jobs:
       - name: Install Playwright browsers
         working-directory: examples/e2e
         run: pnpm exec playwright install --with-deps chromium
-
-      - name: Install example dependencies
-        working-directory: examples/v1.x/${{ matrix.example }}
-        run: |
-          if [ "${{ matrix.example }}" = "research-canvas" ]; then
-            pnpm install --frozen-lockfile --ignore-scripts
-          else
-            pnpm install --frozen-lockfile
-          fi
 
       - name: Run e2e tests
         working-directory: examples/e2e

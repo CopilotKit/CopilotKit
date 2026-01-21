@@ -7,5 +7,7 @@ packages:
   - "src/v2.x/apps/react/*"
   - "src/v2.x/apps/angular/*"
   - "src/v2.x/apps/node"
+  - "examples/v1.x/*"
+  - "!examples/v1.x/_legacy"
 onlyBuiltDependencies:
   - better-sqlite3
