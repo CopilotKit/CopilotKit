@@ -28,7 +28,10 @@
   "scripts": {
     "prepack": "pnpm run build",
     "build": "tsc -p tsconfig.json",
-    "check-types": "tsc --noEmit -p tsconfig.json"
+    "check-types": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [
     "copilotkit",
@@ -51,8 +54,11 @@
     "react-dom": "^18 || ^19 || ^19.0.0-rc"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.0.0",
     "@types/react": "^19.2.3",
     "@types/react-dom": "^19.2.3",
-    "typescript": "5.9.2"
+    "jsdom": "^26.1.0",
+    "typescript": "5.9.2",
+    "vitest": "^3.2.4"
   }
 }
