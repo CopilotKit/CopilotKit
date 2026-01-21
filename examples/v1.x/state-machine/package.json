@@ -10,10 +10,10 @@
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"
   },
   "dependencies": {
-    "@copilotkit/react-core": "1.50.1",
-    "@copilotkit/runtime": "1.50.1",
-    "@copilotkit/react-ui": "1.50.1",
-    "@copilotkit/runtime-client-gql": "1.50.1",
+    "@copilotkit/react-core": "workspace:*",
+    "@copilotkit/runtime": "workspace:*",
+    "@copilotkit/react-ui": "workspace:*",
+    "@copilotkit/runtime-client-gql": "workspace:*",
     "clsx": "^1.2.1",
     "motion": "^11.18.1",
     "next": "14.2.35",

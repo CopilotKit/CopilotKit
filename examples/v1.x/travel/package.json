@@ -12,9 +12,9 @@
     "install:agent": "cd agent && uv sync"
   },
   "dependencies": {
-    "@copilotkit/react-core": "1.50.1",
-    "@copilotkit/react-ui": "1.50.1",
-    "@copilotkit/runtime": "1.50.1",
+    "@copilotkit/react-core": "workspace:*",
+    "@copilotkit/react-ui": "workspace:*",
+    "@copilotkit/runtime": "workspace:*",
     "@radix-ui/react-accordion": "^1.2.1",
     "@radix-ui/react-checkbox": "^1.1.1",
     "@radix-ui/react-dialog": "^1.1.2",
