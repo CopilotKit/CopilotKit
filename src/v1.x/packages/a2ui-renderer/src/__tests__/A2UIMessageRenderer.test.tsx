@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { render, act } from "@testing-library/react";
-import { useState } from "react";
+import React, { useState } from "react";
 import { v0_8 } from "@a2ui/lit";
 
 // Track which processor factory is called
@@ -57,7 +57,8 @@ describe("A2UIMessageRenderer uses correct processor type", () => {
       };
 
       // Call the render function from the renderer
-      return renderer.render({ content, agent: null });
+      const RenderComponent = renderer.render as React.FC<any>;
+      return <RenderComponent content={content} agent={null} />;
     };
 
     // Render the component
@@ -251,7 +252,8 @@ describe("A2UIMessageRenderer rendering integration", () => {
     };
 
     // Wrap in a component to properly invoke hooks
-    const TestWrapper = () => renderer.render({ content, agent: null });
+    const RenderComponent = renderer.render as React.FC<any>;
+    const TestWrapper = () => <RenderComponent content={content} agent={null} />;
 
     let container: HTMLElement;
     await act(async () => {
@@ -277,6 +279,7 @@ describe("A2UIMessageRenderer rendering integration", () => {
 
     const { createA2UIMessageRenderer } = await import("../A2UIMessageRenderer.js");
     const renderer = createA2UIMessageRenderer({ theme: {} as v0_8.Types.Theme });
+    const RenderComponent = renderer.render as React.FC<any>;
 
     // Component that allows us to update content
     let setContent: (content: any) => void;
@@ -300,7 +303,7 @@ describe("A2UIMessageRenderer rendering integration", () => {
         ],
       });
       setContent = _setContent;
-      return renderer.render({ content, agent: null });
+      return <RenderComponent content={content} agent={null} />;
     };
 
     let container: HTMLElement;
