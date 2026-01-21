@@ -55,7 +55,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: npx turbo run build
+        run: pnpm build
 
       - name: Run tests
         run: npm run test:classic
