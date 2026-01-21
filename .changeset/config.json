@@ -6,13 +6,13 @@
   "baseBranch": "origin/main",
   "fixed": [["@copilotkit/*", "@copilotkitnext/*"]],
   "ignore": [
+    "*",
+    "@copilotkit-examples/*",
+    "!@copilotkit-storybook/*",
     "@copilotkitnext/angular-demo",
     "@copilotkitnext/angular-demo-server",
-    "@copilotkitnext/demo-agents",
     "@copilotkitnext/docs",
-    "@apps/node",
-    "storybook-react",
-    "storybook-angular"
+    "@apps/node"
   ],
   "linked": [],
   "updateInternalDependencies": "patch"
