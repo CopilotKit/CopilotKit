@@ -1,4 +1,4 @@
-name: publish
+name: publish / release
 
 on:
   workflow_dispatch:
@@ -28,6 +28,9 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: "10.13.1"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
 
       - name: Install Dependencies
         run: pnpm i
