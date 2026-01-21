@@ -22,6 +22,7 @@ import {
   AssistantModelMessage,
   UserModelMessage,
   ToolModelMessage,
+  SystemModelMessage,
   ToolCallPart,
   ToolResultPart,
   TextPart,
@@ -269,13 +270,36 @@ function flattenUserMessageContent(content?: AGUIUserMessage["content"]): string
 }
 
 /**
+ * Options for converting AG-UI messages to Vercel AI SDK format
+ */
+export interface MessageConversionOptions {
+  forwardSystemMessages?: boolean;
+  forwardDeveloperMessages?: boolean;
+}
+
+/**
  * Converts AG-UI messages to Vercel AI SDK ModelMessage format
  */
-export function convertMessagesToVercelAISDKMessages(messages: Message[]): ModelMessage[] {
+export function convertMessagesToVercelAISDKMessages(
+  messages: Message[],
+  options: MessageConversionOptions = {},
+): ModelMessage[] {
   const result: ModelMessage[] = [];
 
   for (const message of messages) {
-    if (message.role === "assistant") {
+    if (message.role === "system" && options.forwardSystemMessages) {
+      const systemMsg: SystemModelMessage = {
+        role: "system",
+        content: message.content ?? "",
+      };
+      result.push(systemMsg);
+    } else if (message.role === "developer" && options.forwardDeveloperMessages) {
+      const systemMsg: SystemModelMessage = {
+        role: "system",
+        content: message.content ?? "",
+      };
+      result.push(systemMsg);
+    } else if (message.role === "assistant") {
       const parts: Array<TextPart | ToolCallPart> = message.content ? [{ type: "text", text: message.content }] : [];
 
       for (const toolCall of message.toolCalls ?? []) {
@@ -512,6 +536,16 @@ export interface BuiltInAgentConfiguration {
    * Optional tools available to the agent
    */
   tools?: ToolDefinition[];
+  /**
+   * Forward system-role messages from input to the LLM.
+   * Default: false
+   */
+  forwardSystemMessages?: boolean;
+  /**
+   * Forward developer-role messages from input to the LLM (as system messages).
+   * Default: false
+   */
+  forwardDeveloperMessages?: boolean;
 }
 
 export class BuiltInAgent extends AbstractAgent {
@@ -584,7 +618,10 @@ export class BuiltInAgent extends AbstractAgent {
       }
 
       // Convert messages and prepend system message if we have a prompt
-      const messages = convertMessagesToVercelAISDKMessages(input.messages);
+      const messages = convertMessagesToVercelAISDKMessages(input.messages, {
+        forwardSystemMessages: this.config.forwardSystemMessages,
+        forwardDeveloperMessages: this.config.forwardDeveloperMessages,
+      });
       if (systemPrompt) {
         messages.unshift({
           role: "system",
