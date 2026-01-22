@@ -12,10 +12,11 @@ const SIDEBAR_TRANSITION_MS = 260;
 
 export type CopilotSidebarViewProps = CopilotChatViewProps & {
   header?: SlotValue<typeof CopilotModalHeader>;
+  toggleButton?: SlotValue<typeof CopilotChatToggleButton> | null;
   width?: number | string;
 };
 
-export function CopilotSidebarView({ header, width, ...props }: CopilotSidebarViewProps) {
+export function CopilotSidebarView({ header, toggleButton, width, ...props }: CopilotSidebarViewProps) {
   const configuration = useCopilotChatConfiguration();
 
   const isSidebarOpen = configuration?.isModalOpen ?? false;
@@ -73,6 +74,11 @@ export function CopilotSidebarView({ header, width, ...props }: CopilotSidebarVi
 
   const headerElement = renderSlot(header, CopilotModalHeader, {});
 
+  // Conditionally render toggle button: null means hide, undefined means default
+  const toggleButtonElement = toggleButton !== null
+    ? renderSlot(toggleButton, CopilotChatToggleButton, {})
+    : null;
+
   return (
     <>
       {isSidebarOpen && (
@@ -88,7 +94,7 @@ export function CopilotSidebarView({ header, width, ...props }: CopilotSidebarVi
           }}
         />
       )}
-      <CopilotChatToggleButton />
+      {toggleButtonElement}
       <aside
         ref={sidebarRef}
         data-copilot-sidebar
