@@ -8,14 +8,17 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
+      "require": "./dist/index.js",
+      "umd": "./dist/index.umd.js"
     }
   },
+  "unpkg": "./dist/index.umd.js",
+  "jsdelivr": "./dist/index.umd.js",
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && rollup -c rollup.config.mjs",
     "dev": "tsup --watch",
     "lint": "eslint .",
     "check-types": "tsc --noEmit",

@@ -17,13 +17,16 @@
     ".": {
       "import": "./dist/index.mjs",
       "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "umd": "./dist/index.umd.js"
     }
   },
+  "unpkg": "./dist/index.umd.js",
+  "jsdelivr": "./dist/index.umd.js",
   "types": "./dist/index.d.ts",
   "license": "MIT",
   "scripts": {
-    "build": "tsup --clean",
+    "build": "tsup --clean && rollup -c rollup.config.mjs",
     "dev": "tsup --watch --no-splitting",
     "test": "jest --passWithNoTests",
     "check-types": "tsc --noEmit",

@@ -19,15 +19,18 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "default": "./dist/index.js",
+      "umd": "./dist/index.umd.js"
     }
   },
+  "unpkg": "./dist/index.umd.js",
+  "jsdelivr": "./dist/index.umd.js",
   "files": [
     "dist"
   ],
   "scripts": {
     "prepack": "pnpm run build",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && rollup -c rollup.config.mjs",
     "check-types": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",

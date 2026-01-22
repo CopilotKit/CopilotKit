@@ -17,23 +17,28 @@
     ".": {
       "types": "./dist/index.d.ts",
       "require": "./dist/index.js",
-      "import": "./dist/index.mjs"
+      "import": "./dist/index.mjs",
+      "umd": "./dist/index.umd.js"
     },
     "./langchain": {
       "types": "./dist/langchain.d.ts",
       "require": "./dist/langchain.js",
-      "import": "./dist/langchain.mjs"
+      "import": "./dist/langchain.mjs",
+      "umd": "./dist/langchain.umd.js"
     },
     "./langgraph": {
       "types": "./dist/langgraph.d.ts",
       "require": "./dist/langgraph.js",
-      "import": "./dist/langgraph.mjs"
+      "import": "./dist/langgraph.mjs",
+      "umd": "./dist/langgraph.umd.js"
     }
   },
+  "unpkg": "./dist/index.umd.js",
+  "jsdelivr": "./dist/index.umd.js",
   "types": "./dist/index.d.ts",
   "license": "MIT",
   "scripts": {
-    "build": "tsup --clean",
+    "build": "tsup --clean && rollup -c rollup.config.mjs",
     "dev": "tsup --watch --no-splitting",
     "test": "jest --passWithNoTests",
     "check-types": "tsc --noEmit",
