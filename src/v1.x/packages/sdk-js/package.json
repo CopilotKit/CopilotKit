@@ -30,12 +30,10 @@
       "import": "./dist/langgraph.mjs"
     }
   },
-  "unpkg": "./dist/index.umd.js",
-  "jsdelivr": "./dist/index.umd.js",
   "types": "./dist/index.d.ts",
   "license": "MIT",
   "scripts": {
-    "build": "tsup --clean && rollup -c rollup.config.mjs",
+    "build": "tsup --clean",
     "dev": "tsup --watch --no-splitting",
     "test": "jest --passWithNoTests",
     "check-types": "tsc --noEmit",

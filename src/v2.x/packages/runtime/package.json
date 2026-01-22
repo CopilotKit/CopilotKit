@@ -16,13 +16,11 @@
       "require": "./dist/express.js"
     }
   },
-  "unpkg": "./dist/index.umd.js",
-  "jsdelivr": "./dist/index.umd.js",
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "build": "tsup && rollup -c rollup.config.mjs",
+    "build": "tsup",
     "dev": "tsup --watch",
     "lint": "eslint .",
     "check-types": "tsc --noEmit",
