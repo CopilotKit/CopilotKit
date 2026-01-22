@@ -17,7 +17,7 @@ import { Markdown } from "@copilotkit/react-ui";
    return String(content);
  }
 
-export function UserMessage({ message, rawData: _rawData }: UserMessageProps) {
+export function UserMessage({ message }: UserMessageProps) {
   const content = normalizeMarkdownContent(message?.content);
 
   return (
