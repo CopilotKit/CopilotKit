@@ -1,5 +1,12 @@
 # @copilotkit/a2ui-renderer
 
+## 1.51.3-next.2
+
+### Patch Changes
+
+- ffb46f4: fix(a2ui-renderer): ensure the component updates when A2UI operations change
+  - @copilotkit/react-core@1.51.3-next.2
+
 ## 1.51.3-next.1
 
 ### Patch Changes
