@@ -867,15 +867,24 @@ importers:
         specifier: ^3.25.75
         version: 3.25.76
     devDependencies:
+      '@testing-library/react':
+        specifier: ^16.0.0
+        version: 16.3.1(@testing-library/dom@10.4.0)(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@types/react':
         specifier: ^19.1.0
         version: 19.2.7
       '@types/react-dom':
         specifier: ^19.0.2
         version: 19.2.3(@types/react@19.2.7)
+      jsdom:
+        specifier: ^26.1.0
+        version: 26.1.0
       typescript:
         specifier: 5.9.2
         version: 5.9.2
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.3)(@vitest/ui@3.2.4)(jiti@2.6.1)(jsdom@26.1.0)(less@4.5.1)(lightningcss@1.30.2)(sass@1.97.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2)
 
   src/v1.x/packages/react-core:
     dependencies:
@@ -29599,7 +29608,7 @@ snapshots:
       sirv: 3.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 2.0.0
-      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@18.19.130)(@vitest/ui@3.2.4)(jiti@2.6.1)(jsdom@26.1.0)(less@4.5.1)(lightningcss@1.30.2)(sass@1.97.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2)
+      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.3)(@vitest/ui@3.2.4)(jiti@2.6.1)(jsdom@26.1.0)(less@4.5.1)(lightningcss@1.30.2)(sass@1.97.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2)
 
   '@vitest/utils@2.0.5':
     dependencies:
