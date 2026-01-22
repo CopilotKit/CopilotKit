@@ -11,11 +11,13 @@
       "require": "./dist/index.js"
     }
   },
+  "unpkg": "./dist/index.umd.js",
+  "jsdelivr": "./dist/index.umd.js",
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && rollup -c rollup.config.mjs",
     "prepublishOnly": "pnpm run build",
     "dev": "tsup --watch",
     "lint": "eslint . --max-warnings 0",

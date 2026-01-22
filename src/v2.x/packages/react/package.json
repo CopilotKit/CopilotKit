@@ -12,6 +12,8 @@
     },
     "./styles.css": "./dist/styles.css"
   },
+  "unpkg": "./dist/index.umd.js",
+  "jsdelivr": "./dist/index.umd.js",
   "publishConfig": {
     "access": "public"
   },
@@ -19,7 +21,7 @@
     "dev:css": "npx @tailwindcss/cli -i ./src/styles/globals.css -o ./dist/styles.css --watch --minify",
     "build:css": "npx @tailwindcss/cli -i ./src/styles/globals.css -o ./dist/styles.css -m",
     "dev": "concurrently \"npm:dev:css\" \"tsup --watch\"",
-    "build": "tsup && npm run build:css",
+    "build": "tsup && rollup -c rollup.config.mjs && npm run build:css",
     "prepublishOnly": "pnpm run build",
     "lint": "eslint .",
     "check-types": "tsc --noEmit",
