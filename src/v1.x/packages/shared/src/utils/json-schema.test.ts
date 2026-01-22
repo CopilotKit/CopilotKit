@@ -172,6 +172,70 @@ describe("convertJsonSchemaToZodSchema", () => {
 
     expect(resultSchemaJson).toStrictEqual(expectedSchemaJson);
   });
+
+  it("should convert a JSON schema with string enum to a Zod enum schema", () => {
+    const jsonSchema = {
+      type: "object",
+      properties: {
+        role: {
+          type: "string",
+          enum: ["admin", "user", "guest"],
+          description: "User role",
+        },
+      },
+      required: ["role"],
+    };
+
+    const expectedSchema = z.object({
+      role: z.enum(["admin", "user", "guest"]).describe("User role"),
+    });
+
+    const result = convertJsonSchemaToZodSchema(jsonSchema, true);
+
+    // Test that it accepts valid enum values
+    expect(result.parse({ role: "admin" })).toEqual({ role: "admin" });
+    expect(result.parse({ role: "user" })).toEqual({ role: "user" });
+    expect(result.parse({ role: "guest" })).toEqual({ role: "guest" });
+
+    // Test that it rejects invalid values
+    expect(() => result.parse({ role: "invalid" })).toThrow();
+
+    // Also verify the schema structure matches
+    const resultSchemaJson = zodToJsonSchema(result);
+    const expectedSchemaJson = zodToJsonSchema(expectedSchema);
+    expect(resultSchemaJson).toStrictEqual(expectedSchemaJson);
+  });
+
+  it("should convert a JSON schema with optional string enum to a Zod enum schema", () => {
+    const jsonSchema = {
+      type: "object",
+      properties: {
+        priority: {
+          type: "string",
+          enum: ["low", "medium", "high"],
+          description: "Task priority",
+        },
+      },
+      required: [],
+    };
+
+    const expectedSchema = z.object({
+      priority: z.enum(["low", "medium", "high"]).describe("Task priority").optional(),
+    });
+
+    const result = convertJsonSchemaToZodSchema(jsonSchema, true);
+
+    // Test that it accepts valid enum values
+    expect(result.parse({ priority: "low" })).toEqual({ priority: "low" });
+    expect(result.parse({ priority: "medium" })).toEqual({ priority: "medium" });
+    expect(result.parse({ priority: "high" })).toEqual({ priority: "high" });
+
+    // Test that it accepts undefined (optional)
+    expect(result.parse({})).toEqual({});
+
+    // Test that it rejects invalid values
+    expect(() => result.parse({ priority: "invalid" })).toThrow();
+  });
 });
 
 describe("jsonSchemaToActionParameters", () => {
