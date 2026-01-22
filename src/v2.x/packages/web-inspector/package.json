@@ -8,8 +8,7 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "umd": "./dist/index.umd.js"
+      "require": "./dist/index.js"
     }
   },
   "unpkg": "./dist/index.umd.js",

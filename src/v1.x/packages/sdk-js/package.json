@@ -17,20 +17,17 @@
     ".": {
       "types": "./dist/index.d.ts",
       "require": "./dist/index.js",
-      "import": "./dist/index.mjs",
-      "umd": "./dist/index.umd.js"
+      "import": "./dist/index.mjs"
     },
     "./langchain": {
       "types": "./dist/langchain.d.ts",
       "require": "./dist/langchain.js",
-      "import": "./dist/langchain.mjs",
-      "umd": "./dist/langchain.umd.js"
+      "import": "./dist/langchain.mjs"
     },
     "./langgraph": {
       "types": "./dist/langgraph.d.ts",
       "require": "./dist/langgraph.js",
-      "import": "./dist/langgraph.mjs",
-      "umd": "./dist/langgraph.umd.js"
+      "import": "./dist/langgraph.mjs"
     }
   },
   "unpkg": "./dist/index.umd.js",

@@ -17,8 +17,7 @@
     ".": {
       "import": "./dist/index.mjs",
       "require": "./dist/index.js",
-      "types": "./dist/index.d.ts",
-      "umd": "./dist/index.umd.js"
+      "types": "./dist/index.d.ts"
     }
   },
   "unpkg": "./dist/index.umd.js",

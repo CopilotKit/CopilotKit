@@ -19,14 +19,12 @@
     ".": {
       "import": "./dist/index.mjs",
       "require": "./dist/index.js",
-      "types": "./dist/index.d.ts",
-      "umd": "./dist/index.umd.js"
+      "types": "./dist/index.d.ts"
     },
     "./v2": {
       "import": "./dist/v2/index.mjs",
       "require": "./dist/v2/index.js",
-      "types": "./dist/v2/index.d.ts",
-      "umd": "./dist/v2/index.umd.js"
+      "types": "./dist/v2/index.d.ts"
     },
     "./v2/styles.css": "./dist/v2/index.css"
   },

@@ -19,8 +19,7 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "default": "./dist/index.js",
-      "umd": "./dist/index.umd.js"
+      "default": "./dist/index.js"
     }
   },
   "unpkg": "./dist/index.umd.js",

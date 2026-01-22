@@ -8,14 +8,12 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "umd": "./dist/index.umd.js"
+      "require": "./dist/index.js"
     },
     "./express": {
       "types": "./dist/express.d.ts",
       "import": "./dist/express.mjs",
-      "require": "./dist/express.js",
-      "umd": "./dist/express.umd.js"
+      "require": "./dist/express.js"
     }
   },
   "unpkg": "./dist/index.umd.js",
