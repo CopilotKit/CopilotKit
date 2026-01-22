@@ -190,7 +190,7 @@ export function CopilotChatView({
     );
 
     return (
-      <div className={twMerge("relative h-full", className)} {...props}>
+      <div className={twMerge("relative h-full flex flex-col", className)} {...props}>
         {BoundWelcomeScreen}
       </div>
     );
@@ -480,7 +480,7 @@ export namespace CopilotChatView {
     return (
       <div
         className={cn(
-          "h-full flex flex-col items-center justify-center px-4",
+          "flex-1 flex flex-col items-center justify-center px-4",
           className
         )}
         {...props}
