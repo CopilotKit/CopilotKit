@@ -130,14 +130,6 @@ Check out the [useAgent docs](https://go.copilotkit.ai/useagent-docs) to learn m
 https://github.com/user-attachments/assets/46b7d161-a988-4453-9ca9-c0eca4c33da6
 
 
-## 🧑‍💻 Real life use cases
-
-<span>Deploy deeply-integrated AI assistants & agents that work alongside your users inside your applications.</span>
-
-<a href="https://www.copilotkit.ai/examples" alt="Examples Page" >
-<img width="4096" height="2725" alt="Screenshot 2026-01-23 at 4 15 22 PM" src="https://github.com/user-attachments/assets/59134cd9-801d-49fb-bc9d-574fa4e6e80a" />
-<a />
-
 ## 🖥️ Code Samples
 
 <span>Drop in these building blocks and tailor them to your needs.</span>
