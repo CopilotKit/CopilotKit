@@ -45,6 +45,7 @@
     "@copilotkit-storybook/react": "0.0.0"
   },
   "changesets": [
+    "big-geese-sell",
     "curvy-taxis-brush",
     "four-cycles-carry",
     "polite-rockets-cut"

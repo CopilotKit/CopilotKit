@@ -1,5 +1,15 @@
 # @copilotkit/runtime
 
+## 1.51.3-next.3
+
+### Patch Changes
+
+- d655e75: fix: update ag-ui dependencies
+- Updated dependencies [d655e75]
+  - @copilotkit/shared@1.51.3-next.3
+  - @copilotkitnext/agent@1.51.3-next.3
+  - @copilotkitnext/runtime@1.51.3-next.3
+
 ## 1.51.3-next.2
 
 ### Patch Changes
