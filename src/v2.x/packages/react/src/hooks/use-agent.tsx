@@ -1,6 +1,6 @@
 import { useCopilotKit } from "@/providers/CopilotKitProvider";
-import { useMemo, useEffect, useReducer } from "react";
-import { DEFAULT_AGENT_ID } from "@copilotkitnext/shared";
+import { useMemo, useEffect, useReducer, useRef } from "react";
+import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkitnext/shared";
 import { AbstractAgent } from "@ag-ui/client";
 import { ProxiedCopilotRuntimeAgent, CopilotKitCoreRuntimeConnectionStatus } from "@copilotkitnext/core";
 
@@ -27,6 +27,15 @@ export function useAgent({ agentId, updates }: UseAgentProps = {}) {
   const { copilotkit } = useCopilotKit();
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
+  // Maintain a stable threadId across provisional agent recreations.
+  // Without this, each time useMemo re-runs due to runtimeConnectionStatus changes
+  // (Disconnected -> Connecting -> Connected), a new ProxiedCopilotRuntimeAgent
+  // would be created with a new UUID, causing multiple threadIds to appear.
+  const provisionalThreadIdRef = useRef<string | null>(null);
+  if (provisionalThreadIdRef.current === null) {
+    provisionalThreadIdRef.current = randomUUID();
+  }
+
   const updateFlags = useMemo(
     () => updates ?? ALL_UPDATES,
     [JSON.stringify(updates)]
@@ -51,6 +60,7 @@ export function useAgent({ agentId, updates }: UseAgentProps = {}) {
         runtimeUrl: copilotkit.runtimeUrl,
         agentId,
         transport: copilotkit.runtimeTransport,
+        threadId: provisionalThreadIdRef.current!,
       });
       // Apply current headers so runs/connects inherit them
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
