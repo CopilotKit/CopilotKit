@@ -14,7 +14,14 @@ import {
 import { ReactCustomMessageRenderer } from "@/types/react-custom-message-renderer";
 import { useCopilotKit } from "@/providers/CopilotKitProvider";
 import { useCopilotChatConfiguration } from "@/providers/CopilotChatConfigurationProvider";
+import { useAgent } from "@/hooks/use-agent";
+import { CopilotKitCoreReact } from "@/lib/react-core";
 import { Message } from "@ag-ui/core";
+
+// Test shim: some environments lack setCredentials on CopilotKitCoreReact.
+if (!(CopilotKitCoreReact.prototype as any).setCredentials) {
+  (CopilotKitCoreReact.prototype as any).setCredentials = () => {};
+}
 
 type SnapshotRendererProps = {
   message: Message;
@@ -62,7 +69,53 @@ const SnapshotRenderer: React.FC<SnapshotRendererProps> = ({
   );
 };
 
+const LiveStateRenderer: React.FC<SnapshotRendererProps> = ({ messageIndexInRun, position }) => {
+  const { agent } = useAgent();
+  const currentStep = (agent?.state as { current_step?: string } | undefined)?.current_step;
+
+  if (position !== "after") {
+    return null;
+  }
+  if (messageIndexInRun !== 0) {
+    return null;
+  }
+  if (!currentStep) {
+    return null;
+  }
+
+  return <div data-testid="live-step">{currentStep}</div>;
+};
+
 describe("CopilotKitProvider custom message renderers E2E", () => {
+  it("renders state snapshots before assistant text starts", async () => {
+    const agent = new MockStepwiseAgent();
+
+    const customRenderer: ReactCustomMessageRenderer = {
+      render: LiveStateRenderer,
+    };
+
+    renderWithCopilotKit({
+      agent,
+      renderCustomMessages: [customRenderer],
+    });
+
+    const input = await screen.findByRole("textbox");
+
+    fireEvent.change(input, { target: { value: "Who am I?" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+    await waitFor(() => {
+      expect(screen.getByText("Who am I?")).toBeDefined();
+    });
+
+    agent.emit(runStartedEvent());
+    agent.emit(stateSnapshotEvent({ current_step: "Processing..." }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("live-step").textContent).toContain("Processing...");
+    });
+  });
+
   it("renders stored state snapshots for sequential runs", async () => {
     const agent = new MockStepwiseAgent();
     const history: number[] = [];
