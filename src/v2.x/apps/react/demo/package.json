@@ -1,12 +1,12 @@
 {
   "name": "demo",
-  "version": "0.1.3",
+  "version": "0.1.4-next.0",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\" \"*.{js,cjs,mjs,ts}\"",
     "test": "vitest",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage"
@@ -23,7 +23,7 @@
     "@copilotkitnext/shared": "workspace:*",
     "@copilotkit/voice": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.18.2",
-    "hono": "^4.6.13",
+    "hono": "^4.11.4",
     "next": "15.4.4",
     "openai": "^5.9.0",
     "react": "19.1.0",
@@ -40,7 +40,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
+    "eslint": "^8.57.0",
     "eslint-config-next": "15.4.4",
     "tailwindcss": "^4",
     "typescript": "^5",

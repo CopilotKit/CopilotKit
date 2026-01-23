@@ -368,3 +368,12 @@ h2, h3, p {
   justify-content: space-between;
   cursor: pointer !important;
 }
+
+/* Quickstart select page background - matches article background */
+.quickstart-select-bg {
+  background: linear-gradient(to right, rgba(1, 5, 7, 0.10), rgba(1, 5, 7, 0)), #FFFFFF;
+}
+
+.dark .quickstart-select-bg {
+  background: linear-gradient(to right, rgba(1, 5, 7, 0.10), rgba(1, 5, 7, 0)), #111618;
+}

@@ -1,5 +1,5 @@
 {
-  "name": "storybook-angular",
+  "name": "@copilotkit-storybook/angular",
   "private": true,
   "version": "0.0.0",
   "scripts": {

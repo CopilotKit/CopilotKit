@@ -1,10 +1,9 @@
 {
-  "title": "Updates - Dec 15, 2025",
+  "title": "Updates - Jan 22, 2025",
   "pages": [
-    "a2ui-launch",
-    "v1-50",
-    "generative-ui-spec-support",
-    "a2a-mcp-handshake"
+    "mcp-apps-support",
+    "langgraph-deep-agents",
+    "v1-50"
   ]
 }
 

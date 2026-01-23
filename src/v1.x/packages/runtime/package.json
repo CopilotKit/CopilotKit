@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.51.2",
+  "version": "1.51.3-next.2",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -74,7 +74,7 @@
     "graphql": "^16.8.1",
     "graphql-scalars": "^1.23.0",
     "graphql-yoga": "^5.3.1",
-    "hono": "^4.10.3",
+    "hono": "^4.11.4",
     "openai": "^4.85.1",
     "partial-json": "^0.1.7",
     "pino": "^9.2.0",

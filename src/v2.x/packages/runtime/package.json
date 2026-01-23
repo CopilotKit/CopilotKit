@@ -1,6 +1,6 @@
 {
   "name": "@copilotkitnext/runtime",
-  "version": "1.51.2",
+  "version": "1.51.3-next.2",
   "description": "Server-side runtime package for CopilotKit2",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -48,7 +48,7 @@
     "@copilotkitnext/shared": "workspace:*",
     "cors": "^2.8.5",
     "express": "^4.21.2",
-    "hono": "^4.6.13",
+    "hono": "^4.11.4",
     "rxjs": "7.8.1"
   },
   "peerDependencies": {

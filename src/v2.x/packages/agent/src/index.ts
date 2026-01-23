@@ -22,6 +22,7 @@ import {
   AssistantModelMessage,
   UserModelMessage,
   ToolModelMessage,
+  SystemModelMessage,
   ToolCallPart,
   ToolResultPart,
   TextPart,
@@ -140,9 +141,10 @@ export type MCPClientConfig = MCPClientConfigHTTP | MCPClientConfigSSE;
 /**
  * Resolves a model specifier to a LanguageModel instance
  * @param spec - Model string (e.g., "openai/gpt-4o") or LanguageModel instance
+ * @param apiKey - Optional API key to use instead of environment variables
  * @returns LanguageModel instance
  */
-export function resolveModel(spec: ModelSpecifier): LanguageModel {
+export function resolveModel(spec: ModelSpecifier, apiKey?: string): LanguageModel {
   // If already a LanguageModel instance, pass through
   if (typeof spec !== "string") {
     return spec;
@@ -172,8 +174,9 @@ export function resolveModel(spec: ModelSpecifier): LanguageModel {
   switch (provider) {
     case "openai": {
       // Lazily create OpenAI provider
+      // Use provided apiKey, or fall back to environment variable
       const openai = createOpenAI({
-        apiKey: process.env.OPENAI_API_KEY!,
+        apiKey: apiKey || process.env.OPENAI_API_KEY!,
       });
       // Accepts any OpenAI model id, e.g. "gpt-4o", "gpt-4.1-mini", "o3-mini"
       return openai(model);
@@ -181,8 +184,9 @@ export function resolveModel(spec: ModelSpecifier): LanguageModel {
 
     case "anthropic": {
       // Lazily create Anthropic provider
+      // Use provided apiKey, or fall back to environment variable
       const anthropic = createAnthropic({
-        apiKey: process.env.ANTHROPIC_API_KEY!,
+        apiKey: apiKey || process.env.ANTHROPIC_API_KEY!,
       });
       // Accepts any Claude id, e.g. "claude-3.7-sonnet", "claude-3.5-haiku"
       return anthropic(model);
@@ -192,8 +196,9 @@ export function resolveModel(spec: ModelSpecifier): LanguageModel {
     case "gemini":
     case "google-gemini": {
       // Lazily create Google provider
+      // Use provided apiKey, or fall back to environment variable
       const google = createGoogleGenerativeAI({
-        apiKey: process.env.GOOGLE_API_KEY!,
+        apiKey: apiKey || process.env.GOOGLE_API_KEY!,
       });
       // Accepts any Gemini id, e.g. "gemini-2.5-pro", "gemini-2.5-flash"
       return google(model);
@@ -265,13 +270,36 @@ function flattenUserMessageContent(content?: AGUIUserMessage["content"]): string
 }
 
 /**
+ * Options for converting AG-UI messages to Vercel AI SDK format
+ */
+export interface MessageConversionOptions {
+  forwardSystemMessages?: boolean;
+  forwardDeveloperMessages?: boolean;
+}
+
+/**
  * Converts AG-UI messages to Vercel AI SDK ModelMessage format
  */
-export function convertMessagesToVercelAISDKMessages(messages: Message[]): ModelMessage[] {
+export function convertMessagesToVercelAISDKMessages(
+  messages: Message[],
+  options: MessageConversionOptions = {},
+): ModelMessage[] {
   const result: ModelMessage[] = [];
 
   for (const message of messages) {
-    if (message.role === "assistant") {
+    if (message.role === "system" && options.forwardSystemMessages) {
+      const systemMsg: SystemModelMessage = {
+        role: "system",
+        content: message.content ?? "",
+      };
+      result.push(systemMsg);
+    } else if (message.role === "developer" && options.forwardDeveloperMessages) {
+      const systemMsg: SystemModelMessage = {
+        role: "system",
+        content: message.content ?? "",
+      };
+      result.push(systemMsg);
+    } else if (message.role === "assistant") {
       const parts: Array<TextPart | ToolCallPart> = message.content ? [{ type: "text", text: message.content }] : [];
 
       for (const toolCall of message.toolCalls ?? []) {
@@ -390,7 +418,10 @@ function isJsonSchema(obj: unknown): obj is JsonSchema {
   const schema = obj as Record<string, unknown>;
   // Empty objects {} are valid JSON schemas (no input required)
   if (Object.keys(schema).length === 0) return true;
-  return typeof schema.type === "string" && ["object", "string", "number", "integer", "boolean", "array"].includes(schema.type);
+  return (
+    typeof schema.type === "string" &&
+    ["object", "string", "number", "integer", "boolean", "array"].includes(schema.type)
+  );
 }
 
 export function convertToolsToVercelAITools(tools: RunAgentInput["tools"]): ToolSet {
@@ -437,6 +468,14 @@ export interface BuiltInAgentConfiguration {
    * The model to use
    */
   model: BuiltInAgentModel | LanguageModel;
+  /**
+   * API key for the model provider (OpenAI, Anthropic, Google)
+   * If not provided, falls back to environment variables:
+   * - OPENAI_API_KEY for OpenAI models
+   * - ANTHROPIC_API_KEY for Anthropic models
+   * - GOOGLE_API_KEY for Google models
+   */
+  apiKey?: string;
   /**
    * Maximum number of steps/iterations for tool calling (default: 1)
    */
@@ -497,6 +536,16 @@ export interface BuiltInAgentConfiguration {
    * Optional tools available to the agent
    */
   tools?: ToolDefinition[];
+  /**
+   * Forward system-role messages from input to the LLM.
+   * Default: false
+   */
+  forwardSystemMessages?: boolean;
+  /**
+   * Forward developer-role messages from input to the LLM (as system messages).
+   * Default: false
+   */
+  forwardDeveloperMessages?: boolean;
 }
 
 export class BuiltInAgent extends AbstractAgent {
@@ -523,8 +572,8 @@ export class BuiltInAgent extends AbstractAgent {
       };
       subscriber.next(startEvent);
 
-      // Resolve the model
-      const model = resolveModel(this.config.model);
+      // Resolve the model, passing API key if provided
+      const model = resolveModel(this.config.model, this.config.apiKey);
 
       // Build prompt based on conditions
       let systemPrompt: string | undefined = undefined;
@@ -569,7 +618,10 @@ export class BuiltInAgent extends AbstractAgent {
       }
 
       // Convert messages and prepend system message if we have a prompt
-      const messages = convertMessagesToVercelAISDKMessages(input.messages);
+      const messages = convertMessagesToVercelAISDKMessages(input.messages, {
+        forwardSystemMessages: this.config.forwardSystemMessages,
+        forwardDeveloperMessages: this.config.forwardDeveloperMessages,
+      });
       if (systemPrompt) {
         messages.unshift({
           role: "system",
@@ -609,7 +661,8 @@ export class BuiltInAgent extends AbstractAgent {
         if (props.model !== undefined && this.canOverride("model")) {
           if (typeof props.model === "string" || typeof props.model === "object") {
             // Accept any string or LanguageModel instance for model override
-            streamTextParams.model = resolveModel(props.model as string | LanguageModel);
+            // Use the configured API key when resolving overridden models
+            streamTextParams.model = resolveModel(props.model as string | LanguageModel, this.config.apiKey);
           }
         }
         if (props.toolChoice !== undefined && this.canOverride("toolChoice")) {
@@ -754,7 +807,7 @@ export class BuiltInAgent extends AbstractAgent {
           // Process fullStream events
           for await (const part of response.fullStream) {
             switch (part.type) {
-              case 'abort':
+              case "abort":
                 const abortEndEvent: RunFinishedEvent = {
                   type: EventType.RUN_FINISHED,
                   threadId: input.threadId,
@@ -806,7 +859,7 @@ export class BuiltInAgent extends AbstractAgent {
                 // New text message starting - use the SDK-provided id
                 // Use randomUUID() if part.id is falsy or "0" to prevent message merging issues
                 const providedId = "id" in part ? part.id : undefined;
-                messageId = (providedId && providedId !== "0") ? (providedId as typeof messageId) : randomUUID();
+                messageId = providedId && providedId !== "0" ? (providedId as typeof messageId) : randomUUID();
                 break;
               }
 

@@ -34,7 +34,19 @@
     "@copilotkitnext/shared": "1.51.2",
     "@copilotkitnext/sqlite-runner": "1.51.2",
     "@copilotkitnext/typescript-config": "1.51.2",
-    "@copilotkitnext/web-inspector": "1.51.2"
+    "@copilotkitnext/web-inspector": "1.51.2",
+    "@copilotkit/voice": "0.0.1",
+    "@copilotkit-examples/chat-with-your-data": "0.1.0",
+    "@copilotkit-examples/form-filling": "0.1.0",
+    "@copilotkit-examples/research-canvas": "0.1.0",
+    "@copilotkit-examples/state-machine": "0.1.0",
+    "@copilotkit-examples/travel": "0.1.0",
+    "@copilotkit-storybook/angular": "0.0.0",
+    "@copilotkit-storybook/react": "0.0.0"
   },
-  "changesets": []
+  "changesets": [
+    "curvy-taxis-brush",
+    "four-cycles-carry",
+    "polite-rockets-cut"
+  ]
 }

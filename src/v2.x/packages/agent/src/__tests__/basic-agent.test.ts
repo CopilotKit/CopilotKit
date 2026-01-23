@@ -390,6 +390,205 @@ describe("BasicAgent", () => {
     });
   });
 
+  describe("Forward System/Developer Messages", () => {
+    it("should ignore system messages by default", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [
+          { id: "sys1", role: "system", content: "System instruction" },
+          { id: "user1", role: "user", content: "Hello" },
+        ],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      await collectEvents(agent["run"](input));
+
+      const callArgs = vi.mocked(streamText).mock.calls[0][0];
+      // Should only have the user message, system message ignored
+      expect(callArgs.messages).toHaveLength(1);
+      expect(callArgs.messages[0].role).toBe("user");
+    });
+
+    it("should ignore developer messages by default", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [
+          { id: "dev1", role: "developer", content: "Developer hint" },
+          { id: "user1", role: "user", content: "Hello" },
+        ],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      await collectEvents(agent["run"](input));
+
+      const callArgs = vi.mocked(streamText).mock.calls[0][0];
+      // Should only have the user message, developer message ignored
+      expect(callArgs.messages).toHaveLength(1);
+      expect(callArgs.messages[0].role).toBe("user");
+    });
+
+    it("should forward system messages when forwardSystemMessages is true", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+        forwardSystemMessages: true,
+      });
+
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [
+          { id: "sys1", role: "system", content: "System instruction" },
+          { id: "user1", role: "user", content: "Hello" },
+        ],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      await collectEvents(agent["run"](input));
+
+      const callArgs = vi.mocked(streamText).mock.calls[0][0];
+      expect(callArgs.messages).toHaveLength(2);
+      expect(callArgs.messages[0]).toMatchObject({
+        role: "system",
+        content: "System instruction",
+      });
+      expect(callArgs.messages[1].role).toBe("user");
+    });
+
+    it("should forward developer messages as system when forwardDeveloperMessages is true", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+        forwardDeveloperMessages: true,
+      });
+
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [
+          { id: "dev1", role: "developer", content: "Developer hint" },
+          { id: "user1", role: "user", content: "Hello" },
+        ],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      await collectEvents(agent["run"](input));
+
+      const callArgs = vi.mocked(streamText).mock.calls[0][0];
+      expect(callArgs.messages).toHaveLength(2);
+      // Developer messages are converted to system role
+      expect(callArgs.messages[0]).toMatchObject({
+        role: "system",
+        content: "Developer hint",
+      });
+      expect(callArgs.messages[1].role).toBe("user");
+    });
+
+    it("should forward both system and developer messages when both flags are true", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+        forwardSystemMessages: true,
+        forwardDeveloperMessages: true,
+      });
+
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [
+          { id: "sys1", role: "system", content: "System instruction" },
+          { id: "dev1", role: "developer", content: "Developer hint" },
+          { id: "user1", role: "user", content: "Hello" },
+        ],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      await collectEvents(agent["run"](input));
+
+      const callArgs = vi.mocked(streamText).mock.calls[0][0];
+      expect(callArgs.messages).toHaveLength(3);
+      expect(callArgs.messages[0]).toMatchObject({
+        role: "system",
+        content: "System instruction",
+      });
+      expect(callArgs.messages[1]).toMatchObject({
+        role: "system",
+        content: "Developer hint",
+      });
+      expect(callArgs.messages[2].role).toBe("user");
+    });
+
+    it("should place config prompt before forwarded system/developer messages", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+        prompt: "You are a helpful assistant.",
+        forwardSystemMessages: true,
+        forwardDeveloperMessages: true,
+      });
+
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [
+          { id: "sys1", role: "system", content: "System instruction" },
+          { id: "dev1", role: "developer", content: "Developer hint" },
+          { id: "user1", role: "user", content: "Hello" },
+        ],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      await collectEvents(agent["run"](input));
+
+      const callArgs = vi.mocked(streamText).mock.calls[0][0];
+      // Config prompt is prepended as first system message
+      expect(callArgs.messages).toHaveLength(4);
+      expect(callArgs.messages[0]).toMatchObject({
+        role: "system",
+        content: "You are a helpful assistant.",
+      });
+      expect(callArgs.messages[1]).toMatchObject({
+        role: "system",
+        content: "System instruction",
+      });
+      expect(callArgs.messages[2]).toMatchObject({
+        role: "system",
+        content: "Developer hint",
+      });
+      expect(callArgs.messages[3].role).toBe("user");
+    });
+  });
+
   describe("Tool Configuration", () => {
     it("should include tools from config", async () => {
       const tool1 = defineTool({
