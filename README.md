@@ -55,7 +55,6 @@
 <br />
 <br />
 
-<img width="4096" height="2341" alt="Best in class support across the ecosystem" src="https://github.com/user-attachments/assets/bf399131-2a92-49f8-8748-38ed72353f9c" />
 
 ## ⭐️ useAgent
 
