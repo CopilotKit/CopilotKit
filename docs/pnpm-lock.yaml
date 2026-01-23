@@ -18,8 +18,8 @@ importers:
         specifier: 1.10.6
         version: 1.10.6(@types/react@19.2.7)(graphql@16.12.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@copilotkit/react-ui':
-        specifier: 1.10.6
-        version: 1.10.6(@types/react@19.2.7)(graphql@16.12.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        specifier: 1.51.0
+        version: 1.51.0(@copilotkit/react-core@1.10.6(@types/react@19.2.7)(graphql@16.12.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@copilotkit/runtime-client-gql@1.10.6(graphql@16.12.0)(react@19.2.3))(@copilotkit/shared@1.10.6)(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@icons-pack/react-simple-icons':
         specifier: ^11.2.0
         version: 11.2.0(react@19.2.3)
@@ -328,9 +328,12 @@ packages:
       react: ^18 || ^19 || ^19.0.0-rc
       react-dom: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/react-ui@1.10.6':
-    resolution: {integrity: sha512-eNIbZKMvBVZqlAR4fqkmZRIYIt8WhwZOxfVJVwMD9nfmWdtatmxrOLecyDiPk/hkq2o/8s2/rubaZSMK6m+GHQ==}
+  '@copilotkit/react-ui@1.51.0':
+    resolution: {integrity: sha512-bX6mhI5R3k7l/BahRqlm5giwwuKQNwu9LeKBSEKDwBMPSauOQG4CzARJqacwKSDEBGRjah0HjKWInnco0Jgpsg==}
     peerDependencies:
+      '@copilotkit/react-core': 1.51.0
+      '@copilotkit/runtime-client-gql': 1.51.0
+      '@copilotkit/shared': 1.51.0
       react: ^18 || ^19 || ^19.0.0-rc
 
   '@copilotkit/runtime-client-gql@1.10.6':
@@ -4693,7 +4696,7 @@ snapshots:
       - graphql
       - supports-color
 
-  '@copilotkit/react-ui@1.10.6(@types/react@19.2.7)(graphql@16.12.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
+  '@copilotkit/react-ui@1.51.0(@copilotkit/react-core@1.10.6(@types/react@19.2.7)(graphql@16.12.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@copilotkit/runtime-client-gql@1.10.6(graphql@16.12.0)(react@19.2.3))(@copilotkit/shared@1.10.6)(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
       '@copilotkit/react-core': 1.10.6(@types/react@19.2.7)(graphql@16.12.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@copilotkit/runtime-client-gql': 1.10.6(graphql@16.12.0)(react@19.2.3)
@@ -4707,8 +4710,6 @@ snapshots:
       remark-math: 6.0.0
     transitivePeerDependencies:
       - '@types/react'
-      - encoding
-      - graphql
       - react-dom
       - supports-color
 
