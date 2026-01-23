@@ -1,5 +1,16 @@
 # ui
 
+## 1.51.3-next.3
+
+### Patch Changes
+
+- d655e75: fix: update ag-ui dependencies
+- Updated dependencies [d655e75]
+  - @copilotkit/shared@1.51.3-next.3
+  - @copilotkit/runtime-client-gql@1.51.3-next.3
+  - @copilotkitnext/core@1.51.3-next.3
+  - @copilotkitnext/react@1.51.3-next.3
+
 ## 1.51.3-next.2
 
 ### Patch Changes

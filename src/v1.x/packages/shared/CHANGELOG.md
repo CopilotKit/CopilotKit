@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.51.3-next.3
+
+### Patch Changes
+
+- d655e75: fix: update ag-ui dependencies
+
 ## 1.51.3-next.2
 
 ## 1.51.3-next.1
