@@ -1,6 +1,3 @@
-<a href="https://go.copilotkit.ai/v150-whats-new" target="_blank">
-<img width="1595" height="284" alt="Introducing CopilotKit  v1 50!" src="https://github.com/user-attachments/assets/5d852a9b-290a-44b7-8c6a-9f75e51f1713" />
-<a /> 
 
 <br>
 
