@@ -18,6 +18,7 @@ jest.mock("@copilotkit/shared", () => ({
     }
   }),
   CopilotKitAgentDiscoveryError: jest.fn(),
+  randomUUID: jest.fn(() => "mock-thread-id"),
 }));
 
 // Mock react-dom/test-utils to avoid compatibility issues
