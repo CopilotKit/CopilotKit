@@ -36,7 +36,7 @@
     "unlink:global": "pnpm unlink --global"
   },
   "peerDependencies": {
-    "react": "^18 || ^19 || ^19.0.0-rc"
+    "react": "^17 || ^18 || ^19 || ^19.0.0-rc"
   },
   "devDependencies": {
     "@types/jest": "^29.5.4",
@@ -59,7 +59,11 @@
     "@copilotkit/runtime-client-gql": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@headlessui/react": "^2.2.9",
+    "react-markdown": "^8.0.7",
     "react-syntax-highlighter": "^15.6.1",
+    "rehype-raw": "^7.0.0",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
     "streamdown": "^1.6.10"
   },
   "keywords": [

@@ -1,8 +1,26 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useId as reactUseId } from "react";
 import { GraphQLError } from "@copilotkit/runtime-client-gql";
 import { useToast } from "../toast/toast-provider";
 import { ExclamationMarkIcon } from "../toast/exclamation-mark-icon";
+
+/**
+ * BACKWARD COMPATIBILITY: Supporting both React 17 and React 18+
+ *
+ * Problem: streamdown uses React's useId hook, which was introduced in React 18.
+ * This causes "useId is not a function" errors for users on React 17.
+ *
+ * Solution: Import both renderers and auto-detect React version at runtime.
+ * - React 18+: Uses streamdown (modern, optimized for AI streaming)
+ * - React 17: Falls back to react-markdown (proven, stable)
+ *
+ * Modern bundlers will tree-shake the unused renderer, so bundle size
+ * impact is minimal for users on either version.
+ */
 import { Streamdown } from "streamdown";
+import ReactMarkdown from "react-markdown";
+
+// Auto-detect React version by checking for React 18+ useId hook
+const hasUseId = typeof reactUseId === "function";
 
 interface OriginalError {
   message?: string;
@@ -37,7 +55,8 @@ export function ErrorToast({ errors }: { errors: (Error | GraphQLError)[] }) {
             <span style={{ fontFamily: "monospace", fontWeight: "normal" }}>{code}</span>
           </div>
         )}
-        <Streamdown>{message}</Streamdown>
+        {/* Use streamdown (React 18+) or react-markdown (React 17) based on available hooks */}
+        {hasUseId ? <Streamdown>{message}</Streamdown> : <ReactMarkdown>{message}</ReactMarkdown>}
       </div>
     );
   });
