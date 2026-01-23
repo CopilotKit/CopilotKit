@@ -17,6 +17,7 @@ jest.mock("@copilotkit/shared", () => ({
       return defaultValue;
     }
   }),
+  randomId: jest.fn(() => "test-random-id"),
   CopilotKitAgentDiscoveryError: jest.fn(),
 }));
 
