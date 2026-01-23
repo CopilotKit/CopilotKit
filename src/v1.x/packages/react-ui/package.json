@@ -60,7 +60,7 @@
     "@copilotkit/shared": "workspace:*",
     "@headlessui/react": "^2.2.9",
     "react-syntax-highlighter": "^15.6.1",
-    "streamdown": "^1.6.10"
+    "streamdown": "^2.0.0"
   },
   "keywords": [
     "copilotkit",
