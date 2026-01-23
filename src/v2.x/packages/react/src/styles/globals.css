@@ -137,10 +137,15 @@
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
+  /* Scope base styles to CopilotKit components only */
+  [data-copilot-sidebar] *,
+  [data-copilot-popup] * {
+    @apply border-border;
   }
-  body {
+
+  /* Only apply to body if explicitly opted in */
+  body:has([data-copilot-sidebar]),
+  body:has([data-copilot-popup]) {
     @apply bg-background text-foreground;
   }
 

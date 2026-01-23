@@ -232,7 +232,7 @@ export namespace CopilotChatView {
 
     return (
       <>
-        <StickToBottom.Content className="overflow-y-scroll overflow-x-hidden">
+        <StickToBottom.Content className="overflow-y-auto overflow-x-hidden">
         <div className="px-4 sm:px-0 [div[data-sidebar-chat]_&]:px-8 [div[data-popup-chat]_&]:px-6">{children}</div>
         </StickToBottom.Content>
 
@@ -304,7 +304,7 @@ export namespace CopilotChatView {
 
     if (!hasMounted) {
       return (
-        <div className="h-full max-h-full flex flex-col min-h-0 overflow-y-scroll overflow-x-hidden">
+        <div className="h-full max-h-full flex flex-col min-h-0 overflow-y-auto overflow-x-hidden">
           <div className="px-4 sm:px-0 [div[data-sidebar-chat]_&]:px-8 [div[data-popup-chat]_&]:px-6">{children}</div>
         </div>
       );
@@ -316,7 +316,7 @@ export namespace CopilotChatView {
         <div
           ref={scrollRef}
           className={cn(
-            "h-full max-h-full flex flex-col min-h-0 overflow-y-scroll overflow-x-hidden relative",
+            "h-full max-h-full flex flex-col min-h-0 overflow-y-auto overflow-x-hidden relative",
             className,
           )}
           {...props}
