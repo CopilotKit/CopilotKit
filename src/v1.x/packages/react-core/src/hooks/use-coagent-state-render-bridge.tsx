@@ -123,6 +123,7 @@ export function useCoagentStateRenderBridge(agentId: string, props: CoAgentState
   const { coAgentStateRenders, claimsRef } = useCoAgentStateRenders();
   const { agent } = useAgent({ agentId });
   const [nodeName, setNodeName] = useState<string | undefined>(undefined);
+  const [, forceUpdate] = useState(0);
 
   const runId = props.runId ?? message.runId;
   const effectiveRunId = runId || "pending";
@@ -130,6 +131,9 @@ export function useCoagentStateRenderBridge(agentId: string, props: CoAgentState
   useEffect(() => {
     if (!agent) return;
     const subscriber: AgentSubscriber = {
+      onStateChanged: () => {
+        forceUpdate((value) => value + 1);
+      },
       onStepStartedEvent: ({ event }) => {
         if (event.stepName !== nodeName) {
           setNodeName(event.stepName);
@@ -248,12 +252,18 @@ export function useCoagentStateRenderBridge(agentId: string, props: CoAgentState
     }
 
     // If we found state, and given that now there's a claim for the current message, let's save it in the claim
-    if (snapshot && !claimsRef.current[message.id].locked) {
-      if (stateSnapshot) {
+    if (snapshot) {
+      const existingSnapshot = claimsRef.current[message.id].stateSnapshot;
+      const snapshotChanged =
+        stateSnapshot &&
+        existingSnapshot !== undefined &&
+        !areStatesEquals(existingSnapshot, snapshot);
+
+      if (!claimsRef.current[message.id].locked || snapshotChanged) {
         claimsRef.current[message.id].stateSnapshot = snapshot;
-        claimsRef.current[message.id].locked = true;
-      } else {
-        claimsRef.current[message.id].stateSnapshot = snapshot;
+        if (stateSnapshot) {
+          claimsRef.current[message.id].locked = true;
+        }
       }
     }
 

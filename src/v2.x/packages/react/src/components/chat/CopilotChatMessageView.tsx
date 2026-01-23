@@ -216,9 +216,11 @@ export function CopilotChatMessageView({
   // Helper to get state snapshot for a message (used for memoization)
   const getStateSnapshotForMessage = (messageId: string): unknown => {
     if (!config) return undefined;
-    const runId = copilotkit.getRunIdForMessage(config.agentId, config.threadId, messageId);
-    if (!runId) return undefined;
-    return copilotkit.getStateByRun(config.agentId, config.threadId, runId);
+    const resolvedRunId =
+      copilotkit.getRunIdForMessage(config.agentId, config.threadId, messageId) ??
+      copilotkit.getRunIdsForThread(config.agentId, config.threadId).slice(-1)[0];
+    if (!resolvedRunId) return undefined;
+    return copilotkit.getStateByRun(config.agentId, config.threadId, resolvedRunId);
   };
 
   const messageElements: React.ReactElement[] = messages
