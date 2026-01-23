@@ -1,16 +1,28 @@
+<div align=center>
+  
+# CopilotKit
+  
+</div>
 
-<br>
-
-<a href="https://go.copilotkit.ai/copilotkit-docs" target="_blank">
-<img width="996" height="293" alt="image" src="https://github.com/user-attachments/assets/aeb56c28-c766-44a5-810c-5d999bb6a32a" />
-<a />
-
-
-
+[![CopilotKit](https://github.com/user-attachments/assets/aeb56c28-c766-44a5-810c-5d999bb6a32a)](https://go.copilotkit.ai/copilotkit-docs)
 
 
-<br>
-  <div align="start" style="display:flex;justify-content:start;gap:16px;height:20px;margin: 0;">
+<div align=center>
+
+Build **agent-native applications** with interactive UI, shared state, and human-in-the-loop workflows.
+
+
+
+[Docs](https://docs.copilotkit.ai/?ref=github_readme) ·
+[Examples](https://www.copilotkit.ai/examples) ·
+[Copilot Cloud](https://cloud.copilotkit.ai?ref=github_readme) ·
+[Discord](https://discord.gg/6dffbvGU3D?ref=github_readme)
+
+</div>
+
+
+
+<div align="center" style="display:flex;justify-content:start;gap:16px;height:20px;margin: 0;">
   <a href="https://www.npmjs.com/package/@copilotkit/react-core" target="_blank">
     <img src="https://img.shields.io/npm/v/%40copilotkit%2Freact-core?logo=npm&logoColor=%23FFFFFF&label=Version&color=%236963ff" alt="NPM">
   </a>
@@ -26,58 +38,105 @@
   <br/>
   <div>
     <a href="https://www.producthunt.com/posts/copilotkit" target="_blank">
-    <img src="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=428778&theme=light&period=daily">
   </a>
   </div>
 
-## ⚡️ Quick Install
+
+---
+
+## Why CopilotKit
+
+CopilotKit lets you embed **AI agents directly into your product UI**, not just chat windows.
+
+- Interactive agent workflows —> tools can render UI, request input, and resume
+- Shared state —> real-time, structured sync between UI and agent reasoning
+- Human-in-the-loop by default —> approvals, edits, and checkpoints
+- Framework-agnostic —> works with React, Next.js, AG-UI, Any Agent Framework, and more
+- Production-ready —> customizable UI or fully headless APIs
+- Open source —> transparent and community-driven
+
+---
+
+## Quick Install
+
+Create a new CopilotKit project in seconds:
+
+```bash
+npx copilotkit@latest create
 ```
-  npx copilotkit@latest create
+
+What this gives you:
+
+1. CopilotKit installed
+2. Provider configured
+3. Agent-connected UI running
+4. Ready to deploy
+
+[Complete getting started guide →](https://docs.copilotkit.ai/langgraph/quickstart)
+
+## Core Concept: Agent-Native UI
+
+CopilotKit connects your UI, agents, and tools into a single interaction loop.
+
+```
+User ↔ UI  ←→  CopilotKit  ←→  Agent Runtime  ←→ AG-UI ←→ Agent (Tools / MCP Servers)
+          (shared state + UI events)
 ```
 
-<br/>
+This enables:
 
-<a href="https://docs.copilotkit.ai/?ref=github_readme">Read the Docs →</a>&nbsp;&nbsp;&nbsp;
-<a href="https://cloud.copilotkit.ai?ref=github_readme">Try Copilot Cloud →</a>&nbsp;&nbsp;&nbsp;
-<a href="https://discord.gg/6dffbvGU3D?ref=github_readme">Join our Discord →</a>
+- Agents that ask users for input
 
-## 🚀 Getting Started
+- Tools that render UI
 
-1. Install: Run a simple CLI command
-1. Configure: Add CopilotKit provider to your app
-1. Customize: Use headless UI or the customizable pre-built components
-1. Deploy: You're done!
+- Stateful workflows across steps and sessions
 
-<br />
-  <a href="https://docs.copilotkit.ai/#get-started-now?ref=github_readme" target="_blank">
-    Complete getting started guide →
-  </a>
-<br />
-<br />
+## Generative UI
+
+Generative UI is a core CopilotKit pattern that allows agents to dynamically render UI as part of their workflow.
+
+Instead of responding only with text, agents can:
+
+- Render interactive components
+
+- Request structured user input
+
+- Pause execution and resume after user interaction
+
+- Adapt UI based on state, tool calls, or intermediate results
+
+- UI becomes a first-class part of the agent experience, not a separate layer.
+
+## How it works
+
+Generative UI is driven by explicit state updates and tool invocations.
+
+```
+Agent → State Update or Tool Call
+      → UI is rendered
+      → User interacts
+      → Agent resumes
+```
+
+UI rendering is declarative and fully controlled by your application.
 
 
-## ⭐️ useAgent
+## ⭐️ useAgent Hook
 
-The v2 hook `useAgent` is a proper superset of `useCoAgent`, which gives more control over the agent connection.
+The `useAgent` hook is a proper superset of `useCoAgent`, and sits directly on AG-UI, which gives more control over the agent connection.
 
 Check out the [useAgent docs](https://go.copilotkit.ai/useagent-docs) to learn more.
 
 https://github.com/user-attachments/assets/46b7d161-a988-4453-9ca9-c0eca4c33da6
 
-## ✨ Why CopilotKit?
-
-- Minutes to integrate - Get started quickly with our CLI
-- Framework agnostic - Works with React, Next.js, AGUI, and more
-- Production-ready UI - Use customizable components or build with headless UI
-- Built-in security - Prompt injection protection
-- Open source - Full transparency and community-driven
 
 ## 🧑‍💻 Real life use cases
 
 <span>Deploy deeply-integrated AI assistants & agents that work alongside your users inside your applications.</span>
 
-<img width="4096" height="2725" alt="Headless UI" src="https://github.com/user-attachments/assets/4dbe1e74-8b46-4798-a658-f79ee5a66189" />
-
+<a href="https://www.copilotkit.ai/examples" alt="Examples Page" >
+<img width="4096" height="2725" alt="Screenshot 2026-01-23 at 4 15 22 PM" src="https://github.com/user-attachments/assets/59134cd9-801d-49fb-bc9d-574fa4e6e80a" />
+<a />
 
 ## 🖥️ Code Samples
 
