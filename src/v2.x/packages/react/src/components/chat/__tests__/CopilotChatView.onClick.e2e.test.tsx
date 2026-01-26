@@ -111,7 +111,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
               messages={createMessages()}
               input={{
                 sendButton: { onClick },
-              } as any}
+              }}
             />
           </TestWrapper>
         );
@@ -137,7 +137,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
               onStartTranscribe={onStartTranscribe}
               input={{
                 startTranscribeButton: { onClick },
-              } as any}
+              }}
             />
           </TestWrapper>
         );
@@ -161,7 +161,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
               messages={createMessages()}
               input={{
                 addMenuButton: { onClick },
-              } as any}
+              }}
             />
           </TestWrapper>
         );
@@ -185,7 +185,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
               messages={createMessages()}
               input={{
                 textArea: { onFocus },
-              } as any}
+              }}
             />
           </TestWrapper>
         );
@@ -205,7 +205,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
               messages={createMessages()}
               input={{
                 textArea: { onBlur },
-              } as any}
+              }}
             />
           </TestWrapper>
         );
@@ -233,7 +233,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
               messages={createMessages()}
               messageView={{
                 assistantMessage: { onClick },
-              } as any}
+              }}
             />
           </TestWrapper>
         );
@@ -257,7 +257,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
               messages={createMessages()}
               messageView={{
                 userMessage: { onClick },
-              } as any}
+              }}
             />
           </TestWrapper>
         );
@@ -286,7 +286,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
                 assistantMessage: {
                   copyButton: { onClick },
                 },
-              } as any}
+              }}
             />
           </TestWrapper>
         );
@@ -314,7 +314,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
                   onThumbsUp,
                   thumbsUpButton: { onClick },
                 },
-              } as any}
+              }}
             />
           </TestWrapper>
         );
@@ -340,7 +340,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
                   onThumbsDown,
                   thumbsDownButton: { onClick },
                 },
-              } as any}
+              }}
             />
           </TestWrapper>
         );
@@ -366,7 +366,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
                   onReadAloud,
                   readAloudButton: { onClick },
                 },
-              } as any}
+              }}
             />
           </TestWrapper>
         );
@@ -392,7 +392,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
                   onRegenerate,
                   regenerateButton: { onClick },
                 },
-              } as any}
+              }}
             />
           </TestWrapper>
         );
@@ -416,7 +416,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
                 assistantMessage: {
                   toolbar: { onClick },
                 },
-              } as any}
+              }}
             />
           </TestWrapper>
         );
@@ -447,7 +447,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
                 userMessage: {
                   copyButton: { onClick },
                 },
-              } as any}
+              }}
             />
           </TestWrapper>
         );
@@ -481,7 +481,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
                   onEditMessage: vi.fn(),
                   editButton: { onClick },
                 },
-              } as any}
+              }}
             />
           </TestWrapper>
         );
@@ -515,7 +515,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
               suggestions={createSuggestions()}
               suggestionView={{
                 container: { onClick },
-              } as any}
+              }}
             />
           </TestWrapper>
         );
@@ -540,7 +540,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
               suggestions={createSuggestions()}
               suggestionView={{
                 suggestion: { onClick },
-              } as any}
+              }}
             />
           </TestWrapper>
         );
@@ -669,7 +669,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
                 assistantMessage: {
                   onThumbsUp,
                 },
-              } as any}
+              }}
             />
           </TestWrapper>
         );
@@ -691,7 +691,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
                 assistantMessage: {
                   onThumbsDown,
                 },
-              } as any}
+              }}
             />
           </TestWrapper>
         );
@@ -715,7 +715,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
                 userMessage: {
                   onEditMessage,
                 },
-              } as any}
+              }}
             />
           </TestWrapper>
         );
@@ -753,7 +753,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
                   className: "custom-copy-class",
                 },
               },
-            } as any}
+            }}
           />
         </TestWrapper>
       );
@@ -789,7 +789,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
               assistantMessage: {
                 copyButton: CustomCopyButton as any,
               },
-            } as any}
+            }}
           />
         </TestWrapper>
       );
