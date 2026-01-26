@@ -69,7 +69,7 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
           <>
             <HITLComponent />
             <div style={{ height: 400 }}>
-              <CopilotChat />
+              <CopilotChat welcomeScreen={false} />
             </div>
           </>
         ),
@@ -181,7 +181,7 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
           <>
             <InteractiveHITLComponent />
             <div style={{ height: 400 }}>
-              <CopilotChat />
+              <CopilotChat welcomeScreen={false} />
             </div>
           </>
         ),
@@ -280,7 +280,7 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
           <>
             <MultipleHITLComponent />
             <div style={{ height: 400 }}>
-              <CopilotChat />
+              <CopilotChat welcomeScreen={false} />
             </div>
           </>
         ),
@@ -388,7 +388,7 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
           <>
             <DualHookComponent />
             <div style={{ height: 400 }}>
-              <CopilotChat />
+              <CopilotChat welcomeScreen={false} />
             </div>
           </>
         ),
@@ -490,7 +490,7 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
             </button>
             {enabled && <DynamicHITLComponent />}
             <div style={{ height: 400 }}>
-              <CopilotChat />
+              <CopilotChat welcomeScreen={false} />
             </div>
           </>
         );
@@ -690,7 +690,7 @@ describe("HITL Thread Reconnection Bug", () => {
         <>
           <HITLComponent />
           <div style={{ height: 400 }}>
-            <CopilotChat />
+            <CopilotChat welcomeScreen={false} />
           </div>
         </>
       ),
@@ -742,7 +742,7 @@ describe("HITL Thread Reconnection Bug", () => {
         <>
           <HITLComponent />
           <div style={{ height: 400 }}>
-            <CopilotChat />
+            <CopilotChat welcomeScreen={false} />
           </div>
         </>
       ),
@@ -797,7 +797,7 @@ describe("HITL Thread Reconnection Bug", () => {
         <>
           <HITLComponent />
           <div style={{ height: 400 }}>
-            <CopilotChat />
+            <CopilotChat welcomeScreen={false} />
           </div>
         </>
       ),
@@ -894,7 +894,7 @@ describe("HITL Thread Reconnection Bug", () => {
         <>
           <MultiToolComponent />
           <div style={{ height: 400 }}>
-            <CopilotChat />
+            <CopilotChat welcomeScreen={false} />
           </div>
         </>
       ),
@@ -1000,7 +1000,7 @@ describe("HITL Thread Reconnection Bug", () => {
         <>
           <ToggleableHITL />
           <div style={{ height: 400 }}>
-            <CopilotChat />
+            <CopilotChat welcomeScreen={false} />
           </div>
         </>
       ),
@@ -1090,7 +1090,7 @@ describe("HITL Thread Reconnection Bug", () => {
         <>
           <RemountableHITL />
           <div style={{ height: 400 }}>
-            <CopilotChat />
+            <CopilotChat welcomeScreen={false} />
           </div>
         </>
       ),

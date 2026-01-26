@@ -1,6 +1,6 @@
 {
   "name": "@copilotkitnext/typescript-config",
-  "version": "1.51.2",
+  "version": "1.51.3-next.3",
   "private": true,
   "license": "MIT",
   "publishConfig": {

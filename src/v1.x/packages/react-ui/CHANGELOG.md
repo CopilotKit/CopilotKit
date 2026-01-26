@@ -1,5 +1,38 @@
 # ui
 
+## 1.51.3-next.3
+
+### Patch Changes
+
+- Updated dependencies [d655e75]
+  - @copilotkit/react-core@1.51.3-next.3
+  - @copilotkit/shared@1.51.3-next.3
+  - @copilotkit/runtime-client-gql@1.51.3-next.3
+
+## 1.51.3-next.2
+
+### Patch Changes
+
+- @copilotkit/react-core@1.51.3-next.2
+- @copilotkit/runtime-client-gql@1.51.3-next.2
+- @copilotkit/shared@1.51.3-next.2
+
+## 1.51.3-next.1
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.51.3-next.1
+- @copilotkit/react-core@1.51.3-next.1
+- @copilotkit/shared@1.51.3-next.1
+
+## 1.51.3-next.0
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.51.3-next.0
+- @copilotkit/react-core@1.51.3-next.0
+- @copilotkit/shared@1.51.3-next.0
+
 ## 1.51.2
 
 ### Patch Changes

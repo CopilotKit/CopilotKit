@@ -31,20 +31,28 @@ export function useRenderCustomMessages() {
       return null;
     }
     const { message, position } = params;
-    const runId = copilotkit.getRunIdForMessage(agentId, threadId, message.id)!;
+    const resolvedRunId =
+      copilotkit.getRunIdForMessage(agentId, threadId, message.id) ??
+      copilotkit.getRunIdsForThread(agentId, threadId).slice(-1)[0];
+    const runId = resolvedRunId ?? `missing-run-id:${message.id}`;
     const agent = copilotkit.getAgent(agentId);
     if (!agent) {
       throw new Error("Agent not found");
     }
 
-    const messagesIdsInRun = agent.messages
-      .filter((msg) => copilotkit.getRunIdForMessage(agentId, threadId, msg.id) === runId)
-      .map((msg) => msg.id);
+    const messagesIdsInRun = resolvedRunId
+      ? agent.messages
+          .filter((msg) => copilotkit.getRunIdForMessage(agentId, threadId, msg.id) === resolvedRunId)
+          .map((msg) => msg.id)
+      : [message.id];
 
-    const messageIndex = agent.messages.findIndex((msg) => msg.id === message.id) ?? 0;
-    const messageIndexInRun = Math.min(messagesIdsInRun.indexOf(message.id), 0);
-    const numberOfMessagesInRun = messagesIdsInRun.length;
-    const stateSnapshot = copilotkit.getStateByRun(agentId, threadId, runId);
+    const rawMessageIndex = agent.messages.findIndex((msg) => msg.id === message.id);
+    const messageIndex = rawMessageIndex >= 0 ? rawMessageIndex : 0;
+    const messageIndexInRun = resolvedRunId ? Math.max(messagesIdsInRun.indexOf(message.id), 0) : 0;
+    const numberOfMessagesInRun = resolvedRunId ? messagesIdsInRun.length : 1;
+    const stateSnapshot = resolvedRunId
+      ? copilotkit.getStateByRun(agentId, threadId, resolvedRunId)
+      : undefined;
 
     let result = null;
     for (const renderer of customMessageRenderers) {

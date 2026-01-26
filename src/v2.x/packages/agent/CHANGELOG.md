@@ -1,5 +1,21 @@
 # @copilotkitnext/agent
 
+## 1.51.3-next.3
+
+## 1.51.3-next.2
+
+## 1.51.3-next.1
+
+### Patch Changes
+
+- 29d70a5: Add new "forwardDeveloperMessages" and "forwardSystemMessages" prop to BuiltInAgent
+
+## 1.51.3-next.0
+
+### Patch Changes
+
+- d268c49: fix: add apiKey parameter to BuiltInAgentConfiguration
+
 ## 1.51.2
 
 ### Patch Changes

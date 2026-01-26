@@ -1,8 +1,7 @@
-<a href="https://go.copilotkit.ai/v150-whats-new" target="_blank">
-<img width="1595" height="284" alt="Introducing CopilotKit  v1 50!" src="https://github.com/user-attachments/assets/5d852a9b-290a-44b7-8c6a-9f75e51f1713" />
-<a /> 
+<div align="center" >
+  <h1>Copilotkit 🪁</h1>
+</div>
 
-<br>
 
 <a href="https://go.copilotkit.ai/copilotkit-docs" target="_blank">
 <img width="996" height="293" alt="image" src="https://github.com/user-attachments/assets/aeb56c28-c766-44a5-810c-5d999bb6a32a" />
@@ -58,7 +57,6 @@
 <br />
 <br />
 
-<img width="4096" height="2341" alt="Best in class support across the ecosystem" src="https://github.com/user-attachments/assets/bf399131-2a92-49f8-8748-38ed72353f9c" />
 
 ## ⭐️ useAgent
 

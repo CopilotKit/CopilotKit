@@ -20,10 +20,10 @@ export function Banners() {
   const bannerContent = [
     {
       icon: <Rocket className="w-5 h-5 hidden md:block flex-shrink-0" />,
-      mobileText: "A2UI Launched: Full CopilotKit support at launch!",
-      desktopText: "A2UI Launched: CopilotKit has partnered with Google to deliver full support in both CopilotKit and AG-UI!",
-      buttonText: "Check it out",
-      href: "/whats-new/a2ui-launch"
+      mobileText: "CopilotKit fully supports MCP Apps!",
+      desktopText: "Bring MCP Apps interaction to your users with CopilotKit!",
+      buttonText: "See What's New",
+      href: "/whats-new/mcp-apps-support"
     },
     {
       icon: <Sparkles className="w-5 h-5 hidden md:block flex-shrink-0" />,
@@ -197,27 +197,27 @@ export function V150Banner() {
   )
 }
 
-export function A2UILaunchBanner() {
+export function MCPAppsLaunchBanner() {
   return (
     <div className="w-full px-1 mt-1 xl:px-2 xl:mt-2">
-      <Banner className="w-full text-foreground bg-secondary/80 backdrop-blur-sm border border-border rounded-2xl py-1.5 md:py-2" id="a2ui-launch-banner">
+      <Banner className="w-full text-foreground bg-secondary/80 backdrop-blur-sm border border-border rounded-2xl py-1.5 md:py-2" id="mcp-apps-launch-banner">
         <div className="flex flex-row items-center justify-center gap-1.5 md:gap-3 w-full px-1 md:px-4">
           <div className="flex items-center gap-1.5 md:gap-2 flex-shrink min-w-0">
             <Rocket className="w-5 h-5 hidden md:block flex-shrink-0" />
             {/* Short text for mobile (below 768px) */}
             <p className="text-xs md:text-base font-normal md:hidden font-sans" style={{ fontWeight: 400 }}>
-              A2UI Launch: Full CopilotKit support at launch!
+              Use MCP Apps with CopilotKit and AG-UI
             </p>
             {/* Full text for desktop (768px and above) */}
             <p className="text-sm sm:text-base font-normal hidden md:block font-sans" style={{ fontWeight: 400 }}>
-              A2UI Launch: CopilotKit has partnered with Google to deliver full support at launch in both CopilotKit and AG-UI!
+              Use MCP Apps with CopilotKit and AG-UI
             </p>
           </div>
           <Link 
-            href="/whats-new/a2ui-launch"
+            href="/whats-new/mcp-apps-support"
             className="text-indigo-800 dark:text-indigo-300 ring-1 ring-indigo-200 dark:ring-indigo-900 text-xs md:text-sm items-center bg-gradient-to-r from-indigo-200/50 to-purple-200/80 dark:from-indigo-900/40 dark:to-purple-900/50 flex px-2 py-0.5 md:px-4 md:py-1 no-underline whitespace-nowrap transition-all duration-100 hover:ring-2 hover:ring-indigo-400 hover:dark:text-indigo-200 rounded-lg flex-shrink-0"
           >
-            Check it out
+            See What's New
           </Link>
         </div>
       </Banner>

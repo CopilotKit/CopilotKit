@@ -1,4 +1,4 @@
-name: e2e / dojo
+name: test / e2e / dojo
 
 on:
   push:
@@ -13,6 +13,13 @@ on:
       - "src/v1.x/**"
       - "src/v2.x/**"
       - ".github/workflows/e2e_dojo.yml"
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to run the workflow on'
+        required: true
+        default: 'main'
+        type: string
 
 jobs:
   dojo:
@@ -89,6 +96,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: CopilotKit
+          ref: ${{ github.event.inputs.branch || github.ref }}
 
       - name: Checkout AGUI
         uses: actions/checkout@v4

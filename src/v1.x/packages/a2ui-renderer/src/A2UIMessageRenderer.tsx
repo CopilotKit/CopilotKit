@@ -158,7 +158,8 @@ export function createA2UIMessageRenderer(
         groupedOperations.forEach((operationsForSurfaceId, surfaceId) => {
           let processor = processors.get(surfaceId);
           if (!processor) {
-            processor = new v0_8.Data.A2uiMessageProcessor();
+            // Use signal-based processor for reactive updates (same as A2UIViewer)
+            processor = v0_8.Data.createSignalA2uiMessageProcessor();
             processors.set(surfaceId, processor);
           }
 

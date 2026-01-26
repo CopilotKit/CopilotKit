@@ -162,7 +162,7 @@ export function renderWithCopilotKit({
       >
         {children || (
           <div style={{ height: 400 }}>
-            <CopilotChat />
+            <CopilotChat welcomeScreen={false} />
           </div>
         )}
       </CopilotChatConfigurationProvider>
