@@ -1730,7 +1730,7 @@ describe("Input Component Re-render Prevention", () => {
             messages={initialMessages}
             isRunning={false}
             input={TrackedInput as any}
-            inputProps={{ onSubmitMessage: stableOnSubmit }}
+            onSubmitMessage={stableOnSubmit}
           />
         </CopilotChatConfigurationProvider>
       </CopilotKitProvider>
@@ -1760,7 +1760,7 @@ describe("Input Component Re-render Prevention", () => {
             messages={updatedMessages}
             isRunning={false}
             input={TrackedInput as any}
-            inputProps={{ onSubmitMessage: stableOnSubmit }}
+            onSubmitMessage={stableOnSubmit}
           />
         </CopilotChatConfigurationProvider>
       </CopilotKitProvider>
@@ -1783,7 +1783,7 @@ describe("Input Component Re-render Prevention", () => {
             messages={moreMessages}
             isRunning={false}
             input={TrackedInput as any}
-            inputProps={{ onSubmitMessage: stableOnSubmit }}
+            onSubmitMessage={stableOnSubmit}
           />
         </CopilotChatConfigurationProvider>
       </CopilotKitProvider>
@@ -1806,7 +1806,7 @@ describe("Input Component Re-render Prevention", () => {
             messages={evenMoreMessages}
             isRunning={false}
             input={TrackedInput as any}
-            inputProps={{ onSubmitMessage: stableOnSubmit }}
+            onSubmitMessage={stableOnSubmit}
           />
         </CopilotChatConfigurationProvider>
       </CopilotKitProvider>
@@ -1815,7 +1815,7 @@ describe("Input Component Re-render Prevention", () => {
     const renderCountAfterStreaming = inputRenderCount;
 
     // THE KEY ASSERTION: Input should NOT re-render when messages change
-    // (since inputProps haven't changed)
+    // (since input props haven't changed)
     expect(renderCountAfterStreaming).toBe(renderCountAfterInitial);
   });
 
@@ -1923,7 +1923,7 @@ describe("Input Component Re-render Prevention", () => {
             messages={messages}
             isRunning={false}
             input={TrackedInput as any}
-            inputProps={{ onSubmitMessage: () => {}, mode: "input" }}
+            onSubmitMessage={() => {}} inputMode="input"
           />
         </CopilotChatConfigurationProvider>
       </CopilotKitProvider>
@@ -1944,7 +1944,7 @@ describe("Input Component Re-render Prevention", () => {
             messages={messages}
             isRunning={true}
             input={TrackedInput as any}
-            inputProps={{ onSubmitMessage: () => {}, mode: "processing" }}
+            onSubmitMessage={() => {}} inputMode="processing"
           />
         </CopilotChatConfigurationProvider>
       </CopilotKitProvider>

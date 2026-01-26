@@ -151,7 +151,7 @@ function Chat() {
         })}
       </div>
       <div style={{ flex: 1, minHeight: 0 }}>
-        <CopilotChat inputProps={{ toolsMenu }} threadId={selectedThreadId} />
+        <CopilotChat input={{ toolsMenu }} threadId={selectedThreadId} />
       </div>
     </div>
   );

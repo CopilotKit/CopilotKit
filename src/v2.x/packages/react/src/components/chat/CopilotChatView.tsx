@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import { WithSlots, SlotValue, renderSlot } from "@/lib/slots";
 import CopilotChatMessageView from "./CopilotChatMessageView";
-import CopilotChatInput, { CopilotChatInputProps } from "./CopilotChatInput";
+import CopilotChatInput, { CopilotChatInputProps, CopilotChatInputMode } from "./CopilotChatInput";
 import CopilotChatSuggestionView, { CopilotChatSuggestionViewProps } from "./CopilotChatSuggestionView";
 import { Suggestion } from "@copilotkitnext/core";
 import { Message } from "@ag-ui/core";
@@ -38,12 +38,21 @@ export type CopilotChatViewProps = WithSlots<
   {
     messages?: Message[];
     autoScroll?: boolean;
-    inputProps?: Partial<Omit<CopilotChatInputProps, "children">>;
     isRunning?: boolean;
     suggestions?: Suggestion[];
     suggestionLoadingIndexes?: ReadonlyArray<number>;
     onSelectSuggestion?: (suggestion: Suggestion, index: number) => void;
     welcomeScreen?: SlotValue<React.FC<WelcomeScreenProps>> | boolean;
+    // Input behavior props
+    onSubmitMessage?: (value: string) => void;
+    onStop?: () => void;
+    inputMode?: CopilotChatInputMode;
+    inputValue?: string;
+    onInputChange?: (value: string) => void;
+    onStartTranscribe?: () => void;
+    onCancelTranscribe?: () => void;
+    onFinishTranscribe?: () => void;
+    onFinishTranscribeWithAudio?: (audioBlob: Blob) => Promise<void>;
   } & React.HTMLAttributes<HTMLDivElement>
 >;
 
@@ -59,11 +68,20 @@ export function CopilotChatView({
   welcomeScreen,
   messages = [],
   autoScroll = true,
-  inputProps,
   isRunning = false,
   suggestions,
   suggestionLoadingIndexes,
   onSelectSuggestion,
+  // Input behavior props
+  onSubmitMessage,
+  onStop,
+  inputMode,
+  inputValue,
+  onInputChange,
+  onStartTranscribe,
+  onCancelTranscribe,
+  onFinishTranscribe,
+  onFinishTranscribeWithAudio,
   children,
   className,
   ...props
@@ -125,7 +143,18 @@ export function CopilotChatView({
     isRunning,
   });
 
-  const BoundInput = renderSlot(input, CopilotChatInput, (inputProps ?? {}) as CopilotChatInputProps);
+  const BoundInput = renderSlot(input, CopilotChatInput, {
+    onSubmitMessage,
+    onStop,
+    mode: inputMode,
+    value: inputValue,
+    onChange: onInputChange,
+    isRunning,
+    onStartTranscribe,
+    onCancelTranscribe,
+    onFinishTranscribe,
+    onFinishTranscribeWithAudio,
+  } as CopilotChatInputProps);
 
   const hasSuggestions = Array.isArray(suggestions) && suggestions.length > 0;
   const BoundSuggestionView = hasSuggestions
