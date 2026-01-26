@@ -472,7 +472,7 @@ def copilotkit_interrupt(
 
     interrupt_message = None
     interrupt_values = None
-    answer = None
+    answer: str
 
     if message is not None:
         interrupt_values = message
@@ -496,6 +496,23 @@ def copilotkit_interrupt(
         "__copilotkit_interrupt_value__": interrupt_values,
         "__copilotkit_messages__": [interrupt_message]
     })
-    answer = response[-1].content
+
+    # NOTE:
+    # - langgraph.types.interrupt(...) raises GraphInterrupt on first pass (expected).
+    # - After resuming, return value may be a list of messages OR the raw resume payload (str/dict/...).
+    if isinstance(response, list):
+        last = response[-1] if response else None
+        if last is not None and hasattr(last, "content"):
+            answer = last.content  # type: ignore[assignment]
+        else:
+            answer = ""
+    elif isinstance(response, str):
+        answer = response
+    elif isinstance(response, dict):
+        answer = json.dumps(response, ensure_ascii=False)
+    elif response is None:
+        answer = ""
+    else:
+        answer = str(response)
 
     return answer, response
