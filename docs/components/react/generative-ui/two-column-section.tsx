@@ -6,6 +6,7 @@ import { ReactNode } from 'react';
 interface TwoColumnSectionProps {
   imagePosition: 'left' | 'right';
   imageSrc: string;
+  imageSrcDark?: string;
   imageAlt: string;
   imageWidth?: number;
   imageHeight?: number;
@@ -16,6 +17,7 @@ interface TwoColumnSectionProps {
 export function TwoColumnSection({
   imagePosition,
   imageSrc,
+  imageSrcDark,
   imageAlt,
   imageWidth = 600,
   imageHeight = 400,
@@ -28,13 +30,32 @@ export function TwoColumnSection({
         {children}
       </div>
       <div className={`${imagePosition === 'left' ? 'lg:order-1' : 'lg:order-2'}`}>
-        <Image
-          src={imageSrc}
-          alt={imageAlt}
-          width={imageWidth}
-          height={imageHeight}
-          className="rounded-lg w-full h-auto"
-        />
+        {imageSrcDark ? (
+          <>
+            <Image
+              src={imageSrc}
+              alt={imageAlt}
+              width={imageWidth}
+              height={imageHeight}
+              className="rounded-lg w-full h-auto block dark:hidden"
+            />
+            <Image
+              src={imageSrcDark}
+              alt={imageAlt}
+              width={imageWidth}
+              height={imageHeight}
+              className="rounded-lg w-full h-auto hidden dark:block"
+            />
+          </>
+        ) : (
+          <Image
+            src={imageSrc}
+            alt={imageAlt}
+            width={imageWidth}
+            height={imageHeight}
+            className="rounded-lg w-full h-auto"
+          />
+        )}
       </div>
     </div>
   );
