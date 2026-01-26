@@ -1,5 +1,7 @@
+<div align="center" >
+  <h1>Copilotkit 🪁</h1>
+</div>
 
-<br>
 
 <a href="https://go.copilotkit.ai/copilotkit-docs" target="_blank">
 <img width="996" height="293" alt="image" src="https://github.com/user-attachments/assets/aeb56c28-c766-44a5-810c-5d999bb6a32a" />
