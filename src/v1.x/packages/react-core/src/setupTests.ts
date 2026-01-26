@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 // Mock modules that cause ES module issues
 jest.mock("@segment/analytics-node", () => ({
   Analytics: jest.fn().mockImplementation(() => ({
@@ -18,6 +20,7 @@ jest.mock("@copilotkit/shared", () => ({
     }
   }),
   dataToUUID: jest.fn((data) => JSON.stringify(data)),
+  getZodParameters: jest.fn(() => z.object({})),
   randomId: jest.fn(() => "test-random-id"),
   CopilotKitAgentDiscoveryError: jest.fn(),
   randomUUID: jest.fn(() => "mock-thread-id"),
