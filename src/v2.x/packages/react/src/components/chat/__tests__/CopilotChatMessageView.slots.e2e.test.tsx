@@ -143,7 +143,8 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           </TestWrapper>
         );
 
-        expect(screen.queryByTestId("assistant-with-testid")).toBeDefined();
+        // Slot props apply to all assistant messages, so use queryAllByTestId
+        expect(screen.queryAllByTestId("assistant-with-testid").length).toBeGreaterThan(0);
       });
 
       it("should pass onThumbsUp callback to assistantMessage", () => {
@@ -198,8 +199,8 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           </TestWrapper>
         );
 
-        // Toolbar should be visible
-        expect(screen.queryByTestId("toolbar-visible-test")).toBeDefined();
+        // Slot props apply to all assistant messages, so use queryAllByTestId
+        expect(screen.queryAllByTestId("toolbar-visible-test").length).toBeGreaterThan(0);
       });
     });
 
@@ -214,7 +215,8 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           </TestWrapper>
         );
 
-        expect(screen.queryByTestId("user-with-testid")).toBeDefined();
+        // Slot props apply to all user messages, so use queryAllByTestId
+        expect(screen.queryAllByTestId("user-with-testid").length).toBeGreaterThan(0);
       });
 
       it("should pass onEditMessage callback to userMessage", () => {
@@ -293,7 +295,8 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
         );
 
         expect(screen.getAllByTestId("custom-assistant").length).toBeGreaterThan(0);
-        expect(screen.getByText("AI:")).toBeDefined();
+        // There are multiple assistant messages, so look for multiple "AI:" labels
+        expect(screen.getAllByText("AI:").length).toBeGreaterThan(0);
       });
 
       it("custom assistantMessage should receive all props", () => {
@@ -360,7 +363,8 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
         );
 
         expect(screen.getAllByTestId("custom-user").length).toBeGreaterThan(0);
-        expect(screen.getByText("You:")).toBeDefined();
+        // There are multiple user messages, so look for multiple "You:" labels
+        expect(screen.getAllByText("You:").length).toBeGreaterThan(0);
       });
 
       it("custom userMessage should receive message prop", () => {
@@ -464,9 +468,10 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           </TestWrapper>
         );
 
-        const markdown = screen.queryByTestId("custom-markdown");
-        if (markdown) {
-          expect(markdown.textContent).toContain("Markdown:");
+        // Slot applies to all assistant messages, so there may be multiple
+        const markdownElements = screen.queryAllByTestId("custom-markdown");
+        if (markdownElements.length > 0) {
+          expect(markdownElements[0].textContent).toContain("Markdown:");
         }
       });
     });
@@ -490,17 +495,16 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           </TestWrapper>
         );
 
-        const toolbar = screen.queryByTestId("custom-assistant-toolbar");
-        if (toolbar) {
-          expect(toolbar.textContent).toContain("Actions:");
+        // Slot applies to all assistant messages, so there may be multiple
+        const toolbarElements = screen.queryAllByTestId("custom-assistant-toolbar");
+        if (toolbarElements.length > 0) {
+          expect(toolbarElements[0].textContent).toContain("Actions:");
         }
       });
     });
 
     describe("assistantMessage -> copyButton drill-down", () => {
       it("should allow customizing copyButton within assistantMessage", () => {
-        const handleCopy = vi.fn();
-
         const CustomCopyButton: React.FC<any> = ({ onClick }) => (
           <button data-testid="custom-copy" onClick={onClick}>
             📋 Copy Text
@@ -518,10 +522,11 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           </TestWrapper>
         );
 
-        const copyBtn = screen.queryByTestId("custom-copy");
-        if (copyBtn) {
-          expect(copyBtn.textContent).toContain("Copy Text");
-          fireEvent.click(copyBtn);
+        // Slot applies to all assistant messages, so there may be multiple
+        const copyBtns = screen.queryAllByTestId("custom-copy");
+        if (copyBtns.length > 0) {
+          expect(copyBtns[0].textContent).toContain("Copy Text");
+          fireEvent.click(copyBtns[0]);
         }
       });
     });
@@ -545,9 +550,10 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           </TestWrapper>
         );
 
-        const thumbsUp = screen.queryByTestId("custom-thumbs-up");
-        if (thumbsUp) {
-          expect(thumbsUp.textContent).toContain("Good");
+        // Slot applies to all assistant messages, so there may be multiple
+        const thumbsUpElements = screen.queryAllByTestId("custom-thumbs-up");
+        if (thumbsUpElements.length > 0) {
+          expect(thumbsUpElements[0].textContent).toContain("Good");
         }
       });
     });
@@ -571,9 +577,10 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           </TestWrapper>
         );
 
-        const thumbsDown = screen.queryByTestId("custom-thumbs-down");
-        if (thumbsDown) {
-          expect(thumbsDown.textContent).toContain("Bad");
+        // Slot applies to all assistant messages, so there may be multiple
+        const thumbsDownElements = screen.queryAllByTestId("custom-thumbs-down");
+        if (thumbsDownElements.length > 0) {
+          expect(thumbsDownElements[0].textContent).toContain("Bad");
         }
       });
     });
@@ -597,9 +604,10 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           </TestWrapper>
         );
 
-        const readAloud = screen.queryByTestId("custom-read-aloud");
-        if (readAloud) {
-          expect(readAloud.textContent).toContain("Read");
+        // Slot applies to all assistant messages, so there may be multiple
+        const readAloudElements = screen.queryAllByTestId("custom-read-aloud");
+        if (readAloudElements.length > 0) {
+          expect(readAloudElements[0].textContent).toContain("Read");
         }
       });
     });
@@ -623,9 +631,10 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           </TestWrapper>
         );
 
-        const regenerate = screen.queryByTestId("custom-regenerate");
-        if (regenerate) {
-          expect(regenerate.textContent).toContain("Retry");
+        // Slot applies to all assistant messages, so there may be multiple
+        const regenerateElements = screen.queryAllByTestId("custom-regenerate");
+        if (regenerateElements.length > 0) {
+          expect(regenerateElements[0].textContent).toContain("Retry");
         }
       });
     });
@@ -649,9 +658,10 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           </TestWrapper>
         );
 
-        const toolCalls = screen.queryByTestId("custom-tool-calls");
-        if (toolCalls) {
-          expect(toolCalls.textContent).toContain("Tool Calls:");
+        // Slot applies to all assistant messages, so there may be multiple
+        const toolCallsElements = screen.queryAllByTestId("custom-tool-calls");
+        if (toolCallsElements.length > 0) {
+          expect(toolCallsElements[0].textContent).toContain("Tool Calls:");
         }
       });
     });
@@ -675,9 +685,10 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           </TestWrapper>
         );
 
-        const renderer = screen.queryByTestId("custom-user-renderer");
-        if (renderer) {
-          expect(renderer.querySelector("em")).toBeDefined();
+        // Slot applies to all user messages, so there may be multiple
+        const rendererElements = screen.queryAllByTestId("custom-user-renderer");
+        if (rendererElements.length > 0) {
+          expect(rendererElements[0].querySelector("em")).toBeDefined();
         }
       });
     });
@@ -701,9 +712,10 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           </TestWrapper>
         );
 
-        const toolbar = screen.queryByTestId("custom-user-toolbar");
-        if (toolbar) {
-          expect(toolbar.textContent).toContain("User Actions:");
+        // Slot applies to all user messages, so there may be multiple
+        const toolbarElements = screen.queryAllByTestId("custom-user-toolbar");
+        if (toolbarElements.length > 0) {
+          expect(toolbarElements[0].textContent).toContain("User Actions:");
         }
       });
     });
@@ -727,9 +739,10 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           </TestWrapper>
         );
 
-        const copy = screen.queryByTestId("custom-user-copy");
-        if (copy) {
-          expect(copy.textContent).toContain("Copy Mine");
+        // Slot applies to all user messages, so there may be multiple
+        const copyElements = screen.queryAllByTestId("custom-user-copy");
+        if (copyElements.length > 0) {
+          expect(copyElements[0].textContent).toContain("Copy Mine");
         }
       });
     });
@@ -753,9 +766,10 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           </TestWrapper>
         );
 
-        const edit = screen.queryByTestId("custom-edit");
-        if (edit) {
-          expect(edit.textContent).toContain("Modify");
+        // Slot applies to all user messages, so there may be multiple
+        const editElements = screen.queryAllByTestId("custom-edit");
+        if (editElements.length > 0) {
+          expect(editElements[0].textContent).toContain("Modify");
         }
       });
     });
@@ -779,9 +793,10 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           </TestWrapper>
         );
 
-        const branch = screen.queryByTestId("custom-branch");
-        if (branch) {
-          expect(branch.textContent).toContain("Branch");
+        // Slot applies to all user messages, so there may be multiple
+        const branchElements = screen.queryAllByTestId("custom-branch");
+        if (branchElements.length > 0) {
+          expect(branchElements[0].textContent).toContain("Branch");
         }
       });
     });
@@ -811,8 +826,9 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           </TestWrapper>
         );
 
-        // Check if custom components are rendered
-        expect(screen.queryByTestId("nested-copy") || true).toBeTruthy();
+        // Slot applies to all assistant messages, so there may be multiple
+        const nestedCopyElements = screen.queryAllByTestId("nested-copy");
+        expect(nestedCopyElements.length > 0 || true).toBeTruthy();
       });
 
       it("should allow multiple user message subcomponent overrides", () => {
@@ -835,8 +851,9 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           </TestWrapper>
         );
 
-        // Check if custom components are rendered
-        expect(screen.queryByTestId("user-nested-copy") || true).toBeTruthy();
+        // Slot applies to all user messages, so there may be multiple
+        const userNestedCopyElements = screen.queryAllByTestId("user-nested-copy");
+        expect(userNestedCopyElements.length > 0 || true).toBeTruthy();
       });
     });
   });

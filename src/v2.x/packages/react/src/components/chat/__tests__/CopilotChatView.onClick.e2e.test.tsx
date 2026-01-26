@@ -291,11 +291,11 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
           </TestWrapper>
         );
 
-        // Find copy button in assistant message toolbar
-        const copyBtns = container.querySelectorAll('button[aria-label*="Copy"]');
-        const firstCopyBtn = copyBtns[0];
-        if (firstCopyBtn) {
-          fireEvent.click(firstCopyBtn);
+        // Find copy button in assistant message toolbar (message id "2" is an assistant message)
+        const assistantMsg = container.querySelector('[data-message-id="2"]');
+        const copyBtn = assistantMsg?.querySelector('button[aria-label*="Copy"]');
+        if (copyBtn) {
+          fireEvent.click(copyBtn);
           expect(onClick).toHaveBeenCalled();
         }
       });
@@ -514,15 +514,15 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
               messages={createMessages()}
               suggestions={createSuggestions()}
               suggestionView={{
-                container: { onClick },
+                // Note: container has pointer-events-none by default, need to override
+                container: { onClick, className: "pointer-events-auto", "data-testid": "suggestion-container" } as any,
               }}
             />
           </TestWrapper>
         );
 
         // Find suggestion container
-        const suggestionContainer = container.querySelector('[class*="suggestion"]') ||
-                                   container.querySelector('[class*="pointer-events"]');
+        const suggestionContainer = container.querySelector('[data-testid="suggestion-container"]');
         if (suggestionContainer) {
           fireEvent.click(suggestionContainer);
           expect(onClick).toHaveBeenCalled();
@@ -794,9 +794,10 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
         </TestWrapper>
       );
 
-      const customCopy = screen.queryByTestId("custom-copy");
-      if (customCopy) {
-        fireEvent.click(customCopy);
+      // Multiple assistant messages have custom copy buttons
+      const customCopyButtons = screen.queryAllByTestId("custom-copy");
+      if (customCopyButtons.length > 0) {
+        fireEvent.click(customCopyButtons[0]);
         expect(customOnClick).toHaveBeenCalled();
       }
     });

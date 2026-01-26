@@ -1063,10 +1063,11 @@ describe("CopilotChatView Slot System E2E Tests", () => {
           </TestWrapper>
         );
 
-        const flexContainer = container.querySelector(".flex");
+        // Find the input container specifically (it has justify-between which is unique to our slot)
+        const flexContainer = container.querySelector(".justify-between");
         if (flexContainer) {
+          expect(flexContainer.classList.contains("flex")).toBe(true);
           expect(flexContainer.classList.contains("items-center")).toBe(true);
-          expect(flexContainer.classList.contains("justify-between")).toBe(true);
           expect(flexContainer.classList.contains("gap-4")).toBe(true);
         }
       });

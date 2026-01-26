@@ -288,10 +288,14 @@ describe("CopilotChat Slot System E2E Tests", () => {
   // ============================================================================
   describe("7. CopilotChat-specific Props", () => {
     it("should support agentId prop", () => {
+      // Create wrapper with the custom-agent registered
+      const customAgent = createMockAgent();
       const { container } = render(
-        <TestWrapper>
-          <CopilotChat agentId="custom-agent" />
-        </TestWrapper>
+        <CopilotKitProvider agents__unsafe_dev_only={{ default: createMockAgent(), "custom-agent": customAgent }}>
+          <CopilotChatConfigurationProvider threadId="test-thread">
+            <CopilotChat agentId="custom-agent" />
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>
       );
 
       // Component should render without errors

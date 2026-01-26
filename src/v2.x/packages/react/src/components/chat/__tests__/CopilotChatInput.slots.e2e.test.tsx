@@ -212,7 +212,8 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
         render(
           <TestWrapper>
             <CopilotChatInput
-              sendButton={{ onClick: handleClick, "data-testid": "send-btn" } as any}
+              // Need to provide onSubmitMessage and value to enable the button, or override disabled
+              sendButton={{ onClick: handleClick, disabled: false, "data-testid": "send-btn" } as any}
             />
           </TestWrapper>
         );
