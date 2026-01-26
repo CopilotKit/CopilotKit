@@ -302,7 +302,7 @@ Types of Generative UI, and even individual uses vary greatly in terms of two at
 <div className="flex flex-col md:flex-row items-center gap-6 md:gap-8 w-full mb-8">
   <div className="w-full md:w-1/3 space-y-3 text-sm md:text-base">
     <p>
-      Several recently announced [Generative UI Specifications](/generative-ui/specs), have added richness (and some confusion) to generative UIs. These include [MCP-UI](https://mcpui.dev/), [Open JSON UI](https://json-schema.org/), and the newly released [A2UI](/generative-ui/specs/a2ui).
+      Several recently announced [Generative UI Specifications](/generative-ui/specs), have added richness (and some confusion) to generative UIs. These include [MCP-Apps](https://mcpui.dev/), [Open JSON UI](https://json-schema.org/), and the newly released [A2UI](/generative-ui/specs/a2ui).
     </p>
     <p>
       The generative UI styles map cleanly to the ecosystem of tools and these standards.
@@ -323,7 +323,7 @@ Types of Generative UI, and even individual uses vary greatly in terms of two at
         },
         {
           approach: "Open-Ended",
-          examples: "MCP-UI, ChatGPT Apps",
+          examples: "MCP-Apps, ChatGPT Apps",
           strengths: "Unlimited creativity",
           weaknesses: "Hard to secure, web-first"
         },
@@ -363,11 +363,18 @@ Types of Generative UI, and even individual uses vary greatly in terms of two at
 
   <div className="w-full md:w-1/2 flex flex-col items-center gap-4">
     <Image
-      src="/images/generative-ui/ag-ui-agnostic.svg"
+      src="/images/gen-ui-specs-light.png"
       alt="AG-UI supporting multiple generative UI specifications"
       width={600}
       height={400}
-      className="rounded-lg w-full h-auto"
+      className="rounded-lg w-full h-auto block dark:hidden"
+    />
+    <Image
+      src="/images/gen-ui-specs-dark.png"
+      alt="AG-UI supporting multiple generative UI specifications"
+      width={600}
+      height={400}
+      className="rounded-lg w-full h-auto hidden dark:block"
     />
     <p className="text-sm md:text-base text-muted-foreground text-center italic">
       AG-UI acts as a universal runtime that works with A2UI, MCP-UI, Open-JSON-UI, and custom specs of any type.
