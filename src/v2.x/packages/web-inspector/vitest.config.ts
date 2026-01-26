@@ -4,5 +4,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
+    reporters: [["default", { summary: false }]],
+    silent: true,
   },
 });
