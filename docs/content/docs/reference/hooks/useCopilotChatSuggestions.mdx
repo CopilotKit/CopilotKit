@@ -7,7 +7,7 @@ description: "The useCopilotChatSuggestions hook generates suggestions in the ch
  /*
   * ATTENTION! DO NOT MODIFY THIS FILE!
   * This page is auto-generated. If you want to make any changes to this page, changes must be made at:
-  * CopilotKit/packages/react-ui/src/hooks/use-copilot-chat-suggestions.tsx
+  * src/v1.x/packages/react-ui/src/hooks/use-copilot-chat-suggestions.tsx
   */
 }
 <Callout type="warning">
@@ -68,26 +68,4 @@ The hook monitors `appState`, and updates suggestions accordingly whenever it ch
  
 The hook registers the configuration with the chat context upon component mount and
 removes it on unmount, ensuring a clean and efficient lifecycle management.
-
-## Parameters
-
-<PropertyReference name="instructions" type="string" required > 
-A prompt or instructions for the GPT to generate suggestions.
-</PropertyReference>
-
-<PropertyReference name="minSuggestions" type="number"  default="1"> 
-The minimum number of suggestions to generate. Defaults to `1`.
-</PropertyReference>
-
-<PropertyReference name="maxSuggestions" type="number"  default="1"> 
-The maximum number of suggestions to generate. Defaults to `3`.
-</PropertyReference>
-
-<PropertyReference name="available" type="'enabled' | 'disabled'"  default="enabled"> 
-Whether the suggestions are available. Defaults to `enabled`.
-</PropertyReference>
-
-<PropertyReference name="className" type="string"  > 
-An optional class name to apply to the suggestions.
-</PropertyReference>
 

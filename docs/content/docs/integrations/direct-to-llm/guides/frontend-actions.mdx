@@ -1,0 +1,105 @@
+---
+title: "Frontend Tools"
+description: "Learn how to enable your Copilot to execute tools in the frontend."
+icon: "lucide/Wrench"
+---
+import { LinkIcon } from "lucide-react";
+import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
+
+# Let the Copilot Execute Tools
+
+<Steps>
+
+<Step>
+### `useFrontendTool`
+
+In addition to understanding state, you can empower the copilot to execute tools. Use the [`useFrontendTool`](/reference/hooks/useFrontendTool) hook to define specific tools that the copilot can execute based on user input.
+
+```tsx title="YourComponent.tsx"
+"use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
+import { useFrontendTool } from "@copilotkit/react-core"; // [!code highlight]
+
+export function MyComponent() {
+  const [todos, setTodos] = useState<string[]>([]);
+
+  // Define Frontend Tool
+  useFrontendTool({
+    name: "addTodoItem",
+    description: "Add a new todo item to the list",
+    parameters: [
+      {
+        name: "todoText",
+        type: "string",
+        description: "The text of the todo item to add",
+        required: true,
+      },
+    ],
+    handler: async ({ todoText }) => {
+      setTodos([...todos, todoText]);
+    },
+  });
+
+  return (
+    <ul>
+      {todos.map((todo, index) => (
+        <li key={index}>{todo}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+<Accordions>
+  <Accordion title="Related Hooks for Different Use Cases">
+    While `useFrontendTool` is for frontend tools with handlers, CopilotKit provides other specialized hooks:
+    - [`useHumanInTheLoop`](/reference/hooks/useHumanInTheLoop): For interactive workflows requiring user input/approval
+    - [`useRenderToolCall`](/reference/hooks/useRenderToolCall): For rendering backend tool calls without handlers
+    
+    Choose the right hook based on your specific use case.
+  </Accordion>
+</Accordions>
+</Step>
+
+<Step>
+  <UseClientCalloutSnippet components={props.components} />
+</Step>
+
+
+<Step>
+### Test it out!
+After defining the tool, ask the copilot to execute it. For example, you can now ask the copilot to "add a todo item" with any text you want.
+
+<Frame>
+  <img 
+    src="https://cdn.copilotkit.ai/docs/copilotkit/images/copilot-action-example.gif" 
+    alt="Example of Copilot action" 
+    className="rounded-lg shadow-md w-full max-w-md mx-auto"
+  />
+</Frame>
+</Step>
+
+</Steps>
+
+
+## Next Steps
+
+<Cards>
+  <Card
+    title="useFrontendTool Reference"
+    description="Refer to the documentation for the useFrontendTool hook."
+    href="/reference/hooks/useFrontendTool"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Tools + Generative UI"
+    description="Learn how to render custom UI components alongside your tools, directly in the CopilotKit chat window."
+    href="/direct-to-llm/guides/generative-ui"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Backend Tools"
+    description="Enable backend services to provide tools via copilot backend hooks."
+    href="/direct-to-llm/guides/backend-tools"
+    icon={<LinkIcon />}
+  />
+</Cards>

@@ -1,0 +1,9 @@
+---
+description: Turborepo pipeline guidance.
+globs: "**/turbo*.{json,js}"
+---
+
+- Tasks are defined in `turbo.json` with common names: `build`, `lint`, `dev`, `check-types`, `test`.
+- Each task should specify `dependsOn` and `outputs` where caching matters.
+- Avoid creating new pipelines at the repo root without discussion.
+- Use `turbo run <task>` for workspace-wide scripts.

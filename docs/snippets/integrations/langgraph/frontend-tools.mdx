@@ -1,0 +1,78 @@
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+import {
+    TailoredContent,
+    TailoredContentOption,
+} from "@/components/react/tailored-content.tsx";
+
+
+<TailoredContent
+    className="step"
+    id="impl"
+>
+    <TailoredContentOption
+        id="graph"
+        title="Custom graph"
+        description="I'm using a custom graph, where I define the nodes and edges myself."
+    >
+        <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+            <Tab value="Python">
+                ```python title="agent.py"
+                async def agent_node(state: YourAgentState, config: RunnableConfig):
+                # Access the tools from the copilotkit property
+
+                tools = state.get("copilotkit", {}).get("actions", []) # [!code highlight]
+                model = ChatOpenAI(model="gpt-4o").bind_tools(tools)
+
+                # ...
+                ```
+            </Tab>
+            <Tab value="TypeScript">
+                ```typescript title="agent-js/src/agent.ts"
+                async function agentNode(state: YourAgentState, config: RunnableConfig): Promise<YourAgentState> {
+                // Access the tools from the copilotkit property
+
+                const tools = state.copilotkit?.actions; // [!code highlight]
+                const model = ChatOpenAI({ model: 'gpt-4o' }).bindTools(tools);
+
+                // ...
+                }
+                ```
+            </Tab>
+        </Tabs>
+    </TailoredContentOption>
+    <TailoredContentOption
+        id="prebuilt"
+        title="Prebuilt agent"
+        description={`I'm using a prebuilt agent like "create_agent" by LangGraph`}
+    >
+        <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+            <Tab value="Python">
+                ```python title="agent.py"
+                from langchain.agents import create_agent
+                from copilotkit import CopilotKitMiddleware, CopilotKitState # [!code highlight]
+
+                graph = create_agent( # Works the same for "create_react_agent" or similar options
+                    model="openai:gpt-4o",
+                    tools=[],  # Backend tools go here
+                    middleware=[CopilotKitMiddleware()], # [!code highlight]
+                    system_prompt="You are a helpful assistant.",
+                    state_schema=CopilotKitState # [!code highlight]
+                )
+                ```
+            </Tab>
+            <Tab value="TypeScript">
+                ```typescript title="agent-js/src/agent.ts"
+                import { createAgent } from "langchain";
+                import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+
+                export const agenticChatGraph = createAgent({ // Works the same for "create_react_agent" or similar options
+                    model: "openai:gpt-4o",
+                    tools: [],  // Backend tools go here
+                    middleware: [copilotkitMiddleware], // [!code highlight]
+                    systemPrompt: "You are a helpful assistant.",
+                });
+                ```
+            </Tab>
+        </Tabs>
+    </TailoredContentOption>
+</TailoredContent>

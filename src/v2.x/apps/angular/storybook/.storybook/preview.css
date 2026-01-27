@@ -1,0 +1,73 @@
+/* Storybook dark mode custom background */
+html.dark {
+  background-color: #212121;
+}
+
+html.dark body {
+  background-color: #212121;
+}
+
+/* Ensure the story canvas also uses the dark background */
+html.dark .docs-story,
+html.dark .sb-show-main,
+html.dark .sb-main-padded {
+  background-color: #212121;
+}
+
+/* Custom disclaimer demo styles (global to ensure they apply in stories) */
+.custom-disclaimer {
+  background: linear-gradient(90deg, #FF6B6B 0%, #4ECDC4 50%, #45B7D1 100%) !important;
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 16px 24px;
+  margin: 12px auto;
+  border-radius: 12px;
+  text-align: center;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  animation: disclaimer-pulse 3s ease-in-out infinite;
+  position: relative;
+  overflow: hidden;
+}
+
+.custom-disclaimer::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transform: rotate(45deg);
+  animation: disclaimer-shimmer 3s infinite;
+}
+
+@keyframes disclaimer-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+@keyframes disclaimer-shimmer {
+  0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+  100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+}
+
+.custom-disclaimer-text {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.custom-disclaimer-icon {
+  position: relative;
+  z-index: 1;
+  font-size: 20px;
+  animation: disclaimer-bounce 2s infinite;
+}
+
+@keyframes disclaimer-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useAuth } from "@clerk/nextjs";
 import posthog from "posthog-js";
 import { CloudIcon } from "lucide-react";
 
@@ -18,7 +17,6 @@ export function LinkToCopilotCloud({
   children?: React.ReactNode;
 }) {
   const [isClient, setIsClient] = useState(false);
-  const { userId } = useAuth();
 
   useEffect(() => {
     setIsClient(true);
@@ -46,7 +44,7 @@ export function LinkToCopilotCloud({
     }
   }, [isClient, baseUrl.toString()]);
 
-  let cn = `${className}`;
+  let cn = "";
 
   if (asButton) {
     cn = "text-indigo-800 dark:text-indigo-300 ring-1 ring-indigo-200 dark:ring-indigo-900 text-sm items-center bg-gradient-to-r from-indigo-200/50 to-purple-200/80 dark:from-indigo-900/40 dark:to-purple-900/50 flex p-3 px-4 no-underline whitespace-nowrap";
@@ -55,11 +53,15 @@ export function LinkToCopilotCloud({
     cn = "_text-primary-600 decoration-from-font underline [text-underline-position:from-font]";
   }
 
+  if (className) {
+    cn += ` ${className}`;
+  }
   return (
     <Link
       href={href}
       target="_blank"
       className={cn}
+      suppressHydrationWarning
     >
       {asButton ? <CloudIcon className="w-5 h-5 mr-2" /> : null}
       {

@@ -6,7 +6,7 @@ title: "useCopilotChat"
  /*
   * ATTENTION! DO NOT MODIFY THIS FILE!
   * This page is auto-generated. If you want to make any changes to this page, changes must be made at:
-  * CopilotKit/packages/react-core/src/hooks/use-copilot-chat.ts
+  * src/v1.x/packages/react-core/src/hooks/use-copilot-chat.ts
   */
 }
 `useCopilotChat` is a lightweight React hook for headless chat interactions.
@@ -104,5 +104,39 @@ A function to generate the system message. Defaults to `defaultSystemMessage`.
 
 <PropertyReference name="disableSystemMessage" type="boolean"  > 
 Disables inclusion of CopilotKit’s default system message. When true, no system message is sent (this also suppresses any custom message from <code>makeSystemMessage</code>).
+</PropertyReference>
+
+<PropertyReference name="suggestions" type="ChatSuggestions"  > 
+Controls the behavior of suggestions in the chat interface.
+ 
+  `auto` (default) - Suggestions are generated automatically:
+    - When the chat is first opened (empty state)
+    - After each message exchange completes
+    - Uses configuration from `useCopilotChatSuggestions` hooks
+ 
+  `manual` - Suggestions are controlled programmatically:
+    - Use `setSuggestions()` to set custom suggestions
+    - Use `generateSuggestions()` to trigger AI generation
+    - Access via `useCopilotChat` hook
+ 
+  `SuggestionItem[]` - Static suggestions array:
+    - Always shows the same suggestions
+    - No AI generation involved
+</PropertyReference>
+
+<PropertyReference name="onInProgress" type="(isLoading: boolean) => void"  > 
+
+</PropertyReference>
+
+<PropertyReference name="onSubmitMessage" type="(messageContent: string) => Promise<void> | void"  > 
+
+</PropertyReference>
+
+<PropertyReference name="onStopGeneration" type="OnStopGeneration"  > 
+
+</PropertyReference>
+
+<PropertyReference name="onReloadMessages" type="OnReloadMessages"  > 
+
 </PropertyReference>
 

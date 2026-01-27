@@ -1,0 +1,278 @@
+---
+title: useFrontendTool
+description: "useFrontendTool Hook API Reference"
+---
+
+`useFrontendTool` is a React hook that dynamically registers tools (functions) that AI agents can invoke in your
+application. It enables components to expose interactive capabilities to agents, with optional visual rendering of tool
+execution.
+
+## What is useFrontendTool?
+
+The useFrontendTool hook:
+
+- Registers tools dynamically when components mount
+- Automatically cleans up tools when components unmount
+- Optionally registers visual renderers for tool execution feedback in the chat interface
+- Supports agent-specific tool registration
+- Handles tool lifecycle management automatically
+
+## Basic Usage
+
+```tsx
+import { useFrontendTool } from "@copilotkitnext/react";
+import { z } from "zod";
+
+function SearchComponent() {
+  useFrontendTool({
+    name: "searchProducts",
+    description: "Search for products in the catalog",
+    parameters: z.object({
+      query: z.string(),
+      category: z.string().optional(),
+    }),
+    handler: async ({ query, category }) => {
+      const results = await searchAPI(query, category);
+      return results;
+    },
+  });
+
+  return <div>Rest of your component...</div>;
+}
+```
+
+## Parameters
+
+The hook accepts:
+
+- A required `ReactFrontendTool` object describing the tool
+- An optional dependency array to control when the tool is re-registered
+
+### name
+
+`string` **(required)**
+
+A unique identifier for the tool. This is the name agents will use to request this tool's execution.
+
+```tsx
+useFrontendTool({
+  name: "calculateTotal",
+  // ...
+});
+```
+
+### description
+
+`string` **(optional)**
+
+A description that helps agents understand when and how to use this tool. This is sent to the LLM to guide its
+decision-making.
+
+```tsx
+useFrontendTool({
+  name: "fetchUserData",
+  description: "Retrieve detailed user profile information including preferences and history",
+  // ...
+});
+```
+
+### parameters
+
+`z.ZodType<T>` **(optional)**
+
+A Zod schema defining the tool's input parameters. Provides type safety and automatic validation.
+
+```tsx
+import { z } from "zod";
+
+useFrontendTool({
+  name: "updateSettings",
+  parameters: z.object({
+    theme: z.enum(["light", "dark", "auto"]),
+    language: z.string(),
+    notifications: z.boolean(),
+  }),
+  handler: async ({ theme, language, notifications }) => {
+    // settings is fully typed based on the schema
+    await updateUserSettings({ theme, language, notifications });
+    return "Settings updated successfully";
+  },
+});
+```
+
+### handler
+
+`(args: T, toolCall: ToolCall) => Promise<unknown>` **(optional)**
+
+The async function executed when the agent invokes this tool. Receives validated arguments and metadata about the
+invocation.
+
+```tsx
+useFrontendTool({
+  name: "addToCart",
+  parameters: z.object({
+    productId: z.string(),
+    quantity: z.number().min(1),
+  }),
+  handler: async ({ productId, quantity }, toolCall) => {
+    console.log(`Tool called by agent at ${toolCall.id}`);
+    const result = await cartService.addItem(productId, quantity);
+    return {
+      success: true,
+      cartTotal: result.total,
+    };
+  },
+});
+```
+
+### render
+
+`(props: { name: string; args: T; result?: unknown; status: ToolCallStatus }) => React.ReactNode` **(optional)**
+
+A React component that renders visual feedback when the tool is executed. This appears in the chat interface to show
+tool execution progress and results.
+
+```tsx
+import { ToolCallStatus } from "@copilotkitnext/core";
+
+useFrontendTool({
+  name: "generateChart",
+  parameters: z.object({
+    data: z.array(z.number()),
+    type: z.enum(["bar", "line", "pie"]),
+  }),
+  handler: async ({ data, type }) => {
+    return generateChartData(data, type);
+  },
+  render: ({ name, args, result, status }) => (
+    <div className="tool-execution">
+      <h3>Generating {args.type} chart...</h3>
+      {status === ToolCallStatus.InProgress && <Spinner />}
+      {status === ToolCallStatus.Complete && result && <ChartDisplay data={result} />}
+    </div>
+  ),
+});
+```
+
+### followUp
+
+`boolean` **(optional, default: true)**
+
+Controls whether the agent should automatically continue after this tool completes. Set to `false` for final actions.
+
+```tsx
+useFrontendTool({
+  name: "submitForm",
+  handler: async (formData) => {
+    await submitToServer(formData);
+    return "Form submitted successfully";
+  },
+  followUp: false, // Don't continue after submission
+});
+```
+
+### agentId
+
+`string` **(optional)**
+
+Restricts this tool to a specific agent. Only the specified agent can invoke this tool.
+
+```tsx
+useFrontendTool({
+  name: "adminAction",
+  agentId: "admin-assistant",
+  handler: async (args) => {
+    return await performAdminAction(args);
+  },
+});
+```
+
+### deps (second argument)
+
+`ReadonlyArray<unknown>` **(optional)**
+
+Additional dependencies that should trigger re-registration of the tool. By default, the hook only depends on the tool
+name and CopilotKit instance to avoid re-register loops from object identity changes. Pass a dependency array as the
+second argument when the tool's configuration is derived from changing props or state:
+
+```tsx
+function PriceTool({ currency }: { currency: string }) {
+  useFrontendTool(
+    {
+      name: "convertPrice",
+      handler: async (args) => convertPrice(args.amount, currency),
+    },
+    [currency],
+  );
+
+  return null;
+}
+```
+
+## Lifecycle Management
+
+### Automatic Registration
+
+Tools are automatically registered when the component mounts:
+
+```tsx
+function DynamicTool() {
+  // Tool is registered when this component mounts
+  useFrontendTool({
+    name: "dynamicAction",
+    handler: async () => "Action performed",
+  });
+
+  return <div>Tool available</div>;
+}
+
+// Usage
+function App() {
+  const [showTool, setShowTool] = useState(false);
+
+  return (
+    <div>
+      <button onClick={() => setShowTool(!showTool)}>Toggle Tool</button>
+      {showTool && <DynamicTool />} {/* Tool only available when mounted */}
+    </div>
+  );
+}
+```
+
+### Cleanup on Unmount
+
+Tools are automatically removed when components unmount, but their renderers persist to maintain chat history:
+
+```tsx
+function TemporaryTool() {
+  useFrontendTool({
+    name: "tempAction",
+    handler: async () => "Temporary action",
+    render: ({ status }) => <div>Temp tool: {status}</div>,
+  });
+
+  // When this component unmounts:
+  // - The tool handler is removed (agent can't call it anymore)
+  // - The renderer persists (previous executions still visible in chat)
+
+  return null;
+}
+```
+
+### Tool Override Warning
+
+If a tool with the same name already exists, it will be overridden with a console warning:
+
+```tsx
+// First registration
+useFrontendTool({
+  name: "search",
+  handler: async () => "Search v1",
+});
+
+// Second registration (overrides first)
+useFrontendTool({
+  name: "search", // Same name - will override with warning
+  handler: async () => "Search v2",
+});
+```

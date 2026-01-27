@@ -3,9 +3,6 @@ title: "useDefaultTool"
 description: "The useDefaultTool hook enables rendering of a default UI which catches any tool that does not have a specific renderer."
 ---
 
-<br />
-<img src="https://cdn.copilotkit.ai/docs/copilotkit/images/render-tool-call/tool-call-example.gif" width="500" />
-
 `useDefaultTool` is a React hook that allows you to render custom UI for any tool
 call that doesn't have a specific renderer
 
@@ -26,7 +23,7 @@ useDefaultTool({
             {status === "complete" && "Complete"}
           </span>
         </div>
-        
+
         {Object.keys(args).length > 0 && (
           <div className="mb-2">
             <p className="text-sm font-medium text-gray-600">Parameters:</p>
@@ -35,7 +32,7 @@ useDefaultTool({
             </pre>
           </div>
         )}
-        
+
         {status === "complete" && result && (
           <div>
             <p className="text-sm font-medium text-gray-600">Result:</p>
@@ -62,7 +59,7 @@ useDefaultTool({
     if (name.startsWith("mcp_")) {
       return <MCPToolRenderer name={name} args={args} status={status} result={result} />;
     }
-    
+
     // Default rendering for other tools
     return <DefaultToolRenderer name={name} args={args} status={status} result={result} />;
   },
@@ -75,7 +72,7 @@ useDefaultTool({
   The tool rendering configuration object.
     <PropertyReference name="render" type="React.ComponentType<RenderProps>">
       A React component that renders the tool call UI. The component receives props with:
-      
+
       <div className="ml-8">
         <PropertyReference name="status" type="'inProgress' | 'executing' | 'complete'">
           - `"inProgress"`: Tool is being prepared or arguments are being streamed.

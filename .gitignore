@@ -1,5 +1,6 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 .vscode
+.claude/*.local.json
 
 # misc
 .DS_Store
@@ -7,6 +8,7 @@
 __snapshots__
 @generated
 node_modules
+.pnpm-store
 .idea/
 cdk_outputs.json
 .turbo
@@ -25,3 +27,9 @@ __pycache__/
 *.env
 *.next
 .venv
+.vercel
+
+docs/next-env.d.ts
+
+# External repos (cloned for development)
+ext-apps/

@@ -1,0 +1,382 @@
+---
+title: Quickstart
+description: Turn your Strands agent into an agent-native application in 10 minutes.
+icon: "lucide/Play"
+hideTOC: true
+---
+
+import {
+  TailoredContent,
+  TailoredContentOption,
+} from "@/components/react/tailored-content.tsx";
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import {
+  UserIcon,
+  PaintbrushIcon,
+  WrenchIcon,
+} from "lucide-react";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
+
+## Prerequisites
+
+Before you begin, you'll need the following:
+
+- An OpenAI API key
+- Node.js 20+
+- Python 3.12+
+- Your favorite package manager
+
+## Getting started
+
+<Steps>
+    <TailoredContent
+        className="step"
+        id="agent"
+        header={
+            <div>
+                <p className="text-xl font-semibold">Choose your starting point</p>
+                <p className="text-base">
+                    You can either start fresh with our starter template or integrate CopilotKit into your existing Strands agent.
+                </p>
+            </div>
+        }
+    >
+        <TailoredContentOption
+            id="starter"
+            title="Start from scratch"
+            description="Get started quickly with our ready-to-go starter application."
+        >
+            <Step>
+                ### Run our CLI
+
+                ```bash
+                npx copilotkit@latest create -f aws-strands-py
+                ```
+            </Step>
+            <Step>
+                ### Install dependencies
+
+                ```npm
+                npm install
+                ```
+            </Step>
+            <Step>
+                ### Configure your environment
+
+                Create a `.env` file in your agent directory and add your OpenAI API key:
+
+                ```plaintext title="agent/.env"
+                OPENAI_API_KEY=your_openai_api_key
+                ```
+
+                <Callout type="info" title="What about other models?">
+                  The starter template is configured to use OpenAI's GPT-4o by default, but you can modify it to use any language model supported by Strands.
+                </Callout>
+            </Step>
+            <Step>
+                ### Start the development server
+
+                <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+                    <Tab value="npm">
+                        ```bash
+                        npm run dev
+                        ```
+                    </Tab>
+                    <Tab value="pnpm">
+                        ```bash
+                        pnpm dev
+                        ```
+                    </Tab>
+                    <Tab value="yarn">
+                        ```bash
+                        yarn dev
+                        ```
+                    </Tab>
+                    <Tab value="bun">
+                        ```bash
+                        bun dev
+                        ```
+                    </Tab>
+                </Tabs>
+
+                This will start both the UI and agent servers concurrently.
+            </Step>
+        </TailoredContentOption>
+        <TailoredContentOption
+            id="bring-your-own"
+            title="Use an existing agent"
+            description="I already have a Strands agent and want to add CopilotKit."
+        >
+            <Step>
+                ### Initialize your agent project
+
+                If you don't already have a Python project set up, create one using `uv`:
+
+                ```bash
+                uv init my-agent
+                cd my-agent
+                ```
+            </Step>
+            <Step>
+                ### Install Strands with AG-UI
+
+                Add Strands and the required packages to your project:
+
+                ```bash
+                uv add ag-ui-strands "strands-agents[OpenAI]" fastapi uvicorn
+                ```
+            </Step>
+            <Step>
+                ### Configure your environment
+
+                Set your OpenAI API key as an environment variable:
+
+                ```bash
+                export OPENAI_API_KEY=your_openai_api_key
+                ```
+
+                <Callout type="info" title="What about other models?">
+                  This example uses OpenAI's GPT-4o, but you can modify it to use any language model supported by Strands.
+                </Callout>
+            </Step>
+            <Step>
+                ### Expose your agent via AG-UI
+
+                Update your agent file to expose it as an AG-UI ASGI application:
+
+                ```python title="main.py"
+                import os
+
+                from ag_ui_strands import StrandsAgent, create_strands_app
+                from strands import Agent
+                from strands.models.openai import OpenAIModel
+
+                # Setup your Strands agent
+                api_key = os.getenv("OPENAI_API_KEY", "")
+                model = OpenAIModel(
+                    client_args={"api_key": api_key},
+                    model_id="gpt-4o",
+                )
+
+                agent = Agent(
+                    model=model,
+                    system_prompt="You are a helpful AI assistant.",
+                )
+
+                # Wrap with AG-UI integration
+                agui_agent = StrandsAgent(
+                    agent=agent,
+                    name="strands_agent",
+                )
+
+                # Create the FastAPI app
+                app = create_strands_app(agui_agent, "/")
+
+                if __name__ == "__main__":
+                    import uvicorn
+
+                    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
+                ```
+
+                <Callout type="info" title="What is AG-UI?">
+                  AG-UI is an open protocol for frontend-agent communication. The `create_strands_app` function creates an ASGI app that CopilotKit can connect to.
+                </Callout>
+            </Step>
+            <Step>
+                ### Create your frontend
+
+                CopilotKit works with any React-based frontend. We'll use Next.js for this example.
+
+                ```bash
+                npx create-next-app@latest frontend
+                cd frontend
+                ```
+            </Step>
+            <Step>
+                ### Install CopilotKit packages
+
+                ```npm
+                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client
+                ```
+            </Step>
+            <Step>
+                ### Setup Copilot Runtime
+
+                Create an API route to connect CopilotKit to your Strands agent:
+
+                ```tsx title="app/api/copilotkit/route.ts"
+                import {
+                  CopilotRuntime,
+                  ExperimentalEmptyAdapter,
+                  copilotRuntimeNextJSAppRouterEndpoint,
+                } from "@copilotkit/runtime";
+                import { HttpAgent } from "@ag-ui/client";
+                import { NextRequest } from "next/server";
+
+                const serviceAdapter = new ExperimentalEmptyAdapter();
+
+                const runtime = new CopilotRuntime({
+                  agents: {
+                    strands_agent: new HttpAgent({ url: "http://localhost:8000" }),
+                  }
+                });
+
+                export const POST = async (req: NextRequest) => {
+                  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+                    runtime,
+                    serviceAdapter,
+                    endpoint: "/api/copilotkit",
+                  });
+
+                  return handleRequest(req);
+                };
+               ```
+            </Step>
+            <Step>
+                ### Configure CopilotKit Provider
+
+                Wrap your application with the CopilotKit provider:
+
+                ```tsx title="app/layout.tsx"
+                import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
+                import "@copilotkit/react-ui/styles.css";
+
+                // ...
+
+                export default function RootLayout({ children }: {children: React.ReactNode}) {
+                  return (
+                    <html lang="en">
+                      <body>
+                        {/* [!code highlight:3] */}
+                        <CopilotKit runtimeUrl="/api/copilotkit" agent="strands_agent">
+                          {children}
+                        </CopilotKit>
+                      </body>
+                    </html>
+                  );
+                }
+                ```
+            </Step>
+            <Step>
+              ### Add the chat interface
+
+              Add the CopilotSidebar component to your page:
+
+              ```tsx title="app/page.tsx"
+              import { CopilotSidebar } from "@copilotkit/react-ui"; // [!code highlight:1]
+
+              export default function Page() {
+                return (
+                  <main>
+                    <h1>Your App</h1>
+                    {/* [!code highlight:1] */}
+                    <CopilotSidebar />
+                  </main>
+                );
+              }
+              ```
+            </Step>
+            <Step>
+                ### Start your agent
+
+                From your agent directory, start the agent server:
+
+                ```bash
+                cd ..
+                uv run main.py
+                ```
+
+                Your agent will be available at `http://localhost:8000`.
+            </Step>
+            <Step>
+                ### Start your UI
+
+                In a separate terminal, navigate to your frontend directory and start the development server:
+
+                <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+                    <Tab value="npm">
+                        ```bash
+                        cd frontend
+                        npm run dev
+                        ```
+                    </Tab>
+                    <Tab value="pnpm">
+                        ```bash
+                        cd frontend
+                        pnpm dev
+                        ```
+                    </Tab>
+                    <Tab value="yarn">
+                        ```bash
+                        cd frontend
+                        yarn dev
+                        ```
+                    </Tab>
+                    <Tab value="bun">
+                        ```bash
+                        cd frontend
+                        bun dev
+                        ```
+                    </Tab>
+                </Tabs>
+            </Step>
+        </TailoredContentOption>
+    </TailoredContent>
+    <Step>
+        ### 🎉 Start chatting!
+
+        Your AI agent is now ready to use! Navigate to `localhost:3000` and try asking it some questions:
+
+        ```
+        What can you do?
+        ```
+
+        ```
+        Please tell me a joke.
+        ```
+
+        ```
+        What do you think about React?
+        ```
+
+        <Accordions className="mb-4">
+            <Accordion title="Troubleshooting">
+                - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
+                - Make sure your agent is running on port 8000
+                - Check that your OpenAI API key is correctly set
+                - Verify that the `@ag-ui/client` package is installed in your frontend
+            </Accordion>
+        </Accordions>
+
+    </Step>
+</Steps>
+
+## What's next?
+
+Now that you have your basic agent setup, explore these advanced features:
+
+<Cards>
+  <Card
+    title="Add some generative UI"
+    description="Render your agent's progress and output in the UI."
+    href="/aws-strands/generative-ui"
+    icon={<PaintbrushIcon />}
+  />
+  <Card
+    title="Setup frontend tools"
+    description="Give your agent the ability to call frontend tools, directly updating your application."
+    href="/aws-strands/frontend-actions"
+    icon={<WrenchIcon />}
+  />
+</Cards>

@@ -1,0 +1,129 @@
+---
+title: Quickstart
+description: Turn your A2A Agents into an agent-native application in 10 minutes.
+icon: "lucide/Play"
+hideTOC: true
+---
+
+import {
+  TailoredContent,
+  TailoredContentOption,
+} from "@/components/react/tailored-content.tsx";
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import {
+  UserIcon,
+  PaintbrushIcon,
+  WrenchIcon,
+  RepeatIcon,
+} from "lucide-react";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
+
+## Prerequisites
+
+Before you begin, you'll need the following:
+
+- A Google Gemini API key
+- Node.js 20+
+- Python 3.9+
+- Your favorite package manager
+
+## Getting started
+
+<Steps>
+    <Step>
+        ### Clone the A2A starter template
+
+        ```bash
+        git clone https://github.com/copilotkit/with-a2a-a2ui.git
+        ```
+    </Step>
+    <Step>
+        ### Install dependencies
+
+        ```
+        pnpm install
+        ```
+    </Step>
+    <Step>
+        ### Configure your environment
+
+        Create a `.env` file in your agent directory and add your Google API key:
+
+        ```plaintext title="agent/.env"
+        GOOGLE_API_KEY=your_google_api_key
+        ```
+
+        <Callout type="info" title="What about other models?">
+          The starter template is configured to use Google's Gemini by default, but you can modify it to use any language model supported by ADK.
+        </Callout>
+    </Step>
+    <Step>
+        ### Start the development server
+
+        <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+            <Tab value="npm">
+                ```bash
+                npm run dev
+                ```
+            </Tab>
+            <Tab value="pnpm">
+                ```bash
+                pnpm dev
+                ```
+            </Tab>
+            <Tab value="yarn">
+                ```bash
+                yarn dev
+                ```
+            </Tab>
+            <Tab value="bun">
+                ```bash
+                bun dev
+                ```
+            </Tab>
+        </Tabs>
+
+        This will start both the UI and agent servers concurrently.
+    </Step>
+    <Step>
+        ### 🎉 Start chatting!
+
+        Your AI agent is now ready to use! Navigate to `localhost:3000` and start prompting it:
+
+        ```
+        Show me chinese restaurants in NYC
+        ```
+
+        <Accordions className="mb-4">
+            <Accordion title="Troubleshooting">
+                - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
+                - Make sure your agent is running on port 8000
+                - Check that your Google API key is correctly set
+            </Accordion>
+        </Accordions>
+
+    </Step>
+</Steps>
+
+## What's next?
+
+Now that you have your basic agent setup, explore these advanced features:
+
+<Cards>
+  <Card
+    title="Add some generative UI"
+    description="Render declarative UI components with A2UI."
+    href="/a2a/generative-ui"
+    icon={<PaintbrushIcon />}
+  />
+</Cards>

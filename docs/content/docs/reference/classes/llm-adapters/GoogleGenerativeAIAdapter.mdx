@@ -7,7 +7,7 @@ description: "Copilot Runtime adapter for Google Generative AI (e.g. Gemini)."
  /*
   * ATTENTION! DO NOT MODIFY THIS FILE!
   * This page is auto-generated. If you want to make any changes to this page, changes must be made at:
-  * CopilotKit/packages/runtime/src/service-adapters/google/google-genai-adapter.ts
+  * src/v1.x/packages/runtime/src/service-adapters/google/google-genai-adapter.ts
   */
 }
 Copilot Runtime adapter for Google Generative AI (e.g. Gemini).
@@ -22,13 +22,17 @@ const genAI = new GoogleGenerativeAI(process.env["GOOGLE_API_KEY"]);
  
 const copilotKit = new CopilotRuntime();
  
-return new GoogleGenerativeAIAdapter({ model: "gemini-1.5-pro" });
+return new GoogleGenerativeAIAdapter({ model: "gemini-2.5-flash", apiVersion: "v1" });
 ```
 
 ## Constructor Parameters
 
 <PropertyReference name="model" type="string"  > 
 A custom Google Generative AI model to use.
+</PropertyReference>
+
+<PropertyReference name="apiVersion" type="'v1' | 'v1beta'"  > 
+The API version to use (e.g. "v1" or "v1beta"). Defaults to "v1".
 </PropertyReference>
 
 <PropertyReference name="apiKey" type="string"  > 

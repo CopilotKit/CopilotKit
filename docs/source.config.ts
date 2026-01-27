@@ -10,16 +10,14 @@ import {
   fileGenerator,
   remarkDocGen,
   remarkInstall,
-  typescriptGenerator,
 } from "fumadocs-docgen";
 import { rehypeCode } from "fumadocs-core/mdx-plugins";
 import {
   transformerNotationDiff,
   transformerNotationHighlight,
   transformerNotationWordHighlight,
-  // ...
 } from "@shikijs/transformers";
-import { remarkMermaid } from '@theguild/remark-mermaid'
+import { remarkMermaid } from '@theguild/remark-mermaid';
 
 // Extend the frontmatter schema to include hideHeader and hideTOC fields
 const extendedFrontmatterSchema = frontmatterSchema.extend({
@@ -55,7 +53,10 @@ export default defineConfig({
     remarkPlugins: [
       remarkMermaid,
       [remarkInstall, { persist: { id: "package-manager" } }],
-      [remarkDocGen, { generators: [typescriptGenerator(), fileGenerator()] }],
+      [remarkDocGen, { generators: [fileGenerator()] }],
     ],
+    remarkNpmOptions: {
+      persist: { id: "package-manager" },
+    },
   },
 });

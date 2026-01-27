@@ -7,7 +7,7 @@ description: "The CopilotKit provider component, wrapping your application."
  /*
   * ATTENTION! DO NOT MODIFY THIS FILE!
   * This page is auto-generated. If you want to make any changes to this page, changes must be made at:
-  * CopilotKit/packages/react-core/src/components/copilot-provider/copilotkit.tsx
+  * src/v1.x/packages/react-core/src/components/copilot-provider/copilotkit.tsx
   */
 }
 This component will typically wrap your entire application (or a sub-tree of your application where you want to have a copilot). It provides the copilot context to all other components and hooks.
@@ -93,6 +93,26 @@ Custom properties to be sent with the request.
 <PropertyReference name="credentials" type="RequestCredentials"  > 
 Indicates whether the user agent should send or receive cookies from the other domain
   in the case of cross-origin requests.
+ 
+  To enable HTTP-only cookie authentication, set `credentials="include"` and configure
+  CORS on your runtime endpoint:
+ 
+  ```tsx
+  // Frontend (https://myapp.com)
+  <CopilotKit runtimeUrl="https://api.myapp.com/copilotkit" credentials="include">
+    {children}
+  </CopilotKit>
+ 
+  // Backend (https://api.myapp.com)
+  copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    endpoint: "/copilotkit",
+    cors: {
+      origin: "https://myapp.com",
+      credentials: true,
+    },
+  });
+  ```
 </PropertyReference>
 
 <PropertyReference name="showDevConsole" type="boolean"  > 
@@ -138,5 +158,11 @@ Optional error handler for comprehensive debugging and observability.
     }}
   >
   ```
+</PropertyReference>
+
+<PropertyReference name="enableInspector" type="boolean"  > 
+Enable or disable the CopilotKit Inspector, letting you inspect AG-UI events,
+  view agent messages, check agent state, and visualize agent context. Defaults
+  to enabled.
 </PropertyReference>
 

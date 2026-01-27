@@ -1,0 +1,292 @@
+---
+title: "Remote Endpoint (Python)"
+description: "Connect your CopilotKit application to a remote backend endpoint, allowing integration with Python-based services or other non-Node.js backends."
+icon: "custom/python"
+---
+import FindCopilotRuntimeSnippet from "@/snippets/find-your-copilot-runtime.mdx";
+import CopilotCloudConfigureRemoteEndpointSnippet from "@/snippets/copilot-cloud-configure-remote-endpoint.mdx";
+import CopilotCloudConfigureCopilotKitProviderSnippet from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
+import { TailoredContent, TailoredContentOption } from "@/components/react/tailored-content";
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import { FaCloud, FaServer } from "react-icons/fa";
+
+
+## Stand up a FastAPI server using the CopilotKit Python SDK
+<Steps>
+
+<Step>
+### Install CopilotKit Python SDK and Dependencies
+
+To integrate a Python backend with your CopilotKit application, set up your project and install the necessary dependencies by choosing your dependency management solution below.
+
+
+<Tabs groupId="python-pm" items={['Poetry', 'pip', 'conda']} default="Poetry">
+    <Tab value="Poetry">
+    
+    #### Initialize a New Poetry Project
+    
+    Run the following command to create and initialize a new Poetry project:
+    
+    ```bash
+    poetry new My-CopilotKit-Remote-Endpoint
+    ```
+    
+    Follow the prompts to set up your `pyproject.toml`.
+    
+    #### Install Dependencies
+    
+    After initializing the project, install the dependencies:
+    
+    ```bash
+    poetry add copilotkit fastapi uvicorn
+    # or including support for crewai
+    poetry add copilotkit[crewai] fastapi uvicorn
+    ```
+    
+    </Tab>
+    
+    <Tab value="pip">
+    
+    #### Set Up a Virtual Environment (optional)
+    
+    Create and activate a virtual environment using `venv`:
+    
+    ```bash
+    python3 -m venv venv
+    source venv/bin/activate
+    ```
+    
+    #### Install Dependencies
+    
+    With the virtual environment activated, install the dependencies:
+    
+    ```bash
+    pip install copilotkit fastapi uvicorn --extra-index-url https://copilotkit.gateway.scarf.sh/simple/
+    # or including support for crewai
+    pip install copilotkit[crewai] fastapi uvicorn --extra-index-url https://copilotkit.gateway.scarf.sh/simple/
+    ```
+    
+    </Tab>
+    
+    <Tab value="conda">
+    
+    #### Create a New Conda Environment
+    
+    Create and activate a new Conda environment:
+    
+    ```bash
+    conda create -n your_env_name python=3.8
+    conda activate your_env_name
+    ```
+    
+    #### Install Dependencies
+    
+    With the Conda environment activated, install the dependencies:
+    
+    ```bash
+    conda install copilotkit fastapi uvicorn -c copilotkit-channel
+    # or including support for crewai
+    conda install copilotkit[crewai] fastapi uvicorn -c copilotkit-channel
+    ```
+    
+    </Tab>
+    
+</Tabs>
+
+
+**Dependencies:**
+
+- **copilotkit**: The CopilotKit Python SDK.
+- **fastapi**: A modern, fast (high-performance) web framework for building APIs with Python.
+- **uvicorn**: A lightning-fast ASGI server for Python.
+</Step>
+
+
+<Step>
+### Set Up a FastAPI Server
+
+Create a new Python file `/my_copilotkit_remote_endpoint/server.py` and set up a FastAPI server:
+
+```python title="/my_copilotkit_remote_endpoint/server.py"
+from fastapi import FastAPI
+
+app = FastAPI()
+```
+
+</Step>
+
+<Step>
+### Define Your Backend Actions
+
+Import the CopilotKit SDK and define your backend actions. For example:
+
+```python title="/my_copilotkit_remote_endpoint/server.py"
+from fastapi import FastAPI
+from copilotkit.integrations.fastapi import add_fastapi_endpoint
+from copilotkit import CopilotKitRemoteEndpoint, Action as CopilotAction
+
+app = FastAPI()
+
+# Define your backend action
+async def fetch_name_for_user_id(userId: str):
+    # Replace with your database logic
+    return {"name": "User_" + userId}
+
+# this is a dummy action for demonstration purposes
+action = CopilotAction(
+    name="fetchNameForUserId",
+    description="Fetches user name from the database for a given ID.",
+    parameters=[
+        {
+            "name": "userId",
+            "type": "string",
+            "description": "The ID of the user to fetch data for.",
+            "required": True,
+        }
+    ],
+    handler=fetch_name_for_user_id
+)
+
+# Initialize the CopilotKit SDK
+sdk = CopilotKitRemoteEndpoint(actions=[action]) # [!code highlight]
+
+# Add the CopilotKit endpoint to your FastAPI app
+add_fastapi_endpoint(app, sdk, "/copilotkit_remote") # [!code highlight]
+
+def main():
+    """Run the uvicorn server."""
+    import uvicorn
+    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)
+
+if __name__ == "__main__":
+    main()
+```
+
+</Step>
+
+<Step>
+### Run Your FastAPI Server
+
+Since we've added the entry point in `server.py`, you can run your FastAPI server directly by executing the script:
+
+<Tabs groupId="python-pm" items={['Poetry', 'pip', 'conda']} default="Poetry">
+    <Tab value="Poetry">
+        ```bash
+        poetry run python3 server.py
+        ```
+    </Tab>
+    <Tab value="pip">
+        ```bash
+        python3 server.py
+        ```
+    </Tab>
+    <Tab value="conda">
+        ```bash
+        python3 server.py
+        ```
+    </Tab>
+</Tabs>
+
+**Note:** Ensure that you're in the same directory as `server.py` when running this command.
+
+</Step>
+</Steps>
+
+
+## Connect your app to the remote endpoint
+
+Now that you've set up your FastAPI server with the backend actions, integrate it into your CopilotKit application by modifying your `CopilotRuntime` configuration.
+
+<TailoredContent id="hosting">
+    <TailoredContentOption
+        id="copilot-cloud"
+        title="Copilot Cloud (Recommended)"
+        description="I want to use Copilot Cloud to connect to my remote endpoint."
+        icon={<FaCloud />}
+    >
+        <CopilotCloudConfigureRemoteEndpointSnippet components={props.components} />
+    </TailoredContentOption>
+    <TailoredContentOption
+        id="self-hosted"
+        title="Self-Hosted Copilot Runtime"
+        description="I want to use a self-hosted Copilot Runtime to connect to my remote endpoint."
+        icon={<FaServer />}
+    >
+        <Steps>
+            <Step>
+                <FindCopilotRuntimeSnippet components={props.components} />
+            </Step>
+            <Step>
+                Update the `CopilotRuntime` to include your new `remote endpoint`.
+
+                ```tsx
+                const runtime = new CopilotRuntime({
+                    // ...existing configuration
+                    // [!code highlight:3]
+                    remoteEndpoints: [
+                        { url: "http://localhost:8000/copilotkit_remote" },
+                    ],
+                });
+                ```
+            </Step>
+        </Steps>
+
+        ## Troubleshooting
+
+        A few things to try if you are running into trouble:
+
+        1. Make sure there is no other local application server running on the 8000 port.
+        2. Under `/agent/my_agent/demo.py`, change host from `0.0.0.0` to `127.0.0.1` or to `localhost`
+
+    </TailoredContentOption>
+</TailoredContent>
+
+### Test Your Implementation
+
+After setting up the remote endpoint and modifying your `CopilotRuntime`, you can test your implementation by asking the copilot to perform actions that invoke your Python backend. For example, ask the copilot: "Fetch the name for user ID `123`."
+
+### Advanced
+
+#### Configuring the Thread Pool Executor
+
+The request to the remote endpoint is made in a thread pool executor. You can configure the size of the thread pool executor by passing the `max_workers` parameter to the `add_fastapi_endpoint` function.
+
+```python
+add_fastapi_endpoint(app, sdk, "/copilotkit_remote", max_workers=10) # default is 10
+```
+
+#### Dynamically returning actions and agents
+
+Both the `actions` and `agents` parameters can optionally be functions that return a list of actions or agents. This allows you to dynamically return actions and agents based on the user's request.
+
+For example, to dynamically configure an agent based on properties from the frontend, set the properties on the frontend first:
+
+```tsx
+<CopilotKit properties={{someProperty: "xyz"}}>
+   <YourApp />
+</CopilotKit>
+```
+
+Then, in your backend, use a function to return dynamically configured agents:
+
+```python
+def build_agents(context):
+    return [
+        LangGraphAgent(
+            name="some_agent",
+            description="This agent does something",
+            graph=graph,
+            langgraph_config={
+                "some_property": context["properties"]["someProperty"]
+            }
+        )
+    ]
+
+
+app = FastAPI()
+sdk = CopilotKitRemoteEndpoint(
+    agents=build_agents,
+)
+```
+
+---

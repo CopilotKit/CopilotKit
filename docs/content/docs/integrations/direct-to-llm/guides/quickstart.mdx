@@ -1,0 +1,185 @@
+---
+title: "Quickstart"
+description: "Get started with CopilotKit in under 5 minutes."
+icon: "lucide/Play"
+hideTOC: true
+---
+
+import { LinkIcon } from "lucide-react";
+import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
+import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/self-hosting-copilot-runtime-configure-copilotkit-provider.mdx";
+import ConnectCopilotUI from "@/snippets/copilot-ui.mdx";
+import CopilotCloudConfigureCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
+import CloudCopilotKitProvider from "@/snippets/cloud/cloud-copilotkit-provider.mdx";
+import {
+  TailoredContent,
+  TailoredContentOption,
+} from "@/components/react/tailored-content.tsx";
+import { FaCloud, FaServer } from "react-icons/fa";
+
+## Using the CLI
+
+If you have a **NextJS** application, you can use our CLI to automatically bootstrap your application for use with CopilotKit.
+
+```bash
+npx copilotkit@latest init
+```
+
+<Accordions>
+  <Accordion title="Starting from scratch?">
+    No problem! Just use `create-next-app` to make a new NextJS application
+    quickly. ```bash npx create-next-app@latest ```
+  </Accordion>
+</Accordions>
+
+## Code-along
+
+If you don't have a NextJS application or just want to code-along, you can follow the steps below.
+
+<TailoredContent id="copilot-hosting">
+<TailoredContentOption
+  id="copilot-cloud"
+  title="Copilot Cloud (Recommended)"
+  description="Use our hosted backend endpoint to get started quickly."
+  icon={<FaCloud />}
+>
+
+<Steps>
+<Step>
+### Install CopilotKit
+
+First, install the latest packages for CopilotKit.
+
+```npm
+npm install @copilotkit/react-ui @copilotkit/react-core
+```
+
+</Step>
+<Step>
+### Get a Copilot Cloud Public API Key
+Navigate to [Copilot Cloud](https://cloud.copilotkit.ai) and follow the instructions to get a public API key - it's free!
+</Step>
+<Step>
+### Setup the CopilotKit Provider
+
+The [`<CopilotKit>`](/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
+it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
+
+<CloudCopilotKitProvider components={props.components} />
+
+</Step>
+<Step>
+### Choose a Copilot UI
+
+You are almost there! Now it's time to setup your Copilot UI.
+
+<ConnectCopilotUI components={props.components} />
+
+</Step>
+</Steps>
+</TailoredContentOption>
+<TailoredContentOption
+  id="self-hosted"
+  title="Self-hosting"
+  description="Learn to host CopilotKit's runtime yourself with your own backend."
+  icon={<FaServer />}
+>
+
+<Steps>
+<Step>
+### Install CopilotKit
+First, install the latest packages for CopilotKit.
+
+```npm
+npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime
+```
+
+</Step>
+<Step>
+### Set up a Copilot Runtime Endpoint
+
+<SelfHostingCopilotRuntimeCreateEndpoint components={props.components} />
+</Step>
+
+<Step>
+  ### Get Your Copilot Cloud API Key (Optional but Recommended)
+
+{" "}
+
+<Callout type="info">
+  While self-hosting, you can still leverage Copilot Cloud's enhanced
+  features for production-ready deployments.
+</Callout>
+
+1. Go to [Copilot Cloud](https://cloud.copilotkit.ai) and sign up for free
+2. Get your API key from the dashboard
+3. Add it to your environment variables:
+
+```plaintext title=".env"
+COPILOT_CLOUD_PUBLIC_API_KEY=your_api_key_here
+```
+
+**Why add this?**
+
+- **Free tier available** - Your requests will NOT be logged
+- **Production-ready features** - Enhanced error handling and observability
+- **Developer console** - Better debugging and monitoring (coming soon)
+- **Error observability** - Track and debug issues in production
+
+This enables CopilotKit platform features while still using your self-hosted runtime.
+
+</Step>
+
+<Step>
+### Configure the CopilotKit Provider
+
+<SelfHostingCopilotRuntimeConfigureCopilotKitProvider
+  components={props.components}
+/>
+
+</Step>
+<Step>
+### Choose a Copilot UI
+
+You are almost there! Now it's time to setup your Copilot UI.
+
+<ConnectCopilotUI components={props.components} />
+
+</Step>
+</Steps>
+</TailoredContentOption>
+</TailoredContent>
+
+---
+
+## Next Steps
+
+🎉 Congrats! You've successfully integrated a fully functional chatbot in your application! Give it a try now and see it in action. Want to
+take it further? Learn more about what CopilotKit has to offer!
+
+<Cards>
+  <Card
+    title="Connecting Your Data"
+    description="Learn how to connect CopilotKit to your data, application state and user state."
+    href="/direct-to-llm/guides/connect-your-data"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Generative UI"
+    description="Learn how to render custom UI components directly in the CopilotKit chat window."
+    href="/direct-to-llm/guides/generative-ui"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Frontend Tools"
+    description="Learn how to allow your copilot to execute tools in the frontend."
+    href="/direct-to-llm/guides/frontend-actions"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Copilots with Agent Frameworks"
+   description="Learn how to build agentic copilots using an Agent Framework like LangGraph, Mastra, or Pydantic AI."
+    href="/langgraph"
+    icon={<LinkIcon />}
+  />
+</Cards>
