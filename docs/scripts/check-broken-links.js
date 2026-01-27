@@ -81,7 +81,30 @@ function filePathToUrl(relativePath) {
 /**
  * Check if a link is valid
  */
-function isValidLink(url, allPages) {
+function isValidLink(url, allPages, sourceFile = null) {
+  // Handle relative links (starting with ./ or ../)
+  if (sourceFile && (url.startsWith('./') || url.startsWith('../'))) {
+    // Get the directory of the source file relative to DOCS_DIR
+    const relativePath = path.relative(DOCS_DIR, sourceFile);
+    const sourceDir = path.dirname(relativePath);
+
+    // Resolve the relative link
+    const resolvedPath = path.join(sourceDir, url);
+    // Normalize the path (removes ./ and ../)
+    const normalizedPath = path.normalize(resolvedPath);
+
+    // Convert to URL format (strip route groups, handle index files, etc.)
+    const resolvedUrl = filePathToUrl(normalizedPath);
+
+    // Check if this resolved path exists in allPages
+    return allPages.some(page => {
+      const pageUrl = page.url.replace(/\/$/, '');
+      const checkUrl = resolvedUrl.replace(/\/$/, '');
+      return pageUrl === checkUrl || pageUrl === resolvedUrl;
+    });
+  }
+
+  // Handle absolute links (starting with /)
   // Remove leading slash and normalize
   const normalizedUrl = url.startsWith('/') ? url.slice(1) : url;
 
@@ -179,7 +202,7 @@ async function main() {
 
   // Check each link
   allLinks.forEach(link => {
-    if (!isValidLink(link.url, allPages)) {
+    if (!isValidLink(link.url, allPages, link.file)) {
       brokenLinks.push(link);
     }
   });
