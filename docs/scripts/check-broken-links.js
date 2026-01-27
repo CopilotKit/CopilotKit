@@ -17,33 +17,65 @@ const EXCLUDE_PATTERNS = ['**/node_modules/**', '**/dist/**', '**/build/**'];
  */
 function extractLinks(filePath, content) {
   const links = [];
-  
+
   // Match markdown links [text](url)
   const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
   let match;
-  
+
   while ((match = markdownLinkRegex.exec(content)) !== null) {
     const [, text, url] = match;
-    
+
     // Skip external links
     if (url.startsWith('http') || url.startsWith('mailto:') || url.startsWith('tel:')) {
       continue;
     }
-    
+
     // Skip anchor links
     if (url.startsWith('#')) {
       continue;
     }
-    
+
+    // Remove anchors from internal links
+    const cleanUrl = url.split('#')[0];
+    if (!cleanUrl) continue; // Skip if it was only an anchor
+
     links.push({
       text: text.trim(),
-      url: url.trim(),
+      url: cleanUrl.trim(),
       file: filePath,
       line: content.substring(0, match.index).split('\n').length
     });
   }
-  
+
   return links;
+}
+
+/**
+ * Normalize file path to URL path
+ * Handles Fumadocs routing conventions:
+ * - Removes route groups like (root), (other)
+ * - Removes /integrations/ prefix
+ * - Converts index.mdx to parent folder
+ */
+function filePathToUrl(relativePath) {
+  let parts = relativePath.replace(/\.mdx$/, '').split('/');
+
+  // Remove route groups (folders wrapped in parentheses)
+  parts = parts.filter(part => !part.match(/^\([^)]+\)$/));
+
+  // Remove 'integrations' prefix if present
+  if (parts[0] === 'integrations') {
+    parts.shift();
+  }
+
+  // Handle index files - remove 'index' from the end
+  if (parts[parts.length - 1] === 'index') {
+    parts.pop();
+  }
+
+  // Join and ensure we have a clean path
+  const url = parts.join('/');
+  return url || '/'; // Root if empty
 }
 
 /**
@@ -52,12 +84,14 @@ function extractLinks(filePath, content) {
 function isValidLink(url, allPages) {
   // Remove leading slash and normalize
   const normalizedUrl = url.startsWith('/') ? url.slice(1) : url;
-  const slug = normalizedUrl.split('/').filter(Boolean);
-  
+
+  // Remove trailing slash
+  const cleanUrl = normalizedUrl.replace(/\/$/, '');
+
   // Check if page exists
   return allPages.some(page => {
-    const pageSlug = page.slugs.join('/');
-    return pageSlug === normalizedUrl || pageSlug === slug.join('/');
+    const pageUrl = page.url.replace(/\/$/, '');
+    return pageUrl === cleanUrl || pageUrl === normalizedUrl;
   });
 }
 
@@ -66,14 +100,14 @@ function isValidLink(url, allPages) {
  */
 function findMdxFiles(dir) {
   const files = [];
-  
+
   try {
     const items = fs.readdirSync(dir);
-    
+
     for (const item of items) {
       const fullPath = path.join(dir, item);
       const stat = fs.statSync(fullPath);
-      
+
       if (stat.isDirectory()) {
         // Recursively search subdirectories
         files.push(...findMdxFiles(fullPath));
@@ -84,33 +118,33 @@ function findMdxFiles(dir) {
   } catch (error) {
     console.error(`Error reading directory ${dir}:`, error.message);
   }
-  
+
   return files;
 }
 
 /**
- * Get all available pages
+ * Get all available pages with their URL mappings
  */
 function getAllPages() {
   const pages = [];
-  
+
   try {
     // Walk through the docs directory and find all .mdx files
     const files = findMdxFiles(DOCS_DIR);
-    
+
     files.forEach(file => {
       const relativePath = path.relative(DOCS_DIR, file);
-      const slug = relativePath.replace(/\.mdx$/, '').split('/');
-      
+      const url = filePathToUrl(relativePath);
+
       pages.push({
-        slugs: slug,
+        url: url,
         file: file
       });
     });
   } catch (error) {
     console.error('Error reading pages:', error);
   }
-  
+
   return pages;
 }
 
@@ -119,17 +153,17 @@ function getAllPages() {
  */
 async function main() {
   console.log('🔍 Checking for broken links...\n');
-  
+
   const allPages = getAllPages();
   const allLinks = [];
   const brokenLinks = [];
-  
+
   // Find all .mdx files
   const files = findMdxFiles(DOCS_DIR);
-  
+
   console.log(`📁 Found ${files.length} documentation files`);
   console.log(`📄 Found ${allPages.length} pages\n`);
-  
+
   // Extract links from all files
   files.forEach(file => {
     try {
@@ -140,28 +174,28 @@ async function main() {
       console.error(`Error reading ${file}:`, error.message);
     }
   });
-  
+
   console.log(`🔗 Found ${allLinks.length} internal links\n`);
-  
+
   // Check each link
   allLinks.forEach(link => {
     if (!isValidLink(link.url, allPages)) {
       brokenLinks.push(link);
     }
   });
-  
+
   // Report results
   if (brokenLinks.length === 0) {
     console.log('✅ No broken links found!');
   } else {
     console.log(`❌ Found ${brokenLinks.length} broken links:\n`);
-    
+
     brokenLinks.forEach(link => {
       console.log(`  📄 ${link.file}:${link.line}`);
       console.log(`     Link: [${link.text}](${link.url})`);
       console.log('');
     });
-    
+
     console.log('💡 Suggestions:');
     console.log('  - Check if the file exists');
     console.log('  - Verify the path is correct');
@@ -175,4 +209,4 @@ if (require.main === module) {
   main().catch(console.error);
 }
 
-module.exports = { extractLinks, isValidLink, getAllPages };
+module.exports = { extractLinks, isValidLink, getAllPages, filePathToUrl };
