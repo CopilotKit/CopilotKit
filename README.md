@@ -46,6 +46,11 @@ Build **agent-native applications** with interactive UI, shared state, and human
 
 ## Why CopilotKit
 
+
+https://github.com/user-attachments/assets/9f5fe471-e7ae-45a1-9566-7ed379f6161e
+
+
+
 CopilotKit lets you embed **AI agents directly into your product UI**, not just chat windows.
 
 - Interactive agent workflows —> tools can render UI, request input, and resume
