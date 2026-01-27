@@ -17,6 +17,7 @@ jest.mock("@copilotkit/shared", () => ({
       return defaultValue;
     }
   }),
+  dataToUUID: jest.fn((data) => JSON.stringify(data)),
   randomId: jest.fn(() => "test-random-id"),
   CopilotKitAgentDiscoveryError: jest.fn(),
   randomUUID: jest.fn(() => "mock-thread-id"),
