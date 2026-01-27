@@ -526,46 +526,92 @@ export function useCopilotChatInternal({
       const bridgeRenderer =
         legacyCustomMessageRenderer || renderCustomMessage
           ? () => {
-              const customRender = renderCustomMessage?.({
-                message,
-                position: "before",
-              });
-              if (customRender) {
-                return customRender;
+              if (legacyCustomMessageRenderer) {
+                return legacyCustomMessageRenderer({ message, position: "before" });
               }
-              return legacyCustomMessageRenderer?.({ message, position: "before" });
+              try {
+                return renderCustomMessage?.({ message, position: "before" }) ?? null;
+              } catch (error) {
+                console.warn(
+                  "[CopilotKit] renderCustomMessages failed, falling back to legacy renderer",
+                  error,
+                );
+                return null;
+              }
             }
           : null;
 
       if (bridgeRenderer) {
-        return { ...message, generativeUI: bridgeRenderer };
+        // Attach a position so react-ui can render the custom UI above the assistant content.
+        return {
+          ...message,
+          generativeUI: bridgeRenderer,
+          generativeUIPosition: "before" as const,
+        };
       }
       return message;
     });
 
     const hasAssistantMessages = processedMessages.some((msg) => msg.role === "assistant");
+    const canUseCustomRenderer = Boolean(
+      renderCustomMessage && copilotkit?.getAgent?.(resolvedAgentId),
+    );
+    const placeholderRenderer = legacyCustomMessageRenderer
+      ? legacyCustomMessageRenderer
+      : canUseCustomRenderer
+        ? renderCustomMessage
+        : null;
 
-    // TODO: what is this?
-    // if (legacyCustomMessageRenderer && !hasAssistantMessages) {
-    //   const placeholderId = `coagent-state-render-${resolvedAgentId}`;
-    //   const placeholderMessage: Message = {
-    //     id: placeholderId,
-    //     role: "assistant",
-    //     content: "",
-    //     name: "coagent-state-render",
-    //   };
-    //   processedMessages = [
-    //     ...processedMessages,
-    //     {
-    //       ...placeholderMessage,
-    //       generativeUI: () =>
-    //         legacyCustomMessageRenderer({
-    //           message: placeholderMessage,
-    //           position: "before",
-    //         }),
-    //     } as Message,
-    //   ];
-    // }
+    const shouldRenderPlaceholder =
+      Boolean(agent?.isRunning) || Boolean(agent?.state && Object.keys(agent.state).length);
+
+    const effectiveThreadId = threadId ?? agent?.threadId ?? "default";
+    let latestUserIndex = -1;
+    for (let i = processedMessages.length - 1; i >= 0; i -= 1) {
+      if (processedMessages[i].role === "user") {
+        latestUserIndex = i;
+        break;
+      }
+    }
+    const latestUserMessageId =
+      latestUserIndex >= 0 ? processedMessages[latestUserIndex].id : undefined;
+    const currentRunId = latestUserMessageId
+      ? copilotkit.getRunIdForMessage(resolvedAgentId, effectiveThreadId, latestUserMessageId) ||
+        `pending:${latestUserMessageId}`
+      : undefined;
+    const hasAssistantForCurrentRun =
+      latestUserIndex >= 0
+        ? processedMessages
+            .slice(latestUserIndex + 1)
+            .some((msg) => msg.role === "assistant")
+        : hasAssistantMessages;
+
+    // Insert a placeholder assistant message so state snapshots can render before any
+    // assistant text exists for the current run.
+    if (placeholderRenderer && shouldRenderPlaceholder && !hasAssistantForCurrentRun) {
+      const placeholderId = currentRunId
+        ? `coagent-state-render-${resolvedAgentId}-${currentRunId}`
+        : `coagent-state-render-${resolvedAgentId}`;
+      const placeholderMessage: Message = {
+        id: placeholderId,
+        role: "assistant",
+        content: "",
+        name: "coagent-state-render",
+        runId: currentRunId,
+      };
+      processedMessages = [
+        ...processedMessages,
+        {
+          ...placeholderMessage,
+          generativeUIPosition: "before" as const,
+          generativeUI: () =>
+            placeholderRenderer({
+              message: placeholderMessage,
+              position: "before",
+            }),
+        } as Message,
+      ];
+    }
 
     return processedMessages;
   }, [
@@ -573,8 +619,11 @@ export function useCopilotChatInternal({
     lazyToolRendered,
     allMessages,
     renderCustomMessage,
-    // legacyCustomMessageRenderer,
+    legacyCustomMessageRenderer,
     resolvedAgentId,
+    copilotkit,
+    agent?.isRunning,
+    agent?.state,
   ]);
 
   const renderedSuggestions = useMemo(() => {
@@ -650,7 +699,10 @@ function useLegacyCoagentRenderer({
 
     return ({ message, position }: LegacyRenderParams) => {
       const effectiveThreadId = threadId ?? agent.threadId ?? "default";
-      const existingRunId = copilotkit.getRunIdForMessage(agentId, effectiveThreadId, message.id);
+      const providedRunId = (message as any).runId as string | undefined;
+      const existingRunId = providedRunId
+        ? providedRunId
+        : copilotkit.getRunIdForMessage(agentId, effectiveThreadId, message.id);
       const runId = existingRunId || `pending:${message.id}`;
       const messageIndex = Math.max(
         agent.messages.findIndex((msg) => msg.id === message.id),
