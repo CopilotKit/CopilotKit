@@ -32,7 +32,6 @@ export type CopilotChatViewProps = WithSlots<
     messageView: typeof CopilotChatMessageView;
     scrollView: typeof CopilotChatView.ScrollView;
     input: typeof CopilotChatInput;
-    feather: React.FC<React.HTMLAttributes<HTMLDivElement>>;
     suggestionView: typeof CopilotChatSuggestionView;
   },
   {
@@ -60,7 +59,6 @@ export function CopilotChatView({
   messageView,
   input,
   scrollView,
-  feather,
   suggestionView,
   welcomeScreen,
   messages = [],
@@ -167,8 +165,6 @@ export function CopilotChatView({
       })
     : null;
 
-  const BoundFeather = renderSlot(feather, CopilotChatView.Feather, {});
-
   const BoundScrollView = renderSlot(scrollView, CopilotChatView.ScrollView, {
     autoScroll,
     inputContainerHeight,
@@ -230,7 +226,6 @@ export function CopilotChatView({
       messageView: BoundMessageView,
       input: BoundInput,
       scrollView: BoundScrollView,
-      feather: BoundFeather,
       suggestionView: BoundSuggestionView ?? <></>,
     });
   }
@@ -238,8 +233,6 @@ export function CopilotChatView({
   return (
     <div className={twMerge("relative h-full", className)} {...props}>
       {BoundScrollView}
-
-      {BoundFeather}
 
       {BoundInput}
     </div>
@@ -251,10 +244,13 @@ export namespace CopilotChatView {
   const ScrollContent: React.FC<{
     children: React.ReactNode;
     scrollToBottomButton?: SlotValue<React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>>>;
+    feather?: SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>>;
     inputContainerHeight: number;
     isResizing: boolean;
-  }> = ({ children, scrollToBottomButton, inputContainerHeight, isResizing }) => {
+  }> = ({ children, scrollToBottomButton, feather, inputContainerHeight, isResizing }) => {
     const { isAtBottom, scrollToBottom } = useStickToBottomContext();
+
+    const BoundFeather = renderSlot(feather, CopilotChatView.Feather, {});
 
     return (
       <>
@@ -264,6 +260,9 @@ export namespace CopilotChatView {
         >
         <div className="px-4 sm:px-0 [div[data-sidebar-chat]_&]:px-8 [div[data-popup-chat]_&]:px-6">{children}</div>
         </StickToBottom.Content>
+
+        {/* Feather gradient overlay */}
+        {BoundFeather}
 
         {/* Scroll to bottom button - hidden during resize */}
         {!isAtBottom && !isResizing && (
@@ -286,6 +285,7 @@ export namespace CopilotChatView {
     React.HTMLAttributes<HTMLDivElement> & {
       autoScroll?: boolean;
       scrollToBottomButton?: SlotValue<React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>>>;
+      feather?: SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>>;
       inputContainerHeight?: number;
       isResizing?: boolean;
     }
@@ -293,6 +293,7 @@ export namespace CopilotChatView {
     children,
     autoScroll = true,
     scrollToBottomButton,
+    feather,
     inputContainerHeight = 0,
     isResizing = false,
     className,
@@ -341,6 +342,8 @@ export namespace CopilotChatView {
 
     // When autoScroll is false, we don't use StickToBottom
     if (!autoScroll) {
+      const BoundFeather = renderSlot(feather, CopilotChatView.Feather, {});
+
       return (
         <div
           ref={scrollRef}
@@ -353,6 +356,9 @@ export namespace CopilotChatView {
           <div ref={contentRef} className="px-4 sm:px-0 [div[data-sidebar-chat]_&]:px-8 [div[data-popup-chat]_&]:px-6">
             {children}
           </div>
+
+          {/* Feather gradient overlay */}
+          {BoundFeather}
 
           {/* Scroll to bottom button for manual mode */}
           {showScrollButton && !isResizing && (
@@ -380,6 +386,7 @@ export namespace CopilotChatView {
       >
         <ScrollContent
           scrollToBottomButton={scrollToBottomButton}
+          feather={feather}
           inputContainerHeight={inputContainerHeight}
           isResizing={isResizing}
         >

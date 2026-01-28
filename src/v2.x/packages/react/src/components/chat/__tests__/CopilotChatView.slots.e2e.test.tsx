@@ -112,13 +112,13 @@ describe("CopilotChatView Slot System E2E Tests", () => {
       });
     });
 
-    describe("feather slot", () => {
-      it("should apply tailwind class string to feather", () => {
+    describe("feather slot (via scrollView)", () => {
+      it("should apply tailwind class string to feather via scrollView", () => {
         const { container } = render(
           <TestWrapper>
             <CopilotChatView
               messages={sampleMessages}
-              feather="text-green-500 font-bold"
+              scrollView={{ feather: "text-green-500 font-bold" }}
             />
           </TestWrapper>
         );
@@ -451,17 +451,17 @@ describe("CopilotChatView Slot System E2E Tests", () => {
       });
     });
 
-    describe("feather custom component", () => {
-      it("should render custom feather component", () => {
+    describe("feather custom component (via scrollView)", () => {
+      it("should render custom feather component via scrollView", () => {
         const CustomFeather: React.FC<any> = () => (
-          <div data-testid="custom-feather">🪶 Custom Feather</div>
+          <div data-testid="custom-feather">Custom Feather</div>
         );
 
         render(
           <TestWrapper>
             <CopilotChatView
               messages={sampleMessages}
-              feather={CustomFeather}
+              scrollView={{ feather: CustomFeather }}
             />
           </TestWrapper>
         );

@@ -26,11 +26,12 @@ CopilotChat is built on a composable component hierarchy. Understanding this str
 graph LR
     CC[CopilotChat] --> messageView
     CC --> scrollView
-    CC --> scrollToBottomButton
     CC --> input
-    CC --> feather
     CC --> suggestionView
     CC --> welcomeScreen
+    scrollView --> scrollToBottomButton
+    scrollView --> feather
+    input --> disclaimer
 ```
 
 ### Slot Descriptions
@@ -39,9 +40,10 @@ graph LR
 |------|-------------|
 | `messageView` | Container for the message list (user and assistant messages) |
 | `scrollView` | Scrollable container with auto-scroll behavior |
-| `scrollToBottomButton` | Button that appears when scrolled up |
+| `scrollView.scrollToBottomButton` | Button that appears when scrolled up |
+| `scrollView.feather` | Gradient overlay at the bottom of scroll area |
 | `input` | Text input with toolbar, transcription support, and disclaimer |
-| `feather` | Decorative gradient overlay at the bottom |
+| `input.disclaimer` | Footer text below the input |
 | `suggestionView` | Clickable suggestion chips |
 | `welcomeScreen` | Initial screen before any messages |
 
