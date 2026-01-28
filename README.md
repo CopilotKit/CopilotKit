@@ -1,8 +1,31 @@
+
 <div align=center>
+
+<img width="175" height="175" alt="logo_square_8" src="https://github.com/user-attachments/assets/3ff118b5-097e-4cd4-b169-38c29f57beb5" />
+
   
 # CopilotKit🪁
-  
+
+<div align=center>
+
+
+[Docs](https://docs.copilotkit.ai/?ref=github_readme) ·
+[Examples](https://www.copilotkit.ai/examples) ·
+[Copilot Cloud](https://cloud.copilotkit.ai?ref=github_readme) ·
+[Discord](https://discord.gg/6dffbvGU3D?ref=github_readme)
+
 </div>
+
+Build **agent-native applications** with interactive UI, shared state, and human-in-the-loop workflows.
+ 
+</div>
+
+
+
+
+
+[![CopilotKit](https://github.com/user-attachments/assets/aeb56c28-c766-44a5-810c-5d999bb6a32a)](https://go.copilotkit.ai/copilotkit-docs)
+
 
 <div align="center" style="display:flex;justify-content:start;gap:16px;height:20px;margin: 0;">
   <a href="https://www.npmjs.com/package/@copilotkit/react-core" target="_blank">
@@ -32,24 +55,6 @@
 
   </div>
 
-[![CopilotKit](https://github.com/user-attachments/assets/aeb56c28-c766-44a5-810c-5d999bb6a32a)](https://go.copilotkit.ai/copilotkit-docs)
-
-
-<div align=center>
-
-Build **agent-native applications** with interactive UI, shared state, and human-in-the-loop workflows.
-
-
-
-[Docs](https://docs.copilotkit.ai/?ref=github_readme) ·
-[Examples](https://www.copilotkit.ai/examples) ·
-[Copilot Cloud](https://cloud.copilotkit.ai?ref=github_readme) ·
-[Discord](https://discord.gg/6dffbvGU3D?ref=github_readme)
-
-</div>
-
-
-
 
 
 ---
@@ -64,13 +69,13 @@ https://github.com/user-attachments/assets/9f5fe471-e7ae-45a1-9566-7ed379f6161e
 
 
 
-**Features:** 
+**Features:**
 
-- Chat UI
-- Backend Tool Rendering
-- Generative UI
-- Shared State
-- Human-in-the-Loop
+- **Chat UI** – A React-based chat interface that supports message streaming, tool calls, and agent responses.
+- **Backend Tool Rendering** – Enables agents to call backend tools that return UI components rendered directly in the client.
+- **Generative UI** – Allows agents to generate and update UI components dynamically at runtime based on user intent and agent state.
+- **Shared State** – A synchronized state layer that both agents and UI components can read from and write to in real time.
+- **Human-in-the-Loop** – Lets agents pause execution to request user input, confirmation, or edits before continuing.
 
 
 https://github.com/user-attachments/assets/7ac61296-7bef-4d0b-9ff5-c70cde031441
@@ -152,14 +157,20 @@ https://github.com/user-attachments/assets/67928406-8abc-49a1-a851-98018b52174f
 
 Generative UI is a core CopilotKit pattern that allows agents to dynamically render UI as part of their workflow.
 
-https://github.com/user-attachments/assets/ba11f200-98d4-4319-8305-1bca751b903b
+https://github.com/user-attachments/assets/3cfacac0-4ffd-457a-96f9-d7951e4ab7b6
 
 ### Three Types
-- Static (AG-UI Protocol)
-- Delclaritive (A2UI)
-- Open Ended (MCP Apps & Open JSON)
 
-<img width="561" height="472" alt="image" src="https://github.com/user-attachments/assets/c76b3b59-c8c3-4771-9d5f-62524eaf18f9" />
+<img width="708" height="311" alt="image" src="https://github.com/user-attachments/assets/962f49c2-31ea-43c5-b2a3-7cdde114705a" />
+
+- [Static (AG-UI Protocol)](https://docs.copilotkit.ai/ag-ui-protocol)
+- [Delclaritive (A2UI)](https://docs.copilotkit.ai/generative-ui/specs/a2ui#using-a2ui-with-copilotkit)
+- [Open-Ended (MCP Apps & Open JSON)](https://docs.copilotkit.ai/generative-ui/specs/mcp-apps)
+
+
+
+
+
 
 
 Instead of responding only with text, agents can:
@@ -184,137 +195,10 @@ Agent → State Update or Tool Call
 
 
 
-## 🖥️ AG-UI Protocol
-
-#### Community & contributing 
-
-[What's New - Public Roadmap](https://github.com/orgs/ag-ui-protocol/projects/1)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<span>Drop in these building blocks and tailor them to your needs.</span>
-
-<h3>Build with Headless APIs and Pre-Built Components</h3>
-
-```ts
-// Headless UI with full control
-const { copilotkit } = useCopilotKit();
-const { agent } = useAgent({ agentId: "my_agent" });
-const { messages, addMessage, setMessages, state, ... } = agent;
-
-copilotkit.runAgent({ agent })
-
-// Pre-built components with deep customization options (CSS + pass custom sub-components)
-<CopilotSidebar 
-  instructions={"You are assisting the user as best as you can. Answer in the best way possible given the data you have."} 
-  labels={{ title: "Sidebar Assistant", initial: "Need any help?" }} 
-/>
-```
-
-<h3>Deeply integrate LLMs or agents into your application</h3>
-
-
-```ts
-// Build generative UI based on your agent's state
-useCoAgentStateRender({
-  name: "my_agent",
-  render: ({ state }) => <WeatherDisplay {...state.final_response} />,
-});
-```
-
-```ts
-// Frontend actions + generative UI, with full streaming support
-useFrontendTool({
-  name: "appendToSpreadsheet",
-  description: "Append rows to the current spreadsheet",
-  parameters: [
-    { name: "rows", type: "object[]", attributes: [{ name: "cells", type: "object[]", attributes: [{ name: "value", type: "string" }] }] }
-  ],
-  render: ({ status, args }) => <Spreadsheet data={canonicalSpreadsheetData(args.rows)} />,
-  handler: ({ rows }) => setSpreadsheet({ ...spreadsheet, rows: [...spreadsheet.rows, ...canonicalSpreadsheetData(rows)] }),
-});
-```
-
-```ts
-// Human in the Loop (Approval)
-useHumanInTheLoop({
-  name: "email_tool",
-  parameters: [
-    {
-      name: "email_draft",
-      type: "string",
-      description: "The email content",
-      required: true,
-    },
-  ],
-  render: ({ args, status, respond }) => {
-    return (
-      <EmailConfirmation
-        emailContent={args.email_draft || ""}
-        isExecuting={status === "executing"}
-        onCancel={() => respond?.({ approved: false })}
-        onSend={() =>
-          respond?.({
-            approved: true,
-            metadata: { sentAt: new Date().toISOString() },
-          })
-        }
-      />
-    );
-  },
-});
-```
-```ts
-// Build generative UI on-top of your agent's tool calls
-useRenderToolCall({
-  name: "get_weather", // tool defined in your agent
-  args: [{
-    name: "city",
-    type: "string",
-    required: true,
-  }],
-  render: ({ args, result }) => {
-    <WeatherCard  
-      city={args.city}
-      temperature={result.temperature}
-      description={result.description}
-    />
-  }
-})
-````
-
-## 🏆 Featured Examples
-
-<p align="center">
-  <a href="https://www.copilotkit.ai/examples/form-filling-copilot">
-    <img width="290" height="304" alt="Banner 2 A" src="https://github.com/user-attachments/assets/90c42b54-8931-45ad-9c0b-53f7f67453a1" />
-  </a>
-  <a href="https://www.copilotkit.ai/examples/state-machine-copilot">
-    <img width="290" height="304" alt="Banner 2 A-1" src="https://github.com/user-attachments/assets/609c62eb-76af-4866-a353-5e3545470ec3" />
-  </a>
-  <a href="https://www.copilotkit.ai/examples/chat-with-your-data">
-    <img width="290" height="304" alt="Banner 2 A-2" src="https://github.com/user-attachments/assets/c614ac4e-d2b3-4514-9ef1-fdba04c0a082" />
-  </a>
-</p>
-
 ## 🖥️ AG-UI: The Agent–User Interaction Protocol
 Connect agent workflow to user-facing apps, with deep partnerships and 1st-party integrations across the agentic stack—including LangGraph, CrewAI, and more.
+<img width="914" height="930" alt="image" src="https://github.com/user-attachments/assets/94473935-d13c-46c1-a5a7-e7e71ee207e5" />
+
 
 
   <a href="https://github.com/ag-ui-protocol/ag-ui" target="_blank">
@@ -322,6 +206,7 @@ Connect agent workflow to user-facing apps, with deep partnerships and 1st-party
   </a>
 
 ## 🤝 Community
+- [What's New](https://docs.copilotkit.ai/whats-new)
 <h3>Have questions or need help?</h3>
   <a href="https://discord.gg/6dffbvGU3D?ref=github_readme" target="_blank">
    Join our Discord →
