@@ -51,10 +51,14 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
 
   const LoadingIcon = () => <span>{icons.activityIcon}</span>;
   const content = message?.content || "";
-  const subComponent = message?.generativeUI?.();
+  const subComponent = message?.generativeUI?.() ?? props.subComponent;
+  const subComponentPosition = message?.generativeUIPosition ?? "after";
+  const renderBefore = subComponent && subComponentPosition === "before";
+  const renderAfter = subComponent && subComponentPosition !== "before";
 
   return (
     <>
+      {renderBefore ? <div style={{ marginBottom: "0.5rem" }}>{subComponent}</div> : null}
       {content && (
         <div className="copilotKitMessage copilotKitAssistantMessage">
           {content && <Markdown content={content} components={markdownTagRenderers} />}
@@ -111,7 +115,7 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
           )}
         </div>
       )}
-      <div style={{ marginBottom: "0.5rem" }}>{subComponent}</div>
+      {renderAfter ? <div style={{ marginBottom: "0.5rem" }}>{subComponent}</div> : null}
       {isLoading && <LoadingIcon />}
     </>
   );

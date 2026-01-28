@@ -13,6 +13,7 @@ interface StateRenderClaim {
   stateRenderId: string;
   stateSnapshot?: any;
   runId?: string;
+  messageIndex?: number;
   locked?: boolean;
 }
 

@@ -19,9 +19,11 @@ export type ToolResult = agui.ToolMessage & {
 
 export type AIMessage = agui.AssistantMessage & {
   generativeUI?: (props?: any) => any;
+  generativeUIPosition?: "before" | "after";
   agentName?: string;
   state?: any;
   image?: ImageData;
+  runId?: string;
 };
 
 export type UserMessage = agui.UserMessage & {
