@@ -30,26 +30,33 @@ export async function handleConnectAgent({
       );
     }
 
+    // Parse and validate input BEFORE creating the stream
+    // so we can return a proper error response
+    let input: RunAgentInput;
+    try {
+      const requestBody = await request.json();
+      input = RunAgentInputSchema.parse(requestBody);
+    } catch (error) {
+      console.error("Invalid connect request body:", error);
+      return new Response(
+        JSON.stringify({
+          error: "Invalid request body",
+          details: error instanceof Error ? error.message : String(error),
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
     const stream = new TransformStream();
     const writer = stream.writable.getWriter();
     const encoder = new EventEncoder();
     let streamClosed = false;
 
-    // Process the request in the background
+    // Process the agent connect in the background
     (async () => {
-      let input: RunAgentInput;
-      try {
-        const requestBody = await request.json();
-        input = RunAgentInputSchema.parse(requestBody);
-      } catch {
-        return new Response(
-          JSON.stringify({
-            error: "Invalid request body",
-          }),
-          { status: 400 }
-        );
-      }
-
       runtime.runner
         .connect({
           threadId: input.threadId,
