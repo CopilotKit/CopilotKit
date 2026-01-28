@@ -457,10 +457,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       const publicApiKey = request.headers.get("x-copilotcloud-public-api-key");
       const body = (await readBody(request)) as RunAgentInput;
 
-      // We do not process middleware for the internal GET requests
-      if (request.method === "GET" || !body) return;
-
-      const forwardedProps = body.forwardedProps as
+      const forwardedProps = body?.forwardedProps as
         | {
             cloud?: { guardrails?: unknown };
             metadata?: { requestType?: string };
@@ -477,6 +474,9 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         ...(publicApiKey ? { "cloud.public_api_key": publicApiKey } : {}),
         "cloud.base_url": cloudBaseUrl,
       });
+
+      // We do not process middleware for the internal GET requests
+      if (request.method === "GET" || !body) return;
 
       // TODO: get public api key and run with expected data
       // if (this.observability?.enabled && this.params.publicApiKey) {
@@ -510,7 +510,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       }
 
       return middlewareResult;
-    };
+    };;
   }
 
   private createOnAfterRequestHandler(
