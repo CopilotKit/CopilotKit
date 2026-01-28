@@ -32,9 +32,7 @@ export type CopilotChatViewProps = WithSlots<
     messageView: typeof CopilotChatMessageView;
     scrollView: typeof CopilotChatView.ScrollView;
     input: typeof CopilotChatInput;
-    inputContainer: React.FC<React.HTMLAttributes<HTMLDivElement> & { children: React.ReactNode }>;
     feather: React.FC<React.HTMLAttributes<HTMLDivElement>>;
-    disclaimer: React.FC<React.HTMLAttributes<HTMLDivElement>>;
     suggestionView: typeof CopilotChatSuggestionView;
   },
   {
@@ -63,8 +61,6 @@ export function CopilotChatView({
   input,
   scrollView,
   feather,
-  inputContainer,
-  disclaimer,
   suggestionView,
   welcomeScreen,
   messages = [],
@@ -155,6 +151,10 @@ export function CopilotChatView({
     onCancelTranscribe,
     onFinishTranscribe,
     onFinishTranscribeWithAudio,
+    positioning: "absolute",
+    keyboardHeight: isKeyboardOpen ? keyboardHeight : 0,
+    containerRef: inputContainerRef,
+    showDisclaimer: true,
   } as CopilotChatInputProps);
 
   const hasSuggestions = Array.isArray(suggestions) && suggestions.length > 0;
@@ -183,20 +183,6 @@ export function CopilotChatView({
     ),
   });
 
-  const BoundDisclaimer = renderSlot(disclaimer, CopilotChatView.Disclaimer, {});
-
-  const BoundInputContainer = renderSlot(inputContainer, CopilotChatView.InputContainer, {
-    ref: inputContainerRef,
-    keyboardHeight: isKeyboardOpen ? keyboardHeight : 0,
-    children: (
-      <>
-        <div className="max-w-3xl mx-auto py-0 px-4 sm:px-0 [div[data-sidebar-chat]_&]:px-8 [div[data-popup-chat]_&]:px-6 pointer-events-auto">
-          {BoundInput}
-        </div>
-        {BoundDisclaimer}
-      </>
-    ),
-  });
 
   // Welcome screen logic
   const isEmpty = messages.length === 0;
@@ -205,13 +191,29 @@ export function CopilotChatView({
   const shouldShowWelcomeScreen = isEmpty && !welcomeScreenDisabled;
 
   if (shouldShowWelcomeScreen) {
+    // Create a separate input for welcome screen with static positioning and disclaimer visible
+    const BoundInputForWelcome = renderSlot(input, CopilotChatInput, {
+      onSubmitMessage,
+      onStop,
+      mode: inputMode,
+      value: inputValue,
+      onChange: onInputChange,
+      isRunning,
+      onStartTranscribe,
+      onCancelTranscribe,
+      onFinishTranscribe,
+      onFinishTranscribeWithAudio,
+      positioning: "static",
+      showDisclaimer: true,
+    } as CopilotChatInputProps);
+
     // Convert boolean `true` to undefined (use default), and exclude `false` since we've checked for it
     const welcomeScreenSlot = (welcomeScreen === true ? undefined : welcomeScreen) as SlotValue<React.FC<WelcomeScreenProps>> | undefined;
     const BoundWelcomeScreen = renderSlot(
       welcomeScreenSlot,
       CopilotChatView.WelcomeScreen,
       {
-        input: BoundInput,
+        input: BoundInputForWelcome,
         suggestionView: BoundSuggestionView ?? <></>,
       }
     );
@@ -229,8 +231,6 @@ export function CopilotChatView({
       input: BoundInput,
       scrollView: BoundScrollView,
       feather: BoundFeather,
-      inputContainer: BoundInputContainer,
-      disclaimer: BoundDisclaimer,
       suggestionView: BoundSuggestionView ?? <></>,
     });
   }
@@ -241,7 +241,7 @@ export function CopilotChatView({
 
       {BoundFeather}
 
-      {BoundInputContainer}
+      {BoundInput}
     </div>
   );
 }
@@ -422,40 +422,6 @@ export namespace CopilotChatView {
       {...props}
     />
   );
-
-  export const InputContainer = React.forwardRef<
-    HTMLDivElement,
-    React.HTMLAttributes<HTMLDivElement> & { children: React.ReactNode; keyboardHeight?: number }
-  >(({ children, className, keyboardHeight = 0, ...props }, ref) => (
-    <div
-      ref={ref}
-      className={cn("absolute bottom-0 left-0 right-0 z-20 pointer-events-none", className)}
-      style={{
-        // Adjust position when keyboard is open to keep input visible
-        transform: keyboardHeight > 0 ? `translateY(-${keyboardHeight}px)` : undefined,
-        transition: "transform 0.2s ease-out",
-      }}
-      {...props}
-    >
-      {children}
-    </div>
-  ));
-
-  InputContainer.displayName = "CopilotChatView.InputContainer";
-
-  export const Disclaimer: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, ...props }) => {
-    const config = useCopilotChatConfiguration();
-    const labels = config?.labels ?? CopilotChatDefaultLabels;
-
-    return (
-      <div
-        className={cn("text-center text-xs text-muted-foreground py-3 px-4 max-w-3xl mx-auto", className)}
-        {...props}
-      >
-        {labels.chatDisclaimerText}
-      </div>
-    );
-  };
 
   export const WelcomeMessage: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
     className,

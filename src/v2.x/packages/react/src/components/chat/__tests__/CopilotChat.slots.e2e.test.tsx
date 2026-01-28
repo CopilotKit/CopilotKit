@@ -212,19 +212,19 @@ describe("CopilotChat Slot System E2E Tests", () => {
       expect(scrollView).toBeDefined();
     });
 
-    it("should allow customizing nested inputContainer slot via props", () => {
+    it("should allow customizing nested input slot via props", () => {
       const { container } = render(
         <TestWrapper>
           <CopilotChat
             chatView={{
-              inputContainer: "custom-input-container bg-slate-100",
+              input: "custom-input bg-slate-100",
             }}
           />
         </TestWrapper>
       );
 
-      const inputContainer = container.querySelector(".custom-input-container");
-      expect(inputContainer).toBeDefined();
+      const input = container.querySelector(".custom-input");
+      expect(input).toBeDefined();
     });
   });
 

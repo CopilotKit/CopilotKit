@@ -221,19 +221,19 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
       });
     });
 
-    describe("inputContainer slot (inherited)", () => {
-      it("should apply tailwind class string to inherited inputContainer", () => {
+    describe("input slot (inherited)", () => {
+      it("should apply tailwind class string to inherited input", () => {
         const { container } = render(
           <TestWrapper>
             <CopilotPopupView
               messages={sampleMessages}
-              inputContainer="bg-gray-100 rounded-b-2xl"
+              input="bg-gray-100 rounded-b-2xl"
             />
           </TestWrapper>
         );
 
-        const inputContainer = container.querySelector(".bg-gray-100");
-        expect(inputContainer).toBeDefined();
+        const input = container.querySelector(".bg-gray-100");
+        expect(input).toBeDefined();
       });
     });
   });

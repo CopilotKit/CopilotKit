@@ -28,9 +28,7 @@ graph LR
     CC --> scrollView
     CC --> scrollToBottomButton
     CC --> input
-    CC --> inputContainer
     CC --> feather
-    CC --> disclaimer
     CC --> suggestionView
     CC --> welcomeScreen
 ```
@@ -42,10 +40,8 @@ graph LR
 | `messageView` | Container for the message list (user and assistant messages) |
 | `scrollView` | Scrollable container with auto-scroll behavior |
 | `scrollToBottomButton` | Button that appears when scrolled up |
-| `input` | Text input with toolbar and transcription support |
-| `inputContainer` | Wrapper around input and feather icon |
-| `feather` | Decorative icon next to the input |
-| `disclaimer` | Footer text below the input |
+| `input` | Text input with toolbar, transcription support, and disclaimer |
+| `feather` | Decorative gradient overlay at the bottom |
 | `suggestionView` | Clickable suggestion chips |
 | `welcomeScreen` | Initial screen before any messages |
 
@@ -411,8 +407,10 @@ function App() {
               onThumbsDown: (msg) => handleFeedback(msg.id, "negative"),
             },
           }}
-          input="border-2 border-gray-200 rounded-xl"
-          disclaimer="text-xs text-gray-400"
+          input={{
+            className: "border-2 border-gray-200 rounded-xl",
+            disclaimer: "text-xs text-gray-400",
+          }}
         />
       </div>
     </CopilotKitProvider>

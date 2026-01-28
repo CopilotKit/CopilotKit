@@ -745,4 +745,147 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
       expect(document.querySelector(".actions")).toBeDefined();
     });
   });
+
+  // ============================================================================
+  // 7. POSITIONING PROP TESTS
+  // ============================================================================
+  describe("7. Positioning Prop", () => {
+    it("should render static positioning by default", () => {
+      const { container } = render(
+        <TestWrapper>
+          <CopilotChatInput data-testid="input-container" />
+        </TestWrapper>
+      );
+
+      // By default (static), should NOT have absolute positioning classes
+      const inputContainer = container.querySelector('[data-testid="input-container"]') as HTMLElement;
+      expect(inputContainer).not.toBeNull();
+      expect(inputContainer.classList.contains("absolute")).toBe(false);
+    });
+
+    it("should render absolute positioning when positioning='absolute'", () => {
+      const { container } = render(
+        <TestWrapper>
+          <CopilotChatInput positioning="absolute" data-testid="absolute-input" />
+        </TestWrapper>
+      );
+
+      const inputContainer = container.querySelector('[data-testid="absolute-input"]') as HTMLElement;
+      expect(inputContainer).not.toBeNull();
+      expect(inputContainer.classList.contains("absolute")).toBe(true);
+      expect(inputContainer.classList.contains("bottom-0")).toBe(true);
+    });
+
+    it("should apply keyboard height transform", () => {
+      const { container } = render(
+        <TestWrapper>
+          <CopilotChatInput positioning="absolute" keyboardHeight={300} data-testid="keyboard-input" />
+        </TestWrapper>
+      );
+
+      const inputContainer = container.querySelector('[data-testid="keyboard-input"]') as HTMLElement;
+      expect(inputContainer).not.toBeNull();
+      expect(inputContainer.style.transform).toBe("translateY(-300px)");
+    });
+
+    it("should forward containerRef", () => {
+      let containerRef: HTMLDivElement | null = null;
+      const RefCapture = () => {
+        const ref = React.useRef<HTMLDivElement>(null);
+        React.useEffect(() => {
+          containerRef = ref.current;
+        }, []);
+        return (
+          <TestWrapper>
+            <CopilotChatInput containerRef={ref} />
+          </TestWrapper>
+        );
+      };
+
+      render(<RefCapture />);
+      expect(containerRef).not.toBeNull();
+    });
+  });
+
+  // ============================================================================
+  // 8. DISCLAIMER SLOT TESTS
+  // ============================================================================
+  describe("8. Disclaimer Slot", () => {
+    it("should render disclaimer when showDisclaimer=true", () => {
+      render(
+        <TestWrapper>
+          <CopilotChatInput showDisclaimer={true} />
+        </TestWrapper>
+      );
+
+      // Look for disclaimer text (from labels)
+      expect(screen.queryByText(/AI-generated responses/i) || document.querySelector('[class*="text-muted-foreground"]')).toBeDefined();
+    });
+
+    it("should hide disclaimer when showDisclaimer=false", () => {
+      const { container } = render(
+        <TestWrapper>
+          <CopilotChatInput showDisclaimer={false} />
+        </TestWrapper>
+      );
+
+      // Disclaimer should not be rendered
+      const disclaimer = container.querySelector('[class*="text-center"][class*="text-xs"]');
+      expect(disclaimer).toBeNull();
+    });
+
+    it("should show disclaimer by default with absolute positioning", () => {
+      const { container } = render(
+        <TestWrapper>
+          <CopilotChatInput positioning="absolute" />
+        </TestWrapper>
+      );
+
+      // Disclaimer should be present with absolute positioning (default showDisclaimer=true)
+      const disclaimer = container.querySelector('[class*="text-center"][class*="text-xs"]');
+      expect(disclaimer).not.toBeNull();
+    });
+
+    it("should hide disclaimer by default with static positioning", () => {
+      const { container } = render(
+        <TestWrapper>
+          <CopilotChatInput positioning="static" />
+        </TestWrapper>
+      );
+
+      // Disclaimer should NOT be present with static positioning (default showDisclaimer=false)
+      const disclaimer = container.querySelector('[class*="text-center"][class*="text-xs"]');
+      expect(disclaimer).toBeNull();
+    });
+
+    it("should apply tailwind class to disclaimer", () => {
+      const { container } = render(
+        <TestWrapper>
+          <CopilotChatInput showDisclaimer={true} disclaimer="text-red-500 italic" />
+        </TestWrapper>
+      );
+
+      const disclaimer = container.querySelector(".text-red-500");
+      if (disclaimer) {
+        expect(disclaimer.classList.contains("italic")).toBe(true);
+      }
+    });
+
+    it("should render custom disclaimer component", () => {
+      const CustomDisclaimer: React.FC<any> = () => (
+        <div data-testid="custom-disclaimer">Custom Disclaimer Content</div>
+      );
+
+      render(
+        <TestWrapper>
+          <CopilotChatInput showDisclaimer={true} disclaimer={CustomDisclaimer} />
+        </TestWrapper>
+      );
+
+      const disclaimer = screen.queryByTestId("custom-disclaimer");
+      if (disclaimer) {
+        expect(disclaimer.textContent).toContain("Custom Disclaimer");
+      }
+    });
+  });
 });

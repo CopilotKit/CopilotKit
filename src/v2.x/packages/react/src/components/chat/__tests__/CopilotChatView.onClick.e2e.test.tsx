@@ -55,22 +55,22 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
       });
     });
 
-    describe("inputContainer onClick", () => {
-      it("should handle onClick on inputContainer via props object", () => {
+    describe("input onClick", () => {
+      it("should handle onClick on input via props object", () => {
         const onClick = vi.fn();
         const { container } = render(
           <TestWrapper>
             <CopilotChatView
               messages={createMessages()}
-              inputContainer={{ onClick, "data-testid": "input-container" } as any}
+              input={{ onClick, "data-testid": "input-slot" } as any}
             />
           </TestWrapper>
         );
 
-        const inputContainer = screen.queryByTestId("input-container") ||
-                              container.querySelector('[data-slot="input-container"]');
-        if (inputContainer) {
-          fireEvent.click(inputContainer);
+        const input = screen.queryByTestId("input-slot") ||
+                              container.querySelector('[data-slot="input"]');
+        if (input) {
+          fireEvent.click(input);
           expect(onClick).toHaveBeenCalled();
         }
       });

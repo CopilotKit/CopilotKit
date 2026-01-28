@@ -112,22 +112,6 @@ describe("CopilotChatView Slot System E2E Tests", () => {
       });
     });
 
-    describe("inputContainer slot", () => {
-      it("should apply tailwind class string to inputContainer", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              inputContainer="bg-yellow-100 p-6"
-            />
-          </TestWrapper>
-        );
-
-        const inputContainerEl = container.querySelector(".bg-yellow-100");
-        expect(inputContainerEl).toBeDefined();
-      });
-    });
-
     describe("feather slot", () => {
       it("should apply tailwind class string to feather", () => {
         const { container } = render(
@@ -142,24 +126,6 @@ describe("CopilotChatView Slot System E2E Tests", () => {
         const feather = container.querySelector(".text-green-500");
         if (feather) {
           expect(feather.classList.contains("font-bold")).toBe(true);
-        }
-      });
-    });
-
-    describe("disclaimer slot", () => {
-      it("should apply tailwind class string to disclaimer", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              disclaimer="text-xs text-gray-400 italic"
-            />
-          </TestWrapper>
-        );
-
-        const disclaimer = container.querySelector(".text-gray-400");
-        if (disclaimer) {
-          expect(disclaimer.classList.contains("italic")).toBe(true);
         }
       });
     });
@@ -310,41 +276,6 @@ describe("CopilotChatView Slot System E2E Tests", () => {
       });
     });
 
-    describe("inputContainer props", () => {
-      it("should pass onClick handler to inputContainer", () => {
-        const handleClick = vi.fn();
-
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              inputContainer={{ onClick: handleClick }}
-            />
-          </TestWrapper>
-        );
-
-        // Find input container and click it
-        const inputArea = container.querySelector("[class*='input']");
-        if (inputArea) {
-          fireEvent.click(inputArea);
-        }
-      });
-
-      it("should pass data-testid prop to inputContainer", () => {
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              inputContainer={{ "data-testid": "custom-input-container" } as any}
-            />
-          </TestWrapper>
-        );
-
-        const inputContainer = screen.queryByTestId("custom-input-container");
-        expect(inputContainer).toBeDefined();
-      });
-    });
-
     describe("messageView props", () => {
       it("should pass isRunning prop to messageView", () => {
         render(
@@ -362,26 +293,6 @@ describe("CopilotChatView Slot System E2E Tests", () => {
       });
     });
 
-    describe("user props override pre-set props", () => {
-      it("user onClick should override default onClick", () => {
-        const userHandler = vi.fn();
-
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              inputContainer={{ onClick: userHandler, "data-testid": "clickable-container" } as any}
-            />
-          </TestWrapper>
-        );
-
-        const container = screen.queryByTestId("clickable-container");
-        if (container) {
-          fireEvent.click(container);
-          expect(userHandler).toHaveBeenCalled();
-        }
-      });
-    });
   });
 
   // ============================================================================
@@ -540,29 +451,6 @@ describe("CopilotChatView Slot System E2E Tests", () => {
       });
     });
 
-    describe("inputContainer custom component", () => {
-      it("should render custom inputContainer component with children", () => {
-        const CustomInputContainer: React.FC<any> = ({ children }) => (
-          <div data-testid="custom-input-container" className="custom-wrapper">
-            <span>Custom Container:</span>
-            {children}
-          </div>
-        );
-
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              inputContainer={CustomInputContainer}
-            />
-          </TestWrapper>
-        );
-
-        expect(screen.getByTestId("custom-input-container")).toBeDefined();
-        expect(screen.getByText("Custom Container:")).toBeDefined();
-      });
-    });
-
     describe("feather custom component", () => {
       it("should render custom feather component", () => {
         const CustomFeather: React.FC<any> = () => (
@@ -581,30 +469,6 @@ describe("CopilotChatView Slot System E2E Tests", () => {
         const feather = screen.queryByTestId("custom-feather");
         if (feather) {
           expect(feather.textContent).toContain("Custom Feather");
-        }
-      });
-    });
-
-    describe("disclaimer custom component", () => {
-      it("should render custom disclaimer component", () => {
-        const CustomDisclaimer: React.FC<any> = () => (
-          <div data-testid="custom-disclaimer">
-            Custom disclaimer text here
-          </div>
-        );
-
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              disclaimer={CustomDisclaimer}
-            />
-          </TestWrapper>
-        );
-
-        const disclaimer = screen.queryByTestId("custom-disclaimer");
-        if (disclaimer) {
-          expect(disclaimer.textContent).toContain("Custom disclaimer");
         }
       });
     });
@@ -1010,17 +874,17 @@ describe("CopilotChatView Slot System E2E Tests", () => {
           <TestWrapper>
             <CopilotChatView
               messages={sampleMessages}
-              inputContainer={{
-                className: "custom-container-class",
-                "data-testid": "container-with-class",
+              input={{
+                className: "custom-input-class",
+                "data-testid": "input-with-class",
               } as any}
             />
           </TestWrapper>
         );
 
-        const container = screen.queryByTestId("container-with-class");
-        if (container) {
-          expect(container.classList.contains("custom-container-class")).toBe(true);
+        const input = screen.queryByTestId("input-with-class");
+        if (input) {
+          expect(input.classList.contains("custom-input-class")).toBe(true);
         }
       });
     });
@@ -1058,12 +922,12 @@ describe("CopilotChatView Slot System E2E Tests", () => {
           <TestWrapper>
             <CopilotChatView
               messages={sampleMessages}
-              inputContainer="flex items-center justify-between gap-4"
+              input="flex items-center justify-between gap-4"
             />
           </TestWrapper>
         );
 
-        // Find the input container specifically (it has justify-between which is unique to our slot)
+        // Find the input specifically (it has justify-between which is unique to our slot)
         const flexContainer = container.querySelector(".justify-between");
         if (flexContainer) {
           expect(flexContainer.classList.contains("flex")).toBe(true);
