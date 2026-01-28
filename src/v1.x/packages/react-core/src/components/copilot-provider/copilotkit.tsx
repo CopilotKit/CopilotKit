@@ -19,6 +19,7 @@ import {
   CopilotChatConfigurationProvider,
   CopilotKitInspector,
   CopilotKitProvider as CopilotKitNextProvider,
+  useCopilotKit,
 } from "@copilotkitnext/react";
 import {
   CopilotContext,
@@ -26,6 +27,7 @@ import {
   ChatComponentsCache,
   AgentSession,
   AuthState,
+  useCopilotContext,
 } from "../../context/copilot-context";
 import useTree from "../../hooks/use-tree";
 import { CopilotChatSuggestionConfiguration, DocumentPointer } from "../../types";
@@ -87,6 +89,59 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
       </CopilotErrorBoundary>
     </ToastProvider>
   );
+}
+
+/**
+ * Bridge component that subscribes to v2.x copilotkit core error events
+ * and forwards them to v1.x error handling system.
+ * This ensures only ONE subscription exists regardless of how many times
+ * Chat components are rendered.
+ */
+function CopilotKitErrorBridge() {
+  const { copilotkit } = useCopilotKit();
+  const { onError, copilotApiConfig } = useCopilotContext();
+
+  useEffect(() => {
+    if (!copilotkit) return;
+
+    const subscription = copilotkit.subscribe({
+      onError: async (event) => {
+        // Convert v2.x error event to v1.x CopilotErrorEvent format
+        const errorEvent: CopilotErrorEvent = {
+          type: "error",
+          timestamp: Date.now(),
+          context: {
+            source: "agent",
+            request: {
+              operation: event.code || "unknown",
+              url: copilotApiConfig?.chatApiEndpoint,
+              startTime: Date.now(),
+            },
+            technical: {
+              environment: "browser",
+              userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+              stackTrace: event.error.stack,
+            },
+            // Add additional context from v2.x event
+            ...event.context,
+          },
+          error: event.error,
+        };
+
+        try {
+          await onError(errorEvent);
+        } catch (handlerError) {
+          console.error("Error in onError handler:", handlerError);
+        }
+      },
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [copilotkit, onError, copilotApiConfig]);
+
+  return null;
 }
 
 export function CopilotKitInternal(cpkProps: CopilotKitProps) {
@@ -592,6 +647,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         }}
       >
         <CopilotListeners />
+        <CopilotKitErrorBridge />
         <CoAgentStateRendersProvider>
           <MessagesTapProvider>
             <CopilotMessages>
