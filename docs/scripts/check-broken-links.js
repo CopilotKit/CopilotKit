@@ -82,8 +82,24 @@ function filePathToUrl(relativePath) {
  * Check if a link is valid
  */
 function isValidLink(url, allPages, sourceFile = null) {
-  // Handle relative links (starting with ./ or ../)
-  if (sourceFile && (url.startsWith('./') || url.startsWith('../'))) {
+  // Handle absolute links (starting with /)
+  if (url.startsWith('/')) {
+    // Remove leading slash and normalize
+    const normalizedUrl = url.slice(1);
+
+    // Remove trailing slash
+    const cleanUrl = normalizedUrl.replace(/\/$/, '');
+
+    // Check if page exists
+    return allPages.some(page => {
+      const pageUrl = page.url.replace(/\/$/, '');
+      return pageUrl === cleanUrl || pageUrl === normalizedUrl;
+    });
+  }
+
+  // Handle relative links (anything not starting with /)
+  // This includes: ./foo, ../foo, and just foo
+  if (sourceFile) {
     // Get the directory of the source file relative to DOCS_DIR
     const relativePath = path.relative(DOCS_DIR, sourceFile);
     const sourceDir = path.dirname(relativePath);
@@ -104,18 +120,8 @@ function isValidLink(url, allPages, sourceFile = null) {
     });
   }
 
-  // Handle absolute links (starting with /)
-  // Remove leading slash and normalize
-  const normalizedUrl = url.startsWith('/') ? url.slice(1) : url;
-
-  // Remove trailing slash
-  const cleanUrl = normalizedUrl.replace(/\/$/, '');
-
-  // Check if page exists
-  return allPages.some(page => {
-    const pageUrl = page.url.replace(/\/$/, '');
-    return pageUrl === cleanUrl || pageUrl === normalizedUrl;
-  });
+  // Fallback: no source file provided, can't resolve relative links
+  return false;
 }
 
 /**
