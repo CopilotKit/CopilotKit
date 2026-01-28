@@ -114,7 +114,7 @@ What this gives you:
 
 CopilotKit connects your UI, agents, and tools into a single interaction loop.
 
-<img width="1600" height="840" alt="1600x840" src="https://github.com/user-attachments/assets/f390307c-6415-46ee-b230-77d365b0c46e" />
+<img width="1600" height="840" alt="1600x840" src="https://github.com/user-attachments/assets/32bd8466-c490-465f-9bb8-6a49b5cca484" />
 
 
 This enables:
