@@ -324,7 +324,8 @@ export function useCopilotChatInternal({
         if (error instanceof AGUIConnectNotImplementedError) {
           // connect not implemented, ignore
         } else {
-          throw error;
+          console.error("CopilotChat: connectAgent failed", error);
+          // Error will be reported through subscription
         }
       }
     };
@@ -412,7 +413,12 @@ export function useCopilotChatInternal({
       agent?.setMessages(historyCutoff);
 
       if (agent) {
-        copilotkit.runAgent({ agent });
+        try {
+          await copilotkit.runAgent({ agent });
+        } catch (error) {
+          console.error("CopilotChat: runAgent failed during reload", error);
+          // Error will be reported through subscription
+        }
       }
       return;
     },
@@ -451,6 +457,7 @@ export function useCopilotChatInternal({
           await copilotkit.runAgent({ agent });
         } catch (error) {
           console.error("CopilotChat: runAgent failed", error);
+          // Error will be reported through subscription
         }
       }
     },
@@ -543,37 +550,12 @@ export function useCopilotChatInternal({
       return message;
     });
 
-    const hasAssistantMessages = processedMessages.some((msg) => msg.role === "assistant");
-
-    // TODO: what is this?
-    // if (legacyCustomMessageRenderer && !hasAssistantMessages) {
-    //   const placeholderId = `coagent-state-render-${resolvedAgentId}`;
-    //   const placeholderMessage: Message = {
-    //     id: placeholderId,
-    //     role: "assistant",
-    //     content: "",
-    //     name: "coagent-state-render",
-    //   };
-    //   processedMessages = [
-    //     ...processedMessages,
-    //     {
-    //       ...placeholderMessage,
-    //       generativeUI: () =>
-    //         legacyCustomMessageRenderer({
-    //           message: placeholderMessage,
-    //           position: "before",
-    //         }),
-    //     } as Message,
-    //   ];
-    // }
-
     return processedMessages;
   }, [
     agent?.messages,
     lazyToolRendered,
     allMessages,
     renderCustomMessage,
-    // legacyCustomMessageRenderer,
     resolvedAgentId,
   ]);
 
