@@ -426,14 +426,9 @@ export function useCopilotChatInternal({
       if (options?.clearSuggestions) {
         copilotkit.clearSuggestions(resolvedAgentId);
       }
-      agent?.addMessage(message);
-      if (followUp) {
-        try {
-          await copilotkit.runAgent({ agent });
-        } catch (error) {
-          console.error("CopilotChat: runAgent failed", error);
-        }
-      }
+
+      // Call onSubmitMessage BEFORE adding message and running agent
+      // This allows users to perform actions (e.g., open chat window) before agent starts processing
       if (onSubmitMessage) {
         const content =
           typeof message.content === "string"
@@ -443,7 +438,20 @@ export function useCopilotChatInternal({
               : message.content && "filename" in message.content
                 ? message.content.filename
                 : "";
-        onSubmitMessage(content);
+        try {
+          await onSubmitMessage(content);
+        } catch (error) {
+          console.error("Error in onSubmitMessage:", error);
+        }
+      }
+
+      agent?.addMessage(message);
+      if (followUp) {
+        try {
+          await copilotkit.runAgent({ agent });
+        } catch (error) {
+          console.error("CopilotChat: runAgent failed", error);
+        }
       }
     },
     [agent, copilotkit, resolvedAgentId, onSubmitMessage],
