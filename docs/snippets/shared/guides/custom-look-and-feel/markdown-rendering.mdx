@@ -1,6 +1,6 @@
 import { Frame } from "@/components/react/frame"
 
-When rendering an assistant message, CopilotKit uses [`streamdown`](https://streamdown.ai/) under the hood.
+When rendering an assistant message, CopilotKit uses [`react-markdown`](https://remarkjs.github.io/react-markdown/) under the hood.
 This allows us to render rich text with links, headers and other UI components.
 
 If you wish to modify this behavior, you can either enrich and override the individual markdown components, or replace the entire `<AssistantMessage />` entirely.
