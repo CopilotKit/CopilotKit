@@ -24,6 +24,12 @@ function ConfigurationDisplay() {
       <div data-testid="copyLabel">
         {config?.labels.assistantMessageToolbarCopyMessageLabel || "no-config"}
       </div>
+      <div data-testid="isModalOpen">
+        {config?.isModalOpen !== undefined ? String(config.isModalOpen) : "no-config"}
+      </div>
+      <div data-testid="isModalDefaultOpen">
+        {config?.isModalDefaultOpen !== undefined ? String(config.isModalDefaultOpen) : "no-config"}
+      </div>
     </div>
   );
 }
@@ -252,6 +258,54 @@ describe("CopilotChatConfigurationProvider", () => {
       expect(screen.getByTestId("agentId").textContent).toBe("inner-agent");
       expect(screen.getByTestId("threadId").textContent).toBe("inner-thread");
       expect(screen.getByTestId("placeholder").textContent).toBe("Inner");
+    });
+  });
+
+  describe("Modal state management", () => {
+    it("should respect isModalDefaultOpen=false when parent has isModalOpen=true", () => {
+      const { container } = render(
+        <CopilotChatConfigurationProvider
+          threadId="outer-thread"
+          isModalDefaultOpen={true}
+        >
+          <CopilotChatConfigurationProvider
+            threadId="inner-thread"
+            isModalDefaultOpen={false}
+          >
+            <ConfigurationDisplay />
+          </CopilotChatConfigurationProvider>
+        </CopilotChatConfigurationProvider>
+      );
+
+      // Child's initial isModalOpen should be false because isModalDefaultOpen=false
+      // This tests the bug: currently it inherits parent's isModalOpen (true) instead of using its own default (false)
+      expect(screen.getByTestId("isModalOpen").textContent).toBe("false");
+      expect(screen.getByTestId("isModalDefaultOpen").textContent).toBe("false");
+    });
+
+    it("should default isModalDefaultOpen to true when not specified", () => {
+      render(
+        <CopilotChatConfigurationProvider threadId="test-thread">
+          <ConfigurationDisplay />
+        </CopilotChatConfigurationProvider>
+      );
+
+      expect(screen.getByTestId("isModalDefaultOpen").textContent).toBe("true");
+      expect(screen.getByTestId("isModalOpen").textContent).toBe("true");
+    });
+
+    it("should respect isModalDefaultOpen=false in standalone provider", () => {
+      render(
+        <CopilotChatConfigurationProvider
+          threadId="test-thread"
+          isModalDefaultOpen={false}
+        >
+          <ConfigurationDisplay />
+        </CopilotChatConfigurationProvider>
+      );
+
+      expect(screen.getByTestId("isModalDefaultOpen").textContent).toBe("false");
+      expect(screen.getByTestId("isModalOpen").textContent).toBe("false");
     });
   });
 });

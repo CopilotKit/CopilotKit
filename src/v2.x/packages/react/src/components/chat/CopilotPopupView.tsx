@@ -14,6 +14,7 @@ const DEFAULT_POPUP_HEIGHT = 560;
 
 export type CopilotPopupViewProps = CopilotChatViewProps & {
   header?: SlotValue<typeof CopilotModalHeader>;
+  toggleButton?: SlotValue<typeof CopilotChatToggleButton> | null;
   width?: number | string;
   height?: number | string;
   clickOutsideToClose?: boolean;
@@ -33,6 +34,7 @@ const dimensionToCss = (value: number | string | undefined, fallback: number): s
 
 export function CopilotPopupView({
   header,
+  toggleButton,
   width,
   height,
   clickOutsideToClose,
@@ -157,6 +159,11 @@ export function CopilotPopupView({
       ? "pointer-events-auto translate-y-0 opacity-100 md:scale-100"
       : "pointer-events-none translate-y-4 opacity-0 md:translate-y-5 md:scale-[0.95]";
 
+  // Conditionally render toggle button: null means hide, undefined means default
+  const toggleButtonElement = toggleButton !== null
+    ? renderSlot(toggleButton, CopilotChatToggleButton, {})
+    : null;
+
   const popupContent = isRendered ? (
     <div
       className={cn(
@@ -195,7 +202,7 @@ export function CopilotPopupView({
 
   return (
     <>
-      <CopilotChatToggleButton />
+      {toggleButtonElement}
       {popupContent}
     </>
   );

@@ -235,7 +235,19 @@ export function convertJsonSchemaToZodSchema(jsonSchema: any, required: boolean)
     let schema = z.object(spec).describe(jsonSchema.description);
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "string") {
-    let schema = z.string().describe(jsonSchema.description);
+    let schema: z.ZodString | z.ZodEnum<[string, ...string[]]>;
+
+    if (jsonSchema.enum && jsonSchema.enum.length > 0) {
+      // z.enum requires at least one value, cast to the required tuple type
+      schema = z.enum([jsonSchema.enum[0], ...jsonSchema.enum.slice(1)] as [string, ...string[]]);
+    } else {
+      schema = z.string();
+    }
+
+    if (jsonSchema.description) {
+      schema = schema.describe(jsonSchema.description);
+    }
+
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "number") {
     let schema = z.number().describe(jsonSchema.description);
