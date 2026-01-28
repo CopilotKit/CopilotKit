@@ -1,102 +1,105 @@
 "use client";
 
-import { notFound } from 'next/navigation';
-import Link from 'next/link';
-import { Search, Home, ArrowLeft, BookOpen, Code, Zap } from 'lucide-react';
+import { useEffect } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import posthog from "posthog-js";
+import { Home, ArrowLeft } from "lucide-react";
+import { Logo } from "./logo";
+
+function isBotUserAgent(userAgent: string): boolean {
+  const botPatterns = [
+    /bot/i, /crawl/i, /spider/i, /slurp/i,
+    /mediapartners/i, /googlebot/i, /bingbot/i,
+    /facebookexternalhit/i, /twitterbot/i,
+  ];
+  return botPatterns.some(pattern => pattern.test(userAgent));
+}
 
 export default function NotFound() {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const referrer = document.referrer;
+    const userAgent = navigator.userAgent;
+    const isBot = isBotUserAgent(userAgent);
+
+    // Only track if PostHog is initialized and it's not a bot
+    if (posthog?.__loaded && !isBot) {
+      const queryString = searchParams?.toString();
+      const fullPath = pathname + (queryString ? `?${queryString}` : "");
+
+      // Check if referrer is internal (same domain)
+      const isInternalReferrer = referrer.includes("docs.copilotkit.ai") ||
+                                  referrer.includes("localhost");
+
+      try {
+        posthog.capture("broken_link_accessed", {
+          // The broken URL
+          broken_url: pathname,
+          broken_url_full: `https://docs.copilotkit.ai${fullPath}`,
+          query_params: queryString || null,
+
+          // Where they came from
+          referrer_url: referrer || "(direct)",
+          referrer_path: isInternalReferrer
+            ? new URL(referrer || window.location.href).pathname
+            : null,
+          is_internal_referrer: isInternalReferrer,
+
+          // Context for filtering
+          user_agent: userAgent,
+          is_likely_bot: isBot,
+
+          // Useful metadata
+          timestamp: new Date().toISOString(),
+          viewport_width: window.innerWidth,
+          viewport_height: window.innerHeight,
+        });
+      } catch (error) {
+        // Silently fail if tracking fails
+        if (process.env.NODE_ENV === "development") {
+          console.warn("Failed to track 404:", error);
+        }
+      }
+    }
+  }, [pathname, searchParams]);
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      <div className="max-w-2xl mx-auto px-4 text-center">
-        <div className="mb-8">
-          <div className="text-6xl font-bold text-indigo-600 dark:text-indigo-400 mb-4">
-            404
+    <div className="fixed inset-0 flex flex-col items-center justify-center p-4 bg-background z-50">
+      <div className="max-w-md w-full text-center space-y-8">
+        <div className="flex justify-center mb-8">
+          <div className="scale-150">
+            <Logo />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-            Page Not Found
-          </h1>
-          <p className="text-lg text-gray-600 dark:text-gray-300 mb-8">
-            The page you're looking for doesn't exist or has been moved.
-          </p>
         </div>
 
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-            >
-              <Home className="w-4 h-4" />
-              Go Home
-            </Link>
-            
-            <button
-              onClick={() => {
-                if (typeof window !== 'undefined') {
-                  window.history.back();
-                }
-              }}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Go Back
-            </button>
-          </div>
+          <h1 className="text-6xl font-bold text-foreground">404</h1>
+          <h2 className="text-2xl font-semibold text-foreground">Page Not Found</h2>
+          <p className="text-muted-foreground">
+            Sorry, we couldn't find the page you're looking for. The link may be outdated or the page may have moved.
+          </p>
+        </div>
 
-          <div className="mt-8 p-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Looking for something specific?
-            </h3>
-            <p className="text-gray-600 dark:text-gray-300 mb-4">
-              Try searching our documentation or browse our main sections:
-            </p>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Link
-                href="/direct-to-llm"
-                className="p-4 text-left bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors group"
-              >
-                <div className="flex items-center gap-3 mb-2">
-                  <Code className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  <div className="font-medium text-blue-900 dark:text-blue-100">Direct to LLM</div>
-                </div>
-                <div className="text-sm text-blue-700 dark:text-blue-300">Build copilots with any LLM</div>
-              </Link>
-              
-              <Link
-                href="/langgraph"
-                className="p-4 text-left bg-green-50 dark:bg-green-900/20 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors group"
-              >
-                <div className="flex items-center gap-3 mb-2">
-                  <Zap className="w-5 h-5 text-green-600 dark:text-green-400" />
-                  <div className="font-medium text-green-900 dark:text-green-100">LangGraph</div>
-                </div>
-                <div className="text-sm text-green-700 dark:text-green-300">Agentic workflows and state machines</div>
-              </Link>
-              
-              <Link
-                href="/mastra"
-                className="p-4 text-left bg-purple-50 dark:bg-purple-900/20 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors group"
-              >
-                <div className="flex items-center gap-3 mb-2">
-                  <BookOpen className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                  <div className="font-medium text-purple-900 dark:text-purple-100">Mastra</div>
-                </div>
-                <div className="text-sm text-purple-700 dark:text-purple-300">Multi-agent orchestration</div>
-              </Link>
-              
-              <Link
-                href="/reference"
-                className="p-4 text-left bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors group"
-              >
-                <div className="flex items-center gap-3 mb-2">
-                  <Search className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                  <div className="font-medium text-gray-900 dark:text-gray-100">API Reference</div>
-                </div>
-                <div className="text-sm text-gray-700 dark:text-gray-300">Complete API documentation</div>
-              </Link>
-            </div>
-          </div>
+        <div className="flex gap-4 justify-center">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity font-medium"
+          >
+            <Home className="w-4 h-4" />
+            Go Home
+          </Link>
+          <button
+            onClick={() => window.history.back()}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-accent transition-colors font-medium"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Go Back
+          </button>
         </div>
       </div>
     </div>
