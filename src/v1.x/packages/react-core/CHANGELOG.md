@@ -1,5 +1,15 @@
 # ui
 
+## 1.51.3-next.5
+
+### Patch Changes
+
+- e89fe98: fix(v1.x): address issue causing onSubmitMessage to fire after agent response
+  - @copilotkit/runtime-client-gql@1.51.3-next.5
+  - @copilotkit/shared@1.51.3-next.5
+  - @copilotkitnext/core@1.51.3-next.5
+  - @copilotkitnext/react@1.51.3-next.5
+
 ## 1.51.3-next.4
 
 ### Patch Changes
