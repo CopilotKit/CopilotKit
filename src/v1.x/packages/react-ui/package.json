@@ -46,7 +46,7 @@
     "eslint-config-custom": "workspace:*",
     "jest": "^29.6.4",
     "postcss": "^8.4.20",
-    "react": "^18.2.0",
+    "react": "^19.1.0",
     "tailwind-config": "workspace:*",
     "tailwindcss": "^3.3.0",
     "ts-jest": "^29.1.1",
