@@ -33,14 +33,14 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
   // LEVEL 1: CopilotChatView Direct Slots
   // ============================================================================
   describe("Level 1: CopilotChatView Direct Slots", () => {
-    describe("scrollToBottomButton onClick", () => {
-      it("should handle onClick on scrollToBottomButton via props object", () => {
+    describe("scrollToBottomButton onClick (nested under scrollView)", () => {
+      it("should handle onClick on scrollToBottomButton via scrollView props", () => {
         const onClick = vi.fn();
         const { container } = render(
           <TestWrapper>
             <CopilotChatView
               messages={createMessages()}
-              scrollToBottomButton={{ onClick }}
+              scrollView={{ scrollToBottomButton: { onClick } }}
             />
           </TestWrapper>
         );

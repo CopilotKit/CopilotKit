@@ -29,7 +29,7 @@
     "test:watch:next": "turbo run test:watch --filter=@copilotkitnext/*",
     "test:coverage:classic": "turbo run test:coverage --filter=@copilotkit/* --filter=!@copilotkit/voice",
     "test:coverage:next": "turbo run test:coverage --filter=@copilotkitnext/*",
-    "dev": "turbo run dev --concurrency 25",
+    "dev": "turbo run dev --concurrency 30",
     "dev:classic": "turbo run dev --filter=@copilotkit/*",
     "dev:next": "turbo run dev --concurrency 14 --filter=@copilotkitnext/* --filter=@copilotkit/voice",
     "predev:next": "turbo run build --filter='@copilotkitnext/core' --filter='@copilotkitnext/shared' --filter='@copilotkitnext/web-inspector' --filter='@copilotkitnext/react' --filter='@copilotkitnext/angular' --filter='@copilotkitnext/agent' --filter='@copilotkitnext/sqlite-runner' --filter='@copilotkit/voice'",

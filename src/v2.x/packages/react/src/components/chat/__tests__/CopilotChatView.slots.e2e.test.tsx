@@ -77,13 +77,13 @@ describe("CopilotChatView Slot System E2E Tests", () => {
       });
     });
 
-    describe("scrollToBottomButton slot", () => {
-      it("should apply tailwind class string to scrollToBottomButton", () => {
+    describe("scrollToBottomButton slot (nested under scrollView)", () => {
+      it("should apply tailwind class string to scrollToBottomButton via scrollView", () => {
         const { container } = render(
           <TestWrapper>
             <CopilotChatView
               messages={sampleMessages}
-              scrollToBottomButton="bg-blue-500 rounded-full"
+              scrollView={{ scrollToBottomButton: "bg-blue-500 rounded-full" }}
             />
           </TestWrapper>
         );
@@ -237,15 +237,15 @@ describe("CopilotChatView Slot System E2E Tests", () => {
   // 2. PROPERTIES (onClick, disabled, etc.) TESTS
   // ============================================================================
   describe("2. Properties Slot Override", () => {
-    describe("scrollToBottomButton props", () => {
-      it("should pass onClick handler to scrollToBottomButton", () => {
+    describe("scrollToBottomButton props (nested under scrollView)", () => {
+      it("should pass onClick handler to scrollToBottomButton via scrollView", () => {
         const handleClick = vi.fn();
 
         render(
           <TestWrapper>
             <CopilotChatView
               messages={sampleMessages}
-              scrollToBottomButton={{ onClick: handleClick }}
+              scrollView={{ scrollToBottomButton: { onClick: handleClick } }}
             />
           </TestWrapper>
         );
@@ -260,12 +260,12 @@ describe("CopilotChatView Slot System E2E Tests", () => {
         // Note: onClick may only fire if button is visible
       });
 
-      it("should pass disabled prop to scrollToBottomButton", () => {
+      it("should pass disabled prop to scrollToBottomButton via scrollView", () => {
         const { container } = render(
           <TestWrapper>
             <CopilotChatView
               messages={sampleMessages}
-              scrollToBottomButton={{ disabled: true }}
+              scrollView={{ scrollToBottomButton: { disabled: true } }}
             />
           </TestWrapper>
         );
@@ -609,8 +609,8 @@ describe("CopilotChatView Slot System E2E Tests", () => {
       });
     });
 
-    describe("scrollToBottomButton custom component", () => {
-      it("should render custom scrollToBottomButton component", () => {
+    describe("scrollToBottomButton custom component (nested under scrollView)", () => {
+      it("should render custom scrollToBottomButton component via scrollView", () => {
         const CustomScrollButton: React.FC<any> = ({ onClick }) => (
           <button data-testid="custom-scroll-btn" onClick={onClick}>
             ⬇️ Go Down
@@ -621,7 +621,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
           <TestWrapper>
             <CopilotChatView
               messages={sampleMessages}
-              scrollToBottomButton={CustomScrollButton}
+              scrollView={{ scrollToBottomButton: CustomScrollButton }}
             />
           </TestWrapper>
         );
