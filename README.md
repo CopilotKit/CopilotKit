@@ -114,10 +114,8 @@ What this gives you:
 
 CopilotKit connects your UI, agents, and tools into a single interaction loop.
 
-```
-User ↔ UI  ←→  CopilotKit  ←→  Agent Runtime  ←→ AG-UI ←→ Agent (Tools / MCP Servers)
-          (shared state + UI events)
-```
+<img width="1600" height="840" alt="1600x840" src="https://github.com/user-attachments/assets/f390307c-6415-46ee-b230-77d365b0c46e" />
+
 
 This enables:
 
@@ -126,7 +124,6 @@ This enables:
 - Tools that render UI
 
 - Stateful workflows across steps and sessions
-
 
 
 ## ⭐️ useAgent Hook
