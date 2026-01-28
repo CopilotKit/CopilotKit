@@ -456,6 +456,10 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       // Capture telemetry for copilot request creation
       const publicApiKey = request.headers.get("x-copilotcloud-public-api-key");
       const body = (await readBody(request)) as RunAgentInput;
+
+      // We do not process middleware for the internal GET requests
+      if (request.method === "GET" || !body) return;
+
       const forwardedProps = body.forwardedProps as
         | {
             cloud?: { guardrails?: unknown };
