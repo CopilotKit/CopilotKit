@@ -20,10 +20,6 @@ Build **agent-native applications** with interactive UI, shared state, and human
  
 </div>
 
-
-
-
-
 [![CopilotKit](https://github.com/user-attachments/assets/aeb56c28-c766-44a5-810c-5d999bb6a32a)](https://go.copilotkit.ai/copilotkit-docs)
 
 
@@ -55,19 +51,15 @@ Build **agent-native applications** with interactive UI, shared state, and human
 
   </div>
 
-
-
 ---
 
 ## What is CopilotKit
 
 CopilotKit is a best-in-class SDK for building full-stack agentic applications, Generative UI, and chat applications. 
 
-We are the company behind the **AG-UI Protocol*, adopted by Google, LangChain, AWS, Microsoft, Mastra, PydanticAI, and more!
+We are the company behind the **AG-UI Protocol**, adopted by Google, LangChain, AWS, Microsoft, Mastra, PydanticAI, and more!
 
 https://github.com/user-attachments/assets/9f5fe471-e7ae-45a1-9566-7ed379f6161e
-
-
 
 **Features:**
 
@@ -80,8 +72,6 @@ https://github.com/user-attachments/assets/9f5fe471-e7ae-45a1-9566-7ed379f6161e
 
 https://github.com/user-attachments/assets/7ac61296-7bef-4d0b-9ff5-c70cde031441
 
-
----
 
 ## Quick Start
 
@@ -96,17 +86,15 @@ npx create-copilotkit-app my-app
 npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime
 ```
 
-
-
 https://github.com/user-attachments/assets/cfe706cb-f2d7-4d5c-8b35-40c4a2842108
 
 
 What this gives you:
 
-1. CopilotKit installed
-2. Provider configured
-3. Agent-connected UI running
-4. Ready to deploy
+1. CopilotKit is installed in your app
+2. The CopilotKit provider is configured
+3. Agent-connection to the UI out of the box
+4. Your app is ready to deploy
 
 [Complete getting started guide →](https://docs.copilotkit.ai/langgraph/quickstart)
 
@@ -114,15 +102,12 @@ What this gives you:
 
 CopilotKit connects your UI, agents, and tools into a single interaction loop.
 
-<img width="1600" height="840" alt="1600x840" src="https://github.com/user-attachments/assets/32bd8466-c490-465f-9bb8-6a49b5cca484" />
-
+<img width="1600" height="840" alt="1600x840" src="https://github.com/user-attachments/assets/c0d953be-4541-4120-b51e-7f1b65cd36d7" />
 
 This enables:
 
 - Agents that ask users for input
-
 - Tools that render UI
-
 - Stateful workflows across steps and sessions
 
 
@@ -144,11 +129,7 @@ return <div>
 
 Check out the [useAgent docs](https://go.copilotkit.ai/useagent-docs) to learn more.
 
-
-
 https://github.com/user-attachments/assets/67928406-8abc-49a1-a851-98018b52174f
-
-
 
 ## Generative UI
 
@@ -165,31 +146,17 @@ https://github.com/user-attachments/assets/3cfacac0-4ffd-457a-96f9-d7951e4ab7b6
 - [Open-Ended (MCP Apps & Open JSON)](https://docs.copilotkit.ai/generative-ui/specs/mcp-apps)
 
 
-
-
-
-
-
 Instead of responding only with text, agents can:
 
--> Render interactive components
+-> **Render interactive components**
 
--> Request structured user input
+-> **Request structured user input**
 
--> Pause execution and resume after user interaction
+-> **Pause execution and resume after user interaction**
 
--> Adapt UI based on state, tool calls, or intermediate results
+-> **Adapt UI based on state, tool calls, or intermediate results**
 
--> UI becomes a first-class part of the agent experience, not a separate layer.
-
-
-```
-Agent → State Update or Tool Call
-      → UI is rendered
-      → User interacts
-      → Agent resumes
-```
-
+-> **UI becomes a first-class part of the agent experience, not a separate layer**
 
 
 ## 🖥️ AG-UI: The Agent–User Interaction Protocol
