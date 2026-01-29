@@ -17,11 +17,12 @@ The CopilotSidebar component:
 
 ## Component Architecture
 
-CopilotSidebar extends [CopilotChat](/reference/copilot-chat#component-architecture) with an additional `header` slot:
+CopilotSidebar extends [CopilotChat](/reference/copilot-chat#component-architecture) with additional slots:
 
 ```mermaid
 graph LR
     CS[CopilotSidebar] --> header
+    CS --> toggleButton
 ```
 
 ### Slot Descriptions
@@ -29,6 +30,7 @@ graph LR
 | Slot | Description |
 |------|-------------|
 | `header` | Header bar with title and close button |
+| `toggleButton` | Floating button to open/close the sidebar |
 
 CopilotSidebar also inherits all slots from CopilotChat: `messageView`, `scrollView`, `input`, `suggestionView`, and `welcomeScreen`.
 
@@ -56,9 +58,10 @@ These props are unique to CopilotSidebar:
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `defaultOpen` | `boolean` | `false` | Whether the sidebar is open initially |
+| `defaultOpen` | `boolean` | `true` | Whether the sidebar is open initially |
 | `width` | `number \| string` | `480` | Sidebar width in pixels or CSS unit |
 | `header` | `SlotValue` | - | Custom header component with title and close button |
+| `toggleButton` | `SlotValue` | - | Custom toggle button to open/close the sidebar |
 
 ### Shared Props
 
@@ -92,6 +95,65 @@ The sidebar includes a header with a title and close button. Customize it throug
 | `titleContent` | The title text or component |
 | `closeButton` | The close button (can be hidden) |
 
+### Custom Header Component
+
+Replace the entire header with your own component:
+
+```tsx
+function CustomHeader() {
+  return (
+    <div className="flex items-center justify-between p-4 border-b">
+      <div className="flex items-center gap-2">
+        <BotIcon className="w-5 h-5" />
+        <span className="font-semibold">My AI Assistant</span>
+      </div>
+      <button onClick={() => /* close sidebar */}>
+        <XIcon className="w-5 h-5" />
+      </button>
+    </div>
+  );
+}
+
+<CopilotSidebar header={CustomHeader} />
+```
+
+## Toggle Button Customization
+
+The sidebar includes a floating toggle button to open and close it. Customize it through the `toggleButton` prop:
+
+```tsx
+<CopilotSidebar
+  toggleButton={{
+    className: "bg-purple-500 hover:bg-purple-600",
+    openIcon: "text-white",
+    closeIcon: "text-white",
+  }}
+/>
+```
+
+### Toggle Button Sub-Slots
+
+| Sub-Slot | Description |
+|----------|-------------|
+| `openIcon` | Icon shown when sidebar is closed (click to open) |
+| `closeIcon` | Icon shown when sidebar is open (click to close) |
+
+### Custom Toggle Button Component
+
+Replace the toggle button entirely:
+
+```tsx
+function CustomToggleButton() {
+  return (
+    <button className="fixed bottom-4 right-4 p-3 bg-blue-500 rounded-full">
+      <ChatIcon className="w-6 h-6 text-white" />
+    </button>
+  );
+}
+
+<CopilotSidebar toggleButton={CustomToggleButton} />
+```
+
 ## Slot Customization
 
 CopilotSidebar uses the same [slot system](/reference/slot-system) as CopilotChat. Each slot accepts four types of values:
@@ -110,7 +172,7 @@ CopilotSidebar uses the same [slot system](/reference/slot-system) as CopilotCha
 <CopilotSidebar width="50vw" />
 ```
 
-### Custom Header
+### Custom Header Styling
 
 ```tsx
 <CopilotSidebar
@@ -136,45 +198,6 @@ CopilotSidebar uses the same [slot system](/reference/slot-system) as CopilotCha
     sendButton: "bg-blue-500 hover:bg-blue-600",
   }}
 />
-```
-
-## Complete Example
-
-```tsx
-import { CopilotSidebar, CopilotKitProvider } from "@copilotkitnext/react";
-
-function App() {
-  return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit">
-      <div className="min-h-screen">
-        <main className="p-8">
-          <h1>My Application</h1>
-          <p>Your main content here...</p>
-        </main>
-
-        <CopilotSidebar
-          defaultOpen={false}
-          width={500}
-          agentId="my-assistant"
-          header={{
-            titleContent: "AI Assistant",
-            className: "bg-slate-900 text-white",
-          }}
-          labels={{
-            chatInputPlaceholder: "Ask me anything...",
-            welcomeMessage: "Hello! How can I help you today?",
-          }}
-          messageView={{
-            assistantMessage: {
-              onThumbsUp: (msg) => trackFeedback(msg.id, "positive"),
-              onThumbsDown: (msg) => trackFeedback(msg.id, "negative"),
-            },
-          }}
-        />
-      </div>
-    </CopilotKitProvider>
-  );
-}
 ```
 
 ## Related

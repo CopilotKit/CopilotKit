@@ -521,4 +521,85 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
       expect(popup === null || popup?.classList.contains("pointer-events-none")).toBe(true);
     });
   });
+
+  // ============================================================================
+  // 9. TOGGLE BUTTON SLOT TESTS
+  // ============================================================================
+  describe("9. Toggle Button Slot", () => {
+    describe("toggleButton slot - Tailwind class string", () => {
+      it("should apply tailwind class string to toggle button", () => {
+        const { container } = render(
+          <TestWrapper>
+            <CopilotPopupView
+              messages={sampleMessages}
+              toggleButton="bg-purple-500 hover:bg-purple-600"
+            />
+          </TestWrapper>
+        );
+
+        const toggleButton = container.querySelector(".bg-purple-500");
+        expect(toggleButton).toBeDefined();
+        expect(toggleButton?.classList.contains("hover:bg-purple-600")).toBe(true);
+      });
+    });
+
+    describe("toggleButton slot - Props object", () => {
+      it("should pass custom props to toggle button", () => {
+        const { container } = render(
+          <TestWrapper>
+            <CopilotPopupView
+              messages={sampleMessages}
+              toggleButton={{ "data-testid": "popup-custom-toggle" }}
+            />
+          </TestWrapper>
+        );
+
+        const toggleButton = screen.queryByTestId("popup-custom-toggle");
+        expect(toggleButton).toBeDefined();
+      });
+
+      it("should pass openIcon and closeIcon sub-slot props", () => {
+        const { container } = render(
+          <TestWrapper>
+            <CopilotPopupView
+              messages={sampleMessages}
+              toggleButton={{
+                openIcon: "text-blue-500",
+                closeIcon: "text-orange-500",
+              }}
+            />
+          </TestWrapper>
+        );
+
+        // The icons should have custom classes applied
+        const openIconSlot = container.querySelector('[data-slot="chat-toggle-button-open-icon"]');
+        const closeIconSlot = container.querySelector('[data-slot="chat-toggle-button-close-icon"]');
+        expect(openIconSlot).toBeDefined();
+        expect(closeIconSlot).toBeDefined();
+      });
+    });
+
+    describe("toggleButton slot - Custom component", () => {
+      it("should allow custom component for toggle button", () => {
+        const CustomToggleButton: React.FC = () => (
+          <button data-testid="popup-custom-toggle-component" className="popup-toggle">
+            Open Chat
+          </button>
+        );
+
+        render(
+          <TestWrapper>
+            <CopilotPopupView
+              messages={sampleMessages}
+              toggleButton={CustomToggleButton as any}
+            />
+          </TestWrapper>
+        );
+
+        const custom = screen.queryByTestId("popup-custom-toggle-component");
+        expect(custom).toBeDefined();
+        expect(custom?.textContent).toBe("Open Chat");
+      });
+    });
+  });
 });

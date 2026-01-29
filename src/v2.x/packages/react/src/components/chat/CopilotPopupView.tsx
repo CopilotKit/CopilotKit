@@ -15,6 +15,7 @@ const DEFAULT_POPUP_HEIGHT = 560;
 
 export type CopilotPopupViewProps = CopilotChatViewProps & {
   header?: SlotValue<typeof CopilotModalHeader>;
+  toggleButton?: SlotValue<typeof CopilotChatToggleButton>;
   width?: number | string;
   height?: number | string;
   clickOutsideToClose?: boolean;
@@ -35,6 +36,7 @@ const dimensionToCss = (value: number | string | undefined, fallback: number): s
 
 export function CopilotPopupView({
   header,
+  toggleButton,
   width,
   height,
   clickOutsideToClose,
@@ -46,6 +48,7 @@ export function CopilotPopupView({
     <CopilotChatConfigurationProvider isModalDefaultOpen={defaultOpen}>
       <CopilotPopupViewInternal
         header={header}
+        toggleButton={toggleButton}
         width={width}
         height={height}
         clickOutsideToClose={clickOutsideToClose}
@@ -58,6 +61,7 @@ export function CopilotPopupView({
 
 function CopilotPopupViewInternal({
   header,
+  toggleButton,
   width,
   height,
   clickOutsideToClose,
@@ -162,6 +166,7 @@ function CopilotPopupViewInternal({
   }, [isPopupOpen, clickOutsideToClose, setModalOpen]);
 
   const headerElement = useMemo(() => renderSlot(header, CopilotModalHeader, {}), [header]);
+  const toggleButtonElement = useMemo(() => renderSlot(toggleButton, CopilotChatToggleButton, {}), [toggleButton]);
 
   const resolvedWidth = dimensionToCss(width, DEFAULT_POPUP_WIDTH);
   const resolvedHeight = dimensionToCss(height, DEFAULT_POPUP_HEIGHT);
@@ -224,7 +229,7 @@ function CopilotPopupViewInternal({
 
   return (
     <>
-      <CopilotChatToggleButton />
+      {toggleButtonElement}
       {popupContent}
     </>
   );

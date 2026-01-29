@@ -6,19 +6,21 @@ import { CopilotSidebarView, CopilotSidebarViewProps } from "./CopilotSidebarVie
 
 export type CopilotSidebarProps = Omit<CopilotChatProps, "chatView"> & {
   header?: CopilotSidebarViewProps["header"];
+  toggleButton?: CopilotSidebarViewProps["toggleButton"];
   defaultOpen?: boolean;
   width?: number | string;
 };
 
-export function CopilotSidebar({ header, defaultOpen, width, ...chatProps }: CopilotSidebarProps) {
+export function CopilotSidebar({ header, toggleButton, defaultOpen, width, ...chatProps }: CopilotSidebarProps) {
   const SidebarViewOverride = useMemo(() => {
     const Component: React.FC<CopilotChatViewProps> = (viewProps) => {
-      const { header: viewHeader, width: viewWidth, defaultOpen: viewDefaultOpen, ...restProps } = viewProps as CopilotSidebarViewProps;
+      const { header: viewHeader, toggleButton: viewToggleButton, width: viewWidth, defaultOpen: viewDefaultOpen, ...restProps } = viewProps as CopilotSidebarViewProps;
 
       return (
         <CopilotSidebarView
           {...(restProps as CopilotSidebarViewProps)}
           header={header ?? viewHeader}
+          toggleButton={toggleButton ?? viewToggleButton}
           width={width ?? viewWidth}
           defaultOpen={defaultOpen ?? viewDefaultOpen}
         />
@@ -26,7 +28,7 @@ export function CopilotSidebar({ header, defaultOpen, width, ...chatProps }: Cop
     };
 
     return Object.assign(Component, CopilotChatView);
-  }, [header, width, defaultOpen]);
+  }, [header, toggleButton, width, defaultOpen]);
 
   return (
     <CopilotChat

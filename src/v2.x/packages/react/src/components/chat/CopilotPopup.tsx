@@ -6,6 +6,7 @@ import CopilotPopupView, { CopilotPopupViewProps } from "./CopilotPopupView";
 
 export type CopilotPopupProps = Omit<CopilotChatProps, "chatView"> & {
   header?: CopilotPopupViewProps["header"];
+  toggleButton?: CopilotPopupViewProps["toggleButton"];
   defaultOpen?: boolean;
   width?: CopilotPopupViewProps["width"];
   height?: CopilotPopupViewProps["height"];
@@ -14,6 +15,7 @@ export type CopilotPopupProps = Omit<CopilotChatProps, "chatView"> & {
 
 export function CopilotPopup({
   header,
+  toggleButton,
   defaultOpen,
   width,
   height,
@@ -24,6 +26,7 @@ export function CopilotPopup({
     const Component: React.FC<CopilotChatViewProps> = (viewProps) => {
       const {
         header: viewHeader,
+        toggleButton: viewToggleButton,
         width: viewWidth,
         height: viewHeight,
         clickOutsideToClose: viewClickOutsideToClose,
@@ -35,6 +38,7 @@ export function CopilotPopup({
         <CopilotPopupView
           {...(restProps as CopilotPopupViewProps)}
           header={header ?? viewHeader}
+          toggleButton={toggleButton ?? viewToggleButton}
           width={width ?? viewWidth}
           height={height ?? viewHeight}
           clickOutsideToClose={clickOutsideToClose ?? viewClickOutsideToClose}
@@ -44,7 +48,7 @@ export function CopilotPopup({
     };
 
     return Object.assign(Component, CopilotChatView);
-  }, [clickOutsideToClose, header, height, width, defaultOpen]);
+  }, [clickOutsideToClose, header, toggleButton, height, width, defaultOpen]);
 
   return (
     <CopilotChat
