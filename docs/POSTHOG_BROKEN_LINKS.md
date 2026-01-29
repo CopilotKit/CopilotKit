@@ -12,9 +12,10 @@ The 404 page (`app/not-found.tsx`) tracks the `broken_link_accessed` event with 
 - `query_params` (string|null): Query string if present
 
 ### Referrer Properties
-- `referrer_url` (string): Where the user came from (or "(direct)" if none)
-- `referrer_path` (string|null): Internal pathname if referrer is internal (for finding broken links on our pages)
-- `is_internal_referrer` (boolean): Whether the referrer is from docs.copilotkit.ai or localhost
+- `referrer_url` (string): Full URL where the user came from (or "(direct)" if none)
+- `referrer_domain` (string|null): Domain/hostname of the referrer (e.g., `www.copilotkit.ai`, `partner.com`)
+- `referrer_path` (string|null): Path of the referrer page (e.g., `/features/generative-ui`)
+- `is_internal_referrer` (boolean): Whether the referrer is from copilotkit.ai or localhost
 
 ### Context Properties
 - `user_agent` (string): Browser user agent string
@@ -90,6 +91,38 @@ The 404 page (`app/not-found.tsx`) tracks the `broken_link_accessed` event with 
      - `is_likely_bot = false`
    - Sort: By timestamp (descending)
    - Shows: Latest internal broken links for quick fixes
+
+### Dashboard 3: External & Partner Links
+
+**Purpose**: Identify broken links from partner sites, blogs, and external sources
+
+**Insights to add**:
+
+1. **Top External Referrer Domains**
+   - Type: Table
+   - Event: `broken_link_accessed`
+   - Filters:
+     - `is_internal_referrer = false`
+     - `is_likely_bot = false`
+   - Breakdown: By `referrer_domain`
+   - Shows: Which external sites are sending traffic to broken links
+
+2. **Partner Broken Link Pairs**
+   - Type: Table
+   - Event: `broken_link_accessed`
+   - Filters:
+     - `is_internal_referrer = false`
+     - `is_likely_bot = false`
+   - Breakdown: By `referrer_domain`, `referrer_path`, and `broken_url`
+   - Shows: Exact pages on partner sites with broken links (so you can contact them)
+
+3. **All Referrer Sources**
+   - Type: Table
+   - Event: `broken_link_accessed`
+   - Filters:
+     - `is_likely_bot = false`
+   - Breakdown: By `referrer_domain`
+   - Shows: All traffic sources (internal + external) sorted by volume
 
 ## Setting Up Alerts
 
@@ -186,12 +219,54 @@ GROUP BY properties.broken_url_full
 ORDER BY hits DESC
 ```
 
+### Find broken links from partner/external sites
+
+```sql
+SELECT
+  properties.referrer_domain,
+  properties.referrer_path,
+  properties.broken_url,
+  COUNT(*) as hits
+FROM events
+WHERE
+  event = 'broken_link_accessed'
+  AND properties.is_internal_referrer = false
+  AND properties.is_likely_bot = false
+  AND timestamp > now() - INTERVAL 30 DAY
+GROUP BY
+  properties.referrer_domain,
+  properties.referrer_path,
+  properties.broken_url
+ORDER BY hits DESC
+LIMIT 20
+```
+
+### Find all broken links from a specific partner domain
+
+```sql
+SELECT
+  properties.referrer_path,
+  properties.broken_url,
+  COUNT(*) as hits
+FROM events
+WHERE
+  event = 'broken_link_accessed'
+  AND properties.referrer_domain = 'partner-site.com'
+  AND properties.is_likely_bot = false
+  AND timestamp > now() - INTERVAL 90 DAY
+GROUP BY
+  properties.referrer_path,
+  properties.broken_url
+ORDER BY hits DESC
+```
+
 ## Maintenance Workflow
 
 1. **Weekly Review**:
    - Check "Top Broken URLs" insight
    - Create redirects for high-traffic 404s if appropriate
    - Fix or remove broken internal links
+   - Review "Top External Referrer Domains" for partner broken links
 
 2. **After Deployments**:
    - Monitor "Total 404s Over Time" for spikes
@@ -201,6 +276,12 @@ ORDER BY hits DESC
    - Review "Internal Broken Links" dashboard
    - Run link checker script: `npm run check-links`
    - Fix any persistent internal broken links
+
+4. **Partner Outreach** (as needed):
+   - Check "Partner Broken Link Pairs" dashboard
+   - Identify high-traffic broken links from partner sites
+   - Contact partners to update their links
+   - Consider creating redirects for common partner mistakes
 
 ## Bot Filtering
 
