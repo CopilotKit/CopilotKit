@@ -1,5 +1,15 @@
 # ui
 
+## 1.51.3-next.7
+
+### Patch Changes
+
+- 3f00a01: Fix issue causing onSubmitMessage to fire after agent response
+  - @copilotkit/runtime-client-gql@1.51.3-next.7
+  - @copilotkit/shared@1.51.3-next.7
+  - @copilotkitnext/core@1.51.3-next.7
+  - @copilotkitnext/react@1.51.3-next.7
+
 ## 1.51.3-next.6
 
 ### Patch Changes
