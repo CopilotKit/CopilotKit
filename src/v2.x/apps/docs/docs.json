@@ -60,7 +60,14 @@
                   "reference/copilot-chat",
                   "reference/copilot-sidebar",
                   "reference/copilot-popup",
-                  "reference/copilot-chat-message-view"
+                  "reference/copilot-chat-message-view",
+                  "reference/copilot-chat-input",
+                  "reference/copilot-chat-assistant-message",
+                  "reference/copilot-chat-user-message",
+                  "reference/copilot-chat-scroll-view",
+                  "reference/copilot-chat-suggestion-view",
+                  "reference/copilot-chat-welcome-screen",
+                  "reference/slot-system"
                 ]
               },
               {
