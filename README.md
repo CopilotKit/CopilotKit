@@ -1,10 +1,10 @@
 
 <div align=center>
 
-<img width="175" height="175" alt="logo_square_8" src="https://github.com/user-attachments/assets/3ff118b5-097e-4cd4-b169-38c29f57beb5" />
+<img width="120" height="120" alt="FavIcon" src="https://github.com/user-attachments/assets/779de607-2b8d-4751-872b-1243e97c7d18" />
 
   
-# CopilotKit🪁
+# CopilotKit
 
 <div align=center>
 
@@ -59,7 +59,9 @@ CopilotKit is a best-in-class SDK for building full-stack agentic applications, 
 
 We are the company behind the **AG-UI Protocol**, adopted by Google, LangChain, AWS, Microsoft, Mastra, PydanticAI, and more!
 
-https://github.com/user-attachments/assets/9f5fe471-e7ae-45a1-9566-7ed379f6161e
+
+https://github.com/user-attachments/assets/de5bcc17-1b51-4092-9a85-42971ecc1f4c
+
 
 **Features:**
 
@@ -137,33 +139,27 @@ Generative UI is a core CopilotKit pattern that allows agents to dynamically ren
 
 https://github.com/user-attachments/assets/3cfacac0-4ffd-457a-96f9-d7951e4ab7b6
 
-### Three Types
+### Compare the Three Types
 
 <img width="708" height="311" alt="image" src="https://github.com/user-attachments/assets/962f49c2-31ea-43c5-b2a3-7cdde114705a" />
 
+#### Explore:
 - [Static (AG-UI Protocol)](https://docs.copilotkit.ai/ag-ui-protocol)
 - [Delclaritive (A2UI)](https://docs.copilotkit.ai/generative-ui/specs/a2ui#using-a2ui-with-copilotkit)
 - [Open-Ended (MCP Apps & Open JSON)](https://docs.copilotkit.ai/generative-ui/specs/mcp-apps)
 
 
-Instead of responding only with text, agents can:
-
--> **Render interactive components**
-
--> **Request structured user input**
-
--> **Pause execution and resume after user interaction**
-
--> **Adapt UI based on state, tool calls, or intermediate results**
-
--> **UI becomes a first-class part of the agent experience, not a separate layer**
-
 
 ## 🖥️ AG-UI: The Agent–User Interaction Protocol
 Connect agent workflow to user-facing apps, with deep partnerships and 1st-party integrations across the agentic stack—including LangGraph, CrewAI, and more.
-<img width="914" height="930" alt="image" src="https://github.com/user-attachments/assets/94473935-d13c-46c1-a5a7-e7e71ee207e5" />
 
+<img width="936" height="851" alt="image" src="https://github.com/user-attachments/assets/46d67b00-ef9d-4ab1-b584-168bbff2acbb" />
 
+---
+
+```
+npx create-ag-ui-app my-agent-app
+```
 
   <a href="https://github.com/ag-ui-protocol/ag-ui" target="_blank">
    Learn more in the AG-UI README →
