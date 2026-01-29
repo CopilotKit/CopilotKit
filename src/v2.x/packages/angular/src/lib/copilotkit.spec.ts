@@ -143,8 +143,10 @@ describe("CopilotKit", () => {
     expect(copilotKit.clientToolCallRenderConfigs()).toHaveLength(1);
 
     const tool = mockAddTool.mock.calls.at(-1)![0];
-    await tool.handler({ value: "ok" });
-    expect(handlerSpy).toHaveBeenCalledWith({ value: "ok" });
+    const mockAgent = { agentId: "test-agent" };
+    const mockContext = { toolCall: { id: "call-1", function: { name: "client" } }, agent: mockAgent };
+    await tool.handler({ value: "ok" }, mockContext);
+    expect(handlerSpy).toHaveBeenCalledWith({ value: "ok" }, mockContext);
   });
 
   it("registers human-in-the-loop tools and delegates responses", async () => {
@@ -176,7 +178,8 @@ describe("CopilotKit", () => {
     );
 
     const tool = mockAddTool.mock.calls.at(-1)![0];
-    await tool.handler({}, { id: "call-1", function: { name: "approval" } });
+    const mockAgent = { agentId: "agent-1" };
+    await tool.handler({}, { toolCall: { id: "call-1", function: { name: "approval" } }, agent: mockAgent });
     expect(onResultSpy).toHaveBeenCalledWith("call-1", "approval");
 
     onResultSpy.mockRestore();

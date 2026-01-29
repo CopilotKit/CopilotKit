@@ -6,6 +6,8 @@ export default defineConfig({
     setupFiles: ["./src/__tests__/setup.ts"],
     include: ["**/__tests__/**/*.{test,spec}.{ts,tsx}"],
     globals: true,
+    reporters: [["default", { summary: false }]],
+    silent: true,
     server: {
       deps: {
         inline: ["streamdown"],

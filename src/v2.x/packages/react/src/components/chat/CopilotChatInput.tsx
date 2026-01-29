@@ -1056,7 +1056,7 @@ export namespace CopilotChatInput {
   export type TextAreaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement>;
 
   export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(function TextArea(
-    { style, className, autoFocus, ...props },
+    { style, className, autoFocus, placeholder, ...props },
     ref,
   ) {
     const internalTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -1090,18 +1090,18 @@ export namespace CopilotChatInput {
     return (
       <textarea
         ref={internalTextareaRef}
-        {...props}
+        placeholder={placeholder ?? labels.chatInputPlaceholder}
+        className={twMerge(
+          "bg-transparent outline-none antialiased font-regular leading-relaxed text-[16px] placeholder:text-[#00000077] dark:placeholder:text-[#fffc]",
+          className,
+        )}
         style={{
           overflow: "auto",
           resize: "none",
           ...style,
         }}
-        placeholder={labels.chatInputPlaceholder}
-        className={twMerge(
-          "bg-transparent outline-none antialiased font-regular leading-relaxed text-[16px] placeholder:text-[#00000077] dark:placeholder:text-[#fffc]",
-          className,
-        )}
         rows={1}
+        {...props}
       />
     );
   });

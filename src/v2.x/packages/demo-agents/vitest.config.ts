@@ -4,5 +4,7 @@ export default defineConfig({
   test: {
     environment: "node",
     passWithNoTests: true,
+    reporters: [["default", { summary: false }]],
+    silent: true,
   },
 });

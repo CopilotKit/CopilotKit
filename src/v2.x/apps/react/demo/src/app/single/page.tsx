@@ -97,5 +97,5 @@ function Chat() {
     [],
   );
 
-  return <CopilotChat inputProps={{ toolsMenu }} threadId="xyz" />;
+  return <CopilotChat input={{ toolsMenu }} threadId="xyz" />;
 }

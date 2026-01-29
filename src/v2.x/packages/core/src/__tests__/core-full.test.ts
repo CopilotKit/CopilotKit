@@ -52,13 +52,18 @@ describe("CopilotKitCore.runAgent - Full Test Suite", () => {
 
       expect(tool.handler).toHaveBeenCalledWith(
         { input: "test" },
-        expect.objectContaining({
-          id: expect.any(String),
-          function: expect.objectContaining({
-            name: toolName,
-            arguments: '{"input":"test"}',
+        {
+          toolCall: expect.objectContaining({
+            id: expect.any(String),
+            function: expect.objectContaining({
+              name: toolName,
+              arguments: '{"input":"test"}',
+            }),
           }),
-        }),
+          agent: expect.objectContaining({
+            agentId: "test",
+          }),
+        },
       );
       expect(agent.messages.some((m) => m.role === "tool")).toBe(true);
     });

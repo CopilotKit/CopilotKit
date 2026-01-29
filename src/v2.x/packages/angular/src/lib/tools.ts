@@ -1,5 +1,5 @@
 import { DestroyRef, Injector, Signal, Type, inject } from "@angular/core";
-import { FrontendTool } from "@copilotkitnext/core";
+import { FrontendTool, FrontendToolHandlerContext } from "@copilotkitnext/core";
 import { z } from "zod";
 import { CopilotKit } from "./copilotkit";
 
@@ -67,7 +67,7 @@ export interface FrontendToolConfig<Args extends Record<string, unknown> = Recor
   description: string;
   parameters: z.ZodType<Args>;
   component?: Type<ToolRenderer<Args>>;
-  handler: (args: Args) => Promise<unknown>;
+  handler: (args: Args, context: FrontendToolHandlerContext) => Promise<unknown>;
   agentId?: string;
 }
 

@@ -1,6 +1,6 @@
 {
   "$schema": "https://turborepo.com/schema.json",
-  "ui": "tui",
+  "ui": "stream",
   "concurrency": "14",
   "tasks": {
     "build": {
@@ -9,7 +9,8 @@
       "interactive": false,
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
+      "outputLogs": "errors-only"
     },
     "@copilotkit/runtime#generate-graphql-schema": {
       "cache": false,
@@ -86,15 +87,18 @@
     },
     "build:css": {
       "cache": true,
-      "outputs": ["dist/styles.css", "src/styles/generated.css"]
+      "outputs": ["dist/styles.css", "src/styles/generated.css"],
+      "outputLogs": "errors-only"
     },
     "@copilotkitnext/web-inspector#build:css": {
       "cache": true,
-      "outputs": ["src/styles/generated.css"]
+      "outputs": ["src/styles/generated.css"],
+      "outputLogs": "errors-only"
     },
     "@copilotkitnext/web-inspector#build": {
       "dependsOn": ["^build", "@copilotkitnext/web-inspector#build:css"],
-      "outputs": ["dist/**"]
+      "outputs": ["dist/**"],
+      "outputLogs": "errors-only"
     },
     "demo#dev": {
       "cache": false,

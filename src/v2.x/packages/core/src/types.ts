@@ -1,4 +1,4 @@
-import { ToolCall } from "@ag-ui/client";
+import { AbstractAgent, ToolCall } from "@ag-ui/client";
 import { z } from "zod";
 
 /**
@@ -12,11 +12,19 @@ export enum ToolCallStatus {
 
 export type CopilotRuntimeTransport = "rest" | "single";
 
+/**
+ * Context passed to a frontend tool handler
+ */
+export type FrontendToolHandlerContext = {
+  toolCall: ToolCall;
+  agent: AbstractAgent;
+};
+
 export type FrontendTool<T extends Record<string, unknown> = Record<string, unknown>> = {
   name: string;
   description?: string;
   parameters?: z.ZodType<T>;
-  handler?: (args: T, toolCall: ToolCall) => Promise<unknown>;
+  handler?: (args: T, context: FrontendToolHandlerContext) => Promise<unknown>;
   followUp?: boolean;
   /**
    * Optional agent ID to constrain this tool to a specific agent.
