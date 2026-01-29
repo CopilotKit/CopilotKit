@@ -1,5 +1,22 @@
 # @copilotkit/runtime
 
+## 1.51.3
+
+### Patch Changes
+
+- d655e75: fix: update ag-ui dependencies
+- d268c49: fix: add apiKey parameter to BuiltInAgentConfiguration
+- d36fc1e: Add UMD export
+- b49277b: fix: update all agui langgraph dependencies
+- 3a0822d: fix: do not run middleware for internal get requests
+- Updated dependencies [d655e75]
+- Updated dependencies [d268c49]
+- Updated dependencies [d36fc1e]
+- Updated dependencies [29d70a5]
+  - @copilotkit/shared@1.51.3
+  - @copilotkitnext/agent@1.51.3
+  - @copilotkitnext/runtime@1.51.3
+
 ## 1.51.3-next.8
 
 ### Patch Changes

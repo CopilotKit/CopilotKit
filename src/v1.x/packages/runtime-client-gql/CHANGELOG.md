@@ -1,5 +1,18 @@
 # @copilotkit/runtime-client-gql
 
+## 1.51.3
+
+### Patch Changes
+
+- d36fc1e: Add UMD export
+- Updated dependencies [d655e75]
+- Updated dependencies [d268c49]
+- Updated dependencies [d36fc1e]
+- Updated dependencies [b49277b]
+- Updated dependencies [3a0822d]
+  - @copilotkit/runtime@1.51.3
+  - @copilotkit/shared@1.51.3
+
 ## 1.51.3-next.8
 
 ### Patch Changes

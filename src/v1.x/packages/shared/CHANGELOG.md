@@ -1,5 +1,12 @@
 # @copilotkit/shared
 
+## 1.51.3
+
+### Patch Changes
+
+- d655e75: fix: update ag-ui dependencies
+- d36fc1e: Add UMD export
+
 ## 1.51.3-next.8
 
 ### Patch Changes

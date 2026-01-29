@@ -1,6 +1,6 @@
 {
   "name": "@copilotkitnext/eslint-config",
-  "version": "1.51.3-next.8",
+  "version": "1.51.3",
   "type": "module",
   "private": true,
   "exports": {

@@ -1,5 +1,17 @@
 # @copilotkit/a2ui-renderer
 
+## 1.51.3
+
+### Patch Changes
+
+- d36fc1e: Add UMD export
+- ffb46f4: fix(a2ui-renderer): ensure the component updates when A2UI operations change
+- Updated dependencies [d655e75]
+- Updated dependencies [d36fc1e]
+- Updated dependencies [e89fe98]
+- Updated dependencies [3f00a01]
+  - @copilotkit/react-core@1.51.3
+
 ## 1.51.3-next.8
 
 ### Patch Changes
