@@ -32,9 +32,22 @@ export default function NotFound() {
       const queryString = searchParams?.toString();
       const fullPath = pathname + (queryString ? `?${queryString}` : "");
 
-      // Check if referrer is internal (same domain)
-      const isInternalReferrer = referrer.includes("docs.copilotkit.ai") ||
+      // Check if referrer is internal (docs site or corporate site)
+      const isInternalReferrer = referrer.includes("copilotkit.ai") ||
                                   referrer.includes("localhost");
+
+      // Parse referrer URL if available
+      let referrerDomain = null;
+      let referrerPath = null;
+      if (referrer) {
+        try {
+          const referrerUrl = new URL(referrer);
+          referrerDomain = referrerUrl.hostname;
+          referrerPath = referrerUrl.pathname;
+        } catch (e) {
+          // Invalid URL, skip parsing
+        }
+      }
 
       try {
         posthog.capture("broken_link_accessed", {
@@ -45,9 +58,8 @@ export default function NotFound() {
 
           // Where they came from
           referrer_url: referrer || "(direct)",
-          referrer_path: isInternalReferrer
-            ? new URL(referrer || window.location.href).pathname
-            : null,
+          referrer_domain: referrerDomain,
+          referrer_path: referrerPath,
           is_internal_referrer: isInternalReferrer,
 
           // Context for filtering
