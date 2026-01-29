@@ -1,5 +1,20 @@
 # ui
 
+## 1.51.3
+
+### Patch Changes
+
+- d655e75: fix: update ag-ui dependencies
+- d36fc1e: Add UMD export
+- e89fe98: fix(v1.x): address issue causing onSubmitMessage to fire after agent response
+- 3f00a01: Fix issue causing onSubmitMessage to fire after agent response
+- Updated dependencies [d655e75]
+- Updated dependencies [d36fc1e]
+  - @copilotkit/shared@1.51.3
+  - @copilotkit/runtime-client-gql@1.51.3
+  - @copilotkitnext/react@1.51.3
+  - @copilotkitnext/core@1.51.3
+
 ## 1.51.3-next.8
 
 ### Patch Changes

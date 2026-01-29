@@ -1,5 +1,15 @@
 # @copilotkitnext/react
 
+## 1.51.3
+
+### Patch Changes
+
+- d36fc1e: Add UMD export
+- Updated dependencies [d36fc1e]
+  - @copilotkitnext/web-inspector@1.51.3
+  - @copilotkitnext/shared@1.51.3
+  - @copilotkitnext/core@1.51.3
+
 ## 1.51.3-next.8
 
 ### Patch Changes
