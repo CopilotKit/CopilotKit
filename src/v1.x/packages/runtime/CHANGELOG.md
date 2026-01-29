@@ -1,5 +1,31 @@
 # @copilotkit/runtime
 
+## 1.51.3-next.6
+
+### Patch Changes
+
+- 3a0822d: fix: do not run middleware for internal get requests
+  - @copilotkit/shared@1.51.3-next.6
+  - @copilotkitnext/agent@1.51.3-next.6
+  - @copilotkitnext/runtime@1.51.3-next.6
+
+## 1.51.3-next.5
+
+### Patch Changes
+
+- @copilotkit/shared@1.51.3-next.5
+- @copilotkitnext/agent@1.51.3-next.5
+- @copilotkitnext/runtime@1.51.3-next.5
+
+## 1.51.3-next.4
+
+### Patch Changes
+
+- b49277b: fix: update all agui langgraph dependencies
+  - @copilotkit/shared@1.51.3-next.4
+  - @copilotkitnext/agent@1.51.3-next.4
+  - @copilotkitnext/runtime@1.51.3-next.4
+
 ## 1.51.3-next.3
 
 ### Patch Changes

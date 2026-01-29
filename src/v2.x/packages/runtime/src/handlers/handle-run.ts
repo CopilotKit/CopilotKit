@@ -6,6 +6,7 @@ import {
 } from "@ag-ui/client";
 import { EventEncoder } from "@ag-ui/encoder";
 import { CopilotRuntime } from "../runtime";
+import { extractForwardableHeaders } from "./header-utils";
 
 interface RunAgentParameters {
   request: Request;
@@ -39,21 +40,10 @@ export async function handleRunAgent({
     const agent = registeredAgent.clone() as AbstractAgent;
 
     if (agent && "headers" in agent) {
-      const shouldForward = (headerName: string) => {
-        const lower = headerName.toLowerCase();
-        return lower === "authorization" || lower.startsWith("x-");
-      };
-
-      const forwardableHeaders: Record<string, string> = {};
-      request.headers.forEach((value, key) => {
-        if (shouldForward(key)) {
-          forwardableHeaders[key] = value;
-        }
-      });
-
-      agent.headers = { 
-        ...agent.headers as Record<string, string>, 
-        ...forwardableHeaders 
+      const forwardableHeaders = extractForwardableHeaders(request);
+      agent.headers = {
+        ...agent.headers as Record<string, string>,
+        ...forwardableHeaders
       };
     }
 
