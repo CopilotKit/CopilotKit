@@ -1,5 +1,11 @@
 # @copilotkitnext/agent
 
+## 1.51.3-next.8
+
+### Patch Changes
+
+- d36fc1e: Add UMD export
+
 ## 1.51.3-next.7
 
 ## 1.51.3-next.6
