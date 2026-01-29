@@ -1,5 +1,14 @@
 # @copilotkit/runtime
 
+## 1.51.3-next.6
+
+### Patch Changes
+
+- 3a0822d: fix: do not run middleware for internal get requests
+  - @copilotkit/shared@1.51.3-next.6
+  - @copilotkitnext/agent@1.51.3-next.6
+  - @copilotkitnext/runtime@1.51.3-next.6
+
 ## 1.51.3-next.5
 
 ### Patch Changes
