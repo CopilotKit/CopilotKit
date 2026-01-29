@@ -216,6 +216,7 @@ async function main() {
   // Report results
   if (brokenLinks.length === 0) {
     console.log('✅ No broken links found!');
+    return 0; // Success
   } else {
     console.log(`❌ Found ${brokenLinks.length} broken links:\n`);
 
@@ -230,12 +231,21 @@ async function main() {
     console.log('  - Verify the path is correct');
     console.log('  - Consider adding redirects in middleware.ts');
     console.log('  - Update the link to point to the correct page');
+
+    return 1; // Error - broken links found
   }
 }
 
 // Run the script
 if (require.main === module) {
-  main().catch(console.error);
+  main()
+    .then(exitCode => {
+      process.exit(exitCode || 0);
+    })
+    .catch(error => {
+      console.error(error);
+      process.exit(1);
+    });
 }
 
 module.exports = { extractLinks, isValidLink, getAllPages, filePathToUrl };
