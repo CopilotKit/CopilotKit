@@ -27,6 +27,7 @@ export function CopilotPopup({
         width: viewWidth,
         height: viewHeight,
         clickOutsideToClose: viewClickOutsideToClose,
+        defaultOpen: viewDefaultOpen,
         ...restProps
       } = viewProps as CopilotPopupViewProps;
 
@@ -37,19 +38,19 @@ export function CopilotPopup({
           width={width ?? viewWidth}
           height={height ?? viewHeight}
           clickOutsideToClose={clickOutsideToClose ?? viewClickOutsideToClose}
+          defaultOpen={defaultOpen ?? viewDefaultOpen}
         />
       );
     };
 
     return Object.assign(Component, CopilotChatView);
-  }, [clickOutsideToClose, header, height, width]);
+  }, [clickOutsideToClose, header, height, width, defaultOpen]);
 
   return (
     <CopilotChat
       welcomeScreen={CopilotPopupView.WelcomeScreen}
       {...chatProps}
       chatView={PopupViewOverride}
-      isModalDefaultOpen={defaultOpen}
     />
   );
 }

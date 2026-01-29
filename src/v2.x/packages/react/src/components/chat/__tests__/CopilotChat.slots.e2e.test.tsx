@@ -327,15 +327,6 @@ describe("CopilotChat Slot System E2E Tests", () => {
       expect(input).toBeDefined();
     });
 
-    it("should support isModalDefaultOpen prop", () => {
-      const { container } = render(
-        <TestWrapper>
-          <CopilotChat isModalDefaultOpen={true} />
-        </TestWrapper>
-      );
-
-      expect(container.firstChild).toBeDefined();
-    });
   });
 
   // ============================================================================

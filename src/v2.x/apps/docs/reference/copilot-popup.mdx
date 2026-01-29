@@ -1,0 +1,193 @@
+---
+title: CopilotPopup
+description: "Floating popup chat dialog"
+---
+
+`CopilotPopup` is a React component that provides a floating popup chat interface. It wraps [CopilotChat](/reference/copilot-chat) with additional popup-specific behavior including a toggle button, fade/scale animation, and optional click-outside-to-close functionality.
+
+## What is CopilotPopup?
+
+The CopilotPopup component:
+
+- Provides a floating dialog with smooth fade/scale animation
+- Includes a toggle button for open/close
+- Supports click-outside-to-close behavior
+- Responsive design (fullscreen on mobile, fixed size on desktop)
+- Built on [CopilotChat](/reference/copilot-chat) - inherits all its features and customization options
+
+## Component Architecture
+
+CopilotPopup extends [CopilotChat](/reference/copilot-chat#component-architecture) with an additional `header` slot:
+
+```mermaid
+graph LR
+    CP[CopilotPopup] --> header
+```
+
+### Slot Descriptions
+
+| Slot | Description |
+|------|-------------|
+| `header` | Header bar with title and close button |
+
+CopilotPopup also inherits all slots from CopilotChat: `messageView`, `scrollView`, `input`, `suggestionView`, and `welcomeScreen`.
+
+See [Slot Customization](#slot-customization) for details on how to customize these slots.
+
+## Basic Usage
+
+```tsx
+import { CopilotPopup, CopilotKitProvider } from "@copilotkitnext/react";
+
+function App() {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit">
+      <CopilotPopup />
+    </CopilotKitProvider>
+  );
+}
+```
+
+## Props
+
+### Popup-Specific Props
+
+These props are unique to CopilotPopup:
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `defaultOpen` | `boolean` | `false` | Whether the popup is open initially |
+| `width` | `number \| string` | `420` | Popup width in pixels or CSS unit |
+| `height` | `number \| string` | `560` | Popup height in pixels or CSS unit |
+| `clickOutsideToClose` | `boolean` | `false` | Close the popup when clicking outside |
+| `header` | `SlotValue` | - | Custom header component with title and close button |
+
+### Shared Props
+
+CopilotPopup inherits all props from [CopilotChat](/reference/copilot-chat), including:
+
+- `agentId` - The agent to connect to
+- `threadId` - The conversation thread ID
+- `labels` - Customize text labels
+- `autoScroll` - Auto-scroll behavior
+- `className` - CSS class for the root container
+
+See [CopilotChat Props](/reference/copilot-chat#props) for the complete list.
+
+## Header Customization
+
+The popup includes a header with a title and close button. Customize it through the `header` prop:
+
+```tsx
+<CopilotPopup
+  header={{
+    titleContent: "My Assistant",
+    closeButton: "hidden",
+  }}
+/>
+```
+
+### Header Sub-Slots
+
+| Sub-Slot | Description |
+|----------|-------------|
+| `titleContent` | The title text or component |
+| `closeButton` | The close button (can be hidden) |
+
+## Slot Customization
+
+CopilotPopup uses the same [slot system](/reference/slot-system) as CopilotChat. Each slot accepts four types of values:
+
+1. **Tailwind class string** - Add or override CSS classes
+2. **Props object** - Pass additional props to the default component
+3. **Custom component** - Replace the component entirely
+4. **Nested sub-slots** - Drill down to customize child components
+
+### Custom Dimensions
+
+```tsx
+<CopilotPopup width={500} height={700} />
+
+// Or with CSS units
+<CopilotPopup width="30vw" height="80vh" />
+```
+
+### Click Outside to Close
+
+```tsx
+<CopilotPopup clickOutsideToClose={true} />
+```
+
+### Custom Header
+
+```tsx
+<CopilotPopup
+  header={{
+    className: "bg-gradient-to-r from-blue-500 to-purple-500 text-white",
+    titleContent: "AI Assistant",
+  }}
+/>
+```
+
+### Nested Slot Customization
+
+```tsx
+<CopilotPopup
+  messageView={{
+    assistantMessage: {
+      onThumbsUp: (msg) => console.log("Liked:", msg.id),
+      onThumbsDown: (msg) => console.log("Disliked:", msg.id),
+    },
+  }}
+  input={{
+    className: "border-2 border-gray-200",
+    sendButton: "bg-blue-500 hover:bg-blue-600",
+  }}
+/>
+```
+
+## Complete Example
+
+```tsx
+import { CopilotPopup, CopilotKitProvider } from "@copilotkitnext/react";
+
+function App() {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit">
+      <div className="min-h-screen p-8">
+        <h1>My Application</h1>
+        <p>Your main content here...</p>
+
+        <CopilotPopup
+          defaultOpen={false}
+          width={450}
+          height={600}
+          clickOutsideToClose={true}
+          agentId="my-assistant"
+          header={{
+            titleContent: "AI Assistant",
+            className: "bg-slate-900 text-white",
+          }}
+          labels={{
+            chatInputPlaceholder: "Ask me anything...",
+            welcomeMessage: "Hello! How can I help you today?",
+          }}
+          messageView={{
+            assistantMessage: {
+              onThumbsUp: (msg) => trackFeedback(msg.id, "positive"),
+              onThumbsDown: (msg) => trackFeedback(msg.id, "negative"),
+            },
+          }}
+        />
+      </div>
+    </CopilotKitProvider>
+  );
+}
+```
+
+## Related
+
+- [CopilotChat](/reference/copilot-chat) - Base chat component with full customization options
+- [CopilotSidebar](/reference/copilot-sidebar) - Slide-in sidebar chat interface
+- [Slot System](/reference/slot-system) - Deep dive into slot customization
+- [CopilotKitProvider](/reference/copilotkit-provider) - Provider configuration

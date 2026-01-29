@@ -5,16 +5,12 @@ import { CopilotPopupView } from "../CopilotPopupView";
 import { CopilotKitProvider } from "@/providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "@/providers/CopilotChatConfigurationProvider";
 
-// Wrapper to provide required context with popup open
-const TestWrapper: React.FC<{ children: React.ReactNode; isOpen?: boolean }> = ({
+// Wrapper to provide required context
+const TestWrapper: React.FC<{ children: React.ReactNode }> = ({
   children,
-  isOpen = true,
 }) => (
   <CopilotKitProvider>
-    <CopilotChatConfigurationProvider
-      threadId="test-thread"
-      isModalDefaultOpen={isOpen}
-    >
+    <CopilotChatConfigurationProvider threadId="test-thread">
       {children}
     </CopilotChatConfigurationProvider>
   </CopilotKitProvider>
@@ -456,8 +452,8 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
   describe("8. Integration Tests", () => {
     it("should render popup with all default components when open", () => {
       const { container } = render(
-        <TestWrapper isOpen={true}>
-          <CopilotPopupView messages={sampleMessages} />
+        <TestWrapper>
+          <CopilotPopupView messages={sampleMessages} defaultOpen={true} />
         </TestWrapper>
       );
 
@@ -514,8 +510,8 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
 
     it("should not render popup content when closed", () => {
       const { container } = render(
-        <TestWrapper isOpen={false}>
-          <CopilotPopupView messages={sampleMessages} />
+        <TestWrapper>
+          <CopilotPopupView messages={sampleMessages} defaultOpen={false} />
         </TestWrapper>
       );
 

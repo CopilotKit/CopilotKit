@@ -5,16 +5,12 @@ import { CopilotSidebarView } from "../CopilotSidebarView";
 import { CopilotKitProvider } from "@/providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "@/providers/CopilotChatConfigurationProvider";
 
-// Wrapper to provide required context with sidebar open
-const TestWrapper: React.FC<{ children: React.ReactNode; isOpen?: boolean }> = ({
+// Wrapper to provide required context
+const TestWrapper: React.FC<{ children: React.ReactNode }> = ({
   children,
-  isOpen = true,
 }) => (
   <CopilotKitProvider>
-    <CopilotChatConfigurationProvider
-      threadId="test-thread"
-      isModalDefaultOpen={isOpen}
-    >
+    <CopilotChatConfigurationProvider threadId="test-thread">
       {children}
     </CopilotChatConfigurationProvider>
   </CopilotKitProvider>

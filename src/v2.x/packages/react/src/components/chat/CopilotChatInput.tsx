@@ -912,7 +912,7 @@ export function CopilotChatInput({
       }}
       {...props}
     >
-      <div className="max-w-3xl mx-auto py-0 px-4 sm:px-0 [div[data-sidebar-chat]_&]:px-8 [div[data-popup-chat]_&]:px-6 pointer-events-auto">
+      <div className="max-w-3xl mx-auto py-0 px-4 sm:px-0 [div[data-sidebar-chat]_&]:px-8 [div[data-popup-chat]_&]:px-4 pointer-events-auto">
         {inputPill}
       </div>
       {shouldShowDisclaimer && BoundDisclaimer}

@@ -5,6 +5,7 @@ import { CopilotModalHeader } from "./CopilotModalHeader";
 import { cn } from "@/lib/utils";
 import { renderSlot, SlotValue } from "@/lib/slots";
 import {
+  CopilotChatConfigurationProvider,
   CopilotChatDefaultLabels,
   useCopilotChatConfiguration,
 } from "@/providers/CopilotChatConfigurationProvider";
@@ -17,6 +18,7 @@ export type CopilotPopupViewProps = CopilotChatViewProps & {
   width?: number | string;
   height?: number | string;
   clickOutsideToClose?: boolean;
+  defaultOpen?: boolean;
 };
 
 const dimensionToCss = (value: number | string | undefined, fallback: number): string => {
@@ -36,9 +38,32 @@ export function CopilotPopupView({
   width,
   height,
   clickOutsideToClose,
+  defaultOpen = true,
   className,
   ...restProps
 }: CopilotPopupViewProps) {
+  return (
+    <CopilotChatConfigurationProvider isModalDefaultOpen={defaultOpen}>
+      <CopilotPopupViewInternal
+        header={header}
+        width={width}
+        height={height}
+        clickOutsideToClose={clickOutsideToClose}
+        className={className}
+        {...restProps}
+      />
+    </CopilotChatConfigurationProvider>
+  );
+}
+
+function CopilotPopupViewInternal({
+  header,
+  width,
+  height,
+  clickOutsideToClose,
+  className,
+  ...restProps
+}: Omit<CopilotPopupViewProps, "defaultOpen">) {
   const configuration = useCopilotChatConfiguration();
   const isPopupOpen = configuration?.isModalOpen ?? false;
   const setModalOpen = configuration?.setModalOpen;
@@ -94,7 +119,11 @@ export function CopilotPopupView({
     }
 
     const focusTimer = setTimeout(() => {
-      containerRef.current?.focus({ preventScroll: true });
+      const container = containerRef.current;
+      // Don't steal focus if something inside the popup (like the input) is already focused
+      if (container && !container.contains(document.activeElement)) {
+        container.focus({ preventScroll: true });
+      }
     }, 200);
 
     return () => clearTimeout(focusTimer);
@@ -251,14 +280,12 @@ export namespace CopilotPopupView {
         </div>
 
         {/* Suggestions and input at bottom */}
-        <div className="px-6 pb-4">
-          <div className="max-w-3xl mx-auto">
-            {/* Suggestions above input */}
-            <div className="mb-4 flex justify-center">
-              {suggestionView}
-            </div>
-            {input}
+        <div>
+          {/* Suggestions above input */}
+          <div className="mb-4 flex justify-center px-4">
+            {suggestionView}
           </div>
+          {input}
         </div>
       </div>
     );

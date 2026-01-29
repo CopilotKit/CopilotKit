@@ -13,26 +13,26 @@ export type CopilotSidebarProps = Omit<CopilotChatProps, "chatView"> & {
 export function CopilotSidebar({ header, defaultOpen, width, ...chatProps }: CopilotSidebarProps) {
   const SidebarViewOverride = useMemo(() => {
     const Component: React.FC<CopilotChatViewProps> = (viewProps) => {
-      const { header: viewHeader, width: viewWidth, ...restProps } = viewProps as CopilotSidebarViewProps;
+      const { header: viewHeader, width: viewWidth, defaultOpen: viewDefaultOpen, ...restProps } = viewProps as CopilotSidebarViewProps;
 
       return (
         <CopilotSidebarView
           {...(restProps as CopilotSidebarViewProps)}
           header={header ?? viewHeader}
           width={width ?? viewWidth}
+          defaultOpen={defaultOpen ?? viewDefaultOpen}
         />
       );
     };
 
     return Object.assign(Component, CopilotChatView);
-  }, [header, width]);
+  }, [header, width, defaultOpen]);
 
   return (
     <CopilotChat
       welcomeScreen={CopilotSidebarView.WelcomeScreen}
       {...chatProps}
       chatView={SidebarViewOverride}
-      isModalDefaultOpen={defaultOpen}
     />
   );
 }
