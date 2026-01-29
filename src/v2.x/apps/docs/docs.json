@@ -56,7 +56,12 @@
               },
               {
                 "group": "Components",
-                "pages": ["reference/copilot-chat", "reference/copilot-sidebar", "reference/copilot-popup"]
+                "pages": [
+                  "reference/copilot-chat",
+                  "reference/copilot-sidebar",
+                  "reference/copilot-popup",
+                  "reference/copilot-chat-message-view"
+                ]
               },
               {
                 "group": "Hooks",
