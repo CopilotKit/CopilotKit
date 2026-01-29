@@ -71,6 +71,11 @@ const config = {
   async redirects() {
     return [
       {
+        source: '/generative-ui-specs/:path*',
+        destination: '/generative-ui/specs/:path*',
+        permanent: true,
+      },
+      {
         source: '/coagents/:path*',
         destination: '/langgraph/:path*',
         permanent: true,

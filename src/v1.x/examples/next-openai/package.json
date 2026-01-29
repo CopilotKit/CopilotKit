@@ -34,7 +34,7 @@
     "openai": "^4.85.1",
     "react": "19.0.0-rc-0bc30748-20241028",
     "react-dom": "19.0.0-rc-0bc30748-20241028",
-    "streamdown": "^1.6.10",
+    "react-markdown": "^8.0.7",
     "use-stick-to-bottom": "^1.1.1"
   },
   "devDependencies": {
