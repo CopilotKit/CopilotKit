@@ -9,7 +9,7 @@ users what the AI is doing behind the scenes.
 
 This hook has no handler function. You only provide a render function that receives information about
 the tool call (arguments, status, results) and displays it however you want. You can target specific
-tool names or use an empty string (`""`) to catch and render all tool calls.
+tool names or use an asterisk (`"*"`) to catch and render all tool calls.
 
 ## Usage
 
@@ -84,7 +84,7 @@ The migration is straightforward - just change the hook name. The render props r
 ## Parameters
 
 <PropertyReference name="name" type="string" required >
-The name of the tool to render. Use `""` to catch all tool calls.
+The name of the tool to render. Use `"*"` to catch all tool calls.
 </PropertyReference>
 
 <PropertyReference name="description" type="string"  >
