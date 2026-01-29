@@ -1,5 +1,13 @@
 # @copilotkit/sdk-js
 
+## 1.51.3-next.8
+
+### Patch Changes
+
+- d36fc1e: Add UMD export
+- Updated dependencies [d36fc1e]
+  - @copilotkit/shared@1.51.3-next.8
+
 ## 1.51.3-next.7
 
 ### Patch Changes
