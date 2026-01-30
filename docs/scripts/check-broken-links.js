@@ -13,7 +13,7 @@ const DOCS_DIR = 'content/docs';
 const EXCLUDE_PATTERNS = ['**/node_modules/**', '**/dist/**', '**/build/**'];
 
 /**
- * Extract all markdown links from a file
+ * Extract all markdown links and JSX href attributes from a file
  */
 function extractLinks(filePath, content) {
   const links = [];
@@ -41,6 +41,34 @@ function extractLinks(filePath, content) {
 
     links.push({
       text: text.trim(),
+      url: cleanUrl.trim(),
+      file: filePath,
+      line: content.substring(0, match.index).split('\n').length
+    });
+  }
+
+  // Also extract JSX href attributes: href="..." or href='...'
+  const jsxHrefRegex = /href=["']([^"']+)["']/g;
+
+  while ((match = jsxHrefRegex.exec(content)) !== null) {
+    const [fullMatch, url] = match;
+
+    // Skip external links
+    if (url.startsWith('http') || url.startsWith('mailto:') || url.startsWith('tel:')) {
+      continue;
+    }
+
+    // Skip anchor links
+    if (url.startsWith('#')) {
+      continue;
+    }
+
+    // Remove anchors from internal links
+    const cleanUrl = url.split('#')[0];
+    if (!cleanUrl) continue; // Skip if it was only an anchor
+
+    links.push({
+      text: `<${fullMatch}>`,
       url: cleanUrl.trim(),
       file: filePath,
       line: content.substring(0, match.index).split('\n').length
