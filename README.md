@@ -74,12 +74,6 @@ https://github.com/user-attachments/assets/46b7d161-a988-4453-9ca9-c0eca4c33da6
 - Built-in security - Prompt injection protection
 - Open source - Full transparency and community-driven
 
-## 🧑‍💻 Real life use cases
-
-<span>Deploy deeply-integrated AI assistants & agents that work alongside your users inside your applications.</span>
-
-<img width="4096" height="2725" alt="Headless UI" src="https://github.com/user-attachments/assets/4dbe1e74-8b46-4798-a658-f79ee5a66189" />
-
 
 ## 🖥️ Code Samples
 
