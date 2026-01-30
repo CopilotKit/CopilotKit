@@ -6,9 +6,9 @@ settings:
 
 overrides:
   streamdown>react: ^19.0.0
-  '@ag-ui/client': 0.0.42
-  '@ag-ui/core': 0.0.42
-  '@ag-ui/encoder': 0.0.42
+  '@ag-ui/client': 0.0.43
+  '@ag-ui/core': 0.0.43
+  '@ag-ui/encoder': 0.0.43
   '@types/react': ^19.1.0
   '@types/react-dom': ^19.0.2
   react: 19.1.0
@@ -889,8 +889,8 @@ importers:
   src/v1.x/packages/react-core:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.42
-        version: 0.0.42
+        specifier: 0.0.43
+        version: 0.0.43
       '@copilotkit/runtime-client-gql':
         specifier: workspace:*
         version: link:../runtime-client-gql
@@ -1162,14 +1162,14 @@ importers:
   src/v1.x/packages/runtime:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.42
-        version: 0.0.42
+        specifier: 0.0.43
+        version: 0.0.43
       '@ag-ui/core':
-        specifier: 0.0.42
-        version: 0.0.42
+        specifier: 0.0.43
+        version: 0.0.43
       '@ag-ui/langgraph':
-        specifier: ^0.0.23
-        version: 0.0.23(@ag-ui/client@0.0.42)(@ag-ui/core@0.0.42)(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+        specifier: ^0.0.24
+        version: 0.0.24(@ag-ui/client@0.0.43)(@ag-ui/core@0.0.43)(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@anthropic-ai/sdk':
         specifier: ^0.57.0
         version: 0.57.0
@@ -1450,8 +1450,8 @@ importers:
   src/v1.x/packages/shared:
     dependencies:
       '@ag-ui/core':
-        specifier: 0.0.42
-        version: 0.0.42
+        specifier: 0.0.43
+        version: 0.0.43
       '@segment/analytics-node':
         specifier: ^2.1.2
         version: 2.3.0(encoding@0.1.13)
@@ -1525,14 +1525,14 @@ importers:
   src/v2.x/apps/angular/demo:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.42
-        version: 0.0.42
+        specifier: 0.0.43
+        version: 0.0.43
       '@ag-ui/core':
-        specifier: 0.0.42
-        version: 0.0.42
+        specifier: 0.0.43
+        version: 0.0.43
       '@ag-ui/encoder':
-        specifier: 0.0.42
-        version: 0.0.42
+        specifier: 0.0.43
+        version: 0.0.43
       '@ag-ui/proto':
         specifier: 0.0.42
         version: 0.0.42
@@ -1625,8 +1625,8 @@ importers:
   src/v2.x/apps/angular/demo-server:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.42
-        version: 0.0.42
+        specifier: 0.0.43
+        version: 0.0.43
       '@ag-ui/langgraph':
         specifier: ^0.0.11
         version: 0.0.11(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -1662,8 +1662,8 @@ importers:
   src/v2.x/apps/angular/storybook:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.42
-        version: 0.0.42
+        specifier: 0.0.43
+        version: 0.0.43
       '@angular/animations':
         specifier: ^18.2.0
         version: 18.2.14(@angular/core@18.2.14(rxjs@7.8.1)(zone.js@0.14.10))
@@ -1800,11 +1800,11 @@ importers:
   src/v2.x/apps/react/demo:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.42
-        version: 0.0.42
+        specifier: 0.0.43
+        version: 0.0.43
       '@ag-ui/mcp-apps-middleware':
         specifier: 0.0.2
-        version: 0.0.2(@ag-ui/client@0.0.42)(@cfworker/json-schema@4.1.1)(hono@4.11.4)(rxjs@7.8.1)(zod@3.25.76)
+        version: 0.0.2(@ag-ui/client@0.0.43)(@cfworker/json-schema@4.1.1)(hono@4.11.4)(rxjs@7.8.1)(zod@3.25.76)
       '@copilotkit/voice':
         specifier: workspace:*
         version: link:../../../packages/voice
@@ -1952,8 +1952,8 @@ importers:
   src/v2.x/packages/agent:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.42
-        version: 0.0.42
+        specifier: 0.0.43
+        version: 0.0.43
       '@ai-sdk/anthropic':
         specifier: ^2.0.22
         version: 2.0.57(zod@3.25.76)
@@ -2007,11 +2007,11 @@ importers:
   src/v2.x/packages/angular:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.42
-        version: 0.0.42
+        specifier: 0.0.43
+        version: 0.0.43
       '@ag-ui/core':
-        specifier: 0.0.42
-        version: 0.0.42
+        specifier: 0.0.43
+        version: 0.0.43
       '@copilotkitnext/core':
         specifier: workspace:*
         version: link:../core
@@ -2152,8 +2152,8 @@ importers:
   src/v2.x/packages/core:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.42
-        version: 0.0.42
+        specifier: 0.0.43
+        version: 0.0.43
       '@copilotkitnext/shared':
         specifier: workspace:*
         version: link:../shared
@@ -2195,8 +2195,8 @@ importers:
   src/v2.x/packages/demo-agents:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.42
-        version: 0.0.42
+        specifier: 0.0.43
+        version: 0.0.43
       openai:
         specifier: ^4.85.1
         version: 4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76)
@@ -2265,11 +2265,11 @@ importers:
   src/v2.x/packages/react:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.42
-        version: 0.0.42
+        specifier: 0.0.43
+        version: 0.0.43
       '@ag-ui/core':
-        specifier: 0.0.42
-        version: 0.0.42
+        specifier: 0.0.43
+        version: 0.0.43
       '@copilotkitnext/core':
         specifier: workspace:*
         version: link:../core
@@ -2395,14 +2395,14 @@ importers:
   src/v2.x/packages/runtime:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.42
-        version: 0.0.42
+        specifier: 0.0.43
+        version: 0.0.43
       '@ag-ui/core':
-        specifier: 0.0.42
-        version: 0.0.42
+        specifier: 0.0.43
+        version: 0.0.43
       '@ag-ui/encoder':
-        specifier: 0.0.42
-        version: 0.0.42
+        specifier: 0.0.43
+        version: 0.0.43
       '@copilotkitnext/shared':
         specifier: workspace:*
         version: link:../shared
@@ -2453,8 +2453,8 @@ importers:
   src/v2.x/packages/shared:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.42
-        version: 0.0.42
+        specifier: 0.0.43
+        version: 0.0.43
       partial-json:
         specifier: ^0.1.7
         version: 0.1.7
@@ -2484,8 +2484,8 @@ importers:
   src/v2.x/packages/sqlite-runner:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.42
-        version: 0.0.42
+        specifier: 0.0.43
+        version: 0.0.43
       '@copilotkitnext/runtime':
         specifier: workspace:*
         version: link:../runtime
@@ -2557,8 +2557,8 @@ importers:
   src/v2.x/packages/web-inspector:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.42
-        version: 0.0.42
+        specifier: 0.0.43
+        version: 0.0.43
       '@copilotkitnext/core':
         specifier: workspace:*
         version: link:../core
@@ -2619,32 +2619,35 @@ packages:
   '@adobe/css-tools@4.4.4':
     resolution: {integrity: sha512-Elp+iwUx5rN5+Y8xLt5/GRoG20WGoDCQ/1Fb+1LiGtvwbDavuSk0jhD/eZdckHAuzcDzccnkv+rEjyWfRx18gg==}
 
-  '@ag-ui/client@0.0.42':
-    resolution: {integrity: sha512-zAbP+sZJImR5bUpR2ni7RtuuNZMuesaxviynyIgzKlr1k2VCM49mFpbDUKU4TH4Cneu+Xe7OEnO8qCOCIzBAww==}
+  '@ag-ui/client@0.0.43':
+    resolution: {integrity: sha512-150Y3TX+k83qvtmp4bTxmPW0Xu7to2y5vlhD8s5gof5/fxMdxybM1ieZazN7OIWU0nCK/hvhA+bVC7mmyby3gw==}
 
-  '@ag-ui/core@0.0.42':
-    resolution: {integrity: sha512-C2hMg4Gs5oiUDgK9cA2RsTwSSmFZdIsqPklDrFw/Ue+quH6EU3vKp5YoOq7nuaQYO4pO8Em+Z+l5/M5PpcvP1g==}
+  '@ag-ui/core@0.0.43':
+    resolution: {integrity: sha512-/T7kKwPAhtriFFiv3YxZ0yAzMHoY8a8I5UKzhPzwW934h92c6RJ54N93yb9PAqdX3XjCPId0C5gIBHb6QbeR3Q==}
 
-  '@ag-ui/encoder@0.0.42':
-    resolution: {integrity: sha512-97B5MMCSs82t/y41uk2NrLBYFhbvn4kYsKQHMCfy8tjSWubyxh3zP7N9yHo8zJeSPe3WvzTvclyXNiGxSOsorg==}
+  '@ag-ui/encoder@0.0.43':
+    resolution: {integrity: sha512-0b7VXFW5KMctdWsGFQEkbIU2gY/tUv0eWBbMchIvjiIS1aHxdGTB6NXHXJzGvDcXEb3urkIvVIFGvpk0WOUhVw==}
 
   '@ag-ui/langgraph@0.0.11':
     resolution: {integrity: sha512-3xUkaOelnpQ5tbsbuoOTin71tTgWEN0GDZBjGs/7xAwly2Dn4fahbBAoscXullO/pH9kTGGgbuJ0rWDUgo6fKQ==}
 
-  '@ag-ui/langgraph@0.0.23':
-    resolution: {integrity: sha512-hvILoubEXOyzmCijmue+w7LgYznBZ02HEINvk2ZOqsmXJgX5BVaCWS4cFEww+pAaeMl1e3lOf6fTo5+m3BROIQ==}
+  '@ag-ui/langgraph@0.0.24':
+    resolution: {integrity: sha512-ebTYpUw28fvbmhqbpAbmfsDTfEqm1gSeZaBcnxMGHFivJLCzsJ/C9hYw6aV8yRKV3lMFBwh/QFxn1eRcr7yRkQ==}
     peerDependencies:
-      '@ag-ui/client': 0.0.42
-      '@ag-ui/core': 0.0.42
+      '@ag-ui/client': 0.0.43
+      '@ag-ui/core': 0.0.43
 
   '@ag-ui/mcp-apps-middleware@0.0.2':
     resolution: {integrity: sha512-EMHm65hs3aNfoCpxZ1RYDLvZejmit0yipvzg39jwKrGTzqvB3CZuZUenDS9o2eWu2PZIvcFuvU15nEwH7SZb8A==}
     peerDependencies:
-      '@ag-ui/client': 0.0.42
+      '@ag-ui/client': 0.0.43
       rxjs: 7.8.1
 
   '@ag-ui/proto@0.0.42':
     resolution: {integrity: sha512-NDUwSgMnGEqxZGkWIJ1ge5t3Q7Kiddj360x2JAWaIfv9w+7tDJ0pmgyzf3/SXp605aY2wZiDLBtJ6jKZeg1lFg==}
+
+  '@ag-ui/proto@0.0.43':
+    resolution: {integrity: sha512-JcGjwMyxd5KiRTVi3158eByPXm9lKDRMIApYgSlzhXpBwyfpub8waGFnEWqjE3U+gA1LaZHiVMIfD5NCVYj4WQ==}
 
   '@ai-sdk/anthropic@2.0.57':
     resolution: {integrity: sha512-DREpYqW2pylgaj69gZ+K8u92bo9DaMgFdictYnY+IwYeY3bawQ4zI7l/o1VkDsBDljAx8iYz5lPURwVZNu+Xpg==}
@@ -19505,11 +19508,11 @@ snapshots:
 
   '@adobe/css-tools@4.4.4': {}
 
-  '@ag-ui/client@0.0.42':
+  '@ag-ui/client@0.0.43':
     dependencies:
-      '@ag-ui/core': 0.0.42
-      '@ag-ui/encoder': 0.0.42
-      '@ag-ui/proto': 0.0.42
+      '@ag-ui/core': 0.0.43
+      '@ag-ui/encoder': 0.0.43
+      '@ag-ui/proto': 0.0.43
       '@types/uuid': 10.0.0
       compare-versions: 6.1.1
       fast-json-patch: 3.1.1
@@ -19518,19 +19521,19 @@ snapshots:
       uuid: 11.1.0
       zod: 3.25.76
 
-  '@ag-ui/core@0.0.42':
+  '@ag-ui/core@0.0.43':
     dependencies:
       rxjs: 7.8.1
       zod: 3.25.76
 
-  '@ag-ui/encoder@0.0.42':
+  '@ag-ui/encoder@0.0.43':
     dependencies:
-      '@ag-ui/core': 0.0.42
-      '@ag-ui/proto': 0.0.42
+      '@ag-ui/core': 0.0.43
+      '@ag-ui/proto': 0.0.43
 
   '@ag-ui/langgraph@0.0.11(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
     dependencies:
-      '@ag-ui/client': 0.0.42
+      '@ag-ui/client': 0.0.43
       '@langchain/core': 0.3.80(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))
       '@langchain/langgraph-sdk': 0.0.105(@langchain/core@0.3.80(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76)))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       partial-json: 0.1.7
@@ -19543,10 +19546,10 @@ snapshots:
       - react
       - react-dom
 
-  '@ag-ui/langgraph@0.0.23(@ag-ui/client@0.0.42)(@ag-ui/core@0.0.42)(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
+  '@ag-ui/langgraph@0.0.24(@ag-ui/client@0.0.43)(@ag-ui/core@0.0.43)(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
     dependencies:
-      '@ag-ui/client': 0.0.42
-      '@ag-ui/core': 0.0.42
+      '@ag-ui/client': 0.0.43
+      '@ag-ui/core': 0.0.43
       '@langchain/core': 0.3.80(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))
       '@langchain/langgraph-sdk': 0.1.10(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76)))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       partial-json: 0.1.7
@@ -19559,9 +19562,9 @@ snapshots:
       - react
       - react-dom
 
-  '@ag-ui/mcp-apps-middleware@0.0.2(@ag-ui/client@0.0.42)(@cfworker/json-schema@4.1.1)(hono@4.11.4)(rxjs@7.8.1)(zod@3.25.76)':
+  '@ag-ui/mcp-apps-middleware@0.0.2(@ag-ui/client@0.0.43)(@cfworker/json-schema@4.1.1)(hono@4.11.4)(rxjs@7.8.1)(zod@3.25.76)':
     dependencies:
-      '@ag-ui/client': 0.0.42
+      '@ag-ui/client': 0.0.43
       '@modelcontextprotocol/sdk': 1.25.2(@cfworker/json-schema@4.1.1)(hono@4.11.4)(zod@3.25.76)
       rxjs: 7.8.1
     transitivePeerDependencies:
@@ -19572,7 +19575,13 @@ snapshots:
 
   '@ag-ui/proto@0.0.42':
     dependencies:
-      '@ag-ui/core': 0.0.42
+      '@ag-ui/core': 0.0.43
+      '@bufbuild/protobuf': 2.10.2
+      '@protobuf-ts/protoc': 2.11.1
+
+  '@ag-ui/proto@0.0.43':
+    dependencies:
+      '@ag-ui/core': 0.0.43
       '@bufbuild/protobuf': 2.10.2
       '@protobuf-ts/protoc': 2.11.1
 
@@ -32611,8 +32620,8 @@ snapshots:
       '@typescript-eslint/parser': 8.52.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.2)
       eslint: 9.39.2(jiti@2.6.1)
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.2(jiti@2.6.1))
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.52.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.2))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@2.6.1))
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.52.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.2))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1))
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.52.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.2))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.52.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.2))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1))
       eslint-plugin-jsx-a11y: 6.10.2(eslint@9.39.2(jiti@2.6.1))
       eslint-plugin-react: 7.37.5(eslint@9.39.2(jiti@2.6.1))
       eslint-plugin-react-hooks: 5.2.0(eslint@9.39.2(jiti@2.6.1))
@@ -32631,8 +32640,8 @@ snapshots:
       '@typescript-eslint/parser': 8.52.0(eslint@8.57.1)(typescript@5.9.2)
       eslint: 8.57.1
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@8.57.1)
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.52.0(eslint@8.57.1)(typescript@5.9.2))(eslint-import-resolver-typescript@3.10.1)(eslint@8.57.1)
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.52.0(eslint@8.57.1)(typescript@5.9.2))(eslint@8.57.1))(eslint@8.57.1)
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.52.0(eslint@8.57.1)(typescript@5.9.2))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.52.0(eslint@8.57.1)(typescript@5.9.2))(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1)
       eslint-plugin-jsx-a11y: 6.10.2(eslint@8.57.1)
       eslint-plugin-react: 7.37.5(eslint@8.57.1)
       eslint-plugin-react-hooks: 5.2.0(eslint@8.57.1)
@@ -32704,6 +32713,36 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.52.0(eslint@8.57.1)(typescript@5.9.2))(eslint@8.57.1))(eslint@8.57.1):
+    dependencies:
+      '@nolyfill/is-core-module': 1.0.39
+      debug: 4.4.3(supports-color@5.5.0)
+      eslint: 8.57.1
+      get-tsconfig: 4.13.0
+      is-bun-module: 2.0.0
+      stable-hash: 0.0.5
+      tinyglobby: 0.2.15
+      unrs-resolver: 1.11.1
+    optionalDependencies:
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.52.0(eslint@8.57.1)(typescript@5.9.2))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.52.0(eslint@8.57.1)(typescript@5.9.2))(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1)
+    transitivePeerDependencies:
+      - supports-color
+
+  eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.52.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.2))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)):
+    dependencies:
+      '@nolyfill/is-core-module': 1.0.39
+      debug: 4.4.3(supports-color@5.5.0)
+      eslint: 9.39.2(jiti@2.6.1)
+      get-tsconfig: 4.13.0
+      is-bun-module: 2.0.0
+      stable-hash: 0.0.5
+      tinyglobby: 0.2.15
+      unrs-resolver: 1.11.1
+    optionalDependencies:
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.52.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.2))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.52.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.2))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1))
+    transitivePeerDependencies:
+      - supports-color
+
   eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(eslint@8.57.1))(eslint@8.57.1):
     dependencies:
       '@nolyfill/is-core-module': 1.0.39
@@ -32730,7 +32769,7 @@ snapshots:
       tinyglobby: 0.2.15
       unrs-resolver: 1.11.1
     optionalDependencies:
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.52.0(eslint@8.57.1)(typescript@5.9.2))(eslint-import-resolver-typescript@3.10.1)(eslint@8.57.1)
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.2))(eslint-import-resolver-typescript@3.10.1)(eslint@8.57.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -32797,14 +32836,14 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.12.1(@typescript-eslint/parser@8.52.0(eslint@8.57.1)(typescript@5.9.2))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1)(eslint@8.57.1):
+  eslint-module-utils@2.12.1(@typescript-eslint/parser@8.52.0(eslint@8.57.1)(typescript@5.9.2))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.52.0(eslint@8.57.1)(typescript@5.9.2))(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
       '@typescript-eslint/parser': 8.52.0(eslint@8.57.1)(typescript@5.9.2)
       eslint: 8.57.1
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@8.57.1)
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.52.0(eslint@8.57.1)(typescript@5.9.2))(eslint@8.57.1))(eslint@8.57.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -32816,6 +32855,17 @@ snapshots:
       eslint: 9.39.2(jiti@1.21.7)
       eslint-import-resolver-node: 0.3.9
       eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.2(jiti@1.21.7))
+    transitivePeerDependencies:
+      - supports-color
+
+  eslint-module-utils@2.12.1(@typescript-eslint/parser@8.52.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.2))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.52.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.2))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)):
+    dependencies:
+      debug: 3.2.7
+    optionalDependencies:
+      '@typescript-eslint/parser': 8.52.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.2)
+      eslint: 9.39.2(jiti@2.6.1)
+      eslint-import-resolver-node: 0.3.9
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.52.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.2))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1))
     transitivePeerDependencies:
       - supports-color
 
@@ -32917,7 +32967,7 @@ snapshots:
       - eslint-import-resolver-webpack
       - supports-color
 
-  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.52.0(eslint@8.57.1)(typescript@5.9.2))(eslint-import-resolver-typescript@3.10.1)(eslint@8.57.1):
+  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.52.0(eslint@8.57.1)(typescript@5.9.2))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.52.0(eslint@8.57.1)(typescript@5.9.2))(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.9
@@ -32928,7 +32978,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 8.57.1
       eslint-import-resolver-node: 0.3.9
-      eslint-module-utils: 2.12.1(@typescript-eslint/parser@8.52.0(eslint@8.57.1)(typescript@5.9.2))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1)(eslint@8.57.1)
+      eslint-module-utils: 2.12.1(@typescript-eslint/parser@8.52.0(eslint@8.57.1)(typescript@5.9.2))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.52.0(eslint@8.57.1)(typescript@5.9.2))(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1)
       hasown: 2.0.2
       is-core-module: 2.16.1
       is-glob: 4.0.3
@@ -32970,6 +33020,35 @@ snapshots:
       tsconfig-paths: 3.15.0
     optionalDependencies:
       '@typescript-eslint/parser': 8.52.0(eslint@9.39.2(jiti@1.21.7))(typescript@5.9.2)
+    transitivePeerDependencies:
+      - eslint-import-resolver-typescript
+      - eslint-import-resolver-webpack
+      - supports-color
+
+  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.52.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.2))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.52.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.2))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)):
+    dependencies:
+      '@rtsao/scc': 1.1.0
+      array-includes: 3.1.9
+      array.prototype.findlastindex: 1.2.6
+      array.prototype.flat: 1.3.3
+      array.prototype.flatmap: 1.3.3
+      debug: 3.2.7
+      doctrine: 2.1.0
+      eslint: 9.39.2(jiti@2.6.1)
+      eslint-import-resolver-node: 0.3.9
+      eslint-module-utils: 2.12.1(@typescript-eslint/parser@8.52.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.2))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.52.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.2))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1))
+      hasown: 2.0.2
+      is-core-module: 2.16.1
+      is-glob: 4.0.3
+      minimatch: 3.1.2
+      object.fromentries: 2.0.8
+      object.groupby: 1.0.3
+      object.values: 1.2.1
+      semver: 6.3.1
+      string.prototype.trimend: 1.0.9
+      tsconfig-paths: 3.15.0
+    optionalDependencies:
+      '@typescript-eslint/parser': 8.52.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.2)
     transitivePeerDependencies:
       - eslint-import-resolver-typescript
       - eslint-import-resolver-webpack
@@ -34874,7 +34953,7 @@ snapshots:
       isstream: 0.1.2
       jsonwebtoken: 9.0.3
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.13.2(debug@4.4.3))
+      retry-axios: 2.6.0(axios@1.13.2)
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -40073,7 +40152,7 @@ snapshots:
       retext-stringify: 4.0.0
       unified: 11.0.5
 
-  retry-axios@2.6.0(axios@1.13.2(debug@4.4.3)):
+  retry-axios@2.6.0(axios@1.13.2):
     dependencies:
       axios: 1.13.2(debug@4.4.3)
 
