@@ -114,15 +114,16 @@ describe("renderSlot", () => {
   });
 
   describe("className handling", () => {
-    test("string slot overrides props className", () => {
+    test("string slot merges with props className using twMerge", () => {
       const element = renderSlot("slot-class", SimpleDiv, {
         className: "props-class",
         children: "test",
       });
       const { container } = render(element);
 
+      // twMerge combines both classes
       expect(container.firstChild).toHaveClass("slot-class");
-      expect(container.firstChild).not.toHaveClass("props-class");
+      expect(container.firstChild).toHaveClass("props-class");
     });
 
     test("object slot className overrides props className", () => {
@@ -132,6 +133,7 @@ describe("renderSlot", () => {
       });
       const { container } = render(element);
 
+      // Object slots use spread, so slot className overrides props className
       expect(container.firstChild).toHaveClass("slot-class");
       expect(container.firstChild).not.toHaveClass("props-class");
     });
@@ -147,15 +149,15 @@ describe("renderSlot", () => {
       expect(container.firstChild).toHaveAttribute("data-test", "true");
     });
 
-    test("empty string slot creates element with empty className", () => {
+    test("empty string slot preserves props className", () => {
       const element = renderSlot("", SimpleDiv, {
         className: "props-class",
         children: "test",
       });
       const { container } = render(element);
 
-      expect(container.firstChild).toHaveAttribute("class", "");
-      expect(container.firstChild).not.toHaveClass("props-class");
+      // Empty string with twMerge preserves the props className
+      expect(container.firstChild).toHaveClass("props-class");
     });
   });
 

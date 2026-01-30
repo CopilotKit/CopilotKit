@@ -32,9 +32,8 @@ export interface CopilotChatConfigurationValue {
   labels: CopilotChatLabels;
   agentId: string;
   threadId: string;
-  isModalOpen: boolean;
-  setModalOpen: (open: boolean) => void;
-  isModalDefaultOpen: boolean;
+  isModalOpen?: boolean;
+  setModalOpen?: (open: boolean) => void;
 }
 
 // Create the configuration context
@@ -77,14 +76,22 @@ export const CopilotChatConfigurationProvider: React.FC<
     return randomUUID();
   }, [threadId, parentConfig?.threadId]);
 
-  const resolvedDefaultOpen = isModalDefaultOpen ?? parentConfig?.isModalDefaultOpen ?? true;
+  // Only create modal state if explicitly requested via isModalDefaultOpen
+  const shouldCreateModalState = isModalDefaultOpen !== undefined;
+  const resolvedDefaultOpen = isModalDefaultOpen ?? true;
 
   const [internalModalOpen, setInternalModalOpen] = useState<boolean>(
     parentConfig?.isModalOpen ?? resolvedDefaultOpen,
   );
 
-  const resolvedIsModalOpen = parentConfig?.isModalOpen ?? internalModalOpen;
-  const resolvedSetModalOpen = parentConfig?.setModalOpen ?? setInternalModalOpen;
+  // If we should create modal state, use our internal state
+  // Otherwise, pass through from parent (or undefined if no parent has modal state)
+  const resolvedIsModalOpen = shouldCreateModalState
+    ? internalModalOpen
+    : parentConfig?.isModalOpen;
+  const resolvedSetModalOpen = shouldCreateModalState
+    ? setInternalModalOpen
+    : parentConfig?.setModalOpen;
 
   const configurationValue: CopilotChatConfigurationValue = useMemo(
     () => ({
@@ -93,7 +100,6 @@ export const CopilotChatConfigurationProvider: React.FC<
       threadId: resolvedThreadId,
       isModalOpen: resolvedIsModalOpen,
       setModalOpen: resolvedSetModalOpen,
-      isModalDefaultOpen: resolvedDefaultOpen,
     }),
     [
       mergedLabels,
@@ -101,7 +107,6 @@ export const CopilotChatConfigurationProvider: React.FC<
       resolvedThreadId,
       resolvedIsModalOpen,
       resolvedSetModalOpen,
-      resolvedDefaultOpen,
     ],
   );
 

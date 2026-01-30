@@ -283,7 +283,7 @@ export class RunHandler {
 
       if (!errorMessage) {
         try {
-          const result = await tool.handler(parsedArgs as any, toolCall);
+          const result = await tool.handler(parsedArgs as any, { toolCall, agent });
           if (result === undefined || result === null) {
             toolCallResult = "";
           } else if (typeof result === "string") {
@@ -410,7 +410,7 @@ export class RunHandler {
 
       if (!errorMessage) {
         try {
-          const result = await wildcardTool.handler(wildcardArgs as any, toolCall);
+          const result = await wildcardTool.handler(wildcardArgs as any, { toolCall, agent });
           if (result === undefined || result === null) {
             toolCallResult = "";
           } else if (typeof result === "string") {

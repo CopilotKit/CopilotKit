@@ -1,7 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 
 import CopilotChatView, { CopilotChatViewProps, WelcomeScreenProps } from "./CopilotChatView";
-import { useCopilotChatConfiguration } from "@/providers/CopilotChatConfigurationProvider";
+import {
+  CopilotChatConfigurationProvider,
+  useCopilotChatConfiguration,
+} from "@/providers/CopilotChatConfigurationProvider";
 import CopilotChatToggleButton from "./CopilotChatToggleButton";
 import { cn } from "@/lib/utils";
 import { CopilotModalHeader } from "./CopilotModalHeader";
@@ -12,10 +15,20 @@ const SIDEBAR_TRANSITION_MS = 260;
 
 export type CopilotSidebarViewProps = CopilotChatViewProps & {
   header?: SlotValue<typeof CopilotModalHeader>;
+  toggleButton?: SlotValue<typeof CopilotChatToggleButton>;
   width?: number | string;
+  defaultOpen?: boolean;
 };
 
-export function CopilotSidebarView({ header, width, ...props }: CopilotSidebarViewProps) {
+export function CopilotSidebarView({ header, toggleButton, width, defaultOpen = true, ...props }: CopilotSidebarViewProps) {
+  return (
+    <CopilotChatConfigurationProvider isModalDefaultOpen={defaultOpen}>
+      <CopilotSidebarViewInternal header={header} toggleButton={toggleButton} width={width} {...props} />
+    </CopilotChatConfigurationProvider>
+  );
+}
+
+function CopilotSidebarViewInternal({ header, toggleButton, width, ...props }: Omit<CopilotSidebarViewProps, "defaultOpen">) {
   const configuration = useCopilotChatConfiguration();
 
   const isSidebarOpen = configuration?.isModalOpen ?? false;
@@ -72,6 +85,7 @@ export function CopilotSidebarView({ header, width, ...props }: CopilotSidebarVi
   }, [width]);
 
   const headerElement = renderSlot(header, CopilotModalHeader, {});
+  const toggleButtonElement = renderSlot(toggleButton, CopilotChatToggleButton, {});
 
   return (
     <>
@@ -88,7 +102,7 @@ export function CopilotSidebarView({ header, width, ...props }: CopilotSidebarVi
           }}
         />
       )}
-      <CopilotChatToggleButton />
+      {toggleButtonElement}
       <aside
         ref={sidebarRef}
         data-copilot-sidebar
