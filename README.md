@@ -72,7 +72,7 @@ https://github.com/user-attachments/assets/de5bcc17-1b51-4092-9a85-42971ecc1f4c
 - **Human-in-the-Loop** – Lets agents pause execution to request user input, confirmation, or edits before continuing.
 
 
-https://github.com/user-attachments/assets/7ac61296-7bef-4d0b-9ff5-c70cde031441
+https://github.com/user-attachments/assets/b0c3c69d-3e2d-4f5c-9513-2cedae08f34d
 
 
 ## Quick Start
@@ -80,23 +80,23 @@ https://github.com/user-attachments/assets/7ac61296-7bef-4d0b-9ff5-c70cde031441
 ### New projects:
 
 ```bash
-npx create-copilotkit-app my-app
+npx copilotkit@latest create -f <framework>
 ```
 
 ### Existing projects:
 ```bash
-npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime
+npx copilotkit@latest init
 ```
 
-https://github.com/user-attachments/assets/cfe706cb-f2d7-4d5c-8b35-40c4a2842108
+https://github.com/user-attachments/assets/7372b27b-8def-40fb-a11d-1f6585f556ad
 
 
 What this gives you:
 
-1. CopilotKit is installed in your app
-2. The CopilotKit provider is configured
-3. Agent-connection to the UI out of the box
-4. Your app is ready to deploy
+- **CopilotKit installed** – Core packages are fully set up in your app
+- **Provider configured** – Context, state, and hooks ready to use
+- **Agent <> UI connected** – Agents can stream actions and render UI immediately
+- **Deployment-ready** – Your app is ready to deploy
 
 [Complete getting started guide →](https://docs.copilotkit.ai/langgraph/quickstart)
 
