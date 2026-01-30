@@ -11,6 +11,35 @@ const path = require('path');
 // Configuration
 const DOCS_DIR = 'content/docs';
 const EXCLUDE_PATTERNS = ['**/node_modules/**', '**/dist/**', '**/build/**'];
+const NEXT_CONFIG_PATH = 'next.config.mjs';
+
+/**
+ * Parse redirects from next.config.mjs
+ */
+function parseRedirects() {
+  const redirects = [];
+
+  try {
+    const configContent = fs.readFileSync(NEXT_CONFIG_PATH, 'utf8');
+
+    // Extract redirect objects using regex
+    // Match objects with source and destination properties
+    const redirectRegex = /\{\s*source:\s*["']([^"']+)["'],\s*destination:\s*["']([^"']+)["']/g;
+    let match;
+
+    while ((match = redirectRegex.exec(configContent)) !== null) {
+      const [, source, destination] = match;
+      redirects.push({
+        source: source,
+        destination: destination
+      });
+    }
+  } catch (error) {
+    console.warn('Warning: Could not parse redirects from next.config.mjs:', error.message);
+  }
+
+  return redirects;
+}
 
 /**
  * Extract all markdown links and JSX href attributes from a file
@@ -109,7 +138,7 @@ function filePathToUrl(relativePath) {
 /**
  * Check if a link is valid
  */
-function isValidLink(url, allPages, sourceFile = null) {
+function isValidLink(url, allPages, sourceFile = null, redirects = []) {
   // Handle absolute links (starting with /)
   if (url.startsWith('/')) {
     // Remove leading slash and normalize
@@ -117,6 +146,23 @@ function isValidLink(url, allPages, sourceFile = null) {
 
     // Remove trailing slash
     const cleanUrl = normalizedUrl.replace(/\/$/, '');
+
+    // Check if there's a redirect for this URL
+    const redirect = redirects.find(r => {
+      // Match exact path or with wildcards
+      const sourcePath = r.source.replace(/:\w+\*/g, '.*');
+      const regex = new RegExp(`^${sourcePath}$`);
+      return regex.test(url);
+    });
+
+    // If there's a redirect, validate the destination instead
+    if (redirect) {
+      const destUrl = redirect.destination.slice(1).replace(/\/$/, ''); // Remove leading / and trailing /
+      return allPages.some(page => {
+        const pageUrl = page.url.replace(/\/$/, '');
+        return pageUrl === destUrl;
+      });
+    }
 
     // Check if page exists
     return allPages.some(page => {
@@ -211,6 +257,9 @@ function getAllPages() {
 async function main() {
   console.log('🔍 Checking for broken links...\n');
 
+  const redirects = parseRedirects();
+  console.log(`🔀 Found ${redirects.length} redirects in next.config.mjs\n`);
+
   const allPages = getAllPages();
   const allLinks = [];
   const brokenLinks = [];
@@ -236,7 +285,7 @@ async function main() {
 
   // Check each link
   allLinks.forEach(link => {
-    if (!isValidLink(link.url, allPages, link.file)) {
+    if (!isValidLink(link.url, allPages, link.file, redirects)) {
       brokenLinks.push(link);
     }
   });
@@ -276,4 +325,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { extractLinks, isValidLink, getAllPages, filePathToUrl };
+module.exports = { extractLinks, isValidLink, getAllPages, filePathToUrl, parseRedirects };

@@ -316,6 +316,21 @@ const config = {
         permanent: true,
       },
       {
+        source: "/aws-strands/generative-ui",
+        destination: "/aws-strands/generative-ui/backend-tools",
+        permanent: true,
+      },
+      {
+        source: "/direct-to-llm/guides/custom-look-and-feel",
+        destination: "/direct-to-llm/guides/custom-look-and-feel/customize-built-in-ui-components",
+        permanent: true,
+      },
+      {
+        source: "/microsoft-agent-framework/shared-state",
+        destination: "/microsoft-agent-framework/shared-state/in-app-agent-read",
+        permanent: true,
+      },
+      {
         source: "/adk/shared-state/state-inputs-outputs",
         destination: "/adk/shared-state/workflow-execution",
         permanent: true,
