@@ -42,5 +42,7 @@
     "@copilotkit/voice": "1.51.3",
     "@copilotkitnext/web-inspector": "1.51.3"
   },
-  "changesets": []
+  "changesets": [
+    "lucky-flies-scream"
+  ]
 }

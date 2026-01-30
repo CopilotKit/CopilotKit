@@ -1,5 +1,14 @@
 # @copilotkit/runtime
 
+## 1.51.4-next.0
+
+### Patch Changes
+
+- 4886f18: fix: use langgraph clone fix on latest agui
+  - @copilotkit/shared@1.51.4-next.0
+  - @copilotkitnext/agent@1.51.4-next.0
+  - @copilotkitnext/runtime@1.51.4-next.0
+
 ## 1.51.3
 
 ### Patch Changes

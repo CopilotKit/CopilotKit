@@ -1,5 +1,7 @@
 # @copilotkitnext/agent
 
+## 1.51.4-next.0
+
 ## 1.51.3
 
 ### Patch Changes
