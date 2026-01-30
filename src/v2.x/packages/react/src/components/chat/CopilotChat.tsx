@@ -1,7 +1,7 @@
 import { useAgent } from "@/hooks/use-agent";
 import { useSuggestions } from "@/hooks/use-suggestions";
 import { CopilotChatView, CopilotChatViewProps } from "./CopilotChatView";
-import CopilotChatInput, { CopilotChatInputProps, CopilotChatInputMode } from "./CopilotChatInput";
+import { CopilotChatInputMode } from "./CopilotChatInput";
 import {
   CopilotChatConfigurationProvider,
   CopilotChatLabels,
@@ -24,9 +24,8 @@ export type CopilotChatProps = Omit<
   threadId?: string;
   labels?: Partial<CopilotChatLabels>;
   chatView?: SlotValue<typeof CopilotChatView>;
-  isModalDefaultOpen?: boolean;
 };
-export function CopilotChat({ agentId, threadId, labels, chatView, isModalDefaultOpen, ...props }: CopilotChatProps) {
+export function CopilotChat({ agentId, threadId, labels, chatView, ...props }: CopilotChatProps) {
   // Check for existing configuration provider
   const existingConfig = useCopilotChatConfiguration();
 
@@ -54,9 +53,9 @@ export function CopilotChat({ agentId, threadId, labels, chatView, isModalDefaul
   const isMediaRecorderSupported = typeof window !== "undefined" && typeof MediaRecorder !== "undefined";
 
   const {
-    inputProps: providedInputProps,
     messageView: providedMessageView,
     suggestionView: providedSuggestionView,
+    onStop: providedStopHandler,
     ...restProps
   } = props;
 
@@ -229,7 +228,6 @@ export function CopilotChat({ agentId, threadId, labels, chatView, isModalDefaul
     },
   );
 
-  const providedStopHandler = providedInputProps?.onStop;
   const hasMessages = agent.messages.length > 0;
   const shouldAllowStop = agent.isRunning && hasMessages;
   const effectiveStopHandler = shouldAllowStop ? (providedStopHandler ?? stopCurrentRun) : providedStopHandler;
@@ -242,21 +240,6 @@ export function CopilotChat({ agentId, threadId, labels, chatView, isModalDefaul
     ? "processing"
     : transcribeMode;
 
-  const finalInputProps = {
-    ...providedInputProps,
-    onSubmitMessage: onSubmitInput,
-    onStop: effectiveStopHandler,
-    isRunning: agent.isRunning,
-    mode: effectiveMode,
-    value: inputValue,
-    onChange: setInputValue,
-    // Only provide transcription handlers if feature is available
-    onStartTranscribe: showTranscription ? handleStartTranscribe : undefined,
-    onCancelTranscribe: showTranscription ? handleCancelTranscribe : undefined,
-    onFinishTranscribe: showTranscription ? handleFinishTranscribe : undefined,
-    onFinishTranscribeWithAudio: showTranscription ? handleFinishTranscribeWithAudio : undefined,
-  } as Partial<CopilotChatInputProps> & { onSubmitMessage: (value: string) => void };
-
   // Memoize messages array - only create new reference when content actually changes
   // (agent.messages is mutated in place, so we need a new reference for React to detect changes)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -264,7 +247,17 @@ export function CopilotChat({ agentId, threadId, labels, chatView, isModalDefaul
 
   const finalProps = merge(mergedProps, {
     messages,
-    inputProps: finalInputProps,
+    // Input behavior props
+    onSubmitMessage: onSubmitInput,
+    onStop: effectiveStopHandler,
+    inputMode: effectiveMode,
+    inputValue,
+    onInputChange: setInputValue,
+    // Only provide transcription handlers if feature is available
+    onStartTranscribe: showTranscription ? handleStartTranscribe : undefined,
+    onCancelTranscribe: showTranscription ? handleCancelTranscribe : undefined,
+    onFinishTranscribe: showTranscription ? handleFinishTranscribe : undefined,
+    onFinishTranscribeWithAudio: showTranscription ? handleFinishTranscribeWithAudio : undefined,
   }) as CopilotChatViewProps;
 
   // Always create a provider with merged values
@@ -276,7 +269,6 @@ export function CopilotChat({ agentId, threadId, labels, chatView, isModalDefaul
       agentId={resolvedAgentId}
       threadId={resolvedThreadId}
       labels={labels}
-      isModalDefaultOpen={isModalDefaultOpen}
     >
       {transcriptionError && (
         <div
