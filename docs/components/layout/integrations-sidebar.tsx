@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { DocsLayoutProps } from 'fumadocs-ui/layouts/docs';
 import Separator from '../ui/sidebar/separator';
 import Page from '../ui/sidebar/page';
@@ -97,6 +97,14 @@ const IntegrationsSidebar = ({ pageTree }: { pageTree: DocsLayoutProps['tree'] }
 
     return integrationFolder?.children ?? [];
   }, [selectedIntegration, pageTree.children]);
+
+  // Dispatch pageTree update for OpenedFoldersProvider
+  useEffect(() => {
+    if (integrationPages.length > 0) {
+      const event = new CustomEvent('pageTreeUpdate', { detail: integrationPages });
+      window.dispatchEvent(event);
+    }
+  }, [integrationPages]);
 
   return (
     <OpenedFoldersProvider>
