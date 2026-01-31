@@ -14,31 +14,24 @@ const EXCLUDE_PATTERNS = ['**/node_modules/**', '**/dist/**', '**/build/**'];
 const NEXT_CONFIG_PATH = 'next.config.mjs';
 
 /**
- * Parse redirects from next.config.mjs
+ * Parse redirects from next.config.mjs by executing it
  */
-function parseRedirects() {
-  const redirects = [];
-
+async function parseRedirects() {
   try {
-    const configContent = fs.readFileSync(NEXT_CONFIG_PATH, 'utf8');
+    // Import the next.config.mjs module
+    const configModule = await import('../next.config.mjs');
+    const config = configModule.default;
 
-    // Extract redirect objects using regex
-    // Match objects with source and destination properties
-    const redirectRegex = /\{\s*source:\s*["']([^"']+)["'],\s*destination:\s*["']([^"']+)["']/g;
-    let match;
-
-    while ((match = redirectRegex.exec(configContent)) !== null) {
-      const [, source, destination] = match;
-      redirects.push({
-        source: source,
-        destination: destination
-      });
+    // Execute the redirects function to get all redirects (including auto-generated)
+    if (config.redirects && typeof config.redirects === 'function') {
+      const redirects = await config.redirects();
+      return redirects;
     }
   } catch (error) {
-    console.warn('Warning: Could not parse redirects from next.config.mjs:', error.message);
+    console.warn('Warning: Could not load redirects from next.config.mjs:', error.message);
   }
 
-  return redirects;
+  return [];
 }
 
 /**
@@ -257,7 +250,7 @@ function getAllPages() {
 async function main() {
   console.log('🔍 Checking for broken links...\n');
 
-  const redirects = parseRedirects();
+  const redirects = await parseRedirects();
   console.log(`🔀 Found ${redirects.length} redirects in next.config.mjs\n`);
 
   const allPages = getAllPages();

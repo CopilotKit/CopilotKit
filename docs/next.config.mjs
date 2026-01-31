@@ -1,6 +1,84 @@
 import { createMDX } from 'fumadocs-mdx/next';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const withMDX = createMDX();
+
+/**
+ * Generate redirects for folders with meta.json but no index.mdx
+ * Redirects to the first page in the meta.json pages array
+ */
+function generateFolderRedirects(baseDir) {
+  const redirects = [];
+
+  function scanDirectory(dir, urlPath = '') {
+    const items = fs.readdirSync(dir, { withFileTypes: true });
+
+    for (const item of items) {
+      if (!item.isDirectory()) continue;
+
+      const fullPath = path.join(dir, item.name);
+      const metaJsonPath = path.join(fullPath, 'meta.json');
+      const indexMdxPath = path.join(fullPath, 'index.mdx');
+
+      // Skip route groups like (root), (other)
+      const isRouteGroup = item.name.match(/^\([^)]+\)$/);
+      let currentUrlPath = urlPath;
+
+      if (!isRouteGroup) {
+        // Build URL path, removing 'integrations' prefix
+        const pathSegments = urlPath.split('/').filter(Boolean);
+        if (item.name !== 'integrations') {
+          pathSegments.push(item.name);
+        }
+        currentUrlPath = '/' + pathSegments.join('/');
+      }
+
+      // Check if folder has meta.json but no index.mdx
+      // Skip route groups - they're virtual groupings, not actual URL paths
+      if (!isRouteGroup && fs.existsSync(metaJsonPath) && !fs.existsSync(indexMdxPath)) {
+        try {
+          const metaContent = JSON.parse(fs.readFileSync(metaJsonPath, 'utf8'));
+          if (metaContent.pages && metaContent.pages.length > 0) {
+            // Get first page, filtering out separators and spread operators
+            const firstPage = metaContent.pages.find(
+              page => typeof page === 'string' && !page.startsWith('---') && !page.startsWith('...')
+            );
+
+            if (firstPage) {
+              const source = currentUrlPath;
+              const destination = `${currentUrlPath}/${firstPage}`;
+
+              if (source && source !== '/') {
+                redirects.push({
+                  source,
+                  destination,
+                  permanent: true,
+                });
+              }
+            }
+          }
+        } catch (error) {
+          console.warn(`Warning: Could not parse ${metaJsonPath}:`, error.message);
+        }
+      }
+
+      // Recursively scan subdirectories
+      scanDirectory(fullPath, isRouteGroup ? urlPath : currentUrlPath);
+    }
+  }
+
+  const contentDocsPath = path.join(__dirname, baseDir);
+  if (fs.existsSync(contentDocsPath)) {
+    scanDirectory(contentDocsPath);
+  }
+
+  return redirects;
+}
 
 /** @type {import('next').NextConfig} */
 const config = {
@@ -69,7 +147,11 @@ const config = {
   },
 
   async redirects() {
-    return [
+    // Generate automatic redirects for folders with meta.json but no index.mdx
+    const autoRedirects = generateFolderRedirects('content/docs');
+
+    // Manual redirects for specific cases
+    const manualRedirects = [
       {
         source: '/generative-ui-specs/:path*',
         destination: '/generative-ui/specs/:path*',
@@ -311,26 +393,6 @@ const config = {
         permanent: true,
       },
       {
-        source: "/a2a/generative-ui",
-        destination: "/a2a/generative-ui/declarative-a2ui",
-        permanent: true,
-      },
-      {
-        source: "/aws-strands/generative-ui",
-        destination: "/aws-strands/generative-ui/backend-tools",
-        permanent: true,
-      },
-      {
-        source: "/direct-to-llm/guides/custom-look-and-feel",
-        destination: "/direct-to-llm/guides/custom-look-and-feel/customize-built-in-ui-components",
-        permanent: true,
-      },
-      {
-        source: "/microsoft-agent-framework/shared-state",
-        destination: "/microsoft-agent-framework/shared-state/in-app-agent-read",
-        permanent: true,
-      },
-      {
         source: "/adk/shared-state/state-inputs-outputs",
         destination: "/adk/shared-state/workflow-execution",
         permanent: true,
@@ -351,6 +413,9 @@ const config = {
         permanent: true,
       },
     ];
+
+    // Combine auto-generated and manual redirects
+    return [...autoRedirects, ...manualRedirects];
   },
 };
 
