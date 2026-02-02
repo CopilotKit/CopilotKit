@@ -71,7 +71,7 @@ https://github.com/user-attachments/assets/de5bcc17-1b51-4092-9a85-42971ecc1f4c
 - **Human-in-the-Loop** – Lets agents pause execution to request user input, confirmation, or edits before continuing.
 
 
-https://github.com/user-attachments/assets/b0c3c69d-3e2d-4f5c-9513-2cedae08f34d
+https://github.com/user-attachments/assets/55bf6714-62a7-4d5d-9232-07747cc0763b
 
 
 ## Quick Start
