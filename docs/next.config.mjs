@@ -139,10 +139,18 @@ const config = {
     ];
 
     return {
-      beforeFiles: integrations.map((integration) => ({
-        source: `/${integration}/:path*`,
-        destination: `/integrations/${integration}/:path*`,
-      })),
+      beforeFiles: [
+        // Map /guides/* to /direct-to-llm/guides/*
+        {
+          source: '/guides/:path*',
+          destination: '/direct-to-llm/guides/:path*',
+        },
+        // Map integration URLs
+        ...integrations.map((integration) => ({
+          source: `/${integration}/:path*`,
+          destination: `/integrations/${integration}/:path*`,
+        })),
+      ],
     };
   },
 
@@ -160,6 +168,29 @@ const config = {
       {
         source: '/coagents/:path*',
         destination: '/langgraph/:path*',
+        permanent: true,
+      },
+      // Strip /generative-ui/ prefix from old URLs
+      {
+        source: '/generative-ui/direct-to-llm/:path*',
+        destination: '/direct-to-llm/:path*',
+        permanent: true,
+      },
+      {
+        source: '/generative-ui/langgraph/:path*',
+        destination: '/langgraph/:path*',
+        permanent: true,
+      },
+      // Old /shared/ path redirects
+      {
+        source: '/shared/:path*',
+        destination: '/:path*',
+        permanent: true,
+      },
+      // aws-strands doesn't have human-in-the-loop, redirect to general one
+      {
+        source: '/aws-strands/human-in-the-loop',
+        destination: '/human-in-the-loop',
         permanent: true,
       },
       {
@@ -295,6 +326,11 @@ const config = {
       {
         source: '/coagents/quickstart/langgraph',
         destination: '/coagents/quickstart',
+        permanent: true,
+      },
+      {
+        source: '/langgraph/quickstart/langgraph',
+        destination: '/langgraph/quickstart',
         permanent: true,
       },
       {
