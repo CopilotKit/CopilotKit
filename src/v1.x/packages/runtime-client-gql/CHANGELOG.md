@@ -1,5 +1,72 @@
 # @copilotkit/runtime-client-gql
 
+## 1.51.4-next.1
+
+### Patch Changes
+
+- @copilotkit/runtime@1.51.4-next.1
+- @copilotkit/shared@1.51.4-next.1
+
+## 1.51.4-next.0
+
+### Patch Changes
+
+- Updated dependencies [4886f18]
+  - @copilotkit/runtime@1.51.4-next.0
+  - @copilotkit/shared@1.51.4-next.0
+
+## 1.51.3
+
+### Patch Changes
+
+- d36fc1e: Add UMD export
+- Updated dependencies [d655e75]
+- Updated dependencies [d268c49]
+- Updated dependencies [d36fc1e]
+- Updated dependencies [b49277b]
+- Updated dependencies [3a0822d]
+  - @copilotkit/runtime@1.51.3
+  - @copilotkit/shared@1.51.3
+
+## 1.51.3-next.8
+
+### Patch Changes
+
+- d36fc1e: Add UMD export
+- Updated dependencies [d36fc1e]
+  - @copilotkit/runtime@1.51.3-next.8
+  - @copilotkit/shared@1.51.3-next.8
+
+## 1.51.3-next.7
+
+### Patch Changes
+
+- @copilotkit/runtime@1.51.3-next.7
+- @copilotkit/shared@1.51.3-next.7
+
+## 1.51.3-next.6
+
+### Patch Changes
+
+- Updated dependencies [3a0822d]
+  - @copilotkit/runtime@1.51.3-next.6
+  - @copilotkit/shared@1.51.3-next.6
+
+## 1.51.3-next.5
+
+### Patch Changes
+
+- @copilotkit/runtime@1.51.3-next.5
+- @copilotkit/shared@1.51.3-next.5
+
+## 1.51.3-next.4
+
+### Patch Changes
+
+- Updated dependencies [b49277b]
+  - @copilotkit/runtime@1.51.3-next.4
+  - @copilotkit/shared@1.51.3-next.4
+
 ## 1.51.3-next.3
 
 ### Patch Changes

@@ -1,7 +1,7 @@
 {
   "name": "@copilotkit/a2ui-renderer",
   "private": false,
-  "version": "1.51.3-next.3",
+  "version": "1.51.4-next.1",
   "description": "A2UI Renderer for CopilotKit - render A2UI surfaces in React applications",
   "homepage": "https://github.com/CopilotKit/CopilotKit",
   "repository": {
@@ -22,12 +22,14 @@
       "default": "./dist/index.js"
     }
   },
+  "unpkg": "./dist/index.umd.js",
+  "jsdelivr": "./dist/index.umd.js",
   "files": [
     "dist"
   ],
   "scripts": {
     "prepack": "pnpm run build",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && rollup -c rollup.config.mjs",
     "check-types": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",

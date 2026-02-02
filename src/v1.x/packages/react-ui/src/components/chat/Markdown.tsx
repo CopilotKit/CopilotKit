@@ -1,10 +1,11 @@
-import { ComponentProps, FC, memo } from "react";
-import { Streamdown } from "streamdown";
+import { FC, memo } from "react";
+import ReactMarkdown, { Options, Components } from "react-markdown";
 import { CodeBlock } from "./CodeBlock";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeRaw from "rehype-raw";
 
-type Options = ComponentProps<typeof Streamdown>;
-
-const defaultComponents: Options["components"] = {
+const defaultComponents: Components = {
   a({ children, ...props }) {
     return (
       <a className="copilotKitMarkdownElement" {...props} target="_blank" rel="noopener noreferrer">
@@ -117,19 +118,27 @@ const defaultComponents: Options["components"] = {
   ),
 };
 
+const MemoizedReactMarkdown: FC<Options> = memo(
+  ReactMarkdown,
+  (prevProps, nextProps) =>
+    prevProps.children === nextProps.children && prevProps.components === nextProps.components,
+);
+
 type MarkdownProps = {
   content: string;
-  components?: Options["components"];
+  components?: Components;
 };
 
 export const Markdown = ({ content, components }: MarkdownProps) => {
   return (
     <div className="copilotKitMarkdown">
-      <Streamdown
+      <MemoizedReactMarkdown
         components={{ ...defaultComponents, ...components }}
+        remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: false }]]}
+        rehypePlugins={[rehypeRaw]}
       >
         {content}
-      </Streamdown>
+      </MemoizedReactMarkdown>
     </div>
   );
 };

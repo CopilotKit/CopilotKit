@@ -18,11 +18,6 @@
     "@copilotkit/shared": "workspace:*",
     "@google/generative-ai": "^0.11.5",
     "@heroicons/react": "^2.0.18",
-    "@langchain/anthropic": "^0.3.5",
-    "@langchain/community": "^0.3.29",
-    "@langchain/core": "^0.3.38",
-    "@langchain/google-gauth": "^0.1.0",
-    "@langchain/openai": "^0.4.2",
     "clsx": "^1.2.1",
     "encoding": "^0.1.13",
     "eslint-config-next": "^15.0.2",
@@ -34,7 +29,7 @@
     "openai": "^4.85.1",
     "react": "19.0.0-rc-0bc30748-20241028",
     "react-dom": "19.0.0-rc-0bc30748-20241028",
-    "streamdown": "^1.6.10",
+    "react-markdown": "^8.0.7",
     "use-stick-to-bottom": "^1.1.1"
   },
   "devDependencies": {

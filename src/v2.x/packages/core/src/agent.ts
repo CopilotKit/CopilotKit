@@ -6,8 +6,40 @@ import {
   runHttpRequest,
   transformHttpEventStream,
 } from "@ag-ui/client";
-import { Observable } from "rxjs";
+import { Observable, EMPTY } from "rxjs";
+import { catchError } from "rxjs/operators";
 import { CopilotRuntimeTransport } from "./types";
+
+/**
+ * Check if an error is a ZodError (validation error).
+ * These can occur when the SSE stream is aborted/truncated mid-event.
+ */
+function isZodError(error: unknown): boolean {
+  return (
+    error !== null &&
+    typeof error === "object" &&
+    "name" in error &&
+    (error as { name: string }).name === "ZodError"
+  );
+}
+
+/**
+ * Wrap an Observable to catch and suppress ZodErrors that occur during stream abort.
+ * These errors are expected when the connection is cancelled mid-stream.
+ */
+function withAbortErrorHandling(observable: Observable<BaseEvent>): Observable<BaseEvent> {
+  return observable.pipe(
+    catchError((error) => {
+      if (isZodError(error)) {
+        // Suppress ZodErrors - these occur when the stream is aborted mid-event
+        // and the parser receives incomplete data
+        return EMPTY;
+      }
+      // Re-throw other errors
+      throw error;
+    }),
+  );
+}
 
 export interface ProxiedCopilotRuntimeAgentConfig extends Omit<HttpAgentConfig, "url"> {
   runtimeUrl?: string;
@@ -108,11 +140,11 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
         agentId: this.agentId!,
       });
       const httpEvents = runHttpRequest(this.singleEndpointUrl, requestInit);
-      return transformHttpEventStream(httpEvents);
+      return withAbortErrorHandling(transformHttpEventStream(httpEvents));
     }
 
     const httpEvents = runHttpRequest(`${this.runtimeUrl}/agent/${this.agentId}/connect`, this.requestInit(input));
-    return transformHttpEventStream(httpEvents);
+    return withAbortErrorHandling(transformHttpEventStream(httpEvents));
   }
 
   public run(input: RunAgentInput): Observable<BaseEvent> {
@@ -125,10 +157,11 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
         agentId: this.agentId!,
       });
       const httpEvents = runHttpRequest(this.singleEndpointUrl, requestInit);
-      return transformHttpEventStream(httpEvents);
+      return withAbortErrorHandling(transformHttpEventStream(httpEvents));
     }
 
-    return super.run(input);
+    // Wrap the parent's Observable with error handling for abort scenarios
+    return withAbortErrorHandling(super.run(input));
   }
 
   public override clone(): ProxiedCopilotRuntimeAgent {

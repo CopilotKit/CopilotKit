@@ -26,6 +26,8 @@ export default defineConfig(({ mode }) => ({
     include: ['src/**/*.{spec,test}.{ts,tsx}'],
     pool: 'threads',
     poolOptions: { threads: { singleThread: true } },
+    reporters: [['default', { summary: false }]],
+    silent: true,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

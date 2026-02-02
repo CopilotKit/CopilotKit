@@ -1,3 +1,6 @@
+<div align="center" >
+  <h1>Copilotkit 🪁</h1>
+</div>
 
 <div align=center>
 

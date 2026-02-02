@@ -20,11 +20,16 @@ Frontend tools are framework-agnostic and work consistently across all framework
 ## Type Definition
 
 ```typescript
+type FrontendToolHandlerContext = {
+  toolCall: ToolCall;
+  agent: AbstractAgent;
+};
+
 type FrontendTool<T extends Record<string, unknown> = Record<string, unknown>> = {
   name: string;
   description?: string;
   parameters?: z.ZodType<T>;
-  handler?: (args: T, toolCall: ToolCall) => Promise<unknown>;
+  handler?: (args: T, context: FrontendToolHandlerContext) => Promise<unknown>;
   followUp?: boolean;
   agentId?: string;
 };
@@ -87,10 +92,10 @@ import { z } from "zod";
 
 ### handler
 
-`(args: T, toolCall: ToolCall) => Promise<unknown>` **(optional)**
+`(args: T, context: FrontendToolHandlerContext) => Promise<unknown>` **(optional)**
 
-The async function that executes when the agent invokes this tool. It receives the validated arguments and a ToolCall
-object containing metadata about the invocation.
+The async function that executes when the agent invokes this tool. It receives the validated arguments and a context
+object containing the `toolCall` with metadata about the invocation.
 
 ```typescript
 {
