@@ -1,7 +1,8 @@
 import json
 from typing import Dict, Any, List, Optional, Union, AsyncGenerator
 from enum import Enum
-from ag_ui_langgraph import LangGraphAgent
+from ag_ui_langgraph import LangGraphAgent as AGUILangGraphAgent
+from .langgraph_agent import LangGraphAgent as CopilotKitLangGraphAgent
 from ag_ui.core import (
     EventType,
     CustomEvent,
@@ -49,10 +50,29 @@ TextMessageEvents = Union[TextMessageStartEvent, TextMessageContentEvent, TextMe
 ToolCallEvents = Union[ToolCallStartEvent, ToolCallArgsEvent, ToolCallEndEvent]
 
 
-class LangGraphAGUIAgent(LangGraphAgent):
+class LangGraphAGUIAgent(AGUILangGraphAgent, CopilotKitLangGraphAgent):
+    """
+    LangGraph agent with AG-UI protocol and CopilotKit SDK integration.
+    
+    This class uses multiple inheritance to combine:
+    - AGUILangGraphAgent: Provides AG-UI protocol event handling methods
+      (_dispatch_event, _handle_single_event, get_state_snapshot, etc.)
+    - CopilotKitLangGraphAgent: Provides CopilotKit SDK integration methods
+      (dict_repr, execute, get_state, etc.)
+    
+    Method Resolution Order (MRO):
+        LangGraphAGUIAgent -> AGUILangGraphAgent -> CopilotKitLangGraphAgent -> Agent -> ...
+    
+    This ensures AG-UI methods take precedence while CopilotKit methods are available as fallback.
+    """
     def __init__(self, *, name: str, graph: CompiledStateGraph, description: Optional[str] = None, config: Union[Optional[RunnableConfig], dict] = None):
-        super().__init__(name=name, graph=graph, description=description, config=config)
-        self.constant_schema_keys = self.constant_schema_keys + ["copilotkit"]
+        # Initialize AG-UI parent (first in MRO)
+        # This sets up: graph, _dispatch_event, _handle_single_event, active_run, etc.
+        AGUILangGraphAgent.__init__(self, name=name, graph=graph, description=description, config=config)
+        
+        # Add CopilotKit-specific schema key
+        # constant_schema_keys comes from AGUILangGraphAgent
+        self.constant_schema_keys = getattr(self, 'constant_schema_keys', []) + ["copilotkit"]
 
     def _dispatch_event(self, event) -> str:
         """Override the dispatch event method to handle custom CopilotKit events and filtering"""
