@@ -63,6 +63,7 @@ export async function handleConnectAgent({
       runtime.runner
         .connect({
           threadId: input.threadId,
+          agent: agents[agentId],
           headers: forwardableHeaders,
         })
         .subscribe({

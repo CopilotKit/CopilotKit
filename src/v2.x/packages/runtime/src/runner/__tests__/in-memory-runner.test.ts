@@ -64,6 +64,9 @@ class TestAgent extends AbstractAgent {
   }
 }
 
+// Dummy agent for connect() calls
+const dummyAgent = new TestAgent();
+
 describe("InMemoryAgentRunner", () => {
   let runner: InMemoryAgentRunner;
 
@@ -147,7 +150,7 @@ describe("InMemoryAgentRunner", () => {
       expect(runStarted.input?.state).toEqual({ counter: 1 });
 
       const connectEvents = await firstValueFrom(
-        runner.connect({ threadId }).pipe(toArray()),
+        runner.connect({ threadId, agent: dummyAgent }).pipe(toArray()),
       );
       const latestRunStarted = connectEvents
         .filter((event): event is RunStartedEvent => event.type === EventType.RUN_STARTED)
@@ -229,7 +232,7 @@ describe("InMemoryAgentRunner", () => {
       );
 
       const connectEvents = await firstValueFrom(
-        runner.connect({ threadId }).pipe(toArray()),
+        runner.connect({ threadId, agent: dummyAgent }).pipe(toArray()),
       );
 
       const nonTerminalEvents = stripTerminalEvents(connectEvents);

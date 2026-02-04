@@ -128,9 +128,12 @@ class RunnerConnectAgent extends AbstractAgent {
   }
 
   protected connect(input: RunAgentInput): ReturnType<AbstractAgent["connect"]> {
-    return this.runner.connect({ threadId: input.threadId });
+    return this.runner.connect({ threadId: input.threadId, agent: dummyAgent });
   }
 }
+
+// Dummy agent for connect() calls
+const dummyAgent = new EmitAgent();
 
 type Deferred<T> = {
   promise: Promise<T>;
@@ -277,7 +280,7 @@ describe("InMemoryAgentRunner e2e", () => {
       expectRunStartedEvent(runEvents[0], [existingMessage]);
       expect(runEvents.at(-1)?.type).toBe(EventType.RUN_FINISHED);
 
-      const replayEvents = await collectEvents(runner.connect({ threadId }));
+      const replayEvents = await collectEvents(runner.connect({ threadId, agent: dummyAgent }));
       const replayAgent = new ReplayAgent(replayEvents, threadId);
       await replayAgent.connectAgent({ runId: "replay-run" });
 
@@ -328,7 +331,7 @@ describe("InMemoryAgentRunner e2e", () => {
 
       expectRunStartedEvent(secondRunEvents[0], [newMessage]);
 
-      const replayEvents = await collectEvents(runner.connect({ threadId }));
+      const replayEvents = await collectEvents(runner.connect({ threadId, agent: dummyAgent }));
       const replayAgent = new ReplayAgent(replayEvents, threadId);
       await replayAgent.connectAgent({ runId: "replay-run" });
 
@@ -425,7 +428,7 @@ describe("InMemoryAgentRunner e2e", () => {
       expectRunStartedEvent(runEvents[0], baseMessages);
       expect(runEvents.filter((event) => event.type === EventType.TOOL_CALL_RESULT)).toHaveLength(1);
 
-      const replayEvents = await collectEvents(runner.connect({ threadId }));
+      const replayEvents = await collectEvents(runner.connect({ threadId, agent: dummyAgent }));
       const replayAgent = new ReplayAgent(replayEvents, threadId);
       await replayAgent.connectAgent({ runId: "replay-run" });
 
@@ -518,7 +521,7 @@ describe("InMemoryAgentRunner e2e", () => {
         expect(runEvents.at(-1)?.type).toBe(EventType.RUN_FINISHED);
       }
 
-      const replayEvents = await collectEvents(runner.connect({ threadId }));
+      const replayEvents = await collectEvents(runner.connect({ threadId, agent: dummyAgent }));
       const replayAgent = new ReplayAgent(replayEvents, threadId);
       await replayAgent.connectAgent({ runId: "replay-final" });
 
@@ -592,7 +595,7 @@ describe("InMemoryAgentRunner e2e", () => {
       expect(runEvents[0]).toEqual(customRunStarted);
       expect(runEvents.filter((event) => event.type === EventType.RUN_FINISHED)).toHaveLength(1);
 
-      const replayEvents = await collectEvents(runner.connect({ threadId }));
+      const replayEvents = await collectEvents(runner.connect({ threadId, agent: dummyAgent }));
       const replayAgent = new ReplayAgent(replayEvents, threadId);
       await replayAgent.connectAgent({ runId: "replay-run" });
       expect(replayAgent.messages.find((message) => message.id === "custom-user")).toEqual(
@@ -659,7 +662,7 @@ describe("InMemoryAgentRunner e2e", () => {
       await runStartedSignal.promise;
 
       const liveEvents: BaseEvent[] = [];
-      const connect$ = runner.connect({ threadId });
+      const connect$ = runner.connect({ threadId, agent: dummyAgent });
       let connectSubscription: Subscription;
       const connectCompletion = new Promise<void>((resolve, reject) => {
         connectSubscription = connect$.subscribe({
@@ -683,7 +686,7 @@ describe("InMemoryAgentRunner e2e", () => {
       expect(runEvents.at(-1)?.type).toBe(EventType.RUN_FINISHED);
       expect(liveEvents).toEqual(runEvents);
 
-      const persistedEvents = await collectEvents(runner.connect({ threadId }));
+      const persistedEvents = await collectEvents(runner.connect({ threadId, agent: dummyAgent }));
       expect(persistedEvents).toEqual(runEvents);
 
       const replayAgent = new ReplayAgent(persistedEvents, threadId);
@@ -728,7 +731,7 @@ describe("InMemoryAgentRunner e2e", () => {
       expectRunStartedEvent(runEvents[0], [userMessage]);
       expect(runEvents.at(-1)).toEqual(runErrorEvent);
 
-      const replayEvents = await collectEvents(runner.connect({ threadId }));
+      const replayEvents = await collectEvents(runner.connect({ threadId, agent: dummyAgent }));
       const replayAgent = new ReplayAgent(replayEvents, threadId);
       const capturedRunErrors: RunErrorEvent[] = [];
       const result = await replayAgent.connectAgent(
