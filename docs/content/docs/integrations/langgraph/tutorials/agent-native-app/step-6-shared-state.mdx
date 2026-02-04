@@ -6,11 +6,11 @@ import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
 In LangGraph, your agents are stateful. This means that they as your graph traverses nodes, the overall application state will be updated and persisted.
 
 CopilotKit allows you to easily read and update this state through the use of two main hooks:
-- [`useCoAgent`](/reference/hooks/useCoAgent) - Provides a way to read and write Agent state anywhere in your application.
-- [`useCoAgentStateRender`](/reference/hooks/useCoAgentStateRender) - Provides a way to render Agent state in the chat.
+- [`useCoAgent`](/reference/v1/hooks/useCoAgent) - Provides a way to read and write Agent state anywhere in your application.
+- [`useCoAgentStateRender`](/reference/v1/hooks/useCoAgentStateRender) - Provides a way to render Agent state in the chat.
 
 With this in mind, our current goal is to create a bidirectional connection between the application's state and the LangGraph agent's state. This will
-allow us to render the agent's completed research in the right panel. 
+allow us to render the agent's completed research in the right panel.
 
 For this, we'll be using the `useCoAgent` hook.
 
@@ -50,7 +50,7 @@ We've already wired up the approval of the `proposal` field in the previous step
 <Step>
 
 ## The `useCoAgent` hook
-Our current goal is to create a bidirectional connection between these two states. Luckily, the [`useCoAgent`](/reference/hooks/useCoAgent) hook makes this easy.
+Our current goal is to create a bidirectional connection between these two states. Luckily, the [`useCoAgent`](/reference/v1/hooks/useCoAgent) hook makes this easy.
 
 In the `useResearch` hook, we'll just replace our React state objects with the `useCoAgent` hook.
 
@@ -81,12 +81,12 @@ export function ResearchProvider({ children }: { children: ReactNode }) {
     // ...
 
     return (
-        <ResearchContext.Provider 
-            value={{ 
-              state, 
-              setResearchState: setState as ResearchContextType['setResearchState'], 
-              setSourcesModalOpen, 
-              sourcesModalOpen, 
+        <ResearchContext.Provider
+            value={{
+              state,
+              setResearchState: setState as ResearchContextType['setResearchState'],
+              setSourcesModalOpen,
+              sourcesModalOpen,
               runAgent: run  // [!code ++]
               runAgent: () => {} // [!code --]
             }}>
@@ -134,7 +134,7 @@ Please research dogs!
   <ImageZoom className="mt-0" src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tutorials/research-ana/fe-step-6-finish.png" alt="CopilotCloud API Key" height={1000} width={1000} />
 </Frame>
 
-Now, we can completely run our agent from start to finish *and* see the finalized research in the right window. 
+Now, we can completely run our agent from start to finish *and* see the finalized research in the right window.
 
 However, you may notice that the research takes a long time to complete without any indication of progress. In the next step, we'll leverage the CoAgent concepts
 of **generative ui** to communicate the agent's progress in the chat.

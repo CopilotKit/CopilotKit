@@ -4,7 +4,7 @@
  *
  * `<CopilotTextarea>` is a React component that acts as a drop-in replacement for the standard `<textarea>`,
  *  offering enhanced autocomplete features powered by AI. It is context-aware, integrating seamlessly with the
- * [`useCopilotReadable`](/reference/hooks/useCopilotReadable) hook to provide intelligent suggestions based on the application context.
+ * [`useCopilotReadable`](/reference/v1/hooks/useCopilotReadable) hook to provide intelligent suggestions based on the application context.
  *
  * In addition, it provides a hovering editor window (available by default via `Cmd + K` on Mac and `Ctrl + K` on Windows) that allows the user to
  * suggest changes to the text, for example providing a summary or rephrasing the text.

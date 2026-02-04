@@ -13,7 +13,7 @@ import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
 <Step>
 ### `useFrontendTool`
 
-In addition to understanding state, you can empower the copilot to execute tools. Use the [`useFrontendTool`](/reference/hooks/useFrontendTool) hook to define specific tools that the copilot can execute based on user input.
+In addition to understanding state, you can empower the copilot to execute tools. Use the [`useFrontendTool`](/reference/v1/hooks/useFrontendTool) hook to define specific tools that the copilot can execute based on user input.
 
 ```tsx title="YourComponent.tsx"
 "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
@@ -52,9 +52,9 @@ export function MyComponent() {
 <Accordions>
   <Accordion title="Related Hooks for Different Use Cases">
     While `useFrontendTool` is for frontend tools with handlers, CopilotKit provides other specialized hooks:
-    - [`useHumanInTheLoop`](/reference/hooks/useHumanInTheLoop): For interactive workflows requiring user input/approval
-    - [`useRenderToolCall`](/reference/hooks/useRenderToolCall): For rendering backend tool calls without handlers
-    
+    - [`useHumanInTheLoop`](/reference/v1/hooks/useHumanInTheLoop): For interactive workflows requiring user input/approval
+    - [`useRenderToolCall`](/reference/v1/hooks/useRenderToolCall): For rendering backend tool calls without handlers
+
     Choose the right hook based on your specific use case.
   </Accordion>
 </Accordions>
@@ -70,9 +70,9 @@ export function MyComponent() {
 After defining the tool, ask the copilot to execute it. For example, you can now ask the copilot to "add a todo item" with any text you want.
 
 <Frame>
-  <img 
-    src="https://cdn.copilotkit.ai/docs/copilotkit/images/copilot-action-example.gif" 
-    alt="Example of Copilot action" 
+  <img
+    src="https://cdn.copilotkit.ai/docs/copilotkit/images/copilot-action-example.gif"
+    alt="Example of Copilot action"
     className="rounded-lg shadow-md w-full max-w-md mx-auto"
   />
 </Frame>
@@ -87,7 +87,7 @@ After defining the tool, ask the copilot to execute it. For example, you can now
   <Card
     title="useFrontendTool Reference"
     description="Refer to the documentation for the useFrontendTool hook."
-    href="/reference/hooks/useFrontendTool"
+    href="/reference/v1/hooks/useFrontendTool"
     icon={<LinkIcon />}
   />
   <Card
