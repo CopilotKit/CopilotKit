@@ -1,0 +1,22 @@
+Fixed?,$referrer,referrer_path,broken_url,30-Jan-2026,31-Jan-2026,1-Feb-2026,2-Feb-2026
+no,$direct,None (i.e. no value),/aws-strands/generative-ui,0,1,0,0
+no,https://www.google.com/,/,/aws-strands/human-in-the-loop,1,0,0,0
+no,https://docs.copilotkit.ai/agentic-protocols,/agentic-protocols,/generative-ui/direct-to-llm/cookbook/state-machine,0,1,0,0
+,https://www.copilotkit.ai/,/,/generative-ui/direct-to-llm/tutorials/ai-todo-app/overview,0,1,0,0
+,https://www.copilotkit.ai/,/,/generative-ui/langgraph/quickstart,0,1,0,0
+,https://www.copilotkit.ai/,/,/guides/backend-actions/remote-backend-endpoint,0,1,0,0
+,https://www.google.com/,/,/guides/backend-actions/remote-backend-endpoint,1,0,0,0
+no,https://www.copilotkit.ai/,/,/guides/custom-look-and-feel/bring-your-own-components,0,1,5,0
+no,https://www.google.com/,/,/guides/custom-look-and-feel/bring-your-own-components,0,4,2,0
+,https://google.github.io/,/,/guides/custom-look-and-feel/bring-your-own-components,0,0,1,0
+,$direct,None (i.e. no value),/guides/custom-look-and-feel/bring-your-own-components,0,1,0,0
+,https://www.copilotkit.ai/,/,/guides/self-hosting,0,0,1,0
+,$direct,None (i.e. no value),/langgraph/custom-look-and-feel,0,1,0,0
+no,https://github.com/ag-ui-protocol/ag-ui,/ag-ui-protocol/ag-ui,/langgraph/quickstart/langgraph,0,0,0,1
+,https://www.copilotkit.ai/,/,/langgraph/quickstart/langgraph,0,0,1,0
+,https://www.google.com/,/,/langgraph/quickstart/langgraph,1,0,0,0
+,$direct,None (i.e. no value),/langgraph/quickstart/langgraph,0,1,0,0
+yes,https://www.copilotkit.ai/,/,/microsoft-agent-framework/shared-state,3,0,0,0
+,https://learn.microsoft.com/,/,/microsoft-agent-framework/shared-state,1,0,0,0
+,$direct,None (i.e. no value),/microsoft-agent-framework/shared-state,2,0,0,0
+,$direct,None (i.e. no value),/shared/contributing/code-contributions/package-linking,0,0,1,0

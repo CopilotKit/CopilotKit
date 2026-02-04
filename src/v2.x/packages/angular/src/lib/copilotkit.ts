@@ -70,7 +70,7 @@ export class CopilotKit {
 
     return {
       ...frontendCandidate,
-      handler: (args) => runInInjectionContext(injector, () => handler(args)),
+      handler: (args, context) => runInInjectionContext(injector, () => handler(args, context)),
     };
   }
 
@@ -93,7 +93,7 @@ export class CopilotKit {
   #bindHumanInTheLoopTool(humanInTheLoopTool: HumanInTheLoopConfig): FrontendTool {
     return {
       ...humanInTheLoopTool,
-      handler: (args, toolCall) => {
+      handler: (args, { toolCall }) => {
         return this.#hitl.onResult(toolCall.id, humanInTheLoopTool.name);
       },
     };

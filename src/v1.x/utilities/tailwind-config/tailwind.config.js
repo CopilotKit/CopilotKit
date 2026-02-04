@@ -6,8 +6,6 @@ module.exports = {
     `src/**/*.{js,ts,jsx,tsx}`,
     // include packages if not transpiling
     // "../../packages/**/*.{js,ts,jsx,tsx}",
-    // streamdown styles
-    "./node_modules/streamdown/dist/*.js",
   ],
   theme: {
     extend: {

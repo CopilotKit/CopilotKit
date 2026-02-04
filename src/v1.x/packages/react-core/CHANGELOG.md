@@ -1,5 +1,126 @@
 # ui
 
+## 1.51.4-next.1
+
+### Patch Changes
+
+- 12ee574: v2 UI improvements
+  - @copilotkit/runtime-client-gql@1.51.4-next.1
+  - @copilotkit/shared@1.51.4-next.1
+  - @copilotkitnext/core@1.51.4-next.1
+  - @copilotkitnext/react@1.51.4-next.1
+
+## 1.51.4-next.0
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.51.4-next.0
+- @copilotkit/shared@1.51.4-next.0
+- @copilotkitnext/core@1.51.4-next.0
+- @copilotkitnext/react@1.51.4-next.0
+
+## 1.51.3
+
+### Patch Changes
+
+- d655e75: fix: update ag-ui dependencies
+- d36fc1e: Add UMD export
+- e89fe98: fix(v1.x): address issue causing onSubmitMessage to fire after agent response
+- 3f00a01: Fix issue causing onSubmitMessage to fire after agent response
+- Updated dependencies [d655e75]
+- Updated dependencies [d36fc1e]
+  - @copilotkit/shared@1.51.3
+  - @copilotkit/runtime-client-gql@1.51.3
+  - @copilotkitnext/react@1.51.3
+  - @copilotkitnext/core@1.51.3
+
+## 1.51.3-next.8
+
+### Patch Changes
+
+- d36fc1e: Add UMD export
+- Updated dependencies [d36fc1e]
+  - @copilotkit/runtime-client-gql@1.51.3-next.8
+  - @copilotkit/shared@1.51.3-next.8
+  - @copilotkitnext/react@1.51.3-next.8
+  - @copilotkitnext/core@1.51.3-next.8
+
+## 1.51.3-next.7
+
+### Patch Changes
+
+- 3f00a01: Fix issue causing onSubmitMessage to fire after agent response
+  - @copilotkit/runtime-client-gql@1.51.3-next.7
+  - @copilotkit/shared@1.51.3-next.7
+  - @copilotkitnext/core@1.51.3-next.7
+  - @copilotkitnext/react@1.51.3-next.7
+
+## 1.51.3-next.6
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.51.3-next.6
+- @copilotkit/shared@1.51.3-next.6
+- @copilotkitnext/core@1.51.3-next.6
+- @copilotkitnext/react@1.51.3-next.6
+
+## 1.51.3-next.5
+
+### Patch Changes
+
+- e89fe98: fix(v1.x): address issue causing onSubmitMessage to fire after agent response
+  - @copilotkit/runtime-client-gql@1.51.3-next.5
+  - @copilotkit/shared@1.51.3-next.5
+  - @copilotkitnext/core@1.51.3-next.5
+  - @copilotkitnext/react@1.51.3-next.5
+
+## 1.51.3-next.4
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.51.3-next.4
+- @copilotkit/shared@1.51.3-next.4
+- @copilotkitnext/core@1.51.3-next.4
+- @copilotkitnext/react@1.51.3-next.4
+
+## 1.51.3-next.3
+
+### Patch Changes
+
+- d655e75: fix: update ag-ui dependencies
+- Updated dependencies [d655e75]
+  - @copilotkit/shared@1.51.3-next.3
+  - @copilotkit/runtime-client-gql@1.51.3-next.3
+  - @copilotkitnext/core@1.51.3-next.3
+  - @copilotkitnext/react@1.51.3-next.3
+
+## 1.51.3-next.2
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.51.3-next.2
+- @copilotkit/shared@1.51.3-next.2
+- @copilotkitnext/core@1.51.3-next.2
+- @copilotkitnext/react@1.51.3-next.2
+
+## 1.51.3-next.1
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.51.3-next.1
+- @copilotkit/shared@1.51.3-next.1
+- @copilotkitnext/core@1.51.3-next.1
+- @copilotkitnext/react@1.51.3-next.1
+
+## 1.51.3-next.0
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.51.3-next.0
+- @copilotkit/shared@1.51.3-next.0
+- @copilotkitnext/core@1.51.3-next.0
+- @copilotkitnext/react@1.51.3-next.0
+
 ## 1.51.2
 
 ### Patch Changes

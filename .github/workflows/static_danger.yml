@@ -1,4 +1,4 @@
-name: static
+name: static / danger
 
 on:
   pull_request:
@@ -18,6 +18,9 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: "10.13.1"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
 
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v2

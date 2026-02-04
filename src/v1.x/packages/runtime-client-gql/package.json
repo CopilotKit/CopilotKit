@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.51.2",
+  "version": "1.51.4-next.1",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -20,10 +20,12 @@
       "types": "./dist/index.d.ts"
     }
   },
+  "unpkg": "./dist/index.umd.js",
+  "jsdelivr": "./dist/index.umd.js",
   "types": "./dist/index.d.ts",
   "license": "MIT",
   "scripts": {
-    "build": "pnpm run graphql-codegen && tsup --clean",
+    "build": "pnpm run graphql-codegen && tsup --clean && rollup -c rollup.config.mjs",
     "dev": "concurrently \"pnpm run graphql-codegen:watch\" \"tsup --watch --no-splitting\"",
     "test": "vitest run",
     "test:watch": "vitest",

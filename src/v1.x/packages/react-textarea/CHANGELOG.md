@@ -1,5 +1,112 @@
 # ui
 
+## 1.51.4-next.1
+
+### Patch Changes
+
+- Updated dependencies [12ee574]
+  - @copilotkit/react-core@1.51.4-next.1
+  - @copilotkit/runtime-client-gql@1.51.4-next.1
+  - @copilotkit/shared@1.51.4-next.1
+
+## 1.51.4-next.0
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.51.4-next.0
+- @copilotkit/react-core@1.51.4-next.0
+- @copilotkit/shared@1.51.4-next.0
+
+## 1.51.3
+
+### Patch Changes
+
+- d36fc1e: Add UMD export
+- Updated dependencies [d655e75]
+- Updated dependencies [d36fc1e]
+- Updated dependencies [e89fe98]
+- Updated dependencies [3f00a01]
+  - @copilotkit/react-core@1.51.3
+  - @copilotkit/shared@1.51.3
+  - @copilotkit/runtime-client-gql@1.51.3
+
+## 1.51.3-next.8
+
+### Patch Changes
+
+- d36fc1e: Add UMD export
+- Updated dependencies [d36fc1e]
+  - @copilotkit/runtime-client-gql@1.51.3-next.8
+  - @copilotkit/react-core@1.51.3-next.8
+  - @copilotkit/shared@1.51.3-next.8
+
+## 1.51.3-next.7
+
+### Patch Changes
+
+- Updated dependencies [3f00a01]
+  - @copilotkit/react-core@1.51.3-next.7
+  - @copilotkit/runtime-client-gql@1.51.3-next.7
+  - @copilotkit/shared@1.51.3-next.7
+
+## 1.51.3-next.6
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.51.3-next.6
+- @copilotkit/react-core@1.51.3-next.6
+- @copilotkit/shared@1.51.3-next.6
+
+## 1.51.3-next.5
+
+### Patch Changes
+
+- Updated dependencies [e89fe98]
+  - @copilotkit/react-core@1.51.3-next.5
+  - @copilotkit/runtime-client-gql@1.51.3-next.5
+  - @copilotkit/shared@1.51.3-next.5
+
+## 1.51.3-next.4
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.51.3-next.4
+- @copilotkit/react-core@1.51.3-next.4
+- @copilotkit/shared@1.51.3-next.4
+
+## 1.51.3-next.3
+
+### Patch Changes
+
+- Updated dependencies [d655e75]
+  - @copilotkit/react-core@1.51.3-next.3
+  - @copilotkit/shared@1.51.3-next.3
+  - @copilotkit/runtime-client-gql@1.51.3-next.3
+
+## 1.51.3-next.2
+
+### Patch Changes
+
+- @copilotkit/react-core@1.51.3-next.2
+- @copilotkit/runtime-client-gql@1.51.3-next.2
+- @copilotkit/shared@1.51.3-next.2
+
+## 1.51.3-next.1
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.51.3-next.1
+- @copilotkit/react-core@1.51.3-next.1
+- @copilotkit/shared@1.51.3-next.1
+
+## 1.51.3-next.0
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.51.3-next.0
+- @copilotkit/react-core@1.51.3-next.0
+- @copilotkit/shared@1.51.3-next.0
+
 ## 1.51.2
 
 ### Patch Changes

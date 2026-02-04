@@ -1,4 +1,5 @@
 import React from "react";
+import { twMerge } from "tailwind-merge";
 
 /** Existing union (unchanged) */
 export type SlotValue<C extends React.ComponentType<any>> =
@@ -36,6 +37,20 @@ export type WithSlots<
 } & Omit<Rest, "children">;
 
 /**
+ * Check if a value is a React component type (function, class, forwardRef, memo, etc.)
+ */
+export function isReactComponentType(value: unknown): value is React.ComponentType<any> {
+  if (typeof value === "function") {
+    return true;
+  }
+  // forwardRef, memo, lazy have $$typeof but are not valid elements
+  if (value && typeof value === "object" && "$$typeof" in value && !React.isValidElement(value)) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Internal function to render a slot value as a React element (non-memoized).
  */
 function renderSlotElement(
@@ -44,15 +59,20 @@ function renderSlotElement(
   props: Record<string, unknown>
 ): React.ReactElement {
   if (typeof slot === "string") {
+    // When slot is a string, treat it as a className and merge with existing className
+    const existingClassName = props.className as string | undefined;
     return React.createElement(DefaultComponent, {
       ...props,
-      className: slot,
+      className: twMerge(existingClassName, slot),
     });
   }
-  if (typeof slot === "function") {
-    return React.createElement(slot as React.ComponentType<any>, props);
+
+  // Check if slot is a React component type (function, forwardRef, memo, etc.)
+  if (isReactComponentType(slot)) {
+    return React.createElement(slot, props);
   }
 
+  // If slot is a plain object (not a React element), treat it as props override
   if (slot && typeof slot === "object" && !React.isValidElement(slot)) {
     return React.createElement(DefaultComponent, {
       ...props,

@@ -1,5 +1,93 @@
 # @copilotkitnext/angular
 
+## 1.51.4-next.1
+
+### Patch Changes
+
+- @copilotkitnext/core@1.51.4-next.1
+- @copilotkitnext/shared@1.51.4-next.1
+
+## 1.51.4-next.0
+
+### Patch Changes
+
+- @copilotkitnext/core@1.51.4-next.0
+- @copilotkitnext/shared@1.51.4-next.0
+
+## 1.51.3
+
+### Patch Changes
+
+- d36fc1e: Add UMD export
+- Updated dependencies [d36fc1e]
+  - @copilotkitnext/shared@1.51.3
+  - @copilotkitnext/core@1.51.3
+
+## 1.51.3-next.8
+
+### Patch Changes
+
+- d36fc1e: Add UMD export
+- Updated dependencies [d36fc1e]
+  - @copilotkitnext/shared@1.51.3-next.8
+  - @copilotkitnext/core@1.51.3-next.8
+
+## 1.51.3-next.7
+
+### Patch Changes
+
+- @copilotkitnext/core@1.51.3-next.7
+- @copilotkitnext/shared@1.51.3-next.7
+
+## 1.51.3-next.6
+
+### Patch Changes
+
+- @copilotkitnext/core@1.51.3-next.6
+- @copilotkitnext/shared@1.51.3-next.6
+
+## 1.51.3-next.5
+
+### Patch Changes
+
+- @copilotkitnext/core@1.51.3-next.5
+- @copilotkitnext/shared@1.51.3-next.5
+
+## 1.51.3-next.4
+
+### Patch Changes
+
+- @copilotkitnext/core@1.51.3-next.4
+- @copilotkitnext/shared@1.51.3-next.4
+
+## 1.51.3-next.3
+
+### Patch Changes
+
+- @copilotkitnext/core@1.51.3-next.3
+- @copilotkitnext/shared@1.51.3-next.3
+
+## 1.51.3-next.2
+
+### Patch Changes
+
+- @copilotkitnext/core@1.51.3-next.2
+- @copilotkitnext/shared@1.51.3-next.2
+
+## 1.51.3-next.1
+
+### Patch Changes
+
+- @copilotkitnext/core@1.51.3-next.1
+- @copilotkitnext/shared@1.51.3-next.1
+
+## 1.51.3-next.0
+
+### Patch Changes
+
+- @copilotkitnext/core@1.51.3-next.0
+- @copilotkitnext/shared@1.51.3-next.0
+
 ## 1.51.2
 
 ### Patch Changes

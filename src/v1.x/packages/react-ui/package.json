@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.51.2",
+  "version": "1.51.4-next.1",
   "sideEffects": [
     "**/*.css"
   ],
@@ -24,10 +24,12 @@
     "./styles.css": "./dist/index.css",
     "./v2/styles.css": "./dist/v2/index.css"
   },
+  "unpkg": "./dist/index.umd.js",
+  "jsdelivr": "./dist/index.umd.js",
   "types": "./dist/index.d.ts",
   "license": "MIT",
   "scripts": {
-    "build": "tsup --clean",
+    "build": "tsup --clean && rollup -c rollup.config.mjs",
     "dev": "tsup --watch --no-splitting",
     "test": "jest",
     "check-types": "tsc --noEmit",
@@ -59,8 +61,11 @@
     "@copilotkit/runtime-client-gql": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@headlessui/react": "^2.2.9",
+    "react-markdown": "^10.1.0",
     "react-syntax-highlighter": "^15.6.1",
-    "streamdown": "^1.6.10"
+    "rehype-raw": "^7.0.0",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0"
   },
   "keywords": [
     "copilotkit",

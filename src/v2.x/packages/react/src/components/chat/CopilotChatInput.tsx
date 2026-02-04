@@ -33,6 +33,7 @@ import {
 
 import { CopilotChatAudioRecorder } from "./CopilotChatAudioRecorder";
 import { renderSlot, WithSlots } from "@/lib/slots";
+import { cn } from "@/lib/utils";
 
 export type CopilotChatInputMode = "input" | "transcribe" | "processing";
 
@@ -57,6 +58,7 @@ type CopilotChatInputSlots = {
   finishTranscribeButton: typeof CopilotChatInput.FinishTranscribeButton;
   addMenuButton: typeof CopilotChatInput.AddMenuButton;
   audioRecorder: typeof CopilotChatAudioRecorder;
+  disclaimer: typeof CopilotChatInput.Disclaimer;
 };
 
 type CopilotChatInputRestProps = {
@@ -73,6 +75,14 @@ type CopilotChatInputRestProps = {
   onAddFile?: () => void;
   value?: string;
   onChange?: (value: string) => void;
+  /** Positioning mode for the input container. Default: 'static' */
+  positioning?: "static" | "absolute";
+  /** Keyboard height in pixels for mobile keyboard handling */
+  keyboardHeight?: number;
+  /** Ref for the outer positioning container */
+  containerRef?: React.Ref<HTMLDivElement>;
+  /** Whether to show the disclaimer. Default: true for absolute positioning, false for static */
+  showDisclaimer?: boolean;
 } & Omit<React.HTMLAttributes<HTMLDivElement>, "onChange">;
 
 type CopilotChatInputBaseProps = WithSlots<CopilotChatInputSlots, CopilotChatInputRestProps>;
@@ -104,6 +114,10 @@ export function CopilotChatInput({
   value,
   toolsMenu,
   autoFocus = true,
+  positioning = "static",
+  keyboardHeight = 0,
+  containerRef,
+  showDisclaimer,
   textArea,
   sendButton,
   startTranscribeButton,
@@ -111,6 +125,7 @@ export function CopilotChatInput({
   finishTranscribeButton,
   addMenuButton,
   audioRecorder,
+  disclaimer,
   children,
   className,
   ...props
@@ -494,6 +509,11 @@ export function CopilotChatInput({
     toolsMenu,
   });
 
+  const BoundDisclaimer = renderSlot(disclaimer, CopilotChatInput.Disclaimer, {});
+
+  // Determine whether to show disclaimer based on prop or positioning default
+  const shouldShowDisclaimer = showDisclaimer ?? (positioning === "absolute");
+
   if (children) {
     const childProps = {
       textArea: BoundTextArea,
@@ -503,6 +523,7 @@ export function CopilotChatInput({
       cancelTranscribeButton: BoundCancelTranscribeButton,
       finishTranscribeButton: BoundFinishTranscribeButton,
       addMenuButton: BoundAddMenuButton,
+      disclaimer: BoundDisclaimer,
       onSubmitMessage,
       onStop,
       isRunning,
@@ -513,6 +534,9 @@ export function CopilotChatInput({
       mode,
       toolsMenu,
       autoFocus,
+      positioning,
+      keyboardHeight,
+      showDisclaimer: shouldShowDisclaimer,
     } as CopilotChatInputChildrenArgs;
 
     return <>{children(childProps)}</>;
@@ -795,7 +819,8 @@ export function CopilotChatInput({
     </div>
   ) : null;
 
-  return (
+  // The input pill (inner component)
+  const inputPill = (
     <div
       className={twMerge(
         // Layout
@@ -808,10 +833,8 @@ export function CopilotChatInput({
         "bg-white dark:bg-[#303030]",
         // Visual effects
         "shadow-[0_4px_4px_0_#0000000a,0_0_1px_0_#0000009e] rounded-[28px]",
-        className,
       )}
       onClick={handleContainerClick}
-      {...props}
       data-layout={isExpanded ? "expanded" : "compact"}
     >
       <div
@@ -873,6 +896,26 @@ export function CopilotChatInput({
           )}
         </div>
       </div>
+    </div>
+  );
+
+  return (
+    <div
+      ref={containerRef}
+      className={cn(
+        positioning === "absolute" && "absolute bottom-0 left-0 right-0 z-20 pointer-events-none",
+        className,
+      )}
+      style={{
+        transform: keyboardHeight > 0 ? `translateY(-${keyboardHeight}px)` : undefined,
+        transition: "transform 0.2s ease-out",
+      }}
+      {...props}
+    >
+      <div className="max-w-3xl mx-auto py-0 px-4 sm:px-0 [div[data-sidebar-chat]_&]:px-8 [div[data-popup-chat]_&]:px-4 pointer-events-auto">
+        {inputPill}
+      </div>
+      {shouldShowDisclaimer && BoundDisclaimer}
     </div>
   );
 }
@@ -1056,7 +1099,7 @@ export namespace CopilotChatInput {
   export type TextAreaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement>;
 
   export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(function TextArea(
-    { style, className, autoFocus, ...props },
+    { style, className, autoFocus, placeholder, ...props },
     ref,
   ) {
     const internalTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -1090,23 +1133,39 @@ export namespace CopilotChatInput {
     return (
       <textarea
         ref={internalTextareaRef}
-        {...props}
+        placeholder={placeholder ?? labels.chatInputPlaceholder}
+        className={twMerge(
+          "bg-transparent outline-none antialiased font-regular leading-relaxed text-[16px] placeholder:text-[#00000077] dark:placeholder:text-[#fffc]",
+          className,
+        )}
         style={{
           overflow: "auto",
           resize: "none",
           ...style,
         }}
-        placeholder={labels.chatInputPlaceholder}
-        className={twMerge(
-          "bg-transparent outline-none antialiased font-regular leading-relaxed text-[16px] placeholder:text-[#00000077] dark:placeholder:text-[#fffc]",
-          className,
-        )}
         rows={1}
+        {...props}
       />
     );
   });
 
   export const AudioRecorder = CopilotChatAudioRecorder;
+
+  export const Disclaimer: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
+    className,
+    ...props
+  }) => {
+    const config = useCopilotChatConfiguration();
+    const labels = config?.labels ?? CopilotChatDefaultLabels;
+    return (
+      <div
+        className={cn("text-center text-xs text-muted-foreground py-3 px-4 max-w-3xl mx-auto", className)}
+        {...props}
+      >
+        {labels.chatDisclaimerText}
+      </div>
+    );
+  };
 }
 
 CopilotChatInput.TextArea.displayName = "CopilotChatInput.TextArea";
@@ -1116,5 +1175,6 @@ CopilotChatInput.StartTranscribeButton.displayName = "CopilotChatInput.StartTran
 CopilotChatInput.CancelTranscribeButton.displayName = "CopilotChatInput.CancelTranscribeButton";
 CopilotChatInput.FinishTranscribeButton.displayName = "CopilotChatInput.FinishTranscribeButton";
 CopilotChatInput.AddMenuButton.displayName = "CopilotChatInput.AddMenuButton";
+CopilotChatInput.Disclaimer.displayName = "CopilotChatInput.Disclaimer";
 
 export default CopilotChatInput;

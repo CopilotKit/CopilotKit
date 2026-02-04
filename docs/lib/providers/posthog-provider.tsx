@@ -112,7 +112,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       try {
         const normalizedPathname = normalizePathnameForAnalytics(pathname);
         posthog.capture("$pageview", {
-          $current_url: normalizedPathname,
+          $current_url: `https://docs.copilotkit.ai${normalizedPathname}`,
         });
       } catch (error) {
         // Silently fail if PostHog capture fails (e.g., network issues)

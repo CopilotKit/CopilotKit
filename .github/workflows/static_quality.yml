@@ -1,4 +1,4 @@
-name: static
+name: static / quality
 
 on:
   push:
@@ -35,6 +35,9 @@ jobs:
         with:
           version: "10.13.1"
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
       - name: Use Node.js 20
         uses: actions/setup-node@v3
         with:
@@ -61,6 +64,9 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: "10.13.1"
+      
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
 
       - name: Use Node.js 20
         uses: actions/setup-node@v3

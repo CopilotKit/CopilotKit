@@ -1,6 +1,6 @@
 {
   "name": "@copilotkitnext/react",
-  "version": "1.51.2",
+  "version": "1.51.4-next.1",
   "description": "React components for CopilotKit2",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -12,6 +12,8 @@
     },
     "./styles.css": "./dist/styles.css"
   },
+  "unpkg": "./dist/index.umd.js",
+  "jsdelivr": "./dist/index.umd.js",
   "publishConfig": {
     "access": "public"
   },
@@ -19,7 +21,7 @@
     "dev:css": "npx @tailwindcss/cli -i ./src/styles/globals.css -o ./dist/styles.css --watch --minify",
     "build:css": "npx @tailwindcss/cli -i ./src/styles/globals.css -o ./dist/styles.css -m",
     "dev": "concurrently \"npm:dev:css\" \"tsup --watch\"",
-    "build": "tsup && npm run build:css",
+    "build": "tsup && rollup -c rollup.config.mjs && npm run build:css",
     "prepublishOnly": "pnpm run build",
     "lint": "eslint .",
     "check-types": "tsc --noEmit",
@@ -66,7 +68,7 @@
     "clsx": "^2.1.1",
     "katex": "^0.16.22",
     "lucide-react": "^0.525.0",
-    "streamdown": "^1.6.10",
+    "streamdown": "^1.3.0",
     "tailwind-merge": "^3.3.1",
     "ts-deepmerge": "^7.0.3",
     "tw-animate-css": "^1.3.5",
