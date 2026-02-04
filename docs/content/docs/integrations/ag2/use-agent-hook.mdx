@@ -1,6 +1,6 @@
 ---
 title: "useAgent Hook"
-description: "Access and interact with your AutoGen2 agent directly from React components"
+description: "Access and interact with your AG2 agent directly from React components"
 icon: "lucide/Cpu"
 ---
 
@@ -13,13 +13,17 @@ import {
 
 ## Overview
 
-The `useAgent` hook provides direct access to your AutoGen2 agent from any React component. It gives you real-time access to the agent's state, messages, execution status, and allows you to subscribe to custom events.
+The `useAgent` hook provides direct access to your AG2 agent from any React component. It gives you real-time access to the agent's state, messages, execution status, and allows you to subscribe to custom events.
 
 This enables you to build custom agent dashboards, monitoring tools, and interactive features that respond to your agent's behavior.
 
+<Callout type="info">
+  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
+</Callout>
+
 ## Navigation
 
-This page covers everything you need to know about using `useAgent` with AutoGen2. Select where you'd like to get started below.
+This page covers everything you need to know about using `useAgent` with AG2. Select where you'd like to get started below.
 
 <Cards className="gap-6">
   <Card
@@ -60,6 +64,33 @@ import UseAgentSnippet from "@/snippets/use-agent.mdx";
 
 <UseAgentSnippet components={props.components} />
 
+### Model-Specific State
+
+If your AG2 agent streams structured state through AG-UI events, you can access typed properties:
+
+```tsx title="page.tsx"
+export function ModelStatus() {
+  const { agent } = useAgent();
+
+  // [!code highlight:1]
+  const validationStatus = agent.state.validation_status;
+
+  return (
+    <div>
+      {/* [!code highlight:6] */}
+      {validationStatus === "pending" && (
+        <div className="alert">Agent is validating input...</div>
+      )}
+      {validationStatus === "complete" && (
+        <div className="alert">Validation complete!</div>
+      )}
+    </div>
+  );
+}
+```
+
 ## See Also
 
+- [Shared State](/ag2/shared-state) - Deep dive into state management
+- [Readables](/ag2/readables) - Pass app context to your AG2 backend
 - [useAgent API Reference](/reference/hooks/useAgent) - Complete API documentation
