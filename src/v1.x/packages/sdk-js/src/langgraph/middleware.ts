@@ -1,6 +1,96 @@
-import { createMiddleware, AIMessage } from "langchain";
+import { createMiddleware, AIMessage, SystemMessage } from "langchain";
 import type { InteropZodObject } from "@langchain/core/utils/types";
 import * as z from "zod";
+
+const createAppContextBeforeAgent = (state, runtime) => {
+  const messages = state.messages;
+
+  if (!messages || messages.length === 0) {
+    return;
+  }
+
+  // Get app context from runtime
+  const appContext = state["copilotkit"]?.context ?? runtime?.context;
+
+  // Check if appContext is missing or empty
+  const isEmptyContext =
+    !appContext ||
+    (typeof appContext === "string" && appContext.trim() === "") ||
+    (typeof appContext === "object" && Object.keys(appContext).length === 0);
+
+  if (isEmptyContext) {
+    return;
+  }
+
+  // Create the context content
+  const contextContent =
+    typeof appContext === "string" ? appContext : JSON.stringify(appContext, null, 2);
+  const contextMessageContent = `App Context:\n${contextContent}`;
+  const contextMessagePrefix = "App Context:\n";
+
+  // Helper to get message content as string
+  const getContentString = (msg: any): string | null => {
+    if (typeof msg.content === "string") return msg.content;
+    if (Array.isArray(msg.content) && msg.content[0]?.text) return msg.content[0].text;
+    return null;
+  };
+
+  // Find the first system/developer message (not our context message) to determine
+  // where to insert our context message (right after it)
+  let firstSystemIndex = -1;
+
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    const type = msg._getType?.();
+    if (type === "system" || type === "developer") {
+      const content = getContentString(msg);
+      // Skip if this is our own context message
+      if (content?.startsWith(contextMessagePrefix)) {
+        continue;
+      }
+      firstSystemIndex = i;
+      break;
+    }
+  }
+
+  // Check if our context message already exists
+  let existingContextIndex = -1;
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    const type = msg._getType?.();
+    if (type === "system" || type === "developer") {
+      const content = getContentString(msg);
+      if (content?.startsWith(contextMessagePrefix)) {
+        existingContextIndex = i;
+        break;
+      }
+    }
+  }
+
+  // Create the context message
+  const contextMessage = new SystemMessage({ content: contextMessageContent });
+
+  let updatedMessages;
+
+  if (existingContextIndex !== -1) {
+    // Replace existing context message
+    updatedMessages = [...messages];
+    updatedMessages[existingContextIndex] = contextMessage;
+  } else {
+    // Insert after the first system message, or at position 0 if no system message
+    const insertIndex = firstSystemIndex !== -1 ? firstSystemIndex + 1 : 0;
+    updatedMessages = [
+      ...messages.slice(0, insertIndex),
+      contextMessage,
+      ...messages.slice(insertIndex),
+    ];
+  }
+
+  return {
+    ...state,
+    messages: updatedMessages,
+  };
+};
 
 /**
  * CopilotKit Middleware for LangGraph agents.
@@ -34,7 +124,6 @@ const copilotKitStateSchema = z.object({
     .optional(),
 });
 
-
 const middlewareInput = {
   name: "CopilotKitMiddleware",
 
@@ -56,6 +145,8 @@ const middlewareInput = {
       tools: mergedTools,
     });
   },
+
+  beforeAgent: createAppContextBeforeAgent,
 
   // Restore frontend tool calls to AIMessage before agent exits
   afterAgent: (state) => {
