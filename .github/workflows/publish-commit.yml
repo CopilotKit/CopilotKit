@@ -1,0 +1,29 @@
+name: 🚀 pkg-pr-new
+on: [push, pull_request]
+
+concurrency:
+  group: ${{ github.repository }}-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: "package.json"
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build
+        run: pnpm run build
+
+      - run: npx pkg-pr-new publish ./src/v2.x/packages/*,./src/v1.x/packages/*
