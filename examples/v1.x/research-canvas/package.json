@@ -11,8 +11,7 @@
     "dev:agent": "npm run dev:agent:py",
     "dev:agent:py": "cd agents/python && uv run main.py",
     "install:agent:py": "cd agents/python && uv sync",
-    "install:agent:ts": "cd agents/typescript && pnpm i",
-    "postinstall": "npm run install:agent:py"
+    "install:agent:ts": "cd agents/typescript && pnpm i"
   },
   "dependencies": {
     "@copilotkit/react-core": "workspace:*",

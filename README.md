@@ -15,7 +15,7 @@
 
 </div>
 
-Build **agent-native applications** with interactive UI, shared state, and human-in-the-loop workflows.
+Build **agent-native applications** with generative UI, shared state, and human-in-the-loop workflows.
  
 </div>
 
@@ -103,7 +103,8 @@ What this gives you:
 
 CopilotKit connects your UI, agents, and tools into a single interaction loop.
 
-<img width="1600" height="840" alt="1600x840" src="https://github.com/user-attachments/assets/c0d953be-4541-4120-b51e-7f1b65cd36d7" />
+![CopilotKit Diagram — Motion x2 6 sec version](https://github.com/user-attachments/assets/6f175d86-bd22-4c26-a13a-6013654ed542)
+
 
 This enables:
 

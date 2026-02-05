@@ -3,7 +3,7 @@
 # Form-Filling Copilot
 Transform tedious form-filling into natural conversations. Your AI assistant asks the right questions, understands context, and completes forms for you—no more field-by-field drudgery.
 
-[Click here for a running example](https://form-filling-copilot.vercel.app/)
+[Click here for a running example](https://copilotkit.ai/examples/form-filling-copilot)
 
 <div align="center">
   <img src="./preview.gif" alt="Form-Filling Copilot for Security Incident Reports"/>
