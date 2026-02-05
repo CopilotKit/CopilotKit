@@ -46,7 +46,7 @@ from simple chat UIs to completely custom applications.
 ## Implementation
 
 **AG2 backend over AG-UI:** Use AG2's `AGUIStream` with a FastAPI `/chat` endpoint to stream protocol events to CopilotKit.
-This follows the same pattern used in the AG2 samples repo (`weather.py`), adapted to `/chat` with token-header auth.
+This follows the same pattern used in the <a href="https://github.com/ag2ai/ag2-samples" target="_blank">AG2 samples repo</a> (`weather.py`), adapted to `/chat` with token-header auth.
 
 ```python title="agent.py"
 from fastapi import FastAPI, Header, HTTPException
