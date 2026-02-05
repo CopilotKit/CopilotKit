@@ -3,16 +3,18 @@ title: Human-in-the-Loop
 icon: "lucide/Wrench"
 description: Create frontend tools and use them within your AG2 agent for human-in-the-loop interactions.
 ---
-import { IframeSwitcher } from "@/components/content";
-
-<IframeSwitcher
-  id="frontend-tools-based-hitl-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/pydantic-ai/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/pydantic-ai/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
-  exampleLabel="Demo"
-  codeLabel="Code"
-  height="700px"
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
 />
+<Callout>
+  This video shows the result of `npx copilotkit@latest init` with the [implementation](#implementation) section applied to it.
+</Callout>
 
 ## What is this?
 
