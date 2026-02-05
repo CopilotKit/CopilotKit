@@ -15,7 +15,7 @@
 
 </div>
 
-Build **agent-native applications** with interactive UI, shared state, and human-in-the-loop workflows.
+Build **agent-native applications** with generative UI, shared state, and human-in-the-loop workflows.
  
 </div>
 
