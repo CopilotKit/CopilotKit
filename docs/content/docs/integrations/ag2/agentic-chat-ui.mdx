@@ -29,12 +29,61 @@ import { UserIcon, PaintbrushIcon, WrenchIcon, RepeatIcon } from "lucide-react";
 Agentic chat UIs are ways for your users to interact with your agent. CopilotKit provides a variety of different components to choose from, each
 with their own unique use cases.
 
-If you've gone through the [quick start guide](/ag2/quickstart) **you already have a agentic chat UI setup**! Nothing else is needed
+If you've gone through the [quickstart guide](/ag2/quickstart) **you already have a agentic chat UI setup**! Nothing else is needed
 to get started.
+
+<Callout type="info">
+  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
+</Callout>
 
 ## When should I use this?
 
 CopilotKit provides a variety of different batteries-included components to choose from to create agent native applications. They scale
 from simple chat UIs to completely custom applications.
 
-<ComponentExamples components={props.components} /> 
+<ComponentExamples components={props.components} />
+
+## Implementation
+
+**AG2 backend over AG-UI:** Use AG2's `AGUIStream` with a FastAPI `/chat` endpoint to stream protocol events to CopilotKit.
+This follows the same pattern used in the <a href="https://github.com/ag2ai/ag2-samples" target="_blank">AG2 samples repo</a> (`weather.py`), adapted to `/chat` with token-header auth.
+
+```python title="agent.py"
+from fastapi import FastAPI, Header, HTTPException
+from fastapi.responses import StreamingResponse
+from autogen import ConversableAgent, LLMConfig
+from autogen.ag_ui import AGUIStream, RunAgentInput
+
+agent = ConversableAgent(
+    name="assistant",
+    system_message="You are a helpful assistant.",
+    llm_config=LLMConfig({"model": "gpt-4o-mini"}),
+)
+
+@agent.register_for_llm(description="A tiny backend tool example.")
+def ping(topic: str) -> str:
+    return f"pong: {topic}"
+
+stream = AGUIStream(agent)
+app = FastAPI()
+
+@app.post("/chat")
+async def run_agent(
+    message: RunAgentInput,
+    accept: str | None = Header(None),
+    authorization: str | None = Header(None),
+):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing authorization header")
+
+    return StreamingResponse(
+        stream.dispatch(message, accept=accept),
+        media_type=accept or "text/event-stream",
+    )
+```
+
+If you handle auth upstream, you can also mount the endpoint directly:
+
+```python title="agent.py"
+app.mount("/chat", stream.build_asgi())
+```
