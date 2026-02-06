@@ -154,7 +154,8 @@ https://github.com/user-attachments/assets/3cfacac0-4ffd-457a-96f9-d7951e4ab7b6
 ## 🖥️ AG-UI: The Agent–User Interaction Protocol
 Connect agent workflow to user-facing apps, with deep partnerships and 1st-party integrations across the agentic stack—including LangGraph, CrewAI, and more.
 
-[![AG-UI](https://github.com/user-attachments/assets/46d67b00-ef9d-4ab1-b584-168bbff2acbb)](https://go.copilotkit.ai/ag-ui)
+[![AG-UI](https://github.com/user-attachments/assets/a625237a-cfc1-45fc-8d0c-637316b81291)](https://go.copilotkit.ai/ag-ui)
+
 
 ---
 
