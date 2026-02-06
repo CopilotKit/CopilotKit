@@ -1,5 +1,12 @@
 # @copilotkit/sdk-js
 
+## 1.51.4-next.2
+
+### Patch Changes
+
+- c07362d: feat: add app context readables to prebuilt LG agent middleware
+  - @copilotkit/shared@1.51.4-next.2
+
 ## 1.51.4-next.1
 
 ### Patch Changes
