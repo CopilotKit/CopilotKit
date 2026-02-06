@@ -31,6 +31,7 @@ type FrontendTool<T extends Record<string, unknown> = Record<string, unknown>> =
   parameters?: z.ZodType<T>;
   handler?: (args: T, context: FrontendToolHandlerContext) => Promise<unknown>;
   followUp?: boolean;
+  available?: "enabled" | "disabled";
   agentId?: string;
 };
 ```
@@ -134,6 +135,21 @@ workflow.
     return "Document saved successfully";
   },
   followUp: false  // Don't re-run agent after saving
+}
+```
+
+### available
+
+`"enabled" | "disabled"` **(optional, default: "enabled")**
+
+Controls whether the tool can be invoked by the agent. When set to `"disabled"`, the tool remains defined in your app
+code but is not advertised or executed by the runtime.
+
+```typescript
+{
+  name: "checkout",
+  available: "disabled",
+  handler: async () => "This won't execute while disabled"
 }
 ```
 
