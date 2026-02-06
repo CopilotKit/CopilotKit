@@ -10,7 +10,7 @@
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
-      "outputLogs": "errors-only"
+      "outputLogs": "full"
     },
     "@copilotkit/runtime#generate-graphql-schema": {
       "cache": false,
