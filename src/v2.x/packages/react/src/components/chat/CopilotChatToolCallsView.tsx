@@ -1,5 +1,5 @@
 import { useToolCallRenderer } from "@/hooks";
-import { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
+import { AssistantMessage, Message } from "@ag-ui/core";
 import React from "react";
 
 export type CopilotChatToolCallsViewProps = {
@@ -11,7 +11,7 @@ export function CopilotChatToolCallsView({
   message,
   messages = [],
 }: CopilotChatToolCallsViewProps) {
-  const renderToolCall = useToolCallRenderer();
+  const renderToolCall = useToolCallRenderer({ messages });
 
   if (!message.toolCalls || message.toolCalls.length === 0) {
     return null;
@@ -19,20 +19,9 @@ export function CopilotChatToolCallsView({
 
   return (
     <>
-      {message.toolCalls.map((toolCall) => {
-        const toolMessage = messages.find(
-          (m) => m.role === "tool" && m.toolCallId === toolCall.id
-        ) as ToolMessage | undefined;
-
-        return (
-          <React.Fragment key={toolCall.id}>
-            {renderToolCall({
-              toolCall,
-              toolMessage,
-            })}
-          </React.Fragment>
-        );
-      })}
+      {message.toolCalls.map((toolCall) => (
+        <React.Fragment key={toolCall.id}>{renderToolCall(toolCall)}</React.Fragment>
+      ))}
     </>
   );
 }
