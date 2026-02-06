@@ -57,21 +57,21 @@ export function useRenderToolCall<const T extends Parameter[] | [] = []>(
           });
 
     // Remove any existing renderer with the same name
-    const existingIndex = copilotkit.renderToolCalls.findIndex((r) => r.name === name);
+    const existingIndex = copilotkit.toolCallRenderers.findIndex((r) => r.name === name);
     if (existingIndex !== -1) {
-      copilotkit.renderToolCalls.splice(existingIndex, 1);
+      copilotkit.toolCallRenderers.splice(existingIndex, 1);
     }
 
     // Add the new renderer
-    copilotkit.renderToolCalls.push(renderToolCall);
+    copilotkit.toolCallRenderers.push(renderToolCall);
     hasAddedRef.current = true;
 
     // Cleanup: remove this renderer when the component unmounts or tool changes
     return () => {
       if (hasAddedRef.current) {
-        const index = copilotkit.renderToolCalls.findIndex((r) => r.name === name);
+        const index = copilotkit.toolCallRenderers.findIndex((r) => r.name === name);
         if (index !== -1) {
-          copilotkit.renderToolCalls.splice(index, 1);
+          copilotkit.toolCallRenderers.splice(index, 1);
         }
         hasAddedRef.current = false;
       }

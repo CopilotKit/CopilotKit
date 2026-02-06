@@ -161,7 +161,7 @@ export const WithToolCalls: Story = {
     layout: "fullscreen",
     docs: {
       description: {
-        story: "Demonstrates tool call rendering with CopilotKitProvider's renderToolCalls prop",
+        story: "Demonstrates tool call rendering with CopilotKitProvider's toolCallRenderers prop",
       },
       source: {
         type: "code",
@@ -285,7 +285,7 @@ export function WithToolCallsExample() {
     },
   ];
 
-  const renderToolCalls = [
+  const toolCallRenderers = [
     {
       name: "search",
       args: searchSchema,
@@ -304,7 +304,7 @@ export function WithToolCallsExample() {
   ];
 
   return (
-    <CopilotKitProvider renderToolCalls={renderToolCalls}>
+    <CopilotKitProvider toolCallRenderers={toolCallRenderers}>
       <CopilotChatConfigurationProvider threadId={"123}>
         <div style={{ height: "100%" }}>
           <CopilotChatMessageView messages={messages} />
@@ -571,7 +571,7 @@ export function WithToolCallsExample() {
       },
     ];
 
-    const renderToolCalls = React.useMemo(
+    const toolCallRenderers = React.useMemo(
       () => [
         {
           name: "search",
@@ -593,7 +593,7 @@ export function WithToolCallsExample() {
     );
 
     return (
-      <CopilotKitProvider renderToolCalls={renderToolCalls} runtimeUrl="https://copilotkit.ai">
+      <CopilotKitProvider toolCallRenderers={toolCallRenderers} runtimeUrl="https://copilotkit.ai">
         <CopilotChatConfigurationProvider threadId={"123"}>
           <div style={{ height: "100%" }}>
             <CopilotChatMessageView messages={messages} />

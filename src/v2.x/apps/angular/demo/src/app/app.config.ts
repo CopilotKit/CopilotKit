@@ -11,7 +11,7 @@ export const appConfig: ApplicationConfig = {
     importProvidersFrom(BrowserModule),
     provideCopilotKit({
       runtimeUrl: "http://localhost:3001/api/copilotkit",
-      renderToolCalls: [
+      toolCallRenderers: [
         {
           name: "*",
           component: WildcardToolRenderComponent,

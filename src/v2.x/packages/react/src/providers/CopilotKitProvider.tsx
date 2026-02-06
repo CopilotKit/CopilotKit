@@ -59,7 +59,7 @@ export interface CopilotKitProviderProps {
   properties?: Record<string, unknown>;
   useSingleEndpoint?: boolean;
   agents__unsafe_dev_only?: Record<string, AbstractAgent>;
-  renderToolCalls?: ReactToolCallRenderer<any>[];
+  toolCallRenderers?: ReactToolCallRenderer<any>[];
   renderActivityMessages?: ReactActivityMessageRenderer<any>[];
   renderCustomMessages?: ReactCustomMessageRenderer[];
   frontendTools?: ReactFrontendTool[];
@@ -100,7 +100,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   publicLicenseKey,
   properties = {},
   agents__unsafe_dev_only: agents = {},
-  renderToolCalls,
+  toolCallRenderers,
   renderActivityMessages,
   renderCustomMessages,
   frontendTools,
@@ -133,9 +133,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [showDevConsole]);
 
   // Normalize array props to stable references with clear dev warnings
-  const renderToolCallsList = useStableArrayProp<ReactToolCallRenderer<any>>(
-    renderToolCalls,
-    "renderToolCalls must be a stable array. If you want to dynamically add or remove tools, use `useFrontendTool` instead.",
+  const toolCallRenderersList = useStableArrayProp<ReactToolCallRenderer<any>>(
+    toolCallRenderers,
+    "toolCallRenderers must be a stable array. If you want to dynamically add or remove tools, use `useFrontendTool` instead.",
     (initial, next) => {
       // Only warn if the shape (names+agentId) changed. Allow identity changes
       // to support updated closures from parents (e.g., Storybook state).
@@ -213,7 +213,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // Process humanInTheLoop tools to create handlers and add render components
   const processedHumanInTheLoopTools = useMemo(() => {
     const processedTools: FrontendTool[] = [];
-    const processedRenderToolCalls: ReactToolCallRenderer<unknown>[] = [];
+    const processedToolCallRenderers: ReactToolCallRenderer<unknown>[] = [];
 
     humanInTheLoopList.forEach((tool) => {
       // Create a promise-based handler for each human-in-the-loop tool
@@ -236,9 +236,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       };
       processedTools.push(frontendTool);
 
-      // Add the render component to renderToolCalls
+      // Add the render component to toolCallRenderers
       if (tool.render) {
-        processedRenderToolCalls.push({
+        processedToolCallRenderers.push({
           name: tool.name,
           args: tool.parameters!,
           render: tool.render,
@@ -247,7 +247,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       }
     });
 
-    return { tools: processedTools, renderToolCalls: processedRenderToolCalls };
+    return { tools: processedTools, toolCallRenderers: processedToolCallRenderers };
   }, [humanInTheLoopList]);
 
   // Combine all tools for CopilotKitCore
@@ -263,9 +263,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     return tools;
   }, [frontendToolsList, processedHumanInTheLoopTools]);
 
-  // Combine all render tool calls
-  const allRenderToolCalls = useMemo(() => {
-    const combined: ReactToolCallRenderer<unknown>[] = [...renderToolCallsList];
+  // Combine all tool call renderers
+  const allToolCallRenderers = useMemo(() => {
+    const combined: ReactToolCallRenderer<unknown>[] = [...toolCallRenderersList];
 
     // Add render components from frontend tools
     frontendToolsList.forEach((tool) => {
@@ -283,10 +283,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     });
 
     // Add render components from human-in-the-loop tools
-    combined.push(...processedHumanInTheLoopTools.renderToolCalls);
+    combined.push(...processedHumanInTheLoopTools.toolCallRenderers);
 
     return combined;
-  }, [renderToolCallsList, frontendToolsList, processedHumanInTheLoopTools]);
+  }, [toolCallRenderersList, frontendToolsList, processedHumanInTheLoopTools]);
 
   const copilotkit = useMemo(() => {
     const copilotkit = new CopilotKitCoreReact({
@@ -297,21 +297,21 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       properties,
       agents__unsafe_dev_only: agents,
       tools: allTools,
-      renderToolCalls: allRenderToolCalls,
+      toolCallRenderers: allToolCallRenderers,
       renderActivityMessages: allActivityRenderers,
       renderCustomMessages: renderCustomMessagesList,
     });
 
     return copilotkit;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allTools, allRenderToolCalls, allActivityRenderers, renderCustomMessagesList, useSingleEndpoint]);
+  }, [allTools, allToolCallRenderers, allActivityRenderers, renderCustomMessagesList, useSingleEndpoint]);
 
-  // Subscribe to render tool calls changes to force re-renders
+  // Subscribe to tool call renderers changes to force re-renders
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
   useEffect(() => {
     const subscription = copilotkit.subscribe({
-      onRenderToolCallsChanged: () => {
+      onToolCallRenderersChanged: () => {
         forceUpdate();
       },
     });

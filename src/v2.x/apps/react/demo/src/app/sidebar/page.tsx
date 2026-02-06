@@ -26,7 +26,7 @@ export default function SidebarDemoPage() {
   });
 
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" renderToolCalls={[wildcardRenderer]} showDevConsole="auto">
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" toolCallRenderers={[wildcardRenderer]} showDevConsole="auto">
       <AppLayout />
     </CopilotKitProvider>
   );

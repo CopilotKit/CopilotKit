@@ -1,6 +1,6 @@
 ---
-title: useRenderToolCall
-description: "useRenderToolCall Hook API Reference"
+title: useToolCallRenderer
+description: "useToolCallRenderer Hook API Reference"
 ---
 
 <Warning>
@@ -8,13 +8,13 @@ description: "useRenderToolCall Hook API Reference"
   default `CopilotChat`. If you are using `CopilotChat`, you don't need to use this hook.
 </Warning>
 
-`useRenderToolCall` is a React hook that provides a function to render visual representations of tool calls in the chat
+`useToolCallRenderer` is a React hook that provides a function to render visual representations of tool calls in the chat
 interface. It manages the rendering of tool execution states (InProgress, Executing, Complete) based on configured
 render functions.
 
-## What is useRenderToolCall?
+## What is useToolCallRenderer?
 
-The useRenderToolCall hook:
+The useToolCallRenderer hook:
 
 - Returns a render function for tool calls
 - Automatically determines the appropriate status (InProgress, Executing, or Complete)
@@ -25,11 +25,11 @@ The useRenderToolCall hook:
 ## Basic Usage
 
 ```tsx
-import { useRenderToolCall } from "@copilotkitnext/react";
+import { useToolCallRenderer } from "@copilotkitnext/react";
 import { ToolCall } from "@ag-ui/core";
 
 function ToolCallDisplay({ toolCall, toolMessage }) {
-  const renderToolCall = useRenderToolCall();
+  const renderToolCall = useToolCallRenderer();
 
   return <div className="tool-call-container">{renderToolCall({ toolCall, toolMessage })}</div>;
 }
@@ -40,13 +40,13 @@ function ToolCallDisplay({ toolCall, toolMessage }) {
 The hook returns a function with the following signature:
 
 ```tsx
-(props: UseRenderToolCallProps) => React.ReactElement | null;
+(props: UseToolCallRendererProps) => React.ReactElement | null;
 ```
 
-### UseRenderToolCallProps
+### UseToolCallRendererProps
 
 ```tsx
-interface UseRenderToolCallProps {
+interface UseToolCallRendererProps {
   toolCall: ToolCall; // The tool call to render
   toolMessage?: ToolMessage; // Optional result message
 }
@@ -77,11 +77,11 @@ The function selects renderers based on priority:
 ### Basic Tool Call Rendering
 
 ```tsx
-import { useRenderToolCall } from "@copilotkitnext/react";
+import { useToolCallRenderer } from "@copilotkitnext/react";
 import { AssistantMessage } from "@ag-ui/core";
 
 function ChatMessage({ message }: { message: AssistantMessage }) {
-  const renderToolCall = useRenderToolCall();
+  const renderToolCall = useToolCallRenderer();
 
   if (!message.toolCalls) {
     return <div>{message.content}</div>;
@@ -103,11 +103,11 @@ function ChatMessage({ message }: { message: AssistantMessage }) {
 ### With Tool Results
 
 ```tsx
-import { useRenderToolCall } from "@copilotkitnext/react";
+import { useToolCallRenderer } from "@copilotkitnext/react";
 import { Message, ToolMessage } from "@ag-ui/core";
 
 function ChatWithResults({ message, allMessages }: { message: AssistantMessage; allMessages: Message[] }) {
-  const renderToolCall = useRenderToolCall();
+  const renderToolCall = useToolCallRenderer();
 
   return (
     <>
@@ -149,8 +149,8 @@ const searchRenderer = defineToolCallRenderer({
 
 function App() {
   return (
-    <CopilotKitProvider renderToolCalls={[searchRenderer]}>
-      {/* Components using useRenderToolCall will use this renderer */}
+    <CopilotKitProvider toolCallRenderers={[searchRenderer]}>
+      {/* Components using useToolCallRenderer will use this renderer */}
     </CopilotKitProvider>
   );
 }
@@ -170,7 +170,7 @@ function DynamicTool() {
     render: ({ args, status }) => <div>Dynamic tool: {status}</div>,
   });
 
-  // This renderer is automatically available to useRenderToolCall
+  // This renderer is automatically available to useToolCallRenderer
   return null;
 }
 ```
@@ -245,7 +245,7 @@ The hook supports agent-specific renderers:
 import { useCopilotChatConfiguration } from "@copilotkitnext/react";
 
 function AgentAwareRendering() {
-  const renderToolCall = useRenderToolCall();
+  const renderToolCall = useToolCallRenderer();
   const config = useCopilotChatConfiguration();
 
   // The hook automatically selects renderers based on the current agent

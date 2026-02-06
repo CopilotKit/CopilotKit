@@ -10,8 +10,8 @@ Creates and owns a `CopilotKitCore` instance that manages agents, frontend tools
 - `headers?: Record<string,string>` – request headers forwarded with runtime calls; default `{}`.
 - `properties?: Record<string,unknown>` – runtime metadata payload; default `{}`.
 - `agents?: Record<string, AbstractAgent>` – preinstantiated agents, keyed by id.
-- `renderToolCalls?: ReactToolCallRenderer[]` – static set of tool renderers. The provider expects a stable array identity; changing the structure logs a console error.
-- `frontendTools?: ReactFrontendTool[]` – static tool handlers defined up front. Like `renderToolCalls`, the array should be stable.
+- `toolCallRenderers?: ReactToolCallRenderer[]` – static set of tool renderers. The provider expects a stable array identity; changing the structure logs a console error.
+- `frontendTools?: ReactFrontendTool[]` – static tool handlers defined up front. Like `toolCallRenderers`, the array should be stable.
 - `humanInTheLoop?: ReactHumanInTheLoop[]` – declarative human-in-the-loop tool definitions. Each becomes both a tool handler and a tool call renderer.
 
 The provider merges the above into a `CopilotKitCore` instance, keeps render definitions in sync with React state, and exposes them through context. Frontend tools added through hooks (`useFrontendTool`, `useHumanInTheLoop`) are automatically registered and cleaned up.
@@ -29,8 +29,8 @@ import { CopilotKitProvider } from "@copilotkitnext/react";
 ### `useCopilotKit`
 Context hook that returns:
 - `copilotkit: CopilotKitCore` – the live core instance.
-- `renderToolCalls: ReactToolCallRenderer[]` – full render list derived from provider props.
-- `currentRenderToolCalls: ReactToolCallRenderer[]` – current stateful render list used by `useRenderToolCall`.
+- `toolCallRenderers: ReactToolCallRenderer[]` – full render list derived from provider props.
+- `currentRenderToolCalls: ReactToolCallRenderer[]` – current stateful render list used by `useToolCallRenderer`.
 - `setCurrentRenderToolCalls` – setter for augmenting renderers (used internally by tooling hooks).
 
 The hook subscribes to runtime load events so components re-render if the core finishes loading or fails to load.
@@ -72,7 +72,7 @@ Wraps `useFrontendTool` for interactive tools that pause agent execution. Expect
 
 The render component receives consistent shape based on the tool call status so you can drive bespoke UI/UX for human confirmations.
 
-### `useRenderToolCall()`
+### `useToolCallRenderer()`
 Returns a renderer function that takes `{ toolCall, toolMessage, isLoading }` and returns a React element or `null`. The hook looks up the first matching render config by name (falling back to a wildcard `"*"` renderer), parses the JSON arguments, and chooses status props:
 - `ToolCallStatus.InProgress` when no tool message exists and `isLoading` is true.
 - `ToolCallStatus.Complete` with `result` populated when a matching `ToolMessage` exists.
@@ -179,4 +179,4 @@ All chat components rely on Tailwind utility classes baked into `@copilotkitnext
 1. Wrap your app with `CopilotKitProvider` to provide agent access and tool registries.
 2. Optionally wrap the chat portion with `CopilotChatConfigurationProvider` to override labels or drive controlled inputs.
 3. Render `CopilotChat` for an out-of-the-box experience, or compose `CopilotChatView`, `CopilotChatMessageView`, and `CopilotChatInput` manually for deeper customization.
-4. Register custom tools with `useFrontendTool` or `useHumanInTheLoop`, and render tool call output with `useRenderToolCall` or `CopilotChatToolCallsView`.
+4. Register custom tools with `useFrontendTool` or `useHumanInTheLoop`, and render tool call output with `useToolCallRenderer` or `CopilotChatToolCallsView`.

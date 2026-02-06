@@ -13,7 +13,7 @@ export interface CopilotKitConfig {
   properties?: Record<string, unknown>;
   agents?: Record<string, AbstractAgent>;
   tools?: ClientTool[];
-  renderToolCalls?: RenderToolCallConfig[];
+  toolCallRenderers?: RenderToolCallConfig[];
   frontendTools?: FrontendToolConfig[];
   humanInTheLoop?: HumanInTheLoopConfig[];
 }

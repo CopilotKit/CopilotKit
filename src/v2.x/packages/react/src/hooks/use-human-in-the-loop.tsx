@@ -77,11 +77,11 @@ export function useHumanInTheLoop<T extends Record<string, unknown> = Record<str
   useEffect(() => {
     return () => {
       const keyOf = (rc: ReactToolCallRenderer<any>) => `${rc.agentId ?? ""}:${rc.name}`;
-      const currentRenderToolCalls = copilotkit.renderToolCalls as ReactToolCallRenderer<any>[];
-      const filtered = currentRenderToolCalls.filter(
+      const currentToolCallRenderers = copilotkit.toolCallRenderers as ReactToolCallRenderer<any>[];
+      const filtered = currentToolCallRenderers.filter(
         (rc) => keyOf(rc) !== keyOf({ name: tool.name, agentId: tool.agentId } as any),
       );
-      copilotkit.setRenderToolCalls(filtered);
+      copilotkit.setToolCallRenderers(filtered);
     };
   }, [copilotkit, tool.name, tool.agentId]);
 }
