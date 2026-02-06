@@ -89,4 +89,30 @@ describe("useFrontendTool dependency changes", () => {
       expect(mounted).toHaveBeenCalledTimes(1);
     });
   });
+
+  it("forwards available to vnext useFrontendTool", async () => {
+    const mockedModule = jest.requireMock("@copilotkitnext/react") as {
+      useFrontendTool: jest.Mock;
+    };
+
+    const ToolUser = () => {
+      useFrontendTool({
+        name: "legacyTool",
+        available: "disabled",
+        handler: async () => "disabled",
+      });
+      return null;
+    };
+
+    render(<ToolUser />);
+
+    await waitFor(() => {
+      expect(mockedModule.useFrontendTool).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "legacyTool",
+          available: "disabled",
+        }),
+      );
+    });
+  });
 });

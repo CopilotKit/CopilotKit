@@ -171,6 +171,28 @@ useFrontendTool({
 });
 ```
 
+### available
+
+`"enabled" | "disabled"` **(optional, default: "enabled")**
+
+Controls whether the tool handler can be called by the agent. Use this when you want to keep the component mounted but
+temporarily disable execution (for example, feature flags or permission gating).
+
+```tsx
+function CheckoutTool({ canCheckout }: { canCheckout: boolean }) {
+  useFrontendTool(
+    {
+      name: "checkout",
+      available: canCheckout ? "enabled" : "disabled",
+      handler: async () => "checkout-complete",
+    },
+    [canCheckout],
+  );
+
+  return null;
+}
+```
+
 ### agentId
 
 `string` **(optional)**
@@ -184,6 +206,23 @@ useFrontendTool({
   handler: async (args) => {
     return await performAdminAction(args);
   },
+});
+```
+
+## Controlling Availability
+
+Use the approach that matches your lifecycle needs:
+
+1. `available: "disabled"` when the component should stay mounted but the tool should not execute yet.
+2. Conditional mount/unmount when the tool should be removed entirely with UI lifecycle.
+3. `agentId` when the tool should only be callable by one agent.
+
+```tsx
+useFrontendTool({
+  name: "scopedAction",
+  agentId: "support-agent",
+  available: "enabled",
+  handler: async () => "ok",
 });
 ```
 
