@@ -43,6 +43,7 @@
     "@copilotkitnext/web-inspector": "1.51.3"
   },
   "changesets": [
+    "brave-cats-dance",
     "happy-hounds-study",
     "lucky-flies-scream"
   ]
