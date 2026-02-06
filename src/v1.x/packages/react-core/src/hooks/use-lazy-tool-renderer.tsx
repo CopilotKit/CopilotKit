@@ -1,12 +1,12 @@
-import { useRenderToolCall } from "@copilotkitnext/react";
+import { useToolCallRenderer } from "@copilotkitnext/react";
 import { AIMessage, Message, ToolResult } from "@copilotkit/shared";
 import React, { useCallback } from "react";
 
 export function useLazyToolRenderer(): (
   message?: AIMessage,
   messages?: Message[],
-) => null | (() => ReturnType<ReturnType<typeof useRenderToolCall>> | null) {
-  const renderToolCall = useRenderToolCall();
+) => null | (() => ReturnType<ReturnType<typeof useToolCallRenderer>> | null) {
+  const renderToolCall = useToolCallRenderer();
 
   return useCallback(
     (message?: AIMessage, messages?: Message[]) => {

@@ -7,15 +7,15 @@ import { DEFAULT_AGENT_ID } from "@copilotkitnext/shared";
 import { partialJSONParse } from "@copilotkitnext/shared";
 import { ReactToolCallRenderer } from "@/types/react-tool-call-renderer";
 
-export interface UseRenderToolCallProps {
+export interface UseToolCallRendererProps {
   toolCall: ToolCall;
   toolMessage?: ToolMessage;
 }
 
 /**
- * Props for the memoized ToolCallRenderer component
+ * Props for the memoized MemoizedToolCallRenderer component
  */
-interface ToolCallRendererProps {
+interface MemoizedToolCallRendererProps {
   toolCall: ToolCall;
   toolMessage?: ToolMessage;
   RenderComponent: ReactToolCallRenderer<unknown>["render"];
@@ -27,13 +27,13 @@ interface ToolCallRendererProps {
  * This prevents unnecessary re-renders when parent components update
  * but the tool call data hasn't changed.
  */
-const ToolCallRenderer = React.memo(
-  function ToolCallRenderer({
+const MemoizedToolCallRenderer = React.memo(
+  function MemoizedToolCallRenderer({
     toolCall,
     toolMessage,
     RenderComponent,
     isExecuting,
-  }: ToolCallRendererProps) {
+  }: MemoizedToolCallRendererProps) {
     // Memoize args based on the arguments string to maintain stable reference
     const args = useMemo(
       () => partialJSONParse(toolCall.function.arguments),
@@ -100,21 +100,21 @@ const ToolCallRenderer = React.memo(
  *
  * @returns A function that takes a tool call and optional tool message and returns the rendered component
  */
-export function useRenderToolCall() {
+export function useToolCallRenderer() {
   const { copilotkit, executingToolCallIds } = useCopilotKit();
   const config = useCopilotChatConfiguration();
   const agentId = config?.agentId ?? DEFAULT_AGENT_ID;
 
-  // Subscribe to render tool calls changes using useSyncExternalStore
+  // Subscribe to tool call renderers changes using useSyncExternalStore
   // This ensures we always have the latest value, even if subscriptions run in any order
-  const renderToolCalls = useSyncExternalStore(
+  const toolCallRenderers = useSyncExternalStore(
     (callback) => {
       return copilotkit.subscribe({
-        onRenderToolCallsChanged: callback,
+        onToolCallRenderersChanged: callback,
       }).unsubscribe;
     },
-    () => copilotkit.renderToolCalls,
-    () => copilotkit.renderToolCalls
+    () => copilotkit.toolCallRenderers,
+    () => copilotkit.toolCallRenderers
   );
 
   // Note: executingToolCallIds is now provided by CopilotKitProvider context.
@@ -127,14 +127,14 @@ export function useRenderToolCall() {
     ({
       toolCall,
       toolMessage,
-    }: UseRenderToolCallProps): React.ReactElement | null => {
+    }: UseToolCallRendererProps): React.ReactElement | null => {
       // Find the render config for this tool call by name
       // For rendering, we show all tool calls regardless of agentId
       // The agentId scoping only affects handler execution (in core)
       // Priority order:
       // 1. Exact match by name (prefer agent-specific if multiple exist)
       // 2. Wildcard (*) renderer
-      const exactMatches = renderToolCalls.filter(
+      const exactMatches = toolCallRenderers.filter(
         (rc) => rc.name === toolCall.function.name
       );
 
@@ -143,7 +143,7 @@ export function useRenderToolCall() {
         exactMatches.find((rc) => rc.agentId === agentId) ||
         exactMatches.find((rc) => !rc.agentId) ||
         exactMatches[0] ||
-        renderToolCalls.find((rc) => rc.name === "*");
+        toolCallRenderers.find((rc) => rc.name === "*");
 
       if (!renderConfig) {
         return null;
@@ -152,9 +152,9 @@ export function useRenderToolCall() {
       const RenderComponent = renderConfig.render;
       const isExecuting = executingToolCallIds.has(toolCall.id);
 
-      // Use the memoized ToolCallRenderer component to prevent unnecessary re-renders
+      // Use the memoized MemoizedToolCallRenderer component to prevent unnecessary re-renders
       return (
-        <ToolCallRenderer
+        <MemoizedToolCallRenderer
           key={toolCall.id}
           toolCall={toolCall}
           toolMessage={toolMessage}
@@ -163,7 +163,7 @@ export function useRenderToolCall() {
         />
       );
     },
-    [renderToolCalls, executingToolCallIds, agentId]
+    [toolCallRenderers, executingToolCallIds, agentId]
   );
 
   return renderToolCall;

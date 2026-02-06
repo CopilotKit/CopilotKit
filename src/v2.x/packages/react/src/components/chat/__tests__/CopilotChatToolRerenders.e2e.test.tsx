@@ -64,7 +64,7 @@ describe("Tool Call Re-render Prevention", () => {
     let lastRenderStatus: string | null = null;
     let lastRenderArgs: Record<string, unknown> | null = null;
 
-    const renderToolCalls = [
+    const toolCallRenderers = [
       defineToolCallRenderer({
         name: "getWeather",
         args: z.object({
@@ -90,7 +90,7 @@ describe("Tool Call Re-render Prevention", () => {
     render(
       <CopilotKitProvider
         agents__unsafe_dev_only={{ default: agent }}
-        renderToolCalls={renderToolCalls}
+        toolCallRenderers={toolCallRenderers}
       >
         <div style={{ height: 400 }}>
           <CopilotChat />
@@ -207,7 +207,7 @@ describe("Tool Call Re-render Prevention", () => {
     // Track render counts
     let toolRenderCount = 0;
 
-    const renderToolCalls = [
+    const toolCallRenderers = [
       defineToolCallRenderer({
         name: "search",
         args: z.object({
@@ -230,7 +230,7 @@ describe("Tool Call Re-render Prevention", () => {
     render(
       <CopilotKitProvider
         agents__unsafe_dev_only={{ default: agent }}
-        renderToolCalls={renderToolCalls}
+        toolCallRenderers={toolCallRenderers}
       >
         <div style={{ height: 400 }}>
           <CopilotChat />
@@ -295,7 +295,7 @@ describe("Tool Call Re-render Prevention", () => {
     let toolRenderCount = 0;
     const capturedArgs: string[] = [];
 
-    const renderToolCalls = [
+    const toolCallRenderers = [
       defineToolCallRenderer({
         name: "search",
         args: z.object({
@@ -318,7 +318,7 @@ describe("Tool Call Re-render Prevention", () => {
     render(
       <CopilotKitProvider
         agents__unsafe_dev_only={{ default: agent }}
-        renderToolCalls={renderToolCalls}
+        toolCallRenderers={toolCallRenderers}
       >
         <div style={{ height: 400 }}>
           <CopilotChat />
@@ -384,7 +384,7 @@ describe("Tool Call Re-render Prevention", () => {
     let toolRenderCount = 0;
     const capturedStatuses: string[] = [];
 
-    const renderToolCalls = [
+    const toolCallRenderers = [
       defineToolCallRenderer({
         name: "getData",
         args: z.object({ id: z.string() }),
@@ -405,7 +405,7 @@ describe("Tool Call Re-render Prevention", () => {
     render(
       <CopilotKitProvider
         agents__unsafe_dev_only={{ default: agent }}
-        renderToolCalls={renderToolCalls}
+        toolCallRenderers={toolCallRenderers}
       >
         <div style={{ height: 400 }}>
           <CopilotChat />

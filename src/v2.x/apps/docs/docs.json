@@ -78,7 +78,7 @@
                   "reference/use-agent-context",
                   "reference/use-frontend-tool",
                   "reference/use-human-in-the-loop",
-                  "reference/use-render-tool-call"
+                  "reference/use-tool-call-renderer"
                 ]
               }
             ]
