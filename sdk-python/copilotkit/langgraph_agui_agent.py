@@ -117,11 +117,17 @@ class LangGraphAGUIAgent(LangGraphAgent):
                 return super()._dispatch_event(event)
 
             if custom_event.name == CustomEventNames.ManuallyEmitState.value:
-                self.active_run["manually_emitted_state"] = custom_event.value
+                # Merge partial state with current_graph_state to preserve existing fields
+                # See: https://github.com/CopilotKit/CopilotKit/issues/3138
+                partial_state = custom_event.value
+                current_graph_state = self.active_run.get("current_graph_state", {})
+                merged_state = {**current_graph_state, **partial_state}
+                self.active_run["current_graph_state"].update(partial_state)
+                self.active_run["manually_emitted_state"] = merged_state
                 return super()._dispatch_event(
                     StateSnapshotEvent(
                         type=EventType.STATE_SNAPSHOT,
-                        snapshot=self.get_state_snapshot(self.active_run["manually_emitted_state"]),
+                        snapshot=self.get_state_snapshot(merged_state),
                         raw_event=event,
                     )
                 )
