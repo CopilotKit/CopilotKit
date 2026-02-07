@@ -456,7 +456,8 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       // Capture telemetry for copilot request creation
       const publicApiKey = request.headers.get("x-copilotcloud-public-api-key");
       const body = (await readBody(request)) as RunAgentInput;
-      const forwardedProps = body.forwardedProps as
+
+      const forwardedProps = body?.forwardedProps as
         | {
             cloud?: { guardrails?: unknown };
             metadata?: { requestType?: string };
@@ -474,13 +475,16 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         "cloud.base_url": cloudBaseUrl,
       });
 
+      // We do not process middleware for the internal GET requests
+      if (request.method === "GET" || !body) return;
+
       // TODO: get public api key and run with expected data
       // if (this.observability?.enabled && this.params.publicApiKey) {
       //   this.logObservabilityBeforeRequest()
       // }
 
       // TODO: replace hooksParams top argument type with BeforeRequestMiddlewareParameters when exported
-      params?.beforeRequestMiddleware?.(hookParams);
+      const middlewareResult = await params?.beforeRequestMiddleware?.(hookParams);
 
       if (params?.middleware?.onBeforeRequest) {
         const { request, runtime, path } = hookParams;
@@ -504,7 +508,9 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
           url: request.url,
         } satisfies OnBeforeRequestOptions);
       }
-    };
+
+      return middlewareResult;
+    };;
   }
 
   private createOnAfterRequestHandler(

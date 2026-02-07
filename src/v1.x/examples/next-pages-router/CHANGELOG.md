@@ -1,5 +1,77 @@
 # next-pages-router
 
+## 1.4.10-next.0
+
+### Patch Changes
+
+- Updated dependencies [d268c49]
+  - @copilotkit/runtime@1.51.3-next.0
+  - @copilotkit/react-core@1.51.3-next.0
+  - @copilotkit/react-textarea@1.51.3-next.0
+  - @copilotkit/react-ui@1.51.3-next.0
+  - @copilotkit/shared@1.51.3-next.0
+
+## 1.4.9
+
+### Patch Changes
+
+- Updated dependencies [e59d23f]
+- Updated dependencies [e59d23f]
+  - @copilotkit/react-textarea@1.51.2
+  - @copilotkit/react-core@1.51.2
+  - @copilotkit/react-ui@1.51.2
+  - @copilotkit/runtime@1.51.2
+  - @copilotkit/shared@1.51.2
+
+## 1.4.9-next.1
+
+### Patch Changes
+
+- Updated dependencies [e59d23f]
+- Updated dependencies [e59d23f]
+  - @copilotkit/react-textarea@1.51.2-next.1
+  - @copilotkit/react-core@1.51.2-next.1
+  - @copilotkit/react-ui@1.51.2-next.1
+  - @copilotkit/runtime@1.51.2-next.1
+  - @copilotkit/shared@1.51.2-next.1
+
+## 1.4.9-next.0
+
+### Patch Changes
+
+- @copilotkit/runtime@1.51.2-next.0
+- @copilotkit/react-core@1.51.2-next.0
+- @copilotkit/react-textarea@1.51.2-next.0
+- @copilotkit/react-ui@1.51.2-next.0
+- @copilotkit/shared@1.51.2-next.0
+
+## 1.4.8
+
+### Patch Changes
+
+- Updated dependencies [329653b]
+  - @copilotkit/react-core@1.51.1
+  - @copilotkit/runtime@1.51.1
+  - @copilotkit/react-textarea@1.51.1
+  - @copilotkit/react-ui@1.51.1
+  - @copilotkit/shared@1.51.1
+
+## 1.4.7
+
+### Patch Changes
+
+- Updated dependencies [2839a15]
+- Updated dependencies [4b28c78]
+- Updated dependencies [2839a15]
+- Updated dependencies [2afd4e3]
+- Updated dependencies [2839a15]
+- Updated dependencies [4addb72]
+  - @copilotkit/runtime@1.51.0
+  - @copilotkit/react-textarea@1.51.0
+  - @copilotkit/react-core@1.51.0
+  - @copilotkit/react-ui@1.51.0
+  - @copilotkit/shared@1.51.0
+
 ## 1.4.7-next.3
 
 ### Patch Changes

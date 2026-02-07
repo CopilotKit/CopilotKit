@@ -1,0 +1,394 @@
+---
+title: Slot System
+description: "Deep customization system for CopilotKit components"
+---
+
+The Slot System is CopilotKit's approach to component customization. It allows you to customize any part of the UI - from simple styling changes to complete component replacement - all through a consistent, composable API.
+
+## What is the Slot System?
+
+The Slot System:
+
+- Provides four levels of customization depth
+- Maintains type safety throughout the customization process
+- Supports nested slots for drilling into child components
+- Uses automatic memoization for optimal performance
+- Works consistently across all CopilotKit components
+
+## Four Customization Levels
+
+Every slot accepts one of four value types, from simplest to most flexible:
+
+### 1. Tailwind Class String
+
+Pass a string of Tailwind classes to add or override styles:
+
+```tsx
+<CopilotChat
+  input="border-2 border-blue-500 rounded-xl"
+  messageView="space-y-4 p-4"
+/>
+```
+
+Classes are merged with the component's existing classes using `tailwind-merge`, so conflicting classes are resolved intelligently.
+
+### 2. Props Object
+
+Pass an object of props to customize behavior while keeping the default component:
+
+```tsx
+<CopilotChat
+  input={{
+    className: "custom-input",
+    autoFocus: false,
+  }}
+  messageView={{
+    className: "custom-messages",
+    assistantMessage: {
+      onThumbsUp: (msg) => trackFeedback(msg.id, "positive"),
+    },
+  }}
+/>
+```
+
+Props are merged with defaults, and you can include nested slots to drill down to child components.
+
+### 3. Custom Component
+
+Replace the component entirely with your own implementation:
+
+```tsx
+function CustomInput({ onSubmitMessage, isRunning, ...props }) {
+  return (
+    <div className="my-custom-wrapper">
+      <CopilotChatInput
+        onSubmitMessage={onSubmitMessage}
+        isRunning={isRunning}
+        {...props}
+      />
+    </div>
+  );
+}
+
+<CopilotChat input={CustomInput} />
+```
+
+Custom components receive all the props that would have been passed to the default component.
+
+### 4. Render Function (Children)
+
+For full layout control, use the children render function pattern:
+
+```tsx
+function CustomInput(props) {
+  return (
+    <CopilotChatInput {...props}>
+      {({ textArea, sendButton, addMenuButton }) => (
+        <div className="flex gap-2">
+          {addMenuButton}
+          <div className="flex-1">{textArea}</div>
+          {sendButton}
+        </div>
+      )}
+    </CopilotChatInput>
+  );
+}
+
+<CopilotChat input={CustomInput} />
+```
+
+The render function receives pre-built slot elements that you can arrange however you like.
+
+## Nested Slot Customization
+
+Slots can be nested to customize deeply nested components:
+
+```tsx
+<CopilotChat
+  // Top-level slot
+  messageView={{
+    // First level nesting
+    assistantMessage: {
+      // Second level nesting
+      toolbar: "bg-gray-50 rounded-lg",
+      copyButton: "text-blue-500",
+      thumbsUpButton: () => null, // Hide the button
+    },
+    userMessage: "bg-blue-100 rounded-xl",
+  }}
+  input={{
+    textArea: "text-lg",
+    sendButton: "bg-green-500",
+  }}
+/>
+```
+
+## Hiding Components
+
+To hide a slot entirely, return `null` from a component function:
+
+```tsx
+<CopilotChat
+  input={{
+    disclaimer: () => null,  // Hide disclaimer
+    startTranscribeButton: () => null,  // Hide voice button
+  }}
+  messageView={{
+    assistantMessage: {
+      regenerateButton: () => null,  // Hide regenerate
+    },
+  }}
+/>
+```
+
+## Complete Slot Hierarchy
+
+Here's the full hierarchy of all customizable slots in CopilotChat:
+
+```
+CopilotChat
+├── chatView
+│   ├── messageView
+│   │   ├── assistantMessage
+│   │   │   ├── markdownRenderer
+│   │   │   ├── toolbar
+│   │   │   ├── copyButton
+│   │   │   ├── thumbsUpButton
+│   │   │   ├── thumbsDownButton
+│   │   │   ├── readAloudButton
+│   │   │   ├── regenerateButton
+│   │   │   └── toolCallsView
+│   │   ├── userMessage (see CopilotChatUserMessage)
+│   │   │   ├── messageRenderer
+│   │   │   ├── toolbar
+│   │   │   ├── copyButton
+│   │   │   ├── editButton
+│   │   │   └── branchNavigation
+│   │   └── cursor
+│   ├── scrollView
+│   │   ├── scrollToBottomButton
+│   │   └── feather
+│   ├── input
+│   │   ├── textArea
+│   │   ├── sendButton
+│   │   ├── startTranscribeButton
+│   │   ├── cancelTranscribeButton
+│   │   ├── finishTranscribeButton
+│   │   ├── addMenuButton
+│   │   ├── audioRecorder
+│   │   └── disclaimer
+│   ├── suggestionView
+│   │   ├── container
+│   │   └── suggestion
+│   └── welcomeScreen
+│       └── welcomeMessage
+```
+
+## How It Works
+
+Under the hood, the slot system uses three key concepts:
+
+### SlotValue Type
+
+Every slot accepts one of three value types:
+
+```typescript
+type SlotValue<C extends React.ComponentType<any>> =
+  | C                              // Custom component
+  | string                         // Tailwind class string
+  | Partial<React.ComponentProps<C>>; // Props object
+```
+
+### renderSlot Function
+
+The `renderSlot` function resolves a slot value into a React element:
+
+```typescript
+// Internal implementation (simplified)
+function renderSlot(slot, DefaultComponent, props) {
+  if (typeof slot === "string") {
+    // Merge className with existing
+    return <DefaultComponent {...props} className={twMerge(props.className, slot)} />;
+  }
+
+  if (isReactComponent(slot)) {
+    // Use custom component
+    return <slot {...props} />;
+  }
+
+  if (isPropsObject(slot)) {
+    // Merge props
+    return <DefaultComponent {...props} {...slot} />;
+  }
+
+  // Use default
+  return <DefaultComponent {...props} />;
+}
+```
+
+### WithSlots Type
+
+Components use the `WithSlots` type to define their slot interface:
+
+```typescript
+type MyComponentProps = WithSlots<
+  {
+    button: typeof MyButton;
+    input: typeof MyInput;
+  },
+  {
+    value: string;
+    onChange: (value: string) => void;
+  }
+>;
+```
+
+## Best Practices
+
+### 1. Start Simple, Escalate as Needed
+
+Begin with Tailwind classes, then move to props objects, and only use custom components when necessary:
+
+```tsx
+// Start here
+<CopilotChat input="border-blue-500" />
+
+// Then this
+<CopilotChat input={{ className: "border-blue-500", autoFocus: false }} />
+
+// Only if needed
+<CopilotChat input={CustomInputComponent} />
+```
+
+### 2. Use Props Objects for Nested Customization
+
+When customizing nested slots, use props objects to drill down:
+
+```tsx
+<CopilotChat
+  messageView={{
+    assistantMessage: {
+      className: "bg-blue-50",
+      toolbar: "border-t mt-2",
+      copyButton: "text-blue-600",
+    },
+  }}
+/>
+```
+
+### 3. Preserve Default Behavior
+
+When creating custom components, spread the remaining props to preserve default functionality:
+
+```tsx
+function CustomButton({ onClick, disabled, className, ...props }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={twMerge("my-custom-classes", className)}
+      {...props}  // Preserve other props
+    />
+  );
+}
+```
+
+### 4. Use Render Functions for Complex Layouts
+
+When you need to completely rearrange elements, use the render function pattern:
+
+```tsx
+function CustomLayout(props) {
+  return (
+    <CopilotChatInput {...props}>
+      {({ textArea, sendButton, addMenuButton }) => (
+        <div className="grid grid-cols-[auto_1fr_auto] gap-2">
+          {addMenuButton}
+          {textArea}
+          {sendButton}
+        </div>
+      )}
+    </CopilotChatInput>
+  );
+}
+```
+
+## Examples
+
+### Themed Chat Interface
+
+```tsx
+<CopilotChat
+  className="bg-gray-900 text-white"
+  messageView={{
+    className: "p-4",
+    assistantMessage: {
+      className: "bg-gray-800 rounded-xl p-4",
+      toolbar: "border-gray-700",
+    },
+    userMessage: "bg-blue-600 text-white rounded-2xl px-4 py-2",
+  }}
+  input={{
+    className: "bg-gray-800 border-gray-700",
+    sendButton: "bg-blue-600 hover:bg-blue-700",
+  }}
+  scrollView={{
+    feather: "from-gray-900 via-gray-900 to-transparent",
+  }}
+/>
+```
+
+### Minimal Interface
+
+```tsx
+<CopilotChat
+  welcomeScreen={false}
+  input={{
+    disclaimer: () => null,
+    startTranscribeButton: () => null,
+    addMenuButton: () => null,
+  }}
+  scrollView={{
+    scrollToBottomButton: () => null,
+    feather: () => null,
+  }}
+  messageView={{
+    assistantMessage: {
+      toolbar: () => null,
+    },
+  }}
+/>
+```
+
+### Feedback-Focused Interface
+
+```tsx
+<CopilotChat
+  messageView={{
+    assistantMessage: {
+      onThumbsUp: (msg) => {
+        analytics.track("positive_feedback", { messageId: msg.id });
+        toast.success("Thanks for your feedback!");
+      },
+      onThumbsDown: (msg) => {
+        analytics.track("negative_feedback", { messageId: msg.id });
+        showFeedbackModal(msg);
+      },
+      toolbar: "bg-yellow-50 border border-yellow-200 rounded-lg p-2",
+      thumbsUpButton: "text-green-600 hover:text-green-800",
+      thumbsDownButton: "text-red-600 hover:text-red-800",
+    },
+  }}
+/>
+```
+
+## Related
+
+- [CopilotChat](/reference/copilot-chat) - Main chat component
+- [CopilotChatInput](/reference/copilot-chat-input) - Input component slots
+- [CopilotChatAssistantMessage](/reference/copilot-chat-assistant-message) - Assistant message slots
+- [CopilotChatUserMessage](/reference/copilot-chat-user-message) - User message slots
+- [CopilotChatScrollView](/reference/copilot-chat-scroll-view) - Scroll container slots
+- [CopilotChatSuggestionView](/reference/copilot-chat-suggestion-view) - Suggestion chips slots
+- [CopilotChatWelcomeScreen](/reference/copilot-chat-welcome-screen) - Welcome screen slots
+- [CopilotChatMessageView](/reference/copilot-chat-message-view) - Message list slots

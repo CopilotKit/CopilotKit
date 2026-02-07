@@ -2,27 +2,9 @@ import { ReactCustomMessageRendererPosition, useAgent } from "@copilotkitnext/re
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AgentSubscriber } from "@ag-ui/client";
 import { useCoAgentStateRenders } from "../context";
-import { dataToUUID, parseJson } from "@copilotkit/shared";
-
-function getStateWithoutConstantKeys(state: any) {
-  if (!state) return {};
-  const { messages, tools, copilotkit, ...stateWithoutConstantKeys } = state;
-  return stateWithoutConstantKeys;
-}
-
-// Function that compares states, without the constant keys
-function areStatesEquals(a: any, b: any) {
-  if ((a && !b) || (!a && b)) return false;
-  const { messages, tools, copilotkit, ...aWithoutConstantKeys } = a;
-  const {
-    messages: bMessages,
-    tools: bTools,
-    copilotkit: bCopilotkit,
-    ...bWithoutConstantKeys
-  } = b;
-
-  return JSON.stringify(aWithoutConstantKeys) === JSON.stringify(bWithoutConstantKeys);
-}
+import { parseJson } from "@copilotkit/shared";
+import { RenderStatus } from "./use-coagent-state-render-bridge.helpers";
+import { useStateRenderRegistry } from "./use-coagent-state-render-registry";
 
 /**
  * Bridge hook that connects agent state renders to chat messages.
@@ -119,17 +101,18 @@ export interface CoAgentStateRenderBridgeProps {
 }
 
 export function useCoagentStateRenderBridge(agentId: string, props: CoAgentStateRenderBridgeProps) {
-  const { stateSnapshot, messageIndexInRun, message } = props;
+  const { stateSnapshot, message } = props;
   const { coAgentStateRenders, claimsRef } = useCoAgentStateRenders();
   const { agent } = useAgent({ agentId });
   const [nodeName, setNodeName] = useState<string | undefined>(undefined);
-
-  const runId = props.runId ?? message.runId;
-  const effectiveRunId = runId || "pending";
+  const [, forceUpdate] = useState(0);
 
   useEffect(() => {
     if (!agent) return;
     const subscriber: AgentSubscriber = {
+      onStateChanged: () => {
+        forceUpdate((value) => value + 1);
+      },
       onStepStartedEvent: ({ event }) => {
         if (event.stepName !== nodeName) {
           setNodeName(event.stepName);
@@ -162,99 +145,31 @@ export function useCoagentStateRenderBridge(agentId: string, props: CoAgentState
     },
     [coAgentStateRenders, nodeName, agentId],
   );
+  const stateRenderEntry = useMemo(() => getStateRender(message.id), [getStateRender, message.id]);
+  const stateRenderId = stateRenderEntry?.[0];
+  const stateRender = stateRenderEntry?.[1];
 
-  // Message ID-based claim system - A state render can only be claimed by one message ID
-  const handleRenderRequest = ({
-    stateRenderId,
-    messageId,
-    runId,
-    stateSnapshot: renderSnapshot,
-  }: {
-    stateRenderId: string;
-    messageId: string;
-    runId?: string;
-    stateSnapshot?: any;
-  }): boolean => {
-    // Check if this message has already claimed this state render
-    if (claimsRef.current[messageId]) {
-      const canRender = claimsRef.current[messageId].stateRenderId === stateRenderId;
-
-      // Update runId if it doesn't exist
-      if (
-        canRender &&
-        runId &&
-        (!claimsRef.current[messageId].runId || claimsRef.current[messageId].runId === "pending")
-      ) {
-        claimsRef.current[messageId].runId = runId;
-      }
-
-      return canRender;
-    }
-
-    // Do not allow render if any other message has claimed this state render
-    const renderClaimedByOtherMessage = Object.values(claimsRef.current).find(
-      (c) =>
-        c.stateRenderId === stateRenderId &&
-        dataToUUID(getStateWithoutConstantKeys(c.stateSnapshot)) ===
-          dataToUUID(getStateWithoutConstantKeys(renderSnapshot)),
-    );
-    if (renderClaimedByOtherMessage) {
-      // If:
-      //   - state render already claimed
-      //   - snapshot exists in the claiming object and is different from current,
-      if (
-        renderSnapshot &&
-        renderClaimedByOtherMessage.stateSnapshot &&
-        !areStatesEquals(renderClaimedByOtherMessage.stateSnapshot, renderSnapshot)
-      ) {
-        claimsRef.current[messageId] = { stateRenderId, runId };
-        return true;
-      }
-      return false;
-    }
-
-    // No existing claim anywhere yet – allow this message to claim even if we already know the runId.
-    if (!runId) {
-      return false;
-    }
-
-    claimsRef.current[messageId] = { stateRenderId, runId };
-    return true;
+  const registryMessage = {
+    ...message,
+    runId: props.runId ?? message.runId,
   };
+  const { canRender } = useStateRenderRegistry({
+    agentId,
+    stateRenderId,
+    message: registryMessage,
+    messageIndex: props.messageIndex,
+    stateSnapshot,
+    agentState: agent?.state,
+    agentMessages: agent?.messages,
+    claimsRef,
+  });
 
   return useMemo(() => {
-    if (messageIndexInRun !== 0) {
-      return null;
-    }
-
-    const [stateRenderId, stateRender] = getStateRender(message.id) ?? [];
-
     if (!stateRender || !stateRenderId) {
       return null;
     }
-
-    // Is there any state we can use?
-    const snapshot = stateSnapshot ? parseJson(stateSnapshot, stateSnapshot) : agent?.state;
-
-    // Synchronously check/claim - returns true if this message can render
-    const canRender = handleRenderRequest({
-      stateRenderId,
-      messageId: message.id,
-      runId: effectiveRunId,
-      stateSnapshot: snapshot,
-    });
     if (!canRender) {
       return null;
-    }
-
-    // If we found state, and given that now there's a claim for the current message, let's save it in the claim
-    if (snapshot && !claimsRef.current[message.id].locked) {
-      if (stateSnapshot) {
-        claimsRef.current[message.id].stateSnapshot = snapshot;
-        claimsRef.current[message.id].locked = true;
-      } else {
-        claimsRef.current[message.id].stateSnapshot = snapshot;
-      }
     }
 
     if (stateRender.handler) {
@@ -265,7 +180,7 @@ export function useCoagentStateRenderBridge(agentId: string, props: CoAgentState
     }
 
     if (stateRender.render) {
-      const status = agent?.isRunning ? "inProgress" : "complete";
+      const status = agent?.isRunning ? RenderStatus.InProgress : RenderStatus.Complete;
 
       if (typeof stateRender.render === "string") return stateRender.render;
 
@@ -277,14 +192,14 @@ export function useCoagentStateRenderBridge(agentId: string, props: CoAgentState
       });
     }
   }, [
-    getStateRender,
-    stateSnapshot,
+    stateRender,
+    stateRenderId,
     agent?.state,
     agent?.isRunning,
     nodeName,
-    effectiveRunId,
     message.id,
-    messageIndexInRun,
+    stateSnapshot,
+    canRender,
   ]);
 }
 

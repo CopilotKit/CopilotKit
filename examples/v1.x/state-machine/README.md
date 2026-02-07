@@ -2,7 +2,7 @@
 
 Transform complex conversational flows into manageable state machines. This AI-powered car sales application demonstrates how to build sophisticated multi-stage interactions with contextual awareness and state transitions.
 
-[Click here for a running example](https://state-machine-copilot.vercel.app/)
+[Click here for a running example](https://copilotkit.ai/examples/state-machine-copilot)
 
 <div align="center">
   <img src="./assets/preview.png" alt="State Machine Copilot for Car Sales"/>

@@ -135,7 +135,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
           <>
             <DynamicToolComponent />
             <div style={{ height: 400 }}>
-              <CopilotChat />
+              <CopilotChat welcomeScreen={false} />
             </div>
           </>
         ),
@@ -238,7 +238,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
           <>
             <StreamingTool />
             <div style={{ height: 400 }}>
-              <CopilotChat />
+              <CopilotChat welcomeScreen={false} />
             </div>
           </>
         ),
@@ -366,7 +366,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
           <>
             <NoFollowUpTool />
             <div style={{ height: 400 }}>
-              <CopilotChat />
+              <CopilotChat welcomeScreen={false} />
             </div>
           </>
         ),
@@ -441,7 +441,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
           <>
             <ContinueFollowUpTool />
             <div style={{ height: 400 }}>
-              <CopilotChat />
+              <CopilotChat welcomeScreen={false} />
             </div>
           </>
         ),
@@ -530,7 +530,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
           <>
             <ToolRegistrar />
             <div style={{ height: 400 }}>
-              <CopilotChat />
+              <CopilotChat welcomeScreen={false} />
             </div>
           </>
         ),
@@ -626,7 +626,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
             </button>
             {showTool && <ToggleableToolComponent />}
             <div style={{ height: 400 }}>
-              <CopilotChat />
+              <CopilotChat welcomeScreen={false} />
             </div>
           </>
         );
@@ -726,7 +726,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
               Activate Override
             </button>
             <div style={{ height: 400 }}>
-              <CopilotChat />
+              <CopilotChat welcomeScreen={false} />
             </div>
           </>
         );
@@ -848,7 +848,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
           <>
             <IntegratedToolComponent />
             <div style={{ height: 400 }}>
-              <CopilotChat />
+              <CopilotChat welcomeScreen={false} />
             </div>
           </>
         ),
@@ -966,7 +966,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
           <>
             <ExecutingStateTool />
             <div style={{ height: 400 }}>
-              <CopilotChat />
+              <CopilotChat welcomeScreen={false} />
             </div>
           </>
         ),
@@ -1385,7 +1385,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
             <ParentTool />
             <ChildTool />
             <div style={{ height: 400 }}>
-              <CopilotChat />
+              <CopilotChat welcomeScreen={false} />
             </div>
           </>
         ),
@@ -1481,7 +1481,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
           <>
             <AvailabilityTestTool onRegistered={onRegistered} />
             <div style={{ height: 400 }}>
-              <CopilotChat />
+              <CopilotChat welcomeScreen={false} />
             </div>
           </>
         ),
@@ -1569,7 +1569,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
           <>
             <IdempotentTool />
             <div style={{ height: 400 }}>
-              <CopilotChat />
+              <CopilotChat welcomeScreen={false} />
             </div>
           </>
         ),
@@ -1743,7 +1743,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
           <>
             <ErrorTool />
             <div style={{ height: 400 }}>
-              <CopilotChat />
+              <CopilotChat welcomeScreen={false} />
             </div>
           </>
         ),
@@ -1837,7 +1837,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
           <>
             <AsyncErrorTool />
             <div style={{ height: 400 }}>
-              <CopilotChat />
+              <CopilotChat welcomeScreen={false} />
             </div>
           </>
         ),
@@ -1928,7 +1928,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
           <>
             <WildcardTool />
             <div style={{ height: 400 }}>
-              <CopilotChat />
+              <CopilotChat welcomeScreen={false} />
             </div>
           </>
         ),
@@ -2048,7 +2048,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
             <SpecificTool />
             <WildcardTool />
             <div style={{ height: 400 }}>
-              <CopilotChat />
+              <CopilotChat welcomeScreen={false} />
             </div>
           </>
         ),

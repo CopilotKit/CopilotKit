@@ -29,6 +29,10 @@ The Model Context Protocol is an open standard that enables developers to build 
 
 For further reading, check out the [Model Context Protocol](https://modelcontextprotocol.io/introduction) website.
 
+<Callout type="info" title="Looking for MCP Apps?">
+  If you want MCP servers to return **interactive UI components** that render directly in the chat, check out [MCP Apps](/generative-ui/specs/mcp-apps).
+</Callout>
+
 <Image 
   src="/images/any-agentic-backend-light.png" 
   alt="CopilotKit with Agentic Protocols" 
@@ -338,7 +342,7 @@ export default function MCPToolCall({
   The Copilot Runtime handles communication with LLMs, message history, and
   state. You can self-host it or use{" "}
   <LinkToCopilotCloud asButton={false}>Copilot Cloud</LinkToCopilotCloud>{" "}
-  (recommended). Learn more in our [Self-Hosting Guide](/guides/self-hosting).
+  (recommended). Learn more in our [Self-Hosting Guide](/direct-to-llm/guides/self-hosting).
 </Callout>
 
 To configure your self-hosted runtime with MCP servers, you'll need to implement the `createMCPClient` function that matches this interface:

@@ -1,6 +1,6 @@
 {
   "name": "next-pages-router",
-  "version": "1.4.7-next.3",
+  "version": "1.4.10-next.0",
   "private": true,
   "scripts": {
     "example-dev": "next dev",
@@ -17,12 +17,7 @@
     "@copilotkit/shared": "workspace:*",
     "@google/generative-ai": "^0.11.2",
     "@heroicons/react": "^2.0.18",
-    "@langchain/community": "^0.3.29",
-    "@langchain/core": "^0.3.38",
-    "@langchain/langgraph": "^0.0.12",
-    "@langchain/openai": "^0.4.2",
     "clsx": "^1.2.1",
-    "langchain": "^0.1.19",
     "next": "14.2.35",
     "openai": "^4.85.1",
     "react": "^18",

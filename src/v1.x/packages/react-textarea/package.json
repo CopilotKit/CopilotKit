@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.51.0-next.4",
+  "version": "1.51.4-next.2",
   "sideEffects": [
     "**/*.css"
   ],
@@ -23,10 +23,12 @@
     },
     "./styles.css": "./dist/index.css"
   },
+  "unpkg": "./dist/index.umd.js",
+  "jsdelivr": "./dist/index.umd.js",
   "types": "./dist/index.d.ts",
   "license": "MIT",
   "scripts": {
-    "build": "tsup --clean",
+    "build": "tsup --clean && rollup -c rollup.config.mjs",
     "dev": "tsup --watch --no-splitting",
     "test": "jest",
     "check-types": "tsc --noEmit",
@@ -35,16 +37,10 @@
     "unlink:global": "pnpm unlink --global"
   },
   "peerDependencies": {
-    "@copilotkit/react-core": "workspace:*",
-    "@copilotkit/runtime-client-gql": "workspace:*",
-    "@copilotkit/shared": "workspace:*",
     "react": "^18 || ^19 || ^19.0.0-rc",
     "react-dom": "^18 || ^19 || ^19.0.0-rc"
   },
   "devDependencies": {
-    "@copilotkit/react-core": "workspace:*",
-    "@copilotkit/runtime-client-gql": "workspace:*",
-    "@copilotkit/shared": "workspace:*",
     "@types/jest": "^29.5.4",
     "@types/lodash.merge": "^4.6.7",
     "@types/react": "^19.1.0",
@@ -65,6 +61,9 @@
     "typescript": "^5.2.3"
   },
   "dependencies": {
+    "@copilotkit/react-core": "workspace:*",
+    "@copilotkit/runtime-client-gql": "workspace:*",
+    "@copilotkit/shared": "workspace:*",
     "@emotion/css": "^11.11.2",
     "@emotion/react": "^11.11.1",
     "@emotion/styled": "^11.11.0",

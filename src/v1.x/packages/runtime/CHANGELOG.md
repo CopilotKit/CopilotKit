@@ -1,5 +1,185 @@
 # @copilotkit/runtime
 
+## 1.51.4-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.51.4-next.2
+- @copilotkitnext/agent@1.51.4-next.2
+- @copilotkitnext/runtime@1.51.4-next.2
+
+## 1.51.4-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.51.4-next.1
+- @copilotkitnext/agent@1.51.4-next.1
+- @copilotkitnext/runtime@1.51.4-next.1
+
+## 1.51.4-next.0
+
+### Patch Changes
+
+- 4886f18: fix: use langgraph clone fix on latest agui
+  - @copilotkit/shared@1.51.4-next.0
+  - @copilotkitnext/agent@1.51.4-next.0
+  - @copilotkitnext/runtime@1.51.4-next.0
+
+## 1.51.3
+
+### Patch Changes
+
+- d655e75: fix: update ag-ui dependencies
+- d268c49: fix: add apiKey parameter to BuiltInAgentConfiguration
+- d36fc1e: Add UMD export
+- b49277b: fix: update all agui langgraph dependencies
+- 3a0822d: fix: do not run middleware for internal get requests
+- Updated dependencies [d655e75]
+- Updated dependencies [d268c49]
+- Updated dependencies [d36fc1e]
+- Updated dependencies [29d70a5]
+  - @copilotkit/shared@1.51.3
+  - @copilotkitnext/agent@1.51.3
+  - @copilotkitnext/runtime@1.51.3
+
+## 1.51.3-next.8
+
+### Patch Changes
+
+- d36fc1e: Add UMD export
+- Updated dependencies [d36fc1e]
+  - @copilotkitnext/runtime@1.51.3-next.8
+  - @copilotkit/shared@1.51.3-next.8
+  - @copilotkitnext/agent@1.51.3-next.8
+
+## 1.51.3-next.7
+
+### Patch Changes
+
+- @copilotkit/shared@1.51.3-next.7
+- @copilotkitnext/agent@1.51.3-next.7
+- @copilotkitnext/runtime@1.51.3-next.7
+
+## 1.51.3-next.6
+
+### Patch Changes
+
+- 3a0822d: fix: do not run middleware for internal get requests
+  - @copilotkit/shared@1.51.3-next.6
+  - @copilotkitnext/agent@1.51.3-next.6
+  - @copilotkitnext/runtime@1.51.3-next.6
+
+## 1.51.3-next.5
+
+### Patch Changes
+
+- @copilotkit/shared@1.51.3-next.5
+- @copilotkitnext/agent@1.51.3-next.5
+- @copilotkitnext/runtime@1.51.3-next.5
+
+## 1.51.3-next.4
+
+### Patch Changes
+
+- b49277b: fix: update all agui langgraph dependencies
+  - @copilotkit/shared@1.51.3-next.4
+  - @copilotkitnext/agent@1.51.3-next.4
+  - @copilotkitnext/runtime@1.51.3-next.4
+
+## 1.51.3-next.3
+
+### Patch Changes
+
+- d655e75: fix: update ag-ui dependencies
+- Updated dependencies [d655e75]
+  - @copilotkit/shared@1.51.3-next.3
+  - @copilotkitnext/agent@1.51.3-next.3
+  - @copilotkitnext/runtime@1.51.3-next.3
+
+## 1.51.3-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.51.3-next.2
+- @copilotkitnext/agent@1.51.3-next.2
+- @copilotkitnext/runtime@1.51.3-next.2
+
+## 1.51.3-next.1
+
+### Patch Changes
+
+- Updated dependencies [29d70a5]
+  - @copilotkitnext/agent@1.51.3-next.1
+  - @copilotkit/shared@1.51.3-next.1
+  - @copilotkitnext/runtime@1.51.3-next.1
+
+## 1.51.3-next.0
+
+### Patch Changes
+
+- d268c49: fix: add apiKey parameter to BuiltInAgentConfiguration
+- Updated dependencies [d268c49]
+  - @copilotkitnext/agent@1.51.3-next.0
+  - @copilotkit/shared@1.51.3-next.0
+  - @copilotkitnext/runtime@1.51.3-next.0
+
+## 1.51.2
+
+### Patch Changes
+
+- e59d23f: Use deps instead of peerdeps
+- e59d23f: Move in-repo deps from peerdeps to actual deps
+- Updated dependencies [e59d23f]
+- Updated dependencies [f36b6b1]
+  - @copilotkitnext/runtime@1.51.2
+  - @copilotkitnext/agent@1.51.2
+  - @copilotkit/shared@1.51.2
+
+## 1.51.2-next.1
+
+### Patch Changes
+
+- e59d23f: Use deps instead of peerdeps
+- e59d23f: Move in-repo deps from peerdeps to actual deps
+- Updated dependencies [e59d23f]
+  - @copilotkitnext/runtime@1.51.2-next.1
+  - @copilotkitnext/agent@1.51.2-next.1
+  - @copilotkit/shared@1.51.2-next.1
+
+## 1.51.2-next.0
+
+### Patch Changes
+
+- Updated dependencies [f36b6b1]
+  - @copilotkitnext/agent@1.51.2-next.0
+  - @copilotkit/shared@1.51.2-next.0
+  - @copilotkitnext/runtime@1.51.2-next.0
+
+## 1.51.1
+
+### Patch Changes
+
+- Updated dependencies [329653b]
+  - @copilotkitnext/agent@1.51.1
+  - @copilotkit/shared@1.51.1
+  - @copilotkitnext/runtime@1.51.1
+
+## 1.51.0
+
+### Patch Changes
+
+- 2839a15: fix: restore and fix handle method in node http
+- 2839a15: Update versioning strategy
+- 2839a15: fix: use direct hono node integration on node-http integration
+- 4addb72: Fix ci again but really for real this time
+- Updated dependencies [2793a11]
+- Updated dependencies [73f196f]
+- Updated dependencies [2839a15]
+- Updated dependencies [2afd4e3]
+  - @copilotkitnext/runtime@1.51.0
+  - @copilotkit/shared@1.51.0
+  - @copilotkitnext/agent@1.51.0
+
 ## 1.51.0-next.4
 
 ### Patch Changes

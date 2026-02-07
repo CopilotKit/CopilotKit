@@ -1,7 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 
-import CopilotChatView, { CopilotChatViewProps } from "./CopilotChatView";
-import { useCopilotChatConfiguration } from "@/providers/CopilotChatConfigurationProvider";
+import CopilotChatView, { CopilotChatViewProps, WelcomeScreenProps } from "./CopilotChatView";
+import {
+  CopilotChatConfigurationProvider,
+  useCopilotChatConfiguration,
+} from "@/providers/CopilotChatConfigurationProvider";
 import CopilotChatToggleButton from "./CopilotChatToggleButton";
 import { cn } from "@/lib/utils";
 import { CopilotModalHeader } from "./CopilotModalHeader";
@@ -12,10 +15,20 @@ const SIDEBAR_TRANSITION_MS = 260;
 
 export type CopilotSidebarViewProps = CopilotChatViewProps & {
   header?: SlotValue<typeof CopilotModalHeader>;
+  toggleButton?: SlotValue<typeof CopilotChatToggleButton>;
   width?: number | string;
+  defaultOpen?: boolean;
 };
 
-export function CopilotSidebarView({ header, width, ...props }: CopilotSidebarViewProps) {
+export function CopilotSidebarView({ header, toggleButton, width, defaultOpen = true, ...props }: CopilotSidebarViewProps) {
+  return (
+    <CopilotChatConfigurationProvider isModalDefaultOpen={defaultOpen}>
+      <CopilotSidebarViewInternal header={header} toggleButton={toggleButton} width={width} {...props} />
+    </CopilotChatConfigurationProvider>
+  );
+}
+
+function CopilotSidebarViewInternal({ header, toggleButton, width, ...props }: Omit<CopilotSidebarViewProps, "defaultOpen">) {
   const configuration = useCopilotChatConfiguration();
 
   const isSidebarOpen = configuration?.isModalOpen ?? false;
@@ -72,6 +85,7 @@ export function CopilotSidebarView({ header, width, ...props }: CopilotSidebarVi
   }, [width]);
 
   const headerElement = renderSlot(header, CopilotModalHeader, {});
+  const toggleButtonElement = renderSlot(toggleButton, CopilotChatToggleButton, {});
 
   return (
     <>
@@ -88,7 +102,7 @@ export function CopilotSidebarView({ header, width, ...props }: CopilotSidebarVi
           }}
         />
       )}
-      <CopilotChatToggleButton />
+      {toggleButtonElement}
       <aside
         ref={sidebarRef}
         data-copilot-sidebar
@@ -125,5 +139,67 @@ export function CopilotSidebarView({ header, width, ...props }: CopilotSidebarVi
 }
 
 CopilotSidebarView.displayName = "CopilotSidebarView";
+
+// eslint-disable-next-line @typescript-eslint/no-namespace
+export namespace CopilotSidebarView {
+  /**
+   * Sidebar-specific welcome screen layout:
+   * - Suggestions at the top
+   * - Welcome message in the middle
+   * - Input fixed at the bottom (like normal chat)
+   */
+  export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
+    welcomeMessage,
+    input,
+    suggestionView,
+    className,
+    children,
+    ...props
+  }) => {
+    // Render the welcomeMessage slot internally
+    const BoundWelcomeMessage = renderSlot(
+      welcomeMessage,
+      CopilotChatView.WelcomeMessage,
+      {}
+    );
+
+    if (children) {
+      return (
+        <>
+          {children({
+            welcomeMessage: BoundWelcomeMessage,
+            input,
+            suggestionView,
+            className,
+            ...props,
+          })}
+        </>
+      );
+    }
+
+    return (
+      <div
+        className={cn("h-full flex flex-col", className)}
+        {...props}
+      >
+        {/* Welcome message - centered vertically */}
+        <div className="flex-1 flex flex-col items-center justify-center px-4">
+          {BoundWelcomeMessage}
+        </div>
+
+        {/* Suggestions and input at bottom */}
+        <div className="px-8 pb-4">
+          <div className="max-w-3xl mx-auto">
+            {/* Suggestions above input */}
+            <div className="mb-4 flex justify-center">
+              {suggestionView}
+            </div>
+            {input}
+          </div>
+        </div>
+      </div>
+    );
+  };
+}
 
 export default CopilotSidebarView;

@@ -1,4 +1,4 @@
-name: publish
+name: publish / release
 
 on:
   workflow_dispatch:
@@ -11,7 +11,7 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 jobs:
   release:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v3
@@ -28,6 +28,9 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: "10.13.1"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
 
       - name: Install Dependencies
         run: pnpm i
@@ -106,7 +109,7 @@ jobs:
       - name: Git Tag
         if: ${{ steps.check-if-published.outputs.published == 'true' && steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'false' }}
         run: |
-          node -p "require('./scripts/release/generate-changelog')('${{ steps.new-version.outputs.version }}')" > changelog.txt
+          node -p "require('./src/v1.x/scripts/release/generate-changelog')('${{ steps.new-version.outputs.version }}')" > changelog.txt
           git tag -a v${{ steps.new-version.outputs.version }} -m "Release ${{ steps.new-version.outputs.version }}"
           git push origin v${{ steps.new-version.outputs.version }}
           git push origin main --force

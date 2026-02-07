@@ -21,6 +21,8 @@ export interface CopilotKitCoreConfig {
   agents__unsafe_dev_only?: Record<string, AbstractAgent>;
   /** Headers appended to every HTTP request made by `CopilotKitCore`. */
   headers?: Record<string, string>;
+  /** Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies). */
+  credentials?: RequestCredentials;
   /** Properties sent as `forwardedProps` to the AG-UI agent. */
   properties?: Record<string, unknown>;
   /** Ordered collection of frontend tools available to the core. */
@@ -49,6 +51,13 @@ export enum CopilotKitCoreErrorCode {
   AGENT_RUN_ERROR_EVENT = "agent_run_error_event",
   TOOL_ARGUMENT_PARSE_FAILED = "tool_argument_parse_failed",
   TOOL_HANDLER_FAILED = "tool_handler_failed",
+  // Transcription errors
+  TRANSCRIPTION_FAILED = "transcription_failed",
+  TRANSCRIPTION_SERVICE_NOT_CONFIGURED = "transcription_service_not_configured",
+  TRANSCRIPTION_INVALID_AUDIO = "transcription_invalid_audio",
+  TRANSCRIPTION_RATE_LIMITED = "transcription_rate_limited",
+  TRANSCRIPTION_AUTH_FAILED = "transcription_auth_failed",
+  TRANSCRIPTION_NETWORK_ERROR = "transcription_network_error",
 }
 
 export interface CopilotKitCoreSubscriber {
@@ -133,6 +142,7 @@ export interface CopilotKitCoreFriendsAccess {
 
   // Getters for internal state
   readonly headers: Readonly<Record<string, string>>;
+  readonly credentials: RequestCredentials | undefined;
   readonly properties: Readonly<Record<string, unknown>>;
   readonly context: Readonly<Record<string, Context>>;
 
@@ -149,6 +159,7 @@ export interface CopilotKitCoreFriendsAccess {
 
 export class CopilotKitCore {
   private _headers: Record<string, string>;
+  private _credentials?: RequestCredentials;
   private _properties: Record<string, unknown>;
 
   private subscribers: Set<CopilotKitCoreSubscriber> = new Set();
@@ -164,12 +175,14 @@ export class CopilotKitCore {
     runtimeUrl,
     runtimeTransport = "rest",
     headers = {},
+    credentials,
     properties = {},
     agents__unsafe_dev_only = {},
     tools = [],
     suggestionsConfig = [],
   }: CopilotKitCoreConfig) {
     this._headers = headers;
+    this._credentials = credentials;
     this._properties = properties;
 
     // Initialize delegate classes
@@ -281,12 +294,20 @@ export class CopilotKitCore {
     return this._headers;
   }
 
+  get credentials(): RequestCredentials | undefined {
+    return this._credentials;
+  }
+
   get properties(): Readonly<Record<string, unknown>> {
     return this._properties;
   }
 
   get runtimeConnectionStatus(): CopilotKitCoreRuntimeConnectionStatus {
     return this.agentRegistry.runtimeConnectionStatus;
+  }
+
+  get audioFileTranscriptionEnabled(): boolean {
+    return this.agentRegistry.audioFileTranscriptionEnabled;
   }
 
   /**
@@ -303,6 +324,11 @@ export class CopilotKitCore {
         }),
       "Subscriber onHeadersChanged error:",
     );
+  }
+
+  setCredentials(credentials: RequestCredentials | undefined): void {
+    this._credentials = credentials;
+    this.agentRegistry.applyCredentialsToAgents(this.agentRegistry.agents as Record<string, AbstractAgent>);
   }
 
   setProperties(properties: Record<string, unknown>): void {

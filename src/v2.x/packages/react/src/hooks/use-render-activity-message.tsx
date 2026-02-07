@@ -1,7 +1,8 @@
 import { ActivityMessage } from "@ag-ui/core";
 import { DEFAULT_AGENT_ID } from "@copilotkitnext/shared";
 import { useCopilotKit, useCopilotChatConfiguration } from "@/providers";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
+import { ReactActivityMessageRenderer } from "@/types";
 
 export function useRenderActivityMessage() {
   const { copilotkit } = useCopilotKit();
@@ -10,20 +11,30 @@ export function useRenderActivityMessage() {
 
   const renderers = copilotkit.renderActivityMessages;
 
-  return useCallback(
-    (message: ActivityMessage): React.ReactElement | null => {
+  // Find the renderer for a given activity type
+  const findRenderer = useCallback(
+    (activityType: string): ReactActivityMessageRenderer<unknown> | null => {
       if (!renderers.length) {
         return null;
       }
 
       const matches = renderers.filter(
-        (renderer) => renderer.activityType === message.activityType
+        (renderer) => renderer.activityType === activityType
       );
 
-      const renderer =
+      return (
         matches.find((candidate) => candidate.agentId === agentId) ??
         matches.find((candidate) => candidate.agentId === undefined) ??
-        renderers.find((candidate) => candidate.activityType === "*");
+        renderers.find((candidate) => candidate.activityType === "*") ??
+        null
+      );
+    },
+    [agentId, renderers]
+  );
+
+  const renderActivityMessage = useCallback(
+    (message: ActivityMessage): React.ReactElement | null => {
+      const renderer = findRenderer(message.activityType);
 
       if (!renderer) {
         return null;
@@ -40,7 +51,6 @@ export function useRenderActivityMessage() {
       }
 
       const Component = renderer.render;
-
       const agent = copilotkit.getAgent(agentId);
 
       return (
@@ -53,6 +63,11 @@ export function useRenderActivityMessage() {
         />
       );
     },
-    [agentId, copilotkit, renderers]
+    [agentId, copilotkit, findRenderer]
+  );
+
+  return useMemo(
+    () => ({ renderActivityMessage, findRenderer }),
+    [renderActivityMessage, findRenderer]
   );
 }

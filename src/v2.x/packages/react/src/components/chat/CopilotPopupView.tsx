@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import CopilotChatView, { CopilotChatViewProps } from "./CopilotChatView";
+import CopilotChatView, { CopilotChatViewProps, WelcomeScreenProps } from "./CopilotChatView";
 import CopilotChatToggleButton from "./CopilotChatToggleButton";
 import { CopilotModalHeader } from "./CopilotModalHeader";
 import { cn } from "@/lib/utils";
 import { renderSlot, SlotValue } from "@/lib/slots";
 import {
+  CopilotChatConfigurationProvider,
   CopilotChatDefaultLabels,
   useCopilotChatConfiguration,
 } from "@/providers/CopilotChatConfigurationProvider";
@@ -14,9 +15,11 @@ const DEFAULT_POPUP_HEIGHT = 560;
 
 export type CopilotPopupViewProps = CopilotChatViewProps & {
   header?: SlotValue<typeof CopilotModalHeader>;
+  toggleButton?: SlotValue<typeof CopilotChatToggleButton>;
   width?: number | string;
   height?: number | string;
   clickOutsideToClose?: boolean;
+  defaultOpen?: boolean;
 };
 
 const dimensionToCss = (value: number | string | undefined, fallback: number): string => {
@@ -33,12 +36,38 @@ const dimensionToCss = (value: number | string | undefined, fallback: number): s
 
 export function CopilotPopupView({
   header,
+  toggleButton,
+  width,
+  height,
+  clickOutsideToClose,
+  defaultOpen = true,
+  className,
+  ...restProps
+}: CopilotPopupViewProps) {
+  return (
+    <CopilotChatConfigurationProvider isModalDefaultOpen={defaultOpen}>
+      <CopilotPopupViewInternal
+        header={header}
+        toggleButton={toggleButton}
+        width={width}
+        height={height}
+        clickOutsideToClose={clickOutsideToClose}
+        className={className}
+        {...restProps}
+      />
+    </CopilotChatConfigurationProvider>
+  );
+}
+
+function CopilotPopupViewInternal({
+  header,
+  toggleButton,
   width,
   height,
   clickOutsideToClose,
   className,
   ...restProps
-}: CopilotPopupViewProps) {
+}: Omit<CopilotPopupViewProps, "defaultOpen">) {
   const configuration = useCopilotChatConfiguration();
   const isPopupOpen = configuration?.isModalOpen ?? false;
   const setModalOpen = configuration?.setModalOpen;
@@ -94,7 +123,11 @@ export function CopilotPopupView({
     }
 
     const focusTimer = setTimeout(() => {
-      containerRef.current?.focus({ preventScroll: true });
+      const container = containerRef.current;
+      // Don't steal focus if something inside the popup (like the input) is already focused
+      if (container && !container.contains(document.activeElement)) {
+        container.focus({ preventScroll: true });
+      }
     }, 200);
 
     return () => clearTimeout(focusTimer);
@@ -133,6 +166,7 @@ export function CopilotPopupView({
   }, [isPopupOpen, clickOutsideToClose, setModalOpen]);
 
   const headerElement = useMemo(() => renderSlot(header, CopilotModalHeader, {}), [header]);
+  const toggleButtonElement = useMemo(() => renderSlot(toggleButton, CopilotChatToggleButton, {}), [toggleButton]);
 
   const resolvedWidth = dimensionToCss(width, DEFAULT_POPUP_WIDTH);
   const resolvedHeight = dimensionToCss(height, DEFAULT_POPUP_HEIGHT);
@@ -195,12 +229,72 @@ export function CopilotPopupView({
 
   return (
     <>
-      <CopilotChatToggleButton />
+      {toggleButtonElement}
       {popupContent}
     </>
   );
 }
 
 CopilotPopupView.displayName = "CopilotPopupView";
+
+// eslint-disable-next-line @typescript-eslint/no-namespace
+export namespace CopilotPopupView {
+  /**
+   * Popup-specific welcome screen layout:
+   * - Welcome message centered vertically
+   * - Suggestions just above input
+   * - Input fixed at the bottom
+   */
+  export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
+    welcomeMessage,
+    input,
+    suggestionView,
+    className,
+    children,
+    ...props
+  }) => {
+    // Render the welcomeMessage slot internally
+    const BoundWelcomeMessage = renderSlot(
+      welcomeMessage,
+      CopilotChatView.WelcomeMessage,
+      {}
+    );
+
+    if (children) {
+      return (
+        <>
+          {children({
+            welcomeMessage: BoundWelcomeMessage,
+            input,
+            suggestionView,
+            className,
+            ...props,
+          })}
+        </>
+      );
+    }
+
+    return (
+      <div
+        className={cn("h-full flex flex-col", className)}
+        {...props}
+      >
+        {/* Welcome message - centered vertically */}
+        <div className="flex-1 flex flex-col items-center justify-center px-4">
+          {BoundWelcomeMessage}
+        </div>
+
+        {/* Suggestions and input at bottom */}
+        <div>
+          {/* Suggestions above input */}
+          <div className="mb-4 flex justify-center px-4">
+            {suggestionView}
+          </div>
+          {input}
+        </div>
+      </div>
+    );
+  };
+}
 
 export default CopilotPopupView;

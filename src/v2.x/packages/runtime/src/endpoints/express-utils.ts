@@ -66,7 +66,14 @@ export function createFetchRequestFromExpress(req: ExpressRequest): Request {
   }
 
   const controller = new AbortController();
-  req.on("close", () => controller.abort());
+  const abort = () => controller.abort();
+  req.on("aborted", abort);
+  req.on("error", abort);
+  req.on("close", () => {
+    if (req.aborted) {
+      abort();
+    }
+  });
   init.signal = controller.signal;
 
   try {
@@ -116,7 +123,7 @@ export async function sendFetchResponse(res: ExpressResponse, response: Response
     return;
   }
 
-  const nodeStream = Readable.fromWeb(response.body as unknown as ReadableStream<Uint8Array>);
+  const nodeStream = Readable.fromWeb(response.body as any);
   try {
     await streamPipeline(nodeStream, res);
   } catch (error) {

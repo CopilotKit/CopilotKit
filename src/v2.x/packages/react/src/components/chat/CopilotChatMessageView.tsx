@@ -1,5 +1,5 @@
 import React, { useEffect, useReducer } from "react";
-import { WithSlots, renderSlot } from "@/lib/slots";
+import { WithSlots, renderSlot, isReactComponentType } from "@/lib/slots";
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage";
 import CopilotChatUserMessage from "./CopilotChatUserMessage";
 import { ActivityMessage, AssistantMessage, Message, UserMessage } from "@ag-ui/core";
@@ -7,6 +7,7 @@ import { twMerge } from "tailwind-merge";
 import { useRenderActivityMessage, useRenderCustomMessages } from "@/hooks";
 import { useCopilotKit } from "@/providers/CopilotKitProvider";
 import { useCopilotChatConfiguration } from "@/providers/CopilotChatConfigurationProvider";
+
 
 /**
  * Memoized wrapper for assistant messages to prevent re-renders when other messages change.
@@ -17,17 +18,20 @@ const MemoizedAssistantMessage = React.memo(
     messages,
     isRunning,
     AssistantMessageComponent,
+    slotProps,
   }: {
     message: AssistantMessage;
     messages: Message[];
     isRunning: boolean;
     AssistantMessageComponent: typeof CopilotChatAssistantMessage;
+    slotProps?: Partial<React.ComponentProps<typeof CopilotChatAssistantMessage>>;
   }) {
     return (
       <AssistantMessageComponent
         message={message}
         messages={messages}
         isRunning={isRunning}
+        {...slotProps}
       />
     );
   },
@@ -79,6 +83,9 @@ const MemoizedAssistantMessage = React.memo(
     // Check if component reference changed
     if (prevProps.AssistantMessageComponent !== nextProps.AssistantMessageComponent) return false;
 
+    // Check if slot props changed
+    if (prevProps.slotProps !== nextProps.slotProps) return false;
+
     return true;
   }
 );
@@ -90,17 +97,21 @@ const MemoizedUserMessage = React.memo(
   function MemoizedUserMessage({
     message,
     UserMessageComponent,
+    slotProps,
   }: {
     message: UserMessage;
     UserMessageComponent: typeof CopilotChatUserMessage;
+    slotProps?: Partial<React.ComponentProps<typeof CopilotChatUserMessage>>;
   }) {
-    return <UserMessageComponent message={message} />;
+    return <UserMessageComponent message={message} {...slotProps} />;
   },
   (prevProps, nextProps) => {
     // Only re-render if this specific message changed
     if (prevProps.message.id !== nextProps.message.id) return false;
     if (prevProps.message.content !== nextProps.message.content) return false;
     if (prevProps.UserMessageComponent !== nextProps.UserMessageComponent) return false;
+    // Check if slot props changed
+    if (prevProps.slotProps !== nextProps.slotProps) return false;
     return true;
   }
 );
@@ -119,14 +130,15 @@ const MemoizedActivityMessage = React.memo(
     return renderActivityMessage(message);
   },
   (prevProps, nextProps) => {
-    // Only re-render if this specific activity message changed
+    // Message ID changed = different message, must re-render
     if (prevProps.message.id !== nextProps.message.id) return false;
+
+    // Activity type changed = must re-render
     if (prevProps.message.activityType !== nextProps.message.activityType) return false;
-    // Compare content - need to stringify since it's an object
+
+    // Compare content using JSON.stringify (native code, handles deep comparison)
     if (JSON.stringify(prevProps.message.content) !== JSON.stringify(nextProps.message.content)) return false;
-    // Note: We don't compare renderActivityMessage function reference because it changes
-    // frequently due to useCallback dependencies in useRenderActivityMessage.
-    // The message content comparison is sufficient to determine if a re-render is needed.
+
     return true;
   }
 );
@@ -194,29 +206,31 @@ export function CopilotChatMessageView({
   ...props
 }: CopilotChatMessageViewProps) {
   const renderCustomMessage = useRenderCustomMessages();
-  const renderActivityMessage = useRenderActivityMessage();
+  const { renderActivityMessage } = useRenderActivityMessage();
   const { copilotkit } = useCopilotKit();
   const config = useCopilotChatConfiguration();
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
-  // Subscribe to state changes so custom message renderers re-render when state updates
+  // Subscribe to state changes so custom message renderers re-render when state updates.
   useEffect(() => {
     if (!config?.agentId) return;
     const agent = copilotkit.getAgent(config.agentId);
     if (!agent) return;
 
     const subscription = agent.subscribe({
-      onStateChanged: () => forceUpdate(),
+      onStateChanged: forceUpdate,
     });
     return () => subscription.unsubscribe();
-  }, [config?.agentId, copilotkit]);
+  }, [config?.agentId, copilotkit, forceUpdate]);
 
   // Helper to get state snapshot for a message (used for memoization)
   const getStateSnapshotForMessage = (messageId: string): unknown => {
     if (!config) return undefined;
-    const runId = copilotkit.getRunIdForMessage(config.agentId, config.threadId, messageId);
-    if (!runId) return undefined;
-    return copilotkit.getStateByRun(config.agentId, config.threadId, runId);
+    const resolvedRunId =
+      copilotkit.getRunIdForMessage(config.agentId, config.threadId, messageId) ??
+      copilotkit.getRunIdsForThread(config.agentId, config.threadId).slice(-1)[0];
+    if (!resolvedRunId) return undefined;
+    return copilotkit.getStateByRun(config.agentId, config.threadId, resolvedRunId);
   };
 
   const messageElements: React.ReactElement[] = messages
@@ -239,12 +253,20 @@ export function CopilotChatMessageView({
 
       // Render the main message using memoized wrappers to prevent unnecessary re-renders
       if (message.role === "assistant") {
-        // Determine the component to use (custom slot or default)
-        const AssistantComponent = (
-          typeof assistantMessage === "function"
-            ? assistantMessage
-            : CopilotChatAssistantMessage
-        ) as typeof CopilotChatAssistantMessage;
+        // Determine the component and props from slot value
+        let AssistantComponent = CopilotChatAssistantMessage;
+        let assistantSlotProps: Partial<React.ComponentProps<typeof CopilotChatAssistantMessage>> | undefined;
+
+        if (isReactComponentType(assistantMessage)) {
+          // Custom component (function, forwardRef, memo, etc.)
+          AssistantComponent = assistantMessage as typeof CopilotChatAssistantMessage;
+        } else if (typeof assistantMessage === "string") {
+          // className string
+          assistantSlotProps = { className: assistantMessage };
+        } else if (assistantMessage && typeof assistantMessage === "object") {
+          // Props object
+          assistantSlotProps = assistantMessage as Partial<React.ComponentProps<typeof CopilotChatAssistantMessage>>;
+        }
 
         elements.push(
           <MemoizedAssistantMessage
@@ -253,29 +275,40 @@ export function CopilotChatMessageView({
             messages={messages}
             isRunning={isRunning}
             AssistantMessageComponent={AssistantComponent}
+            slotProps={assistantSlotProps}
           />
         );
       } else if (message.role === "user") {
-        // Determine the component to use (custom slot or default)
-        const UserComponent = (
-          typeof userMessage === "function"
-            ? userMessage
-            : CopilotChatUserMessage
-        ) as typeof CopilotChatUserMessage;
+        // Determine the component and props from slot value
+        let UserComponent = CopilotChatUserMessage;
+        let userSlotProps: Partial<React.ComponentProps<typeof CopilotChatUserMessage>> | undefined;
+
+        if (isReactComponentType(userMessage)) {
+          // Custom component (function, forwardRef, memo, etc.)
+          UserComponent = userMessage as typeof CopilotChatUserMessage;
+        } else if (typeof userMessage === "string") {
+          // className string
+          userSlotProps = { className: userMessage };
+        } else if (userMessage && typeof userMessage === "object") {
+          // Props object
+          userSlotProps = userMessage as Partial<React.ComponentProps<typeof CopilotChatUserMessage>>;
+        }
 
         elements.push(
           <MemoizedUserMessage
             key={message.id}
             message={message as UserMessage}
             UserMessageComponent={UserComponent}
+            slotProps={userSlotProps}
           />
         );
       } else if (message.role === "activity") {
         // Use memoized wrapper to prevent re-renders when other messages change
+        const activityMsg = message as ActivityMessage;
         elements.push(
           <MemoizedActivityMessage
             key={message.id}
-            message={message as ActivityMessage}
+            message={activityMsg}
             renderActivityMessage={renderActivityMessage}
           />
         );

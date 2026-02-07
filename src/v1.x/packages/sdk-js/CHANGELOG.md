@@ -1,5 +1,131 @@
 # @copilotkit/sdk-js
 
+## 1.51.4-next.2
+
+### Patch Changes
+
+- c07362d: feat: add app context readables to prebuilt LG agent middleware
+  - @copilotkit/shared@1.51.4-next.2
+
+## 1.51.4-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.51.4-next.1
+
+## 1.51.4-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.51.4-next.0
+
+## 1.51.3
+
+### Patch Changes
+
+- d36fc1e: Add UMD export
+- Updated dependencies [d655e75]
+- Updated dependencies [d36fc1e]
+  - @copilotkit/shared@1.51.3
+
+## 1.51.3-next.8
+
+### Patch Changes
+
+- d36fc1e: Add UMD export
+- Updated dependencies [d36fc1e]
+  - @copilotkit/shared@1.51.3-next.8
+
+## 1.51.3-next.7
+
+### Patch Changes
+
+- @copilotkit/shared@1.51.3-next.7
+
+## 1.51.3-next.6
+
+### Patch Changes
+
+- @copilotkit/shared@1.51.3-next.6
+
+## 1.51.3-next.5
+
+### Patch Changes
+
+- @copilotkit/shared@1.51.3-next.5
+
+## 1.51.3-next.4
+
+### Patch Changes
+
+- @copilotkit/shared@1.51.3-next.4
+
+## 1.51.3-next.3
+
+### Patch Changes
+
+- Updated dependencies [d655e75]
+  - @copilotkit/shared@1.51.3-next.3
+
+## 1.51.3-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.51.3-next.2
+
+## 1.51.3-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.51.3-next.1
+
+## 1.51.3-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.51.3-next.0
+
+## 1.51.2
+
+### Patch Changes
+
+- e59d23f: Use deps instead of peerdeps
+- e59d23f: Move in-repo deps from peerdeps to actual deps
+  - @copilotkit/shared@1.51.2
+
+## 1.51.2-next.1
+
+### Patch Changes
+
+- e59d23f: Use deps instead of peerdeps
+- e59d23f: Move in-repo deps from peerdeps to actual deps
+  - @copilotkit/shared@1.51.2-next.1
+
+## 1.51.2-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.51.2-next.0
+
+## 1.51.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.51.1
+
+## 1.51.0
+
+### Minor Changes
+
+- ce14f8b: create copilotkit langgraph middleware
+
+### Patch Changes
+
+- 2839a15: Update versioning strategy
+- Updated dependencies [2839a15]
+- Updated dependencies [2afd4e3]
+  - @copilotkit/shared@1.51.0
+
 ## 1.51.0-next.4
 
 ### Patch Changes

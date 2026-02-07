@@ -22,12 +22,14 @@ export function YouTubeVideo({
   };
 
   return (
-    <YouTube
-      videoId={videoId}
-      className="w-full h-[425px] rounded-lg"
-      iframeClassName="rounded-2xl w-full h-full shadow-xl border"
-      opts={opts}
-      onReady={onPlayerReady}
-    />
+    <div className="w-full aspect-video rounded-lg overflow-hidden">
+      <YouTube
+        videoId={videoId}
+        className="w-full h-full rounded-lg"
+        iframeClassName="rounded-2xl w-full h-full shadow-xl border"
+        opts={opts}
+        onReady={onPlayerReady}
+      />
+    </div>
   );
 }

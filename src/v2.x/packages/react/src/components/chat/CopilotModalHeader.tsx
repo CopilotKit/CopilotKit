@@ -30,7 +30,7 @@ export function CopilotModalHeader({
   const resolvedTitle = title ?? fallbackTitle;
 
   const handleClose = useCallback(() => {
-    configuration?.setModalOpen(false);
+    configuration?.setModalOpen?.(false);
   }, [configuration]);
 
   const BoundTitle = renderSlot(titleContent, CopilotModalHeader.Title, {

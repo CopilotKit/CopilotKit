@@ -14,7 +14,7 @@ This component will typically wrap your entire application (or a sub-tree of you
  
 ## Example
  
-You can find more information about self-hosting CopilotKit [here](/guides/self-hosting).
+You can find more information about self-hosting CopilotKit [here](/direct-to-llm/guides/self-hosting).
  
 ```tsx
 import { CopilotKit } from "@copilotkit/react-core";
@@ -46,7 +46,7 @@ Restrict input to specific topics using guardrails.
 </PropertyReference>
 
 <PropertyReference name="runtimeUrl" type="string"  > 
-The endpoint for the Copilot Runtime instance. [Click here for more information](/concepts/copilot-runtime).
+The endpoint for the Copilot Runtime instance. See the Copilot Runtime API documentation.
 </PropertyReference>
 
 <PropertyReference name="transcribeAudioUrl" type="string"  > 
@@ -87,12 +87,32 @@ Custom properties to be sent with the request.
   }
   ```
  
-  Note: The `authorization` property is automatically forwarded to LangGraph agents. See the [LangGraph Agent Authentication Guide](/coagents/shared/guides/langgraph-platform-authentication) for details.
+  Note: The `authorization` property is automatically forwarded to LangGraph agents. See the LangGraph Agent Authentication Guide (see code examples above) for details.
 </PropertyReference>
 
 <PropertyReference name="credentials" type="RequestCredentials"  > 
 Indicates whether the user agent should send or receive cookies from the other domain
   in the case of cross-origin requests.
+ 
+  To enable HTTP-only cookie authentication, set `credentials="include"` and configure
+  CORS on your runtime endpoint:
+ 
+  ```tsx
+  // Frontend (https://myapp.com)
+  <CopilotKit runtimeUrl="https://api.myapp.com/copilotkit" credentials="include">
+    {children}
+  </CopilotKit>
+ 
+  // Backend (https://api.myapp.com)
+  copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    endpoint: "/copilotkit",
+    cors: {
+      origin: "https://myapp.com",
+      credentials: true,
+    },
+  });
+  ```
 </PropertyReference>
 
 <PropertyReference name="showDevConsole" type="boolean"  > 

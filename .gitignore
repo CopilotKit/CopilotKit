@@ -1,5 +1,6 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 .vscode
+.claude/*.local.json
 
 # misc
 .DS_Store
@@ -29,3 +30,6 @@ __pycache__/
 .vercel
 
 docs/next-env.d.ts
+
+# External repos (cloned for development)
+ext-apps/

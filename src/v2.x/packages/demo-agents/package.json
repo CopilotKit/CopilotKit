@@ -1,6 +1,6 @@
 {
   "name": "@copilotkitnext/demo-agents",
-  "version": "0.0.0",
+  "version": "1.51.4-next.2",
   "private": true,
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -17,11 +17,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@ag-ui/client": "0.0.42",
     "openai": "^4.85.1",
     "rxjs": "^7.8.1"
-  },
-  "peerDependencies": {
-    "@ag-ui/client": "0.0.42"
   },
   "devDependencies": {
     "@copilotkitnext/eslint-config": "workspace:*",

@@ -58,6 +58,7 @@ function Chat() {
 
   useConfigureSuggestions({
     instructions: "Suggest follow-up tasks based on the current page content",
+    available: "always",
   });
 
   useAgentContext({ description: "The current Thread ID is:", value: selectedThreadId });
@@ -150,7 +151,7 @@ function Chat() {
         })}
       </div>
       <div style={{ flex: 1, minHeight: 0 }}>
-        <CopilotChat inputProps={{ toolsMenu }} threadId={selectedThreadId} />
+        <CopilotChat input={{ toolsMenu }} threadId={selectedThreadId} />
       </div>
     </div>
   );

@@ -6,6 +6,7 @@ import {
 } from "@ag-ui/client";
 import { EventEncoder } from "@ag-ui/encoder";
 import { CopilotRuntime } from "../runtime";
+import { extractForwardableHeaders } from "./header-utils";
 
 interface RunAgentParameters {
   request: Request;
@@ -39,22 +40,31 @@ export async function handleRunAgent({
     const agent = registeredAgent.clone() as AbstractAgent;
 
     if (agent && "headers" in agent) {
-      const shouldForward = (headerName: string) => {
-        const lower = headerName.toLowerCase();
-        return lower === "authorization" || lower.startsWith("x-");
+      const forwardableHeaders = extractForwardableHeaders(request);
+      agent.headers = {
+        ...agent.headers as Record<string, string>,
+        ...forwardableHeaders
       };
+    }
 
-      const forwardableHeaders: Record<string, string> = {};
-      request.headers.forEach((value, key) => {
-        if (shouldForward(key)) {
-          forwardableHeaders[key] = value;
+    // Parse and validate input BEFORE creating the stream
+    // so we can return a proper error response
+    let input: RunAgentInput;
+    try {
+      const requestBody = await request.json();
+      input = RunAgentInputSchema.parse(requestBody);
+    } catch (error) {
+      console.error("Invalid run request body:", error);
+      return new Response(
+        JSON.stringify({
+          error: "Invalid request body",
+          details: error instanceof Error ? error.message : String(error),
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
         }
-      });
-
-      agent.headers = { 
-        ...agent.headers as Record<string, string>, 
-        ...forwardableHeaders 
-      };
+      );
     }
 
     const stream = new TransformStream();
@@ -62,25 +72,12 @@ export async function handleRunAgent({
     const encoder = new EventEncoder();
     let streamClosed = false;
 
-    // Process the request in the background
+    agent.setMessages(input.messages);
+    agent.setState(input.state);
+    agent.threadId = input.threadId;
+
+    // Process the agent run in the background
     (async () => {
-      let input: RunAgentInput;
-      try {
-        const requestBody = await request.json();
-        input = RunAgentInputSchema.parse(requestBody);
-      } catch {
-        return new Response(
-          JSON.stringify({
-            error: "Invalid request body",
-          }),
-          { status: 400 }
-        );
-      }
-
-      agent.setMessages(input.messages);
-      agent.setState(input.state);
-      agent.threadId = input.threadId;
-
       runtime.runner
         .run({
           threadId: input.threadId,
