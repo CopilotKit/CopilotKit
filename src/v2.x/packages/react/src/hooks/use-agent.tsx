@@ -27,10 +27,7 @@ export function useAgent({ agentId, updates }: UseAgentProps = {}) {
   const { copilotkit } = useCopilotKit();
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
-  const updateFlags = useMemo(
-    () => updates ?? ALL_UPDATES,
-    [JSON.stringify(updates)]
-  );
+  const updateFlags = useMemo(() => updates ?? ALL_UPDATES, [JSON.stringify(updates)]);
 
   const agent: AbstractAgent = useMemo(() => {
     const existing = copilotkit.getAgent(agentId);

@@ -74,7 +74,13 @@ type InspectorAgentEventType =
   | "STATE_DELTA"
   | "MESSAGES_SNAPSHOT"
   | "RAW_EVENT"
-  | "CUSTOM_EVENT";
+  | "CUSTOM_EVENT"
+  | "REASONING_START"
+  | "REASONING_MESSAGE_START"
+  | "REASONING_MESSAGE_CONTENT"
+  | "REASONING_MESSAGE_END"
+  | "REASONING_END"
+  | "REASONING_ENCRYPTED_VALUE";
 
 const AGENT_EVENT_TYPES: readonly InspectorAgentEventType[] = [
   "RUN_STARTED",
@@ -92,15 +98,15 @@ const AGENT_EVENT_TYPES: readonly InspectorAgentEventType[] = [
   "MESSAGES_SNAPSHOT",
   "RAW_EVENT",
   "CUSTOM_EVENT",
+  "REASONING_START",
+  "REASONING_MESSAGE_START",
+  "REASONING_MESSAGE_CONTENT",
+  "REASONING_MESSAGE_END",
+  "REASONING_END",
+  "REASONING_ENCRYPTED_VALUE",
 ] as const;
 
-type SanitizedValue =
-  | string
-  | number
-  | boolean
-  | null
-  | SanitizedValue[]
-  | { [key: string]: SanitizedValue };
+type SanitizedValue = string | number | boolean | null | SanitizedValue[] | { [key: string]: SanitizedValue };
 
 type InspectorToolCall = {
   id?: string;
@@ -439,6 +445,24 @@ export class WebInspectorElement extends LitElement {
       onCustomEvent: ({ event }) => {
         this.recordAgentEvent(agentId, "CUSTOM_EVENT", event);
       },
+      onReasoningStartEvent: ({ event }) => {
+        this.recordAgentEvent(agentId, "REASONING_START", event);
+      },
+      onReasoningMessageStartEvent: ({ event }) => {
+        this.recordAgentEvent(agentId, "REASONING_MESSAGE_START", event);
+      },
+      onReasoningMessageContentEvent: ({ event, reasoningMessageBuffer }) => {
+        this.recordAgentEvent(agentId, "REASONING_MESSAGE_CONTENT", { event, reasoningMessageBuffer });
+      },
+      onReasoningMessageEndEvent: ({ event, reasoningMessageBuffer }) => {
+        this.recordAgentEvent(agentId, "REASONING_MESSAGE_END", { event, reasoningMessageBuffer });
+      },
+      onReasoningEndEvent: ({ event }) => {
+        this.recordAgentEvent(agentId, "REASONING_END", event);
+      },
+      onReasoningEncryptedValueEvent: ({ event }) => {
+        this.recordAgentEvent(agentId, "REASONING_ENCRYPTED_VALUE", event);
+      },
     };
 
     const { unsubscribe } = agent.subscribe(subscriber);
@@ -616,7 +640,9 @@ export class WebInspectorElement extends LitElement {
     }
 
     // Check most recent run-related event
-    const runEvent = events.find((e) => e.type === "RUN_STARTED" || e.type === "RUN_FINISHED" || e.type === "RUN_ERROR");
+    const runEvent = events.find(
+      (e) => e.type === "RUN_STARTED" || e.type === "RUN_FINISHED" || e.type === "RUN_ERROR",
+    );
 
     if (!runEvent) {
       return "idle";
@@ -628,16 +654,20 @@ export class WebInspectorElement extends LitElement {
 
     if (runEvent.type === "RUN_STARTED") {
       // Check if there's a RUN_FINISHED after this
-      const finishedAfter = events.find(
-        (e) => e.type === "RUN_FINISHED" && e.timestamp > runEvent.timestamp
-      );
+      const finishedAfter = events.find((e) => e.type === "RUN_FINISHED" && e.timestamp > runEvent.timestamp);
       return finishedAfter ? "idle" : "running";
     }
 
     return "idle";
   }
 
-  private getAgentStats(agentId: string): { totalEvents: number; lastActivity: number | null; messages: number; toolCalls: number; errors: number } {
+  private getAgentStats(agentId: string): {
+    totalEvents: number;
+    lastActivity: number | null;
+    messages: number;
+    toolCalls: number;
+    errors: number;
+  } {
     const events = this.agentEvents.get(agentId) ?? [];
 
     const messages = this.agentMessages.get(agentId);
@@ -675,7 +705,9 @@ export class WebInspectorElement extends LitElement {
                 <span class="text-[10px] text-gray-500">ID: ${callId}</span>
               </div>
               ${argsString
-                ? html`<pre class="mt-2 overflow-auto rounded bg-white p-2 text-[11px] leading-relaxed text-gray-800">${argsString}</pre>`
+                ? html`<pre class="mt-2 overflow-auto rounded bg-white p-2 text-[11px] leading-relaxed text-gray-800">
+${argsString}</pre
+                  >`
                 : nothing}
             </div>
           `;
@@ -685,11 +717,11 @@ export class WebInspectorElement extends LitElement {
   }
 
   private formatToolCallArguments(args: unknown): string | null {
-    if (args === undefined || args === null || args === '') {
+    if (args === undefined || args === null || args === "") {
       return null;
     }
 
-    if (typeof args === 'string') {
+    if (typeof args === "string") {
       try {
         const parsed = JSON.parse(args);
         return JSON.stringify(parsed, null, 2);
@@ -698,7 +730,7 @@ export class WebInspectorElement extends LitElement {
       }
     }
 
-    if (typeof args === 'object') {
+    if (typeof args === "object") {
       try {
         return JSON.stringify(args, null, 2);
       } catch {
@@ -718,13 +750,13 @@ export class WebInspectorElement extends LitElement {
       return state.length > 0;
     }
 
-    if (typeof state === 'object') {
+    if (typeof state === "object") {
       return Object.keys(state as Record<string, unknown>).length > 0;
     }
 
-    if (typeof state === 'string') {
+    if (typeof state === "string") {
       const trimmed = state.trim();
-      return trimmed.length > 0 && trimmed !== '{}';
+      return trimmed.length > 0 && trimmed !== "{}";
     }
 
     return true;
@@ -732,13 +764,13 @@ export class WebInspectorElement extends LitElement {
 
   private formatStateForDisplay(state: unknown): string {
     if (state === null || state === undefined) {
-      return '';
+      return "";
     }
 
-    if (typeof state === 'string') {
+    if (typeof state === "string") {
       const trimmed = state.trim();
       if (trimmed.length === 0) {
-        return '';
+        return "";
       }
       try {
         const parsed = JSON.parse(trimmed);
@@ -748,7 +780,7 @@ export class WebInspectorElement extends LitElement {
       }
     }
 
-    if (typeof state === 'object') {
+    if (typeof state === "object") {
       try {
         return JSON.stringify(state, null, 2);
       } catch {
@@ -772,6 +804,10 @@ export class WebInspectorElement extends LitElement {
 
     if (type.startsWith("TOOL_CALL")) {
       return `${base} bg-amber-50 text-amber-700 border-amber-200`;
+    }
+
+    if (type.startsWith("REASONING")) {
+      return `${base} bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200`;
     }
 
     if (type.startsWith("STATE")) {
@@ -856,7 +892,9 @@ export class WebInspectorElement extends LitElement {
       }
 
       .inspector-window[data-transitioning="true"] {
-        transition: width 300ms ease, height 300ms ease;
+        transition:
+          width 300ms ease,
+          height 300ms ease;
       }
 
       .inspector-window[data-docked="true"] {
@@ -901,7 +939,9 @@ export class WebInspectorElement extends LitElement {
         box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
         opacity: 0;
         pointer-events: none;
-        transition: opacity 120ms ease, transform 120ms ease;
+        transition:
+          opacity 120ms ease,
+          transform 120ms ease;
         z-index: 4000;
       }
 
@@ -973,7 +1013,9 @@ export class WebInspectorElement extends LitElement {
         border-radius: 8px;
         border: 1px solid rgba(148, 163, 184, 0.5);
         background: rgba(248, 250, 252, 0.9);
-        transition: background 120ms ease, color 120ms ease;
+        transition:
+          background 120ms ease,
+          color 120ms ease;
       }
 
       .announcement-dismiss:hover {
@@ -1073,13 +1115,13 @@ export class WebInspectorElement extends LitElement {
     this.hydrateStateFromStorage();
 
     // Apply docking styles if open and docked (skip transition on initial load)
-    if (this.isOpen && this.dockMode !== 'floating') {
+    if (this.isOpen && this.dockMode !== "floating") {
       this.applyDockStyles(true);
     }
 
     this.applyAnchorPosition("button");
 
-    if (this.dockMode === 'floating') {
+    if (this.dockMode === "floating") {
       if (this.hasCustomPosition.window) {
         this.applyAnchorPosition("window");
       } else {
@@ -1151,8 +1193,8 @@ export class WebInspectorElement extends LitElement {
 
   private renderWindow() {
     const windowState = this.contextState.window;
-    const isDocked = this.dockMode !== 'floating';
-    const isTransitioning = this.hasAttribute('data-transitioning');
+    const isDocked = this.dockMode !== "floating";
+    const isTransitioning = this.hasAttribute("data-transitioning");
 
     const windowStyles = isDocked
       ? this.getDockedWindowStyles()
@@ -1169,7 +1211,9 @@ export class WebInspectorElement extends LitElement {
     const agentSelector = hasContextDropdown
       ? contextDropdown
       : html`
-          <div class="flex items-center gap-2 rounded-md border border-dashed border-gray-200 px-2 py-1 text-xs text-gray-400">
+          <div
+            class="flex items-center gap-2 rounded-md border border-dashed border-gray-200 px-2 py-1 text-xs text-gray-400"
+          >
             <span>${this.renderIcon("Bot")}</span>
             <span class="truncate">No agents available</span>
           </div>
@@ -1197,7 +1241,11 @@ export class WebInspectorElement extends LitElement {
           : nothing}
         <div class="flex flex-1 flex-col overflow-hidden bg-white text-gray-800">
           <div
-            class="drag-handle relative z-30 flex flex-col border-b border-gray-200 bg-white/95 backdrop-blur-sm ${isDocked ? '' : (this.isDragging && this.pointerContext === 'window' ? 'cursor-grabbing' : 'cursor-grab')}"
+            class="drag-handle relative z-30 flex flex-col border-b border-gray-200 bg-white/95 backdrop-blur-sm ${isDocked
+              ? ""
+              : this.isDragging && this.pointerContext === "window"
+                ? "cursor-grabbing"
+                : "cursor-grab"}"
             data-drag-context="window"
             @pointerdown=${isDocked ? undefined : this.handlePointerDown}
             @pointermove=${isDocked ? undefined : this.handlePointerMove}
@@ -1209,9 +1257,7 @@ export class WebInspectorElement extends LitElement {
                 <img src=${inspectorLogoUrl} alt="Inspector logo" class="h-6 w-auto" loading="lazy" />
               </div>
               <div class="ml-auto flex min-w-0 items-center gap-2">
-                <div class="min-w-[160px] max-w-xs">
-                  ${agentSelector}
-                </div>
+                <div class="min-w-[160px] max-w-xs">${agentSelector}</div>
                 <div class="flex items-center gap-1">
                   ${this.renderDockControls()}
                   <button
@@ -1231,7 +1277,9 @@ export class WebInspectorElement extends LitElement {
                 const isSelected = this.selectedMenu === key;
                 const tabClasses = [
                   "inline-flex items-center gap-2 rounded-md px-3 py-2 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300",
-                  isSelected ? "bg-gray-900 text-white shadow-sm" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+                  isSelected
+                    ? "bg-gray-900 text-white shadow-sm"
+                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
                 ].join(" ");
 
                 return html`
@@ -1241,36 +1289,32 @@ export class WebInspectorElement extends LitElement {
                     aria-pressed=${isSelected}
                     @click=${() => this.handleMenuSelect(key)}
                   >
-                    <span class="text-gray-400 ${isSelected ? 'text-white' : ''}">
-                      ${this.renderIcon(icon)}
-                    </span>
+                    <span class="text-gray-400 ${isSelected ? "text-white" : ""}"> ${this.renderIcon(icon)} </span>
                     <span>${label}</span>
                   </button>
                 `;
               })}
             </div>
           </div>
-            <div class="flex flex-1 flex-col overflow-hidden">
-              <div class="flex-1 overflow-auto">
-                ${this.renderAnnouncementPanel()}
-                ${this.renderCoreWarningBanner()}
-                ${this.renderMainContent()}
-                <slot></slot>
-              </div>
-              <div class="border-t border-gray-200 bg-gray-50 px-4 py-2">
-                <div
-                  class="flex items-center gap-2 rounded-md px-3 py-2 text-xs ${coreStatus.tone} w-full overflow-hidden my-1"
-                  title=${coreStatus.description}
-                >
-                  <span class="flex h-6 w-6 items-center justify-center rounded bg-white/60">
-                    ${this.renderIcon("Activity")}
-                  </span>
-                  <span class="font-medium">${coreStatus.label}</span>
-                  <span class="truncate text-[11px] opacity-80">${coreStatus.description}</span>
-                </div>
+          <div class="flex flex-1 flex-col overflow-hidden">
+            <div class="flex-1 overflow-auto">
+              ${this.renderAnnouncementPanel()} ${this.renderCoreWarningBanner()} ${this.renderMainContent()}
+              <slot></slot>
+            </div>
+            <div class="border-t border-gray-200 bg-gray-50 px-4 py-2">
+              <div
+                class="flex items-center gap-2 rounded-md px-3 py-2 text-xs ${coreStatus.tone} w-full overflow-hidden my-1"
+                title=${coreStatus.description}
+              >
+                <span class="flex h-6 w-6 items-center justify-center rounded bg-white/60">
+                  ${this.renderIcon("Activity")}
+                </span>
+                <span class="font-medium">${coreStatus.label}</span>
+                <span class="truncate text-[11px] opacity-80">${coreStatus.description}</span>
               </div>
             </div>
           </div>
+        </div>
         <div
           class="resize-handle pointer-events-auto absolute bottom-1 right-1 flex h-5 w-5 cursor-nwse-resize items-center justify-center text-gray-400 transition hover:text-gray-600"
           role="presentation"
@@ -1388,7 +1432,7 @@ export class WebInspectorElement extends LitElement {
 
   private handlePointerDown = (event: PointerEvent) => {
     // Don't allow dragging when docked
-    if (this.dockMode !== 'floating' && this.isOpen) {
+    if (this.dockMode !== "floating" && this.isOpen) {
       return;
     }
 
@@ -1529,8 +1573,8 @@ export class WebInspectorElement extends LitElement {
     this.resizeInitialSize = { ...this.contextState.window.size };
 
     // Remove transition from body during resize to prevent lag
-    if (document.body && this.dockMode !== 'floating') {
-      document.body.style.transition = '';
+    if (document.body && this.dockMode !== "floating") {
+      document.body.style.transition = "";
     }
 
     const target = event.currentTarget as HTMLElement | null;
@@ -1549,7 +1593,7 @@ export class WebInspectorElement extends LitElement {
     const state = this.contextState.window;
 
     // For docked states, only resize in the appropriate dimension
-    if (this.dockMode === 'docked-left') {
+    if (this.dockMode === "docked-left") {
       // Only resize width for left dock
       state.size = this.clampWindowSize({
         width: this.resizeInitialSize.width + deltaX,
@@ -1584,7 +1628,7 @@ export class WebInspectorElement extends LitElement {
     }
 
     // Only update anchor position for floating mode
-    if (this.dockMode === 'floating') {
+    if (this.dockMode === "floating") {
       this.updateAnchorFromPosition("window");
       this.applyAnchorPosition("window");
     }
@@ -1605,7 +1649,7 @@ export class WebInspectorElement extends LitElement {
     }
 
     // Only update anchor position for floating mode
-    if (this.dockMode === 'floating') {
+    if (this.dockMode === "floating") {
       this.updateAnchorFromPosition("window");
       this.applyAnchorPosition("window");
     }
@@ -1725,7 +1769,7 @@ export class WebInspectorElement extends LitElement {
 
   private clampWindowSize(size: Size): Size {
     // Use smaller minimum width when docked left
-    const minWidth = this.dockMode === 'docked-left' ? MIN_WINDOW_WIDTH_DOCKED_LEFT : MIN_WINDOW_WIDTH;
+    const minWidth = this.dockMode === "docked-left" ? MIN_WINDOW_WIDTH_DOCKED_LEFT : MIN_WINDOW_WIDTH;
 
     if (typeof window === "undefined") {
       return {
@@ -1751,9 +1795,9 @@ export class WebInspectorElement extends LitElement {
 
     this.dockMode = mode;
 
-    if (mode !== 'floating') {
+    if (mode !== "floating") {
       // For docking, set the target size immediately so body margins are correct
-      if (mode === 'docked-left') {
+      if (mode === "docked-left") {
         this.contextState.window.size.width = DOCKED_LEFT_WIDTH;
       }
 
@@ -1762,29 +1806,29 @@ export class WebInspectorElement extends LitElement {
     } else {
       // When floating, set size first then center
       this.contextState.window.size = { ...DEFAULT_WINDOW_SIZE };
-      this.centerContext('window');
+      this.centerContext("window");
     }
 
     this.persistState();
     this.requestUpdate();
-    this.updateHostTransform('window');
+    this.updateHostTransform("window");
   }
 
   private startHostTransition(duration = 300): void {
-    this.setAttribute('data-transitioning', 'true');
+    this.setAttribute("data-transitioning", "true");
 
     if (this.transitionTimeoutId !== null) {
       clearTimeout(this.transitionTimeoutId);
     }
 
     this.transitionTimeoutId = setTimeout(() => {
-      this.removeAttribute('data-transitioning');
+      this.removeAttribute("data-transitioning");
       this.transitionTimeoutId = null;
     }, duration);
   }
 
   private applyDockStyles(skipTransition = false): void {
-    if (typeof document === 'undefined' || !document.body) {
+    if (typeof document === "undefined" || !document.body) {
       return;
     }
 
@@ -1797,11 +1841,11 @@ export class WebInspectorElement extends LitElement {
 
     // Apply transition to body for smooth animation (only when docking, not during resize or initial load)
     if (!this.isResizing && !skipTransition) {
-      document.body.style.transition = 'margin 300ms ease';
+      document.body.style.transition = "margin 300ms ease";
     }
 
     // Apply body margins with the actual window sizes
-    if (this.dockMode === 'docked-left') {
+    if (this.dockMode === "docked-left") {
       document.body.style.marginLeft = `${this.contextState.window.size.width}px`;
     }
 
@@ -1809,20 +1853,20 @@ export class WebInspectorElement extends LitElement {
     if (!this.isResizing && !skipTransition) {
       setTimeout(() => {
         if (document.body) {
-          document.body.style.transition = '';
+          document.body.style.transition = "";
         }
       }, 300);
     }
   }
 
   private removeDockStyles(): void {
-    if (typeof document === 'undefined' || !document.body) {
+    if (typeof document === "undefined" || !document.body) {
       return;
     }
 
     // Only add transition if not resizing
     if (!this.isResizing) {
-      document.body.style.transition = 'margin 300ms ease';
+      document.body.style.transition = "margin 300ms ease";
     }
 
     // Restore original margins if saved
@@ -1832,14 +1876,14 @@ export class WebInspectorElement extends LitElement {
       this.previousBodyMargins = null;
     } else {
       // Reset to default if no previous values
-      document.body.style.marginLeft = '';
-      document.body.style.marginBottom = '';
+      document.body.style.marginLeft = "";
+      document.body.style.marginBottom = "";
     }
 
     // Clean up transition after animation completes
     setTimeout(() => {
       if (document.body) {
-        document.body.style.transition = '';
+        document.body.style.transition = "";
       }
     }, 300);
   }
@@ -1850,7 +1894,7 @@ export class WebInspectorElement extends LitElement {
     }
 
     // For docked states, CSS handles positioning with fixed positioning
-    if (this.isOpen && this.dockMode === 'docked-left') {
+    if (this.isOpen && this.dockMode === "docked-left") {
       this.style.transform = `translate3d(0, 0, 0)`;
     } else {
       const { position } = this.contextState[context];
@@ -1885,8 +1929,8 @@ export class WebInspectorElement extends LitElement {
     const centerX = state.position.x + state.size.width / 2;
     const centerY = state.position.y + state.size.height / 2;
 
-    const horizontal: Anchor['horizontal'] = centerX < viewport.width / 2 ? 'left' : 'right';
-    const vertical: Anchor['vertical'] = centerY < viewport.height / 2 ? 'top' : 'bottom';
+    const horizontal: Anchor["horizontal"] = centerX < viewport.width / 2 ? "left" : "right";
+    const vertical: Anchor["vertical"] = centerY < viewport.height / 2 ? "top" : "bottom";
 
     // Set anchor to nearest corner
     state.anchor = { horizontal, vertical };
@@ -1896,7 +1940,7 @@ export class WebInspectorElement extends LitElement {
 
     // Apply the anchor position to snap to corner
     this.startHostTransition();
-    this.applyAnchorPosition('button');
+    this.applyAnchorPosition("button");
   }
 
   private applyAnchorPosition(context: ContextKey): void {
@@ -1937,7 +1981,7 @@ export class WebInspectorElement extends LitElement {
     this.persistState(); // Save the open state
 
     // Apply docking styles if in docked mode
-    if (this.dockMode !== 'floating') {
+    if (this.dockMode !== "floating") {
       this.applyDockStyles();
     }
 
@@ -1945,7 +1989,7 @@ export class WebInspectorElement extends LitElement {
     this.requestUpdate();
     void this.updateComplete.then(() => {
       this.measureContext("window");
-      if (this.dockMode === 'floating') {
+      if (this.dockMode === "floating") {
         if (this.hasCustomPosition.window) {
           this.applyAnchorPosition("window");
         } else {
@@ -1955,7 +1999,6 @@ export class WebInspectorElement extends LitElement {
         // Update transform for docked position
         this.updateHostTransform("window");
       }
-
     });
   }
 
@@ -1967,7 +2010,7 @@ export class WebInspectorElement extends LitElement {
     this.isOpen = false;
 
     // Remove docking styles when closing
-    if (this.dockMode !== 'floating') {
+    if (this.dockMode !== "floating") {
       this.removeDockStyles();
     }
 
@@ -2005,7 +2048,7 @@ export class WebInspectorElement extends LitElement {
   }
 
   private renderDockControls() {
-    if (this.dockMode === 'floating') {
+    if (this.dockMode === "floating") {
       // Show dock left button
       return html`
         <button
@@ -2013,7 +2056,7 @@ export class WebInspectorElement extends LitElement {
           type="button"
           aria-label="Dock to left"
           title="Dock Left"
-          @click=${() => this.handleDockClick('docked-left')}
+          @click=${() => this.handleDockClick("docked-left")}
         >
           ${this.renderIcon("PanelLeft")}
         </button>
@@ -2026,7 +2069,7 @@ export class WebInspectorElement extends LitElement {
           type="button"
           aria-label="Float window"
           title="Float"
-          @click=${() => this.handleDockClick('floating')}
+          @click=${() => this.handleDockClick("floating")}
         >
           ${this.renderIcon("Maximize2")}
         </button>
@@ -2035,16 +2078,16 @@ export class WebInspectorElement extends LitElement {
   }
 
   private getDockedWindowStyles(): Record<string, string> {
-    if (this.dockMode === 'docked-left') {
+    if (this.dockMode === "docked-left") {
       return {
-        position: 'fixed',
-        top: '0',
-        left: '0',
-        bottom: '0',
+        position: "fixed",
+        top: "0",
+        left: "0",
+        bottom: "0",
         width: `${Math.round(this.contextState.window.size.width)}px`,
-        height: '100vh',
+        height: "100vh",
         minWidth: `${MIN_WINDOW_WIDTH_DOCKED_LEFT}px`,
-        borderRadius: '0',
+        borderRadius: "0",
       };
     }
     // Default to floating styles
@@ -2164,7 +2207,8 @@ export class WebInspectorElement extends LitElement {
         }
         const call = entry as Record<string, unknown>;
         const fn = call.function as Record<string, unknown> | undefined;
-        const functionName = typeof fn?.name === "string" ? fn.name : typeof call.toolName === "string" ? call.toolName : undefined;
+        const functionName =
+          typeof fn?.name === "string" ? fn.name : typeof call.toolName === "string" ? call.toolName : undefined;
         const args = fn && "arguments" in fn ? (fn as Record<string, unknown>).arguments : call.arguments;
 
         const normalized: InspectorToolCall = {
@@ -2240,9 +2284,7 @@ export class WebInspectorElement extends LitElement {
     return normalized;
   }
 
-  private contextOptions: Array<{ key: string; label: string }> = [
-    { key: "all-agents", label: "All Agents" },
-  ];
+  private contextOptions: Array<{ key: string; label: string }> = [{ key: "all-agents", label: "All Agents" }];
 
   private selectedContext = "all-agents";
   private expandedRows: Set<string> = new Set();
@@ -2262,7 +2304,9 @@ export class WebInspectorElement extends LitElement {
     }
 
     return html`
-      <div class="mx-4 my-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+      <div
+        class="mx-4 my-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+      >
         <span class="mt-0.5 shrink-0 text-amber-600">${this.renderIcon("AlertTriangle")}</span>
         <div class="space-y-1">
           <div class="font-semibold text-amber-900">CopilotKit core not attached</div>
@@ -2361,9 +2405,7 @@ export class WebInspectorElement extends LitElement {
       return html`
         <div class="flex h-full items-center justify-center px-4 py-8 text-center">
           <div class="max-w-md space-y-3">
-            <div class="flex justify-center text-gray-300 [&>svg]:!h-8 [&>svg]:!w-8">
-              ${this.renderIcon("Filter")}
-            </div>
+            <div class="flex justify-center text-gray-300 [&>svg]:!h-8 [&>svg]:!w-8">${this.renderIcon("Filter")}</div>
             <p class="text-sm text-gray-600">No events match the current filters.</p>
             <div>
               <button
@@ -2400,8 +2442,7 @@ export class WebInspectorElement extends LitElement {
             >
               <option value="all">All event types</option>
               ${AGENT_EVENT_TYPES.map(
-                (type) =>
-                  html`<option value=${type}>${type.toLowerCase().replace(/_/g, " ")}</option>`,
+                (type) => html`<option value=${type}>${type.toLowerCase().replace(/_/g, " ")}</option>`,
               )}
             </select>
             <div class="flex items-center gap-1 text-[11px]">
@@ -2441,19 +2482,16 @@ export class WebInspectorElement extends LitElement {
             </div>
           </div>
           <div class="text-[11px] text-gray-500">
-            Showing ${filteredEvents.length} of ${events.length}${this.selectedContext === "all-agents" ? "" : ` for ${selectedLabel}`}
+            Showing ${filteredEvents.length} of
+            ${events.length}${this.selectedContext === "all-agents" ? "" : ` for ${selectedLabel}`}
           </div>
         </div>
         <div class="relative h-full w-full overflow-y-auto overflow-x-hidden">
           <table class="w-full table-fixed border-collapse text-xs box-border">
             <thead class="sticky top-0 z-10">
               <tr class="bg-white">
-                <th class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900">
-                  Agent
-                </th>
-                <th class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900">
-                  Time
-                </th>
+                <th class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900">Agent</th>
+                <th class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900">Time</th>
                 <th class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900">
                   Event Type
                 </th>
@@ -2487,17 +2525,23 @@ export class WebInspectorElement extends LitElement {
                     <td class="border-r border-b border-gray-200 px-3 py-2">
                       <span class=${badgeClasses}>${event.type}</span>
                     </td>
-                    <td class="border-r border-b border-gray-200 px-3 py-2 font-mono text-[10px] text-gray-600 ${isExpanded ? '' : 'truncate max-w-xs'}">
+                    <td
+                      class="border-r border-b border-gray-200 px-3 py-2 font-mono text-[10px] text-gray-600 ${isExpanded
+                        ? ""
+                        : "truncate max-w-xs"}"
+                    >
                       ${isExpanded
                         ? html`
                             <div class="group relative">
-                              <pre class="m-0 whitespace-pre-wrap break-words text-[10px] font-mono text-gray-600">${prettyEvent}</pre>
+                              <pre class="m-0 whitespace-pre-wrap break-words text-[10px] font-mono text-gray-600">
+${prettyEvent}</pre
+                              >
                               <button
-                                class="absolute right-0 top-0 cursor-pointer rounded px-2 py-1 text-[10px] opacity-0 transition group-hover:opacity-100 ${
-                                  this.copiedEvents.has(event.id)
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
-                                }"
+                                class="absolute right-0 top-0 cursor-pointer rounded px-2 py-1 text-[10px] opacity-0 transition group-hover:opacity-100 ${this.copiedEvents.has(
+                                  event.id,
+                                )
+                                  ? "bg-green-100 text-green-700"
+                                  : "bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900"}"
                                 @click=${(e: Event) => {
                                   e.stopPropagation();
                                   this.copyToClipboard(prettyEvent, event.id);
@@ -2611,14 +2655,26 @@ export class WebInspectorElement extends LitElement {
               </div>
               <div>
                 <h3 class="font-semibold text-sm text-gray-900">${agentId}</h3>
-                <span class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[status]} relative -translate-y-[2px]">
-                  <span class="h-1.5 w-1.5 rounded-full ${status === 'running' ? 'bg-emerald-500 animate-pulse' : status === 'error' ? 'bg-rose-500' : 'bg-gray-400'}"></span>
+                <span
+                  class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[
+                    status
+                  ]} relative -translate-y-[2px]"
+                >
+                  <span
+                    class="h-1.5 w-1.5 rounded-full ${status === "running"
+                      ? "bg-emerald-500 animate-pulse"
+                      : status === "error"
+                        ? "bg-rose-500"
+                        : "bg-gray-400"}"
+                  ></span>
                   ${status.charAt(0).toUpperCase() + status.slice(1)}
                 </span>
               </div>
             </div>
             ${stats.lastActivity
-              ? html`<span class="text-xs text-gray-500">Last activity: ${new Date(stats.lastActivity).toLocaleTimeString()}</span>`
+              ? html`<span class="text-xs text-gray-500"
+                  >Last activity: ${new Date(stats.lastActivity).toLocaleTimeString()}</span
+                >`
               : nothing}
           </div>
           <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -2654,7 +2710,9 @@ export class WebInspectorElement extends LitElement {
           <div class="overflow-auto p-4">
             ${this.hasRenderableState(state)
               ? html`
-                  <pre class="overflow-auto rounded-md bg-gray-50 p-3 text-xs text-gray-800 max-h-64"><code>${this.formatStateForDisplay(state)}</code></pre>
+                  <pre
+                    class="overflow-auto rounded-md bg-gray-50 p-3 text-xs text-gray-800 max-h-64"
+                  ><code>${this.formatStateForDisplay(state)}</code></pre>
                 `
               : html`
                   <div class="flex h-40 items-center justify-center text-xs text-gray-500">
@@ -2701,15 +2759,20 @@ export class WebInspectorElement extends LitElement {
                         return html`
                           <tr>
                             <td class="px-4 py-2 align-top">
-                              <span class="inline-flex rounded px-2 py-0.5 text-[10px] font-medium ${roleColors[role] || roleColors.unknown}">
+                              <span
+                                class="inline-flex rounded px-2 py-0.5 text-[10px] font-medium ${roleColors[role] ||
+                                roleColors.unknown}"
+                              >
                                 ${role}
                               </span>
                             </td>
                             <td class="px-4 py-2">
                               ${hasContent
-                                ? html`<div class="max-w-2xl whitespace-pre-wrap break-words text-gray-700">${rawContent}</div>`
+                                ? html`<div class="max-w-2xl whitespace-pre-wrap break-words text-gray-700">
+                                    ${rawContent}
+                                  </div>`
                                 : html`<div class="text-xs italic text-gray-400">${contentFallback}</div>`}
-                              ${role === 'assistant' && toolCalls.length > 0
+                              ${role === "assistant" && toolCalls.length > 0
                                 ? this.renderToolCallDetails(toolCalls)
                                 : nothing}
                             </td>
@@ -2735,9 +2798,10 @@ export class WebInspectorElement extends LitElement {
 
   private renderContextDropdown() {
     // Filter out "all-agents" when in agents view
-    const filteredOptions = this.selectedMenu === "agents"
-      ? this.contextOptions.filter((opt) => opt.key !== "all-agents")
-      : this.contextOptions;
+    const filteredOptions =
+      this.selectedMenu === "agents"
+        ? this.contextOptions.filter((opt) => opt.key !== "all-agents")
+        : this.contextOptions;
 
     const selectedLabel = filteredOptions.find((opt) => opt.key === this.selectedContext)?.label ?? "";
 
@@ -2765,7 +2829,12 @@ export class WebInspectorElement extends LitElement {
                       data-context-dropdown-root="true"
                       @click=${() => this.handleContextOptionSelect(option.key)}
                     >
-                      <span class="truncate ${option.key === this.selectedContext ? 'text-gray-900 font-medium' : 'text-gray-600'}">${option.label}</span>
+                      <span
+                        class="truncate ${option.key === this.selectedContext
+                          ? "text-gray-900 font-medium"
+                          : "text-gray-600"}"
+                        >${option.label}</span
+                      >
                       ${option.key === this.selectedContext
                         ? html`<span class="text-gray-500">${this.renderIcon("Check")}</span>`
                         : nothing}
@@ -2843,23 +2912,24 @@ export class WebInspectorElement extends LitElement {
               ${this.renderIcon("Hammer")}
             </div>
             <p class="text-sm text-gray-600">No tools available</p>
-            <p class="mt-2 text-xs text-gray-500">Tools will appear here once agents are configured with tool handlers or renderers.</p>
+            <p class="mt-2 text-xs text-gray-500">
+              Tools will appear here once agents are configured with tool handlers or renderers.
+            </p>
           </div>
         </div>
       `;
     }
 
     // Filter tools by selected agent
-    const filteredTools = this.selectedContext === "all-agents"
-      ? allTools
-      : allTools.filter((tool) => !tool.agentId || tool.agentId === this.selectedContext);
+    const filteredTools =
+      this.selectedContext === "all-agents"
+        ? allTools
+        : allTools.filter((tool) => !tool.agentId || tool.agentId === this.selectedContext);
 
     return html`
       <div class="flex h-full flex-col overflow-hidden">
         <div class="overflow-auto p-4">
-          <div class="space-y-3">
-            ${filteredTools.map(tool => this.renderToolCard(tool))}
-          </div>
+          <div class="space-y-3">${filteredTools.map((tool) => this.renderToolCard(tool))}</div>
         </div>
       </div>
     `;
@@ -2879,7 +2949,7 @@ export class WebInspectorElement extends LitElement {
         name: coreTool.name,
         description: coreTool.description,
         parameters: coreTool.parameters,
-        type: 'handler',
+        type: "handler",
       });
     }
 
@@ -2889,9 +2959,9 @@ export class WebInspectorElement extends LitElement {
 
       // Try to extract tool handlers
       const handlers = (agent as { toolHandlers?: Record<string, unknown> }).toolHandlers;
-      if (handlers && typeof handlers === 'object') {
+      if (handlers && typeof handlers === "object") {
         for (const [toolName, handler] of Object.entries(handlers)) {
-          if (handler && typeof handler === 'object') {
+          if (handler && typeof handler === "object") {
             const handlerObj = handler as Record<string, unknown>;
             tools.push({
               agentId,
@@ -2900,9 +2970,8 @@ export class WebInspectorElement extends LitElement {
                 (typeof handlerObj.description === "string" && handlerObj.description) ||
                 (handlerObj.tool as { description?: string } | undefined)?.description,
               parameters:
-                handlerObj.parameters ??
-                (handlerObj.tool as { parameters?: unknown } | undefined)?.parameters,
-              type: 'handler',
+                handlerObj.parameters ?? (handlerObj.tool as { parameters?: unknown } | undefined)?.parameters,
+              type: "handler",
             });
           }
         }
@@ -2910,11 +2979,11 @@ export class WebInspectorElement extends LitElement {
 
       // Try to extract tool renderers
       const renderers = (agent as { toolRenderers?: Record<string, unknown> }).toolRenderers;
-      if (renderers && typeof renderers === 'object') {
+      if (renderers && typeof renderers === "object") {
         for (const [toolName, renderer] of Object.entries(renderers)) {
           // Don't duplicate if we already have it as a handler
-          if (!tools.some(t => t.agentId === agentId && t.name === toolName)) {
-            if (renderer && typeof renderer === 'object') {
+          if (!tools.some((t) => t.agentId === agentId && t.name === toolName)) {
+            if (renderer && typeof renderer === "object") {
               const rendererObj = renderer as Record<string, unknown>;
               tools.push({
                 agentId,
@@ -2923,9 +2992,8 @@ export class WebInspectorElement extends LitElement {
                   (typeof rendererObj.description === "string" && rendererObj.description) ||
                   (rendererObj.tool as { description?: string } | undefined)?.description,
                 parameters:
-                  rendererObj.parameters ??
-                  (rendererObj.tool as { parameters?: unknown } | undefined)?.parameters,
-                type: 'renderer',
+                  rendererObj.parameters ?? (rendererObj.tool as { parameters?: unknown } | undefined)?.parameters,
+                type: "renderer",
               });
             }
           }
@@ -2960,7 +3028,11 @@ export class WebInspectorElement extends LitElement {
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2 mb-1">
                 <span class="font-mono text-sm font-semibold text-gray-900">${tool.name}</span>
-                <span class="inline-flex items-center rounded-sm border px-1.5 py-0.5 text-[10px] font-medium ${typeColors[tool.type]}">
+                <span
+                  class="inline-flex items-center rounded-sm border px-1.5 py-0.5 text-[10px] font-medium ${typeColors[
+                    tool.type
+                  ]}"
+                >
                   ${tool.type}
                 </span>
               </div>
@@ -2972,15 +3044,13 @@ export class WebInspectorElement extends LitElement {
                 ${schema.properties.length > 0
                   ? html`
                       <span class="text-gray-300">•</span>
-                      <span>${schema.properties.length} parameter${schema.properties.length !== 1 ? 's' : ''}</span>
+                      <span>${schema.properties.length} parameter${schema.properties.length !== 1 ? "s" : ""}</span>
                     `
                   : nothing}
               </div>
-              ${tool.description
-                ? html`<p class="mt-2 text-xs text-gray-600">${tool.description}</p>`
-                : nothing}
+              ${tool.description ? html`<p class="mt-2 text-xs text-gray-600">${tool.description}</p>` : nothing}
             </div>
-            <span class="shrink-0 text-gray-400 transition ${isExpanded ? 'rotate-180' : ''}">
+            <span class="shrink-0 text-gray-400 transition ${isExpanded ? "rotate-180" : ""}">
               ${this.renderIcon("ChevronDown")}
             </span>
           </div>
@@ -2993,44 +3063,62 @@ export class WebInspectorElement extends LitElement {
                   ? html`
                       <h5 class="mb-3 text-xs font-semibold text-gray-700">Parameters</h5>
                       <div class="space-y-3">
-                        ${schema.properties.map(prop => html`
-                          <div class="rounded-md border border-gray-200 bg-white p-3">
-                            <div class="flex items-start justify-between gap-2 mb-1">
-                              <span class="font-mono text-xs font-medium text-gray-900">${prop.name}</span>
-                              <div class="flex items-center gap-1.5 shrink-0">
-                                ${prop.required
-                                  ? html`<span class="text-[9px] rounded border border-rose-200 bg-rose-50 px-1 py-0.5 font-medium text-rose-700">required</span>`
-                                  : html`<span class="text-[9px] rounded border border-gray-200 bg-gray-50 px-1 py-0.5 font-medium text-gray-600">optional</span>`}
-                                ${prop.type
-                                  ? html`<span class="text-[9px] rounded border border-gray-200 bg-gray-50 px-1 py-0.5 font-mono text-gray-600">${prop.type}</span>`
-                                  : nothing}
+                        ${schema.properties.map(
+                          (prop) => html`
+                            <div class="rounded-md border border-gray-200 bg-white p-3">
+                              <div class="flex items-start justify-between gap-2 mb-1">
+                                <span class="font-mono text-xs font-medium text-gray-900">${prop.name}</span>
+                                <div class="flex items-center gap-1.5 shrink-0">
+                                  ${prop.required
+                                    ? html`<span
+                                        class="text-[9px] rounded border border-rose-200 bg-rose-50 px-1 py-0.5 font-medium text-rose-700"
+                                        >required</span
+                                      >`
+                                    : html`<span
+                                        class="text-[9px] rounded border border-gray-200 bg-gray-50 px-1 py-0.5 font-medium text-gray-600"
+                                        >optional</span
+                                      >`}
+                                  ${prop.type
+                                    ? html`<span
+                                        class="text-[9px] rounded border border-gray-200 bg-gray-50 px-1 py-0.5 font-mono text-gray-600"
+                                        >${prop.type}</span
+                                      >`
+                                    : nothing}
+                                </div>
                               </div>
-                            </div>
-                            ${prop.description
-                              ? html`<p class="mt-1 text-xs text-gray-600">${prop.description}</p>`
-                              : nothing}
-                            ${prop.defaultValue !== undefined
-                              ? html`
-                                  <div class="mt-2 flex items-center gap-1.5 text-[10px] text-gray-500">
-                                    <span>Default:</span>
-                                    <code class="rounded bg-gray-100 px-1 py-0.5 font-mono">${JSON.stringify(prop.defaultValue)}</code>
-                                  </div>
-                                `
-                              : nothing}
-                            ${prop.enum && prop.enum.length > 0
-                              ? html`
-                                  <div class="mt-2">
-                                    <span class="text-[10px] text-gray-500">Allowed values:</span>
-                                    <div class="mt-1 flex flex-wrap gap-1">
-                                      ${prop.enum.map(val => html`
-                                        <code class="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-mono text-gray-700">${JSON.stringify(val)}</code>
-                                      `)}
+                              ${prop.description
+                                ? html`<p class="mt-1 text-xs text-gray-600">${prop.description}</p>`
+                                : nothing}
+                              ${prop.defaultValue !== undefined
+                                ? html`
+                                    <div class="mt-2 flex items-center gap-1.5 text-[10px] text-gray-500">
+                                      <span>Default:</span>
+                                      <code class="rounded bg-gray-100 px-1 py-0.5 font-mono"
+                                        >${JSON.stringify(prop.defaultValue)}</code
+                                      >
                                     </div>
-                                  </div>
-                                `
-                              : nothing}
-                          </div>
-                        `)}
+                                  `
+                                : nothing}
+                              ${prop.enum && prop.enum.length > 0
+                                ? html`
+                                    <div class="mt-2">
+                                      <span class="text-[10px] text-gray-500">Allowed values:</span>
+                                      <div class="mt-1 flex flex-wrap gap-1">
+                                        ${prop.enum.map(
+                                          (val) => html`
+                                            <code
+                                              class="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-mono text-gray-700"
+                                              >${JSON.stringify(val)}</code
+                                            >
+                                          `,
+                                        )}
+                                      </div>
+                                    </div>
+                                  `
+                                : nothing}
+                            </div>
+                          `,
+                        )}
                       </div>
                     `
                   : html`
@@ -3066,7 +3154,7 @@ export class WebInspectorElement extends LitElement {
       }>;
     } = { properties: [] };
 
-    if (!parameters || typeof parameters !== 'object') {
+    if (!parameters || typeof parameters !== "object") {
       return result;
     }
 
@@ -3074,7 +3162,7 @@ export class WebInspectorElement extends LitElement {
     const zodDef = (parameters as { _def?: Record<string, unknown> })._def;
     if (zodDef && typeof zodDef === "object") {
       // Handle Zod object schema
-      if (zodDef.typeName === 'ZodObject') {
+      if (zodDef.typeName === "ZodObject") {
         const rawShape = zodDef.shape;
         const shape =
           typeof rawShape === "function"
@@ -3087,7 +3175,7 @@ export class WebInspectorElement extends LitElement {
         const requiredKeys = new Set<string>();
 
         // Get required fields
-        if (zodDef.unknownKeys === 'strict' || !zodDef.catchall) {
+        if (zodDef.unknownKeys === "strict" || !zodDef.catchall) {
           Object.keys(shape || {}).forEach((key) => {
             const candidate = (shape as Record<string, unknown>)[key];
             const fieldDef = (candidate as { _def?: Record<string, unknown> } | undefined)?._def;
@@ -3111,7 +3199,7 @@ export class WebInspectorElement extends LitElement {
         }
       }
     } else if (
-      (parameters as { type?: string; properties?: Record<string, unknown> }).type === 'object' &&
+      (parameters as { type?: string; properties?: Record<string, unknown> }).type === "object" &&
       (parameters as { properties?: Record<string, unknown> }).properties
     ) {
       // Handle JSON Schema format
@@ -3145,7 +3233,7 @@ export class WebInspectorElement extends LitElement {
     const def = schema._def;
 
     // Check if it's explicitly optional or nullable
-    if (def.typeName === 'ZodOptional' || def.typeName === 'ZodNullable') {
+    if (def.typeName === "ZodOptional" || def.typeName === "ZodNullable") {
       return true;
     }
 
@@ -3177,9 +3265,9 @@ export class WebInspectorElement extends LitElement {
     let def = currentSchema._def as Record<string, unknown>;
 
     // Unwrap optional/nullable
-    while (def.typeName === 'ZodOptional' || def.typeName === 'ZodNullable' || def.typeName === 'ZodDefault') {
-      if (def.typeName === 'ZodDefault' && def.defaultValue !== undefined) {
-        info.defaultValue = typeof def.defaultValue === 'function' ? def.defaultValue() : def.defaultValue;
+    while (def.typeName === "ZodOptional" || def.typeName === "ZodNullable" || def.typeName === "ZodDefault") {
+      if (def.typeName === "ZodDefault" && def.defaultValue !== undefined) {
+        info.defaultValue = typeof def.defaultValue === "function" ? def.defaultValue() : def.defaultValue;
       }
       currentSchema = (def.innerType as { _def?: Record<string, unknown> }) ?? currentSchema;
       if (!currentSchema?._def) break;
@@ -3193,23 +3281,23 @@ export class WebInspectorElement extends LitElement {
 
     // Extract type
     const typeMap: Record<string, string> = {
-      ZodString: 'string',
-      ZodNumber: 'number',
-      ZodBoolean: 'boolean',
-      ZodArray: 'array',
-      ZodObject: 'object',
-      ZodEnum: 'enum',
-      ZodLiteral: 'literal',
-      ZodUnion: 'union',
-      ZodAny: 'any',
-      ZodUnknown: 'unknown',
+      ZodString: "string",
+      ZodNumber: "number",
+      ZodBoolean: "boolean",
+      ZodArray: "array",
+      ZodObject: "object",
+      ZodEnum: "enum",
+      ZodLiteral: "literal",
+      ZodUnion: "union",
+      ZodAny: "any",
+      ZodUnknown: "unknown",
     };
-    info.type = typeName ? typeMap[typeName] || typeName.replace('Zod', '').toLowerCase() : undefined;
+    info.type = typeName ? typeMap[typeName] || typeName.replace("Zod", "").toLowerCase() : undefined;
 
     // Extract enum values
-    if (typeName === 'ZodEnum' && Array.isArray(def.values)) {
+    if (typeName === "ZodEnum" && Array.isArray(def.values)) {
       info.enum = def.values as unknown[];
-    } else if (typeName === 'ZodLiteral' && def.value !== undefined) {
+    } else if (typeName === "ZodLiteral" && def.value !== undefined) {
       info.enum = [def.value];
     }
 
@@ -3245,9 +3333,7 @@ export class WebInspectorElement extends LitElement {
     return html`
       <div class="flex h-full flex-col overflow-hidden">
         <div class="overflow-auto p-4">
-          <div class="space-y-3">
-            ${contextEntries.map(([id, context]) => this.renderContextCard(id, context))}
-          </div>
+          <div class="space-y-3">${contextEntries.map(([id, context]) => this.renderContextCard(id, context))}</div>
         </div>
       </div>
     `;
@@ -3279,7 +3365,7 @@ export class WebInspectorElement extends LitElement {
                   : nothing}
               </div>
             </div>
-            <span class="shrink-0 text-gray-400 transition ${isExpanded ? 'rotate-180' : ''}">
+            <span class="shrink-0 text-gray-400 transition ${isExpanded ? "rotate-180" : ""}">
               ${this.renderIcon("ChevronDown")}
             </span>
           </div>
@@ -3290,7 +3376,10 @@ export class WebInspectorElement extends LitElement {
               <div class="border-t border-gray-200 bg-gray-50/50 px-4 py-3">
                 <div class="mb-3">
                   <h5 class="mb-1 text-xs font-semibold text-gray-700">ID</h5>
-                  <code class="block rounded bg-white border border-gray-200 px-2 py-1 text-[10px] font-mono text-gray-600">${id}</code>
+                  <code
+                    class="block rounded bg-white border border-gray-200 px-2 py-1 text-[10px] font-mono text-gray-600"
+                    >${id}</code
+                  >
                 </div>
                 ${hasValue
                   ? html`
@@ -3308,7 +3397,9 @@ export class WebInspectorElement extends LitElement {
                         </button>
                       </div>
                       <div class="rounded-md border border-gray-200 bg-white p-3">
-                        <pre class="overflow-auto text-xs text-gray-800 max-h-96"><code>${this.formatContextValue(context.value)}</code></pre>
+                        <pre class="overflow-auto text-xs text-gray-800 max-h-96"><code>${this.formatContextValue(
+                          context.value,
+                        )}</code></pre>
                       </div>
                     `
                   : html`
@@ -3325,14 +3416,14 @@ export class WebInspectorElement extends LitElement {
 
   private getContextValuePreview(value: unknown): string {
     if (value === undefined || value === null) {
-      return '—';
+      return "—";
     }
 
-    if (typeof value === 'string') {
+    if (typeof value === "string") {
       return value.length > 50 ? `${value.substring(0, 50)}...` : value;
     }
 
-    if (typeof value === 'number' || typeof value === 'boolean') {
+    if (typeof value === "number" || typeof value === "boolean") {
       return String(value);
     }
 
@@ -3340,13 +3431,13 @@ export class WebInspectorElement extends LitElement {
       return `Array(${value.length})`;
     }
 
-    if (typeof value === 'object') {
+    if (typeof value === "object") {
       const keys = Object.keys(value);
-      return `Object with ${keys.length} key${keys.length !== 1 ? 's' : ''}`;
+      return `Object with ${keys.length} key${keys.length !== 1 ? "s" : ""}`;
     }
 
-    if (typeof value === 'function') {
-      return 'Function';
+    if (typeof value === "function") {
+      return "Function";
     }
 
     return String(value);
@@ -3354,14 +3445,14 @@ export class WebInspectorElement extends LitElement {
 
   private formatContextValue(value: unknown): string {
     if (value === undefined) {
-      return 'undefined';
+      return "undefined";
     }
 
     if (value === null) {
-      return 'null';
+      return "null";
     }
 
-    if (typeof value === 'function') {
+    if (typeof value === "function") {
       return value.toString();
     }
 
@@ -3444,7 +3535,9 @@ export class WebInspectorElement extends LitElement {
     }
 
     if (!this.announcementLoaded && !this.announcementMarkdown) {
-      return html`<div class="mx-4 my-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-[0_12px_30px_rgba(15,23,42,0.12)]">
+      return html`<div
+        class="mx-4 my-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-[0_12px_30px_rgba(15,23,42,0.12)]"
+      >
         <div class="flex items-center gap-2 font-semibold">
           <span class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-slate-900 text-white shadow-sm">
             ${this.renderIcon("Megaphone")}
@@ -3455,14 +3548,18 @@ export class WebInspectorElement extends LitElement {
     }
 
     if (this.announcementLoadError) {
-      return html`<div class="mx-4 my-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 shadow-[0_12px_30px_rgba(15,23,42,0.12)]">
+      return html`<div
+        class="mx-4 my-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 shadow-[0_12px_30px_rgba(15,23,42,0.12)]"
+      >
         <div class="flex items-center gap-2 font-semibold">
           <span class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-rose-600 text-white shadow-sm">
             ${this.renderIcon("Megaphone")}
           </span>
           <span>Announcement unavailable</span>
         </div>
-        <p class="mt-2 text-xs text-rose-800">We couldn’t load the latest notice. Please try opening the inspector again.</p>
+        <p class="mt-2 text-xs text-rose-800">
+          We couldn’t load the latest notice. Please try opening the inspector again.
+        </p>
       </div>`;
     }
 
@@ -3474,13 +3571,20 @@ export class WebInspectorElement extends LitElement {
       ? unsafeHTML(this.announcementHtml)
       : html`<pre class="whitespace-pre-wrap text-sm text-gray-900">${this.announcementMarkdown}</pre>`;
 
-    return html`<div class="mx-4 my-3 rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-[0_12px_30px_rgba(15,23,42,0.12)]">
+    return html`<div
+      class="mx-4 my-3 rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-[0_12px_30px_rgba(15,23,42,0.12)]"
+    >
       <div class="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
         <span class="inline-flex h-7 w-7 items-center justify-center rounded-md bg-slate-900 text-white shadow-sm">
           ${this.renderIcon("Megaphone")}
         </span>
         <span>Announcement</span>
-        <button class="announcement-dismiss ml-auto" type="button" @click=${this.handleDismissAnnouncement} aria-label="Dismiss announcement">
+        <button
+          class="announcement-dismiss ml-auto"
+          type="button"
+          @click=${this.handleDismissAnnouncement}
+          aria-label="Dismiss announcement"
+        >
           Dismiss
         </button>
       </div>
@@ -3548,7 +3652,8 @@ export class WebInspectorElement extends LitElement {
       this.announcementTimestamp = timestamp;
       this.announcementPreviewText = previewText ?? "";
       this.announcementMarkdown = markdown;
-      this.hasUnseenAnnouncement = (!storedTimestamp || storedTimestamp !== timestamp) && !!this.announcementPreviewText;
+      this.hasUnseenAnnouncement =
+        (!storedTimestamp || storedTimestamp !== timestamp) && !!this.announcementPreviewText;
       this.showAnnouncementPreview = this.hasUnseenAnnouncement;
       this.announcementHtml = await this.convertMarkdownToHtml(markdown);
       this.announcementLoaded = true;
