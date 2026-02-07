@@ -140,66 +140,65 @@ export function CopilotChat({ agentId, threadId, labels, chatView, ...props }: C
   }, []);
 
   // Handle audio blob from CopilotChatInput and transcribe it
-  const handleFinishTranscribeWithAudio = useCallback(async (audioBlob: Blob) => {
-    setIsTranscribing(true);
-    try {
-      setTranscriptionError(null);
+  const handleFinishTranscribeWithAudio = useCallback(
+    async (audioBlob: Blob) => {
+      setIsTranscribing(true);
+      try {
+        setTranscriptionError(null);
 
-      // Send to transcription endpoint
-      const result = await transcribeAudio(copilotkit, audioBlob);
+        // Send to transcription endpoint
+        const result = await transcribeAudio(copilotkit, audioBlob);
 
-      // Insert transcribed text into input
-      setInputValue((prev) => {
-        const trimmedPrev = prev.trim();
-        if (trimmedPrev) {
-          return `${trimmedPrev} ${result.text}`;
+        // Insert transcribed text into input
+        setInputValue((prev) => {
+          const trimmedPrev = prev.trim();
+          if (trimmedPrev) {
+            return `${trimmedPrev} ${result.text}`;
+          }
+          return result.text;
+        });
+      } catch (error) {
+        console.error("CopilotChat: Transcription failed", error);
+
+        // Show contextual error message based on error type
+        if (error instanceof TranscriptionError) {
+          const { code, retryable, message } = error.info;
+          switch (code) {
+            case TranscriptionErrorCode.RATE_LIMITED:
+              setTranscriptionError("Too many requests. Please wait a moment.");
+              break;
+            case TranscriptionErrorCode.AUTH_FAILED:
+              setTranscriptionError("Authentication error. Please check your configuration.");
+              break;
+            case TranscriptionErrorCode.AUDIO_TOO_LONG:
+              setTranscriptionError("Recording is too long. Please try a shorter recording.");
+              break;
+            case TranscriptionErrorCode.AUDIO_TOO_SHORT:
+              setTranscriptionError("Recording is too short. Please try again.");
+              break;
+            case TranscriptionErrorCode.INVALID_AUDIO_FORMAT:
+              setTranscriptionError("Audio format not supported.");
+              break;
+            case TranscriptionErrorCode.SERVICE_NOT_CONFIGURED:
+              setTranscriptionError("Transcription service is not available.");
+              break;
+            case TranscriptionErrorCode.NETWORK_ERROR:
+              setTranscriptionError("Network error. Please check your connection.");
+              break;
+            default:
+              // For retryable errors, show more helpful message
+              setTranscriptionError(retryable ? "Transcription failed. Please try again." : message);
+          }
+        } else {
+          // Fallback for unexpected errors
+          setTranscriptionError("Transcription failed. Please try again.");
         }
-        return result.text;
-      });
-    } catch (error) {
-      console.error("CopilotChat: Transcription failed", error);
-
-      // Show contextual error message based on error type
-      if (error instanceof TranscriptionError) {
-        const { code, retryable, message } = error.info;
-        switch (code) {
-          case TranscriptionErrorCode.RATE_LIMITED:
-            setTranscriptionError("Too many requests. Please wait a moment.");
-            break;
-          case TranscriptionErrorCode.AUTH_FAILED:
-            setTranscriptionError("Authentication error. Please check your configuration.");
-            break;
-          case TranscriptionErrorCode.AUDIO_TOO_LONG:
-            setTranscriptionError("Recording is too long. Please try a shorter recording.");
-            break;
-          case TranscriptionErrorCode.AUDIO_TOO_SHORT:
-            setTranscriptionError("Recording is too short. Please try again.");
-            break;
-          case TranscriptionErrorCode.INVALID_AUDIO_FORMAT:
-            setTranscriptionError("Audio format not supported.");
-            break;
-          case TranscriptionErrorCode.SERVICE_NOT_CONFIGURED:
-            setTranscriptionError("Transcription service is not available.");
-            break;
-          case TranscriptionErrorCode.NETWORK_ERROR:
-            setTranscriptionError("Network error. Please check your connection.");
-            break;
-          default:
-            // For retryable errors, show more helpful message
-            setTranscriptionError(
-              retryable
-                ? "Transcription failed. Please try again."
-                : message
-            );
-        }
-      } else {
-        // Fallback for unexpected errors
-        setTranscriptionError("Transcription failed. Please try again.");
+      } finally {
+        setIsTranscribing(false);
       }
-    } finally {
-      setIsTranscribing(false);
-    }
-  }, [copilotkit]);
+    },
+    [copilotkit],
+  );
 
   // Clear transcription error after a delay
   useEffect(() => {
@@ -236,9 +235,7 @@ export function CopilotChat({ agentId, threadId, labels, chatView, ...props }: C
   const showTranscription = isTranscriptionEnabled && isMediaRecorderSupported;
 
   // Determine mode: transcribing takes priority, then transcribe mode, then default to input
-  const effectiveMode: CopilotChatInputMode = isTranscribing
-    ? "processing"
-    : transcribeMode;
+  const effectiveMode: CopilotChatInputMode = isTranscribing ? "processing" : transcribeMode;
 
   // Memoize messages array - only create new reference when content actually changes
   // (agent.messages is mutated in place, so we need a new reference for React to detect changes)
@@ -265,11 +262,7 @@ export function CopilotChat({ agentId, threadId, labels, chatView, ...props }: C
   const RenderedChatView = renderSlot(chatView, CopilotChatView, finalProps);
 
   return (
-    <CopilotChatConfigurationProvider
-      agentId={resolvedAgentId}
-      threadId={resolvedThreadId}
-      labels={labels}
-    >
+    <CopilotChatConfigurationProvider agentId={resolvedAgentId} threadId={resolvedThreadId} labels={labels}>
       {transcriptionError && (
         <div
           style={{

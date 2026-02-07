@@ -14,6 +14,7 @@ You can swap out any of the sub-components of any Copilot UI to build up a compl
 | [Input](#input) | The chat input |
 | [Actions](#actions) | Customize how actions (tools) are displayed |
 | [Agent State](#agent-state) | Customize how agent state messages are displayed |
+| [Reasoning Message](#reasoning-message) | Customize how model reasoning/thinking is displayed |
 
 ## UserMessage
 The user message is what displays when the user sends a message to the chat. In this example, we change the color and add an avatar. 
@@ -435,4 +436,59 @@ useCoAgentStateRender<AgentState>({
   },
 });
 ```
+</ImageAndCode>
+
+## Reasoning Message
+Models like OpenAI o1, o3, and o4-mini emit **reasoning tokens** (chain-of-thought traces). CopilotKit renders them automatically in a collapsible card. You can fully replace it or swap individual sub-components (header, content, toggle) via slot props.
+
+For a complete guide, see [Reasoning Messages](/custom-look-and-feel/reasoning-messages).
+
+<ImageAndCode>
+
+```tsx
+import {
+  type CopilotChatReasoningMessageProps,
+} from "@copilotkit/react-ui";
+import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotSidebar } from "@copilotkit/react-ui";
+import "@copilotkit/react-ui/styles.css";
+
+function CustomReasoningMessage({
+  message,
+  messages,
+  isRunning,
+}: CopilotChatReasoningMessageProps) {
+  const isLatest = messages?.[messages.length - 1]?.id === message.id;
+  const isStreaming = !!(isRunning && isLatest);
+
+  if (!message.content && !isStreaming) return null;
+
+  // [!code highlight:8]
+  return (
+    <details open={isStreaming} className="my-2 rounded border p-3">
+      <summary className="cursor-pointer font-medium text-sm">
+        {isStreaming ? "🧠 Thinking…" : "💡 View reasoning"}
+      </summary>
+      <p className="mt-2 text-sm text-gray-600 whitespace-pre-wrap">
+        {message.content}
+      </p>
+    </details>
+  );
+}
+
+<CopilotKit>
+  <CopilotSidebar
+    messageView={{
+      reasoningMessage: CustomReasoningMessage,
+    }}
+  />
+</CopilotKit>
+```
+
+**Key concepts**
+- `message` — The reasoning message object. `message.content` holds the thinking text.
+- `messages` — All messages in the conversation, used to determine if this is the latest message.
+- `isRunning` — Whether the agent is currently running.
+- **Slot props** — Instead of replacing the whole component, you can override just the `header`, `contentView`, or `toggle` sub-components. See the [full guide](/custom-look-and-feel/reasoning-messages).
+
 </ImageAndCode>
