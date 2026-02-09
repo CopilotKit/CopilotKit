@@ -6,30 +6,36 @@ import { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
 
 const EMPTY_DEPS: ReadonlyArray<unknown> = [];
 
+export interface RenderToolInProgressProps<S extends z.ZodTypeAny> {
+  name: string;
+  args: Partial<z.infer<S>>;
+  status: "inProgress";
+  result: undefined;
+}
+
+export interface RenderToolExecutingProps<S extends z.ZodTypeAny> {
+  name: string;
+  args: z.infer<S>;
+  status: "executing";
+  result: undefined;
+}
+
+export interface RenderToolCompleteProps<S extends z.ZodTypeAny> {
+  name: string;
+  args: z.infer<S>;
+  status: "complete";
+  result: string;
+}
+
+export type RenderToolProps<S extends z.ZodTypeAny> =
+  | RenderToolInProgressProps<S>
+  | RenderToolExecutingProps<S>
+  | RenderToolCompleteProps<S>;
+
 type RenderToolConfig<S extends z.ZodTypeAny> = {
   name: string;
   args?: S;
-  render: (
-    props:
-      | {
-          name: string;
-          args: Partial<z.infer<S>>;
-          status: "inProgress";
-          result: undefined;
-        }
-      | {
-          name: string;
-          args: z.infer<S>;
-          status: "executing";
-          result: undefined;
-        }
-      | {
-          name: string;
-          args: z.infer<S>;
-          status: "complete";
-          result: string;
-        },
-  ) => React.ReactElement;
+  render: (props: RenderToolProps<S>) => React.ReactElement;
   agentId?: string;
 };
 
@@ -48,27 +54,7 @@ export function useRenderTool<S extends z.ZodTypeAny>(
   config: {
     name: string;
     args: S;
-    render: (
-      props:
-        | {
-            name: string;
-            args: Partial<z.infer<S>>;
-            status: "inProgress";
-            result: undefined;
-          }
-        | {
-            name: string;
-            args: z.infer<S>;
-            status: "executing";
-            result: undefined;
-          }
-        | {
-            name: string;
-            args: z.infer<S>;
-            status: "complete";
-            result: string;
-          },
-    ) => React.ReactElement;
+    render: (props: RenderToolProps<S>) => React.ReactElement;
     agentId?: string;
   },
   deps?: ReadonlyArray<unknown>,
