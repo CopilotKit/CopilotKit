@@ -32,7 +32,7 @@ function createToolMessage(id: string, toolCallId: string, content: string): Too
 }
 
 describe("useToolCallRenderer", () => {
-  describe("new API: useToolCallRenderer({ messages }) + renderToolCall(toolCall)", () => {
+  describe("new API: const { renderToolCall, renderAllToolCalls } = useToolCallRenderer({ messages })", () => {
     it("automatically finds toolMessage from messages array", () => {
       let capturedStatus: string | null = null;
       let capturedResult: string | undefined = undefined;
@@ -70,7 +70,7 @@ describe("useToolCallRenderer", () => {
 
       // Component that uses the new API
       const TestComponent: React.FC<{ messages: Message[] }> = ({ messages }) => {
-        const renderToolCall = useToolCallRenderer({ messages });
+        const { renderToolCall } = useToolCallRenderer({ messages });
         return <div>{renderToolCall(toolCall)}</div>;
       };
 
@@ -79,7 +79,7 @@ describe("useToolCallRenderer", () => {
           <CopilotChatConfigurationProvider agentId="default" threadId="test">
             <TestComponent messages={messages} />
           </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>
+        </CopilotKitProvider>,
       );
 
       // Should find the toolMessage automatically and render as complete
@@ -117,7 +117,7 @@ describe("useToolCallRenderer", () => {
       ];
 
       const TestComponent: React.FC<{ messages: Message[] }> = ({ messages }) => {
-        const renderToolCall = useToolCallRenderer({ messages });
+        const { renderToolCall } = useToolCallRenderer({ messages });
         return <div>{renderToolCall(toolCall)}</div>;
       };
 
@@ -126,7 +126,7 @@ describe("useToolCallRenderer", () => {
           <CopilotChatConfigurationProvider agentId="default" threadId="test">
             <TestComponent messages={messages} />
           </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>
+        </CopilotKitProvider>,
       );
 
       expect(screen.getByTestId("status").textContent).toBe("inProgress");
@@ -161,7 +161,7 @@ describe("useToolCallRenderer", () => {
 
       // Component that uses the legacy API
       const TestComponent: React.FC = () => {
-        const renderToolCall = useToolCallRenderer(); // No messages
+        const { renderToolCall } = useToolCallRenderer(); // No messages
         return <div>{renderToolCall({ toolCall, toolMessage })}</div>;
       };
 
@@ -170,7 +170,7 @@ describe("useToolCallRenderer", () => {
           <CopilotChatConfigurationProvider agentId="default" threadId="test">
             <TestComponent />
           </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>
+        </CopilotKitProvider>,
       );
 
       expect(screen.getByTestId("status").textContent).toBe("complete");
@@ -196,7 +196,7 @@ describe("useToolCallRenderer", () => {
       const toolCall = createToolCall("tc-1", "process", { input: "test" });
 
       const TestComponent: React.FC = () => {
-        const renderToolCall = useToolCallRenderer();
+        const { renderToolCall } = useToolCallRenderer();
         return <div>{renderToolCall({ toolCall, toolMessage: undefined })}</div>;
       };
 
@@ -205,7 +205,7 @@ describe("useToolCallRenderer", () => {
           <CopilotChatConfigurationProvider agentId="default" threadId="test">
             <TestComponent />
           </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>
+        </CopilotKitProvider>,
       );
 
       expect(screen.getByTestId("status").textContent).toBe("inProgress");
@@ -215,7 +215,7 @@ describe("useToolCallRenderer", () => {
 
   describe("callback stability (ref-based memoization)", () => {
     it("renderToolCall callback stays stable when messages change", () => {
-      const callbackRefs: Array<ReturnType<typeof useToolCallRenderer>> = [];
+      const callbackRefs: Array<ReturnType<typeof useToolCallRenderer>["renderToolCall"]> = [];
 
       const toolCallRenderers = [
         defineToolCallRenderer({
@@ -226,21 +226,19 @@ describe("useToolCallRenderer", () => {
       ] as unknown as ReactToolCallRenderer<unknown>[];
 
       const TestComponent: React.FC<{ messages: Message[] }> = ({ messages }) => {
-        const renderToolCall = useToolCallRenderer({ messages });
+        const { renderToolCall } = useToolCallRenderer({ messages });
         callbackRefs.push(renderToolCall);
         return <div>Callback captured</div>;
       };
 
-      const initialMessages: Message[] = [
-        { id: "msg-1", role: "user", content: "Hello" },
-      ];
+      const initialMessages: Message[] = [{ id: "msg-1", role: "user", content: "Hello" }];
 
       const { rerender } = render(
         <CopilotKitProvider toolCallRenderers={toolCallRenderers}>
           <CopilotChatConfigurationProvider agentId="default" threadId="test">
             <TestComponent messages={initialMessages} />
           </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>
+        </CopilotKitProvider>,
       );
 
       // Add more messages
@@ -254,21 +252,18 @@ describe("useToolCallRenderer", () => {
           <CopilotChatConfigurationProvider agentId="default" threadId="test">
             <TestComponent messages={updatedMessages} />
           </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>
+        </CopilotKitProvider>,
       );
 
       // Add even more messages
-      const moreMessages: Message[] = [
-        ...updatedMessages,
-        { id: "msg-3", role: "user", content: "How are you?" },
-      ];
+      const moreMessages: Message[] = [...updatedMessages, { id: "msg-3", role: "user", content: "How are you?" }];
 
       rerender(
         <CopilotKitProvider toolCallRenderers={toolCallRenderers}>
           <CopilotChatConfigurationProvider agentId="default" threadId="test">
             <TestComponent messages={moreMessages} />
           </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>
+        </CopilotKitProvider>,
       );
 
       // All callbacks should be the same reference (stable)
@@ -301,7 +296,7 @@ describe("useToolCallRenderer", () => {
 
       // Component that renders tool call and tracks callback stability
       const TestComponent: React.FC<{ messages: Message[] }> = ({ messages }) => {
-        const renderToolCall = useToolCallRenderer({ messages });
+        const { renderToolCall } = useToolCallRenderer({ messages });
         return <div>{renderToolCall(toolCall)}</div>;
       };
 
@@ -321,24 +316,21 @@ describe("useToolCallRenderer", () => {
           <CopilotChatConfigurationProvider agentId="default" threadId="test">
             <TestComponent messages={messagesWithoutResult} />
           </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>
+        </CopilotKitProvider>,
       );
 
       expect(screen.getByTestId("result").textContent).toBe("pending");
       const renderCountBeforeResult = renderCount;
 
       // Add tool result to messages
-      const messagesWithResult: Message[] = [
-        ...messagesWithoutResult,
-        createToolMessage("tm-1", "tc-1", "Status: OK"),
-      ];
+      const messagesWithResult: Message[] = [...messagesWithoutResult, createToolMessage("tm-1", "tc-1", "Status: OK")];
 
       rerender(
         <CopilotKitProvider toolCallRenderers={toolCallRenderers}>
           <CopilotChatConfigurationProvider agentId="default" threadId="test">
             <TestComponent messages={messagesWithResult} />
           </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>
+        </CopilotKitProvider>,
       );
 
       // Should now show the result (ref was updated)
@@ -386,7 +378,7 @@ describe("useToolCallRenderer", () => {
       ];
 
       const TestComponent: React.FC<{ messages: Message[] }> = ({ messages }) => {
-        const renderToolCall = useToolCallRenderer({ messages });
+        const { renderToolCall } = useToolCallRenderer({ messages });
         return <div>{renderToolCall(toolCall)}</div>;
       };
 
@@ -395,7 +387,7 @@ describe("useToolCallRenderer", () => {
           <CopilotChatConfigurationProvider agentId="default" threadId="test">
             <TestComponent messages={initialMessages} />
           </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>
+        </CopilotKitProvider>,
       );
 
       expect(screen.getByTestId("status").textContent).toBe("complete");
@@ -412,7 +404,7 @@ describe("useToolCallRenderer", () => {
           <CopilotChatConfigurationProvider agentId="default" threadId="test">
             <TestComponent messages={messagesWithMore} />
           </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>
+        </CopilotKitProvider>,
       );
 
       // Add even more unrelated messages
@@ -427,7 +419,7 @@ describe("useToolCallRenderer", () => {
           <CopilotChatConfigurationProvider agentId="default" threadId="test">
             <TestComponent messages={messagesWithEvenMore} />
           </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>
+        </CopilotKitProvider>,
       );
 
       // Tool should NOT have re-rendered since its data hasn't changed
@@ -470,7 +462,7 @@ describe("useToolCallRenderer", () => {
       ];
 
       const TestComponent: React.FC<{ messages: Message[] }> = ({ messages }) => {
-        const renderToolCall = useToolCallRenderer({ messages });
+        const { renderToolCall } = useToolCallRenderer({ messages });
         return <div>{renderToolCall(toolCall)}</div>;
       };
 
@@ -479,24 +471,21 @@ describe("useToolCallRenderer", () => {
           <CopilotChatConfigurationProvider agentId="default" threadId="test">
             <TestComponent messages={messagesNoResult} />
           </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>
+        </CopilotKitProvider>,
       );
 
       expect(screen.getByTestId("result").textContent).toBe("pending");
       const renderCountBeforeResult = toolRenderCount;
 
       // Add initial result
-      const messagesWithResult: Message[] = [
-        ...messagesNoResult,
-        createToolMessage("tm-1", "tc-1", "Processing..."),
-      ];
+      const messagesWithResult: Message[] = [...messagesNoResult, createToolMessage("tm-1", "tc-1", "Processing...")];
 
       rerender(
         <CopilotKitProvider toolCallRenderers={toolCallRenderers}>
           <CopilotChatConfigurationProvider agentId="default" threadId="test">
             <TestComponent messages={messagesWithResult} />
           </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>
+        </CopilotKitProvider>,
       );
 
       // Should re-render with new result
@@ -517,7 +506,7 @@ describe("useToolCallRenderer", () => {
           <CopilotChatConfigurationProvider agentId="default" threadId="test">
             <TestComponent messages={messagesWithUpdatedResult} />
           </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>
+        </CopilotKitProvider>,
       );
 
       // Should re-render with updated result
@@ -562,7 +551,7 @@ describe("useToolCallRenderer", () => {
       ];
 
       const TestComponent: React.FC<{ toolCall: ToolCall }> = ({ toolCall }) => {
-        const renderToolCall = useToolCallRenderer({ messages });
+        const { renderToolCall } = useToolCallRenderer({ messages });
         return <div>{renderToolCall(toolCall)}</div>;
       };
 
@@ -571,7 +560,7 @@ describe("useToolCallRenderer", () => {
           <CopilotChatConfigurationProvider agentId="default" threadId="test">
             <TestComponent toolCall={toolCallPartial} />
           </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>
+        </CopilotKitProvider>,
       );
 
       expect(screen.getByTestId("query").textContent).toBe("Rea");
@@ -585,7 +574,7 @@ describe("useToolCallRenderer", () => {
           <CopilotChatConfigurationProvider agentId="default" threadId="test">
             <TestComponent toolCall={toolCallComplete} />
           </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>
+        </CopilotKitProvider>,
       );
 
       // Should re-render with updated args
@@ -604,7 +593,7 @@ describe("useToolCallRenderer", () => {
       const messages: Message[] = [];
 
       const TestComponent: React.FC = () => {
-        const renderToolCall = useToolCallRenderer({ messages });
+        const { renderToolCall } = useToolCallRenderer({ messages });
         const result = renderToolCall(toolCall);
         return <div data-testid="result">{result === null ? "null" : "rendered"}</div>;
       };
@@ -614,7 +603,7 @@ describe("useToolCallRenderer", () => {
           <CopilotChatConfigurationProvider agentId="default" threadId="test">
             <TestComponent />
           </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>
+        </CopilotKitProvider>,
       );
 
       expect(screen.getByTestId("result").textContent).toBe("null");
@@ -632,7 +621,7 @@ describe("useToolCallRenderer", () => {
       const toolCall = createToolCall("tc-1", "test", {});
 
       const TestComponent: React.FC = () => {
-        const renderToolCall = useToolCallRenderer({ messages: [] });
+        const { renderToolCall } = useToolCallRenderer({ messages: [] });
         return <div>{renderToolCall(toolCall)}</div>;
       };
 
@@ -641,14 +630,14 @@ describe("useToolCallRenderer", () => {
           <CopilotChatConfigurationProvider agentId="default" threadId="test">
             <TestComponent />
           </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>
+        </CopilotKitProvider>,
       );
 
       // Should render as inProgress since no toolMessage found
       expect(screen.getByTestId("status").textContent).toBe("inProgress");
     });
 
-    it("handles multiple tool calls with different results", () => {
+    it("renderAllToolCalls handles multiple tool calls with different results", () => {
       const renderCounts: Record<string, number> = {};
 
       const toolCallRenderers = [
@@ -684,13 +673,8 @@ describe("useToolCallRenderer", () => {
       ];
 
       const TestComponent: React.FC<{ messages: Message[] }> = ({ messages }) => {
-        const renderToolCall = useToolCallRenderer({ messages });
-        return (
-          <div>
-            {renderToolCall(toolCall1)}
-            {renderToolCall(toolCall2)}
-          </div>
-        );
+        const { renderAllToolCalls } = useToolCallRenderer({ messages });
+        return <div>{renderAllToolCalls([toolCall1, toolCall2])}</div>;
       };
 
       const { rerender } = render(
@@ -698,7 +682,7 @@ describe("useToolCallRenderer", () => {
           <CopilotChatConfigurationProvider agentId="default" threadId="test">
             <TestComponent messages={messages} />
           </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>
+        </CopilotKitProvider>,
       );
 
       // First tool should be complete, second should be pending
@@ -717,7 +701,7 @@ describe("useToolCallRenderer", () => {
           <CopilotChatConfigurationProvider agentId="default" threadId="test">
             <TestComponent messages={updatedMessages} />
           </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>
+        </CopilotKitProvider>,
       );
 
       // Both should now be complete

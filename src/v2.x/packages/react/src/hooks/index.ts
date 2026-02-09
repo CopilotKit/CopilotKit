@@ -2,6 +2,7 @@
 export {
   useToolCallRenderer,
   type UseToolCallRendererOptions,
+  type UseToolCallRendererResult,
   type UseToolCallRendererProps,
   type RenderToolCallInput,
 } from "./use-tool-call-renderer";

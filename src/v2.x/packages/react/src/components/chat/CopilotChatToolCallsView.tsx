@@ -7,23 +7,14 @@ export type CopilotChatToolCallsViewProps = {
   messages?: Message[];
 };
 
-export function CopilotChatToolCallsView({
-  message,
-  messages = [],
-}: CopilotChatToolCallsViewProps) {
-  const renderToolCall = useToolCallRenderer({ messages });
+export function CopilotChatToolCallsView({ message, messages = [] }: CopilotChatToolCallsViewProps) {
+  const { renderAllToolCalls } = useToolCallRenderer({ messages });
 
   if (!message.toolCalls || message.toolCalls.length === 0) {
     return null;
   }
 
-  return (
-    <>
-      {message.toolCalls.map((toolCall) => (
-        <React.Fragment key={toolCall.id}>{renderToolCall(toolCall)}</React.Fragment>
-      ))}
-    </>
-  );
+  return <>{renderAllToolCalls(message.toolCalls)}</>;
 }
 
 export default CopilotChatToolCallsView;

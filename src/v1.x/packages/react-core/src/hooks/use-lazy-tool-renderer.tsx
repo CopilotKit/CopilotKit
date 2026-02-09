@@ -5,13 +5,13 @@ import React, { useCallback, useRef } from "react";
 export function useLazyToolRenderer(): (
   message?: AIMessage,
   messages?: Message[],
-) => null | (() => ReturnType<ReturnType<typeof useToolCallRenderer>> | null) {
+) => null | (() => React.ReactElement | null) {
   // Store messages in a ref to avoid recreating the callback
   const messagesRef = useRef<Message[]>([]);
 
   // We need to call useToolCallRenderer unconditionally, but we'll pass
   // the messages via ref when the returned function is called
-  const renderToolCall = useToolCallRenderer();
+  const { renderToolCall } = useToolCallRenderer();
 
   return useCallback(
     (message?: AIMessage, messages?: Message[]) => {
