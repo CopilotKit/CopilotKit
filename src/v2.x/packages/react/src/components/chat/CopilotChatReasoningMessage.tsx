@@ -1,6 +1,6 @@
 import { ReasoningMessage, Message } from "@ag-ui/core";
 import { useState, useEffect, useRef } from "react";
-import { Brain, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { twMerge } from "tailwind-merge";
 import { Streamdown } from "streamdown";
 import { WithSlots, renderSlot } from "@/lib/slots";
@@ -22,7 +22,7 @@ export type CopilotChatReasoningMessageProps = WithSlots<
  * Formats an elapsed duration (in seconds) to a human-readable string.
  */
 function formatDuration(seconds: number): string {
-  if (seconds < 1) return "a moment";
+  if (seconds < 1) return "a few seconds";
   if (seconds < 60) return `${Math.round(seconds)} seconds`;
   const mins = Math.floor(seconds / 60);
   const secs = Math.round(seconds % 60);
@@ -121,7 +121,7 @@ export function CopilotChatReasoningMessage({
 
   return (
     <div
-      className={twMerge("bg-muted/50 rounded-lg border border-border my-3", className)}
+      className={twMerge("my-1", className)}
       data-message-id={message.id}
       {...props}
     >
@@ -154,24 +154,26 @@ export namespace CopilotChatReasoningMessage {
       <button
         type="button"
         className={twMerge(
-          "flex w-full items-center gap-2 px-3 py-2.5 text-sm text-muted-foreground transition-colors select-none",
+          "inline-flex items-center gap-1 py-1 text-sm text-muted-foreground transition-colors select-none",
           isExpandable ? "hover:text-foreground cursor-pointer" : "cursor-default",
           className,
         )}
         aria-expanded={isExpandable ? isOpen : undefined}
         {...headerProps}
       >
-        <Brain className="size-4 shrink-0" />
         <span className="font-medium">{label}</span>
         {isStreaming && !hasContent && (
-          <span className="inline-flex items-center ml-2">
-            <span className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse" />
+          <span className="inline-flex items-center ml-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-pulse" />
           </span>
         )}
         {headerChildren}
         {isExpandable && (
           <ChevronRight
-            className={twMerge("size-4 ml-auto shrink-0 transition-transform duration-200", isOpen && "rotate-90")}
+            className={twMerge(
+              "size-3.5 shrink-0 transition-transform duration-200",
+              isOpen && "rotate-90",
+            )}
           />
         )}
       </button>
@@ -188,12 +190,12 @@ export namespace CopilotChatReasoningMessage {
     if (!hasContent && !isStreaming) return null;
 
     return (
-      <div className={twMerge("px-3 pb-3 pt-0", className)} {...contentProps}>
-        <div className="text-sm text-muted-foreground italic">
+      <div className={twMerge("pb-2 pt-1", className)} {...contentProps}>
+        <div className="text-sm text-muted-foreground">
           <Streamdown>{typeof contentChildren === "string" ? contentChildren : ""}</Streamdown>
           {isStreaming && hasContent && (
             <span className="inline-flex items-center ml-1 align-middle">
-              <span className="w-2.75 h-2.75 rounded-full bg-foreground animate-pulse-cursor" />
+              <span className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse-cursor" />
             </span>
           )}
         </div>

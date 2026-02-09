@@ -825,7 +825,7 @@ export class BuiltInAgent extends AbstractAgent {
           // Process fullStream events
           for await (const part of response.fullStream) {
             switch (part.type) {
-              case "abort":
+              case "abort": {
                 const abortEndEvent: RunFinishedEvent = {
                   type: EventType.RUN_FINISHED,
                   threadId: input.threadId,
@@ -837,6 +837,7 @@ export class BuiltInAgent extends AbstractAgent {
                 // Complete the observable
                 subscriber.complete();
                 break;
+              }
               case "reasoning-start": {
                 // New text message starting - use the SDK-provided id
                 // Use randomUUID() if part.id is falsy or "0" to prevent message merging issues
@@ -1020,8 +1021,8 @@ export class BuiltInAgent extends AbstractAgent {
                 break;
               }
 
-              case "finish":
-                // Emit run finished event
+              case "finish": // Emit run finished event
+              {
                 const finishedEvent: RunFinishedEvent = {
                   type: EventType.RUN_FINISHED,
                   threadId: input.threadId,
@@ -1033,6 +1034,7 @@ export class BuiltInAgent extends AbstractAgent {
                 // Complete the observable
                 subscriber.complete();
                 break;
+              }
 
               case "error": {
                 if (abortController.signal.aborted) {
