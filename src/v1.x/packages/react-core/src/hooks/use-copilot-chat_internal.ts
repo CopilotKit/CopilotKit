@@ -369,9 +369,9 @@ export function useCopilotChatInternal({
 
   const reload = useAsyncCallback(
     async (reloadMessageId: string): Promise<void> => {
+      if (!agent) return;
       const messages = agent?.messages ?? [];
-      // TODO: get isLoading
-      const isLoading = false;
+      const isLoading = agent.isRunning;
       if (isLoading || messages.length === 0) {
         return;
       }
@@ -422,7 +422,7 @@ export function useCopilotChatInternal({
       }
       return;
     },
-    [agent?.setMessages, copilotkit?.runAgent],
+    [agent?.messages.length, agent?.isRunning ,agent?.setMessages, copilotkit?.runAgent],
   );
 
   const latestSendMessageFunc = useAsyncCallback(
