@@ -2,7 +2,7 @@
 
 This example demonstrates a research canvas UI.
 
-**Live demo:** https://examples-coagents-research-canvas-ui.vercel.app/
+**Live demo:** https://copilotkit.ai/examples/canvas-research
 
 Tutorial Video:
 

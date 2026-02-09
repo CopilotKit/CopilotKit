@@ -2,7 +2,7 @@
 
 Transform your data visualization experience with an AI-powered dashboard assistant. Ask questions about your data in natural language, get insights, and interact with your metrics—all through a conversational interface powered by CopilotKit.
 
-[Click here for a running example](https://chat-with-your-data.vercel.app/)
+[Click here for a running example](https://copilotkit.ai/examples/chat-with-your-data)
 
 <div align="center">
   <img src="./preview.gif" alt="Chat with your data"/>
