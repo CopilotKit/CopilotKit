@@ -43,6 +43,8 @@ jest.mock("@copilotkitnext/react", () => ({
       clearSuggestions: jest.fn(),
       addSuggestionsConfig: jest.fn(),
       reloadSuggestions: jest.fn(),
+      interruptElement: null,
+      subscribe: jest.fn(() => ({ unsubscribe: jest.fn() })),
     },
   })),
   useCopilotChatConfiguration: jest.fn(() => ({ agentId: "test-agent" })),
@@ -59,10 +61,6 @@ jest.mock("../../components/toast/toast-provider", () => ({
 
 jest.mock("../../components/error-boundary/error-utils", () => ({
   useAsyncCallback: <T extends (...args: unknown[]) => unknown>(fn: T) => fn,
-}));
-
-jest.mock("../use-langgraph-interrupt-render", () => ({
-  useLangGraphInterruptRender: jest.fn(() => null),
 }));
 
 jest.mock("../use-lazy-tool-renderer", () => ({

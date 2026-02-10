@@ -1,10 +1,9 @@
-import { useRef, useEffect, useCallback, useMemo, useState, createElement } from "react";
+import React, { useRef, useEffect, useCallback, useMemo, useState, createElement } from "react";
 import { useCopilotContext } from "../context/copilot-context";
 import { SystemMessageFunction } from "../types";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
 import { Message } from "@copilotkit/shared";
 import { gqlToAGUI, Message as DeprecatedGqlMessage } from "@copilotkit/runtime-client-gql";
-import { useLangGraphInterruptRender } from "./use-langgraph-interrupt-render";
 import {
   useAgent,
   useCopilotChatConfiguration,
@@ -291,7 +290,7 @@ export interface UseCopilotChatReturn {
   isLoadingSuggestions: boolean;
 
   /** Interrupt content for human-in-the-loop workflows */
-  interrupt: string | React.ReactElement | null;
+  interrupt: React.ReactElement | null;
 
   agent?: ReturnType<typeof useAgent>["agent"];
 
@@ -340,7 +339,16 @@ export function useCopilotChatInternal({
     onInProgress?.(Boolean(agent?.isRunning));
   }, [agent?.isRunning, onInProgress]);
 
-  const interrupt = useLangGraphInterruptRender(agent);
+  const [interrupt, setInterrupt] = useState<React.ReactElement | null>(null);
+  useEffect(() => {
+    setInterrupt(copilotkit.interruptElement);
+    const subscription = copilotkit.subscribe({
+      onInterruptElementChanged: ({ interruptElement }) => {
+        setInterrupt(interruptElement);
+      },
+    });
+    return () => subscription.unsubscribe();
+  }, [copilotkit]);
 
   const reset = () => {
     agent?.setMessages([]);
