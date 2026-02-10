@@ -12,6 +12,8 @@ export interface UseInterruptConfig<TValue = unknown> {
   handler?: (props: InterruptHandlerProps<TValue>) => unknown | Promise<unknown>;
   enabled?: (event: InterruptEvent<TValue>) => boolean;
   agentId?: string;
+  /** When true (default), the interrupt UI renders inside `<CopilotChat>` automatically. Set to false to render it yourself. */
+  renderInChat?: boolean;
 }
 
 export function useInterrupt<TValue = unknown>(
@@ -55,7 +57,7 @@ export function useInterrupt<TValue = unknown>(
     [agent, copilotkit],
   );
 
-  return useMemo(() => {
+  const element = useMemo(() => {
     if (!pendingEvent) return null;
     if (config.enabled && !config.enabled(pendingEvent)) return null;
 
@@ -67,4 +69,14 @@ export function useInterrupt<TValue = unknown>(
     return config.render({ event: pendingEvent, result, resolve });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingEvent, config.enabled, config.handler, config.render, resolve]);
+
+  // Publish to core for in-chat rendering
+  useEffect(() => {
+    if (config.renderInChat === false) return;
+    copilotkit.setInterruptElement(element);
+    return () => copilotkit.setInterruptElement(null);
+  }, [element, config.renderInChat, copilotkit]);
+
+  // Only return element when rendering outside chat
+  return config.renderInChat === false ? element : null;
 }
