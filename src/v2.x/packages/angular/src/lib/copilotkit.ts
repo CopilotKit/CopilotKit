@@ -31,7 +31,7 @@ export class CopilotKit {
     this.#humanInTheLoopToolRenderConfigs.asReadonly();
 
   constructor() {
-    this.#config.renderToolCalls?.forEach((renderConfig) => {
+    this.#config.toolCallRenderers?.forEach((renderConfig) => {
       this.addRenderToolCall(renderConfig);
     });
 
