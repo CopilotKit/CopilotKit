@@ -74,6 +74,11 @@ export class MockAgent {
       subscriber.onMessagesChanged({ messages: [...this.messages, ...this.newMessages] });
     }
 
+    // Simulate real agent behavior: during runAgent, streamed messages are
+    // added to agent.messages before the promise resolves. This ensures
+    // processAgentResult can find parent messages via findIndex.
+    this.messages.push(...this.newMessages);
+
     return { newMessages: this.newMessages };
   }
 
