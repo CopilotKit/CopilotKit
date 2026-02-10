@@ -1,5 +1,11 @@
 # @copilotkitnext/sqlite-runner
 
+## 1.51.4-next.3
+
+### Patch Changes
+
+- @copilotkitnext/runtime@1.51.4-next.3
+
 ## 1.51.4-next.2
 
 ### Patch Changes
