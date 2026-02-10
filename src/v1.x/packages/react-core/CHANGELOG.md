@@ -1,5 +1,16 @@
 # ui
 
+## 1.51.4-next.4
+
+### Patch Changes
+
+- c998f30: fix(core): prevent tool call results from leaking into wrong thread on thread switch
+- Updated dependencies [c998f30]
+  - @copilotkitnext/core@1.51.4-next.4
+  - @copilotkitnext/react@1.51.4-next.4
+  - @copilotkit/runtime-client-gql@1.51.4-next.4
+  - @copilotkit/shared@1.51.4-next.4
+
 ## 1.51.4-next.3
 
 ### Patch Changes
