@@ -91,12 +91,12 @@ jobs:
             test_path: tests/a2aMiddlewareTests
             services: ["dojo", "a2a-middleware"]
             wait_on: http://localhost:9999,tcp:localhost:8011,tcp:localhost:8012,tcp:localhost:8013,tcp:localhost:8014
-            needs_python: false
+            needs_python: true
           - suite: adk-middleware
             test_path: tests/adkMiddlewareTests
             services: ["dojo", "adk-middleware"]
             wait_on: http://localhost:9999,tcp:localhost:8010
-            needs_python: false
+            needs_python: true
           - suite: agno
             test_path: tests/agnoTests
             services: ["dojo", "agno"]
@@ -151,12 +151,12 @@ jobs:
             test_path: tests/serverStarterTests
             services: ["dojo", "server-starter"]
             wait_on: http://localhost:9999,tcp:localhost:8000
-            needs_python: false
+            needs_python: true
           - suite: server-starter-all
             test_path: tests/serverStarterAllFeaturesTests
             services: ["dojo", "server-starter-all"]
             wait_on: http://localhost:9999,tcp:localhost:8001
-            needs_python: false
+            needs_python: true
           - suite: aws-strands
             test_path: tests/awsStrandsTests
             services: ["dojo", "aws-strands"]
