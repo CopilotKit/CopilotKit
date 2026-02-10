@@ -127,14 +127,14 @@ Pair this flag with the matching server endpoint helper:
 
 On the server, mount one of the single-route runtimes (`createCopilotEndpointSingleRoute` for Hono or `createCopilotEndpointSingleRouteExpress` for Express).
 
-### renderToolCalls
+### toolCallRenderers
 
 `ReactToolCallRenderer[]` **(optional)**
 
 A static list of components to render when specific tools are called. Enables visual feedback for tool execution.
 
 ```tsx
-const renderToolCalls = [
+const toolCallRenderers = [
   {
     name: "searchProducts",
     args: z.object({
@@ -144,12 +144,12 @@ const renderToolCalls = [
   },
 ];
 
-<CopilotKitProvider renderToolCalls={renderToolCalls}>{children}</CopilotKitProvider>;
+<CopilotKitProvider toolCallRenderers={toolCallRenderers}>{children}</CopilotKitProvider>;
 ```
 
 <Note>
-  The `renderToolCalls` array must be stable across renders. Define it outside your component or use `useMemo`. For
-  dynamic tool rendering, use the `useRenderToolCall` hook instead.
+  The `toolCallRenderers` array must be stable across renders. Define it outside your component or use `useMemo`. For
+  dynamic tool rendering, use the `useToolCallRenderer` hook instead.
 </Note>
 
 ### frontendTools
@@ -226,7 +226,7 @@ The provider makes a `CopilotKitContextValue` available to child components thro
 ```typescript
 interface CopilotKitContextValue {
   copilotkit: CopilotKitCore;
-  renderToolCalls: ReactToolCallRenderer<any>[];
+  toolCallRenderers: ReactToolCallRenderer<any>[];
   currentRenderToolCalls: ReactToolCallRenderer<unknown>[];
   setCurrentRenderToolCalls: React.Dispatch<React.SetStateAction<ReactToolCallRenderer<unknown>[]>>;
 }
