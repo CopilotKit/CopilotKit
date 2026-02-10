@@ -50,6 +50,9 @@ class MessageAwareAgent extends AbstractAgent {
   }
 }
 
+// Dummy agent for connect() calls
+const dummyAgent = new MessageAwareAgent();
+
 describe("InMemoryAgentRunner – run started inputs", () => {
   let runner: InMemoryAgentRunner;
 
@@ -104,7 +107,7 @@ describe("InMemoryAgentRunner – run started inputs", () => {
     expect(terminalTypes.every((type) => type === EventType.RUN_ERROR || type === EventType.RUN_FINISHED)).toBe(true);
 
     const connectEvents = await firstValueFrom(
-      runner.connect({ threadId }).pipe(toArray()),
+      runner.connect({ threadId, agent: dummyAgent }).pipe(toArray()),
     );
 
     expect(connectEvents[0].type).toBe(EventType.RUN_STARTED);
@@ -164,7 +167,7 @@ describe("InMemoryAgentRunner – run started inputs", () => {
     ).toBe(true);
 
     const connectEvents = await firstValueFrom(
-      runner.connect({ threadId }).pipe(toArray()),
+      runner.connect({ threadId, agent: dummyAgent }).pipe(toArray()),
     );
 
     const latestRunStarted = connectEvents

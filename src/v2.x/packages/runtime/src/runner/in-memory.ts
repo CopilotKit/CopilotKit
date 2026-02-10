@@ -10,11 +10,11 @@ import {
   AbstractAgent,
   BaseEvent,
   EventType,
-  MessagesSnapshotEvent,
+  FetchRunHistoryResult,
   RunStartedEvent,
   compactEvents,
 } from "@ag-ui/client";
-import { finalizeRunEvents } from "@copilotkitnext/shared";
+import { finalizeRunEvents, convertMessagesToEvents } from "@copilotkitnext/shared";
 
 interface HistoricRun {
   threadId: string;
@@ -95,6 +95,107 @@ function backupHistoricRuns(threadId: string, historicRuns: HistoricRun[]): void
 const GLOBAL_STORE = getGlobalStore();
 
 export class InMemoryAgentRunner extends AgentRunner {
+  /**
+   * Returns data about historic runs for deduplication during import.
+   */
+  private getHistoricRunData(store: InMemoryEventStore): {
+    runIds: Set<string>;
+    messageIds: Set<string>;
+    events: BaseEvent[];
+    lastRunId: string | null;
+  } {
+    const runIds = new Set<string>();
+    const messageIds = new Set<string>();
+    const events: BaseEvent[] = [];
+
+    for (const run of store.historicRuns) {
+      runIds.add(run.runId);
+      events.push(...run.events);
+
+      for (const event of run.events) {
+        if (
+          "messageId" in event &&
+          typeof (event as { messageId?: unknown }).messageId === "string"
+        ) {
+          messageIds.add((event as { messageId?: string }).messageId!);
+        }
+        if (event.type === EventType.RUN_STARTED) {
+          const runStarted = event as RunStartedEvent;
+          const messages = runStarted.input?.messages ?? [];
+          for (const message of messages) {
+            messageIds.add(message.id);
+          }
+        }
+      }
+    }
+
+    return {
+      runIds,
+      messageIds,
+      events,
+      lastRunId: store.historicRuns.at(-1)?.runId ?? null,
+    };
+  }
+
+  /**
+   * Imports external runs from the agent's fetchRunHistory method.
+   * Deduplicates at both run and message level.
+   */
+  private async importExternalRuns(
+    store: InMemoryEventStore,
+    agent: AbstractAgent,
+  ): Promise<void> {
+    // Use agent's fetchRunHistory method - returns undefined if not implemented
+    const result = await (
+      agent as unknown as {
+        fetchRunHistory?: (options: {
+          threadId: string;
+        }) => Promise<FetchRunHistoryResult | undefined>;
+      }
+    ).fetchRunHistory?.({ threadId: store.threadId });
+
+    if (!result) {
+      return;
+    }
+
+    const { runIds: existingRunIds, messageIds: existingMessageIds } =
+      this.getHistoricRunData(store);
+
+    const { runs: externalRuns } = result;
+
+    // Filter out runs we already have
+    const newRuns = externalRuns.filter((run) => !existingRunIds.has(run.runId));
+
+    // Filter out messages we already have from each run
+    const filteredRuns = newRuns
+      .map((run) => ({
+        ...run,
+        messages: run.messages.filter(
+          (message) => !existingMessageIds.has(message.id),
+        ),
+      }))
+      // Filter out runs with no messages
+      .filter((run) => run.messages.length > 0);
+
+    // Store each run
+    for (const run of filteredRuns) {
+      const events = convertMessagesToEvents(store.threadId, run.runId, run.messages);
+
+      store.historicRuns.push({
+        threadId: store.threadId,
+        runId: run.runId,
+        parentRunId: null, // External runs don't have parent chaining
+        events,
+        createdAt: Date.now(),
+      });
+    }
+
+    // Backup for hot reload survival if we imported anything
+    if (filteredRuns.length > 0) {
+      backupHistoricRuns(store.threadId, store.historicRuns);
+    }
+  }
+
   run(request: AgentRunnerRunRequest): Observable<BaseEvent> {
     let existingStore = GLOBAL_STORE.get(request.threadId);
     if (!existingStore) {
@@ -145,7 +246,10 @@ export class InMemoryAgentRunner extends AgentRunner {
 
     // Helper function to run the agent and handle errors
     const runAgent = async () => {
-      // Get parent run ID for chaining
+      // Import external runs before agent execution
+      await this.importExternalRuns(store, request.agent);
+
+      // Get parent run ID for chaining (after import so we include imported runs)
       const lastRun = store.historicRuns[store.historicRuns.length - 1];
       const parentRunId = lastRun?.runId ?? null;
 
@@ -286,54 +390,65 @@ export class InMemoryAgentRunner extends AgentRunner {
   }
 
   connect(request: AgentRunnerConnectRequest): Observable<BaseEvent> {
-    const store = GLOBAL_STORE.get(request.threadId);
+    let store = GLOBAL_STORE.get(request.threadId);
     const connectionSubject = new ReplaySubject<BaseEvent>(Infinity);
 
-    if (!store) {
-      // No store means no events
-      connectionSubject.complete();
-      return connectionSubject.asObservable();
-    }
-
-    // Collect all historic events from memory
-    const allHistoricEvents: BaseEvent[] = [];
-    for (const run of store.historicRuns) {
-      allHistoricEvents.push(...run.events);
-    }
-
-    // Apply compaction to all historic events together (like SQLite)
-    const compactedEvents = compactEvents(allHistoricEvents);
-
-    // Emit compacted events and track message IDs
-    const emittedMessageIds = new Set<string>();
-    for (const event of compactedEvents) {
-      connectionSubject.next(event);
-      if ("messageId" in event && typeof event.messageId === "string") {
-        emittedMessageIds.add(event.messageId);
+    // If nothing is running, import external runs first
+    const maybeImportAndEmit = async () => {
+      // Create store if it doesn't exist (for external run import)
+      if (!store) {
+        store = new InMemoryEventStore(request.threadId);
+        GLOBAL_STORE.set(request.threadId, store);
       }
-    }
 
-    // Bridge active run to connection if exists
-    if (store.subject && (store.isRunning || store.stopRequested)) {
-      store.subject.subscribe({
-        next: (event) => {
-          // Skip message events that we've already emitted from historic
-          if (
-            "messageId" in event &&
-            typeof event.messageId === "string" &&
-            emittedMessageIds.has(event.messageId)
-          ) {
-            return;
-          }
-          connectionSubject.next(event);
-        },
-        complete: () => connectionSubject.complete(),
-        error: (err) => connectionSubject.error(err),
-      });
-    } else {
-      // No active run, complete after historic events
-      connectionSubject.complete();
-    }
+      // Import external runs when nothing is running
+      if (!store.isRunning && !store.stopRequested && request.agent) {
+        await this.importExternalRuns(store, request.agent);
+      }
+
+      // Collect all historic events from memory
+      const allHistoricEvents: BaseEvent[] = [];
+      for (const run of store.historicRuns) {
+        allHistoricEvents.push(...run.events);
+      }
+
+      // Apply compaction to all historic events together (like SQLite)
+      const compactedEvents = compactEvents(allHistoricEvents);
+
+      // Emit compacted events and track message IDs
+      const emittedMessageIds = new Set<string>();
+      for (const event of compactedEvents) {
+        connectionSubject.next(event);
+        if ("messageId" in event && typeof event.messageId === "string") {
+          emittedMessageIds.add(event.messageId);
+        }
+      }
+
+      // Bridge active run to connection if exists
+      if (store.subject && (store.isRunning || store.stopRequested)) {
+        store.subject.subscribe({
+          next: (event) => {
+            // Skip message events that we've already emitted from historic
+            if (
+              "messageId" in event &&
+              typeof event.messageId === "string" &&
+              emittedMessageIds.has(event.messageId)
+            ) {
+              return;
+            }
+            connectionSubject.next(event);
+          },
+          complete: () => connectionSubject.complete(),
+          error: (err) => connectionSubject.error(err),
+        });
+      } else {
+        // No active run, complete after historic events
+        connectionSubject.complete();
+      }
+    };
+
+    // Start the async import process
+    maybeImportAndEmit();
 
     return connectionSubject.asObservable();
   }

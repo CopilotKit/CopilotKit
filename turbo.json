@@ -88,17 +88,17 @@
     "build:css": {
       "cache": true,
       "outputs": ["dist/styles.css", "src/styles/generated.css"],
-      "outputLogs": "errors-only"
+      "outputLogs": "full"
     },
     "@copilotkitnext/web-inspector#build:css": {
       "cache": true,
       "outputs": ["src/styles/generated.css"],
-      "outputLogs": "errors-only"
+      "outputLogs": "full"
     },
     "@copilotkitnext/web-inspector#build": {
       "dependsOn": ["^build", "@copilotkitnext/web-inspector#build:css"],
       "outputs": ["dist/**"],
-      "outputLogs": "errors-only"
+      "outputLogs": "full"
     },
     "demo#dev": {
       "cache": false,
