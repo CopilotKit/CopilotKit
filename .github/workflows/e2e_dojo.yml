@@ -22,8 +22,65 @@ on:
         type: string
 
 jobs:
+  build:
+    name: Build CPK
+    runs-on: depot-ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout CPK
+        uses: actions/checkout@v4
+        with:
+          path: CopilotKit
+          ref: ${{ github.event.inputs.branch || github.ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.13.1
+
+      # Now that pnpm is available, cache its store to speed installs
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install cpk dependencies
+        working-directory: CopilotKit/src/v1.x
+        run: pnpm install --frozen-lockfile
+
+      - name: Build cpk
+        working-directory: CopilotKit/src/v1.x
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+          TURBO_CONCURRENCY: 2
+        run: |
+          unset TURBO_API
+          unset TURBO_TOKEN
+          unset TURBO_TEAM
+          pnpm build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cpk-dist
+          retention-days: 1
+          path: CopilotKit/src/v1.x/packages/*/dist/
+
   dojo:
     name: ${{ matrix.suite }}
+    needs: build
     runs-on: depot-ubuntu-24.04
     timeout-minutes: 20
     strategy:
@@ -34,62 +91,77 @@ jobs:
             test_path: tests/a2aMiddlewareTests
             services: ["dojo", "a2a-middleware"]
             wait_on: http://localhost:9999,tcp:localhost:8011,tcp:localhost:8012,tcp:localhost:8013,tcp:localhost:8014
+            needs_python: true
           - suite: adk-middleware
             test_path: tests/adkMiddlewareTests
             services: ["dojo", "adk-middleware"]
             wait_on: http://localhost:9999,tcp:localhost:8010
+            needs_python: true
           - suite: agno
             test_path: tests/agnoTests
             services: ["dojo", "agno"]
             wait_on: http://localhost:9999,tcp:localhost:8002
+            needs_python: true
           - suite: crew-ai
             test_path: tests/crewAITests
             services: ["dojo", "crew-ai"]
             wait_on: http://localhost:9999,tcp:localhost:8003
+            needs_python: true
           - suite: langgraph-python
             test_path: tests/langgraphPythonTests
             services: ["dojo", "langgraph-platform-python"]
             wait_on: http://localhost:9999,tcp:localhost:8005
+            needs_python: true
           - suite: langgraph-typescript
             test_path: tests/langgraphTypescriptTests
             services: ["dojo", "langgraph-platform-typescript"]
             wait_on: http://localhost:9999,tcp:localhost:8006
+            needs_python: false
           - suite: langgraph-fastapi
             test_path: tests/langgraphFastAPITests
             services: ["dojo", "langgraph-fastapi"]
             wait_on: http://localhost:9999,tcp:localhost:8004
+            needs_python: true
           - suite: llama-index
             test_path: tests/llamaIndexTests
             services: ["dojo", "llama-index"]
             wait_on: http://localhost:9999,tcp:localhost:8007
+            needs_python: true
           - suite: mastra
             test_path: tests/mastraTests
             services: ["dojo", "mastra"]
             wait_on: http://localhost:9999,tcp:localhost:8008
+            needs_python: false
           - suite: mastra-agent-local
             test_path: tests/mastraAgentLocalTests
             services: ["dojo"]
             wait_on: http://localhost:9999
+            needs_python: false
           - suite: middleware-starter
             test_path: tests/middlewareStarterTests
             services: ["dojo"]
             wait_on: http://localhost:9999
+            needs_python: false
           - suite: pydantic-ai
             test_path: tests/pydanticAITests
             services: ["dojo", "pydantic-ai"]
             wait_on: http://localhost:9999,tcp:localhost:8009
+            needs_python: true
           - suite: server-starter
             test_path: tests/serverStarterTests
             services: ["dojo", "server-starter"]
             wait_on: http://localhost:9999,tcp:localhost:8000
+            needs_python: true
           - suite: server-starter-all
             test_path: tests/serverStarterAllFeaturesTests
             services: ["dojo", "server-starter-all"]
             wait_on: http://localhost:9999,tcp:localhost:8001
+            needs_python: true
           - suite: aws-strands
             test_path: tests/awsStrandsTests
             services: ["dojo", "aws-strands"]
             wait_on: http://localhost:9999,tcp:localhost:8017
+            needs_python: true
 
     steps:
       - name: Checkout CPK
@@ -130,6 +202,7 @@ jobs:
 
       # Cache Python tool caches and virtualenvs; restore only to avoid long saves
       - name: Cache Python dependencies (restore-only)
+        if: ${{ matrix.needs_python }}
         id: cache-python
         uses: actions/cache/restore@v4
         with:
@@ -143,6 +216,7 @@ jobs:
             ${{ runner.os }}-pydeps-
 
       - name: Install Poetry
+        if: ${{ matrix.needs_python }}
         uses: snok/install-poetry@v1
         with:
           version: latest
@@ -150,22 +224,18 @@ jobs:
           virtualenvs-in-project: true
 
       - name: Install uv
+        if: ${{ matrix.needs_python }}
         uses: astral-sh/setup-uv@v6
 
       - name: Install cpk dependencies
         working-directory: CopilotKit/src/v1.x
         run: pnpm install --frozen-lockfile
 
-      - name: Build cpk
-        working-directory: CopilotKit/src/v1.x
-        env:
-          NODE_OPTIONS: --max-old-space-size=8192
-          TURBO_CONCURRENCY: 2
-        run: |
-          unset TURBO_API
-          unset TURBO_TOKEN
-          unset TURBO_TEAM
-          pnpm build
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: cpk-dist
+          path: CopilotKit/src/v1.x/packages
 
       - name: Install ag-ui dependencies
         working-directory: ag-ui
