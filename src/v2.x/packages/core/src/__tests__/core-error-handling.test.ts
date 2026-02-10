@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { CopilotKitCore, CopilotKitCoreErrorCode } from "../core";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProxiedCopilotRuntimeAgent } from "../agent";
+import { CopilotKitCore, CopilotKitCoreErrorCode } from "../core";
 import { createAssistantMessage } from "./test-utils";
 
 describe("CopilotKitCore error handling", () => {
@@ -194,7 +194,13 @@ describe("CopilotKitCore error handling", () => {
       const sub = core.subscribe({ onError: (e) => void errors.push(e) });
 
       const toolName = "boom";
-      core.addTool({ name: toolName, description: "", handler: async () => { throw new Error("boom"); } });
+      core.addTool({
+        name: toolName,
+        description: "",
+        handler: async () => {
+          throw new Error("boom");
+        },
+      });
 
       const assistant = createAssistantMessage({
         content: "",
@@ -218,6 +224,7 @@ describe("CopilotKitCore error handling", () => {
         clone: () => agent,
         subscribe: () => ({ unsubscribe() {} }),
         async runAgent() {
+          agent.messages.push(assistant);
           return { newMessages: [assistant] };
         },
       } as any;
@@ -230,7 +237,11 @@ describe("CopilotKitCore error handling", () => {
       // Run should not fail; tool result message should contain the error string
       expect(Array.isArray(result.newMessages)).toBe(true);
       // After run, the tool result is inserted into agent.messages with "Error: boom"
-      expect(agent.messages.some((m: any) => m.role === "tool" && typeof m.content === "string" && m.content.includes("Error: boom"))).toBe(true);
+      expect(
+        agent.messages.some(
+          (m: any) => m.role === "tool" && typeof m.content === "string" && m.content.includes("Error: boom"),
+        ),
+      ).toBe(true);
 
       sub.unsubscribe();
     });

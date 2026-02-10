@@ -333,6 +333,12 @@ export class RunHandler {
 
     if (!errorMessage || !isArgumentError) {
       const messageIndex = agent.messages.findIndex((m) => m.id === message.id);
+      if (messageIndex === -1) {
+        // Parent message no longer in agent's messages (e.g. thread was switched
+        // while the tool handler was still executing). Skip result insertion and
+        // do not request a follow-up to avoid mutating the wrong thread.
+        return false;
+      }
       const toolMessage = {
         id: randomUUID(),
         role: "tool" as const,
@@ -460,6 +466,12 @@ export class RunHandler {
 
     if (!errorMessage || !isArgumentError) {
       const messageIndex = agent.messages.findIndex((m) => m.id === message.id);
+      if (messageIndex === -1) {
+        // Parent message no longer in agent's messages (e.g. thread was switched
+        // while the tool handler was still executing). Skip result insertion and
+        // do not request a follow-up to avoid mutating the wrong thread.
+        return false;
+      }
       const toolMessage = {
         id: randomUUID(),
         role: "tool" as const,
