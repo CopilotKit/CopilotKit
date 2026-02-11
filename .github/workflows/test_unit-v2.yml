@@ -4,12 +4,14 @@ on:
   push:
     branches: [main]
     paths:
-      - "src/v2.x/**"
+      - "packages/v2/**"
+      - "examples/v2/**"
       - ".github/workflows/test_unit-v2.yml"
   pull_request:
     branches: [main]
     paths:
-      - "src/v2.x/**"
+      - "packages/v2/**"
+      - "examples/v2/**"
       - ".github/workflows/test_unit-v2.yml"
   workflow_dispatch:
     inputs:

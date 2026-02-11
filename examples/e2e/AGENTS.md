@@ -17,7 +17,7 @@ This suite intentionally runs **one example at a time**.
 - If `EXAMPLE` is not set, it defaults to `form-filling`.
 
 The Playwright config (`playwright.config.ts`) uses `EXAMPLE` to:
-- Set the `webServer.cwd` to the chosen example directory (`examples/v1.x/${EXAMPLE}`).
+- Set the `webServer.cwd` to the chosen example directory (`examples/v1/${EXAMPLE}`).
 - Choose the `webServer.command` used to start the app.
 
 ### Why each spec has `const EXAMPLE = process.env.EXAMPLE ?? "form-filling";`
@@ -61,7 +61,7 @@ From `examples/e2e`:
 Each example has its own `package.json`.
 
 Install deps in the example directory you want to test, e.g.:
-- `cd examples/v1.x/travel && pnpm install`
+- `cd examples/v1/travel && pnpm install`
 
 Notes:
 - If an example has a `postinstall` that requires non-Node tooling (e.g. Python `uv`), you may want to run `pnpm install --ignore-scripts` for CI-like behavior.

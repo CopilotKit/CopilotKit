@@ -26,4 +26,4 @@ jobs:
       - name: Build
         run: pnpm run build
 
-      - run: npx pkg-pr-new publish "./src/v1.x/packages/*" "./src/v2.x/packages/*"
+      - run: npx pkg-pr-new publish "./packages/v1/*" "./packages/v2/*"

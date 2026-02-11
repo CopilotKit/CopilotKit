@@ -9,9 +9,9 @@ on:
       - "examples/**"
       - ".github/workflows/demos_preview.yml"
       - ".github/workflows/release.yml"
-      - "src/v1.x/packages/**/package.json"
-      - "src/v1.x/packages/**/CHANGELOG.md"
-      - "src/v1.x/.changeset/**"
+      - "packages/v1/**/package.json"
+      - "packages/v1/**/CHANGELOG.md"
+      - ".changeset/**"
   pull_request:
     branches: [main]
     paths-ignore:
@@ -22,9 +22,6 @@ on:
 jobs:
   prettier:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: "src/v1.x"
 
     steps:
       - name: Checkout
@@ -53,9 +50,6 @@ jobs:
 
   eslint:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: src/v1.x
     steps:
       - name: Checkout
         uses: actions/checkout@v3

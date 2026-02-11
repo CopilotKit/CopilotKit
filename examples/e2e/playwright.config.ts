@@ -7,7 +7,7 @@ const PORT = Number(process.env.PORT ?? "3000");
 const HYBRID_EXAMPLES = new Set(["travel", "research-canvas"]);
 const webServerCommand = HYBRID_EXAMPLES.has(EXAMPLE) ? "pnpm dev:ui" : "pnpm dev";
 
-const exampleDir = path.resolve(__dirname, "../v1.x", EXAMPLE);
+const exampleDir = path.resolve(__dirname, "../v1", EXAMPLE);
 
 export default defineConfig({
   testDir: "./tests",

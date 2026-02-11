@@ -50,7 +50,7 @@ This application demonstrates the power of CopilotKit working with an Agent Fram
 1. Clone the repository:
    ```bash
    git clone https://github.com/CopilotKit/CopilotKit.git
-   cd CopilotKit/examples/v1.x/travel
+   cd CopilotKit/examples/v1/travel
    ```
 
 2. Install frontend dependencies:

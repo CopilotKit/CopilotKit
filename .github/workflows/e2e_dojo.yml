@@ -4,14 +4,14 @@ on:
   push:
     branches: [main]
     paths:
-      - "src/v1.x/**"
-      - "src/v2.x/**"
+      - "packages/v1/**"
+      - "packages/v2/**"
       - ".github/workflows/e2e_dojo.yml"
   pull_request:
     branches: [main]
     paths:
-      - "src/v1.x/**"
-      - "src/v2.x/**"
+      - "packages/v1/**"
+      - "packages/v2/**"
       - ".github/workflows/e2e_dojo.yml"
   workflow_dispatch:
     inputs:
@@ -57,11 +57,11 @@ jobs:
             ${{ runner.os }}-pnpm-store-
 
       - name: Install cpk dependencies
-        working-directory: CopilotKit/src/v1.x
+        working-directory: CopilotKit
         run: pnpm install --frozen-lockfile
 
       - name: Build cpk
-        working-directory: CopilotKit/src/v1.x
+        working-directory: CopilotKit
         env:
           NODE_OPTIONS: --max-old-space-size=8192
           TURBO_CONCURRENCY: 2
@@ -76,7 +76,7 @@ jobs:
         with:
           name: cpk-dist
           retention-days: 1
-          path: CopilotKit/src/v1.x/packages/*/dist/
+          path: CopilotKit/packages/v1/*/dist/
 
   dojo:
     name: ${{ matrix.suite }}
@@ -228,14 +228,14 @@ jobs:
         uses: astral-sh/setup-uv@v6
 
       - name: Install cpk dependencies
-        working-directory: CopilotKit/src/v1.x
+        working-directory: CopilotKit
         run: pnpm install --frozen-lockfile
 
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
           name: cpk-dist
-          path: CopilotKit/src/v1.x/packages
+          path: CopilotKit/packages/v1
 
       - name: Install ag-ui dependencies
         working-directory: ag-ui
@@ -243,7 +243,7 @@ jobs:
 
       - name: Link cpk into ag-ui
         working-directory: CopilotKit
-        run: node ../ag-ui/apps/dojo/scripts/link-cpk.js src/v1.x/packages
+        run: node ../ag-ui/apps/dojo/scripts/link-cpk.js packages/v1
 
       - name: Prepare dojo for e2e
         working-directory: ag-ui/apps/dojo

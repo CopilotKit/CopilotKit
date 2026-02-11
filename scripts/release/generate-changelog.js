@@ -12,11 +12,11 @@ const packageDirs = [
 ];
 
 function getPackageChangelog(packageDir, version) {
-  const packageJsonPath = join(__dirname, `../../packages/${packageDir}/package.json`);
+  const packageJsonPath = join(__dirname, `../../packages/v1/${packageDir}/package.json`);
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
   const packageName = packageJson.name;
 
-  const changelogPath = join(__dirname, `../../packages/${packageDir}/CHANGELOG.md`);
+  const changelogPath = join(__dirname, `../../packages/v1/${packageDir}/CHANGELOG.md`);
   const changelog = fs.readFileSync(changelogPath, "utf8");
 
   // Find where the following line starts: "## ${version}"

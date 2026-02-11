@@ -1,13 +1,10 @@
 packages:
-  - "src/v1.x/examples/*"
-  - "src/v1.x/packages/*"
-  - "src/v1.x/utilities/*"
-  - "src/v2.x/packages/*"
-  - "src/v2.x/apps/docs"
-  - "src/v2.x/apps/react/*"
-  - "src/v2.x/apps/angular/*"
-  - "src/v2.x/apps/node"
-  - "examples/v1.x/*"
-  - "!examples/v1.x/_legacy"
+  - "packages/v1/*"
+  - "packages/v2/*"
+  - "examples/v1/*"
+  - "examples/v2/*"
+  - "examples/v2/react/*"
+  - "examples/v2/angular/*"
+  - "!examples/v1/_legacy"
 onlyBuiltDependencies:
   - better-sqlite3

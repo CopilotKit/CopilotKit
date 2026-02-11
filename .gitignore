@@ -33,3 +33,7 @@ docs/next-env.d.ts
 
 # External repos (cloned for development)
 ext-apps/
+dist
+.turbo
+.angular
+build
