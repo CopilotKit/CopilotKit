@@ -1,5 +1,5 @@
 {
-  "name": "node-express",
+  "name": "@copilotkitnext/node-express",
   "version": "0.0.0",
   "private": true,
   "scripts": {

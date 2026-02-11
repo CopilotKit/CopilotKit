@@ -1,5 +1,5 @@
 {
-  "extends": "../../utilities/tsconfig/base.json",
+  "extends": "../tsconfig/base.json",
   "compilerOptions": {
     "lib": ["es2017", "dom"],
     "emitDecoratorMetadata": true,

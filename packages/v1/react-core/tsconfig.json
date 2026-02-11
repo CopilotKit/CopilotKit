@@ -1,5 +1,5 @@
 {
-  "extends": "../../utilities/tsconfig/react-library.json",
+  "extends": "../tsconfig/react-library.json",
   "compilerOptions": {
     "types": ["jest", "@types/jest"]
   },

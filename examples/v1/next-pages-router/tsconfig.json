@@ -1,5 +1,5 @@
 {
-  "extends": "../../utilities/tsconfig/nextjs.json",
+  "extends": "../../packages/v1/tsconfig/nextjs.json",
   "compilerOptions": {
     "plugins": [
       {
@@ -22,13 +22,13 @@
       "./src/*"
     ],
     "@copilotkit/react-core/*": [
-      "../packages/react-core/*"
+      "../../packages/v1/react-core/*"
     ],
     "@copilotkit/react-ui/*": [
-      "../packages/react-ui/*"
+      "../../packages/v1/react-ui/*"
     ],
     "@copilotkit/react-textarea/*": [
-      "../packages/react-textarea/*"
+      "../../packages/v1/react-textarea/*"
     ]
   }
 }

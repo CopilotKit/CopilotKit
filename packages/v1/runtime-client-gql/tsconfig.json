@@ -1,5 +1,5 @@
 {
-  "extends": "../../utilities/tsconfig/base.json",
+  "extends": "../tsconfig/base.json",
   "compilerOptions": {
     "strictPropertyInitialization": false,
     "resolveJsonModule": true
