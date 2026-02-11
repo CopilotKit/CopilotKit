@@ -764,7 +764,7 @@ class WildcardToolRenderComponent {
   providers: [
     CopilotKit,
     provideCopilotKit({
-      toolCallRenderers: [
+      renderToolCalls: [
         {
           name: 'search',
           render: SearchToolRenderComponent
@@ -882,7 +882,7 @@ export class ChatComponent {
         CopilotKit,
         provideCopilotKit({
           runtimeUrl: undefined, // Explicitly provide undefined to avoid null injector error
-          toolCallRenderers: renderToolCallConfigs,
+          renderToolCalls: renderToolCallConfigs,
         }),
         provideCopilotChatLabels({
           assistantMessageToolbarCopyMessageLabel: "Copy",
