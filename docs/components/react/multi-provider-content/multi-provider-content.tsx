@@ -2,7 +2,13 @@
 
 import React, { useMemo, useState, isValidElement, useContext } from "react";
 import { ProviderDefinition, ProvidersConfig } from "./utils.ts";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select.tsx";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx";
 
 type Props = {
   children: React.ReactNode;
@@ -13,11 +19,15 @@ type Props = {
 const ProviderContext = React.createContext<{
   provider: ProviderDefinition;
   providerName: string;
-}>(null);
+}>(null as any);
 
 const LOCALSTORAGE_KEY = "preferredProvider";
 
-export function MultiProviderContent({ children, defaultProvider = "openai", providersConfig }: Props) {
+export function MultiProviderContent({
+  children,
+  defaultProvider = "openai",
+  providersConfig,
+}: Props) {
   const [selectedProvider, internalSetSelectedProvider] = useState(() => {
     // Initialize state from localStorage if available
     if (typeof window !== "undefined") {
@@ -102,14 +112,19 @@ export function Interpolate({ children }: { children: React.ReactNode }) {
         return filteredLines.join("\n").replace(tokenRegex, (match) => {
           const propName = match.slice(2, -2).trim();
           const value = provider[propName];
-          return Array.isArray(value) ? value.join("\n").trim() : value.toString().trim();
+          return Array.isArray(value)
+            ? value.join("\n").trim()
+            : value.toString().trim();
         });
       }
 
       // Handle React elements
       if (isValidElement(element)) {
         const reactElement = element as React.ReactElement<any>;
-        const processedChildren = React.Children.map(reactElement.props.children, processElement);
+        const processedChildren = React.Children.map(
+          reactElement.props.children,
+          processElement,
+        );
         return React.cloneElement(reactElement, {
           ...reactElement.props,
           children: processedChildren,
@@ -132,7 +147,13 @@ interface Condition {
   key: keyof ProviderDefinition;
   value: unknown;
 }
-export function If({ conditions, children }: { children: React.ReactNode; conditions: Condition[] }) {
+export function If({
+  conditions,
+  children,
+}: {
+  children: React.ReactNode;
+  conditions: Condition[];
+}) {
   const { provider } = useContext(ProviderContext);
 
   const runCondition = ({ key, value }: Condition) => {
@@ -144,7 +165,10 @@ export function If({ conditions, children }: { children: React.ReactNode; condit
     }
   };
 
-  const passed = useMemo(() => conditions.some(runCondition), [conditions, provider]);
+  const passed = useMemo(
+    () => conditions.some(runCondition),
+    [conditions, provider],
+  );
 
   if (!passed) {
     return null;
