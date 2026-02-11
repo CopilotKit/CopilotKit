@@ -15,8 +15,9 @@ import { CommonModule } from "@angular/common";
 import { CopilotChatView } from "./copilot-chat-view";
 
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkitnext/shared";
-import { Message, AbstractAgent } from "@ag-ui/client";
+import { Message, AbstractAgent, AGUIConnectNotImplementedError } from "@ag-ui/client";
 import { injectAgentStore } from "../../agent";
+import { CopilotKit } from "../../copilotkit";
 import { ChatState } from "../../chat-state";
 
 /**
@@ -60,6 +61,7 @@ export class CopilotChat implements ChatState {
     () => this.agentId() ?? DEFAULT_AGENT_ID
   );
   readonly agentStore = injectAgentStore(this.resolvedAgentId);
+  private readonly copilotKit = inject(CopilotKit);
   // readonly chatConfig = injectChatConfig();
   readonly cdr = inject(ChangeDetectorRef);
   readonly injector = inject(Injector);
@@ -99,6 +101,17 @@ export class CopilotChat implements ChatState {
         a.threadId = this.threadId() || this.generatedThreadId;
       }
     });
+
+    // Hide cursor when agent starts (runAgent via core does not pass subscriber callbacks)
+    effect(
+      () => {
+        if (this.isRunning()) {
+          this.showCursor.set(false);
+          this.cdr.markForCheck();
+        }
+      },
+      { allowSignalWrites: true }
+    );
   }
 
   private async connectToAgent(agent: AbstractAgent): Promise<void> {
@@ -108,23 +121,15 @@ export class CopilotChat implements ChatState {
     this.cdr.markForCheck();
 
     try {
-      await agent.runAgent(
-        { forwardedProps: { __copilotkitConnect: true } },
-        {
-          onTextMessageStartEvent: () => {
-            this.showCursor.set(false);
-            this.cdr.detectChanges();
-          },
-          onToolCallStartEvent: () => {
-            this.showCursor.set(false);
-            this.cdr.detectChanges();
-          },
-        }
-      );
+      await this.copilotKit.core.connectAgent({ agent });
       this.showCursor.set(false);
       this.cdr.markForCheck();
     } catch (error) {
-      console.error("Failed to connect to agent:", error);
+      if (error instanceof AGUIConnectNotImplementedError) {
+        // Connect not implemented (e.g. agent only supports run), ignore
+      } else {
+        console.error("Failed to connect to agent:", error);
+      }
       this.showCursor.set(false);
       this.cdr.markForCheck();
     }
@@ -149,21 +154,9 @@ export class CopilotChat implements ChatState {
     this.showCursor.set(true);
     this.cdr.markForCheck();
 
-    // Run the agent with named subscriber callbacks
+    // Run the agent via core so tools (and context, forwardedProps) are included
     try {
-      await agent.runAgent(
-        {},
-        {
-          onTextMessageStartEvent: () => {
-            this.showCursor.set(false);
-            this.cdr.detectChanges();
-          },
-          onToolCallStartEvent: () => {
-            this.showCursor.set(false);
-            this.cdr.detectChanges();
-          },
-        }
-      );
+      await this.copilotKit.core.runAgent({ agent });
     } catch (error) {
       console.error("Agent run error:", error);
     } finally {

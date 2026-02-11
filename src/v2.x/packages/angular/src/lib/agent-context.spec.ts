@@ -63,6 +63,6 @@ describe("connectAgentContext", () => {
   });
 
   it("throws when used outside of an injection context", () => {
-    expect(() => connectAgentContext({ description: "missing", value: "0" })).toThrow(/inject\(\) must be called/);
+    expect(() => connectAgentContext({ description: "missing", value: "0" })).toThrow(/NG0203/);
   });
 });
